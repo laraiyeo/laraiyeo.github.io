@@ -27,6 +27,7 @@ import {
   getAgentImageUrl,
   getMapSampleUrl,
 } from "../../../services/valorantSeriesService";
+import { get } from "firebase/database";
 
 const VALEventScreen = ({ navigation, route }) => {
   const { eventId } = route.params;
@@ -87,13 +88,42 @@ const VALEventScreen = ({ navigation, route }) => {
     const allTeams = [];
     const teamIds = new Set(); // To avoid duplicates
 
+    // First, check if the main event has bracketJson with groups
+    if (eventData.bracketJson && eventData.bracketJson.groups) {
+      eventData.bracketJson.groups.forEach((group) => {
+        if (group.teams && group.teams.length > 0) {
+          group.teams.forEach((team) => {
+            if (
+              !teamIds.has(team.id) &&
+              team.shortName &&
+              team.shortName !== "TBD"
+            ) {
+              teamIds.add(team.id);
+              allTeams.push({
+                id: team.id,
+                name: team.name,
+                shortName: team.shortName,
+                logoUrl: team.logoUrl,
+                countryId: team.countryId,
+                country: team.country,
+              });
+            }
+          });
+        }
+      });
+    }
+
     if (eventData.childEvents && eventData.childEvents.length > 0) {
       eventData.childEvents.forEach((childEvent) => {
         if (childEvent.bracketJson && childEvent.bracketJson.groups) {
           childEvent.bracketJson.groups.forEach((group) => {
             if (group.teams && group.teams.length > 0) {
               group.teams.forEach((team) => {
-                if (!teamIds.has(team.id) && team.shortName && team.shortName !== "TBD") {
+                if (
+                  !teamIds.has(team.id) &&
+                  team.shortName &&
+                  team.shortName !== "TBD"
+                ) {
                   teamIds.add(team.id);
                   allTeams.push({
                     id: team.id,
@@ -109,12 +139,20 @@ const VALEventScreen = ({ navigation, route }) => {
           });
         }
 
-        if (childEvent.bracketJson && childEvent.bracketJson.type === "double") {
+        if (
+          (childEvent.bracketJson &&
+            childEvent.bracketJson.type === "double") ||
+          (childEvent.bracketJson && childEvent.bracketJson.losers)
+        ) {
           childEvent.bracketJson.losers.forEach((loserSeed) => {
             loserSeed.seeds.forEach((loser) => {
               if (loser.teams && loser.teams.length > 0) {
                 loser.teams.forEach((loserTeam) => {
-                  if (!teamIds.has(loserTeam.id) && loserTeam.shortName && loserTeam.shortName !== "TBD") {
+                  if (
+                    !teamIds.has(loserTeam.id) &&
+                    loserTeam.shortName &&
+                    loserTeam.shortName !== "TBD"
+                  ) {
                     teamIds.add(loserTeam.id);
                     allTeams.push({
                       id: loserTeam.id,
@@ -131,12 +169,21 @@ const VALEventScreen = ({ navigation, route }) => {
           });
         }
 
-        if (childEvent.bracketJson && (childEvent.bracketJson.type === "double" || childEvent.bracketJson.type === "single")) {
+        if (
+          childEvent.bracketJson &&
+          (childEvent.bracketJson.type === "double" ||
+            childEvent.bracketJson.type === "single" ||
+            childEvent.bracketJson.winners)
+        ) {
           childEvent.bracketJson.winners.forEach((winnerSeed) => {
             winnerSeed.seeds.forEach((winner) => {
               if (winner.teams && winner.teams.length > 0) {
                 winner.teams.forEach((winnerTeam) => {
-                  if (!teamIds.has(winnerTeam.id) && winnerTeam.shortName && winnerTeam.shortName !== "TBD") {
+                  if (
+                    !teamIds.has(winnerTeam.id) &&
+                    winnerTeam.shortName &&
+                    winnerTeam.shortName !== "TBD"
+                  ) {
                     teamIds.add(winnerTeam.id);
                     allTeams.push({
                       id: winnerTeam.id,
@@ -164,7 +211,12 @@ const VALEventScreen = ({ navigation, route }) => {
               if (week.series) {
                 week.series.forEach((series) => {
                   // Add team1
-                  if (series.team1 && !teamIds.has(series.team1.id) && series.team1.shortName && series.team1.shortName !== "TBD") {
+                  if (
+                    series.team1 &&
+                    !teamIds.has(series.team1.id) &&
+                    series.team1.shortName &&
+                    series.team1.shortName !== "TBD"
+                  ) {
                     teamIds.add(series.team1.id);
                     allTeams.push({
                       id: series.team1.id,
@@ -177,7 +229,12 @@ const VALEventScreen = ({ navigation, route }) => {
                   }
 
                   // Add team2
-                  if (series.team2 && !teamIds.has(series.team2.id) && series.team2.shortName && series.team2.shortName !== "TBD") {
+                  if (
+                    series.team2 &&
+                    !teamIds.has(series.team2.id) &&
+                    series.team2.shortName &&
+                    series.team2.shortName !== "TBD"
+                  ) {
                     teamIds.add(series.team2.id);
                     allTeams.push({
                       id: series.team2.id,
@@ -241,6 +298,25 @@ const VALEventScreen = ({ navigation, route }) => {
   // Extract all matches from event for Results tab
   const extractAllMatches = (eventData) => {
     const allMatches = [];
+
+    // First, check if the main event has bracketJson with groups
+    if (eventData.bracketJson && eventData.bracketJson.groups) {
+      eventData.bracketJson.groups.forEach((group) => {
+        const groupSeries = extractSeriesFromGroup(group);
+        groupSeries.forEach((series) => {
+          allMatches.push({
+            ...series,
+            eventName: eventData.name || eventData.shortName,
+            stageTitle:
+              group.title ||
+              `Group ${String.fromCharCode(
+                65 + eventData.bracketJson.groups.indexOf(group)
+              )}`,
+            eventType: "group",
+          });
+        });
+      });
+    }
 
     if (!eventData.childEvents || eventData.childEvents.length === 0) {
       return allMatches;
@@ -584,7 +660,6 @@ const VALEventScreen = ({ navigation, route }) => {
       // Extract teams
       const extractedTeams = extractTeamsFromEvent(eventData);
       setTeams(extractedTeams);
-
     } catch (error) {
       console.error("Error loading Valorant event:", error);
       setEvent(null);
@@ -593,7 +668,6 @@ const VALEventScreen = ({ navigation, route }) => {
       setLoading(false);
     }
   };
-
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -859,98 +933,30 @@ const VALEventScreen = ({ navigation, route }) => {
         </View>
 
         {/* Child Event Buttons (Only show for Stats tab) */}
-        {activeTab === "stats" && (() => {
-          const childEvents = event?.childEvents ?? [];
-          const count = childEvents.length;
+        {activeTab === "stats" &&
+          (() => {
+            const childEvents = event?.childEvents ?? [];
+            const count = childEvents.length;
 
-          if (count === 0) return null; // nothing renders
+            if (count === 0) return null; // nothing renders
 
-          if (count === 1) {
-            const onlyChild = childEvents[0];
-            return (
-              <View style={styles.childEventsSection}>
-                <TouchableOpacity
-                  style={[
-                    styles.childEventButton,
-                    {
-                      backgroundColor:
-                        selectedEventId === onlyChild.id
-                          ? colors.primary
-                          : theme.surface,
-                    },
-                  ]}
-                  onPress={() => {
-                    setSelectedEventId(onlyChild.id);
-                    loadStatsData(onlyChild.id);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.childEventButtonText,
-                      {
-                        color:
-                          selectedEventId === onlyChild.id ? "white" : theme.text,
-                      },
-                    ]}
-                  >
-                    {onlyChild.shortName || onlyChild.name}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            );
-          }
-
-          // FALLBACK: more than one → original behavior
-          return (
-            <View style={styles.childEventsSection}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.childEventsScrollContent}
-              >
-                {/* ALL button */}
-                <TouchableOpacity
-                  style={[
-                    styles.childEventButton,
-                    {
-                      backgroundColor:
-                        selectedEventId === eventId ? colors.primary : theme.surface,
-                    },
-                  ]}
-                  onPress={() => {
-                    setSelectedEventId(eventId);
-                    loadStatsData(eventId);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.childEventButtonText,
-                      {
-                        color:
-                          selectedEventId === eventId ? "white" : theme.text,
-                      },
-                    ]}
-                  >
-                    All
-                  </Text>
-                </TouchableOpacity>
-
-                {/* Child event buttons */}
-                {childEvents.map((childEvent) => (
+            if (count === 1) {
+              const onlyChild = childEvents[0];
+              return (
+                <View style={styles.childEventsSection}>
                   <TouchableOpacity
-                    key={childEvent.id}
                     style={[
                       styles.childEventButton,
                       {
                         backgroundColor:
-                          selectedEventId === childEvent.id
+                          selectedEventId === onlyChild.id
                             ? colors.primary
                             : theme.surface,
                       },
                     ]}
                     onPress={() => {
-                      setSelectedEventId(childEvent.id);
-                      loadStatsData(childEvent.id);
+                      setSelectedEventId(onlyChild.id);
+                      loadStatsData(onlyChild.id);
                     }}
                   >
                     <Text
@@ -958,24 +964,623 @@ const VALEventScreen = ({ navigation, route }) => {
                         styles.childEventButtonText,
                         {
                           color:
-                            selectedEventId === childEvent.id ? "white" : theme.text,
+                            selectedEventId === onlyChild.id
+                              ? "white"
+                              : theme.text,
                         },
                       ]}
                     >
-                      {childEvent.shortName || childEvent.name}
+                      {onlyChild.shortName || onlyChild.name}
                     </Text>
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          );
-        })()}
+                </View>
+              );
+            }
 
+            // FALLBACK: more than one → original behavior
+            return (
+              <View style={styles.childEventsSection}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.childEventsScrollContent}
+                >
+                  {/* ALL button */}
+                  <TouchableOpacity
+                    style={[
+                      styles.childEventButton,
+                      {
+                        backgroundColor:
+                          selectedEventId === eventId
+                            ? colors.primary
+                            : theme.surface,
+                      },
+                    ]}
+                    onPress={() => {
+                      setSelectedEventId(eventId);
+                      loadStatsData(eventId);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.childEventButtonText,
+                        {
+                          color:
+                            selectedEventId === eventId ? "white" : theme.text,
+                        },
+                      ]}
+                    >
+                      All
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Child event buttons */}
+                  {childEvents.map((childEvent) => (
+                    <TouchableOpacity
+                      key={childEvent.id}
+                      style={[
+                        styles.childEventButton,
+                        {
+                          backgroundColor:
+                            selectedEventId === childEvent.id
+                              ? colors.primary
+                              : theme.surface,
+                        },
+                      ]}
+                      onPress={() => {
+                        setSelectedEventId(childEvent.id);
+                        loadStatsData(childEvent.id);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.childEventButtonText,
+                          {
+                            color:
+                              selectedEventId === childEvent.id
+                                ? "white"
+                                : theme.text,
+                          },
+                        ]}
+                      >
+                        {childEvent.shortName || childEvent.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            );
+          })()}
 
         {/* Tab Content */}
         {activeTab === "overview" && (
           <>
-            {/* Results Section */}
+            {/* Results Section for Main Event Groups */}
+            {event.bracketJson &&
+              event.bracketJson.groups &&
+              !event.childEvents?.length && (
+                <View style={styles.detailsSection}>
+                  <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                    Results
+                  </Text>
+
+                  <View
+                    style={[
+                      styles.eventCard,
+                      { backgroundColor: theme.surfaceSecondary },
+                    ]}
+                  >
+                    {/* Event Header */}
+                    <TouchableOpacity
+                      style={styles.eventHeader}
+                      onPress={() => {
+                        const isCurrentlyExpanded = expandedEvents[event.id];
+                        setExpandedEvents((prev) => ({
+                          ...prev,
+                          [event.id]: !prev[event.id],
+                        }));
+
+                        // Auto-select first group when expanding
+                        if (!isCurrentlyExpanded && event.bracketJson.groups) {
+                          setActiveGroups((prev) => ({
+                            ...prev,
+                            [`${event.id}-0`]: true,
+                          }));
+                        }
+                      }}
+                    >
+                      <View style={styles.eventHeaderLeft}>
+                        <Text style={[styles.eventName, { color: theme.text }]}>
+                          {event.shortName || event.name}
+                        </Text>
+                        <View style={styles.eventMeta}>
+                          <View
+                            style={[
+                              styles.statusBadge,
+                              {
+                                backgroundColor:
+                                  getEventStatus(
+                                    event.startDate,
+                                    event.endDate
+                                  ) === "In Progress"
+                                    ? theme.error
+                                    : getEventStatus(
+                                        event.startDate,
+                                        event.endDate
+                                      ) === "Completed"
+                                    ? theme.success
+                                    : theme.warning,
+                              },
+                            ]}
+                          >
+                            <Text style={styles.statusText}>
+                              {event.live
+                                ? "LIVE"
+                                : getEventStatus(
+                                    event.startDate,
+                                    event.endDate
+                                  )}
+                            </Text>
+                          </View>
+                          <Text
+                            style={[
+                              styles.eventDates,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {event.startDate && event.endDate
+                              ? formatEventDateRange(
+                                  event.startDate,
+                                  event.endDate
+                                )
+                              : "TBD"}
+                          </Text>
+                        </View>
+                      </View>
+                      <Ionicons
+                        name={
+                          expandedEvents[event.id]
+                            ? "chevron-up"
+                            : "chevron-down"
+                        }
+                        size={20}
+                        color={theme.textSecondary}
+                      />
+                    </TouchableOpacity>
+
+                    {/* Expanded Content */}
+                    {expandedEvents[event.id] && (
+                      <View style={styles.expandedContent}>
+                        {/* Group Buttons */}
+                        <View style={styles.groupButtonsContainer}>
+                          {event.bracketJson.groups.map((group, groupIndex) => (
+                            <TouchableOpacity
+                              key={groupIndex}
+                              style={[
+                                styles.groupButton,
+                                {
+                                  backgroundColor: activeGroups[
+                                    `${event.id}-${groupIndex}`
+                                  ]
+                                    ? colors.primary
+                                    : theme.surface,
+                                  borderColor: colors.primary,
+                                },
+                              ]}
+                              onPress={() =>
+                                setActiveGroups((prev) => {
+                                  const newState = { ...prev };
+                                  event.bracketJson.groups.forEach((_, idx) => {
+                                    newState[`${event.id}-${idx}`] = false;
+                                  });
+                                  newState[`${event.id}-${groupIndex}`] = true;
+                                  return newState;
+                                })
+                              }
+                            >
+                              <Text
+                                style={[
+                                  styles.groupButtonText,
+                                  {
+                                    color: activeGroups[
+                                      `${event.id}-${groupIndex}`
+                                    ]
+                                      ? "white"
+                                      : colors.primary,
+                                  },
+                                ]}
+                              >
+                                {group.title ||
+                                  `Group ${String.fromCharCode(
+                                    65 + groupIndex
+                                  )}`}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+
+                        {/* Group Standings */}
+                        {event.bracketJson.groups.map((group, groupIndex) => {
+                          const isGroupActive =
+                            activeGroups[`${event.id}-${groupIndex}`];
+                          if (!isGroupActive) return null;
+
+                          const standings = calculateGroupStandings(group);
+                          const showMatchesKey = `${event.id}-${groupIndex}`;
+
+                          return (
+                            <View
+                              key={groupIndex}
+                              style={styles.groupContainer}
+                            >
+                              <Text
+                                style={[
+                                  styles.groupTitle,
+                                  { color: theme.text },
+                                ]}
+                              >
+                                {group.title ||
+                                  `Group ${String.fromCharCode(
+                                    65 + groupIndex
+                                  )}`}{" "}
+                                Standings
+                              </Text>
+
+                              {/* Standings Table */}
+                              <View
+                                style={[
+                                  styles.standingsTable,
+                                  { backgroundColor: theme.surface },
+                                ]}
+                              >
+                                {/* Table Header */}
+                                <View style={styles.tableHeader}>
+                                  <Text
+                                    style={[
+                                      styles.headerText,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    #
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.headerTextTeam,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    Team
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.headerText,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    W
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.headerText,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    L
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.headerText,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    +/-
+                                  </Text>
+                                </View>
+
+                                {/* Table Rows */}
+                                {standings.map((team, teamIndex) => (
+                                  <View
+                                    key={team.id}
+                                    style={[
+                                      styles.tableRow,
+                                      {
+                                        borderLeftWidth: team.qualified
+                                          ? 3
+                                          : team.nonQualified
+                                          ? 3
+                                          : 0,
+                                        borderLeftColor: team.qualified
+                                          ? theme.success
+                                          : team.nonQualified
+                                          ? theme.error
+                                          : theme.surface,
+                                      },
+                                    ]}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.cellText,
+                                        { color: theme.textSecondary },
+                                      ]}
+                                    >
+                                      {teamIndex + 1}
+                                    </Text>
+                                    <View style={styles.teamCell}>
+                                      <Image
+                                        source={{
+                                          uri:
+                                            team.logoUrl ||
+                                            "https://i.imgur.com/BIC4pnO.webp",
+                                        }}
+                                        style={styles.teamLogoSmall}
+                                        resizeMode="contain"
+                                      />
+                                      <Text
+                                        style={[
+                                          styles.teamNameText,
+                                          { color: theme.text },
+                                        ]}
+                                      >
+                                        {team.shortName || team.name}
+                                      </Text>
+                                    </View>
+                                    <Text
+                                      style={[
+                                        styles.cellText,
+                                        { color: theme.text },
+                                      ]}
+                                    >
+                                      {team.wins}
+                                    </Text>
+                                    <Text
+                                      style={[
+                                        styles.cellText,
+                                        { color: theme.text },
+                                      ]}
+                                    >
+                                      {team.losses}
+                                    </Text>
+                                    <Text
+                                      style={[
+                                        styles.cellText,
+                                        {
+                                          color:
+                                            team.roundsWon - team.roundsLost > 0
+                                              ? theme.success
+                                              : team.roundsWon -
+                                                  team.roundsLost <
+                                                0
+                                              ? theme.error
+                                              : theme.text,
+                                        },
+                                      ]}
+                                    >
+                                      {team.roundsWon - team.roundsLost > 0
+                                        ? "+"
+                                        : ""}
+                                      {team.roundsWon - team.roundsLost}
+                                    </Text>
+                                  </View>
+                                ))}
+                              </View>
+
+                              {/* Show/Hide Matches Button */}
+                              <TouchableOpacity
+                                style={[
+                                  styles.showMatchesButton,
+                                  { backgroundColor: theme.surface },
+                                ]}
+                                onPress={() =>
+                                  setShowMatches((prev) => ({
+                                    ...prev,
+                                    [showMatchesKey]: !prev[showMatchesKey],
+                                  }))
+                                }
+                              >
+                                <Text
+                                  style={[
+                                    styles.showMatchesText,
+                                    { color: colors.primary },
+                                  ]}
+                                >
+                                  {showMatches[showMatchesKey]
+                                    ? "Hide Matches"
+                                    : "Show Matches"}{" "}
+                                  ({extractSeriesFromGroup(group).length})
+                                </Text>
+                              </TouchableOpacity>
+
+                              {/* Series List */}
+                              {showMatches[showMatchesKey] && (
+                                <View style={styles.matchesList}>
+                                  {extractSeriesFromGroup(group).map(
+                                    (series, seriesIndex) => {
+                                      const team1IsWinner =
+                                        series.team1Score > series.team2Score;
+                                      const team2IsWinner =
+                                        series.team2Score > series.team1Score;
+                                      const seriesCompleted =
+                                        series.completed &&
+                                        (series.team1Score > 0 ||
+                                          series.team2Score > 0);
+
+                                      return (
+                                        <TouchableOpacity
+                                          key={seriesIndex}
+                                          style={[
+                                            styles.matchCard,
+                                            { backgroundColor: theme.surface },
+                                          ]}
+                                          onPress={() => {
+                                            navigation.navigate("VALSeries", {
+                                              seriesId: series.id,
+                                            });
+                                          }}
+                                          activeOpacity={0.7}
+                                        >
+                                          <View style={styles.matchHeader}>
+                                            <Text
+                                              style={[
+                                                styles.matchDate,
+                                                { color: theme.textSecondary },
+                                              ]}
+                                            >
+                                              {series.startDate
+                                                ? new Date(series.startDate)
+                                                    .toLocaleDateString(
+                                                      "en-US",
+                                                      {
+                                                        month: "short",
+                                                        day: "numeric",
+                                                      }
+                                                    )
+                                                    .replace(",", "")
+                                                : "TBD"}
+                                            </Text>
+                                            <Text
+                                              style={[
+                                                styles.matchTime,
+                                                { color: theme.textSecondary },
+                                              ]}
+                                            >
+                                              {series.startDate
+                                                ? new Date(
+                                                    series.startDate
+                                                  ).toLocaleTimeString([], {
+                                                    hour: "2-digit",
+                                                    minute: "2-digit",
+                                                  })
+                                                : ""}
+                                            </Text>
+                                          </View>
+                                          <View style={styles.matchTeams}>
+                                            <View style={styles.matchTeam}>
+                                              <Image
+                                                source={{
+                                                  uri:
+                                                    series.team1?.logoUrl ||
+                                                    "https://i.imgur.com/BIC4pnO.webp",
+                                                }}
+                                                style={[
+                                                  styles.matchTeamLogo,
+                                                  {
+                                                    opacity:
+                                                      seriesCompleted &&
+                                                      !team1IsWinner
+                                                        ? 0.5
+                                                        : 1,
+                                                  },
+                                                ]}
+                                                resizeMode="contain"
+                                              />
+                                              <Text
+                                                style={[
+                                                  styles.matchTeamName,
+                                                  {
+                                                    color: theme.text,
+                                                    opacity:
+                                                      seriesCompleted &&
+                                                      !team1IsWinner
+                                                        ? 0.6
+                                                        : 1,
+                                                  },
+                                                ]}
+                                              >
+                                                {series.team1?.shortName ||
+                                                  "TBD"}
+                                              </Text>
+                                              <Text
+                                                style={[
+                                                  styles.matchScore,
+                                                  {
+                                                    color: theme.text,
+                                                    opacity:
+                                                      seriesCompleted &&
+                                                      !team1IsWinner
+                                                        ? 0.6
+                                                        : 1,
+                                                  },
+                                                ]}
+                                              >
+                                                {series.team1Score || 0}
+                                              </Text>
+                                            </View>
+                                            <Text
+                                              style={[
+                                                styles.matchVs,
+                                                { color: theme.textSecondary },
+                                              ]}
+                                            >
+                                              vs
+                                            </Text>
+                                            <View style={styles.matchTeam}>
+                                              <Text
+                                                style={[
+                                                  styles.matchScore,
+                                                  {
+                                                    color: theme.text,
+                                                    opacity:
+                                                      seriesCompleted &&
+                                                      !team2IsWinner
+                                                        ? 0.6
+                                                        : 1,
+                                                  },
+                                                ]}
+                                              >
+                                                {series.team2Score || 0}
+                                              </Text>
+                                              <Text
+                                                style={[
+                                                  styles.matchTeamName,
+                                                  {
+                                                    color: theme.text,
+                                                    opacity:
+                                                      seriesCompleted &&
+                                                      !team2IsWinner
+                                                        ? 0.6
+                                                        : 1,
+                                                  },
+                                                ]}
+                                              >
+                                                {series.team2?.shortName ||
+                                                  "TBD"}
+                                              </Text>
+                                              <Image
+                                                source={{
+                                                  uri:
+                                                    series.team2?.logoUrl ||
+                                                    "https://i.imgur.com/BIC4pnO.webp",
+                                                }}
+                                                style={[
+                                                  styles.matchTeamLogo,
+                                                  {
+                                                    opacity:
+                                                      seriesCompleted &&
+                                                      !team2IsWinner
+                                                        ? 0.5
+                                                        : 1,
+                                                  },
+                                                ]}
+                                                resizeMode="contain"
+                                              />
+                                            </View>
+                                          </View>
+                                        </TouchableOpacity>
+                                      );
+                                    }
+                                  )}
+                                </View>
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                </View>
+              )}
+
+            {/* Results Section for Child Events */}
             {event.childEvents && event.childEvents.length > 0 && (
               <View style={styles.detailsSection}>
                 <Text style={[styles.sectionTitle, { color: theme.text }]}>
@@ -2417,14 +3022,26 @@ const VALEventScreen = ({ navigation, route }) => {
                                                               ]}
                                                             >
                                                               {match.startDate
-                                                                ? `${new Date(match.startDate).toLocaleDateString("en-US", {
-                                                                    month: "short",
-                                                                    day: "numeric",
-                                                                  })} • ${new Date(match.startDate).toLocaleTimeString("en-US", {
-                                                                    hour: "numeric",
-                                                                    minute: "2-digit",
-                                                                    hour12: true,
-                                                                  })}`
+                                                                ? `${new Date(
+                                                                    match.startDate
+                                                                  ).toLocaleDateString(
+                                                                    "en-US",
+                                                                    {
+                                                                      month:
+                                                                        "short",
+                                                                      day: "numeric",
+                                                                    }
+                                                                  )} • ${new Date(
+                                                                    match.startDate
+                                                                  ).toLocaleTimeString(
+                                                                    "en-US",
+                                                                    {
+                                                                      hour: "numeric",
+                                                                      minute:
+                                                                        "2-digit",
+                                                                      hour12: true,
+                                                                    }
+                                                                  )}`
                                                                 : "TBD"}
                                                             </Text>
 
@@ -2625,14 +3242,26 @@ const VALEventScreen = ({ navigation, route }) => {
                                                                 ]}
                                                               >
                                                                 {match.startDate
-                                                                  ? `${new Date(match.startDate).toLocaleDateString("en-US", {
-                                                                      month: "short",
-                                                                      day: "numeric",
-                                                                    })} • ${new Date(match.startDate).toLocaleTimeString("en-US", {
-                                                                      hour: "numeric",
-                                                                      minute: "2-digit",
-                                                                      hour12: true,
-                                                                    })}`
+                                                                  ? `${new Date(
+                                                                      match.startDate
+                                                                    ).toLocaleDateString(
+                                                                      "en-US",
+                                                                      {
+                                                                        month:
+                                                                          "short",
+                                                                        day: "numeric",
+                                                                      }
+                                                                    )} • ${new Date(
+                                                                      match.startDate
+                                                                    ).toLocaleTimeString(
+                                                                      "en-US",
+                                                                      {
+                                                                        hour: "numeric",
+                                                                        minute:
+                                                                          "2-digit",
+                                                                        hour12: true,
+                                                                      }
+                                                                    )}`
                                                                   : "TBD"}
                                                               </Text>
 
@@ -3136,7 +3765,6 @@ const VALEventScreen = ({ navigation, route }) => {
               </View>
             ) : (
               <ScrollView>
-
                 {/* Top Players */}
                 {getCurrentStatsData().topPlayers && (
                   <View
@@ -3453,59 +4081,77 @@ const VALEventScreen = ({ navigation, route }) => {
                               ]}
                             >
                               <View style={styles.weaponKillsPlayerSection}>
-                              {topPlayer.playerImageUrl ? (
-                                <Image
-                                  source={{ uri: topPlayer.playerImageUrl }}
-                                  style={styles.weaponKillsPlayerImageRow}
-                                  resizeMode="contain"
-                                />
-                              ) : (
-                                <View
-                                  style={[
-                                    styles.weaponKillsPlayerImageRow,
-                                    styles.weaponKillsPlayerImagePlaceholder,
-                                    { backgroundColor: colors.primary + "20" },
-                                  ]}
-                                >
-                                  <Ionicons name="person" size={20} color={colors.primary} />
-                                </View>
-                              )}
-
-                              {/* New vertical text wrapper */}
-                              <View style={styles.playerInfoWrapper}>
-                                <Text
-                                  style={[
-                                    styles.weaponKillsPlayerNameRow,
-                                    { color: theme.text },
-                                  ]}
-                                >
-                                  {topPlayer.playerName}
-                                </Text>
-
-                                {/* Team row */}
-                                <View style={styles.teamRow}>
-                                  {topPlayer.teamLogoUrl ? (
-                                    <Image
-                                      source={{ uri: topPlayer.teamLogoUrl }}
-                                      style={styles.teamLogo1}
-                                      resizeMode="contain"
+                                {topPlayer.playerImageUrl ? (
+                                  <Image
+                                    source={{ uri: topPlayer.playerImageUrl }}
+                                    style={styles.weaponKillsPlayerImageRow}
+                                    resizeMode="contain"
+                                  />
+                                ) : (
+                                  <View
+                                    style={[
+                                      styles.weaponKillsPlayerImageRow,
+                                      styles.weaponKillsPlayerImagePlaceholder,
+                                      {
+                                        backgroundColor: colors.primary + "20",
+                                      },
+                                    ]}
+                                  >
+                                    <Ionicons
+                                      name="person"
+                                      size={20}
+                                      color={colors.primary}
                                     />
-                                  ) : (
-                                    <View
+                                  </View>
+                                )}
+
+                                {/* New vertical text wrapper */}
+                                <View style={styles.playerInfoWrapper}>
+                                  <Text
+                                    style={[
+                                      styles.weaponKillsPlayerNameRow,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    {topPlayer.playerName}
+                                  </Text>
+
+                                  {/* Team row */}
+                                  <View style={styles.teamRow}>
+                                    {topPlayer.teamLogoUrl ? (
+                                      <Image
+                                        source={{ uri: topPlayer.teamLogoUrl }}
+                                        style={styles.teamLogo1}
+                                        resizeMode="contain"
+                                      />
+                                    ) : (
+                                      <View
+                                        style={[
+                                          styles.teamLogo1,
+                                          styles.teamLogoPlaceholder1,
+                                          {
+                                            backgroundColor:
+                                              colors.primary + "20",
+                                          },
+                                        ]}
+                                      >
+                                        <Ionicons
+                                          name="shield"
+                                          size={14}
+                                          color={colors.primary}
+                                        />
+                                      </View>
+                                    )}
+                                    <Text
                                       style={[
-                                        styles.teamLogo1,
-                                        styles.teamLogoPlaceholder1,
-                                        { backgroundColor: colors.primary + "20" },
+                                        styles.teamName,
+                                        { color: theme.text },
                                       ]}
                                     >
-                                      <Ionicons name="shield" size={14} color={colors.primary} />
-                                    </View>
-                                  )}
-                                  <Text style={[styles.teamName, { color: theme.text }]}>
-                                    {topPlayer.teamName}
-                                  </Text>
+                                      {topPlayer.teamName}
+                                    </Text>
+                                  </View>
                                 </View>
-                              </View>
                               </View>
 
                               <View style={styles.weaponKillsWeaponSection}>
@@ -3639,189 +4285,187 @@ const VALEventScreen = ({ navigation, route }) => {
                         styles.agentPerformanceScrollContent
                       }
                     >
-                      {getCurrentStatsData()
-                        .basicStatsByAgent
-                        .map((agent) => {
-                          const acs = Math.round(agent.score / agent.rounds);
-                          const kd =
-                            agent.deaths > 0
-                              ? (agent.kills / agent.deaths).toFixed(2)
-                              : agent.kills.toFixed(2);
-                          const dpr = (agent.damage / agent.rounds).toFixed(0);
-                          const apr = (agent.assists / agent.rounds).toFixed(2);
-                          const fkPercent =
-                            agent.rounds > 0
-                              ? Math.round(
-                                  (agent.firstKills / agent.rounds) * 100
-                                )
-                              : 0;
-                          const fdPercent =
-                            agent.rounds > 0
-                              ? Math.round(
-                                  (agent.firstDeaths / agent.rounds) * 100
-                                )
-                              : 0;
-                          const kastPercent =
-                            agent.rounds > 0
-                              ? Math.round(
-                                  (agent.kastRounds / agent.rounds) * 100
-                                )
-                              : 0;
+                      {getCurrentStatsData().basicStatsByAgent.map((agent) => {
+                        const acs = Math.round(agent.score / agent.rounds);
+                        const kd =
+                          agent.deaths > 0
+                            ? (agent.kills / agent.deaths).toFixed(2)
+                            : agent.kills.toFixed(2);
+                        const dpr = (agent.damage / agent.rounds).toFixed(0);
+                        const apr = (agent.assists / agent.rounds).toFixed(2);
+                        const fkPercent =
+                          agent.rounds > 0
+                            ? Math.round(
+                                (agent.firstKills / agent.rounds) * 100
+                              )
+                            : 0;
+                        const fdPercent =
+                          agent.rounds > 0
+                            ? Math.round(
+                                (agent.firstDeaths / agent.rounds) * 100
+                              )
+                            : 0;
+                        const kastPercent =
+                          agent.rounds > 0
+                            ? Math.round(
+                                (agent.kastRounds / agent.rounds) * 100
+                              )
+                            : 0;
 
-                          return (
-                            <View
-                              key={agent.agentId}
+                        return (
+                          <View
+                            key={agent.agentId}
+                            style={[
+                              styles.agentPerformanceCard,
+                              { backgroundColor: theme.background },
+                            ]}
+                          >
+                            <Image
+                              source={{
+                                uri: getAgentImageUrl(agent.agentName),
+                              }}
+                              style={styles.agentPerformanceImage}
+                              resizeMode="contain"
+                            />
+                            <Text
                               style={[
-                                styles.agentPerformanceCard,
-                                { backgroundColor: theme.background },
+                                styles.agentPerformanceName,
+                                { color: theme.text },
                               ]}
                             >
-                              <Image
-                                source={{
-                                  uri: getAgentImageUrl(agent.agentName),
-                                }}
-                                style={styles.agentPerformanceImage}
-                                resizeMode="contain"
-                              />
-                              <Text
-                                style={[
-                                  styles.agentPerformanceName,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {agent.agentName}
-                              </Text>
-                              <View style={styles.agentPerformanceStats}>
-                                <View style={styles.agentPerformanceStatItem}>
-                                  <Text
-                                    style={[
-                                      styles.agentPerformanceValue,
-                                      { color: theme.text },
-                                    ]}
-                                  >
-                                    {acs}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.agentPerformanceLabel,
-                                      { color: theme.textSecondary },
-                                    ]}
-                                  >
-                                    ACS
-                                  </Text>
-                                </View>
-                                <View style={styles.agentPerformanceStatItem}>
-                                  <Text
-                                    style={[
-                                      styles.agentPerformanceValue,
-                                      { color: theme.text },
-                                    ]}
-                                  >
-                                    {kd}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.agentPerformanceLabel,
-                                      { color: theme.textSecondary },
-                                    ]}
-                                  >
-                                    K/D
-                                  </Text>
-                                </View>
-                                <View style={styles.agentPerformanceStatItem}>
-                                  <Text
-                                    style={[
-                                      styles.agentPerformanceValue,
-                                      { color: theme.text },
-                                    ]}
-                                  >
-                                    {dpr}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.agentPerformanceLabel,
-                                      { color: theme.textSecondary },
-                                    ]}
-                                  >
-                                    DPR
-                                  </Text>
-                                </View>
-                                <View style={styles.agentPerformanceStatItem}>
-                                  <Text
-                                    style={[
-                                      styles.agentPerformanceValue,
-                                      { color: theme.text },
-                                    ]}
-                                  >
-                                    {apr}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.agentPerformanceLabel,
-                                      { color: theme.textSecondary },
-                                    ]}
-                                  >
-                                    APR
-                                  </Text>
-                                </View>
-                                <View style={styles.agentPerformanceStatItem}>
-                                  <Text
-                                    style={[
-                                      styles.agentPerformanceValue,
-                                      { color: theme.text },
-                                    ]}
-                                  >
-                                    {fkPercent}%
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.agentPerformanceLabel,
-                                      { color: theme.textSecondary },
-                                    ]}
-                                  >
-                                    FK%
-                                  </Text>
-                                </View>
-                                <View style={styles.agentPerformanceStatItem}>
-                                  <Text
-                                    style={[
-                                      styles.agentPerformanceValue,
-                                      { color: theme.text },
-                                    ]}
-                                  >
-                                    {fdPercent}%
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.agentPerformanceLabel,
-                                      { color: theme.textSecondary },
-                                    ]}
-                                  >
-                                    FD%
-                                  </Text>
-                                </View>
-                                <View style={styles.agentPerformanceStatItem}>
-                                  <Text
-                                    style={[
-                                      styles.agentPerformanceValue,
-                                      { color: theme.text },
-                                    ]}
-                                  >
-                                    {kastPercent}%
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.agentPerformanceLabel,
-                                      { color: theme.textSecondary },
-                                    ]}
-                                  >
-                                    KAST%
-                                  </Text>
-                                </View>
+                              {agent.agentName}
+                            </Text>
+                            <View style={styles.agentPerformanceStats}>
+                              <View style={styles.agentPerformanceStatItem}>
+                                <Text
+                                  style={[
+                                    styles.agentPerformanceValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {acs}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.agentPerformanceLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  ACS
+                                </Text>
+                              </View>
+                              <View style={styles.agentPerformanceStatItem}>
+                                <Text
+                                  style={[
+                                    styles.agentPerformanceValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {kd}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.agentPerformanceLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  K/D
+                                </Text>
+                              </View>
+                              <View style={styles.agentPerformanceStatItem}>
+                                <Text
+                                  style={[
+                                    styles.agentPerformanceValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {dpr}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.agentPerformanceLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  DPR
+                                </Text>
+                              </View>
+                              <View style={styles.agentPerformanceStatItem}>
+                                <Text
+                                  style={[
+                                    styles.agentPerformanceValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {apr}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.agentPerformanceLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  APR
+                                </Text>
+                              </View>
+                              <View style={styles.agentPerformanceStatItem}>
+                                <Text
+                                  style={[
+                                    styles.agentPerformanceValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {fkPercent}%
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.agentPerformanceLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  FK%
+                                </Text>
+                              </View>
+                              <View style={styles.agentPerformanceStatItem}>
+                                <Text
+                                  style={[
+                                    styles.agentPerformanceValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {fdPercent}%
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.agentPerformanceLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  FD%
+                                </Text>
+                              </View>
+                              <View style={styles.agentPerformanceStatItem}>
+                                <Text
+                                  style={[
+                                    styles.agentPerformanceValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {kastPercent}%
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.agentPerformanceLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  KAST%
+                                </Text>
                               </View>
                             </View>
-                          );
-                        })}
+                          </View>
+                        );
+                      })}
                     </ScrollView>
                   </View>
                 )}
@@ -5070,9 +5714,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   playerInfoWrapper: {
-  flexDirection: "column",
-  justifyContent: "center",
-  flexShrink: 1,
+    flexDirection: "column",
+    justifyContent: "center",
+    flexShrink: 1,
   },
 
   teamRow: {
@@ -5118,7 +5762,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0
+    bottom: 0,
   },
   compRowMapOverlay: {
     position: "absolute",

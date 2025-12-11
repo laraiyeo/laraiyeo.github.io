@@ -2043,7 +2043,7 @@ const TeamPageScreen = ({ route, navigation }) => {
             { backgroundColor: theme.surfaceSecondary },
           ]}
         >
-          <Text style={[styles.leagueText, { color: colors.primary }]}>
+          <Text style={[styles.leagueText, { color: colors.secondary }]}>
             {header}
           </Text>
         </View>
@@ -2113,7 +2113,7 @@ const TeamPageScreen = ({ route, navigation }) => {
           <View style={styles.statusSection}>
             {isCompleted ? (
               <>
-                <Text style={[styles.gameStatus, { color: colors.primary }]}>
+                <Text style={[styles.gameStatus, { color: colors.accent }]}>
                   Final
                 </Text>
                 <Text
@@ -2124,7 +2124,7 @@ const TeamPageScreen = ({ route, navigation }) => {
               </>
             ) : isLive ? (
               <>
-                <Text style={[styles.gameStatus, { color: colors.primary }]}>
+                <Text style={[styles.gameStatus, { color: colors.accent }]}>
                   {getStatusText(game) || "LIVE"}
                 </Text>
                 <Text
@@ -2135,7 +2135,7 @@ const TeamPageScreen = ({ route, navigation }) => {
               </>
             ) : (
               <>
-                <Text style={[styles.gameStatus, { color: colors.primary }]}>
+                <Text style={[styles.gameStatus, { color: colors.accent }]}>
                   {formattedTime}
                 </Text>
                 <Text

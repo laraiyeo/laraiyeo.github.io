@@ -3177,7 +3177,7 @@ const NHLGameDetailsScreen = ({ route }) => {
 
         {/* Status and Time */}
         <View style={styles.stickyStatus}>
-          <Text style={[styles.stickyStatusText, { color: colors.primary }]}>
+          <Text style={[styles.stickyStatusText, { color: colors.secondary }]}>
             {getGameStatus().text}
           </Text>
           <Text style={[styles.stickyClock, { color: theme.textSecondary }]}>
@@ -3579,7 +3579,7 @@ const NHLGameDetailsScreen = ({ route }) => {
 
           return isLive && isStreamingUnlocked ? (
             <TouchableOpacity
-              style={[styles.streamButton, { backgroundColor: colors.primary }]}
+              style={[styles.streamButton, { backgroundColor: colors.secondary }]}
               onPress={openStreamModal}
             >
               <FontAwesome6
@@ -3601,7 +3601,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                 styles.tab,
                 {
                   backgroundColor:
-                    activeTab === "stats" ? colors.primary : "transparent",
+                    activeTab === "stats" ? colors.secondary : "transparent",
                 },
               ]}
               onPress={() => setActiveTab("stats")}
@@ -3620,7 +3620,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                 styles.tab,
                 {
                   backgroundColor:
-                    activeTab === "away" ? colors.primary : "transparent",
+                    activeTab === "away" ? colors.secondary : "transparent",
                 },
               ]}
               onPress={() => setActiveTab("away")}
@@ -3639,7 +3639,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                 styles.tab,
                 {
                   backgroundColor:
-                    activeTab === "home" ? colors.primary : "transparent",
+                    activeTab === "home" ? colors.secondary : "transparent",
                 },
               ]}
               onPress={() => setActiveTab("home")}
@@ -3659,7 +3659,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                 styles.lastTab,
                 {
                   backgroundColor:
-                    activeTab === "plays" ? colors.primary : "transparent",
+                    activeTab === "plays" ? colors.secondary : "transparent",
                 },
               ]}
               onPress={() => {
@@ -5017,11 +5017,11 @@ const NHLGameDetailsScreen = ({ route }) => {
                           {
                             backgroundColor:
                               currentStreamType === streamType
-                                ? colors.primary
+                                ? colors.secondary
                                 : theme.surface,
                             borderColor:
                               currentStreamType === streamType
-                                ? colors.primary
+                                ? colors.secondary
                                 : theme.border,
                           },
                         ]}
@@ -5247,7 +5247,7 @@ const NHLGameDetailsScreen = ({ route }) => {
 
       {/* Floating Chat Button */}
       <TouchableOpacity
-        style={[styles.floatingChatButton, { backgroundColor: colors.primary }]}
+        style={[styles.floatingChatButton, { backgroundColor: colors.secondary }]}
         onPress={() => setChatModalVisible(true)}
         activeOpacity={0.8}
       >

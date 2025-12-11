@@ -119,14 +119,14 @@ const MoreScreen = ({ navigation, route }) => {
   );
 
   const renderStats = () => (
-    <View style={{ flex: 1, marginTop: -20 }}>
+    <View style={{ flex: 1, marginTop: 0 }}>
       <NBAStatsScreen
         navigation={navigation}
         route={{ params: { sport } }}
         hideSelector={true}
       />
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.primary }]}
+        style={[styles.fab, { backgroundColor: colors.secondary }]}
         onPress={() => setSelected("menu")}
         activeOpacity={0.8}
       >
@@ -143,7 +143,7 @@ const MoreScreen = ({ navigation, route }) => {
         hideHeader={true}
       />
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.primary }]}
+        style={[styles.fab, { backgroundColor: colors.secondary }]}
         onPress={() => setSelected("menu")}
         activeOpacity={0.8}
       >
@@ -156,7 +156,7 @@ const MoreScreen = ({ navigation, route }) => {
     <View style={{ flex: 1, marginTop: 0 }}>
       <TransactionsScreen />
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.primary }]}
+        style={[styles.fab, { backgroundColor: colors.secondary }]}
         onPress={() => setSelected('menu')}
         activeOpacity={0.8}
       >
@@ -169,7 +169,7 @@ const MoreScreen = ({ navigation, route }) => {
     <View style={{ flex: 1, marginTop: 0 }}>
       <InjuriesScreen />
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.primary }]}
+        style={[styles.fab, { backgroundColor: colors.secondary }]}
         onPress={() => setSelected('menu')}
         activeOpacity={0.8}
       >
@@ -182,7 +182,7 @@ const MoreScreen = ({ navigation, route }) => {
     <View style={{ flex: 1, marginTop: 0 }}>
       <DraftScreen />
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.primary }]}
+        style={[styles.fab, { backgroundColor: colors.secondary }]}
         onPress={() => setSelected('menu')}
         activeOpacity={0.8}
       >

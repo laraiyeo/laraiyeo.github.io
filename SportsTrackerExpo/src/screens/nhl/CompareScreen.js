@@ -290,8 +290,8 @@ const CompareScreen = ({ route }) => {
           onPress={() => openPlayerSearch(playerNumber)}
         >
           <View style={styles.addPlayerButton}>
-            <Text style={[styles.addPlayerIcon, { color: colors.primary }]}>+</Text>
-            <Text style={[styles.addPlayerText, { color: colors.primary }]}>
+            <Text style={[styles.addPlayerIcon, { color: colors.secondary }]}>+</Text>
+            <Text style={[styles.addPlayerText, { color: colors.secondary }]}>
               Add Player {playerNumber}
             </Text>
           </View>
@@ -418,12 +418,12 @@ const CompareScreen = ({ route }) => {
               return (
                 <View key={statKey} style={[styles.statRow, { backgroundColor: theme.background }]}>
                   <View style={[styles.statBox, { 
-                    backgroundColor: winner === 1 ? colors.primary + '20' : theme.surface,
+                    backgroundColor: winner === 1 ? colors.secondary + '20' : theme.surface,
                     borderWidth: winner === 1 ? 1 : 0,
-                    borderColor: winner === 1 ? colors.primary : 'transparent'
+                    borderColor: winner === 1 ? colors.secondary : 'transparent'
                   }]}>
                     <Text style={[styles.statValue, { 
-                      color: winner === 1 ? colors.primary : theme.text 
+                      color: winner === 1 ? colors.secondary : theme.text 
                     }]}>
                       {stat1 || '0'}
                     </Text>
@@ -436,12 +436,12 @@ const CompareScreen = ({ route }) => {
                   </View>
 
                   <View style={[styles.statBox, { 
-                    backgroundColor: winner === 2 ? colors.primary + '20' : theme.surface,
+                    backgroundColor: winner === 2 ? colors.secondary + '20' : theme.surface,
                     borderWidth: winner === 2 ? 1 : 0,
-                    borderColor: winner === 2 ? colors.primary : 'transparent'
+                    borderColor: winner === 2 ? colors.secondary : 'transparent'
                   }]}>
                     <Text style={[styles.statValue, { 
-                      color: winner === 2 ? colors.primary : theme.text 
+                      color: winner === 2 ? colors.secondary : theme.text 
                     }]}>
                       {stat2 || '0'}
                     </Text>

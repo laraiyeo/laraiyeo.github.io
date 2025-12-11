@@ -832,7 +832,7 @@ const ConstructorDetailsScreen = ({ route }) => {
   // Build ESPN headshot URL
   const buildESPNHeadshotUrl = (athleteId) => {
     if (!athleteId) return null;
-    return `https://a.espncdn.com/combiner/i?img=/i/headshots/rpm/players/full/${athleteId}.png`;
+    return `https://a.espncdn.com/combiner/i?img=/i/headshots/rpm/players/full/${athleteId}.png&w=200`;
   };
 
   // Helper to get initials

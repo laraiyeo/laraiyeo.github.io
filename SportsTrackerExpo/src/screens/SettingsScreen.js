@@ -21,6 +21,44 @@ import { useChat } from "../context/ChatContext";
 import UpdateService from "../services/UpdateService";
 import ImageCache from "../services/ImageCache";
 
+// Attempt to load optional color wheel/picker libraries if installed.
+let OptionalColorWheel = null;
+let OptionalColorPicker = null;
+try {
+  // react-native-color-wheel (exports ColorWheel as named or default)
+  const wheel = require("react-native-color-wheel");
+  OptionalColorWheel = (wheel && (wheel.ColorWheel || wheel.default)) || null;
+} catch (e) {
+  OptionalColorWheel = null;
+}
+try {
+  // react-native-color-picker (exports ColorPicker as named or default)
+  const picker = require("react-native-color-picker");
+  OptionalColorPicker =
+    (picker && (picker.ColorPicker || picker.default)) || null;
+} catch (e) {
+  OptionalColorPicker = null;
+}
+
+// Optional: reanimated-color-picker (preferred replacement)
+let ReanimatedColorPicker = null;
+let ReanimatedPanel1 = null;
+let ReanimatedHueSlider = null;
+let ReanimatedOpacitySlider = null;
+let ReanimatedSwatches = null;
+let ReanimatedPreview = null;
+try {
+  const re = require("reanimated-color-picker");
+  ReanimatedColorPicker = (re && (re.ColorPicker || re.default)) || null;
+  ReanimatedPanel1 = re && re.Panel1 ? re.Panel1 : null;
+  ReanimatedHueSlider = re && re.HueSlider ? re.HueSlider : null;
+  ReanimatedOpacitySlider = re && re.OpacitySlider ? re.OpacitySlider : null;
+  ReanimatedSwatches = re && re.Swatches ? re.Swatches : null;
+  ReanimatedPreview = re && re.Preview ? re.Preview : null;
+} catch (e) {
+  ReanimatedColorPicker = null;
+}
+
 const SettingsScreen = ({ navigation }) => {
   const {
     isDarkMode,
@@ -30,6 +68,7 @@ const SettingsScreen = ({ navigation }) => {
     currentColorPalette,
     toggleTheme,
     changeColorPalette,
+    updateCustomPalette,
     getCurrentAppIcon,
   } = useTheme();
   const { favorites, removeFavorite, getFavoriteTeams, clearAllFavorites } =
@@ -40,6 +79,35 @@ const SettingsScreen = ({ navigation }) => {
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [tempUsername, setTempUsername] = useState(userName);
   const [colorModalVisible, setColorModalVisible] = useState(false);
+  // Custom palette modal state
+  const [customModalVisible, setCustomModalVisible] = useState(false);
+  const [customTempColors, setCustomTempColors] = useState({
+    primary: "#dc2626",
+    secondary: "#ef4444",
+    accent: "#f87171",
+  });
+  const [customSelectedTarget, setCustomSelectedTarget] = useState("primary");
+  // Use a fixed wheel size to avoid NaN layout issues in native ImageView
+  const FIXED_WHEEL_SIZE = 400;
+  const [wheelSize] = useState(FIXED_WHEEL_SIZE);
+
+  // Helper to accept a color value from wheel/picker and normalize to hex
+  const handleWheelColorChange = (color) => {
+    try {
+      let hex = color;
+      if (typeof color === "object") {
+        // color-picker libs sometimes pass { hex: '#rrggbb' } or hsv objects
+        hex =
+          color.hex || (color && color.length) ? color : JSON.stringify(color);
+      }
+      if (!hex) return;
+      // Ensure leading '#'
+      if (typeof hex === "string" && !hex.startsWith("#")) hex = `#${hex}`;
+      setCustomTempColors((s) => ({ ...s, [customSelectedTarget]: hex }));
+    } catch (e) {
+      // ignore
+    }
+  };
 
   // Username change restriction state
   const [lastUsernameChange, setLastUsernameChange] = useState(null);
@@ -123,11 +191,13 @@ const SettingsScreen = ({ navigation }) => {
       dark_green: require("../../assets/dark/green.png"),
       dark_purple: require("../../assets/dark/purple.png"),
       dark_gold: require("../../assets/dark/gold.png"),
+      dark_custom: require("../../assets/dark/custom.png"),
       light_blue: require("../../assets/light/blue.png"),
       light_red: require("../../assets/light/red.png"),
       light_green: require("../../assets/light/green.png"),
       light_purple: require("../../assets/light/purple.png"),
       light_gold: require("../../assets/light/gold.png"),
+      light_custom: require("../../assets/light/custom.png"),
     };
 
     const iconKey = `${theme}_${currentColorPalette}`;
@@ -601,7 +671,7 @@ const SettingsScreen = ({ navigation }) => {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <View style={styles.sectionHeader}>
+            <View style={[styles.sectionHeader, { borderBottomColor: theme.border }]}>
               <Text
                 allowFontScaling={false}
                 style={[styles.sectionTitle, { color: theme.text }]}
@@ -621,6 +691,275 @@ const SettingsScreen = ({ navigation }) => {
                 renderColorOption(key, palette)
               )}
             </View>
+
+            <View style={{ paddingHorizontal: 16, paddingBottom: 12, marginBottom: 6 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  // initialize temp colors from current custom palette
+                  const base = colorPalettes?.custom || {
+                    primary: "#dc2626",
+                    secondary: "#ef4444",
+                    accent: "#f87171",
+                  };
+                  setCustomTempColors({
+                    primary: base.primary,
+                    secondary: base.secondary,
+                    accent: base.accent,
+                  });
+                  setCustomSelectedTarget("primary");
+                  setCustomModalVisible(true);
+                }}
+                style={[
+                  styles.openSettingsButton,
+                  { backgroundColor: colors.secondary, marginTop: 8 },
+                ]}
+              >
+                <Text
+                  style={styles.openSettingsButtonText}
+                  allowFontScaling={false}
+                >
+                  {currentColorPalette === "custom"
+                    ? "Change custom colour"
+                    : "Add custom colour"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Custom Color Modal */}
+            <Modal
+              visible={customModalVisible}
+              transparent
+              animationType="slide"
+              onRequestClose={() => setCustomModalVisible(false)}
+            >
+              <View style={styles.modalOverlay}>
+                <View
+                  style={[
+                    styles.modalContent,
+                    { backgroundColor: theme.surface },
+                  ]}
+                >
+                  <Text style={[styles.modalTitle, { color: theme.text }]}>
+                    Custom Color
+                  </Text>
+
+                  {/* primary/secondary/accent blocks moved below presets */}
+
+                  {/* Color wheel (optional). Use the actual component export and
+                      pass `radius` — do NOT rely on a width/height wrapper for the
+                      react-native-color-wheel component (it reads `radius`). */}
+                  {ReanimatedColorPicker ? (
+                    <View style={{ alignItems: "center", marginBottom: 12 }}>
+                      <ReanimatedColorPicker
+                        value={customTempColors[customSelectedTarget]}
+                        onCompleteJS={(c) => {
+                          try {
+                            // c is object with hex property
+                            if (c && c.hex) handleWheelColorChange(c.hex);
+                          } catch (e) {}
+                        }}
+                        style={{ width: "100%", height: 235 }}
+                        thumbSize={24}
+                      >
+                        {ReanimatedPanel1 ? <ReanimatedPanel1 /> : null}
+                        <View style={{ marginBottom: 12 }} />
+                        {ReanimatedHueSlider ? <ReanimatedHueSlider /> : null}
+                      </ReanimatedColorPicker>
+                    </View>
+                  ) : OptionalColorWheel ? (
+                    <View style={{ alignItems: "center", marginBottom: 12 }}>
+                      <OptionalColorWheel
+                        initialColor={customTempColors[customSelectedTarget]}
+                        radius={Math.floor(wheelSize / 2)}
+                        thumbSize={Math.min(60, Math.floor(wheelSize * 0.08))}
+                        onColorChange={handleWheelColorChange}
+                        onColorChangeComplete={handleWheelColorChange}
+                      />
+                    </View>
+                  ) : OptionalColorPicker ? (
+                    <View style={{ alignItems: "center", marginBottom: 12 }}>
+                      <OptionalColorPicker
+                        onColorChange={handleWheelColorChange}
+                        defaultColor={customTempColors[customSelectedTarget]}
+                        style={{ width: wheelSize, height: wheelSize }}
+                      />
+                    </View>
+                  ) : (
+                    <Text
+                      allowFontScaling={false}
+                      style={{
+                        color: theme.textSecondary,
+                        marginBottom: 8,
+                        textAlign: "center",
+                      }}
+                    >
+                      Install `reanimated-color-picker` or
+                      `react-native-color-wheel` to enable a color wheel here.
+                    </Text>
+                  )}
+
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.codeLabel, { color: theme.text }]}
+                  >
+                    Color value (hex)
+                  </Text>
+                  <TextInput
+                    value={customTempColors[customSelectedTarget]}
+                    onChangeText={(val) => {
+                      // ensure leading #
+                      const v = val.startsWith("#") ? val : `#${val}`;
+                      setCustomTempColors((s) => ({
+                        ...s,
+                        [customSelectedTarget]: v,
+                      }));
+                    }}
+                    style={[
+                      styles.codeInput,
+                      { borderColor: theme.border, color: theme.text },
+                    ]}
+                    placeholder="#RRGGBB"
+                  />
+
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignSelf: "center",
+                      flexWrap: "wrap",
+                      marginVertical: 12,
+                    }}
+                  >
+                    {["#ff0000", "#ff7f00", "#ffff00", "#00ff00"].map((c) => (
+                      <TouchableOpacity
+                        key={c}
+                        onPress={() =>
+                          setCustomTempColors((s) => ({
+                            ...s,
+                            [customSelectedTarget]: c,
+                          }))
+                        }
+                        style={[styles.colorOption, { backgroundColor: c }]}
+                      />
+                    ))}
+                  </View>
+
+                  {/* Now render the three selector blocks as a horizontal row.
+                      Each item is a column: color block above abbreviated label. */}
+                  <View
+                    style={{
+                      marginBottom: 12,
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    {["primary", "secondary", "accent"].map((t) => {
+                      const labelMap = {
+                        primary: "Pri",
+                        secondary: "Sec",
+                        accent: "Acc",
+                      };
+                      return (
+                        <TouchableOpacity
+                          key={t}
+                          onPress={() => setCustomSelectedTarget(t)}
+                          activeOpacity={0.85}
+                          style={[
+                            styles.customBlock,
+                            {
+                              // make each block a vertical column
+                              flexDirection: "column",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flex: 1,
+                              marginHorizontal: 6,
+                              borderColor:
+                                customSelectedTarget === t
+                                  ? customTempColors[t]
+                                  : theme.border,
+                              backgroundColor: theme.surface,
+                            },
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.customBlockInner,
+                              {
+                                backgroundColor: customTempColors[t],
+                                marginBottom: 8,
+                                marginRight: 0,
+                                alignSelf: "center",
+                              },
+                            ]}
+                          />
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.customBlockText,
+                              { color: theme.text, textAlign: "center" },
+                            ]}
+                          >
+                            {labelMap[t]}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <TouchableOpacity
+                      style={[
+                        styles.modalButton,
+                        { backgroundColor: theme.border, marginRight: 12 },
+                      ]}
+                      onPress={() => setCustomModalVisible(false)}
+                    >
+                      <Text
+                        style={[styles.modalButtonText, { color: theme.text }]}
+                      >
+                        Cancel
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.modalButton,
+                        { backgroundColor: colors.secondary },
+                      ]}
+                      onPress={async () => {
+                        // commit custom palette
+                        const toSave = {
+                          primary: customTempColors.primary,
+                          primaryDark: customTempColors.primary + "77",
+                          secondary: customTempColors.secondary,
+                          accent: customTempColors.accent,
+                          light: "#ccc",
+                          name: "Custom",
+                        };
+                        try {
+                          await updateCustomPalette(toSave);
+                          showBannerMessage &&
+                            showBannerMessage(
+                              "Custom palette saved",
+                              "success"
+                            );
+                        } catch (e) {
+                          console.error(e);
+                        }
+                        setCustomModalVisible(false);
+                      }}
+                    >
+                      <Text style={[styles.modalButtonText, { color: "#fff" }]}>
+                        Confirm
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </Modal>
           </View>
 
           {/* Preview Section */}
@@ -630,7 +969,7 @@ const SettingsScreen = ({ navigation }) => {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <View style={styles.sectionHeader}>
+            <View style={[styles.sectionHeader, { borderBottomColor: theme.surface }]}>
               <Text
                 allowFontScaling={false}
                 style={[styles.sectionTitle, { color: theme.text }]}
@@ -680,7 +1019,7 @@ const SettingsScreen = ({ navigation }) => {
                 <TouchableOpacity
                   style={[
                     styles.previewButton,
-                    { backgroundColor: colors.accent },
+                    { backgroundColor: colors.secondary },
                   ]}
                 >
                   <Text
@@ -778,7 +1117,7 @@ const SettingsScreen = ({ navigation }) => {
                   <TouchableOpacity
                     style={[
                       styles.confirmButton,
-                      { backgroundColor: colors.primary },
+                      { backgroundColor: colors.secondary },
                     ]}
                     onPress={handleStreamingCodeSubmit}
                   >
@@ -862,7 +1201,7 @@ const SettingsScreen = ({ navigation }) => {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <View style={styles.sectionHeader}>
+            <View style={[styles.sectionHeader, { borderBottomColor: theme.border }]}>
               <Text
                 allowFontScaling={false}
                 style={[styles.sectionTitle, { color: theme.text }]}
@@ -914,7 +1253,7 @@ const SettingsScreen = ({ navigation }) => {
                   styles.openSettingsButton,
                   {
                     backgroundColor: canChangeUsername
-                      ? colors.primary
+                      ? colors.secondary
                       : theme.surfaceSecondary,
                     opacity: canChangeUsername ? 1 : 0.6,
                   },
@@ -1001,7 +1340,7 @@ const SettingsScreen = ({ navigation }) => {
               <TouchableOpacity
                 style={[
                   styles.openSettingsButton,
-                  { backgroundColor: colors.primary },
+                  { backgroundColor: colors.secondary },
                 ]}
                 onPress={() => navigation.navigate("MutedUsers")}
                 activeOpacity={0.7}
@@ -1023,7 +1362,7 @@ const SettingsScreen = ({ navigation }) => {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <View style={styles.sectionHeader}>
+            <View style={[styles.sectionHeader, { borderBottomColor: theme.border }]}>
               <Text
                 allowFontScaling={false}
                 style={[styles.sectionTitle, { color: theme.text }]}
@@ -1063,7 +1402,7 @@ const SettingsScreen = ({ navigation }) => {
               <TouchableOpacity
                 style={[
                   styles.openSettingsButton,
-                  { backgroundColor: colors.primary },
+                  { backgroundColor: colors.secondary },
                 ]}
                 onPress={() => navigation.navigate("FavoritesManagement")}
                 activeOpacity={0.7}
@@ -1214,7 +1553,7 @@ const SettingsScreen = ({ navigation }) => {
               <TouchableOpacity
                 style={[
                   styles.contactButton,
-                  { backgroundColor: theme.surfaceSecondary },
+                  { backgroundColor: theme.surfaceSecondary, marginBottom: 0 },
                 ]}
                 onPress={() =>
                   Linking.openURL("https://www.reddit.com/r/SportsHeart/")
@@ -1605,6 +1944,33 @@ const styles = StyleSheet.create({
     margin: 8,
   },
 
+  customBlock: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 2,
+    marginBottom: 10,
+    // box shadow on iOS/Android will be slight; keep subtle
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  customBlockInner: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.06)",
+  },
+  customBlockText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
   /* Close button in color modal should be compact and centered */
   colorModalCloseButton: {
     height: 44,
@@ -1768,6 +2134,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginHorizontal: 16,
     marginVertical: 8,
+    marginBottom: 20,
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: {

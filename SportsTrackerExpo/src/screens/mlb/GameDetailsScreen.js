@@ -1395,7 +1395,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             <>
               <Text
                 allowFontScaling={false}
-                style={[styles.stickyStatusText, { color: colors.primary }]}
+                style={[styles.stickyStatusText, { color: colors.secondary }]}
               >
                 Final
               </Text>
@@ -1440,7 +1440,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             <>
               <Text
                 allowFontScaling={false}
-                style={[styles.stickyStatusText, { color: colors.primary }]}
+                style={[styles.stickyStatusText, { color: colors.secondary }]}
               >
                 {status?.detailedState || "Scheduled"}
               </Text>
@@ -1555,7 +1555,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               {
                 backgroundColor:
                   activeTab === tab.key
-                    ? colors.primary
+                    ? colors.secondary
                     : theme.surfaceSecondary,
               },
               tab.key !== "plays" && { borderRightColor: theme.border },
@@ -1828,7 +1828,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               <>
                 <Text
                   allowFontScaling={false}
-                  style={[styles.gameStatus, { color: colors.primary }]}
+                  style={[styles.gameStatus, { color: colors.secondary }]}
                 >
                   Final
                 </Text>
@@ -1853,7 +1853,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               <>
                 <Text
                   allowFontScaling={false}
-                  style={[styles.gameStatus, { color: colors.primary }]}
+                  style={[styles.gameStatus, { color: colors.secondary }]}
                 >
                   {formatInning(
                     linescore?.currentInning,
@@ -1874,7 +1874,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               <>
                 <Text
                   allowFontScaling={false}
-                  style={[styles.gameStatus, { color: colors.primary }]}
+                  style={[styles.gameStatus, { color: colors.secondary }]}
                 >
                   {status?.detailedState || "Scheduled"}
                 </Text>
@@ -5465,7 +5465,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
       {/* Floating Chat Button */}
       <TouchableOpacity
-        style={[styles.floatingChatButton, { backgroundColor: colors.primary }]}
+        style={[styles.floatingChatButton, { backgroundColor: colors.secondary }]}
         onPress={() => setChatModalVisible(true)}
         activeOpacity={0.8}
       >
@@ -5722,7 +5722,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                         {
                           backgroundColor:
                             currentStreamType === streamKey
-                              ? colors.primary
+                              ? colors.secondary
                               : theme.surfaceSecondary,
                         },
                         { borderColor: theme.border },

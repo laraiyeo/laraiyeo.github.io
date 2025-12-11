@@ -120,7 +120,7 @@ const MessageInput = ({ onSendMessage, disabled = false }) => {
           style={[
             styles.typeButton,
             {
-              backgroundColor: colors.primary,
+              backgroundColor: colors.secondary,
             },
           ]}
           onPress={handleTypeButtonPress}
@@ -230,7 +230,7 @@ const MessageInput = ({ onSendMessage, disabled = false }) => {
                         !sending &&
                         !disabled &&
                         !cooldownActive
-                          ? colors.primary
+                          ? colors.secondary
                           : theme.border,
                     },
                   ]}

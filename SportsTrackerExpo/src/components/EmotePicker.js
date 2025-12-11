@@ -106,7 +106,7 @@ const EmotePicker = ({ visible, onClose, onEmoteSelect }) => {
         styles.categoryButton,
         {
           backgroundColor:
-            selectedCategory === category.key ? colors.primary : theme.surface,
+            selectedCategory === category.key ? colors.secondary : theme.surface,
           borderColor: theme.border,
         },
       ]}

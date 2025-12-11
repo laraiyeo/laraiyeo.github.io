@@ -1350,7 +1350,7 @@ const CS2TournamentScreen = ({ navigation, route }) => {
 
     try {
       setStatsLoading(true);
-      const url = `https://corsproxy.io/?url=https://api.bo3.gg/api/v1/players/stats_list?min_games_count=0&page[offset]=0&page[limit]=50&sort=-avg_player_rating&filter[tournament_id][eq]=${tournamentId}`;
+      const url = `https://api.bo3.gg/api/v1/players/stats_list?min_games_count=0&page[offset]=0&page[limit]=50&sort=-avg_player_rating&filter[tournament_id][eq]=${tournamentId}`;
 
       console.log("Fetching player stats from:", url);
 

@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Image, StyleSheet, Dimensions, Animated } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Video } from 'expo-av';
-import { useTheme } from '../context/ThemeContext';
+import React, { useState, useEffect, useRef } from "react";
+import { View, Image, StyleSheet, Dimensions, Animated } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Video } from "expo-av";
+import { useTheme } from "../context/ThemeContext";
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 const SplashScreen = ({ onFinish }) => {
   const [isFinished, setIsFinished] = useState(false);
@@ -12,67 +12,75 @@ const SplashScreen = ({ onFinish }) => {
   const [showVideo, setShowVideo] = useState(true);
   const videoRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(0)).current; // for fade-in
-  
+
   // Get current theme
   const { currentColorPalette, isDarkMode } = useTheme();
 
   // Define splash assets based on theme
   const getSplashAssets = () => {
-    const colorTheme = currentColorPalette || 'blue';
-    const mode = isDarkMode ? 'dark' : 'light';
-    
+    const colorTheme = currentColorPalette || "blue";
+    const mode = isDarkMode ? "dark" : "light";
+
     // Asset structure: mode/color/files
     const assetSets = {
       // Dark mode assets
-      'dark/blue': {
-        image: require('../../assets/dark/blue/splash_image.png'),
-        video: require('../../assets/dark/blue/splash_video.mp4'),
+      "dark/blue": {
+        image: require("../../assets/dark/blue/splash_image.png"),
+        video: require("../../assets/dark/blue/splash_video.mp4"),
       },
-      'dark/red': {
-        image: require('../../assets/dark/red/splash_image.png'),
-        video: require('../../assets/dark/red/splash_video.mp4'),
+      "dark/red": {
+        image: require("../../assets/dark/red/splash_image.png"),
+        video: require("../../assets/dark/red/splash_video.mp4"),
       },
-      'dark/green': {
-        image: require('../../assets/dark/green/splash_image.png'),
-        video: require('../../assets/dark/green/splash_video.mp4'),
+      "dark/green": {
+        image: require("../../assets/dark/green/splash_image.png"),
+        video: require("../../assets/dark/green/splash_video.mp4"),
       },
-      'dark/purple': {
-        image: require('../../assets/dark/purple/splash_image.png'),
-        video: require('../../assets/dark/purple/splash_video.mp4'),
+      "dark/purple": {
+        image: require("../../assets/dark/purple/splash_image.png"),
+        video: require("../../assets/dark/purple/splash_video.mp4"),
       },
-      'dark/gold': {
-        image: require('../../assets/dark/gold/splash_image.png'),
-        video: require('../../assets/dark/gold/splash_video.mp4'),
+      "dark/custom": {
+        image: require("../../assets/dark/custom/splash_image.png"),
+        video: require("../../assets/dark/custom/splash_video.mp4"),
       },
-      
+      "dark/gold": {
+        image: require("../../assets/dark/gold/splash_image.png"),
+        video: require("../../assets/dark/gold/splash_video.mp4"),
+      },
+
       // Light mode assets
-      'light/blue': {
-        image: require('../../assets/light/blue/splash_image.png'),
-        video: require('../../assets/light/blue/splash_video.mp4'),
+      "light/blue": {
+        image: require("../../assets/light/blue/splash_image.png"),
+        video: require("../../assets/light/blue/splash_video.mp4"),
       },
-      'light/red': {
-        image: require('../../assets/light/red/splash_image.png'),
-        video: require('../../assets/light/red/splash_video.mp4'),
+      "light/red": {
+        image: require("../../assets/light/red/splash_image.png"),
+        video: require("../../assets/light/red/splash_video.mp4"),
       },
-      'light/green': {
-        image: require('../../assets/light/green/splash_image.png'),
-        video: require('../../assets/light/green/splash_video.mp4'),
+      "light/green": {
+        image: require("../../assets/light/green/splash_image.png"),
+        video: require("../../assets/light/green/splash_video.mp4"),
       },
-      'light/purple': {
-        image: require('../../assets/light/purple/splash_image.png'),
-        video: require('../../assets/light/purple/splash_video.mp4'),
+      "light/purple": {
+        image: require("../../assets/light/purple/splash_image.png"),
+        video: require("../../assets/light/purple/splash_video.mp4"),
       },
-      'light/gold': {
-        image: require('../../assets/light/gold/splash_image.png'),
-        video: require('../../assets/light/gold/splash_video.mp4'),
+      "light/custom": {
+        image: require("../../assets/light/custom/splash_image.png"),
+        video: require("../../assets/light/custom/splash_video.mp4"),
+      },
+      "light/gold": {
+        image: require("../../assets/light/gold/splash_image.png"),
+        video: require("../../assets/light/gold/splash_video.mp4"),
       },
     };
-    
+
     // Build the asset key: mode/color
     const assetKey = `${mode}/${colorTheme}`;
 
     // Return specific theme assets, fallback to dark/red if not found
-    return assetSets[assetKey] || assetSets['dark/red'];
+    return assetSets[assetKey] || assetSets["dark/red"];
   };
 
   const splashAssets = getSplashAssets();
@@ -80,7 +88,8 @@ const SplashScreen = ({ onFinish }) => {
   const aspectRatio = 9 / 16;
   const videoWidth = screenWidth;
   const videoHeight = screenWidth / aspectRatio;
-  const finalWidth = videoHeight > screenHeight ? screenHeight * aspectRatio : videoWidth;
+  const finalWidth =
+    videoHeight > screenHeight ? screenHeight * aspectRatio : videoWidth;
   const finalHeight = videoHeight > screenHeight ? screenHeight : videoHeight;
 
   const handleVideoLoad = async () => {
@@ -97,7 +106,7 @@ const SplashScreen = ({ onFinish }) => {
     try {
       await videoRef.current?.playAsync();
     } catch (error) {
-      console.log('Error playing video:', error);
+      console.log("Error playing video:", error);
       handleVideoEnd();
     }
   };
@@ -105,7 +114,7 @@ const SplashScreen = ({ onFinish }) => {
   const handleVideoEnd = () => {
     if (!isFinished) {
       setIsFinished(true);
-      
+
       // Add a small delay to prevent flash, then fade out smoothly
       Animated.timing(fadeAnim, {
         toValue: 0,
@@ -122,8 +131,8 @@ const SplashScreen = ({ onFinish }) => {
     // Load the user's preference for showing the splash video
     (async () => {
       try {
-        const stored = await AsyncStorage.getItem('@showSplashVideo');
-        if (stored === 'false') {
+        const stored = await AsyncStorage.getItem("@showSplashVideo");
+        if (stored === "false") {
           setShowVideo(false);
           // If user disabled video, finish splash shortly so app can continue
           setTimeout(() => {
@@ -134,13 +143,18 @@ const SplashScreen = ({ onFinish }) => {
           }, 350);
         }
       } catch (error) {
-        console.error('Error reading splash preference:', error);
+        console.error("Error reading splash preference:", error);
       }
     })();
   }, []);
 
   return (
-    <View style={[styles.container, { backgroundColor: isDarkMode ? '#000000' : '#ffffff' }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: isDarkMode ? "#000000" : "#ffffff" },
+      ]}
+    >
       {/* Static splash image stays visible underneath (only when video disabled) */}
       {!showVideo && (
         <Image
@@ -157,13 +171,13 @@ const SplashScreen = ({ onFinish }) => {
             opacity: fadeAnim,
             width: finalWidth,
             height: finalHeight,
-            position: 'absolute',
+            position: "absolute",
           }}
         >
           <Video
             ref={videoRef}
             source={splashAssets.video}
-            style={{ width: '100%', height: '100%' }}
+            style={{ width: "100%", height: "100%" }}
             resizeMode="contain"
             shouldPlay={false} // we'll call playAsync() manually
             isLooping={false}
@@ -173,7 +187,7 @@ const SplashScreen = ({ onFinish }) => {
               if (status.didJustFinish) handleVideoEnd();
             }}
             onError={(error) => {
-              console.log('Video error:', error);
+              console.log("Video error:", error);
               handleVideoEnd();
             }}
           />
@@ -186,11 +200,11 @@ const SplashScreen = ({ onFinish }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   media: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
 });
 

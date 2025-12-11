@@ -16,7 +16,6 @@ import { NBAService } from "../../services/NBAService";
 import { useTheme } from "../../context/ThemeContext";
 import { useFavorites } from "../../context/FavoritesContext";
 import { LiveViewerBadge } from "../../components/ViewerCounter";
-import LiveTrackerService from "../../services/liveTrackerService";
 
 const TeamLogo = React.memo(
   ({ logoUri, size = 32, style, iconStyle, opacity = 1 }) => {
@@ -501,7 +500,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
 
   const getStatusColor = (item) => {
     if (item.isCompleted) return theme.success;
-    if (isLiveGame(item)) return colors.primary;
+    if (isLiveGame(item)) return colors.accent;
     return theme.textSecondary;
   };
 
@@ -543,37 +542,14 @@ const NBAScoreboardScreen = ({ navigation }) => {
     return getGameTimeText(item);
   };
 
-  const handleGamePress = async (item) => {
+  const handleGamePress = (item) => {
     if (item.type === "no-games" || item.type === "header") return;
-    // Attempt to pre-resolve a liveTracker id using the basketball diary
-    const diaryUrl = LiveTrackerService.buildDiaryUrl("basketball");
-    let matchedId = null;
-    try {
-      // Initialize diary for basketball (relative path) so the service can search
-      await LiveTrackerService.initDiary(diaryUrl);
-      const homeName = item.homeTeam?.displayName || item.homeTeam?.name || "";
-      const awayName = item.awayTeam?.displayName || item.awayTeam?.name || "";
-      matchedId = LiveTrackerService.findMatchIdByTeams(
-        homeName,
-        awayName,
-        "basketball"
-      );
-    } catch (e) {
-      // ignore lookup errors
-      matchedId = null;
-    }
-
     navigation.navigate("GameDetails", {
       gameId: item.id,
       sport: "nba",
       homeTeam: item.homeTeam,
       awayTeam: item.awayTeam,
-      liveTrackerMatchId: matchedId || null,
-      liveTrackerDiaryUrl: diaryUrl,
-      liveTrackerFormulaO: 56,
     });
-
-    console.log({ matchedId });
   };
 
   const handleTeamPress = (team) => {
@@ -633,7 +609,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
             styles.filterButton,
             {
               backgroundColor:
-                selectedDateFilter === filter ? colors.primary : "transparent",
+                selectedDateFilter === filter ? colors.secondary : "transparent",
             },
           ]}
           onPress={() => setSelectedDateFilter(filter)}
@@ -735,7 +711,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
             </Text>
             {isLive && (
               <View
-                style={[styles.liveDot, { backgroundColor: colors.primary }]}
+                style={[styles.liveDot, { backgroundColor: colors.accent }]}
               />
             )}
           </View>

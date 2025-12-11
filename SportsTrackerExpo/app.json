@@ -2,12 +2,12 @@
   "expo": {
     "name": "SportsHeart",
     "slug": "sportsheart",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
-    "runtimeVersion": "1.1.0",
+    "runtimeVersion": "1.2.0",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.sportsheart.app",
-      "buildNumber": "6",
+      "buildNumber": "7",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
@@ -30,7 +30,7 @@
         "backgroundColor": "#000000"
       },
       "package": "com.sportsheart.app",
-      "versionCode": 12,
+      "versionCode": 13,
       "edgeToEdgeEnabled": true,
       "googleServicesFile": "./google-services.json",
       "permissions": ["INTERNET", "VIBRATE"],
@@ -73,6 +73,11 @@
             "prerendered": true,
             "platforms": ["ios", "android"]
           },
+          "dark_custom": {
+            "image": "./assets/dark/custom.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
           "light_blue": {
             "image": "./assets/light/blue.png",
             "prerendered": true,
@@ -95,6 +100,11 @@
           },
           "light_gold": {
             "image": "./assets/light/gold.png",
+            "prerendered": true,
+            "platforms": ["ios", "android"]
+          },
+          "light_custom": {
+            "image": "./assets/light/custom.png",
             "prerendered": true,
             "platforms": ["ios", "android"]
           }

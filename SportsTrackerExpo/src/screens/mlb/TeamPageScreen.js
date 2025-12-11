@@ -920,7 +920,7 @@ const TeamPageScreen = ({ route, navigation }) => {
         >
         {/* Game Description Banner - Full width at top */}
         {currentGame.description && (
-          <View style={[styles.gameDescriptionBanner, { backgroundColor: colors.primary }]}>
+          <View style={[styles.gameDescriptionBanner, { backgroundColor: colors.secondary }]}>
             <Text allowFontScaling={false} style={styles.gameDescriptionText}>{currentGame.description}</Text>
           </View>
         )}
@@ -950,7 +950,7 @@ const TeamPageScreen = ({ route, navigation }) => {
             </View>
             
             <View style={styles.gameInfo}>
-              <Text allowFontScaling={false} style={[styles.gameStatus, { color: colors.primary }]}>{getGameStatus()}</Text>
+              <Text allowFontScaling={false} style={[styles.gameStatus, { color: colors.accent }]}>{getGameStatus()}</Text>
               <Text allowFontScaling={false} style={[styles.gameTime, { color: theme.textSecondary }]}>{formatGameTime(gameDate)}</Text>
               <Text allowFontScaling={false} style={[styles.versus, { color: theme.textSecondary }]}>vs</Text>
             </View>
@@ -1061,7 +1061,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       >
         {/* Game Description Banner - Full width at top */}
         {game.description && (
-          <View style={[styles.gameDescriptionBanner, { backgroundColor: colors.primary }]}>
+          <View style={[styles.gameDescriptionBanner, { backgroundColor: colors.secondary }]}>
             <Text allowFontScaling={false} style={styles.gameDescriptionText}>{game.description}</Text>
           </View>
         )}
@@ -1092,7 +1092,7 @@ const TeamPageScreen = ({ route, navigation }) => {
           </View>
           
           <View style={styles.gameInfo}>
-            <Text allowFontScaling={false} style={[styles.gameStatus, { color: colors.primary }]}>{getGameStatus()}</Text>
+            <Text allowFontScaling={false} style={[styles.gameStatus, { color: colors.accent }]}>{getGameStatus()}</Text>
             <Text allowFontScaling={false} style={[styles.gameTime, { color: theme.textSecondary }]}>{getGameTime()}</Text>
             <Text allowFontScaling={false} style={[styles.versus, { color: theme.textSecondary }]}>vs</Text>
           </View>

@@ -15,7 +15,6 @@ import { NFLService } from "../services/NFLService";
 import { WNBAService } from "../services/WNBAService";
 import { NHLService } from "../services/NHLService";
 import { MLBService } from "../services/MLBService";
-import { LiveViewerBadge } from "../components/ViewerCounter";
 import { Ionicons } from "@expo/vector-icons";
 
 const MIN_DATE = new Date(2004, 0, 11); // 2004-01-11
@@ -573,9 +572,6 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
               </Text>
             )}
           </View>
-          <View style={styles.gameFooterRight}>
-            <LiveViewerBadge gameId={item.id} style={styles.viewerBadge} />
-          </View>
         </View>
       </TouchableOpacity>
     );
@@ -594,7 +590,7 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
       <View style={styles.calendarWrap}>
         {!calendarOpen ? (
           <TouchableOpacity
-            style={[styles.openCalendarBtn, { borderColor: colors.primary }]}
+            style={[styles.openCalendarBtn, { borderColor: colors.accent }]}
             onPress={() => setCalendarOpen(true)}
           >
             <Text allowFontScaling={false} style={{ color: theme.text }}>
@@ -942,7 +938,6 @@ const styles = StyleSheet.create({
   },
   gameFooterLeft: { flex: 1 },
   gameFooterRight: { alignItems: "flex-end" },
-  viewerBadge: { marginTop: 2 },
   venueText: { fontSize: 12 },
   broadcastText: { fontSize: 12 },
 });

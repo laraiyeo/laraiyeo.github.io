@@ -3786,7 +3786,7 @@ const NBAGameDetailsScreen = ({ route }) => {
 
         {/* Status and Time */}
         <View style={styles.stickyStatus}>
-          <Text style={[styles.stickyStatusText, { color: colors.primary }]}>
+          <Text style={[styles.stickyStatusText, { color: colors.secondary }]}>
             {getGameStatus().text}
           </Text>
           <Text style={[styles.stickyClock, { color: theme.textSecondary }]}>
@@ -4360,7 +4360,10 @@ const NBAGameDetailsScreen = ({ route }) => {
 
           return isLive && isStreamingUnlocked ? (
             <TouchableOpacity
-              style={[styles.streamButton, { backgroundColor: colors.primary }]}
+              style={[
+                styles.streamButton,
+                { backgroundColor: colors.secondary },
+              ]}
               onPress={openStreamModal}
             >
               <FontAwesome6
@@ -4377,7 +4380,7 @@ const NBAGameDetailsScreen = ({ route }) => {
         {/* Tracker Button - show if we resolved a liveTracker UUID */}
         {liveTrackerUuid && !liveTrackerVisible && (
           <TouchableOpacity
-            style={[styles.streamButton, { backgroundColor: colors.primary }]}
+            style={[styles.streamButton, { backgroundColor: colors.secondary }]}
             onPress={() => {
               setLiveTrackerVisible(true);
             }}
@@ -4396,7 +4399,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                 styles.tab,
                 {
                   backgroundColor:
-                    activeTab === "stats" ? colors.primary : "transparent",
+                    activeTab === "stats" ? colors.secondary : "transparent",
                 },
               ]}
               onPress={() => setActiveTab("stats")}
@@ -4415,7 +4418,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                 styles.tab,
                 {
                   backgroundColor:
-                    activeTab === "away" ? colors.primary : "transparent",
+                    activeTab === "away" ? colors.secondary : "transparent",
                 },
               ]}
               onPress={() => setActiveTab("away")}
@@ -4434,7 +4437,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                 styles.tab,
                 {
                   backgroundColor:
-                    activeTab === "home" ? colors.primary : "transparent",
+                    activeTab === "home" ? colors.secondary : "transparent",
                 },
               ]}
               onPress={() => setActiveTab("home")}
@@ -4453,7 +4456,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                 styles.tab,
                 {
                   backgroundColor:
-                    activeTab === "plays" ? colors.primary : "transparent",
+                    activeTab === "plays" ? colors.secondary : "transparent",
                 },
               ]}
               onPress={() => {
@@ -5788,11 +5791,11 @@ const NBAGameDetailsScreen = ({ route }) => {
                           {
                             backgroundColor:
                               currentStreamType === streamType
-                                ? colors.primary
+                                ? colors.secondary
                                 : theme.surface,
                             borderColor:
                               currentStreamType === streamType
-                                ? colors.primary
+                                ? colors.secondary
                                 : theme.border,
                           },
                         ]}
@@ -6018,7 +6021,10 @@ const NBAGameDetailsScreen = ({ route }) => {
 
       {/* Floating Chat Button */}
       <TouchableOpacity
-        style={[styles.floatingChatButton, { backgroundColor: colors.primary }]}
+        style={[
+          styles.floatingChatButton,
+          { backgroundColor: colors.secondary },
+        ]}
         onPress={() => setChatModalVisible(true)}
         activeOpacity={0.8}
       >

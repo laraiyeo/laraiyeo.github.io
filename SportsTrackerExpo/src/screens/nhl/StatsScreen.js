@@ -425,8 +425,8 @@ const StatsScreen = ({ route }) => {
             style={[
               styles.leagueButton,
               { 
-                backgroundColor: selectedType === type.key ? colors.primary : 'transparent',
-                borderColor: colors.primary
+                backgroundColor: selectedType === type.key ? colors.secondary : 'transparent',
+                borderColor: selectedType === type.key ? colors.secondary : colors.primary
               }
             ]}
             onPress={() => setSelectedType(type.key)}

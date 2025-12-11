@@ -1341,7 +1341,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   {
                     backgroundColor:
                       selectedMonth === ""
-                        ? colors.primary
+                        ? colors.secondary
                         : theme.surfaceSecondary,
                     borderColor: theme.border,
                   },
@@ -3887,7 +3887,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
               onPress={() => setSelectedTeam(null)}
               style={[
                 styles.changeTeamButton,
-                { backgroundColor: colors.primary },
+                { backgroundColor: colors.secondary },
               ]}
             >
               <Text
@@ -3994,7 +3994,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
               onPress={() => setSelectedTeam(null)}
               style={[
                 styles.changeTeamButton,
-                { backgroundColor: colors.primary },
+                { backgroundColor: colors.secondary },
               ]}
             >
               <Text

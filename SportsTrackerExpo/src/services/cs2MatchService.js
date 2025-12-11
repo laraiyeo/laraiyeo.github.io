@@ -1,7 +1,7 @@
 // CS2 Match Service - handles individual match/series data
 import { BaseCacheService } from "./BaseCacheService";
 
-const CS2_API_BASE = "https://corsproxy.io/?url=https://api.bo3.gg";
+const CS2_API_BASE = "https://api.bo3.gg";
 
 // Track ongoing API calls to prevent duplicates
 const ongoingCalls = new Map();
@@ -101,7 +101,7 @@ export const getLiveMatchData = async (matchId, basicMatchData) => {
         `live_snapshot_${matchId}`,
         () =>
           fetch(
-            `https://corsproxy.io/?url=https://api.bo3.gg/api/v1/live/matches/${matchId}/last_snapshot`
+            `https://api.bo3.gg/api/v1/live/matches/${matchId}/last_snapshot`
           ),
         true,
         "live"
@@ -111,7 +111,7 @@ export const getLiveMatchData = async (matchId, basicMatchData) => {
         `game_state_${matchId}_${currentGameNumber}`,
         () =>
           fetch(
-            `https://corsproxy.io/?url=https://api.bo3.gg/api/v1/live/matches/${matchId}/game_state?game_number=${currentGameNumber}`
+            `https://api.bo3.gg/api/v1/live/matches/${matchId}/game_state?game_number=${currentGameNumber}`
           ),
         true,
         "live"

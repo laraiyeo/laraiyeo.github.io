@@ -119,7 +119,7 @@ const MoreScreen = ({ navigation, route }) => {
   );
 
   const renderStats = () => (
-    <View style={{ flex: 1, marginTop: -20 }}>
+    <View style={{ flex: 1, marginTop: 0 }}>
       <WNBAStatsScreen
         navigation={navigation}
         route={{ params: { sport } }}

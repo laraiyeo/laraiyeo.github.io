@@ -342,7 +342,7 @@ const CS2ResultsScreen = ({ navigation, route }) => {
       const slug =
         series?.matchDetails?.slug || matchData?.slug || series?.matchSlug;
       if (!slug) return null;
-      const url = `https://corsproxy.io/?url=https://api.bo3.gg/api/v1/matches/${slug}/short_players_stats`;
+      const url = `https://api.bo3.gg/api/v1/matches/${slug}/short_players_stats`;
       console.log("Fetching CS2 short_players_stats for copy modal:", url);
       const resp = await fetch(url);
       if (!resp.ok) {

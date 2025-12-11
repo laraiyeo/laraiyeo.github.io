@@ -300,7 +300,7 @@ const VALHomeScreen = ({ navigation, route }) => {
             {/* Event Header with Logo */}
             <TouchableOpacity 
               style={styles.eventHeaderContainer}
-              onPress={() => navigation.navigate('VALEvent', { eventId: event.parentEventId })}
+              onPress={() => navigation.navigate('VALEvent', { eventId: event.parentEventId || event.eventId })}
             >
               <View style={styles.eventLogoContainer}>
                 {event.series[0]?.eventLogoUrl ? (

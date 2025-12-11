@@ -3,7 +3,7 @@
 
 import { BaseCacheService } from './BaseCacheService';
 
-const BASE_URL = 'https://corsproxy.io/?url=https://api.bo3.gg';
+const BASE_URL = 'https://api.bo3.gg';
 
 class CS2Service extends BaseCacheService {
   // Smart live match detection for CS2

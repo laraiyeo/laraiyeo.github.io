@@ -165,7 +165,7 @@ const NHLStandingsScreen = () => {
           <View style={styles.teamNameContainer}>
             <View style={styles.teamNameRow}>
               {team.seed && (
-                <Text allowFontScaling={false} style={[styles.teamSeed, { color: colors.primary }]}>({team.seed}) </Text>
+                <Text allowFontScaling={false} style={[styles.teamSeed, { color: colors.accent }]}>({team.seed}) </Text>
               )}
               {isTeamFavorite && (
                 <Ionicons 

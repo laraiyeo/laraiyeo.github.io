@@ -250,8 +250,8 @@ const CompareScreen = ({ route }) => {
           }]}
           onPress={() => openPlayerSearch(playerNumber)}
         >
-          <Text style={[styles.addPlayerIcon, { color: colors.primary }]}>+</Text>
-          <Text style={[styles.addPlayerText, { color: colors.primary }]}>
+          <Text style={[styles.addPlayerIcon, { color: colors.secondary }]}>+</Text>
+          <Text style={[styles.addPlayerText, { color: colors.secondary }]}>
             Add Player {playerNumber}
           </Text>
         </TouchableOpacity>
@@ -410,16 +410,16 @@ const CompareScreen = ({ route }) => {
                   style={[styles.statRow, { backgroundColor: theme.surface }]}
                 >
                   <View style={[styles.statBox, { 
-                    backgroundColor: isPlayer1Better ? colors.primary + '20' : 'transparent',
-                    borderColor: isPlayer1Better ? colors.primary : theme.border 
+                    backgroundColor: isPlayer1Better ? colors.secondary + '20' : 'transparent',
+                    borderColor: isPlayer1Better ? colors.secondary : theme.border 
                   }]}>
                     <Text style={[styles.statValue, { 
-                      color: isPlayer1Better ? colors.primary : theme.text 
+                      color: isPlayer1Better ? colors.secondary : theme.text 
                     }]}>
                       {display1}
                     </Text>
                     {isPlayer1Better && (
-                      <Text style={[styles.statRank, { color: colors.primary }]}>
+                      <Text style={[styles.statRank, { color: colors.secondary }]}>
                         BETTER
                       </Text>
                     )}
@@ -432,16 +432,16 @@ const CompareScreen = ({ route }) => {
                   </View>
                   
                   <View style={[styles.statBox, { 
-                    backgroundColor: isPlayer2Better ? colors.primary + '20' : 'transparent',
-                    borderColor: isPlayer2Better ? colors.primary : theme.border 
+                    backgroundColor: isPlayer2Better ? colors.secondary + '20' : 'transparent',
+                    borderColor: isPlayer2Better ? colors.secondary : theme.border 
                   }]}>
                     <Text style={[styles.statValue, { 
-                      color: isPlayer2Better ? colors.primary : theme.text 
+                      color: isPlayer2Better ? colors.secondary : theme.text 
                     }]}>
                       {display2}
                     </Text>
                     {isPlayer2Better && (
-                      <Text style={[styles.statRank, { color: colors.primary }]}>
+                      <Text style={[styles.statRank, { color: colors.secondary }]}>
                         BETTER
                       </Text>
                     )}

@@ -5585,6 +5585,10 @@ const UELGameDetailsScreen = ({ route, navigation }) => {
           <TouchableOpacity
             style={styles.playHeader}
             onPress={() => togglePlay(playKey)}
+            onLongPress={
+              isScoring ? () => handleGoalLongPress(play) : undefined
+            }
+            delayLongPress={isScoring ? 500 : undefined}
           >
             <View style={styles.playMainInfo}>
               <View style={styles.playTeamsScore}>

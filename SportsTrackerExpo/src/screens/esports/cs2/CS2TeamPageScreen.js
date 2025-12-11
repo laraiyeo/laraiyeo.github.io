@@ -172,7 +172,7 @@ const CS2TeamPageScreen = ({ route }) => {
   const fetchTeamData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`https://corsproxy.io/?url=https://api.bo3.gg/api/v1/teams/${teamSlug}?with=players`);
+      const response = await fetch(`https://api.bo3.gg/api/v1/teams/${teamSlug}?with=players`);
       const data = await response.json();
       setTeamData(data);
     } catch (error) {
@@ -187,7 +187,7 @@ const CS2TeamPageScreen = ({ route }) => {
     
     try {
       setLoadingTransactions(true);
-      const response = await fetch(`https://corsproxy.io/?url=https://api.bo3.gg/api/v1/player_transfers?join=teams_deep&page[offset]=0&page[limit]=25&sort=-action_date&filter[team_to.id,team_from.id][or]=${teamId},${teamId}&with=teams,player`);
+      const response = await fetch(`https://api.bo3.gg/api/v1/player_transfers?join=teams_deep&page[offset]=0&page[limit]=25&sort=-action_date&filter[team_to.id,team_from.id][or]=${teamId},${teamId}&with=teams,player`);
       const data = await response.json();
       setTransfersData(data?.results || []);
     } catch (error) {
@@ -204,7 +204,7 @@ const CS2TeamPageScreen = ({ route }) => {
     
     try {
       setLoadingStats(true);
-      const response = await fetch(`https://corsproxy.io/?url=https://api.bo3.gg/api/v1/teams/${teamSlug}/map_pool?filter[begin_at_from]=${currentYear}-01-01`);
+      const response = await fetch(`https://api.bo3.gg/api/v1/teams/${teamSlug}/map_pool?filter[begin_at_from]=${currentYear}-01-01`);
       const data = await response.json();
       // Only include maps with maps_count greater than 0
       const validMaps = data.filter(map => map.maps_count > 0);
@@ -903,7 +903,7 @@ const CS2TeamPageScreen = ({ route }) => {
       console.log('teamId:', teamId);
       console.log('currentYear:', currentYear);
       
-      const url = `https://corsproxy.io/?url=https://api.bo3.gg/api/v1/matches?scope=widget-matches&page[offset]=0&page[limit]=100&sort=-start_date&filter[matches.status][in]=finished,defwin,current,upcoming&filter[matches.start_date][lt]=${currentYear}-12-31&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.team_ids][overlap]=${teamId}&filter[matches.discipline_id][eq]=1&with=teams,tournament`;
+      const url = `https://api.bo3.gg/api/v1/matches?scope=widget-matches&page[offset]=0&page[limit]=100&sort=-start_date&filter[matches.status][in]=finished,defwin,current,upcoming&filter[matches.start_date][lt]=${currentYear}-12-31&filter[matches.start_date][gt]=${currentYear}-01-01&filter[matches.team_ids][overlap]=${teamId}&filter[matches.discipline_id][eq]=1&with=teams,tournament`;
       console.log('Fetch URL:', url);
       
       // Fetch matches data

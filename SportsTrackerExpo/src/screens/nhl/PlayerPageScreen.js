@@ -1683,7 +1683,7 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
                   onPress={() => setSelectedSplitCategory(null)}
                   style={[
                     styles.changeTeamButton,
-                    { backgroundColor: colors.primary },
+                    { backgroundColor: colors.secondary },
                   ]}
                 >
                   <Text
@@ -1810,7 +1810,7 @@ const NHLPlayerPageScreen = ({ route, navigation }) => {
                   onPress={() => setSelectedSplitDetail(null)}
                   style={[
                     styles.changeTeamButton,
-                    { backgroundColor: colors.primary },
+                    { backgroundColor: colors.secondary },
                   ]}
                 >
                   <Text

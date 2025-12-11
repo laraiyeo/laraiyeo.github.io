@@ -18,6 +18,60 @@ const diaryDataBySport = {
   basketball: null,
 };
 
+// Auto-refresh settings: fetch on app load and then every 30 minutes while app is running
+let autoRefreshIntervalId = null;
+const AUTO_REFRESH_MS = 30 * 60 * 1000; // 30 minutes
+
+// Internal: fetch the diary URL for a sport and update the in-memory cache
+async function updateDiaryForSport(sport = "football") {
+  try {
+    const url = buildDiaryUrl(sport);
+    const res = await fetch(url, { method: "GET" });
+    if (!res.ok) {
+      console.warn(
+        `liveTrackerService: updateDiaryForSport ${sport} fetch failed`,
+        res.status,
+        url
+      );
+      return null;
+    }
+    const json = await res.json();
+    diaryDataBySport[sport] = json;
+    return json;
+  } catch (err) {
+    console.warn("liveTrackerService: updateDiaryForSport error", err);
+    return null;
+  }
+}
+
+// Start periodic auto-refresh (idempotent)
+function startAutoRefresh() {
+  if (autoRefreshIntervalId) return;
+  // Immediately fetch both diaries and then schedule periodic refreshes
+  (async () => {
+    await Promise.all([
+      updateDiaryForSport("football"),
+      updateDiaryForSport("basketball"),
+    ]);
+  })();
+  autoRefreshIntervalId = setInterval(() => {
+    updateDiaryForSport("football");
+    updateDiaryForSport("basketball");
+  }, AUTO_REFRESH_MS);
+  console.log(
+    "liveTrackerService: started auto-refresh every",
+    AUTO_REFRESH_MS,
+    "ms"
+  );
+}
+
+function stopAutoRefresh() {
+  if (!autoRefreshIntervalId) return;
+  clearInterval(autoRefreshIntervalId);
+  autoRefreshIntervalId = null;
+  console.log("liveTrackerService: stopped auto-refresh");
+}
+
 function normalize(str) {
   if (!str) return "";
 
@@ -70,6 +124,7 @@ function normalize(str) {
     "rb salzburg": "red bull salzburg",
     "stade rennais": "stade rennais fc",
     "la clippers": "los angeles clippers",
+    "bayer leverkusen": "bayer 04 leverkusen",
   };
 
   // Normalize customMap keys using the same function
@@ -179,6 +234,9 @@ function findMatchIdByTeams(homeName, awayName, sport = "football") {
   return null;
 }
 
+// Auto-start refresh on module import so app load triggers initial fetches
+startAutoRefresh();
+
 export default {
   initDiary,
   getDiary,
@@ -186,4 +244,9 @@ export default {
   buildDiaryUrl,
   DEFAULT_DIARY_URL,
   prefetchDefaultDiaries,
+  // Controls for the auto-refresh from other modules if needed
+  startAutoRefresh,
+  stopAutoRefresh,
+  // Expose manual refresh for a specific sport
+  updateDiaryForSport,
 };

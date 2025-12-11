@@ -386,90 +386,75 @@ const RaceDetailsScreen = ({ route }) => {
 
   // Helper to extract live gap to leader from statistics
   const getLiveGapToLeader = (competitor) => {
-    // If a totalTime is already available (final or authoritative), prefer it
-    // so we don't show a gap-to-leader when a completed total time exists.
-    if (competitor && competitor.totalTime) {
-      return (
-        competitor.behindTime ||
-        (competitor.behindLaps != null
-          ? `+${competitor.behindLaps} Laps`
-          : competitor.totalTime)
-      );
-    }
+    // First priority: Check for live gapToLeader data
+    if (competitor.liveStats?.splits?.categories) {
+      const categories = competitor.liveStats.splits.categories;
 
-    if (
-      !competitor.liveStats ||
-      !competitor.liveStats.splits ||
-      !competitor.liveStats.splits.categories
-    ) {
-      return (
-        competitor.behindTime ||
-        (competitor.behindLaps != null
-          ? `+${competitor.behindLaps} Laps`
-          : competitor.totalTime)
+      // Find the gapToLeader category (search by name, don't assume index)
+      const gapToLeaderCategory = categories.find(
+        (cat) => cat.name === "gapToLeader"
       );
-    }
 
-    const categories = competitor.liveStats.splits.categories;
-
-    // Priority 1: categories[1].gapToLeader (if exists and valid)
-    if (categories[1] && categories[1].name === "gapToLeader") {
-      const gapStat = categories[1].stats?.find(
-        (stat) => stat.name === "gapToLeader"
-      );
-      if (gapStat) {
-        if (gapStat.value === 0) {
-          return "Leader";
-        }
-        return gapStat.displayValue || gapStat.value;
-      } else {
-        // gapToLeader category exists but no gapToLeader stat - check if this is position 1
-        const positionStat = categories[1].stats?.find(
+      if (gapToLeaderCategory?.stats) {
+        // Check position first to determine if this is the leader
+        const positionStat = gapToLeaderCategory.stats.find(
           (stat) => stat.name === "position"
         );
+
         if (positionStat && positionStat.value === 1) {
           return "Leader";
         }
+
+        // Get the gapToLeader value
+        const gapStat = gapToLeaderCategory.stats.find(
+          (stat) => stat.name === "gapToLeader"
+        );
+
+        if (gapStat) {
+          if (gapStat.value === 0) {
+            return "Leader";
+          }
+          return gapStat.displayValue || gapStat.value;
+        }
+      }
+
+      // If no gapToLeader category found, check general category for live data
+      const generalCategory = categories.find((cat) => cat.name === "general");
+
+      if (generalCategory?.stats) {
+        // Try behindTime from live stats
+        const behindTimeStat = generalCategory.stats.find(
+          (stat) => stat.name === "behindTime"
+        );
+        if (behindTimeStat && behindTimeStat.displayValue) {
+          return behindTimeStat.displayValue;
+        }
+
+        // Try behindLaps from live stats
+        const behindLapsStat = generalCategory.stats.find(
+          (stat) => stat.name === "behindLaps"
+        );
+        if (behindLapsStat && behindLapsStat.value != null) {
+          return `+${behindLapsStat.value} Laps`;
+        }
       }
     }
 
-    // Priority 2: categories[0].behindTime (if exists)
-    if (categories[0] && categories[0].stats) {
-      const behindTimeStat = categories[0].stats.find(
-        (stat) => stat.name === "behindTime"
-      );
-      if (behindTimeStat && behindTimeStat.displayValue) {
-        return behindTimeStat.displayValue;
-      }
+    // If no live stats available, fall back to completed race data
+    if (competitor.behindTime) {
+      return competitor.behindTime;
     }
 
-    // Priority 3: categories[0].behindLaps (if exists)
-    if (categories[0] && categories[0].stats) {
-      const behindLapsStat = categories[0].stats.find(
-        (stat) => stat.name === "behindLaps"
-      );
-      if (behindLapsStat && behindLapsStat.value != null) {
-        return `+${behindLapsStat.value} Laps`;
-      }
+    if (competitor.behindLaps != null) {
+      return `+${competitor.behindLaps} Laps`;
     }
 
-    // Priority 4: categories[0].totalTime (if exists)
-    if (categories[0] && categories[0].stats) {
-      const totalTimeStat = categories[0].stats.find(
-        (stat) => stat.name === "totalTime"
-      );
-      if (totalTimeStat && totalTimeStat.displayValue) {
-        return totalTimeStat.displayValue;
-      }
+    if (competitor.totalTime) {
+      return competitor.totalTime;
     }
 
-    // Fallback to original competitor data
-    return (
-      competitor.behindTime ||
-      (competitor.behindLaps != null
-        ? `+${competitor.behindLaps} Laps`
-        : competitor.totalTime)
-    );
+    // If we have no data at all
+    return "-";
   };
 
   // Memoized sorted competitors for Results tab
@@ -731,47 +716,30 @@ const RaceDetailsScreen = ({ route }) => {
       setCompetitionOrder(order);
 
       // pick default competition - prefer current (nextCompetitionLabel) or last completed competition
+      console.log("[Competition Selection] Starting competition selection, order:", order, "nextCompetitionLabel:", nextCompetitionLabel);
       if (order && order.length > 0) {
         let preferred = null;
-        if (nextCompetitionLabel) {
-          preferred = order.find((id) => {
-            const r = res[id];
-            const t = r?.type || {};
-            const label = (
-              t.abbreviation ||
-              t.displayName ||
-              t.text ||
-              r.name ||
-              ""
-            )
-              .toString()
-              .toLowerCase();
-            return (
-              label === ("" + nextCompetitionLabel).toString().toLowerCase()
-            );
-          });
-        }
+        
+        // Always run smart selection first to check for live competitions
+        // Smart competition selection: prioritize live > next upcoming > completed
+        let liveCompetition = null;
+        let nextUpcomingCompetition = null;
+        let nextUpcomingDate = null;
+        let lastCompletedCompetition = null;
 
-        if (!preferred) {
-          // Smart competition selection: prioritize live > next upcoming > completed
-          let liveCompetition = null;
-          let nextUpcomingCompetition = null;
-          let nextUpcomingDate = null;
-          let lastCompletedCompetition = null;
+        const now = new Date();
+        console.log(
+          "[Competition Selection] Current time:",
+          now.toISOString()
+        );
+        console.log(
+          "[Competition Selection] Raw raceData.competitions:",
+          raceData.competitions
+        );
 
-          const now = new Date();
-          console.log(
-            "[Competition Selection] Current time:",
-            now.toISOString()
-          );
-          console.log(
-            "[Competition Selection] Raw raceData.competitions:",
-            raceData.competitions
-          );
-
-          // Create array of competitions with their dates for better sorting
-          const competitionsWithDates = await Promise.all(
-            order.map(async (competitionId) => {
+        // Create array of competitions with their dates for better sorting
+        const competitionsWithDates = order
+            .map((competitionId) => {
               const r = res[competitionId];
               if (!r) return null;
 
@@ -795,32 +763,25 @@ const RaceDetailsScreen = ({ route }) => {
                 ? new Date(compDate.getTime() + 3 * 60 * 60 * 1000)
                 : null;
 
-              // Fetch status from $ref if available
-              let status = null;
-              const statusRef = originalComp?.status?.$ref || r.status?.$ref;
-              if (statusRef) {
-                try {
-                  const statusResponse = await fetch(convertToHttps(statusRef));
-                  if (statusResponse.ok) {
-                    const statusData = await statusResponse.json();
-                    status = statusData.type;
-                  } else {
-                    console.warn(
-                      `Failed to fetch status for ${competitionId}:`,
-                      statusResponse.status
-                    );
-                  }
-                } catch (error) {
-                  console.warn(
-                    `Error fetching status for ${competitionId}:`,
-                    error
-                  );
-                }
-              }
+              // Use the status fetched during fetchCompetitionResultsForEvent
+              const status = r.status?.type || originalComp?.status?.type;
 
-              // Fallback to direct status if no $ref or fetch failed
-              if (!status) {
-                status = originalComp?.status?.type || r.status?.type;
+              // Log the fetched status for debugging
+              if (r.status) {
+                console.log(
+                  `[Status Fetched] ${
+                    r.name || r.type?.displayName || competitionId
+                  }:`,
+                  {
+                    hasStatus: !!r.status,
+                    statusType: r.status.type,
+                    state: r.status.type?.state,
+                    completed: r.status.type?.completed,
+                    description: r.status.type?.description,
+                  }
+                );
+                console.log(`[Status Detail] Full r.status for ${r.name}:`, r.status);
+                console.log(`[Status Detail] status variable (r.status.type) for ${r.name}:`, status);
               }
 
               // ESPN status can be confusing - "End of Session" means completed even if completed: false
@@ -830,12 +791,9 @@ const RaceDetailsScreen = ({ route }) => {
                 status?.description === "End of Session" ||
                 status?.detail === "End of Session" ||
                 status?.name === "STATUS_SESSION_COMPLETE";
+              // Prioritize status state - if status says 'in', it's live
               const isLive =
                 !isCompleted &&
-                compDate &&
-                endDate &&
-                now >= compDate &&
-                now <= endDate &&
                 (status?.state === "in" || status?.state === "active");
               const isUpcoming = !isCompleted && compDate && now < compDate;
 
@@ -853,7 +811,7 @@ const RaceDetailsScreen = ({ route }) => {
                   endDate: endDate?.toISOString(),
                   originalCompDate: originalComp?.date,
                   originalCompStatus: originalComp?.status,
-                  processedStatus: r.status,
+                  fetchedStatus: r.status,
                   isCompleted,
                   isLive,
                   isUpcoming,
@@ -878,7 +836,7 @@ const RaceDetailsScreen = ({ route }) => {
                 hasResults,
               };
             })
-          ).then((results) => results.filter(Boolean));
+            .filter(Boolean);
 
           // Build a map of processed competition status for easy lookup elsewhere
           const statusMap = {};
@@ -903,6 +861,7 @@ const RaceDetailsScreen = ({ route }) => {
           });
 
           // Find live session first
+          console.log("[Competition Selection] Checking for live competitions:", competitionsWithDates.map(c => ({ name: c.competition.name, isLive: c.isLive, id: c.id })));
           for (const comp of competitionsWithDates) {
             if (comp.isLive) {
               liveCompetition = comp.id;
@@ -946,12 +905,36 @@ const RaceDetailsScreen = ({ route }) => {
             }
           }
 
-          // Select in priority order: live > next upcoming > last completed > last in order
+          // Select in priority order: live > next upcoming > last completed > nextCompetitionLabel > last in order
           preferred =
             liveCompetition ||
             nextUpcomingCompetition ||
-            lastCompletedCompetition ||
-            order[order.length - 1];
+            lastCompletedCompetition;
+          
+          // If no live/upcoming/completed found, fall back to nextCompetitionLabel if provided
+          if (!preferred && nextCompetitionLabel) {
+            preferred = order.find((id) => {
+              const r = res[id];
+              const t = r?.type || {};
+              const label = (
+                t.abbreviation ||
+                t.displayName ||
+                t.text ||
+                r.name ||
+                ""
+              )
+                .toString()
+                .toLowerCase();
+              return (
+                label === ("" + nextCompetitionLabel).toString().toLowerCase()
+              );
+            });
+          }
+          
+          // Final fallback to last in order
+          if (!preferred) {
+            preferred = order[order.length - 1];
+          }
 
           const selectedCompetitionName =
             res[preferred]?.name ||
@@ -990,10 +973,11 @@ const RaceDetailsScreen = ({ route }) => {
               ? "Next upcoming competition"
               : lastCompletedCompetition
               ? "Last completed competition with results"
+              : nextCompetitionLabel
+              ? `Fallback to nextCompetitionLabel: ${nextCompetitionLabel}`
               : "Fallback to last in order"
           );
           console.log("=====================================");
-        }
         setSelectedCompetitionId(preferred);
       }
     };
@@ -1143,7 +1127,7 @@ const RaceDetailsScreen = ({ route }) => {
 
   const buildESPNHeadshotUrl = (athleteId) => {
     if (!athleteId) return null;
-    return `https://a.espncdn.com/combiner/i?img=/i/headshots/rpm/players/full/${athleteId}.png`;
+    return `https://a.espncdn.com/combiner/i?img=/i/headshots/rpm/players/full/${athleteId}.png&w=200`;
   };
 
   // Predefined team color map (matches StandingsScreen constructorColors)
@@ -1739,9 +1723,14 @@ const RaceDetailsScreen = ({ route }) => {
       return { results: {}, order: [] };
 
     const results = {};
-    const order = [];
+    // Build order array first based on the original order in eventData
+    const order = eventData.competitions.map((comp) => 
+      comp.id || (comp.$ref && comp.$ref.split("/").pop())
+    );
 
-    // Process competitions in parallel but record order serially
+    console.log("[fetchCompetitionResultsForEvent] Processing competitions, order:", order);
+
+    // Process competitions in parallel
     await Promise.all(
       eventData.competitions.map(async (comp) => {
         try {
@@ -1754,7 +1743,44 @@ const RaceDetailsScreen = ({ route }) => {
             compType.name ||
             "Competition";
 
-          order.push(compId);
+          // Fetch status for this competition upfront
+          let statusData = null;
+          const statusRef = comp.status?.$ref;
+          console.log(`[fetchCompetitionResultsForEvent] Checking status for ${compName}:`, {
+            compId,
+            hasStatusRef: !!statusRef,
+            statusRef,
+            compStatus: comp.status
+          });
+          if (statusRef) {
+            try {
+              const statusResponse = await fetch(convertToHttps(statusRef));
+              if (statusResponse.ok) {
+                statusData = await statusResponse.json();
+                console.log(
+                  `[fetchCompetitionResultsForEvent] Fetched status for ${compName}:`,
+                  {
+                    compId,
+                    hasStatus: !!statusData,
+                    statusType: statusData?.type,
+                    state: statusData?.type?.state,
+                    completed: statusData?.type?.completed,
+                    description: statusData?.type?.description,
+                  }
+                );
+              } else {
+                console.warn(
+                  `[fetchCompetitionResultsForEvent] Failed to fetch status for ${compId}:`,
+                  statusResponse.status
+                );
+              }
+            } catch (error) {
+              console.warn(
+                `[fetchCompetitionResultsForEvent] Error fetching status for ${compId}:`,
+                error
+              );
+            }
+          }
 
           const competitors = Array.isArray(comp.competitors)
             ? comp.competitors
@@ -1828,6 +1854,7 @@ const RaceDetailsScreen = ({ route }) => {
               laps,
               statistics: c.statistics, // Preserve statistics array with $ref for live updates
               raw: c,
+              isEliminatedFromQual: false, // Will be set to true for bottom 5 in Q1/Q2
             };
           });
 
@@ -2065,18 +2092,96 @@ const RaceDetailsScreen = ({ route }) => {
             }
           }
 
+          // Check if this is a qualifying competition and mark eliminated drivers
+          const compTypeStr = (
+            (compType.abbreviation || "") +
+            " " +
+            (compType.text || "") +
+            " " +
+            (compType.displayName || "")
+          ).toLowerCase();
+          const isQualOrSS =
+            compTypeStr.includes("qual") || compTypeStr.includes("ss");
+
+          if (isQualOrSS && resolved.length > 0) {
+            // Sort by qualifying times to find bottom 5
+            const driversWithQ1 = resolved
+              .map((r, idx) => ({ ...r, originalIndex: idx }))
+              .filter((r) => r.qual1Ms && Number(r.qual1Ms) > 0);
+            
+            const driversWithQ2 = resolved
+              .map((r, idx) => ({ ...r, originalIndex: idx }))
+              .filter((r) => r.qual2Ms && Number(r.qual2Ms) > 0);
+
+            // If we have Q1 times, mark the slowest 5 as eliminated
+            if (driversWithQ1.length >= 5) {
+              const sortedByQ1 = [...driversWithQ1].sort(
+                (a, b) => Number(b.qual1Ms) - Number(a.qual1Ms)
+              );
+              const eliminatedInQ1 = sortedByQ1.slice(0, 5);
+              
+              eliminatedInQ1.forEach((driver) => {
+                resolved[driver.originalIndex].isEliminatedFromQual = true;
+              });
+              
+              console.log(
+                `[${compName}] Marked ${eliminatedInQ1.length} drivers as eliminated in Q1:`,
+                eliminatedInQ1.map((d) => d.name)
+              );
+            }
+
+            // If we have Q2 times, mark the slowest 5 (excluding Q1 eliminated) as eliminated
+            if (driversWithQ2.length >= 5) {
+              const sortedByQ2 = [...driversWithQ2].sort(
+                (a, b) => Number(b.qual2Ms) - Number(a.qual2Ms)
+              );
+              const eliminatedInQ2 = sortedByQ2.slice(0, 5);
+              
+              eliminatedInQ2.forEach((driver) => {
+                resolved[driver.originalIndex].isEliminatedFromQual = true;
+              });
+              
+              console.log(
+                `[${compName}] Marked ${eliminatedInQ2.length} drivers as eliminated in Q2:`,
+                eliminatedInQ2.map((d) => d.name)
+              );
+            }
+          }
+
           results[compId] = {
             id: compId,
             name: compName,
             type: compType,
             competitors: resolved,
+            status: statusData, // Include fetched status
+            date: comp.date,
+            endDate: comp.endDate,
             raw: comp,
           };
+          
+          console.log(`[fetchCompetitionResultsForEvent] Built result for ${compName}:`, {
+            compId,
+            hasStatus: !!statusData,
+            statusState: statusData?.type?.state,
+            competitorCount: resolved.length
+          });
         } catch (e) {
           // ignore per-competition errors
+          console.warn(`[fetchCompetitionResultsForEvent] Error processing competition:`, e);
         }
       })
     );
+
+    console.log("[fetchCompetitionResultsForEvent] Final results:", {
+      resultKeys: Object.keys(results),
+      order,
+      resultsWithStatus: Object.entries(results).map(([id, r]) => ({
+        id,
+        name: r.name,
+        hasStatus: !!r.status,
+        statusState: r.status?.type?.state
+      }))
+    });
 
     return { results, order };
   };
@@ -3089,7 +3194,55 @@ const RaceDetailsScreen = ({ route }) => {
       if (s.isCompleted || s.isUpcoming) return false;
       // otherwise fall through to further checks
     }
-    // Primary check: if we have race status, use it as the authoritative source
+
+    // Primary check: Use status from competitionResults (fetched during initial load)
+    if (selectedCompetitionId && competitionResults[selectedCompetitionId]) {
+      const competition = competitionResults[selectedCompetitionId];
+
+      // Use the status fetched in fetchCompetitionResultsForEvent
+      if (competition.status?.type) {
+        const statusState = competition.status.type.state;
+        const completed = competition.status.type.completed;
+        const statusDescription = competition.status.type.description;
+
+        // If explicitly completed, not live
+        if (
+          completed === true ||
+          statusState === "post" ||
+          statusState === "final" ||
+          statusDescription === "End of Session"
+        ) {
+          console.log(
+            "[checkIfRaceIsLive] Not live - selected competition completed:",
+            { statusState, completed, statusDescription }
+          );
+          return false;
+        }
+
+        // If status state indicates active/in-progress, it's live
+        if (statusState === "in" || statusState === "active") {
+          console.log(
+            "[checkIfRaceIsLive] Live by status - state:",
+            statusState,
+            "completed:",
+            completed
+          );
+          setCurrentLiveSession(competition);
+          return true;
+        }
+
+        // If status is "pre" or scheduled, not live yet
+        if (statusState === "pre" || statusState === "scheduled") {
+          console.log(
+            "[checkIfRaceIsLive] Not live - competition is scheduled:",
+            statusState
+          );
+          return false;
+        }
+      }
+    }
+
+    // Secondary check: if we have race status (from separate fetch), use it as fallback
     const effectiveRaceStatus = lastFetchedRaceStatusRef.current || raceStatus;
     if (effectiveRaceStatus && effectiveRaceStatus.type) {
       const statusState = effectiveRaceStatus.type.state;
@@ -3121,58 +3274,6 @@ const RaceDetailsScreen = ({ route }) => {
           completed
         );
         return true;
-      }
-    }
-
-    // Secondary check: if we have a selected competition, check its specific status
-    if (selectedCompetitionId && competitionResults[selectedCompetitionId]) {
-      const competition = competitionResults[selectedCompetitionId];
-
-      // If the competition exposes a status link, prefer the fetched status as authoritative.
-      // Do NOT treat local competitionResults 'has results' as definitive when a status.$ref exists.
-      const statusRef =
-        competition.status?.$ref || competition.raw?.status?.$ref || null;
-
-      if (statusRef) {
-        // If we already have a fetched raceStatus, use it (the primary check above).
-        // If raceStatus is not yet available, assume live until the status link is fetched
-        // to avoid flipping based on cached/partial competitionResults.
-        if (!raceStatus) {
-          console.log(
-            "[checkIfRaceIsLive] Status link present but raceStatus not yet fetched - assuming live until fetched"
-          );
-          setCurrentLiveSession(competition);
-          return true;
-        }
-
-        // If raceStatus exists, we've already handled it in the primary check above.
-        // Fall through to allow time-based checks if needed.
-      }
-
-      // If no status link, fall back to any status object embedded in competitionResults.
-      if (competition.status?.type) {
-        const statusState = competition.status.type.state;
-        const completed = competition.status.type.completed;
-
-        if (
-          completed === true ||
-          statusState === "post" ||
-          statusState === "final"
-        ) {
-          console.log(
-            "[checkIfRaceIsLive] Not live - selected competition completed:",
-            statusState
-          );
-          return false;
-        }
-
-        if (statusState === "in" || statusState === "active") {
-          console.log(
-            "[checkIfRaceIsLive] Live - selected competition active:",
-            statusState
-          );
-          return true;
-        }
       }
     }
 
@@ -3388,6 +3489,14 @@ const RaceDetailsScreen = ({ route }) => {
           const updatedCompetitors = await Promise.all(
             selectedComp.competitors.map(async (competitor, index) => {
               try {
+                // Skip fetching stats for drivers eliminated from qualifying
+                if (competitor.isEliminatedFromQual) {
+                  console.log(
+                    `[updateLiveRaceStatus] Skipping ${competitor.name} - eliminated from qualifying`
+                  );
+                  return competitor;
+                }
+
                 if (competitor.statistics && competitor.statistics.$ref) {
                   // Append /0 to get the detailed split statistics
                   // Use minimal cache-busting to avoid CORS preflight issues
@@ -3400,36 +3509,44 @@ const RaceDetailsScreen = ({ route }) => {
                   });
                   const statsData = await response.json();
 
-                  // Extract laps and other data from live stats
+                  // Extract laps, position and other data from live stats
                   let liveUpdatedLaps = competitor.laps;
                   let liveUpdatedTotalTime = competitor.totalTime;
+                  let liveUpdatedPosition = null;
 
                   if (statsData?.splits?.categories) {
                     const categories = statsData.splits.categories;
 
-                    // Extract laps from various possible locations in the stats
+                    // Extract values from available stats — prefer live stat values
                     for (const category of categories) {
                       if (category.stats) {
                         for (const stat of category.stats) {
                           const statName = (stat.name || "").toLowerCase();
-                          const statValue = stat.displayValue || stat.value;
+                          const statValue = stat.displayValue ?? stat.value;
 
-                          // Update laps if found
+                          // Prefer stat-provided laps when present
                           if (
-                            !liveUpdatedLaps &&
-                            (statName.includes("lapscompleted") ||
-                              statName.includes("laps"))
+                            statName.includes("lapscompleted") ||
+                            statName.includes("laps")
                           ) {
                             liveUpdatedLaps = statValue;
                           }
 
-                          // Update total time if found
+                          // Prefer stat-provided totalTime when present
                           if (
-                            !liveUpdatedTotalTime &&
-                            (statName.includes("totaltime") ||
-                              statName.includes("total"))
+                            statName.includes("totaltime") ||
+                            statName.includes("total")
                           ) {
                             liveUpdatedTotalTime = statValue;
+                          }
+
+                          // Position (used for ordering/delta) — capture numeric position if present
+                          if (
+                            statName === "position" ||
+                            statName.includes("position")
+                          ) {
+                            const n = Number(statValue);
+                            if (!Number.isNaN(n)) liveUpdatedPosition = n;
                           }
                         }
                       }
@@ -3439,8 +3556,20 @@ const RaceDetailsScreen = ({ route }) => {
                   const updatedCompetitor = {
                     ...competitor,
                     liveStats: statsData,
-                    laps: liveUpdatedLaps || competitor.laps,
-                    totalTime: liveUpdatedTotalTime || competitor.totalTime,
+                    // Use live-updated values when available (fall back to previous values)
+                    laps:
+                      liveUpdatedLaps != null
+                        ? liveUpdatedLaps
+                        : competitor.laps,
+                    totalTime:
+                      liveUpdatedTotalTime != null
+                        ? liveUpdatedTotalTime
+                        : competitor.totalTime,
+                    // Update order if the live feed provides a position value
+                    order:
+                      liveUpdatedPosition != null
+                        ? liveUpdatedPosition
+                        : competitor.order,
                   };
 
                   // Successfully updated with live stats
@@ -4622,110 +4751,141 @@ const RaceDetailsScreen = ({ route }) => {
                         ) : null}
                         {isQual ? (
                           <View style={{ alignItems: "flex-end" }}>
-                            {hasAnyQual2Ms &&
-                            (!r.qual2Ms || Number(r.qual2Ms) === 0) ? (
+                            {isLiveRace && !r.isEliminatedFromQual ? (
                               <>
+                                {/* Live qualifying: show position and live gap for non-eliminated drivers */}
                                 <Text
                                   allowFontScaling={false}
                                   style={[
                                     styles.totalTime,
-                                    {
-                                      color: theme.error,
-                                      fontWeight: "700",
-                                      fontSize: 12,
-                                      fontStyle: "italic",
-                                    },
+                                    { color: theme.text },
                                   ]}
+                                  numberOfLines={1}
                                 >
-                                  OUT - Q1
+                                  {getLiveGapToLeader(r)}
                                 </Text>
-                                {r.qual1 ? (
+                                {r.laps ? (
                                   <Text
                                     allowFontScaling={false}
                                     style={[
                                       styles.lapsText,
-                                      { color: theme.text, fontSize: 14 },
+                                      { color: theme.textSecondary },
                                     ]}
+                                    numberOfLines={1}
                                   >
-                                    Q1: {r.qual1}
-                                  </Text>
-                                ) : null}
-                              </>
-                            ) : hasAnyQual3Ms &&
-                              (!r.qual3Ms || Number(r.qual3Ms) === 0) ? (
-                              <>
-                                <Text
-                                  allowFontScaling={false}
-                                  style={[
-                                    styles.totalTime,
-                                    {
-                                      color: theme.error,
-                                      fontWeight: "700",
-                                      fontSize: 12,
-                                      fontStyle: "italic",
-                                    },
-                                  ]}
-                                >
-                                  OUT - Q2
-                                </Text>
-                                {r.qual2 ? (
-                                  <Text
-                                    allowFontScaling={false}
-                                    style={[
-                                      styles.lapsText,
-                                      { color: theme.text, fontSize: 14 },
-                                    ]}
-                                  >
-                                    Q2: {r.qual2}
-                                  </Text>
-                                ) : null}
-                                {r.qual1 ? (
-                                  <Text
-                                    allowFontScaling={false}
-                                    style={[
-                                      styles.lapsText,
-                                      { color: theme.text, fontSize: 14 },
-                                    ]}
-                                  >
-                                    Q1: {r.qual1}
+                                    {r.laps} laps
                                   </Text>
                                 ) : null}
                               </>
                             ) : (
                               <>
-                                {r.qual1 ? (
-                                  <Text
-                                    allowFontScaling={false}
-                                    style={[
-                                      styles.totalTime,
-                                      { color: theme.text },
-                                    ]}
-                                  >
-                                    Q3: {r.qual3}
-                                  </Text>
-                                ) : null}
-                                {r.qual2 ? (
-                                  <Text
-                                    allowFontScaling={false}
-                                    style={[
-                                      styles.totalTime,
-                                      { color: theme.text },
-                                    ]}
-                                  >
-                                    Q2: {r.qual2}
-                                  </Text>
-                                ) : null}
-                                {r.qual3 ? (
-                                  <Text
-                                    allowFontScaling={false}
-                                    style={[
-                                      styles.totalTime,
-                                      { color: theme.text },
-                                    ]}
-                                  >
-                                    Q1: {r.qual1}
-                                  </Text>
-                                ) : null}
+                                {/* Completed qualifying OR eliminated drivers: show Q1/Q2/Q3 times */}
+                                {hasAnyQual2Ms &&
+                                (!r.qual2Ms || Number(r.qual2Ms) === 0) ? (
+                                  <>
+                                    <Text
+                                      allowFontScaling={false}
+                                      style={[
+                                        styles.totalTime,
+                                        {
+                                          color: theme.error,
+                                          fontWeight: "700",
+                                          fontSize: 12,
+                                          fontStyle: "italic",
+                                        },
+                                      ]}
+                                    >
+                                      OUT - Q1
+                                    </Text>
+                                    {r.qual1 ? (
+                                      <Text
+                                        allowFontScaling={false}
+                                        style={[
+                                          styles.lapsText,
+                                          { color: theme.text, fontSize: 14 },
+                                        ]}
+                                      >
+                                        Q1: {r.qual1}
+                                      </Text>
+                                    ) : null}
+                                  </>
+                                ) : r.qual2Ms && Number(r.qual2Ms) > 0 &&
+                                  (!r.qual3Ms || Number(r.qual3Ms) === 0) ? (
+                                  <>
+                                    <Text
+                                      allowFontScaling={false}
+                                      style={[
+                                        styles.totalTime,
+                                        {
+                                          color: theme.error,
+                                          fontWeight: "700",
+                                          fontSize: 12,
+                                          fontStyle: "italic",
+                                        },
+                                      ]}
+                                    >
+                                      OUT - Q2
+                                    </Text>
+                                    {r.qual2 ? (
+                                      <Text
+                                        allowFontScaling={false}
+                                        style={[
+                                          styles.lapsText,
+                                          { color: theme.text, fontSize: 14 },
+                                        ]}
+                                      >
+                                        Q2: {r.qual2}
+                                      </Text>
+                                    ) : null}
+                                    {r.qual1 ? (
+                                      <Text
+                                        allowFontScaling={false}
+                                        style={[
+                                          styles.lapsText,
+                                          { color: theme.text, fontSize: 14 },
+                                        ]}
+                                      >
+                                        Q1: {r.qual1}
+                                      </Text>
+                                    ) : null}
+                                  </>
+                                ) : (
+                                  <>
+                                    {r.qual3 ? (
+                                      <Text
+                                        allowFontScaling={false}
+                                        style={[
+                                          styles.totalTime,
+                                          { color: theme.text },
+                                        ]}
+                                      >
+                                        Q3: {r.qual3}
+                                      </Text>
+                                    ) : null}
+                                    {r.qual2 ? (
+                                      <Text
+                                        allowFontScaling={false}
+                                        style={[
+                                          styles.totalTime,
+                                          { color: theme.text },
+                                        ]}
+                                      >
+                                        Q2: {r.qual2}
+                                      </Text>
+                                    ) : null}
+                                    {r.qual1 ? (
+                                      <Text
+                                        allowFontScaling={false}
+                                        style={[
+                                          styles.totalTime,
+                                          { color: theme.text },
+                                        ]}
+                                      >
+                                        Q1: {r.qual1}
+                                      </Text>
+                                    ) : null}
+                                  </>
+                                )}
                               </>
                             )}
                           </View>

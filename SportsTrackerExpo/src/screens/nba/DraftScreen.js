@@ -80,7 +80,7 @@ const DraftScreen = () => {
     <View style={[styles.container, { backgroundColor: theme.background }]}> 
       <View style={[styles.roundsRow, { justifyContent: 'center' }]}>
         {rounds.map((r) => (
-          <TouchableOpacity key={r} onPress={() => setSelectedRound(r)} style={[styles.roundBtn, selectedRound === r && { backgroundColor: colors.primary }]}> 
+          <TouchableOpacity key={r} onPress={() => setSelectedRound(r)} style={[styles.roundBtn, selectedRound === r && { backgroundColor: colors.secondary }]}> 
             <Text style={{ color: selectedRound === r ? '#fff' : theme.text }}>{`Round ${r}`}</Text>
           </TouchableOpacity>
         ))}

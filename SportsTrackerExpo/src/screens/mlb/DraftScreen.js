@@ -263,7 +263,7 @@ const DraftScreen = () => {
               onPress={() => setSelectedRound(r)}
               style={[
                 styles.roundBtn,
-                selectedRound === r && { backgroundColor: colors.primary },
+                selectedRound === r && { backgroundColor: colors.secondary },
               ]}
             >
               <Text

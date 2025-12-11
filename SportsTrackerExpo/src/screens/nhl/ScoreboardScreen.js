@@ -656,7 +656,7 @@ const NHLScoreboardScreen = ({ navigation }) => {
             {
               backgroundColor:
                 selectedDateFilter === "yesterday"
-                  ? colors.primary
+                  ? colors.secondary
                   : theme.surfaceSecondary,
             },
           ]}
@@ -680,7 +680,7 @@ const NHLScoreboardScreen = ({ navigation }) => {
             {
               backgroundColor:
                 selectedDateFilter === "today"
-                  ? colors.primary
+                  ? colors.secondary
                   : theme.surfaceSecondary,
             },
           ]}
@@ -702,7 +702,7 @@ const NHLScoreboardScreen = ({ navigation }) => {
             {
               backgroundColor:
                 selectedDateFilter === "upcoming"
-                  ? colors.primary
+                  ? colors.secondary
                   : theme.surfaceSecondary,
             },
           ]}

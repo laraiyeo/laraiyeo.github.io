@@ -122,7 +122,7 @@ export const formatSeriesData = (rawSeriesData) => {
 
   return {
     id: rawSeriesData.id,
-    parentEventId: rawSeriesData.parentEventId,
+    parentEventId: rawSeriesData.parentEventId || rawSeriesData.eventId,
     eventId: rawSeriesData.eventId,
     eventName: rawSeriesData.eventName,
     eventLivestreamLink: rawSeriesData.eventLivestreamLink,

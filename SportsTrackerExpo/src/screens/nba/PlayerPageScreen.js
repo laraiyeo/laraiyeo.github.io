@@ -1583,7 +1583,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
                   onPress={() => setSelectedSplitCategory(null)}
                   style={[
                     styles.changeTeamButton,
-                    { backgroundColor: colors.primary },
+                    { backgroundColor: colors.secondary },
                   ]}
                 >
                   <Text
@@ -1710,7 +1710,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
                   onPress={() => setSelectedSplitDetail(null)}
                   style={[
                     styles.changeTeamButton,
-                    { backgroundColor: colors.primary },
+                    { backgroundColor: colors.secondary },
                   ]}
                 >
                   <Text

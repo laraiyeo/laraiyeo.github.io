@@ -1968,6 +1968,17 @@ const AppContent = () => {
       // Small delay to ensure our custom splash screen is mounted
       setTimeout(async () => {
         try {
+          // Prefetch HomeScreen sports config while the native splash is still visible
+          try {
+            const Home = require("./src/screens/HomeScreen");
+            if (Home && typeof Home.prefetchHomeSportsConfig === "function") {
+              await Home.prefetchHomeSportsConfig();
+              console.log("HomeScreen: prefetchHomeSportsConfig complete");
+            }
+          } catch (pfErr) {
+            console.warn("HomeScreen prefetch failed:", pfErr);
+          }
+
           await ExpoSplashScreen.hideAsync();
         } catch (error) {
           console.log("Native splash screen already hidden");

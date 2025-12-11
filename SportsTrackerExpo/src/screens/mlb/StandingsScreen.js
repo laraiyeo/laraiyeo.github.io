@@ -172,7 +172,7 @@ const StandingsScreen = ({ route }) => {
                                 color: isFavorite(espnTeamId, 'mlb') ? colors.primary : theme.text 
                               }
                             ]} numberOfLines={1}>
-                              <Text allowFontScaling={false} style={[styles.teamSeed, { color: colors.primary }]}>({entry.team.seed}) </Text> 
+                              <Text allowFontScaling={false} style={[styles.teamSeed, { color: colors.accent }]}>({entry.team.seed}) </Text> 
                               {isFavorite(espnTeamId, 'mlb') && '★ '}
                               {entry.team.shortDisplayName}
                             </Text>
