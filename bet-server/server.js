@@ -1011,18 +1011,30 @@ setInterval(checkForGameStarts, 60 * 1000);
 app.get("/", (req, res) => {
   res.json({
     message: "NBA Data Fetcher API",
+    version: "1.0.0",
     endpoints: {
       scoreboard: "/api/scoreboard",
       summary: "/api/summary/:eventId",
       rosters: "/api/rosters",
-      betslip:
-        "/api/betslip/:eventId?:filters (moneyline, spread, total, gameId, player bets)",
+      betslip: "/api/betslip?gameId=:eventId&moneyline=:team&total=:bet&spread=:bet&p1=:playerId&p1_pts=:bet",
+      betslipNotification: "/api/betslip/notification?gameId=:eventId&[same params as betslip]",
+      health: "/health",
+    },
+    examples: {
+      betslip: "/api/betslip?gameId=401836803&moneyline=BOS&total=o220.5&p1=4432166&p1_pts=o29.5",
+      betslipNotification: "/api/betslip/notification?gameId=401836803&moneyline=BOS&total=o220.5&p1=4432166&p1_pts=o29.5",
+      multiGame: "/api/betslip?gameId=401836803,401839023&moneyline=DET&p1=4432166&p1_pts=o29.5",
     },
     status: {
       isAnyGameLive,
       nextGameStart: nextGameStartTime,
       cachedEvents: Object.keys(summaryDataCache).length,
       cachedRosters: rosterGamelogCache["all"] ? "cached" : "not cached",
+    },
+    deployment: {
+      platform: "Railway",
+      customApiUrl: "https://laraiyeogithubio-production-f5af.up.railway.app",
+      fallbackApi: "ESPN",
     },
   });
 });
@@ -1090,32 +1102,22 @@ app.get("/api/betslip", async (req, res) => {
     // Process each game
     for (const currentGameId of gameIds) {
       try {
-        // Try to fetch from our API first (laraiyeo.github as placeholder)
+        // For betslip, we need raw ESPN data (not transformed) to get boxscore.players with full structure
+        // So we fetch directly from ESPN rather than using the custom API which returns transformed data
         let summaryData = null;
         try {
-          const response = await axios.get(
-            `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/${currentGameId}`
+          const espnResponse = await axios.get(
+            `${ESPN_BASE_URL}/summary?event=${currentGameId}`
           );
-          summaryData = response.data;
+          summaryData = espnResponse.data;
+          console.log(`[Betslip] Using ESPN raw data for game ${currentGameId}`);
           console.log(
-            `[Betslip] Using data from laraiyeo.github for game ${currentGameId}`
+            `[Betslip] ESPN response has boxscore: ${!!summaryData.boxscore}, has boxscore.players: ${!!summaryData.boxscore?.players}`
           );
-        } catch (apiError) {
+        } catch (espnError) {
           console.log(
-            `[Betslip] Failed to fetch from laraiyeo.github for game ${currentGameId}, using ESPN as backup`
+            `[Betslip] Failed to fetch from ESPN for game ${currentGameId}: ${espnError.message}`
           );
-          // Fallback to ESPN - fetch directly (not from cache) to get raw data with all boxscore details
-          try {
-            const espnResponse = await axios.get(
-              `${ESPN_BASE_URL}/summary?event=${currentGameId}`
-            );
-            summaryData = espnResponse.data;
-            console.log(`[Betslip] Using ESPN data for game ${currentGameId}`);
-          } catch (espnError) {
-            console.log(
-              `[Betslip] Failed to fetch from ESPN for game ${currentGameId}: ${espnError.message}`
-            );
-          }
         }
 
         if (!summaryData) {
@@ -1275,8 +1277,27 @@ app.get("/api/betslip", async (req, res) => {
 
             // Find player in boxscore
             for (const team of boxscorePlayers) {
+              // Debug: Check team structure
+              console.log(
+                `[Betslip] Team: ${team.team?.abbreviation}, has statistics: ${!!team.statistics}, statistics is array: ${Array.isArray(team.statistics)}, length: ${team.statistics?.length}`
+              );
+              
+              // If statistics is missing or empty, log the team structure
+              if (!team.statistics || !Array.isArray(team.statistics) || team.statistics.length === 0) {
+                console.log(
+                  `[Betslip] WARNING: Team ${team.team?.abbreviation} has no statistics array. Team keys:`,
+                  Object.keys(team)
+                );
+                continue;
+              }
+              
               // Statistics is an array, not an object
-              const statisticsData = team.statistics?.[0];
+              const statisticsData = team.statistics[0];
+              if (statisticsData) {
+                console.log(
+                  `[Betslip] Statistics data found, has athletes: ${!!statisticsData.athletes}, athletes length: ${statisticsData.athletes?.length}`
+                );
+              }
               const athletes = statisticsData?.athletes || [];
               console.log(
                 `[Betslip] Checking team: ${team.team?.abbreviation}, athletes count: ${athletes.length}`
