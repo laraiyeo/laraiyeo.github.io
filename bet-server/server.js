@@ -1078,11 +1078,13 @@ app.get("/api/betslip", async (req, res) => {
     const { moneyline, total, gameId, ...playerBets } = req.query;
 
     if (!gameId) {
-      return res.status(400).json({ error: "gameId is required as a query parameter" });
+      return res
+        .status(400)
+        .json({ error: "gameId is required as a query parameter" });
     }
 
     // Parse game IDs (can be single or comma-separated)
-    const gameIds = gameId.split(',').map(id => id.trim());
+    const gameIds = gameId.split(",").map((id) => id.trim());
     const events = [];
 
     // Process each game
@@ -1091,18 +1093,28 @@ app.get("/api/betslip", async (req, res) => {
         // Try to fetch from our API first (laraiyeo.github as placeholder)
         let summaryData = null;
         try {
-          const response = await axios.get(`https://laraiyeo.github.io/api/summary/${currentGameId}`);
+          const response = await axios.get(
+            `https://laraiyeo.github.io/api/summary/${currentGameId}`
+          );
           summaryData = response.data;
-          console.log(`[Betslip] Using data from laraiyeo.github for game ${currentGameId}`);
+          console.log(
+            `[Betslip] Using data from laraiyeo.github for game ${currentGameId}`
+          );
         } catch (apiError) {
-          console.log(`[Betslip] Failed to fetch from laraiyeo.github for game ${currentGameId}, using ESPN as backup`);
+          console.log(
+            `[Betslip] Failed to fetch from laraiyeo.github for game ${currentGameId}, using ESPN as backup`
+          );
           // Fallback to ESPN - fetch directly (not from cache) to get raw data with all boxscore details
           try {
-            const espnResponse = await axios.get(`${ESPN_BASE_URL}/summary?event=${currentGameId}`);
+            const espnResponse = await axios.get(
+              `${ESPN_BASE_URL}/summary?event=${currentGameId}`
+            );
             summaryData = espnResponse.data;
             console.log(`[Betslip] Using ESPN data for game ${currentGameId}`);
           } catch (espnError) {
-            console.log(`[Betslip] Failed to fetch from ESPN for game ${currentGameId}: ${espnError.message}`);
+            console.log(
+              `[Betslip] Failed to fetch from ESPN for game ${currentGameId}: ${espnError.message}`
+            );
           }
         }
 
@@ -1119,24 +1131,31 @@ app.get("/api/betslip", async (req, res) => {
           eventId: currentGameId,
           status: {
             shortDetail: gameStatus?.shortDetail,
-            completed: isCompleted
+            completed: isCompleted,
           },
-          bets: {}
+          bets: {},
         };
 
         // Get team logos from boxscore
         const boxscoreTeams = summaryData.boxscore?.teams || [];
         const getTeamLogo = (abbreviation) => {
-          const team = boxscoreTeams.find(t => t.team?.abbreviation === abbreviation);
+          const team = boxscoreTeams.find(
+            (t) => t.team?.abbreviation === abbreviation
+          );
           return team?.team?.logo || null;
         };
 
         // Process moneyline bet
         if (moneyline) {
-          const competitors = summaryData.header?.competitions?.[0]?.competitors || [];
-          
-          const betTeam = competitors.find((c) => c.team?.abbreviation === moneyline);
-          const opposingTeam = competitors.find((c) => c.team?.abbreviation !== moneyline);
+          const competitors =
+            summaryData.header?.competitions?.[0]?.competitors || [];
+
+          const betTeam = competitors.find(
+            (c) => c.team?.abbreviation === moneyline
+          );
+          const opposingTeam = competitors.find(
+            (c) => c.team?.abbreviation !== moneyline
+          );
 
           if (betTeam && opposingTeam) {
             const betScore = parseInt(betTeam.score) || 0;
@@ -1148,8 +1167,17 @@ app.get("/api/betslip", async (req, res) => {
               teamLogo: getTeamLogo(moneyline),
               current: {
                 score: `${betScore}-${oppScore}`,
-                lead: betScore > oppScore ? moneyline : (betScore < oppScore ? opposingTeam.team?.abbreviation : "Tied"),
-                won: isCompleted ? isWinning : (isWinning ? "in progress" : false),
+                lead:
+                  betScore > oppScore
+                    ? moneyline
+                    : betScore < oppScore
+                    ? opposingTeam.team?.abbreviation
+                    : "Tied",
+                won: isCompleted
+                  ? isWinning
+                  : isWinning
+                  ? "in progress"
+                  : false,
               },
             };
           }
@@ -1157,9 +1185,14 @@ app.get("/api/betslip", async (req, res) => {
 
         // Process total points bet
         if (total) {
-          const competitors = summaryData.header?.competitions?.[0]?.competitors || [];
-          const homeScore = parseInt(competitors.find((c) => c.homeAway === "home")?.score) || 0;
-          const awayScore = parseInt(competitors.find((c) => c.homeAway === "away")?.score) || 0;
+          const competitors =
+            summaryData.header?.competitions?.[0]?.competitors || [];
+          const homeScore =
+            parseInt(competitors.find((c) => c.homeAway === "home")?.score) ||
+            0;
+          const awayScore =
+            parseInt(competitors.find((c) => c.homeAway === "away")?.score) ||
+            0;
           const currentTotal = homeScore + awayScore;
 
           const isOver = total.startsWith("o") || total.startsWith("O");
@@ -1171,30 +1204,35 @@ app.get("/api/betslip", async (req, res) => {
             line: line,
             type: isOver ? "over" : "under",
             current: currentTotal,
-            won: isCompleted ? isWinning : (isWinning ? "in progress" : false),
+            won: isCompleted ? isWinning : isWinning ? "in progress" : false,
           };
         }
 
         // Process spread bet
         if (req.query.spread) {
           const spreadBet = req.query.spread;
-          const competitors = summaryData.header?.competitions?.[0]?.competitors || [];
-          
+          const competitors =
+            summaryData.header?.competitions?.[0]?.competitors || [];
+
           // Parse spread (format: "BOS-1.5" or "DET+3.5")
           const match = spreadBet.match(/^([A-Z]+)([+-]?[0-9.]+)$/);
           if (match) {
             const teamAbbr = match[1];
             const spreadLine = parseFloat(match[2]);
-            
-            const betTeam = competitors.find((c) => c.team?.abbreviation === teamAbbr);
-            const opposingTeam = competitors.find((c) => c.team?.abbreviation !== teamAbbr);
-            
+
+            const betTeam = competitors.find(
+              (c) => c.team?.abbreviation === teamAbbr
+            );
+            const opposingTeam = competitors.find(
+              (c) => c.team?.abbreviation !== teamAbbr
+            );
+
             if (betTeam && opposingTeam) {
               const betScore = parseInt(betTeam.score) || 0;
               const oppScore = parseInt(opposingTeam.score) || 0;
               const adjustedScore = betScore + spreadLine;
               const isWinning = adjustedScore > oppScore;
-              
+
               eventData.bets.spread = {
                 team: teamAbbr,
                 teamLogo: getTeamLogo(teamAbbr),
@@ -1202,7 +1240,11 @@ app.get("/api/betslip", async (req, res) => {
                 current: {
                   score: `${betScore}-${oppScore}`,
                   adjustedScore: adjustedScore.toFixed(1),
-                  won: isCompleted ? isWinning : (isWinning ? "in progress" : false),
+                  won: isCompleted
+                    ? isWinning
+                    : isWinning
+                    ? "in progress"
+                    : false,
                 },
               };
             }
@@ -1212,15 +1254,17 @@ app.get("/api/betslip", async (req, res) => {
         // Process player bets
         const boxscorePlayers = summaryData.boxscore?.players || [];
         const players = [];
-        
-        console.log(`[Betslip] Boxscore players count: ${boxscorePlayers.length}`);
-        
+
+        console.log(
+          `[Betslip] Boxscore players count: ${boxscorePlayers.length}`
+        );
+
         Object.keys(playerBets).forEach((key) => {
           const playerMatch = key.match(/^p(\d+)$/);
           if (playerMatch) {
             const playerId = playerBets[key];
             console.log(`[Betslip] Looking for player ID: ${playerId}`);
-            
+
             const playerData = {
               id: playerId,
               name: null,
@@ -1234,11 +1278,15 @@ app.get("/api/betslip", async (req, res) => {
               // Statistics is an array, not an object
               const statisticsData = team.statistics?.[0];
               const athletes = statisticsData?.athletes || [];
-              console.log(`[Betslip] Checking team: ${team.team?.abbreviation}, athletes count: ${athletes.length}`);
-              
+              console.log(
+                `[Betslip] Checking team: ${team.team?.abbreviation}, athletes count: ${athletes.length}`
+              );
+
               const athlete = athletes.find((a) => a.athlete?.id === playerId);
               if (athlete) {
-                console.log(`[Betslip] Found player: ${athlete.athlete?.displayName}`);
+                console.log(
+                  `[Betslip] Found player: ${athlete.athlete?.displayName}`
+                );
                 playerData.name = athlete.athlete?.displayName;
                 playerData.headshot = athlete.athlete?.headshot?.href;
 
@@ -1253,30 +1301,44 @@ app.get("/api/betslip", async (req, res) => {
                     if (num === playerMatch[1]) {
                       const betValue = playerBets[betKey];
                       const statUpper = stat.toUpperCase();
-                      
+
                       // Find stat index in labels
                       const statIndex = labels.indexOf(statUpper);
-                      const current = statIndex >= 0 ? parseFloat(athlete.stats?.[statIndex]) || 0 : 0;
+                      const current =
+                        statIndex >= 0
+                          ? parseFloat(athlete.stats?.[statIndex]) || 0
+                          : 0;
 
-                      console.log(`[Betslip] Processing bet: ${betKey}, stat: ${statUpper}, current: ${current}, betValue: ${betValue}`);
+                      console.log(
+                        `[Betslip] Processing bet: ${betKey}, stat: ${statUpper}, current: ${current}, betValue: ${betValue}`
+                      );
 
                       // Check if it's an over/under (contains 'o' or 'u' prefix)
                       if (betValue.match(/^[ou]/i)) {
-                        const isOver = betValue.startsWith("o") || betValue.startsWith("O");
+                        const isOver =
+                          betValue.startsWith("o") || betValue.startsWith("O");
                         const line = parseFloat(betValue.substring(1));
-                        const isWinning = isOver ? current > line : current < line;
+                        const isWinning = isOver
+                          ? current > line
+                          : current < line;
 
                         playerData.overUnder[statUpper] = {
                           bet: line,
                           type: isOver ? "over" : "under",
                           current: current,
-                          won: isCompleted ? isWinning : (isWinning ? "in progress" : false),
+                          won: isCompleted
+                            ? isWinning
+                            : isWinning
+                            ? "in progress"
+                            : false,
                         };
                       }
                       // Check if it's a milestone (any number, may have + or % at the end)
                       else {
                         // Parse threshold from string (handles "5+", "5", "5%2B", etc.)
-                        const threshold = parseInt(betValue.replace(/[^0-9]/g, ''));
+                        const threshold = parseInt(
+                          betValue.replace(/[^0-9]/g, "")
+                        );
                         if (!isNaN(threshold)) {
                           const isWinning = current >= threshold;
 
@@ -1284,7 +1346,11 @@ app.get("/api/betslip", async (req, res) => {
                             bet: betValue,
                             threshold: threshold,
                             current: current,
-                            won: isCompleted ? isWinning : (isWinning ? "in progress" : false),
+                            won: isCompleted
+                              ? isWinning
+                              : isWinning
+                              ? "in progress"
+                              : false,
                           };
                         }
                       }
@@ -1297,7 +1363,10 @@ app.get("/api/betslip", async (req, res) => {
             }
 
             // Only add player if they have bets
-            if (Object.keys(playerData.overUnder).length > 0 || Object.keys(playerData.milestones).length > 0) {
+            if (
+              Object.keys(playerData.overUnder).length > 0 ||
+              Object.keys(playerData.milestones).length > 0
+            ) {
               players.push(playerData);
             } else {
               console.log(`[Betslip] Player ${playerId} has no bets processed`);
@@ -1311,16 +1380,21 @@ app.get("/api/betslip", async (req, res) => {
 
         events.push(eventData);
       } catch (gameError) {
-        console.error(`[Betslip] Error processing game ${currentGameId}:`, gameError.message);
+        console.error(
+          `[Betslip] Error processing game ${currentGameId}:`,
+          gameError.message
+        );
       }
     }
 
     // Calculate payload size
     const responseString = JSON.stringify(events);
-    const payloadSizeBytes = Buffer.byteLength(responseString, 'utf8');
+    const payloadSizeBytes = Buffer.byteLength(responseString, "utf8");
     const payloadSizeKB = (payloadSizeBytes / 1024).toFixed(2);
 
-    console.log(`[Betslip] Payload size: ${payloadSizeBytes} bytes (${payloadSizeKB} KB)`);
+    console.log(
+      `[Betslip] Payload size: ${payloadSizeBytes} bytes (${payloadSizeKB} KB)`
+    );
 
     // Add metadata about payload size
     const response = {
@@ -1330,20 +1404,25 @@ app.get("/api/betslip", async (req, res) => {
           bytes: payloadSizeBytes,
           kb: parseFloat(payloadSizeKB),
           withinPushLimit: payloadSizeBytes <= 4096, // FCM/APNs limit is 4KB
-          recommendedForPush: payloadSizeBytes <= 3072 // Leave room for overhead
+          recommendedForPush: payloadSizeBytes <= 3072, // Leave room for overhead
         },
         totalBets: events.reduce((sum, event) => {
           let count = 0;
           if (event.bets.moneyline) count++;
           if (event.bets.totalPoints) count++;
           if (event.bets.spread) count++;
-          if (event.bets.players) count += event.bets.players.reduce((pSum, p) => {
-            return pSum + Object.keys(p.overUnder).length + Object.keys(p.milestones).length;
-          }, 0);
+          if (event.bets.players)
+            count += event.bets.players.reduce((pSum, p) => {
+              return (
+                pSum +
+                Object.keys(p.overUnder).length +
+                Object.keys(p.milestones).length
+              );
+            }, 0);
           return sum + count;
         }, 0),
-        gamesCount: events.length
-      }
+        gamesCount: events.length,
+      },
     };
 
     res.json(response);
