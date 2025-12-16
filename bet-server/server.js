@@ -1016,14 +1016,19 @@ app.get("/", (req, res) => {
       scoreboard: "/api/scoreboard",
       summary: "/api/summary/:eventId",
       rosters: "/api/rosters",
-      betslip: "/api/betslip?gameId=:eventId&moneyline=:team&total=:bet&spread=:bet&p1=:playerId&p1_pts=:bet",
-      betslipNotification: "/api/betslip/notification?gameId=:eventId&[same params as betslip]",
+      betslip:
+        "/api/betslip?gameId=:eventId&moneyline=:team&total=:bet&spread=:bet&p1=:playerId&p1_pts=:bet",
+      betslipNotification:
+        "/api/betslip/notification?gameId=:eventId&[same params as betslip]",
       health: "/health",
     },
     examples: {
-      betslip: "/api/betslip?gameId=401836803&moneyline=BOS&total=o220.5&p1=4432166&p1_pts=o29.5",
-      betslipNotification: "/api/betslip/notification?gameId=401836803&moneyline=BOS&total=o220.5&p1=4432166&p1_pts=o29.5",
-      multiGame: "/api/betslip?gameId=401836803,401839023&moneyline=DET&p1=4432166&p1_pts=o29.5",
+      betslip:
+        "/api/betslip?gameId=401836803&moneyline=BOS&total=o220.5&p1=4432166&p1_pts=o29.5",
+      betslipNotification:
+        "/api/betslip/notification?gameId=401836803&moneyline=BOS&total=o220.5&p1=4432166&p1_pts=o29.5",
+      multiGame:
+        "/api/betslip?gameId=401836803,401839023&moneyline=DET&p1=4432166&p1_pts=o29.5",
     },
     status: {
       isAnyGameLive,
@@ -1110,9 +1115,12 @@ app.get("/api/betslip", async (req, res) => {
             `${ESPN_BASE_URL}/summary?event=${currentGameId}`
           );
           summaryData = espnResponse.data;
-          console.log(`[Betslip] Using ESPN raw data for game ${currentGameId}`);
           console.log(
-            `[Betslip] ESPN response has boxscore: ${!!summaryData.boxscore}, has boxscore.players: ${!!summaryData.boxscore?.players}`
+            `[Betslip] Using ESPN raw data for game ${currentGameId}`
+          );
+          console.log(
+            `[Betslip] ESPN response has boxscore: ${!!summaryData.boxscore}, has boxscore.players: ${!!summaryData
+              .boxscore?.players}`
           );
         } catch (espnError) {
           console.log(
@@ -1279,23 +1287,33 @@ app.get("/api/betslip", async (req, res) => {
             for (const team of boxscorePlayers) {
               // Debug: Check team structure
               console.log(
-                `[Betslip] Team: ${team.team?.abbreviation}, has statistics: ${!!team.statistics}, statistics is array: ${Array.isArray(team.statistics)}, length: ${team.statistics?.length}`
+                `[Betslip] Team: ${
+                  team.team?.abbreviation
+                }, has statistics: ${!!team.statistics}, statistics is array: ${Array.isArray(
+                  team.statistics
+                )}, length: ${team.statistics?.length}`
               );
-              
+
               // If statistics is missing or empty, log the team structure
-              if (!team.statistics || !Array.isArray(team.statistics) || team.statistics.length === 0) {
+              if (
+                !team.statistics ||
+                !Array.isArray(team.statistics) ||
+                team.statistics.length === 0
+              ) {
                 console.log(
                   `[Betslip] WARNING: Team ${team.team?.abbreviation} has no statistics array. Team keys:`,
                   Object.keys(team)
                 );
                 continue;
               }
-              
+
               // Statistics is an array, not an object
               const statisticsData = team.statistics[0];
               if (statisticsData) {
                 console.log(
-                  `[Betslip] Statistics data found, has athletes: ${!!statisticsData.athletes}, athletes length: ${statisticsData.athletes?.length}`
+                  `[Betslip] Statistics data found, has athletes: ${!!statisticsData.athletes}, athletes length: ${
+                    statisticsData.athletes?.length
+                  }`
                 );
               }
               const athletes = statisticsData?.athletes || [];

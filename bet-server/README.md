@@ -53,6 +53,7 @@ Returns roster and game log data for all teams playing today
 Returns detailed betslip data with full bet information and results
 
 **Query Parameters:**
+
 - `gameId` (required): Single or comma-separated game IDs (e.g., `401836803` or `401836803,401839023`)
 - `moneyline`: Team abbreviation to bet on (e.g., `BOS`, `DET`)
 - `total`: Over/Under total points (e.g., `o220.5`, `u215.5`)
@@ -61,12 +62,14 @@ Returns detailed betslip data with full bet information and results
 - `p1_pts`, `p1_reb`, etc.: Player prop bets (e.g., `p1_pts=o29.5`, `p1_reb=10+`)
 
 **Response includes:**
+
 - Events array with all bet results (won/in progress/false)
 - Team data with logos and scores
 - Player data with stats and headshots
 - Metadata with payload size and bet counts
 
 **Example:**
+
 ```
 /api/betslip?gameId=401836803&moneyline=BOS&total=o220.5&p1=4432166&p1_pts=o29.5
 ```
@@ -78,6 +81,7 @@ Returns minimal betslip data optimized for push notifications (only won bets)
 **Same query parameters as `/api/betslip`**
 
 **Response includes:**
+
 - `wonBets`: Array of only won bets (when game is completed)
 - `wonCount`: Number of won bets
 - `hasLiveGames`: Boolean indicating if any games are still live
@@ -250,12 +254,15 @@ curl https://laraiyeogithubio-production-f5af.up.railway.app/health
 ## Push Notification Strategy
 
 ### Payload Size Limits
+
 - **FCM (Firebase Cloud Messaging)**: 4KB (4096 bytes)
 - **APNs (Apple Push Notification)**: 4KB (4096 bytes)
 - **Recommended**: Keep under 3KB to account for overhead
 
 ### Implementation Strategy
+
 1. **Full Betslip Endpoint** (`/api/betslip`)
+
    - Use for displaying detailed bet information in your app
    - Returns all bets with complete data
    - Includes payload size metadata
@@ -268,20 +275,21 @@ curl https://laraiyeogithubio-production-f5af.up.railway.app/health
    - Trigger notification when `wonCount > 0`
 
 ### Example Flow
+
 ```javascript
 // Poll during live games
 setInterval(async () => {
   const response = await fetch(
-    'https://laraiyeogithubio-production-f5af.up.railway.app/api/betslip/notification?gameId=...&...'
+    "https://laraiyeogithubio-production-f5af.up.railway.app/api/betslip/notification?gameId=...&..."
   );
   const data = await response.json();
-  
+
   if (data.wonCount > 0 && !data.hasLiveGames) {
     // All games completed, send push notification
     sendPushNotification({
-      title: `🎉 ${data.wonCount} Bet${data.wonCount > 1 ? 's' : ''} Won!`,
-      body: data.wonBets.map(bet => bet.result).join(', '),
-      data: data.wonBets
+      title: `🎉 ${data.wonCount} Bet${data.wonCount > 1 ? "s" : ""} Won!`,
+      body: data.wonBets.map((bet) => bet.result).join(", "),
+      data: data.wonBets,
     });
   }
 }, 30000); // Poll every 30 seconds
