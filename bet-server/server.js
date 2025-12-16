@@ -1094,7 +1094,7 @@ app.get("/api/betslip", async (req, res) => {
         let summaryData = null;
         try {
           const response = await axios.get(
-            `https://laraiyeo.github.io/api/summary/${currentGameId}`
+            `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/${currentGameId}`
           );
           summaryData = response.data;
           console.log(
