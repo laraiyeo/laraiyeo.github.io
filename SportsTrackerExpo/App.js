@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   NavigationContainer,
   getFocusedRouteNameFromRoute,
+  useFocusEffect,
 } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
@@ -18,6 +19,7 @@ import { FavoritesProvider } from "./src/context/FavoritesContext";
 import { ChatProvider } from "./src/context/ChatContext";
 import { EmoteProvider } from "./src/context/EmoteContext";
 import { MutedUsersProvider } from "./src/context/MutedUsersContext";
+import { BetSlipProvider } from "./src/context/BetSlipContext";
 
 // Import Analytics Service
 import analyticsService from "./src/services/AnalyticsService";
@@ -30,6 +32,9 @@ import EmoteService from "./src/services/EmoteService";
 
 // Import PresenceService for viewer tracking
 import { PresenceService } from "./src/services/PresenceService";
+
+// Import streaming utils
+import { useStreamingAccess } from "./src/utils/streamingUtils";
 
 // Custom header title component that disables font scaling
 const HeaderTitle = ({ children, style }) => {
@@ -169,6 +174,15 @@ import LOLMatchDetailsScreen from "./src/screens/esports/lol/LOLMatchDetailsScre
 import LOLGameDetailsScreen from "./src/screens/esports/lol/LOLGameDetailsScreen";
 import LOLTournamentScreen from "./src/screens/esports/lol/LOLTournamentScreen";
 
+// Betting screens
+import BetTabNavigator from "./src/screens/bet/BetTabNavigator";
+import BetLoginScreen from "./src/screens/bet/BetLoginScreen";
+import BetGameDetailScreen from "./src/screens/bet/BetGameDetailScreen";
+import BetGameStatsScreen from "./src/screens/bet/BetGameStatsScreen";
+import BetQuickHitsScreen from "./src/screens/bet/BetQuickHitsScreen";
+import BetPlayerPropsScreen from "./src/screens/bet/BetPlayerPropsScreen";
+import BetGameLinesScreen from "./src/screens/bet/BetGameLinesScreen";
+
 // Italy enhanced screens
 import ItalyScoreboardScreen from "./src/screens/soccer/italy/ItalyScoreboardScreen";
 import ItalyStandingsScreen from "./src/screens/soccer/italy/ItalyStandingsScreen";
@@ -262,6 +276,14 @@ const Stack = createStackNavigator();
 // Home Tab Navigator (for main app navigation)
 const HomeTabNavigator = () => {
   const { theme, colors } = useTheme();
+  const { isUnlocked, checkStatus } = useStreamingAccess();
+
+  // Refresh streaming status when this navigator comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      checkStatus();
+    }, [checkStatus])
+  );
 
   return (
     <Tab.Navigator
@@ -273,6 +295,8 @@ const HomeTabNavigator = () => {
             iconName = "home";
           } else if (route.name === "Favorites") {
             iconName = "star";
+          } else if (route.name === "Bet") {
+            iconName = "cash";
           } else if (route.name === "Settings") {
             iconName = "settings";
           }
@@ -315,6 +339,21 @@ const HomeTabNavigator = () => {
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
+      {isUnlocked && (
+        <Tab.Screen
+          name="Bet"
+          component={BetLoginScreen}
+          options={{
+            title: "Bet",
+            headerShown: true,
+            headerStyle: {
+              backgroundColor: colors.primary,
+            },
+            headerTintColor: "#fff",
+            headerTitle: (props) => <HeaderTitle {...props} />,
+          }}
+        />
+      )}
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}
@@ -1832,6 +1871,65 @@ const MainStackNavigator = () => {
           headerShown: false, // We're handling the header in the component
         }}
       />
+      <Stack.Screen
+        name="BetLogin"
+        component={BetLoginScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="BetMain"
+        component={BetTabNavigator}
+        options={{
+          title: "Sports Betting",
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: "#fff",
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen
+        name="BetGameDetail"
+        component={BetGameDetailScreen}
+        options={{
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: "#fff",
+          headerTitle: "",
+        }}
+      />
+      <Stack.Screen
+        name="BetGameStats"
+        component={BetGameStatsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="BetQuickHits"
+        component={BetQuickHitsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="BetPlayerProps"
+        component={BetPlayerPropsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="BetGameLines"
+        component={BetGameLinesScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack.Navigator>
   );
 };
@@ -2007,7 +2105,9 @@ export default function App() {
         <ChatProvider>
           <EmoteProvider>
             <MutedUsersProvider>
-              <AppContent />
+              <BetSlipProvider>
+                <AppContent />
+              </BetSlipProvider>
             </MutedUsersProvider>
           </EmoteProvider>
         </ChatProvider>
