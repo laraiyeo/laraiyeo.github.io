@@ -145,7 +145,7 @@ function transformScoreboardData(data) {
           score: competitor.score,
           linescores: transformLinescores(competitor.linescores),
           statistics: transformStatistics(competitor.statistics),
-          records: competitor.record?.[0]?.summary || null,
+          record: competitor.records?.[0]?.summary || null,
         })),
         notes: comp.notes,
       })),
