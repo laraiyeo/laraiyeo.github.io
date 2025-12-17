@@ -3401,13 +3401,28 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     {awayTeam}
                   </Text>
                   {[...awayTeamGames].reverse().map((game, index) => {
-                    const isWin = game.result === 'W';
+                    const isWin = game.result === "W";
                     const borderColor = isWin ? theme.success : theme.error;
-                    
+
                     // Format date
                     const gameDate = new Date(game.date);
-                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                    const formattedDate = `${months[gameDate.getMonth()]} ${gameDate.getDate()}`;
+                    const months = [
+                      "Jan",
+                      "Feb",
+                      "Mar",
+                      "Apr",
+                      "May",
+                      "Jun",
+                      "Jul",
+                      "Aug",
+                      "Sep",
+                      "Oct",
+                      "Nov",
+                      "Dec",
+                    ];
+                    const formattedDate = `${
+                      months[gameDate.getMonth()]
+                    } ${gameDate.getDate()}`;
 
                     return (
                       <View
@@ -3471,13 +3486,28 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     {homeTeam}
                   </Text>
                   {[...homeTeamGames].reverse().map((game, index) => {
-                    const isWin = game.result === 'W';
+                    const isWin = game.result === "W";
                     const borderColor = isWin ? theme.success : theme.error;
-                    
+
                     // Format date
                     const gameDate = new Date(game.date);
-                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                    const formattedDate = `${months[gameDate.getMonth()]} ${gameDate.getDate()}`;
+                    const months = [
+                      "Jan",
+                      "Feb",
+                      "Mar",
+                      "Apr",
+                      "May",
+                      "Jun",
+                      "Jul",
+                      "Aug",
+                      "Sep",
+                      "Oct",
+                      "Nov",
+                      "Dec",
+                    ];
+                    const formattedDate = `${
+                      months[gameDate.getMonth()]
+                    } ${gameDate.getDate()}`;
 
                     return (
                       <View
@@ -3494,23 +3524,31 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         <Text
                           style={[
                             styles.lastFiveGameCardDate,
-                            { color: theme.textSecondary, textAlign: 'right' },
+                            { color: theme.textSecondary, textAlign: "right" },
                           ]}
                         >
                           {formattedDate}
                         </Text>
-                        <View style={[styles.lastFiveGameCardContent, { flexDirection: 'row-reverse' }]}>
+                        <View
+                          style={[
+                            styles.lastFiveGameCardContent,
+                            { flexDirection: "row-reverse" },
+                          ]}
+                        >
                           <Image
                             source={{
                               uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${game.opponentAbbreviation?.toLowerCase()}.png&h=40&w=40`,
                             }}
-                            style={[styles.lastFiveGameLogo, { marginRight: 0, marginLeft: 10 }]}
+                            style={[
+                              styles.lastFiveGameLogo,
+                              { marginRight: 0, marginLeft: 10 },
+                            ]}
                           />
                           <View style={styles.lastFiveGameInfo}>
                             <Text
                               style={[
                                 styles.lastFiveGameScore,
-                                { color: theme.text, textAlign: 'right' },
+                                { color: theme.text, textAlign: "right" },
                               ]}
                             >
                               {game.score}
@@ -3518,7 +3556,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             <Text
                               style={[
                                 styles.lastFiveGameOpponent,
-                                { color: theme.textSecondary, textAlign: 'right' },
+                                {
+                                  color: theme.textSecondary,
+                                  textAlign: "right",
+                                },
                               ]}
                             >
                               {game.atVs} {game.opponentAbbreviation}
