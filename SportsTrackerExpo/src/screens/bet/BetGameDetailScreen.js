@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons, FontAwesome6 } from "@expo/vector-icons";
-import Svg, { Path, G, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Path, G, Defs, LinearGradient, Stop } from "react-native-svg";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetSlip } from "../../context/BetSlipContext";
 import BetSlip from "../../components/BetSlip";
@@ -81,16 +81,31 @@ const getSmartTeamColors = (team1Data, team2Data, colors) => {
 };
 
 // Render stats row with bar fills (NBA pattern)
-const renderStatsRow = (label, team1Value, team2Value, team1Color, team2Color, theme) => {
-  const team1Num = typeof team1Value === 'number' ? team1Value : parseFloat(team1Value) || 0;
-  const team2Num = typeof team2Value === 'number' ? team2Value : parseFloat(team2Value) || 0;
+const renderStatsRow = (
+  label,
+  team1Value,
+  team2Value,
+  team1Color,
+  team2Color,
+  theme
+) => {
+  const team1Num =
+    typeof team1Value === "number" ? team1Value : parseFloat(team1Value) || 0;
+  const team2Num =
+    typeof team2Value === "number" ? team2Value : parseFloat(team2Value) || 0;
   const total = team1Num + team2Num;
   const team1Percent = total > 0 ? (team1Num / total) * 100 : 50;
   const team2Percent = total > 0 ? (team2Num / total) * 100 : 50;
 
   return (
     <View key={label} style={styles.statsRow}>
-      <Text style={[styles.statsValue, styles.statsValueAway, { color: theme.text }]}>
+      <Text
+        style={[
+          styles.statsValue,
+          styles.statsValueAway,
+          { color: theme.text },
+        ]}
+      >
         {team1Value}
       </Text>
       <View style={styles.statsBarContainer}>
@@ -99,14 +114,14 @@ const renderStatsRow = (label, team1Value, team2Value, team1Color, team2Color, t
             style={[
               styles.statsBarFill,
               styles.statsBarFillAway,
-              { width: `${team1Percent}%`, backgroundColor: team1Color }
+              { width: `${team1Percent}%`, backgroundColor: team1Color },
             ]}
           />
           <View
             style={[
               styles.statsBarFill,
               styles.statsBarFillHome,
-              { width: `${team2Percent}%`, backgroundColor: team2Color }
+              { width: `${team2Percent}%`, backgroundColor: team2Color },
             ]}
           />
         </View>
@@ -114,7 +129,13 @@ const renderStatsRow = (label, team1Value, team2Value, team1Color, team2Color, t
           {label}
         </Text>
       </View>
-      <Text style={[styles.statsValue, styles.statsValueHome, { color: theme.text }]}>
+      <Text
+        style={[
+          styles.statsValue,
+          styles.statsValueHome,
+          { color: theme.text },
+        ]}
+      >
         {team2Value}
       </Text>
     </View>
@@ -896,7 +917,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       team1Abbr: awayTeam.team.abbreviation,
       team1Logo: `https://a.espncdn.com/i/teamlogos/nba/500/${awayTeam.team.abbreviation.toLowerCase()}.png`,
       team1Color: `#${awayTeam.team.color}`,
-      team1AlternateColor: awayTeam.team.alternateColor ? `#${awayTeam.team.alternateColor}` : null,
+      team1AlternateColor: awayTeam.team.alternateColor
+        ? `#${awayTeam.team.alternateColor}`
+        : null,
       team1Record: awayTeam.record,
       score1: awayTeam.score,
       linescores1: awayTeam.linescores,
@@ -904,7 +927,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       team2Abbr: homeTeam.team.abbreviation,
       team2Logo: `https://a.espncdn.com/i/teamlogos/nba/500/${homeTeam.team.abbreviation.toLowerCase()}.png`,
       team2Color: `#${homeTeam.team.color}`,
-      team2AlternateColor: homeTeam.team.alternateColor ? `#${homeTeam.team.alternateColor}` : null,
+      team2AlternateColor: homeTeam.team.alternateColor
+        ? `#${homeTeam.team.alternateColor}`
+        : null,
       team2Record: homeTeam.record,
       score2: homeTeam.score,
       linescores2: homeTeam.linescores,
@@ -1013,7 +1038,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         return (
           <View style={styles.tabContent}>
             {/* Linescore - only show if not scheduled */}
-            {gameData.status !== 'pre' && (
+            {gameData.status !== "pre" && (
               <>
                 <Text style={[styles.sectionTitle, { color: theme.text }]}>
                   Linescore
@@ -1024,102 +1049,113 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     { backgroundColor: theme.surfaceSecondary },
                   ]}
                 >
-              <View style={styles.linescoreHeader}>
-                <View style={styles.linescoreTeamCell}>
-                  <Text
-                    style={[
-                      styles.linescoreHeaderCell,
-                      { color: theme.textSecondary },
-                    ]}
-                  >
-                    Team
-                  </Text>
+                  <View style={styles.linescoreHeader}>
+                    <View style={styles.linescoreTeamCell}>
+                      <Text
+                        style={[
+                          styles.linescoreHeaderCell,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        Team
+                      </Text>
+                    </View>
+                    {linescore.team1Scores.map((_, i) => (
+                      <Text
+                        key={i}
+                        style={[
+                          styles.linescoreHeaderCell,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {gameData.sport === "SOCCER"
+                          ? i === 0
+                            ? "1H"
+                            : "2H"
+                          : i + 1}
+                      </Text>
+                    ))}
+                    <Text
+                      style={[
+                        styles.linescoreHeaderCell,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      T
+                    </Text>
+                  </View>
+                  <View style={styles.linescoreRow}>
+                    <View style={styles.linescoreTeamCell}>
+                      <Image
+                        source={{ uri: gameData.team1Logo }}
+                        style={styles.linescoreTeamLogoImage}
+                        resizeMode="contain"
+                      />
+                      <Text
+                        style={[
+                          styles.linescoreTeamText,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {gameData.team1Abbr}
+                      </Text>
+                    </View>
+                    {linescore.team1Scores.map((score, i) => (
+                      <Text
+                        key={i}
+                        style={[styles.linescoreCell, { color: theme.text }]}
+                      >
+                        {score}
+                      </Text>
+                    ))}
+                    <Text
+                      style={[styles.linescoreTotalCell, { color: theme.text }]}
+                    >
+                      {gameData.score1}
+                    </Text>
+                  </View>
+                  <View style={styles.linescoreRow}>
+                    <View style={styles.linescoreTeamCell}>
+                      <Image
+                        source={{ uri: gameData.team2Logo }}
+                        style={styles.linescoreTeamLogoImage}
+                        resizeMode="contain"
+                      />
+                      <Text
+                        style={[
+                          styles.linescoreTeamText,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {gameData.team2Abbr}
+                      </Text>
+                    </View>
+                    {linescore.team2Scores.map((score, i) => (
+                      <Text
+                        key={i}
+                        style={[styles.linescoreCell, { color: theme.text }]}
+                      >
+                        {score}
+                      </Text>
+                    ))}
+                    <Text
+                      style={[styles.linescoreTotalCell, { color: theme.text }]}
+                    >
+                      {gameData.score2}
+                    </Text>
+                  </View>
                 </View>
-                {linescore.team1Scores.map((_, i) => (
-                  <Text
-                    key={i}
-                    style={[
-                      styles.linescoreHeaderCell,
-                      { color: theme.textSecondary },
-                    ]}
-                  >
-                    {gameData.sport === "SOCCER"
-                      ? i === 0
-                        ? "1H"
-                        : "2H"
-                      : i + 1}
-                  </Text>
-                ))}
-                <Text
-                  style={[
-                    styles.linescoreHeaderCell,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  T
-                </Text>
-              </View>
-              <View style={styles.linescoreRow}>
-                <View style={styles.linescoreTeamCell}>
-                  <Image
-                    source={{ uri: gameData.team1Logo }}
-                    style={styles.linescoreTeamLogoImage}
-                    resizeMode="contain"
-                  />
-                  <Text
-                    style={[styles.linescoreTeamText, { color: theme.text }]}
-                  >
-                    {gameData.team1Abbr}
-                  </Text>
-                </View>
-                {linescore.team1Scores.map((score, i) => (
-                  <Text
-                    key={i}
-                    style={[styles.linescoreCell, { color: theme.text }]}
-                  >
-                    {score}
-                  </Text>
-                ))}
-                <Text
-                  style={[styles.linescoreTotalCell, { color: theme.text }]}
-                >
-                  {gameData.score1}
-                </Text>
-              </View>
-              <View style={styles.linescoreRow}>
-                <View style={styles.linescoreTeamCell}>
-                  <Image
-                    source={{ uri: gameData.team2Logo }}
-                    style={styles.linescoreTeamLogoImage}
-                    resizeMode="contain"
-                  />
-                  <Text
-                    style={[styles.linescoreTeamText, { color: theme.text }]}
-                  >
-                    {gameData.team2Abbr}
-                  </Text>
-                </View>
-                {linescore.team2Scores.map((score, i) => (
-                  <Text
-                    key={i}
-                    style={[styles.linescoreCell, { color: theme.text }]}
-                  >
-                    {score}
-                  </Text>
-                ))}
-                <Text
-                  style={[styles.linescoreTotalCell, { color: theme.text }]}
-                >
-                  {gameData.score2}
-                </Text>
-              </View>
-            </View>
               </>
             )}
 
             {/* Team Statistics with Bar Fills */}
             <View style={styles.teamStatsContainer}>
-              <Text style={[styles.statsSectionTitle, { color: theme.text, marginTop: 24 }]}>
+              <Text
+                style={[
+                  styles.statsSectionTitle,
+                  { color: theme.text, marginTop: 24 },
+                ]}
+              >
                 Team Statistics
               </Text>
               <View style={styles.statsHeader}>
@@ -1129,12 +1165,16 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     style={styles.teamSmallLogo}
                     resizeMode="contain"
                   />
-                  <Text style={[styles.teamStatsTeamName, { color: theme.text }]}>
+                  <Text
+                    style={[styles.teamStatsTeamName, { color: theme.text }]}
+                  >
                     {gameData.team1Abbr}
                   </Text>
                 </View>
                 <View style={styles.teamHeaderRight}>
-                  <Text style={[styles.teamStatsTeamName, { color: theme.text }]}>
+                  <Text
+                    style={[styles.teamStatsTeamName, { color: theme.text }]}
+                  >
                     {gameData.team2Abbr}
                   </Text>
                   <Image
@@ -1148,16 +1188,22 @@ const BetGameDetailScreen = ({ navigation, route }) => {
               {(() => {
                 // Get smart team colors
                 const { team1Color, team2Color } = getSmartTeamColors(
-                  { team1Color: gameData.team1Color, team1AlternateColor: gameData.team1AlternateColor },
-                  { team2Color: gameData.team2Color, team2AlternateColor: gameData.team2AlternateColor }
+                  {
+                    team1Color: gameData.team1Color,
+                    team1AlternateColor: gameData.team1AlternateColor,
+                  },
+                  {
+                    team2Color: gameData.team2Color,
+                    team2AlternateColor: gameData.team2AlternateColor,
+                  }
                 );
 
                 // Create a map of stats for easier comparison
                 const statsMap = {};
-                team1BoxScore.forEach(stat => {
+                team1BoxScore.forEach((stat) => {
                   statsMap[stat.label] = { team1: stat.value };
                 });
-                team2BoxScore.forEach(stat => {
+                team2BoxScore.forEach((stat) => {
                   if (statsMap[stat.label]) {
                     statsMap[stat.label].team2 = stat.value;
                   } else {
@@ -1166,10 +1212,17 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 });
 
                 // Render stats rows
-                return Object.keys(statsMap).map(label => {
-                  const team1Value = statsMap[label].team1 || '-';
-                  const team2Value = statsMap[label].team2 || '-';
-                  return renderStatsRow(label, team1Value, team2Value, team1Color, team2Color, theme);
+                return Object.keys(statsMap).map((label) => {
+                  const team1Value = statsMap[label].team1 || "-";
+                  const team2Value = statsMap[label].team2 || "-";
+                  return renderStatsRow(
+                    label,
+                    team1Value,
+                    team2Value,
+                    team1Color,
+                    team2Color,
+                    theme
+                  );
                 });
               })()}
             </View>
@@ -1177,22 +1230,32 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             {/* Win Probability Chart */}
             {(() => {
               // Check if we have win probability data - should be array of numbers
-              if (!summaryData?.winprobability || !Array.isArray(summaryData.winprobability)) return null;
+              if (
+                !summaryData?.winprobability ||
+                !Array.isArray(summaryData.winprobability)
+              )
+                return null;
               if (summaryData.winprobability.length === 0) return null;
 
               const winProbArray = summaryData.winprobability;
 
               // Get smart team colors
               const { team1Color, team2Color } = getSmartTeamColors(
-                { team1Color: gameData.team1Color, team1AlternateColor: gameData.team1AlternateColor },
-                { team2Color: gameData.team2Color, team2AlternateColor: gameData.team2AlternateColor }
+                {
+                  team1Color: gameData.team1Color,
+                  team1AlternateColor: gameData.team1AlternateColor,
+                },
+                {
+                  team2Color: gameData.team2Color,
+                  team2AlternateColor: gameData.team2AlternateColor,
+                }
               );
 
               // Parse win probability data
               // Format from API: array of numbers (0.0-1.0) representing home team (team2) win percentage
               let graphData = [];
-              
-              if (typeof winProbArray[0] === 'number') {
+
+              if (typeof winProbArray[0] === "number") {
                 // API format: array of numbers representing home team win percentage
                 graphData = winProbArray.map((homeWinPercent, index) => {
                   const homeWinPct = parseFloat(homeWinPercent) * 100 || 0;
@@ -1219,7 +1282,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   const index = Math.floor(i * step);
                   sampledData.push(graphData[index]);
                 }
-                if (sampledData[sampledData.length - 1] !== graphData[graphData.length - 1]) {
+                if (
+                  sampledData[sampledData.length - 1] !==
+                  graphData[graphData.length - 1]
+                ) {
                   sampledData.push(graphData[graphData.length - 1]);
                 }
               }
@@ -1237,7 +1303,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   ]}
                 >
                   <Text
-                    style={[styles.sectionTitle, { color: theme.text, marginBottom: 16 }]}
+                    style={[
+                      styles.sectionTitle,
+                      { color: theme.text, marginBottom: 16 },
+                    ]}
                   >
                     Win Probability
                   </Text>
@@ -1245,7 +1314,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   <View style={styles.winProbabilityLegend}>
                     <View style={styles.legendItem}>
                       <View
-                        style={[styles.legendColor, { backgroundColor: team1Color }]}
+                        style={[
+                          styles.legendColor,
+                          { backgroundColor: team1Color },
+                        ]}
                       />
                       <Text style={[styles.legendText, { color: theme.text }]}>
                         {gameData.team1Abbr}
@@ -1253,7 +1325,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     </View>
                     <View style={styles.legendItem}>
                       <View
-                        style={[styles.legendColor, { backgroundColor: team2Color }]}
+                        style={[
+                          styles.legendColor,
+                          { backgroundColor: team2Color },
+                        ]}
                       />
                       <Text style={[styles.legendText, { color: theme.text }]}>
                         {gameData.team2Abbr}
@@ -1263,19 +1338,44 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
                   <View style={styles.graphContainer}>
                     <View style={styles.yAxisLabels}>
-                      <Text style={[styles.yAxisLabel, { color: theme.textSecondary }]}>
+                      <Text
+                        style={[
+                          styles.yAxisLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
                         100%
                       </Text>
-                      <Text style={[styles.yAxisLabel, { color: theme.textSecondary }]}>
+                      <Text
+                        style={[
+                          styles.yAxisLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
                         75%
                       </Text>
-                      <Text style={[styles.yAxisLabel, { color: theme.textSecondary }]}>
+                      <Text
+                        style={[
+                          styles.yAxisLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
                         50%
                       </Text>
-                      <Text style={[styles.yAxisLabel, { color: theme.textSecondary }]}>
+                      <Text
+                        style={[
+                          styles.yAxisLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
                         25%
                       </Text>
-                      <Text style={[styles.yAxisLabel, { color: theme.textSecondary }]}>
+                      <Text
+                        style={[
+                          styles.yAxisLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
                         0%
                       </Text>
                     </View>
@@ -1319,12 +1419,16 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               if (index === 0) return null;
 
                               const prevPoint = sampledData[index - 1];
-                              const x1 = ((index - 1) / (sampledData.length - 1)) * 100;
-                              const x2 = (index / (sampledData.length - 1)) * 100;
+                              const x1 =
+                                ((index - 1) / (sampledData.length - 1)) * 100;
+                              const x2 =
+                                (index / (sampledData.length - 1)) * 100;
 
-                              const team2Y1 = 100 - prevPoint.team2WinPercentage;
+                              const team2Y1 =
+                                100 - prevPoint.team2WinPercentage;
                               const team2Y2 = 100 - point.team2WinPercentage;
-                              const team1Y1 = 100 - prevPoint.team1WinPercentage;
+                              const team1Y1 =
+                                100 - prevPoint.team1WinPercentage;
                               const team1Y2 = 100 - point.team1WinPercentage;
 
                               return (
@@ -1370,10 +1474,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               {/* Team 2 line */}
                               <Path
                                 d={sampledData.reduce((path, point, index) => {
-                                  const x = (index / (sampledData.length - 1)) * 100;
+                                  const x =
+                                    (index / (sampledData.length - 1)) * 100;
                                   const y = 100 - point.team2WinPercentage;
                                   return (
-                                    path + (index === 0 ? `M${x},${y}` : ` L${x},${y}`)
+                                    path +
+                                    (index === 0 ? `M${x},${y}` : ` L${x},${y}`)
                                   );
                                 }, "")}
                                 fill="none"
@@ -1383,10 +1489,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               {/* Team 1 line */}
                               <Path
                                 d={sampledData.reduce((path, point, index) => {
-                                  const x = (index / (sampledData.length - 1)) * 100;
+                                  const x =
+                                    (index / (sampledData.length - 1)) * 100;
                                   const y = 100 - point.team1WinPercentage;
                                   return (
-                                    path + (index === 0 ? `M${x},${y}` : ` L${x},${y}`)
+                                    path +
+                                    (index === 0 ? `M${x},${y}` : ` L${x},${y}`)
                                   );
                                 }, "")}
                                 fill="none"
@@ -2242,7 +2350,16 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             </Text>
 
             <View style={styles.scoresRow}>
-              <View style={[styles.teamSection, { backgroundColor: `${gameData.team1Color}15`, borderRadius: 12, padding: 12 }]}>
+              <View
+                style={[
+                  styles.teamSection,
+                  {
+                    backgroundColor: `${gameData.team1Color}15`,
+                    borderRadius: 12,
+                    padding: 12,
+                  },
+                ]}
+              >
                 <Image
                   source={{ uri: gameData.team1Logo }}
                   style={styles.teamLogoImage}
@@ -2274,7 +2391,16 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 </Text>
               </View>
 
-              <View style={[styles.teamSection, { backgroundColor: `${gameData.team2Color}15`, borderRadius: 12, padding: 12 }]}>
+              <View
+                style={[
+                  styles.teamSection,
+                  {
+                    backgroundColor: `${gameData.team2Color}15`,
+                    borderRadius: 12,
+                    padding: 12,
+                  },
+                ]}
+              >
                 <Image
                   source={{ uri: gameData.team2Logo }}
                   style={styles.teamLogoImage}
