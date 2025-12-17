@@ -2880,6 +2880,72 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           />
         );
       case "lines":
+        const pickcenter = summaryData?.pickcenter;
+        const predictor = summaryData?.predictor;
+        const lastFiveGames = summaryData?.lastFiveGames || [];
+        
+        if (!pickcenter) {
+          return (
+            <View style={styles.tabContent}>
+              <Text style={[styles.contentTitle, { color: theme.text }]}>
+                Game Lines
+              </Text>
+              <Text style={[styles.noDataText, { color: theme.textSecondary }]}>
+                No game lines data available
+              </Text>
+            </View>
+          );
+        }
+
+        // Format odds for display
+        const formatOdds = (odds) => {
+          if (!odds) return "-";
+          const num = parseFloat(odds);
+          return num > 0 ? `+${num}` : String(num);
+        };
+
+        // Convert odds to American format
+        const decimalToAmerican = (decimal) => {
+          if (!decimal) return "-";
+          const num = parseFloat(decimal);
+          if (num >= 2.0) {
+            return `+${Math.round((num - 1) * 100)}`;
+          } else {
+            return `-${Math.round(100 / (num - 1))}`;
+          }
+        };
+
+        // Get team data
+        const awayTeam = gameData.team1Abbr;
+        const homeTeam = gameData.team2Abbr;
+        
+        // Get spread data
+        const awaySpread = pickcenter.pointSpread?.away;
+        const homeSpread = pickcenter.pointSpread?.home;
+        
+        // Get total data
+        const overData = pickcenter.total?.over?.away;
+        const underData = pickcenter.total?.under?.away;
+        
+        // Get moneyline data
+        const awayML = pickcenter.moneyline?.away;
+        const homeML = pickcenter.moneyline?.home;
+        
+        // Get predictor percentages
+        const homeWinPct = predictor?.homeTeam?.WIN || "50";
+        const awayWinPct = String(100 - parseFloat(homeWinPct));
+
+        // Format date helper
+        const formatGameDate = (dateString) => {
+          const date = new Date(dateString);
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+        };
+
+        // Get last 5 games for each team
+        const awayTeamGames = lastFiveGames.find(g => g.team?.abbreviation === awayTeam)?.events || [];
+        const homeTeamGames = lastFiveGames.find(g => g.team?.abbreviation === homeTeam)?.events || [];
+
         return (
           <View style={styles.tabContent}>
             <Text style={[styles.contentTitle, { color: theme.text }]}>
@@ -2888,19 +2954,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
             {/* Game Section */}
             <View style={styles.gameLineSection}>
-              <Text
-                style={[styles.gameLineSectionTitle, { color: theme.text }]}
-              >
-                Game
-              </Text>
-              <Text
-                style={[
-                  styles.gameLineSectionSubtitle,
-                  { color: theme.textSecondary },
-                ]}
-              >
-                Today
-              </Text>
 
               <View
                 style={[
@@ -2942,13 +2995,13 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   </Text>
                 </View>
 
-                {/* Team 1 Row */}
+                {/* Away Team Row */}
                 <View style={styles.gameLineRow}>
                   <View style={styles.gameLineTeamCell}>
                     <Text
                       style={[styles.gameLineTeamName, { color: theme.text }]}
                     >
-                      {gameData.team1.split(" ").pop()}
+                      {awayTeam}
                     </Text>
                   </View>
 
@@ -2956,49 +3009,54 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     style={[
                       styles.gameLineCell,
                       {
-                        backgroundColor: isBetSelected("spread-team1")
+                        backgroundColor: isBetSelected(`spread-${awayTeam}`)
                           ? colors.primary
                           : theme.surface,
                       },
                     ]}
                     onPress={() => {
-                      toggleBet({
-                        id: "spread-team1",
-                        gameId: gameData.id,
-                        gameInfo: {
-                          time: gameData.time || "TBD",
-                          teams: `${gameData.team1} @ ${gameData.team2}`,
-                        },
-                        type: "Spread",
-                        description: `${gameData.team1}`,
-                        line: "-1.5",
-                        odds: "+190",
-                      });
+                      const betId = `spread-${awayTeam}`;
+                      if (isBetSelected(betId)) {
+                        toggleBet(betId);
+                      } else {
+                        toggleBet({
+                          id: betId,
+                          gameId: gameData.id,
+                          gameInfo: {
+                            time: gameData.statusDetail || "TBD",
+                            teams: `${gameData.team1} @ ${gameData.team2}`,
+                          },
+                          type: "Spread",
+                          description: awayTeam,
+                          line: formatOdds(awaySpread?.line),
+                          odds: formatOdds(awaySpread?.odds),
+                        });
+                      }
                     }}
                   >
                     <Text
                       style={[
                         styles.gameLineCellLine,
                         {
-                          color: isBetSelected("spread-team1")
+                          color: isBetSelected(`spread-${awayTeam}`)
                             ? "white"
                             : theme.text,
                         },
                       ]}
                     >
-                      -1.5
+                      {formatOdds(awaySpread?.line)}
                     </Text>
                     <Text
                       style={[
                         styles.gameLineCellOdds,
                         {
-                          color: isBetSelected("spread-team1")
+                          color: isBetSelected(`spread-${awayTeam}`)
                             ? "white"
                             : colors.primary,
                         },
                       ]}
                     >
-                      1.90
+                      {formatOdds(awaySpread?.odds)}
                     </Text>
                   </TouchableOpacity>
 
@@ -3006,98 +3064,108 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     style={[
                       styles.gameLineCell,
                       {
-                        backgroundColor: isBetSelected("over-team1")
+                        backgroundColor: isBetSelected("over")
                           ? colors.primary
                           : theme.surface,
                       },
                     ]}
                     onPress={() => {
-                      toggleBet({
-                        id: "over-team1",
-                        gameId: gameData.id,
-                        gameInfo: {
-                          time: gameData.time || "TBD",
-                          teams: `${gameData.team1} @ ${gameData.team2}`,
-                        },
-                        type: "Total",
-                        description: "Over",
-                        line: "O 236.5",
-                        odds: "+189",
-                      });
+                      const betId = "over";
+                      if (isBetSelected(betId)) {
+                        toggleBet(betId);
+                      } else {
+                        toggleBet({
+                          id: betId,
+                          gameId: gameData.id,
+                          gameInfo: {
+                            time: gameData.statusDetail || "TBD",
+                            teams: `${gameData.team1} @ ${gameData.team2}`,
+                          },
+                          type: "Total",
+                          description: "Over",
+                          line: `O ${overData?.line}`,
+                          odds: formatOdds(overData?.odds),
+                        });
+                      }
                     }}
                   >
                     <Text
                       style={[
                         styles.gameLineCellLine,
                         {
-                          color: isBetSelected("over-team1")
+                          color: isBetSelected("over")
                             ? "white"
                             : theme.text,
                         },
                       ]}
                     >
-                      O 236.5
+                      O {overData?.line}
                     </Text>
                     <Text
                       style={[
                         styles.gameLineCellOdds,
                         {
-                          color: isBetSelected("over-team1")
+                          color: isBetSelected("over")
                             ? "white"
                             : colors.primary,
                         },
                       ]}
                     >
-                      1.89
+                      {formatOdds(overData?.odds)}
                     </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[
-                      styles.gameLineCell,
+                      styles.gameLineMLCell,
                       {
-                        backgroundColor: isBetSelected("money-team1")
+                        backgroundColor: isBetSelected(`ml-${awayTeam}`)
                           ? colors.primary
                           : theme.surface,
                       },
                     ]}
                     onPress={() => {
-                      toggleBet({
-                        id: "money-team1",
-                        gameId: gameData.id,
-                        gameInfo: {
-                          time: gameData.time || "TBD",
-                          teams: `${gameData.team1} @ ${gameData.team2}`,
-                        },
-                        type: "Moneyline",
-                        description: gameData.team1,
-                        line: "",
-                        odds: "+186",
-                      });
+                      const betId = `ml-${awayTeam}`;
+                      if (isBetSelected(betId)) {
+                        toggleBet(betId);
+                      } else {
+                        toggleBet({
+                          id: betId,
+                          gameId: gameData.id,
+                          gameInfo: {
+                            time: gameData.statusDetail || "TBD",
+                            teams: `${gameData.team1} @ ${gameData.team2}`,
+                          },
+                          type: "Moneyline",
+                          description: awayTeam,
+                          line: "",
+                          odds: formatOdds(awayML?.odds),
+                        });
+                      }
                     }}
                   >
                     <Text
                       style={[
-                        styles.gameLineCellOdds,
+                        styles.gameLineMLOdds,
                         {
-                          color: isBetSelected("money-team1")
+                          color: isBetSelected(`ml-${awayTeam}`)
                             ? "white"
                             : colors.primary,
                         },
                       ]}
                     >
-                      1.86
+                      {formatOdds(awayML?.odds)}
                     </Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Team 2 Row */}
+                {/* Home Team Row */}
                 <View style={styles.gameLineRow}>
                   <View style={styles.gameLineTeamCell}>
                     <Text
                       style={[styles.gameLineTeamName, { color: theme.text }]}
                     >
-                      {gameData.team2.split(" ").pop()}
+                      {homeTeam}
                     </Text>
                   </View>
 
@@ -3105,49 +3173,54 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     style={[
                       styles.gameLineCell,
                       {
-                        backgroundColor: isBetSelected("spread-team2")
+                        backgroundColor: isBetSelected(`spread-${homeTeam}`)
                           ? colors.primary
                           : theme.surface,
                       },
                     ]}
                     onPress={() => {
-                      toggleBet({
-                        id: "spread-team2",
-                        gameId: gameData.id,
-                        gameInfo: {
-                          time: gameData.time || "TBD",
-                          teams: `${gameData.team1} @ ${gameData.team2}`,
-                        },
-                        type: "Spread",
-                        description: gameData.team2,
-                        line: "+1.5",
-                        odds: "+190",
-                      });
+                      const betId = `spread-${homeTeam}`;
+                      if (isBetSelected(betId)) {
+                        toggleBet(betId);
+                      } else {
+                        toggleBet({
+                          id: betId,
+                          gameId: gameData.id,
+                          gameInfo: {
+                            time: gameData.statusDetail || "TBD",
+                            teams: `${gameData.team1} @ ${gameData.team2}`,
+                          },
+                          type: "Spread",
+                          description: homeTeam,
+                          line: formatOdds(homeSpread?.line),
+                          odds: formatOdds(homeSpread?.odds),
+                        });
+                      }
                     }}
                   >
                     <Text
                       style={[
                         styles.gameLineCellLine,
                         {
-                          color: isBetSelected("spread-team2")
+                          color: isBetSelected(`spread-${homeTeam}`)
                             ? "white"
                             : theme.text,
                         },
                       ]}
                     >
-                      +1.5
+                      {formatOdds(homeSpread?.line)}
                     </Text>
                     <Text
                       style={[
                         styles.gameLineCellOdds,
                         {
-                          color: isBetSelected("spread-team2")
+                          color: isBetSelected(`spread-${homeTeam}`)
                             ? "white"
                             : colors.primary,
                         },
                       ]}
                     >
-                      1.90
+                      {formatOdds(homeSpread?.odds)}
                     </Text>
                   </TouchableOpacity>
 
@@ -3155,98 +3228,108 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     style={[
                       styles.gameLineCell,
                       {
-                        backgroundColor: isBetSelected("under-team2")
+                        backgroundColor: isBetSelected("under")
                           ? colors.primary
                           : theme.surface,
                       },
                     ]}
                     onPress={() => {
-                      toggleBet({
-                        id: "under-team2",
-                        gameId: gameData.id,
-                        gameInfo: {
-                          time: gameData.time || "TBD",
-                          teams: `${gameData.team1} @ ${gameData.team2}`,
-                        },
-                        type: "Total",
-                        description: "Under",
-                        line: "U 236.5",
-                        odds: "+192",
-                      });
+                      const betId = "under";
+                      if (isBetSelected(betId)) {
+                        toggleBet(betId);
+                      } else {
+                        toggleBet({
+                          id: betId,
+                          gameId: gameData.id,
+                          gameInfo: {
+                            time: gameData.statusDetail || "TBD",
+                            teams: `${gameData.team1} @ ${gameData.team2}`,
+                          },
+                          type: "Total",
+                          description: "Under",
+                          line: `U ${underData?.line}`,
+                          odds: formatOdds(underData?.odds),
+                        });
+                      }
                     }}
                   >
                     <Text
                       style={[
                         styles.gameLineCellLine,
                         {
-                          color: isBetSelected("under-team2")
+                          color: isBetSelected("under")
                             ? "white"
                             : theme.text,
                         },
                       ]}
                     >
-                      U 236.5
+                      U {underData?.line}
                     </Text>
                     <Text
                       style={[
                         styles.gameLineCellOdds,
                         {
-                          color: isBetSelected("under-team2")
+                          color: isBetSelected("under")
                             ? "white"
                             : colors.primary,
                         },
                       ]}
                     >
-                      1.92
+                      {formatOdds(underData?.odds)}
                     </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[
-                      styles.gameLineCell,
+                      styles.gameLineMLCell,
                       {
-                        backgroundColor: isBetSelected("money-team2")
+                        backgroundColor: isBetSelected(`ml-${homeTeam}`)
                           ? colors.primary
                           : theme.surface,
                       },
                     ]}
                     onPress={() => {
-                      toggleBet({
-                        id: "money-team2",
-                        gameId: gameData.id,
-                        gameInfo: {
-                          time: gameData.time || "TBD",
-                          teams: `${gameData.team1} @ ${gameData.team2}`,
-                        },
-                        type: "Moneyline",
-                        description: gameData.team2,
-                        line: "",
-                        odds: "+195",
-                      });
+                      const betId = `ml-${homeTeam}`;
+                      if (isBetSelected(betId)) {
+                        toggleBet(betId);
+                      } else {
+                        toggleBet({
+                          id: betId,
+                          gameId: gameData.id,
+                          gameInfo: {
+                            time: gameData.statusDetail || "TBD",
+                            teams: `${gameData.team1} @ ${gameData.team2}`,
+                          },
+                          type: "Moneyline",
+                          description: homeTeam,
+                          line: "",
+                          odds: formatOdds(homeML?.odds),
+                        });
+                      }
                     }}
                   >
                     <Text
                       style={[
-                        styles.gameLineCellOdds,
+                        styles.gameLineMLOdds,
                         {
-                          color: isBetSelected("money-team2")
+                          color: isBetSelected(`ml-${homeTeam}`)
                             ? "white"
                             : colors.primary,
                         },
                       ]}
                     >
-                      1.95
+                      {formatOdds(homeML?.odds)}
                     </Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Betting Percentage */}
+                {/* Win Percentage */}
                 <View style={styles.bettingPercentage}>
                   <View style={styles.bettingPercentageBar}>
                     <View
                       style={[
                         styles.bettingPercentageFill,
-                        { width: "37%", backgroundColor: colors.primary },
+                        { width: `${awayWinPct}%`, backgroundColor: colors.primary },
                       ]}
                     />
                   </View>
@@ -3257,7 +3340,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         { color: theme.text },
                       ]}
                     >
-                      HOU 37%
+                      {awayTeam} {awayWinPct}%
                     </Text>
                     <Text
                       style={[
@@ -3265,7 +3348,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         { color: theme.textSecondary },
                       ]}
                     >
-                      % of bets placed
+                      Predicted Win %
                     </Text>
                     <Text
                       style={[
@@ -3273,19 +3356,103 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         { color: theme.text },
                       ]}
                     >
-                      63% DEN
+                      {homeWinPct}% {homeTeam}
                     </Text>
                   </View>
                 </View>
               </View>
             </View>
 
-            {/* Alternate Spread */}
-            <AlternateSpreadSection
-              gameData={gameData}
-              theme={theme}
-              colors={colors}
-            />
+            {/* Last 5 Games Section */}
+            <View style={styles.lastFiveGamesSection}>
+              <Text
+                style={[styles.gameLineSectionTitle, { color: theme.text }]}
+              >
+                Last 5 Games
+              </Text>
+              
+              <View style={styles.lastFiveGamesContainer}>
+                {/* Away Team Games */}
+                <View style={styles.lastFiveGamesColumn}>
+                  <Text style={[styles.lastFiveGamesTeamTitle, { color: theme.text }]}>
+                    {awayTeam}
+                  </Text>
+                  {awayTeamGames.map((game, index) => {
+                    const isWin = game.score && parseInt(game.score.split('-')[0]) > parseInt(game.score.split('-')[1]);
+                    const borderColor = isWin ? theme.success : theme.error;
+                    
+                    return (
+                      <View
+                        key={game.id || index}
+                        style={[
+                          styles.lastFiveGameCard,
+                          { 
+                            backgroundColor: theme.surface,
+                            borderLeftWidth: 3,
+                            borderLeftColor: borderColor,
+                          },
+                        ]}
+                      >
+                        <Image
+                          source={{
+                            uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${game.opponentAbbreviation?.toLowerCase()}.png&h=40&w=40`,
+                          }}
+                          style={styles.lastFiveGameLogo}
+                        />
+                        <View style={styles.lastFiveGameInfo}>
+                          <Text style={[styles.lastFiveGameScore, { color: theme.text }]}>
+                            {game.score}
+                          </Text>
+                          <Text style={[styles.lastFiveGameDate, { color: theme.textSecondary }]}>
+                            {game.atVs} {game.opponentAbbreviation}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+
+                {/* Home Team Games */}
+                <View style={styles.lastFiveGamesColumn}>
+                  <Text style={[styles.lastFiveGamesTeamTitle, { color: theme.text }]}>
+                    {homeTeam}
+                  </Text>
+                  {homeTeamGames.map((game, index) => {
+                    const isWin = game.score && parseInt(game.score.split('-')[0]) > parseInt(game.score.split('-')[1]);
+                    const borderColor = isWin ? theme.success : theme.error;
+                    
+                    return (
+                      <View
+                        key={game.id || index}
+                        style={[
+                          styles.lastFiveGameCard,
+                          { 
+                            backgroundColor: theme.surface,
+                            borderRightWidth: 3,
+                            borderRightColor: borderColor,
+                          },
+                        ]}
+                      >
+                        <Image
+                          source={{
+                            uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${game.opponentAbbreviation?.toLowerCase()}.png&h=40&w=40`,
+                          }}
+                          style={styles.lastFiveGameLogo}
+                        />
+                        <View style={styles.lastFiveGameInfo}>
+                          <Text style={[styles.lastFiveGameScore, { color: theme.text }]}>
+                            {game.score}
+                          </Text>
+                          <Text style={[styles.lastFiveGameDate, { color: theme.textSecondary }]}>
+                            {game.atVs} {game.opponentAbbreviation}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
           </View>
         );
       default:
@@ -4481,6 +4648,52 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
+  // Last Five Games Styles
+  lastFiveGamesSection: {
+    marginBottom: 24,
+  },
+  lastFiveGamesContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 12,
+  },
+  lastFiveGamesColumn: {
+    flex: 1,
+  },
+  lastFiveGamesTeamTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  lastFiveGameCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  lastFiveGameLogo: {
+    width: 32,
+    height: 32,
+    marginRight: 10,
+  },
+  lastFiveGameInfo: {
+    flex: 1,
+  },
+  lastFiveGameScore: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  lastFiveGameDate: {
+    fontSize: 11,
+  },
+  noDataText: {
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: 20,
+  },
   flashPropCard: {
     padding: 16,
     borderRadius: 12,
@@ -4589,6 +4802,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginHorizontal: 4,
   },
+  gameLineMLCell: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    marginHorizontal: 4,
+  },
   gameLineCellLine: {
     fontSize: 13,
     fontWeight: "600",
@@ -4596,6 +4817,10 @@ const styles = StyleSheet.create({
   },
   gameLineCellOdds: {
     fontSize: 14,
+    fontWeight: "bold",
+  },
+  gameLineMLOdds: {
+    fontSize: 18,
     fontWeight: "bold",
   },
   bettingPercentage: {

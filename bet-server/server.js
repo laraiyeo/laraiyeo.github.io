@@ -510,9 +510,9 @@ function transformSummaryData(data) {
         opponent: event.opponent?.displayName,
         opponentAbbreviation: event.opponent?.abbreviation,
         atVs: event.atVs,
-        date: event.date,
+        date: event.gameDate,
         score: event.score,
-        result: event.result,
+        result: event.gameResult,
       })),
     }));
   }
