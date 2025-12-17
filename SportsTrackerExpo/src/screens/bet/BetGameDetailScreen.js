@@ -2883,7 +2883,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         const pickcenter = summaryData?.pickcenter;
         const predictor = summaryData?.predictor;
         const lastFiveGames = summaryData?.lastFiveGames || [];
-        
+
         if (!pickcenter) {
           return (
             <View style={styles.tabContent}>
@@ -2918,19 +2918,19 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         // Get team data
         const awayTeam = gameData.team1Abbr;
         const homeTeam = gameData.team2Abbr;
-        
+
         // Get spread data
         const awaySpread = pickcenter.pointSpread?.away;
         const homeSpread = pickcenter.pointSpread?.home;
-        
+
         // Get total data
         const overData = pickcenter.total?.over?.away;
         const underData = pickcenter.total?.under?.away;
-        
+
         // Get moneyline data
         const awayML = pickcenter.moneyline?.away;
         const homeML = pickcenter.moneyline?.home;
-        
+
         // Get predictor percentages
         const homeWinPct = predictor?.homeTeam?.WIN || "50";
         const awayWinPct = String(100 - parseFloat(homeWinPct));
@@ -2938,13 +2938,32 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         // Format date helper
         const formatGameDate = (dateString) => {
           const date = new Date(dateString);
-          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-          return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+          const months = [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+          ];
+          return `${
+            months[date.getMonth()]
+          } ${date.getDate()}, ${date.getFullYear()}`;
         };
 
         // Get last 5 games for each team
-        const awayTeamGames = lastFiveGames.find(g => g.team?.abbreviation === awayTeam)?.events || [];
-        const homeTeamGames = lastFiveGames.find(g => g.team?.abbreviation === homeTeam)?.events || [];
+        const awayTeamGames =
+          lastFiveGames.find((g) => g.team?.abbreviation === awayTeam)
+            ?.events || [];
+        const homeTeamGames =
+          lastFiveGames.find((g) => g.team?.abbreviation === homeTeam)
+            ?.events || [];
 
         return (
           <View style={styles.tabContent}>
@@ -2954,7 +2973,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
             {/* Game Section */}
             <View style={styles.gameLineSection}>
-
               <View
                 style={[
                   styles.gameLineTable,
@@ -3093,9 +3111,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       style={[
                         styles.gameLineCellLine,
                         {
-                          color: isBetSelected("over")
-                            ? "white"
-                            : theme.text,
+                          color: isBetSelected("over") ? "white" : theme.text,
                         },
                       ]}
                     >
@@ -3257,9 +3273,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       style={[
                         styles.gameLineCellLine,
                         {
-                          color: isBetSelected("under")
-                            ? "white"
-                            : theme.text,
+                          color: isBetSelected("under") ? "white" : theme.text,
                         },
                       ]}
                     >
@@ -3329,7 +3343,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     <View
                       style={[
                         styles.bettingPercentageFill,
-                        { width: `${awayWinPct}%`, backgroundColor: colors.primary },
+                        {
+                          width: `${awayWinPct}%`,
+                          backgroundColor: colors.primary,
+                        },
                       ]}
                     />
                   </View>
@@ -3370,23 +3387,31 @@ const BetGameDetailScreen = ({ navigation, route }) => {
               >
                 Last 5 Games
               </Text>
-              
+
               <View style={styles.lastFiveGamesContainer}>
                 {/* Away Team Games */}
                 <View style={styles.lastFiveGamesColumn}>
-                  <Text style={[styles.lastFiveGamesTeamTitle, { color: theme.text }]}>
+                  <Text
+                    style={[
+                      styles.lastFiveGamesTeamTitle,
+                      { color: theme.text },
+                    ]}
+                  >
                     {awayTeam}
                   </Text>
                   {awayTeamGames.map((game, index) => {
-                    const isWin = game.score && parseInt(game.score.split('-')[0]) > parseInt(game.score.split('-')[1]);
+                    const isWin =
+                      game.score &&
+                      parseInt(game.score.split("-")[0]) >
+                        parseInt(game.score.split("-")[1]);
                     const borderColor = isWin ? theme.success : theme.error;
-                    
+
                     return (
                       <View
                         key={game.id || index}
                         style={[
                           styles.lastFiveGameCard,
-                          { 
+                          {
                             backgroundColor: theme.surface,
                             borderLeftWidth: 3,
                             borderLeftColor: borderColor,
@@ -3400,10 +3425,20 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           style={styles.lastFiveGameLogo}
                         />
                         <View style={styles.lastFiveGameInfo}>
-                          <Text style={[styles.lastFiveGameScore, { color: theme.text }]}>
+                          <Text
+                            style={[
+                              styles.lastFiveGameScore,
+                              { color: theme.text },
+                            ]}
+                          >
                             {game.score}
                           </Text>
-                          <Text style={[styles.lastFiveGameDate, { color: theme.textSecondary }]}>
+                          <Text
+                            style={[
+                              styles.lastFiveGameDate,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
                             {game.atVs} {game.opponentAbbreviation}
                           </Text>
                         </View>
@@ -3414,19 +3449,27 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
                 {/* Home Team Games */}
                 <View style={styles.lastFiveGamesColumn}>
-                  <Text style={[styles.lastFiveGamesTeamTitle, { color: theme.text }]}>
+                  <Text
+                    style={[
+                      styles.lastFiveGamesTeamTitle,
+                      { color: theme.text },
+                    ]}
+                  >
                     {homeTeam}
                   </Text>
                   {homeTeamGames.map((game, index) => {
-                    const isWin = game.score && parseInt(game.score.split('-')[0]) > parseInt(game.score.split('-')[1]);
+                    const isWin =
+                      game.score &&
+                      parseInt(game.score.split("-")[0]) >
+                        parseInt(game.score.split("-")[1]);
                     const borderColor = isWin ? theme.success : theme.error;
-                    
+
                     return (
                       <View
                         key={game.id || index}
                         style={[
                           styles.lastFiveGameCard,
-                          { 
+                          {
                             backgroundColor: theme.surface,
                             borderRightWidth: 3,
                             borderRightColor: borderColor,
@@ -3440,10 +3483,20 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           style={styles.lastFiveGameLogo}
                         />
                         <View style={styles.lastFiveGameInfo}>
-                          <Text style={[styles.lastFiveGameScore, { color: theme.text }]}>
+                          <Text
+                            style={[
+                              styles.lastFiveGameScore,
+                              { color: theme.text },
+                            ]}
+                          >
                             {game.score}
                           </Text>
-                          <Text style={[styles.lastFiveGameDate, { color: theme.textSecondary }]}>
+                          <Text
+                            style={[
+                              styles.lastFiveGameDate,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
                             {game.atVs} {game.opponentAbbreviation}
                           </Text>
                         </View>
