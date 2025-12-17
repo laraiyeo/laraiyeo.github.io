@@ -314,8 +314,8 @@ function generatePlayerOdds(gamelog, opponentTeamData) {
     const underSeason = values.filter((v) => v < overLine).length;
 
     // H2H stats against today's opponent
-    let overH2h = 0;
-    let underH2h = 0;
+    let overH2h = null;
+    let underH2h = null;
     let h2hTotal = 0;
     if (
       opponentTeamData?.id &&
@@ -327,15 +327,54 @@ function generatePlayerOdds(gamelog, opponentTeamData) {
       underH2h = h2hValues.filter((v) => v < overLine).length;
     }
 
-    // Calculate confidence (weighted: recent 40%, season 30%, h2h 30%)
-    const recentOverRate = over10 / Math.min(10, values.length);
-    const seasonOverRate = overSeason / seasonTotal;
-    const h2hOverRate = h2hTotal > 0 ? overH2h / h2hTotal : seasonOverRate;
+    // Calculate confidence with refined weighting
+    // Tier 1: Last 5 games (40% weight - most recent form)
+    const last5Total = Math.min(5, values.length);
+    const last5OverRate = last5Total > 0 ? over5 / last5Total : 0;
+    const last5UnderRate = last5Total > 0 ? under5 / last5Total : 0;
 
-    const overConfidence = Math.round(
-      (recentOverRate * 0.4 + seasonOverRate * 0.3 + h2hOverRate * 0.3) * 100
+    // Tier 2: Last 10 games and H2H (30% weight - medium-term trends)
+    const last10Total = Math.min(10, values.length);
+    const last10OverRate = last10Total > 0 ? over10 / last10Total : 0;
+    const last10UnderRate = last10Total > 0 ? under10 / last10Total : 0;
+    
+    // H2H contribution (only if games exist)
+    const h2hOverRate = h2hTotal > 0 ? overH2h / h2hTotal : null;
+    const h2hUnderRate = h2hTotal > 0 ? underH2h / h2hTotal : null;
+    
+    // Blend last 10 and H2H (if H2H exists, use 50/50 split, otherwise just last 10)
+    const tier2OverRate = h2hOverRate !== null 
+      ? (last10OverRate * 0.5 + h2hOverRate * 0.5)
+      : last10OverRate;
+    const tier2UnderRate = h2hUnderRate !== null
+      ? (last10UnderRate * 0.5 + h2hUnderRate * 0.5)
+      : last10UnderRate;
+
+    // Tier 3: Season stats (30% weight, scaled by games played reliability)
+    const seasonOverRate = seasonTotal > 0 ? overSeason / seasonTotal : 0;
+    const seasonUnderRate = seasonTotal > 0 ? underSeason / seasonTotal : 0;
+    
+    // Scale season weight by games played (more games = more reliable)
+    // Full weight at 41+ games (half season), scales down for fewer games
+    const seasonReliability = Math.min(1, seasonTotal / 41);
+    const seasonWeight = 0.3 * seasonReliability;
+    
+    // Redistribute any unused season weight to recent games
+    const unusedWeight = 0.3 - seasonWeight;
+    const adjustedTier1Weight = 0.4 + (unusedWeight * 0.6); // Give most unused weight to last 5
+    const adjustedTier2Weight = 0.3 + (unusedWeight * 0.4); // Give some to last 10/H2H
+
+    // Calculate final confidence (to 1 decimal point)
+    const overConfidence = parseFloat(
+      ((last5OverRate * adjustedTier1Weight + 
+        tier2OverRate * adjustedTier2Weight + 
+        seasonOverRate * seasonWeight) * 100).toFixed(1)
     );
-    const underConfidence = 100 - overConfidence;
+    const underConfidence = parseFloat(
+      ((last5UnderRate * adjustedTier1Weight + 
+        tier2UnderRate * adjustedTier2Weight + 
+        seasonUnderRate * seasonWeight) * 100).toFixed(1)
+    );
 
     odds.overUnder[category] = {
       line: overLine,
@@ -640,7 +679,7 @@ function transformRostersData(rostersData) {
   }
 
   const teams = rostersData.teams.map((teamData) => {
-    const { team, roster, gamelogs } = teamData;
+    const { team, roster, gamelogs, opponentId } = teamData;
 
     // Filter athletes - exclude those with injuries
     const healthyAthletes = (roster?.athletes || []).filter((athlete) => {
@@ -742,7 +781,8 @@ function transformRostersData(rostersData) {
 
         athleteData.recentGames = recentGames;
         athleteData.averages = averages;
-        athleteData.odds = generatePlayerOdds(gamelog, null);
+        // Pass opponent ID to odds generation
+        athleteData.odds = generatePlayerOdds(gamelog, opponentId ? { id: opponentId } : null);
       }
 
       return athleteData;
@@ -833,7 +873,7 @@ async function fetchAthleteGamelog(athleteId) {
   }
 }
 
-async function fetchRosterAndGamelogs(teamId) {
+async function fetchRosterAndGamelogs(teamId, opponentId = null) {
   try {
     console.log(
       `[Roster+Gamelog] Fetching combined data for team ${teamId}...`
@@ -866,6 +906,7 @@ async function fetchRosterAndGamelogs(teamId) {
       team: roster.team,
       roster,
       gamelogs,
+      opponentId, // Pass opponent ID through
       lastUpdated: new Date().toISOString(),
     };
 
@@ -897,20 +938,32 @@ async function fetchAllRostersAndGamelogs() {
       throw new Error("No scoreboard data available");
     }
 
-    // Extract unique team IDs from scoreboard
+    // Extract unique team IDs from scoreboard and build opponent map
     const teamIds = new Set();
+    const opponentMap = {}; // teamId -> opponentTeamId
+    
     scoreboardData.events.forEach((event) => {
-      event.competitions?.[0]?.competitors?.forEach((competitor) => {
+      const competitors = event.competitions?.[0]?.competitors || [];
+      competitors.forEach((competitor) => {
         teamIds.add(competitor.team.id);
       });
+      
+      // Build opponent relationships (each team plays against the other)
+      if (competitors.length === 2) {
+        const team1Id = competitors[0].team.id;
+        const team2Id = competitors[1].team.id;
+        opponentMap[team1Id] = team2Id;
+        opponentMap[team2Id] = team1Id;
+      }
     });
 
     console.log(`[Rosters] Found ${teamIds.size} teams to fetch`);
 
-    // Fetch roster and gamelogs for each team
+    // Fetch roster and gamelogs for each team with opponent info
     const teamsData = [];
     for (const teamId of teamIds) {
-      const teamData = await fetchRosterAndGamelogs(teamId);
+      const opponentId = opponentMap[teamId];
+      const teamData = await fetchRosterAndGamelogs(teamId, opponentId);
       if (teamData) {
         teamsData.push(teamData);
       }

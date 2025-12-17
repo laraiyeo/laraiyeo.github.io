@@ -3173,6 +3173,20 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         contentContainerStyle={{ paddingBottom: 80 }}
       >
         {/* Header with Teams and Scores */}
+        {(() => {
+          // Get smart team colors for proper color handling
+          const { team1Color, team2Color } = getSmartTeamColors(
+            {
+              team1Color: gameData.team1Color,
+              team1AlternateColor: gameData.team1AlternateColor,
+            },
+            {
+              team2Color: gameData.team2Color,
+              team2AlternateColor: gameData.team2AlternateColor,
+            }
+          );
+
+          return (
         <View style={[styles.header, { backgroundColor: theme.surface }]}>
           <View style={styles.headerContent}>
             {/* Venue */}
@@ -3185,7 +3199,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 style={[
                   styles.teamSection,
                   {
-                    backgroundColor: `${gameData.team1Color}15`,
+                    backgroundColor: `${team1Color}15`,
                     borderRadius: 12,
                     padding: 12,
                   },
@@ -3226,7 +3240,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 style={[
                   styles.teamSection,
                   {
-                    backgroundColor: `${gameData.team2Color}15`,
+                    backgroundColor: `${team2Color}15`,
                     borderRadius: 12,
                     padding: 12,
                   },
@@ -3271,6 +3285,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             </Text>
           </View>
         </View>
+          );
+        })()}
 
         {/* Sticky Tab Buttons */}
         <View
