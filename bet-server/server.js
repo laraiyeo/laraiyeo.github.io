@@ -77,8 +77,8 @@ function transformStatistics(statsArray) {
 
   const statsObj = {};
   statsArray.forEach((stat) => {
-    if (stat.abbreviation && stat.displayValue) {
-      statsObj[stat.abbreviation] = stat.displayValue;
+    if (stat.label && stat.displayValue) {
+      statsObj[stat.label] = stat.displayValue;
     }
   });
   return statsObj;

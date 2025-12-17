@@ -8,17 +8,20 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
+import { useBetData } from "../../context/BetDataContext";
 
 const BetLoginScreen = ({ navigation }) => {
   const { colors, theme } = useTheme();
+  const { fetchInitialData, isLoading } = useBetData();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!username || !password) {
       Alert.alert("Error", "Please enter both username and password");
       return;
@@ -26,10 +29,16 @@ const BetLoginScreen = ({ navigation }) => {
 
     // Validate credentials
     if (username === "username" && password === "password") {
+      // Fetch initial data before navigating
+      await fetchInitialData();
+
       // Navigate to BetMain (which is in the MainStackNavigator)
       navigation.navigate("BetMain");
     } else {
-      Alert.alert("Error", 'Invalid username or password. Use "username" and "password"');
+      Alert.alert(
+        "Error",
+        'Invalid username or password. Use "username" and "password"'
+      );
     }
   };
 
@@ -39,7 +48,6 @@ const BetLoginScreen = ({ navigation }) => {
       style={[styles.container, { backgroundColor: theme.background }]}
     >
       <View style={styles.content}>
-
         {/* Logo/Icon */}
         <View
           style={[styles.logoContainer, { backgroundColor: colors.primary }]}
@@ -107,10 +115,19 @@ const BetLoginScreen = ({ navigation }) => {
           </View>
 
           <TouchableOpacity
-            style={[styles.loginButton, { backgroundColor: colors.primary }]}
+            style={[
+              styles.loginButton,
+              { backgroundColor: colors.primary },
+              isLoading && styles.loginButtonDisabled,
+            ]}
             onPress={handleLogin}
+            disabled={isLoading}
           >
-            <Text style={styles.loginButtonText}>Login</Text>
+            {isLoading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.loginButtonText}>Login</Text>
+            )}
           </TouchableOpacity>
 
           <Text style={[styles.demoNote, { color: theme.textTertiary }]}>
@@ -129,7 +146,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   logoContainer: {
     width: 96,
@@ -173,6 +190,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: "center",
     marginTop: 8,
+  },
+  loginButtonDisabled: {
+    opacity: 0.6,
   },
   loginButtonText: {
     color: "white",

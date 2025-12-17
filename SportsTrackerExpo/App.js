@@ -20,6 +20,7 @@ import { ChatProvider } from "./src/context/ChatContext";
 import { EmoteProvider } from "./src/context/EmoteContext";
 import { MutedUsersProvider } from "./src/context/MutedUsersContext";
 import { BetSlipProvider } from "./src/context/BetSlipContext";
+import { BetDataProvider } from "./src/context/BetDataContext";
 
 // Import Analytics Service
 import analyticsService from "./src/services/AnalyticsService";
@@ -2106,7 +2107,9 @@ export default function App() {
           <EmoteProvider>
             <MutedUsersProvider>
               <BetSlipProvider>
-                <AppContent />
+                <BetDataProvider>
+                  <AppContent />
+                </BetDataProvider>
               </BetSlipProvider>
             </MutedUsersProvider>
           </EmoteProvider>
