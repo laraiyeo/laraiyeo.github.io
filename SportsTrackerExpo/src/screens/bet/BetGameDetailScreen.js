@@ -493,9 +493,7 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
 
           // Get smart color for player based on their team
           const playerTeamColor =
-            player.teamAbbr === gameData.team1Abbr
-              ? team1Color
-              : team2Color;
+            player.teamAbbr === gameData.team1Abbr ? team1Color : team2Color;
 
           return (
             <View key={player.id} style={styles.propRow}>
@@ -663,9 +661,7 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
 
           // Get smart color for player based on their team
           const playerTeamColor =
-            player.teamAbbr === gameData.team1Abbr
-              ? team1Color
-              : team2Color;
+            player.teamAbbr === gameData.team1Abbr ? team1Color : team2Color;
 
           return (
             <View key={player.id} style={styles.propRow}>
