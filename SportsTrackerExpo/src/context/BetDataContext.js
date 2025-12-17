@@ -53,11 +53,17 @@ export const BetDataProvider = ({ children }) => {
     }
   };
 
-  // Initial fetch on login
+  // Initial fetch on login - fetch scoreboard first, rosters in background
   const fetchInitialData = async () => {
     setIsLoading(true);
     try {
-      await Promise.all([fetchScoreboard(), fetchRosters()]);
+      // Fetch scoreboard first (blocking)
+      await fetchScoreboard();
+
+      // Fetch rosters in background (non-blocking)
+      fetchRosters().catch((error) => {
+        console.error("Background roster fetch failed:", error);
+      });
     } finally {
       setIsLoading(false);
     }

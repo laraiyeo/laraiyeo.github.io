@@ -508,6 +508,11 @@ function transformSummaryData(data) {
       events: teamGames.events?.map((event) => ({
         id: event.id,
         opponent: event.opponent?.displayName,
+        opponentAbbreviation: event.opponent?.abbreviation,
+        atVs: event.atVs,
+        date: event.date,
+        score: event.score,
+        result: event.result,
       })),
     }));
   }

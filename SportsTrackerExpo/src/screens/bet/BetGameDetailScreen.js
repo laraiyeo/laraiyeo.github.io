@@ -23,10 +23,22 @@ import Svg, {
 } from "react-native-svg";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetSlip } from "../../context/BetSlipContext";
+import { useBetData } from "../../context/BetDataContext";
 import BetSlip from "../../components/BetSlip";
 import PlayerStatsPopup from "../../components/PlayerStatsPopup";
 
 const { width } = Dimensions.get("window");
+
+// Memoized Team Logo Component to prevent re-fetching images
+const TeamLogo = React.memo(
+  ({ uri, style, resizeMode = "contain" }) => {
+    return <Image source={{ uri }} style={style} resizeMode={resizeMode} />;
+  },
+  (prevProps, nextProps) => {
+    // Only re-render if URI actually changes
+    return prevProps.uri === nextProps.uri;
+  }
+);
 
 // Color similarity detection utility
 const calculateColorSimilarity = (color1, color2) => {
@@ -338,60 +350,84 @@ const BasketballCourt = React.memo(
 // Player Props Tab Component - DraftKings Style
 const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
   const { toggleBet, isBetSelected, removeBet } = useBetSlip();
+  const { rostersData } = useBetData();
   const [selectedPropType, setSelectedPropType] = useState(propTypes[0]);
   const [selectedPlayerForStats, setSelectedPlayerForStats] = useState(null);
   const [statsPopupVisible, setStatsPopupVisible] = useState(false);
   const [currentLine, setCurrentLine] = useState(null);
+  const [showAllMilestone, setShowAllMilestone] = useState(false);
+  const [showAllOU, setShowAllOU] = useState(false);
   const scrollViewRef = useRef(null);
 
-  // Generate player data
-  const players = [
-    {
-      id: "p1",
-      name: "Nikola Jokic",
-      ppg: 29.5,
-      rpg: 13.7,
-      apg: 9.7,
-      tpg: 1.1,
-      team: gameData.team2,
-    },
-    {
-      id: "p2",
-      name: "Jamal Murray",
-      ppg: 24.4,
-      rpg: 4.1,
-      apg: 6.5,
-      tpg: 2.8,
-      team: gameData.team2,
-    },
-    {
-      id: "p3",
-      name: "Kevin Durant",
-      ppg: 24.8,
-      rpg: 6.6,
-      apg: 5.0,
-      tpg: 2.5,
-      team: gameData.team1,
-    },
-    {
-      id: "p4",
-      name: "Alperen Sengun",
-      ppg: 23.0,
-      rpg: 10.3,
-      apg: 5.0,
-      tpg: 1.2,
-      team: gameData.team1,
-    },
-    {
-      id: "p5",
-      name: "Amen Thompson",
-      ppg: 17.5,
-      rpg: 8.9,
-      apg: 3.6,
-      tpg: 1.5,
-      team: gameData.team1,
-    },
-  ];
+  // Map prop type to stat key
+  const getStatKey = (propType) => {
+    switch (propType) {
+      case "Points":
+        return "PTS";
+      case "Rebounds":
+        return "REB";
+      case "Assists":
+        return "AST";
+      case "Blocks":
+        return "BLK";
+      case "Turnovers":
+        return "TO";
+      case "PRA":
+        return "PRA";
+      default:
+        return "PTS";
+    }
+  };
+
+  // Get players from roster data for both teams
+  const players = useMemo(() => {
+    if (!rostersData?.teams || !gameData) return [];
+
+    const team1Abbr = gameData.team1Abbr;
+    const team2Abbr = gameData.team2Abbr;
+
+    // Find both teams in roster data
+    const team1Data = rostersData.teams.find(
+      (t) => t.abbreviation === team1Abbr
+    );
+    const team2Data = rostersData.teams.find(
+      (t) => t.abbreviation === team2Abbr
+    );
+
+    const allPlayers = [];
+    const statKey = getStatKey(selectedPropType);
+
+    // Add team 1 players
+    if (team1Data?.athletes) {
+      team1Data.athletes.forEach((athlete) => {
+        if (athlete.averages && athlete.averages[statKey]) {
+          allPlayers.push({
+            ...athlete,
+            team: team1Data.displayName,
+            teamAbbr: team1Data.abbreviation,
+            statValue: parseFloat(athlete.averages[statKey]) || 0,
+          });
+        }
+      });
+    }
+
+    // Add team 2 players
+    if (team2Data?.athletes) {
+      team2Data.athletes.forEach((athlete) => {
+        if (athlete.averages && athlete.averages[statKey]) {
+          allPlayers.push({
+            ...athlete,
+            team: team2Data.displayName,
+            teamAbbr: team2Data.abbreviation,
+            statValue: parseFloat(athlete.averages[statKey]) || 0,
+          });
+        }
+      });
+    }
+
+    // Sort by stat value descending
+    return allPlayers.sort((a, b) => b.statValue - a.statValue);
+  }, [rostersData, gameData, selectedPropType]);
 
   const openPlayerStats = (player, line) => {
     setSelectedPlayerForStats(player);
@@ -399,69 +435,90 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
     setStatsPopupVisible(true);
   };
 
-  // Get stat value based on prop type
-  const getPlayerStat = (player, propType) => {
-    switch (propType) {
-      case "Points":
-        return player.ppg;
-      case "Rebounds":
-        return player.rpg;
-      case "Assists":
-        return player.apg;
-      case "3-Pointers":
-        return player.tpg;
-      default:
-        return player.ppg;
-    }
-  };
-
-  // Generate milestone options (10+, 15+, 20+, etc)
-  const getMilestoneOptions = (propType) => {
-    switch (propType) {
-      case "Points":
-        return [10, 15, 20, 25, 30, 35];
-      case "Rebounds":
-        return [5, 8, 10, 12, 15];
-      case "Assists":
-        return [5, 8, 10, 12, 15];
-      case "3-Pointers":
-        return [1, 2, 3, 4, 5];
-      default:
-        return [10, 15, 20, 25, 30];
-    }
-  };
-
   // Render milestone section (10+, 15+, 20+, etc)
   const renderMilestoneSection = () => {
-    const milestones = getMilestoneOptions(selectedPropType);
+    const statKey = getStatKey(selectedPropType);
+    const displayPlayers = showAllMilestone ? players : players.slice(0, 5);
+
+    if (displayPlayers.length === 0) {
+      return (
+        <View style={styles.propSection}>
+          <Text style={[styles.propSectionTitle, { color: theme.text }]}>
+            Milestones
+          </Text>
+          <Text
+            style={[styles.placeholderText, { color: theme.textSecondary }]}
+          >
+            No player data available
+          </Text>
+        </View>
+      );
+    }
+
+    // Get smart colors for both teams using gameData (same as header)
+    const { team1Color, team2Color } = getSmartTeamColors(
+      {
+        team1Color: gameData.team1Color,
+        team1AlternateColor: gameData.team1AlternateColor,
+      },
+      {
+        team2Color: gameData.team2Color,
+        team2AlternateColor: gameData.team2AlternateColor,
+      },
+      colors
+    );
 
     return (
       <View style={styles.propSection}>
         <Text style={[styles.propSectionTitle, { color: theme.text }]}>
-          {selectedPropType}
+          Milestones
         </Text>
 
-        {players.map((player) => {
-          const baseStat = getPlayerStat(player, selectedPropType);
+        {displayPlayers.map((player) => {
+          // Recalculate statKey to ensure it's current
+          const currentStatKey = getStatKey(selectedPropType);
+          const milestones = player.odds?.milestones?.[currentStatKey];
+          if (!milestones) return null;
+
+          // Parse milestones string (e.g., "5+:-900, 10+:-400, 15+:122")
+          const milestoneOptions = milestones
+            .split(", ")
+            .map((m) => {
+              const [label, odds] = m.split(":");
+              return { label, odds };
+            })
+            .filter((m) => m.label && m.odds);
+
+          if (milestoneOptions.length === 0) return null;
+
+          // Get smart color for player based on their team
+          const playerTeamColor =
+            player.teamAbbr === gameData.team1Abbr
+              ? team1Color
+              : team2Color;
 
           return (
-            <View key={`milestone-${player.id}`} style={styles.propRow}>
-              {/* Player Info */}
+            <View key={player.id} style={styles.propRow}>
               <TouchableOpacity
                 style={styles.propPlayerInfo}
-                onPress={() => openPlayerStats(player, baseStat)}
+                onPress={() => openPlayerStats(player, null)}
               >
                 <View
                   style={[
                     styles.propPlayerIcon,
-                    { backgroundColor: colors.primary },
+                    { backgroundColor: playerTeamColor },
                   ]}
                 >
-                  <Ionicons name="person" size={20} color="white" />
+                  <Image
+                    source={{
+                      uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${player.id}.png&w=200`,
+                    }}
+                    style={styles.propPlayerIconImage}
+                  />
                 </View>
                 <View style={styles.propPlayerDetails}>
                   <Text style={[styles.propPlayerName, { color: theme.text }]}>
-                    {player.name}
+                    {player.shortName}
                   </Text>
                   <Text
                     style={[
@@ -469,106 +526,70 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                       { color: theme.textSecondary },
                     ]}
                   >
-                    {selectedPropType === "Points"
-                      ? "PPG"
-                      : selectedPropType === "Rebounds"
-                      ? "RPG"
-                      : selectedPropType === "Assists"
-                      ? "APG"
-                      : "3PG"}
-                    : {baseStat}
+                    {player.position?.abbreviation} • {player.teamAbbr} •{" "}
+                    {player.statValue.toFixed(1)} AVG
                   </Text>
                 </View>
               </TouchableOpacity>
 
-              {/* Milestone buttons */}
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={styles.propOddsScroll}
                 contentContainerStyle={styles.propMilestoneContent}
-                snapToInterval={78}
-                decelerationRate="fast"
-                snapToAlignment="center"
-                pagingEnabled={false}
               >
-                {milestones.map((milestone, index) => {
-                  const odds =
-                    milestone < baseStat
-                      ? "-150"
-                      : milestone === Math.round(baseStat)
-                      ? "-110"
-                      : "+120";
-                  const betId = `${player.id}-${selectedPropType}-${milestone}+`;
+                {milestoneOptions.map((milestone, idx) => {
+                  const betId = `${player.id}-${selectedPropType}-${milestone.label}`;
+                  const isSelected = isBetSelected(betId);
+
+                  // Format odds with + if positive and no sign
+                  const formattedOdds = milestone.odds.match(/^[+-]/)
+                    ? milestone.odds
+                    : `+${milestone.odds}`;
 
                   return (
                     <TouchableOpacity
-                      key={index}
+                      key={idx}
                       style={[
                         styles.milestoneButton,
                         {
-                          backgroundColor: isBetSelected(betId)
+                          backgroundColor: isSelected
                             ? colors.primary
-                            : theme.surfaceSecondary,
-                          borderColor: isBetSelected(betId)
-                            ? colors.primary
-                            : theme.border,
+                            : theme.surface,
+                          borderColor: colors.primary,
                         },
                       ]}
                       onPress={() => {
-                        console.log("Milestone button pressed:", milestone);
-                        // Remove any existing milestone bets for this player and prop type
-                        const existingMilestoneBets = milestones
-                          .map((m) => `${player.id}-${selectedPropType}-${m}+`)
-                          .filter((id) => id !== betId && isBetSelected(id));
-
-                        console.log(
-                          "Existing milestone bets to remove:",
-                          existingMilestoneBets
-                        );
-                        existingMilestoneBets.forEach((id) => {
-                          removeBet(id); // Remove old bet
-                        });
-
-                        const betObject = {
-                          id: betId,
-                          gameId: gameId,
-                          gameInfo: {
-                            time: gameData.time || "TBD",
-                            teams: `${gameData.team1} @ ${gameData.team2}`,
-                          },
-                          type: selectedPropType,
-                          description: `${player.name} ${milestone}+`,
-                          line: `${milestone}+`,
-                          odds: odds,
-                        };
-                        console.log("Adding bet:", betObject);
-
-                        // Toggle the new bet
-                        toggleBet(betObject);
+                        if (isSelected) {
+                          removeBet(betId);
+                        } else {
+                          toggleBet({
+                            id: betId,
+                            type: "milestone",
+                            player: player.shortName,
+                            team: player.teamAbbr,
+                            prop: `${selectedPropType} ${milestone.label}`,
+                            odds: formattedOdds,
+                            gameId: gameId,
+                          });
+                        }
                       }}
                     >
                       <Text
                         style={[
                           styles.milestoneValue,
-                          {
-                            color: isBetSelected(betId) ? "white" : theme.text,
-                          },
+                          { color: isSelected ? "white" : theme.text },
                         ]}
                       >
-                        {milestone}+
+                        {milestone.label}
                       </Text>
                       <Text
                         style={[
                           styles.milestoneOdds,
-                          {
-                            color: isBetSelected(betId)
-                              ? "white"
-                              : colors.primary,
-                          },
+                          { color: isSelected ? "white" : colors.primary },
                         ]}
                       >
-                        {odds}
+                        {formattedOdds}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -578,30 +599,76 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
           );
         })}
 
-        <TouchableOpacity style={styles.viewMoreButton}>
-          <Text style={[styles.viewMoreText, { color: theme.text }]}>
-            View More
-          </Text>
-        </TouchableOpacity>
+        {players.length > 5 && (
+          <TouchableOpacity
+            style={styles.viewMoreButton}
+            onPress={() => setShowAllMilestone(!showAllMilestone)}
+          >
+            <Text style={[styles.viewMoreText, { color: theme.text }]}>
+              {showAllMilestone
+                ? "View Less"
+                : `View More (${players.length - 5} more)`}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
 
-  // Render O/U section
+  // Render Over/Under section
   const renderOUSection = () => {
+    const statKey = getStatKey(selectedPropType);
+    const displayPlayers = showAllOU ? players : players.slice(0, 5);
+
+    if (displayPlayers.length === 0) {
+      return null;
+    }
+
+    // Get smart colors for both teams using gameData (same as header)
+    const { team1Color, team2Color } = getSmartTeamColors(
+      {
+        team1Color: gameData.team1Color,
+        team1AlternateColor: gameData.team1AlternateColor,
+      },
+      {
+        team2Color: gameData.team2Color,
+        team2AlternateColor: gameData.team2AlternateColor,
+      },
+      colors
+    );
+
     return (
       <View style={styles.propSection}>
         <Text style={[styles.propSectionTitle, { color: theme.text }]}>
-          {selectedPropType} O/U
+          Over/Under
         </Text>
 
-        {players.map((player) => {
-          const baseStat = getPlayerStat(player, selectedPropType);
-          const line = baseStat;
+        {displayPlayers.map((player) => {
+          // Recalculate statKey to ensure it's current
+          const currentStatKey = getStatKey(selectedPropType);
+          const ouData = player.odds?.overUnder?.[currentStatKey];
+          if (!ouData || ouData.line === undefined) return null;
+
+          const line = ouData.line;
+          const overOdds = ouData.over;
+          const underOdds = ouData.under;
+          const overBetId = `${player.id}-${selectedPropType}-${line}-over`;
+          const underBetId = `${player.id}-${selectedPropType}-${line}-under`;
+
+          // Format odds with + if positive (odds are numbers like -100, 150, 233, etc.)
+          const formattedOverOdds =
+            overOdds > 0 ? `+${overOdds}` : String(overOdds);
+          const formattedUnderOdds =
+            underOdds > 0 ? `+${underOdds}` : String(underOdds);
+
+          // Get smart color for player based on their team
+          const playerTeamColor =
+            player.teamAbbr === gameData.team1Abbr
+              ? team1Color
+              : team2Color;
 
           return (
-            <View key={`ou-${player.id}`} style={styles.propRow}>
-              {/* Player Info */}
+            <View key={player.id} style={styles.propRow}>
               <TouchableOpacity
                 style={styles.propPlayerInfo}
                 onPress={() => openPlayerStats(player, line)}
@@ -609,14 +676,19 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                 <View
                   style={[
                     styles.propPlayerIcon,
-                    { backgroundColor: colors.primary },
+                    { backgroundColor: playerTeamColor },
                   ]}
                 >
-                  <Ionicons name="person" size={20} color="white" />
+                  <Image
+                    source={{
+                      uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${player.id}.png&w=200`,
+                    }}
+                    style={styles.propPlayerIconImage}
+                  />
                 </View>
                 <View style={styles.propPlayerDetails}>
                   <Text style={[styles.propPlayerName, { color: theme.text }]}>
-                    {player.name}
+                    {player.shortName}
                   </Text>
                   <Text
                     style={[
@@ -624,81 +696,56 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                       { color: theme.textSecondary },
                     ]}
                   >
-                    {selectedPropType === "Points"
-                      ? "PPG"
-                      : selectedPropType === "Rebounds"
-                      ? "RPG"
-                      : selectedPropType === "Assists"
-                      ? "APG"
-                      : "3PG"}
-                    : {baseStat}
+                    {player.position?.abbreviation} • {player.teamAbbr} •{" "}
+                    {player.statValue.toFixed(1)} AVG
                   </Text>
                 </View>
               </TouchableOpacity>
 
-              {/* O/U Buttons */}
               <View style={styles.ouButtonsContainer}>
-                {/* Over button */}
                 <TouchableOpacity
                   style={[
                     styles.ouButton,
                     {
-                      backgroundColor: isBetSelected(
-                        `${player.id}-${selectedPropType}-${line}-over`
-                      )
+                      backgroundColor: isBetSelected(overBetId)
                         ? colors.primary
-                        : theme.surfaceSecondary,
-                      borderColor: isBetSelected(
-                        `${player.id}-${selectedPropType}-${line}-over`
-                      )
-                        ? colors.primary
-                        : theme.border,
+                        : theme.surface,
+                      borderColor: colors.primary,
                     },
                   ]}
                   onPress={() => {
-                    // If under is selected, remove it first
-                    const underId = `${player.id}-${selectedPropType}-${line}-under`;
-                    if (isBetSelected(underId)) {
-                      removeBet(underId);
+                    if (isBetSelected(overBetId)) {
+                      removeBet(overBetId);
+                    } else {
+                      toggleBet({
+                        id: overBetId,
+                        type: "over",
+                        player: player.shortName,
+                        team: player.teamAbbr,
+                        prop: `${selectedPropType} O${line}`,
+                        odds: formattedOverOdds,
+                        gameId: gameId,
+                      });
                     }
-
-                    toggleBet({
-                      id: `${player.id}-${selectedPropType}-${line}-over`,
-                      gameId: gameId,
-                      gameInfo: {
-                        time: gameData.time || "TBD",
-                        teams: `${gameData.team1} @ ${gameData.team2}`,
-                      },
-                      type: `${selectedPropType} - Over`,
-                      description: `${player.name}`,
-                      line: `O ${line}`,
-                      odds: "-115",
-                    });
                   }}
                 >
                   <Text
                     style={[
                       styles.ouLabel,
                       {
-                        color: isBetSelected(
-                          `${player.id}-${selectedPropType}-${line}-over`
-                        )
+                        color: isBetSelected(overBetId)
                           ? "white"
                           : theme.textSecondary,
                       },
                     ]}
                   >
-                    O
+                    OVER
                   </Text>
                   <Text
                     style={[
                       styles.ouLine,
                       {
-                        color: isBetSelected(
-                          `${player.id}-${selectedPropType}-${line}-over`
-                        )
-                          ? "white"
-                          : theme.text,
+                        color: isBetSelected(overBetId) ? "white" : theme.text,
                       },
                     ]}
                   >
@@ -708,79 +755,59 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                     style={[
                       styles.ouOdds,
                       {
-                        color: isBetSelected(
-                          `${player.id}-${selectedPropType}-${line}-over`
-                        )
+                        color: isBetSelected(overBetId)
                           ? "white"
                           : colors.primary,
                       },
                     ]}
                   >
-                    -115
+                    {formattedOverOdds}
                   </Text>
                 </TouchableOpacity>
 
-                {/* Under button */}
                 <TouchableOpacity
                   style={[
                     styles.ouButton,
                     {
-                      backgroundColor: isBetSelected(
-                        `${player.id}-${selectedPropType}-${line}-under`
-                      )
+                      backgroundColor: isBetSelected(underBetId)
                         ? colors.primary
-                        : theme.surfaceSecondary,
-                      borderColor: isBetSelected(
-                        `${player.id}-${selectedPropType}-${line}-under`
-                      )
-                        ? colors.primary
-                        : theme.border,
+                        : theme.surface,
+                      borderColor: colors.primary,
                     },
                   ]}
                   onPress={() => {
-                    // If over is selected, remove it first
-                    const overId = `${player.id}-${selectedPropType}-${line}-over`;
-                    if (isBetSelected(overId)) {
-                      removeBet(overId);
+                    if (isBetSelected(underBetId)) {
+                      removeBet(underBetId);
+                    } else {
+                      toggleBet({
+                        id: underBetId,
+                        type: "under",
+                        player: player.shortName,
+                        team: player.teamAbbr,
+                        prop: `${selectedPropType} U${line}`,
+                        odds: formattedUnderOdds,
+                        gameId: gameId,
+                      });
                     }
-
-                    toggleBet({
-                      id: `${player.id}-${selectedPropType}-${line}-under`,
-                      gameId: gameId,
-                      gameInfo: {
-                        time: gameData.time || "TBD",
-                        teams: `${gameData.team1} @ ${gameData.team2}`,
-                      },
-                      type: `${selectedPropType} - Under`,
-                      description: `${player.name}`,
-                      line: `U ${line}`,
-                      odds: "-105",
-                    });
                   }}
                 >
                   <Text
                     style={[
                       styles.ouLabel,
                       {
-                        color: isBetSelected(
-                          `${player.id}-${selectedPropType}-${line}-under`
-                        )
+                        color: isBetSelected(underBetId)
                           ? "white"
                           : theme.textSecondary,
                       },
                     ]}
                   >
-                    U
+                    UNDER
                   </Text>
                   <Text
                     style={[
                       styles.ouLine,
                       {
-                        color: isBetSelected(
-                          `${player.id}-${selectedPropType}-${line}-under`
-                        )
-                          ? "white"
-                          : theme.text,
+                        color: isBetSelected(underBetId) ? "white" : theme.text,
                       },
                     ]}
                   >
@@ -790,15 +817,13 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                     style={[
                       styles.ouOdds,
                       {
-                        color: isBetSelected(
-                          `${player.id}-${selectedPropType}-${line}-under`
-                        )
+                        color: isBetSelected(underBetId)
                           ? "white"
                           : colors.primary,
                       },
                     ]}
                   >
-                    -105
+                    {formattedUnderOdds}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -806,11 +831,18 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
           );
         })}
 
-        <TouchableOpacity style={styles.viewMoreButton}>
-          <Text style={[styles.viewMoreText, { color: theme.text }]}>
-            View More
-          </Text>
-        </TouchableOpacity>
+        {players.length > 5 && (
+          <TouchableOpacity
+            style={styles.viewMoreButton}
+            onPress={() => setShowAllOU(!showAllOU)}
+          >
+            <Text style={[styles.viewMoreText, { color: theme.text }]}>
+              {showAllOU
+                ? "View Less"
+                : `View More (${players.length - 5} more)`}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
@@ -835,7 +867,11 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                 borderColor: colors.primary,
               },
             ]}
-            onPress={() => setSelectedPropType(type)}
+            onPress={() => {
+              setSelectedPropType(type);
+              setShowAllMilestone(false);
+              setShowAllOU(false);
+            }}
           >
             <Text
               style={[
@@ -991,7 +1027,7 @@ const AlternateSpreadSection = ({ gameData, theme, colors }) => {
 };
 
 const BetGameDetailScreen = ({ navigation, route }) => {
-  const { colors, theme } = useTheme();
+  const { colors, theme, isDarkMode } = useTheme();
   const { toggleBet, isBetSelected } = useBetSlip();
   const { game } = route.params || {};
   const [selectedTab, setSelectedTab] = useState("stats");
@@ -1008,7 +1044,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
   const tabFontSize = getTabFontSize();
 
-  // Fetch game summary data
+  // Fetch game summary data (initial load)
   useEffect(() => {
     const fetchGameSummary = async () => {
       if (!game?.id) {
@@ -1032,6 +1068,109 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
     fetchGameSummary();
   }, [game?.id]);
+
+  // Auto-refresh game details every 2 seconds for live updates (with 5-min pre/post window)
+  useEffect(() => {
+    if (!game?.id || !summaryData) return;
+
+    const competition = summaryData?.header?.competitions?.[0];
+    const statusType = competition?.status?.type || {};
+    const gameState = statusType?.state;
+    const now = new Date();
+
+    // Get game date/time
+    const gameDate = summaryData?.header?.date
+      ? new Date(summaryData.header.date)
+      : null;
+
+    // Helper to get time difference in minutes
+    const getTimeDifferenceInMinutes = (date1, date2) => {
+      return Math.abs(date2 - date1) / (1000 * 60);
+    };
+
+    // Determine if we should poll
+    let shouldPoll = false;
+
+    if (gameState === "in") {
+      // Always poll during live games
+      shouldPoll = true;
+    } else if (gameState === "pre" && gameDate) {
+      // Poll if within 5 minutes before game start
+      const minutesUntilStart = getTimeDifferenceInMinutes(now, gameDate);
+      if (minutesUntilStart <= 5 && now < gameDate) {
+        shouldPoll = true;
+      }
+    } else if (gameState === "post" && gameDate) {
+      // Poll for 5 minutes after game ends
+      // Estimate end time (game started + 2.5 hours average NBA game)
+      const estimatedEndTime = new Date(
+        gameDate.getTime() + 2.5 * 60 * 60 * 1000
+      );
+      const minutesSinceEnd = getTimeDifferenceInMinutes(estimatedEndTime, now);
+      if (minutesSinceEnd <= 5 && now >= estimatedEndTime) {
+        shouldPoll = true;
+      }
+    }
+
+    if (!shouldPoll) {
+      console.log(
+        "[BetGameDetail] Outside polling window, not auto-refreshing"
+      );
+      return;
+    }
+
+    console.log("[BetGameDetail] Starting auto-refresh (2s interval)");
+    const intervalId = setInterval(async () => {
+      try {
+        const response = await fetch(
+          `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/${game.id}`
+        );
+        const data = await response.json();
+        setSummaryData(data);
+
+        // Check if we should stop polling
+        const newCompetition = data?.header?.competitions?.[0];
+        const newStatusType = newCompetition?.status?.type || {};
+        const newGameState = newStatusType?.state;
+        const newNow = new Date();
+        const newGameDate = data?.header?.date
+          ? new Date(data.header.date)
+          : null;
+
+        let shouldContinue = false;
+        if (newGameState === "in") {
+          shouldContinue = true;
+        } else if (newGameState === "pre" && newGameDate) {
+          const minutesUntilStart = getTimeDifferenceInMinutes(
+            newNow,
+            newGameDate
+          );
+          shouldContinue = minutesUntilStart <= 5 && newNow < newGameDate;
+        } else if (newGameState === "post" && newGameDate) {
+          const estimatedEndTime = new Date(
+            newGameDate.getTime() + 2.5 * 60 * 60 * 1000
+          );
+          const minutesSinceEnd = getTimeDifferenceInMinutes(
+            estimatedEndTime,
+            newNow
+          );
+          shouldContinue = minutesSinceEnd <= 5 && newNow >= estimatedEndTime;
+        }
+
+        if (!shouldContinue) {
+          console.log(
+            "[BetGameDetail] Exiting polling window, stopping auto-refresh"
+          );
+          clearInterval(intervalId);
+        }
+      } catch (error) {
+        console.error("[BetGameDetail] Failed to refresh game data:", error);
+        // Keep current data on refresh errors
+      }
+    }, 2000);
+
+    return () => clearInterval(intervalId);
+  }, [game?.id, summaryData]);
 
   // Parse game data from summary
   const gameData = useMemo(() => {
@@ -1057,11 +1196,15 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     const homeTeam = competitors.find((c) => c.homeAway === "home");
     const status = competition.status;
 
+    const darkSuffix = isDarkMode ? "-dark" : "";
+    const team1Abbr = awayTeam.team.abbreviation.toLowerCase();
+    const team2Abbr = homeTeam.team.abbreviation.toLowerCase();
+
     return {
       id: summaryData.header.id,
       team1: awayTeam.team.displayName,
       team1Abbr: awayTeam.team.abbreviation,
-      team1Logo: `https://a.espncdn.com/i/teamlogos/nba/500/${awayTeam.team.abbreviation.toLowerCase()}.png`,
+      team1Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${darkSuffix}/${team1Abbr}.png&h=200&w=200`,
       team1Color: `#${awayTeam.team.color}`,
       team1AlternateColor: awayTeam.team.alternateColor
         ? `#${awayTeam.team.alternateColor}`
@@ -1071,7 +1214,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       linescores1: awayTeam.linescores,
       team2: homeTeam.team.displayName,
       team2Abbr: homeTeam.team.abbreviation,
-      team2Logo: `https://a.espncdn.com/i/teamlogos/nba/500/${homeTeam.team.abbreviation.toLowerCase()}.png`,
+      team2Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${darkSuffix}/${team2Abbr}.png&h=200&w=200`,
       team2Color: `#${homeTeam.team.color}`,
       team2AlternateColor: homeTeam.team.alternateColor
         ? `#${homeTeam.team.alternateColor}`
@@ -1084,7 +1227,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       completed: status.type.completed,
       sport: "NBA",
     };
-  }, [summaryData, game]);
+  }, [summaryData, game, isDarkMode]);
 
   const venue = useMemo(() => {
     return summaryData?.gameInfo?.venue || getRandomVenue("NBA");
@@ -1199,28 +1342,62 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     [summaryData]
   );
 
-  const tabs = [
-    {
-      id: "stats",
-      icon: "stats-chart",
-      label: "Game Stats",
-    },
-    {
-      id: "quick",
-      icon: "flash",
-      label: "Flash Props",
-    },
-    {
-      id: "props",
-      icon: "person",
-      label: "Player Props",
-    },
-    {
-      id: "lines",
-      icon: "list",
-      label: "Game Lines",
-    },
-  ];
+  // Dynamic tabs based on game state
+  const tabs = useMemo(() => {
+    const gameState = gameData.status; // 'pre', 'in', 'post'
+
+    if (gameState === "pre") {
+      // Pre-game: Game Stats, Player Props, Game Lines
+      return [
+        {
+          id: "stats",
+          icon: "stats-chart",
+          label: "Game Stats",
+        },
+        {
+          id: "props",
+          icon: "person",
+          label: "Player Props",
+        },
+        {
+          id: "lines",
+          icon: "list",
+          label: "Game Lines",
+        },
+      ];
+    } else if (gameState === "in") {
+      // In-game: Game Stats, Flash Props
+      return [
+        {
+          id: "stats",
+          icon: "stats-chart",
+          label: "Game Stats",
+        },
+        {
+          id: "quick",
+          icon: "flash",
+          label: "Flash Props",
+        },
+      ];
+    } else {
+      // Post-game: Only Game Stats
+      return [
+        {
+          id: "stats",
+          icon: "stats-chart",
+          label: "Game Stats",
+        },
+      ];
+    }
+  }, [gameData.status]);
+
+  // Ensure selected tab is valid for current game state
+  useEffect(() => {
+    const validTabIds = tabs.map((tab) => tab.id);
+    if (!validTabIds.includes(selectedTab)) {
+      setSelectedTab("stats"); // Default to stats if current tab is not available
+    }
+  }, [tabs, selectedTab]);
 
   const renderTabContent = () => {
     switch (selectedTab) {
@@ -1276,10 +1453,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   </View>
                   <View style={styles.linescoreRow}>
                     <View style={styles.linescoreTeamCell}>
-                      <Image
-                        source={{ uri: gameData.team1Logo }}
+                      <TeamLogo
+                        uri={gameData.team1Logo}
                         style={styles.linescoreTeamLogoImage}
-                        resizeMode="contain"
                       />
                       <Text
                         style={[
@@ -1306,10 +1482,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   </View>
                   <View style={styles.linescoreRow}>
                     <View style={styles.linescoreTeamCell}>
-                      <Image
-                        source={{ uri: gameData.team2Logo }}
+                      <TeamLogo
+                        uri={gameData.team2Logo}
                         style={styles.linescoreTeamLogoImage}
-                        resizeMode="contain"
                       />
                       <Text
                         style={[
@@ -1694,10 +1869,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             >
               <View style={styles.statsHeader}>
                 <View style={styles.teamHeaderLeft}>
-                  <Image
-                    source={{ uri: gameData.team1Logo }}
+                  <TeamLogo
+                    uri={gameData.team1Logo}
                     style={styles.teamSmallLogo}
-                    resizeMode="contain"
                   />
                   <Text
                     style={[styles.teamStatsTeamName, { color: theme.text }]}
@@ -1711,10 +1885,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   >
                     {gameData.team2Abbr}
                   </Text>
-                  <Image
-                    source={{ uri: gameData.team2Logo }}
+                  <TeamLogo
+                    uri={gameData.team2Logo}
                     style={[styles.teamSmallLogo, { marginLeft: 8 }]}
-                    resizeMode="contain"
                   />
                 </View>
               </View>
@@ -2696,7 +2869,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       case "props":
         const propTypes =
           gameData.sport === "NBA"
-            ? ["Points", "Rebounds", "Assists", "3-Pointers"]
+            ? ["Points", "Rebounds", "Assists", "Blocks", "Turnovers", "PRA"]
             : gameData.sport === "NFL"
             ? ["Passing Yards", "Rushing Yards", "Receptions", "Touchdowns"]
             : ["Goals", "Assists", "Shots on Target", "Saves"];
@@ -3207,10 +3380,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       },
                     ]}
                   >
-                    <Image
-                      source={{ uri: gameData.team1Logo }}
+                    <TeamLogo
+                      uri={gameData.team1Logo}
                       style={styles.teamLogoImage}
-                      resizeMode="contain"
                     />
                     <Text style={[styles.teamName, { color: theme.text }]}>
                       {gameData.team1Abbr}
@@ -3254,10 +3426,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       },
                     ]}
                   >
-                    <Image
-                      source={{ uri: gameData.team2Logo }}
+                    <TeamLogo
+                      uri={gameData.team2Logo}
                       style={styles.teamLogoImage}
-                      resizeMode="contain"
                     />
                     <Text style={[styles.teamName, { color: theme.text }]}>
                       {gameData.team2Abbr}
@@ -3971,6 +4142,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 10,
+    overflow: "hidden",
+  },
+  propPlayerIconImage: {
+    width: 40,
+    height: 40,
   },
   propPlayerDetails: {
     flex: 1,

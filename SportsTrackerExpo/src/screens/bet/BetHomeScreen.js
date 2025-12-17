@@ -35,7 +35,7 @@ const formatTimeEST = (dateString) => {
 };
 
 // Parse game data from API
-const parseGameData = (events) => {
+const parseGameData = (events, isDarkMode = false) => {
   if (!events || !Array.isArray(events))
     return { live: [], scheduled: [], completed: [], hasLiveGames: false };
 
@@ -57,6 +57,10 @@ const parseGameData = (events) => {
 
     const timeFormatted = formatTimeEST(event.date);
 
+    const darkSuffix = isDarkMode ? "-dark" : "";
+    const team1Abbr = (awayTeam.team?.abbreviation || "T1").toLowerCase();
+    const team2Abbr = (homeTeam.team?.abbreviation || "T2").toLowerCase();
+
     const gameData = {
       id: event.id,
       sport: "NBA",
@@ -65,11 +69,11 @@ const parseGameData = (events) => {
       shortName: event.shortName,
       team1: awayTeam.team?.displayName || "Team 1",
       team1Abbr: awayTeam.team?.abbreviation || "T1",
-      team1Logo: awayTeam.team?.logo,
+      team1Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${darkSuffix}/${team1Abbr}.png&h=200&w=200`,
       team1Record: awayTeam.record || null,
       team2: homeTeam.team?.displayName || "Team 2",
       team2Abbr: homeTeam.team?.abbreviation || "T2",
-      team2Logo: homeTeam.team?.logo,
+      team2Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${darkSuffix}/${team2Abbr}.png&h=200&w=200`,
       team2Record: homeTeam.record || null,
       score1: awayTeam.score || 0,
       score2: homeTeam.score || 0,
@@ -498,7 +502,7 @@ const CompletedGameCard = React.memo(
 );
 
 const BetHomeScreen = ({ navigation }) => {
-  const { colors, theme } = useTheme();
+  const { colors, theme, isDarkMode } = useTheme();
   const { scoreboardData, fetchScoreboard } = useBetData();
   const [refreshing, setRefreshing] = useState(false);
   const [liveGames, setLiveGames] = useState([]);
@@ -547,7 +551,7 @@ const BetHomeScreen = ({ navigation }) => {
         scheduled,
         completed,
         hasLiveGames: hasLive,
-      } = parseGameData(scoreboardData.events);
+      } = parseGameData(scoreboardData.events, isDarkMode);
 
       // Reuse previous game objects if the data hasn't changed
       const stableLive = live.map((game) => {
@@ -584,7 +588,7 @@ const BetHomeScreen = ({ navigation }) => {
       setCompletedGames(stableCompleted);
       setHasLiveGames(hasLive);
     }
-  }, [scoreboardData]);
+  }, [scoreboardData, isDarkMode]);
 
   // Set up smart polling based on live game status and screen focus
   useEffect(() => {
