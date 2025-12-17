@@ -44,17 +44,17 @@ function getPSTTime() {
 function getScoreboardDate() {
   const pstTime = getPSTTime();
   const hour = pstTime.getHours();
-  
+
   // If before 2am PST, use previous day
   if (hour < 2) {
     pstTime.setDate(pstTime.getDate() - 1);
   }
-  
+
   // Format as YYYYMMDD
   const year = pstTime.getFullYear();
-  const month = String(pstTime.getMonth() + 1).padStart(2, '0');
-  const day = String(pstTime.getDate()).padStart(2, '0');
-  
+  const month = String(pstTime.getMonth() + 1).padStart(2, "0");
+  const day = String(pstTime.getDate()).padStart(2, "0");
+
   return `${year}${month}${day}`;
 }
 
@@ -244,14 +244,14 @@ function generatePlayerOdds(gamelog, opponentTeamData) {
         const stats = eventData.stats || [];
         const eventId = eventData.eventId;
         const opponent = events[eventId]?.opponent;
-        
+
         labels.forEach((label, index) => {
           if (stats[index] !== undefined && stats[index] !== null) {
             // Parse numeric values (handle formats like "10-20")
             const value = parseFloat(String(stats[index]).split("-")[0]);
             if (!isNaN(value)) {
               allStats[label].push(value);
-              
+
               // Track opponent-specific stats
               if (opponent?.id) {
                 if (!opponentStats[label][opponent.id]) {
@@ -299,36 +299,39 @@ function generatePlayerOdds(gamelog, opponentTeamData) {
 
     // Over/Under lines - always end in .5
     const overLine = Math.floor(avg) + 0.5;
-    
+
     // Calculate hit counts for different time periods
     const last5 = values.slice(-5);
     const last10 = values.slice(-10);
     const seasonTotal = values.length;
-    
+
     const over5 = last5.filter((v) => v > overLine).length;
     const over10 = last10.filter((v) => v > overLine).length;
     const overSeason = values.filter((v) => v > overLine).length;
-    
+
     const under5 = last5.filter((v) => v < overLine).length;
     const under10 = last10.filter((v) => v < overLine).length;
     const underSeason = values.filter((v) => v < overLine).length;
-    
+
     // H2H stats against today's opponent
     let overH2h = 0;
     let underH2h = 0;
     let h2hTotal = 0;
-    if (opponentTeamData?.id && opponentStats[category]?.[opponentTeamData.id]) {
+    if (
+      opponentTeamData?.id &&
+      opponentStats[category]?.[opponentTeamData.id]
+    ) {
       const h2hValues = opponentStats[category][opponentTeamData.id];
       h2hTotal = h2hValues.length;
       overH2h = h2hValues.filter((v) => v > overLine).length;
       underH2h = h2hValues.filter((v) => v < overLine).length;
     }
-    
+
     // Calculate confidence (weighted: recent 40%, season 30%, h2h 30%)
     const recentOverRate = over10 / Math.min(10, values.length);
     const seasonOverRate = overSeason / seasonTotal;
     const h2hOverRate = h2hTotal > 0 ? overH2h / h2hTotal : seasonOverRate;
-    
+
     const overConfidence = Math.round(
       (recentOverRate * 0.4 + seasonOverRate * 0.3 + h2hOverRate * 0.3) * 100
     );
@@ -763,7 +766,9 @@ async function fetchScoreboard() {
   try {
     const dateParam = getScoreboardDate();
     console.log(`[Scoreboard] Fetching data for date ${dateParam}...`);
-    const response = await axios.get(`${ESPN_BASE_URL}/scoreboard?dates=${dateParam}`);
+    const response = await axios.get(
+      `${ESPN_BASE_URL}/scoreboard?dates=${dateParam}`
+    );
     scoreboardData = response.data;
 
     // Check game statuses and update scheduling
@@ -1002,12 +1007,13 @@ function updateSummaryScheduling(events) {
     const gameDate = new Date(event.date);
 
     const isLive = isGameLive(status);
-    const isPost = status?.type?.state === 'post';
+    const isPost = status?.type?.state === "post";
     const minutesUntilStart = getTimeDifferenceInMinutes(now, gameDate);
-    
+
     // Fast poll if: game is live, starting in 5 minutes, or ended within last 5 minutes
-    let shouldFastPoll = isLive || (minutesUntilStart <= 5 && minutesUntilStart >= 0);
-    
+    let shouldFastPoll =
+      isLive || (minutesUntilStart <= 5 && minutesUntilStart >= 0);
+
     // If game is post, check if it ended within the last 5 minutes
     // We'll use the last update time from cache if available
     if (isPost && summaryDataCache[eventId]) {

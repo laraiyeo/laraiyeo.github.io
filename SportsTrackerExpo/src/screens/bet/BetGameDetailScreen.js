@@ -2095,234 +2095,260 @@ const BetGameDetailScreen = ({ navigation, route }) => {
               );
 
               return (
-            <View
-              style={[
-                styles.miniCourtContainer,
-                { height: courtContainerHeight },
-              ]}
-              onLayout={(event) => {
-                const { width } = event.nativeEvent.layout;
-                // Court is 200px wide when rotated (original height)
-                // Calculate scale to fit the container width
-                const scale = width / 200;
-                // When rotated, the height becomes 150 * scale
-                const height = 150 * scale;
-                setCourtScale(scale);
-                setCourtContainerHeight(height);
-                setCourtContainerWidth(width);
-              }}
-            >
-              <View style={{ position: "relative" }}>
-                <BasketballCourt
-                  coordinate={undefined}
-                  isScoring={false}
-                  teamSide="home"
-                  teamColor="#000000"
-                  styles={{
-                    ...styles,
-                    courtContainer: {
-                      ...styles.courtContainer,
-                      transform: [{ rotate: "90deg" }, { scale: courtScale }],
-                    },
-                  }}
-                />
-                {/* Home Team Logo in Center */}
-                <Image
-                  source={{ uri: gameData.team2Logo }}
-                  style={{
-                    position: "absolute",
-                    width: 50 * courtScale,
-                    height: 50 * courtScale,
-                    opacity: 0.6,
-                    top: "50%",
-                    left: "50%",
-                    transform: [
-                      { translateX: -25 * courtScale },
-                      { translateY: -25 * courtScale },
-                    ],
-                  }}
-                  resizeMode="contain"
-                />
-
-                {/* Overlay with exact court dimensions for positioning circles */}
-                <View
-                  style={{
-                    position: "absolute",
-                    width: 200 * courtScale,
-                    height: 150 * courtScale,
-                    top: "50%",
-                    left: "50%",
-                    marginLeft: (-200 * courtScale) / 2,
-                    marginTop: (-150 * courtScale) / 2,
-                  }}
-                >
-                  {/* ESPN Play Coordinate Visualization */}
-                    {summaryData?.plays?.coordinate && (() => {
-                      const { x: espnX, y: espnY } = summaryData.plays.coordinate;
-                      const period = summaryData.plays.period?.number || 1;
-                      const playTeam = summaryData.plays.team;
-                      
-                      // Determine which side teams are on based on period
-                      // Periods 1 & 2: home on right, away on left
-                      // Periods 3 & 4: home on left, away on right
-                      // Overtime: home on right, away on left
-                      let isHomeOnRight = true;
-                      if (period === 3 || period === 4) {
-                        isHomeOnRight = false;
-                      }
-                      
-                      // Determine if this play's team is home or away
-                      const isHomeTeam = playTeam === gameData.team2Abbr;
-                      
-                      // Determine if this team is shooting at the right basket
-                      const isTeamOnRight = (isHomeTeam && isHomeOnRight) || (!isHomeTeam && !isHomeOnRight);
-                      
-                      // Check for special positioning cases
-                      const pointsAttempted = summaryData.plays.pointsAttempted;
-                      let ourYPercent, ourXPercent;
-                      
-                      // Case 1: Free throw (pointsAttempted = 1)
-                      if (pointsAttempted === 1) {
-                        // Free throws: positioned at free throw line
-                        // Away team in periods 1&2 and home team in periods 3&4: X = 28%
-                        // Home team in periods 1&2 and away team in periods 3&4: X = 72%
-                        ourXPercent = isTeamOnRight ? 28 : 72;
-                        ourYPercent = 50; // Center of court width
-                      }
-                      // Case 2: No coordinates provided (both 0)
-                      else if (espnX === 0 && espnY === 0) {
-                        // Position at center
-                        ourXPercent = 50;
-                        ourYPercent = 50;
-                      }
-                      // Case 3: Normal field goal with coordinates
-                      else {
-                        // Convert ESPN coordinates to our coordinate system
-                        // ESPN: x (0-50) is court length, y (0-40) is court width
-                        // Our horizontal court: x is width (0-40), y is length (0-50)
-                        // So ESPN x → our y, ESPN y → our x
-                        
-                        // For teams on the right: ESPN x=0 is their basket (our y=100%), x=50 is opponent's basket (our y=0%)
-                        // For teams on the left: ESPN x=0 is their basket (our y=0%), x=50 is opponent's basket (our y=100%)
-                        if (isTeamOnRight) {
-                          // Right side: reverse the y-axis
-                          ourYPercent = 100 - (espnX / 50) * 100;
-                        } else {
-                          // Left side: direct mapping
-                          ourYPercent = (espnX / 50) * 100;
-                        }
-                        
-                        // X-axis (width) is always direct mapping
-                        ourXPercent = (espnY / 40) * 100;
-                      }
-                      
-                      // Convert percentages to actual pixel positions
-                      const padding = 4 * courtScale;
-                      const courtWidth = 200 * courtScale - (padding * 2);
-                      const courtHeight = 150 * courtScale - (padding * 2);
-                      
-                      const actualX = padding + (ourXPercent / 100) * courtWidth;
-                      const actualY = padding + (ourYPercent / 100) * courtHeight;
-                      
-                      // Get team color using same pattern as other sections
-                      const teamColor = playTeam === gameData.team1Abbr 
-                        ? team1Color
-                        : team2Color;
-                      
-                      // Determine styling based on scoring vs non-scoring
-                      const isScoring = summaryData.plays.scoringPlay;
-                      
-                      return (
-                        <View
-                          style={{
-                            position: "absolute",
-                            width: 7.5 * courtScale,
-                            height: 7.5 * courtScale,
-                            borderRadius: 3.75 * courtScale,
-                            backgroundColor: isScoring ? teamColor : "white",
-                            borderWidth: 2,
-                            borderColor: isScoring ? "white" : teamColor,
-                            left: actualX - (3.75 * courtScale),
-                            top: actualY - (3.75 * courtScale),
-                            zIndex: 50,
-                          }}
-                        />
-                      );
-                    })()}
-                </View>
-              </View>
-            </View>
-              );
-            })()}
-
-            {summaryData?.plays && (() => {
-              // Get smart team colors for proper color handling
-              const { team1Color, team2Color } = getSmartTeamColors(
-                {
-                  team1Color: gameData.team1Color,
-                  team1AlternateColor: gameData.team1AlternateColor,
-                },
-                {
-                  team2Color: gameData.team2Color,
-                  team2AlternateColor: gameData.team2AlternateColor,
-                }
-              );
-
-              return (
-              <View style={styles.playTextWrapper}>
                 <View
                   style={[
-                    styles.playTextContainer,
-                    {
-                      backgroundColor: theme.surface,
-                      borderWidth: 2,
-                      borderColor: summaryData.plays.team
-                        ? summaryData.plays.team === gameData.team1Abbr
-                          ? team1Color
-                          : team2Color
-                        : theme.border,
-                    },
+                    styles.miniCourtContainer,
+                    { height: courtContainerHeight },
                   ]}
+                  onLayout={(event) => {
+                    const { width } = event.nativeEvent.layout;
+                    // Court is 200px wide when rotated (original height)
+                    // Calculate scale to fit the container width
+                    const scale = width / 200;
+                    // When rotated, the height becomes 150 * scale
+                    const height = 150 * scale;
+                    setCourtScale(scale);
+                    setCourtContainerHeight(height);
+                    setCourtContainerWidth(width);
+                  }}
                 >
-                  <Text style={[styles.playText, { color: theme.text }]}>
-                    {summaryData.plays.text || "Waiting for next play..."}
-                  </Text>
-                  <View style={styles.playMetaContainer}>
-                    <Text
-                      style={[styles.playMeta, { color: theme.textSecondary }]}
+                  <View style={{ position: "relative" }}>
+                    <BasketballCourt
+                      coordinate={undefined}
+                      isScoring={false}
+                      teamSide="home"
+                      teamColor="#000000"
+                      styles={{
+                        ...styles,
+                        courtContainer: {
+                          ...styles.courtContainer,
+                          transform: [
+                            { rotate: "90deg" },
+                            { scale: courtScale },
+                          ],
+                        },
+                      }}
+                    />
+                    {/* Home Team Logo in Center */}
+                    <Image
+                      source={{ uri: gameData.team2Logo }}
+                      style={{
+                        position: "absolute",
+                        width: 50 * courtScale,
+                        height: 50 * courtScale,
+                        opacity: 0.6,
+                        top: "50%",
+                        left: "50%",
+                        transform: [
+                          { translateX: -25 * courtScale },
+                          { translateY: -25 * courtScale },
+                        ],
+                      }}
+                      resizeMode="contain"
+                    />
+
+                    {/* Overlay with exact court dimensions for positioning circles */}
+                    <View
+                      style={{
+                        position: "absolute",
+                        width: 200 * courtScale,
+                        height: 150 * courtScale,
+                        top: "50%",
+                        left: "50%",
+                        marginLeft: (-200 * courtScale) / 2,
+                        marginTop: (-150 * courtScale) / 2,
+                      }}
                     >
-                      {summaryData.plays.period?.displayValue} •{" "}
-                      {summaryData.plays.clock}
-                    </Text>
-                    {summaryData.plays.scoringPlay &&
-                      summaryData.plays.shortDescription && (() => {
-                        const bgColor = summaryData.plays.team
-                          ? summaryData.plays.team === gameData.team1Abbr
-                            ? team1Color
-                            : team2Color
-                          : colors.primary;
-                        const textColor = bgColor?.toLowerCase() === "#ffffff" ? "black" : "white";
-                        
-                        return (
-                        <View
-                          style={[
-                            styles.scoringBadge,
-                            {
-                              backgroundColor: bgColor,
-                            },
-                          ]}
-                        >
-                          <Text style={[styles.scoringBadgeText, { color: textColor }]}>
-                            {summaryData.plays.shortDescription}
-                          </Text>
-                        </View>
-                        );
-                      })()}
+                      {/* ESPN Play Coordinate Visualization */}
+                      {summaryData?.plays?.coordinate &&
+                        (() => {
+                          const { x: espnX, y: espnY } =
+                            summaryData.plays.coordinate;
+                          const period = summaryData.plays.period?.number || 1;
+                          const playTeam = summaryData.plays.team;
+
+                          // Determine which side teams are on based on period
+                          // Periods 1 & 2: home on right, away on left
+                          // Periods 3 & 4: home on left, away on right
+                          // Overtime: home on right, away on left
+                          let isHomeOnRight = true;
+                          if (period === 3 || period === 4) {
+                            isHomeOnRight = false;
+                          }
+
+                          // Determine if this play's team is home or away
+                          const isHomeTeam = playTeam === gameData.team2Abbr;
+
+                          // Determine if this team is shooting at the right basket
+                          const isTeamOnRight =
+                            (isHomeTeam && isHomeOnRight) ||
+                            (!isHomeTeam && !isHomeOnRight);
+
+                          // Check for special positioning cases
+                          const pointsAttempted =
+                            summaryData.plays.pointsAttempted;
+                          let ourYPercent, ourXPercent;
+
+                          // Case 1: Free throw (pointsAttempted = 1)
+                          if (pointsAttempted === 1) {
+                            // Free throws: positioned at free throw line
+                            // Away team in periods 1&2 and home team in periods 3&4: X = 28%
+                            // Home team in periods 1&2 and away team in periods 3&4: X = 72%
+                            ourXPercent = isTeamOnRight ? 28 : 72;
+                            ourYPercent = 50; // Center of court width
+                          }
+                          // Case 2: No coordinates provided (both 0)
+                          else if (espnX === 0 && espnY === 0) {
+                            // Position at center
+                            ourXPercent = 50;
+                            ourYPercent = 50;
+                          }
+                          // Case 3: Normal field goal with coordinates
+                          else {
+                            // Convert ESPN coordinates to our coordinate system
+                            // ESPN: x (0-50) is court length, y (0-40) is court width
+                            // Our horizontal court: x is width (0-40), y is length (0-50)
+                            // So ESPN x → our y, ESPN y → our x
+
+                            // For teams on the right: ESPN x=0 is their basket (our y=100%), x=50 is opponent's basket (our y=0%)
+                            // For teams on the left: ESPN x=0 is their basket (our y=0%), x=50 is opponent's basket (our y=100%)
+                            if (isTeamOnRight) {
+                              // Right side: reverse the y-axis
+                              ourYPercent = 100 - (espnX / 50) * 100;
+                            } else {
+                              // Left side: direct mapping
+                              ourYPercent = (espnX / 50) * 100;
+                            }
+
+                            // X-axis (width) is always direct mapping
+                            ourXPercent = (espnY / 40) * 100;
+                          }
+
+                          // Convert percentages to actual pixel positions
+                          const padding = 4 * courtScale;
+                          const courtWidth = 200 * courtScale - padding * 2;
+                          const courtHeight = 150 * courtScale - padding * 2;
+
+                          const actualX =
+                            padding + (ourXPercent / 100) * courtWidth;
+                          const actualY =
+                            padding + (ourYPercent / 100) * courtHeight;
+
+                          // Get team color using same pattern as other sections
+                          const teamColor =
+                            playTeam === gameData.team1Abbr
+                              ? team1Color
+                              : team2Color;
+
+                          // Determine styling based on scoring vs non-scoring
+                          const isScoring = summaryData.plays.scoringPlay;
+
+                          return (
+                            <View
+                              style={{
+                                position: "absolute",
+                                width: 7.5 * courtScale,
+                                height: 7.5 * courtScale,
+                                borderRadius: 3.75 * courtScale,
+                                backgroundColor: isScoring
+                                  ? teamColor
+                                  : "white",
+                                borderWidth: 2,
+                                borderColor: isScoring ? "white" : teamColor,
+                                left: actualX - 3.75 * courtScale,
+                                top: actualY - 3.75 * courtScale,
+                                zIndex: 50,
+                              }}
+                            />
+                          );
+                        })()}
+                    </View>
                   </View>
                 </View>
-              </View>
               );
             })()}
+
+            {summaryData?.plays &&
+              (() => {
+                // Get smart team colors for proper color handling
+                const { team1Color, team2Color } = getSmartTeamColors(
+                  {
+                    team1Color: gameData.team1Color,
+                    team1AlternateColor: gameData.team1AlternateColor,
+                  },
+                  {
+                    team2Color: gameData.team2Color,
+                    team2AlternateColor: gameData.team2AlternateColor,
+                  }
+                );
+
+                return (
+                  <View style={styles.playTextWrapper}>
+                    <View
+                      style={[
+                        styles.playTextContainer,
+                        {
+                          backgroundColor: theme.surface,
+                          borderWidth: 2,
+                          borderColor: summaryData.plays.team
+                            ? summaryData.plays.team === gameData.team1Abbr
+                              ? team1Color
+                              : team2Color
+                            : theme.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.playText, { color: theme.text }]}>
+                        {summaryData.plays.text || "Waiting for next play..."}
+                      </Text>
+                      <View style={styles.playMetaContainer}>
+                        <Text
+                          style={[
+                            styles.playMeta,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {summaryData.plays.period?.displayValue} •{" "}
+                          {summaryData.plays.clock}
+                        </Text>
+                        {summaryData.plays.scoringPlay &&
+                          summaryData.plays.shortDescription &&
+                          (() => {
+                            const bgColor = summaryData.plays.team
+                              ? summaryData.plays.team === gameData.team1Abbr
+                                ? team1Color
+                                : team2Color
+                              : colors.primary;
+                            const textColor =
+                              bgColor?.toLowerCase() === "#ffffff"
+                                ? "black"
+                                : "white";
+
+                            return (
+                              <View
+                                style={[
+                                  styles.scoringBadge,
+                                  {
+                                    backgroundColor: bgColor,
+                                  },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.scoringBadgeText,
+                                    { color: textColor },
+                                  ]}
+                                >
+                                  {summaryData.plays.shortDescription}
+                                </Text>
+                              </View>
+                            );
+                          })()}
+                      </View>
+                    </View>
+                  </View>
+                );
+              })()}
 
             {/* Next Field Goal */}
             <View
