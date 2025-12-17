@@ -7,29 +7,87 @@ import {
   TouchableOpacity,
   Dimensions,
   ScrollView,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
-const PlayerStatsPopup = ({ visible, onClose, player, propType, currentLine }) => {
+const PlayerStatsPopup = ({ visible, onClose, player, propType, currentLine, gameData, playerTeamColor }) => {
   const { colors, theme } = useTheme();
 
   if (!player) return null;
 
-  // Generate last 5 games data
-  const last5Games = [
-    { game: 'vs LAL', value: 28, date: 'Dec 10' },
-    { game: 'vs GSW', value: 22, date: 'Dec 8' },
-    { game: '@ PHX', value: 31, date: 'Dec 6' },
-    { game: 'vs DAL', value: 19, date: 'Dec 4' },
-    { game: '@ SAC', value: 26, date: 'Dec 2' },
-  ];
+  // Map propType to stat key
+  const getStatKey = (type) => {
+    switch (type) {
+      case 'Points':
+        return 'PTS';
+      case 'Rebounds':
+        return 'REB';
+      case 'Assists':
+        return 'AST';
+      case 'Blocks':
+        return 'BLK';
+      case 'Turnovers':
+        return 'TO';
+      case 'PRA':
+        return 'PRA';
+      default:
+        return 'PTS';
+    }
+  };
 
-  const maxValue = Math.max(...last5Games.map(g => g.value), currentLine) + 5;
+  const statKey = getStatKey(propType);
+
+  // Get last 5 games data from player.recentGames
+  const recentGames = player.recentGames || [];
+  const last5Games = recentGames.slice(0, 5).reverse().map((game) => {
+    // Parse stat value based on propType
+    let value = 0;
+    if (statKey === 'PRA') {
+      // PRA = Points + Rebounds + Assists
+      value = parseFloat(game.stats.PTS || 0) + parseFloat(game.stats.REB || 0) + parseFloat(game.stats.AST || 0);
+    } else {
+      value = parseFloat(game.stats[statKey] || 0);
+    }
+
+    // Format date
+    const gameDate = new Date(game.gameDate);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const formattedDate = `${months[gameDate.getMonth()]} ${gameDate.getDate()}`;
+
+    // Extract team abbreviation from logo URL
+    const logoUrl = game.opponent.logo || '';
+    const teamAbbr = logoUrl.split('/500/')[1]?.split('.png')[0]?.toUpperCase() || game.opponent.displayName.split(' ').pop().substring(0, 3).toUpperCase();
+
+    return {
+      game: `${game.atVs} ${teamAbbr}`,
+      value: value,
+      date: formattedDate,
+    };
+  });
+
+  // Calculate max value for chart - use the highest value from last 5 games
+  const gameValues = last5Games.map(g => g.value);
+  const maxGameValue = Math.max(...gameValues, 0);
+  const maxValue = maxGameValue; // Just use the actual max value
+  
+  console.log('Player Stats Debug:', {
+    playerName: player.shortName || player.name,
+    propType,
+    gameValues,
+    maxGameValue,
+    maxValue,
+    last5Games
+  });
+  
   const timesOver = last5Games.filter(g => g.value >= currentLine).length;
   const timesUnder = last5Games.filter(g => g.value < currentLine).length;
+
+  // Chart dimensions
+  const CHART_HEIGHT = 200;
 
   return (
     <Modal
@@ -48,11 +106,14 @@ const PlayerStatsPopup = ({ visible, onClose, player, propType, currentLine }) =
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: theme.border }]}>
             <View style={styles.headerLeft}>
-              <View style={[styles.playerIcon, { backgroundColor: colors.primary }]}>
-                <Ionicons name="person" size={24} color="white" />
+              <View style={[styles.playerIcon, { backgroundColor: playerTeamColor }]}>
+                <Image
+                  source={{ uri: player.headshot || `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${player.id}.png&w=200` }}
+                  style={styles.playerIconImage}
+                />
               </View>
               <View>
-                <Text style={[styles.playerName, { color: theme.text }]}>{player.name}</Text>
+                <Text style={[styles.playerName, { color: theme.text }]}>{player.shortName || player.name}</Text>
                 <Text style={[styles.propTypeText, { color: theme.textSecondary }]}>
                   {propType} - Last 5 Games
                 </Text>
@@ -87,7 +148,7 @@ const PlayerStatsPopup = ({ visible, onClose, player, propType, currentLine }) =
                 style={[
                   styles.lineOverlay,
                   {
-                    bottom: `${(currentLine / maxValue) * 100}%`,
+                    top: 40 + (CHART_HEIGHT - ((currentLine / maxValue) * CHART_HEIGHT)),
                     backgroundColor: colors.primary,
                   },
                 ]}
@@ -99,7 +160,7 @@ const PlayerStatsPopup = ({ visible, onClose, player, propType, currentLine }) =
 
               <View style={styles.chart}>
                 {last5Games.map((game, index) => {
-                  const barHeightPercent = (game.value / maxValue) * 100;
+                  const barHeight = maxValue > 0 ? (game.value / maxValue) * CHART_HEIGHT : 0;
                   const isOver = game.value >= currentLine;
 
                   return (
@@ -110,12 +171,12 @@ const PlayerStatsPopup = ({ visible, onClose, player, propType, currentLine }) =
                           style={[
                             styles.bar,
                             {
-                              height: `${barHeightPercent}%`,
+                              height: Math.max(barHeight, 30),
                               backgroundColor: isOver ? theme.success : theme.error,
                             },
                           ]}
                         >
-                          <Text style={styles.barValueText}>{game.value}</Text>
+                          <Text style={styles.barValueText}>{Math.round(game.value)}</Text>
                         </View>
                       </View>
                       {/* Game label */}
@@ -132,10 +193,8 @@ const PlayerStatsPopup = ({ visible, onClose, player, propType, currentLine }) =
 
               {/* Y-axis labels */}
               <View style={styles.yAxis}>
-                <Text style={[styles.yAxisLabel, { color: theme.textTertiary }]}>{maxValue}</Text>
-                <Text style={[styles.yAxisLabel, { color: theme.textTertiary }]}>
-                  {Math.round(maxValue / 2)}
-                </Text>
+                <Text style={[styles.yAxisLabel, { color: theme.textTertiary }]}>{Math.round(maxValue)}</Text>
+                <Text style={[styles.yAxisLabel, { color: theme.textTertiary }]}>{Math.round(maxValue / 2)}</Text>
                 <Text style={[styles.yAxisLabel, { color: theme.textTertiary }]}>0</Text>
               </View>
             </View>
@@ -207,6 +266,11 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  playerIconImage: {
+    width: 48,
+    height: 48,
   },
   playerName: {
     fontSize: 18,
@@ -253,7 +317,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   chart: {
-    height: 200,
+    height: 240,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'flex-end',
@@ -298,10 +362,11 @@ const styles = StyleSheet.create({
     right: 0,
     height: 2,
     zIndex: 10,
+    top: 40,
   },
   lineLabel: {
     position: 'absolute',
-    right: 0,
+    left: -35,
     top: -10,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -316,7 +381,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     top: 40,
-    bottom: 50,
+    height: 200,
     width: 30,
     justifyContent: 'space-between',
     alignItems: 'flex-end',

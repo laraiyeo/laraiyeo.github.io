@@ -353,6 +353,7 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
   const { rostersData } = useBetData();
   const [selectedPropType, setSelectedPropType] = useState(propTypes[0]);
   const [selectedPlayerForStats, setSelectedPlayerForStats] = useState(null);
+  const [selectedPlayerTeamColor, setSelectedPlayerTeamColor] = useState(null);
   const [statsPopupVisible, setStatsPopupVisible] = useState(false);
   const [currentLine, setCurrentLine] = useState(null);
   const [showAllMilestone, setShowAllMilestone] = useState(false);
@@ -429,9 +430,10 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
     return allPlayers.sort((a, b) => b.statValue - a.statValue);
   }, [rostersData, gameData, selectedPropType]);
 
-  const openPlayerStats = (player, line) => {
+  const openPlayerStats = (player, line, playerTeamColor) => {
     setSelectedPlayerForStats(player);
     setCurrentLine(line);
+    setSelectedPlayerTeamColor(playerTeamColor);
     setStatsPopupVisible(true);
   };
 
@@ -497,10 +499,7 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
 
           return (
             <View key={player.id} style={styles.propRow}>
-              <TouchableOpacity
-                style={styles.propPlayerInfo}
-                onPress={() => openPlayerStats(player, null)}
-              >
+              <View style={styles.propPlayerInfo}>
                 <View
                   style={[
                     styles.propPlayerIcon,
@@ -528,7 +527,7 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                     {player.statValue.toFixed(1)} AVG
                   </Text>
                 </View>
-              </TouchableOpacity>
+              </View>
 
               <ScrollView
                 horizontal
@@ -667,7 +666,7 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
             <View key={player.id} style={styles.propRow}>
               <TouchableOpacity
                 style={styles.propPlayerInfo}
-                onPress={() => openPlayerStats(player, line)}
+                onPress={() => openPlayerStats(player, line, playerTeamColor)}
               >
                 <View
                   style={[
@@ -893,6 +892,8 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
         player={selectedPlayerForStats}
         propType={selectedPropType}
         currentLine={currentLine}
+        gameData={gameData}
+        playerTeamColor={selectedPlayerTeamColor}
       />
     </View>
   );
@@ -3399,12 +3400,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   >
                     {awayTeam}
                   </Text>
-                  {awayTeamGames.map((game, index) => {
-                    const isWin =
-                      game.score &&
-                      parseInt(game.score.split("-")[0]) >
-                        parseInt(game.score.split("-")[1]);
+                  {[...awayTeamGames].reverse().map((game, index) => {
+                    const isWin = game.result === 'W';
                     const borderColor = isWin ? theme.success : theme.error;
+                    
+                    // Format date
+                    const gameDate = new Date(game.date);
+                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    const formattedDate = `${months[gameDate.getMonth()]} ${gameDate.getDate()}`;
 
                     return (
                       <View
@@ -3418,29 +3421,39 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           },
                         ]}
                       >
-                        <Image
-                          source={{
-                            uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${game.opponentAbbreviation?.toLowerCase()}.png&h=40&w=40`,
-                          }}
-                          style={styles.lastFiveGameLogo}
-                        />
-                        <View style={styles.lastFiveGameInfo}>
-                          <Text
-                            style={[
-                              styles.lastFiveGameScore,
-                              { color: theme.text },
-                            ]}
-                          >
-                            {game.score}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.lastFiveGameDate,
-                              { color: theme.textSecondary },
-                            ]}
-                          >
-                            {game.atVs} {game.opponentAbbreviation}
-                          </Text>
+                        <Text
+                          style={[
+                            styles.lastFiveGameCardDate,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {formattedDate}
+                        </Text>
+                        <View style={styles.lastFiveGameCardContent}>
+                          <Image
+                            source={{
+                              uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${game.opponentAbbreviation?.toLowerCase()}.png&h=40&w=40`,
+                            }}
+                            style={styles.lastFiveGameLogo}
+                          />
+                          <View style={styles.lastFiveGameInfo}>
+                            <Text
+                              style={[
+                                styles.lastFiveGameScore,
+                                { color: theme.text },
+                              ]}
+                            >
+                              {game.score}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.lastFiveGameOpponent,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {game.atVs} {game.opponentAbbreviation}
+                            </Text>
+                          </View>
                         </View>
                       </View>
                     );
@@ -3457,12 +3470,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   >
                     {homeTeam}
                   </Text>
-                  {homeTeamGames.map((game, index) => {
-                    const isWin =
-                      game.score &&
-                      parseInt(game.score.split("-")[0]) >
-                        parseInt(game.score.split("-")[1]);
+                  {[...homeTeamGames].reverse().map((game, index) => {
+                    const isWin = game.result === 'W';
                     const borderColor = isWin ? theme.success : theme.error;
+                    
+                    // Format date
+                    const gameDate = new Date(game.date);
+                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    const formattedDate = `${months[gameDate.getMonth()]} ${gameDate.getDate()}`;
 
                     return (
                       <View
@@ -3476,29 +3491,39 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           },
                         ]}
                       >
-                        <Image
-                          source={{
-                            uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${game.opponentAbbreviation?.toLowerCase()}.png&h=40&w=40`,
-                          }}
-                          style={styles.lastFiveGameLogo}
-                        />
-                        <View style={styles.lastFiveGameInfo}>
-                          <Text
-                            style={[
-                              styles.lastFiveGameScore,
-                              { color: theme.text },
-                            ]}
-                          >
-                            {game.score}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.lastFiveGameDate,
-                              { color: theme.textSecondary },
-                            ]}
-                          >
-                            {game.atVs} {game.opponentAbbreviation}
-                          </Text>
+                        <Text
+                          style={[
+                            styles.lastFiveGameCardDate,
+                            { color: theme.textSecondary, textAlign: 'right' },
+                          ]}
+                        >
+                          {formattedDate}
+                        </Text>
+                        <View style={[styles.lastFiveGameCardContent, { flexDirection: 'row-reverse' }]}>
+                          <Image
+                            source={{
+                              uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${game.opponentAbbreviation?.toLowerCase()}.png&h=40&w=40`,
+                            }}
+                            style={[styles.lastFiveGameLogo, { marginRight: 0, marginLeft: 10 }]}
+                          />
+                          <View style={styles.lastFiveGameInfo}>
+                            <Text
+                              style={[
+                                styles.lastFiveGameScore,
+                                { color: theme.text, textAlign: 'right' },
+                              ]}
+                            >
+                              {game.score}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.lastFiveGameOpponent,
+                                { color: theme.textSecondary, textAlign: 'right' },
+                              ]}
+                            >
+                              {game.atVs} {game.opponentAbbreviation}
+                            </Text>
+                          </View>
                         </View>
                       </View>
                     );
@@ -4720,11 +4745,19 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   lastFiveGameCard: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "column",
     padding: 10,
     borderRadius: 8,
     marginBottom: 8,
+  },
+  lastFiveGameCardDate: {
+    fontSize: 10,
+    fontWeight: "600",
+    marginBottom: 6,
+  },
+  lastFiveGameCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   lastFiveGameLogo: {
     width: 32,
@@ -4739,7 +4772,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 2,
   },
-  lastFiveGameDate: {
+  lastFiveGameOpponent: {
     fontSize: 11,
   },
   noDataText: {
