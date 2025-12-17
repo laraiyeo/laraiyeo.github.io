@@ -3187,104 +3187,115 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           );
 
           return (
-        <View style={[styles.header, { backgroundColor: theme.surface }]}>
-          <View style={styles.headerContent}>
-            {/* Venue */}
-            <Text style={[styles.venueText, { color: theme.textSecondary }]}>
-              {venue}
-            </Text>
-
-            <View style={styles.scoresRow}>
-              <View
-                style={[
-                  styles.teamSection,
-                  {
-                    backgroundColor: `${team1Color}15`,
-                    borderRadius: 12,
-                    padding: 12,
-                  },
-                ]}
-              >
-                <Image
-                  source={{ uri: gameData.team1Logo }}
-                  style={styles.teamLogoImage}
-                  resizeMode="contain"
-                />
-                <Text style={[styles.teamName, { color: theme.text }]}>
-                  {gameData.team1Abbr}
-                </Text>
-                {gameData.team1Record && (
-                  <Text
-                    style={[styles.teamRecord, { color: theme.textSecondary }]}
-                  >
-                    {gameData.team1Record}
-                  </Text>
-                )}
-              </View>
-
-              <View style={styles.scoreSection}>
-                <Text style={[styles.scoreText, { color: theme.text }]}>
-                  {gameData.score1 || "-"}
-                </Text>
+            <View style={[styles.header, { backgroundColor: theme.surface }]}>
+              <View style={styles.headerContent}>
+                {/* Venue */}
                 <Text
-                  style={[styles.scoreDivider, { color: theme.textSecondary }]}
+                  style={[styles.venueText, { color: theme.textSecondary }]}
                 >
-                  -
+                  {venue}
                 </Text>
-                <Text style={[styles.scoreText, { color: theme.text }]}>
-                  {gameData.score2 || "-"}
-                </Text>
-              </View>
 
-              <View
-                style={[
-                  styles.teamSection,
-                  {
-                    backgroundColor: `${team2Color}15`,
-                    borderRadius: 12,
-                    padding: 12,
-                  },
-                ]}
-              >
-                <Image
-                  source={{ uri: gameData.team2Logo }}
-                  style={styles.teamLogoImage}
-                  resizeMode="contain"
-                />
-                <Text style={[styles.teamName, { color: theme.text }]}>
-                  {gameData.team2Abbr}
-                </Text>
-                {gameData.team2Record && (
-                  <Text
-                    style={[styles.teamRecord, { color: theme.textSecondary }]}
+                <View style={styles.scoresRow}>
+                  <View
+                    style={[
+                      styles.teamSection,
+                      {
+                        backgroundColor: `${team1Color}15`,
+                        borderRadius: 12,
+                        padding: 12,
+                      },
+                    ]}
                   >
-                    {gameData.team2Record}
+                    <Image
+                      source={{ uri: gameData.team1Logo }}
+                      style={styles.teamLogoImage}
+                      resizeMode="contain"
+                    />
+                    <Text style={[styles.teamName, { color: theme.text }]}>
+                      {gameData.team1Abbr}
+                    </Text>
+                    {gameData.team1Record && (
+                      <Text
+                        style={[
+                          styles.teamRecord,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {gameData.team1Record}
+                      </Text>
+                    )}
+                  </View>
+
+                  <View style={styles.scoreSection}>
+                    <Text style={[styles.scoreText, { color: theme.text }]}>
+                      {gameData.score1 || "-"}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.scoreDivider,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      -
+                    </Text>
+                    <Text style={[styles.scoreText, { color: theme.text }]}>
+                      {gameData.score2 || "-"}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.teamSection,
+                      {
+                        backgroundColor: `${team2Color}15`,
+                        borderRadius: 12,
+                        padding: 12,
+                      },
+                    ]}
+                  >
+                    <Image
+                      source={{ uri: gameData.team2Logo }}
+                      style={styles.teamLogoImage}
+                      resizeMode="contain"
+                    />
+                    <Text style={[styles.teamName, { color: theme.text }]}>
+                      {gameData.team2Abbr}
+                    </Text>
+                    {gameData.team2Record && (
+                      <Text
+                        style={[
+                          styles.teamRecord,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {gameData.team2Record}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                <View
+                  style={[
+                    styles.gameStatusBadge,
+                    { backgroundColor: colors.primary },
+                  ]}
+                >
+                  <Text style={styles.gameStatusText}>
+                    {gameData.statusDetail || "LIVE"}
                   </Text>
-                )}
+                </View>
+
+                <Text style={[styles.gameDate, { color: theme.textSecondary }]}>
+                  {new Date().toLocaleDateString("en-US", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </Text>
               </View>
             </View>
-
-            <View
-              style={[
-                styles.gameStatusBadge,
-                { backgroundColor: colors.primary },
-              ]}
-            >
-              <Text style={styles.gameStatusText}>
-                {gameData.statusDetail || "LIVE"}
-              </Text>
-            </View>
-
-            <Text style={[styles.gameDate, { color: theme.textSecondary }]}>
-              {new Date().toLocaleDateString("en-US", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </Text>
-          </View>
-        </View>
           );
         })()}
 

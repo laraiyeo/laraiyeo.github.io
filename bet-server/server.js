@@ -337,43 +337,51 @@ function generatePlayerOdds(gamelog, opponentTeamData) {
     const last10Total = Math.min(10, values.length);
     const last10OverRate = last10Total > 0 ? over10 / last10Total : 0;
     const last10UnderRate = last10Total > 0 ? under10 / last10Total : 0;
-    
+
     // H2H contribution (only if games exist)
     const h2hOverRate = h2hTotal > 0 ? overH2h / h2hTotal : null;
     const h2hUnderRate = h2hTotal > 0 ? underH2h / h2hTotal : null;
-    
+
     // Blend last 10 and H2H (if H2H exists, use 50/50 split, otherwise just last 10)
-    const tier2OverRate = h2hOverRate !== null 
-      ? (last10OverRate * 0.5 + h2hOverRate * 0.5)
-      : last10OverRate;
-    const tier2UnderRate = h2hUnderRate !== null
-      ? (last10UnderRate * 0.5 + h2hUnderRate * 0.5)
-      : last10UnderRate;
+    const tier2OverRate =
+      h2hOverRate !== null
+        ? last10OverRate * 0.5 + h2hOverRate * 0.5
+        : last10OverRate;
+    const tier2UnderRate =
+      h2hUnderRate !== null
+        ? last10UnderRate * 0.5 + h2hUnderRate * 0.5
+        : last10UnderRate;
 
     // Tier 3: Season stats (30% weight, scaled by games played reliability)
     const seasonOverRate = seasonTotal > 0 ? overSeason / seasonTotal : 0;
     const seasonUnderRate = seasonTotal > 0 ? underSeason / seasonTotal : 0;
-    
+
     // Scale season weight by games played (more games = more reliable)
     // Full weight at 41+ games (half season), scales down for fewer games
     const seasonReliability = Math.min(1, seasonTotal / 41);
     const seasonWeight = 0.3 * seasonReliability;
-    
+
     // Redistribute any unused season weight to recent games
     const unusedWeight = 0.3 - seasonWeight;
-    const adjustedTier1Weight = 0.4 + (unusedWeight * 0.6); // Give most unused weight to last 5
-    const adjustedTier2Weight = 0.3 + (unusedWeight * 0.4); // Give some to last 10/H2H
+    const adjustedTier1Weight = 0.4 + unusedWeight * 0.6; // Give most unused weight to last 5
+    const adjustedTier2Weight = 0.3 + unusedWeight * 0.4; // Give some to last 10/H2H
 
     // Calculate final confidence (to 1 decimal point)
     const overConfidence = parseFloat(
-      ((last5OverRate * adjustedTier1Weight + 
-        tier2OverRate * adjustedTier2Weight + 
-        seasonOverRate * seasonWeight) * 100).toFixed(1)
+      (
+        (last5OverRate * adjustedTier1Weight +
+          tier2OverRate * adjustedTier2Weight +
+          seasonOverRate * seasonWeight) *
+        100
+      ).toFixed(1)
     );
     const underConfidence = parseFloat(
-      ((last5UnderRate * adjustedTier1Weight + 
-        tier2UnderRate * adjustedTier2Weight + 
-        seasonUnderRate * seasonWeight) * 100).toFixed(1)
+      (
+        (last5UnderRate * adjustedTier1Weight +
+          tier2UnderRate * adjustedTier2Weight +
+          seasonUnderRate * seasonWeight) *
+        100
+      ).toFixed(1)
     );
 
     odds.overUnder[category] = {
@@ -782,7 +790,10 @@ function transformRostersData(rostersData) {
         athleteData.recentGames = recentGames;
         athleteData.averages = averages;
         // Pass opponent ID to odds generation
-        athleteData.odds = generatePlayerOdds(gamelog, opponentId ? { id: opponentId } : null);
+        athleteData.odds = generatePlayerOdds(
+          gamelog,
+          opponentId ? { id: opponentId } : null
+        );
       }
 
       return athleteData;
@@ -941,13 +952,13 @@ async function fetchAllRostersAndGamelogs() {
     // Extract unique team IDs from scoreboard and build opponent map
     const teamIds = new Set();
     const opponentMap = {}; // teamId -> opponentTeamId
-    
+
     scoreboardData.events.forEach((event) => {
       const competitors = event.competitions?.[0]?.competitors || [];
       competitors.forEach((competitor) => {
         teamIds.add(competitor.team.id);
       });
-      
+
       // Build opponent relationships (each team plays against the other)
       if (competitors.length === 2) {
         const team1Id = competitors[0].team.id;
