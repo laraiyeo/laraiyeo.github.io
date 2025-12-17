@@ -8,9 +8,19 @@ import {
   Dimensions,
   Image,
   ActivityIndicator,
+  PanResponder,
 } from "react-native";
 import { Ionicons, FontAwesome6 } from "@expo/vector-icons";
-import Svg, { Path, G, Defs, LinearGradient, Stop } from "react-native-svg";
+import Svg, {
+  Path,
+  G,
+  Defs,
+  LinearGradient,
+  Stop,
+  Rect,
+  Circle,
+  Line,
+} from "react-native-svg";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetSlip } from "../../context/BetSlipContext";
 import BetSlip from "../../components/BetSlip";
@@ -196,6 +206,134 @@ const getTabFontSize = () => {
   if (width < 420) return 13;
   return 14;
 };
+
+// Basketball Court Component for Flash Props
+const BasketballCourt = React.memo(
+  ({ coordinate, isScoring, teamSide, teamColor, styles }) => {
+    // Base court without coordinate
+    const baseCourt = (
+      <View style={styles.miniCourtContainer}>
+        <View style={styles.courtContainer}>
+          {/* Court outline */}
+          <View style={styles.courtOutline} />
+          {/* Half court line */}
+          <View style={styles.courtOutlineCenterLine} />
+          {/* Free throw circles */}
+          <View style={styles.freeThrowCircleTop} />
+          <View style={styles.freeThrowCircleBottom} />
+          {/* Free throw lanes (paint areas) */}
+          <View style={styles.freeThrowLaneTop} />
+          <View style={styles.freeThrowLaneBottom} />
+          {/* Free throw lines */}
+          <View style={styles.freeThrowLineTop} />
+          <View style={styles.freeThrowLineBottom} />
+          {/* Free throw semicircles */}
+          <View style={styles.freeThrowSemicircleTop} />
+          <View style={styles.freeThrowSemicircleBottom} />
+          {/* 3 point semicircles */}
+          <View style={styles.threePointSemicircleTop} />
+          <View style={styles.threePointSemicircleBottom} />
+          {/* Center circle */}
+          <View style={styles.centerCircle} />
+          {/* Baskets */}
+          <View style={styles.basketTop} />
+          <View style={styles.basketBottom} />
+        </View>
+      </View>
+    );
+
+    if (
+      !coordinate ||
+      coordinate.x === undefined ||
+      coordinate.y === undefined
+    ) {
+      return baseCourt;
+    }
+
+    const espnX = coordinate.x;
+    const espnY = coordinate.y;
+
+    let leftPercent, bottomPercent;
+
+    if (teamSide === "home") {
+      bottomPercent = (52 - espnY) * 2;
+      leftPercent = espnX * 2;
+    } else {
+      bottomPercent = espnY * 2 - 6;
+      leftPercent = (50 - espnX) * 2;
+    }
+
+    const finalLeftPercent = Math.max(2, Math.min(98, leftPercent));
+    const finalBottomPercent = Math.max(2, Math.min(98, bottomPercent));
+    const finalTeamColor = teamColor.startsWith("#")
+      ? teamColor
+      : `#${teamColor}`;
+
+    let clampedBottom = finalBottomPercent;
+    if (teamSide === "home") {
+      clampedBottom = Math.max(clampedBottom, 50);
+    } else {
+      clampedBottom = Math.min(clampedBottom, 50);
+    }
+
+    return (
+      <View style={styles.miniCourtContainer}>
+        <View style={styles.courtContainer}>
+          {/* Court outline */}
+          <View style={styles.courtOutline} />
+          {/* Half court line */}
+          <View style={styles.courtOutlineCenterLine} />
+          {/* Free throw circles */}
+          <View style={styles.freeThrowCircleTop} />
+          <View style={styles.freeThrowCircleBottom} />
+          {/* Free throw lanes (paint areas) */}
+          <View style={styles.freeThrowLaneTop} />
+          <View style={styles.freeThrowLaneBottom} />
+          {/* Free throw lines */}
+          <View style={styles.freeThrowLineTop} />
+          <View style={styles.freeThrowLineBottom} />
+          {/* Free throw semicircles */}
+          <View style={styles.freeThrowSemicircleTop} />
+          <View style={styles.freeThrowSemicircleBottom} />
+          {/* 3 point semicircles */}
+          <View style={styles.threePointSemicircleTop} />
+          <View style={styles.threePointSemicircleBottom} />
+          {/* Center circle */}
+          <View style={styles.centerCircle} />
+          {/* Baskets */}
+          <View style={styles.basketTop} />
+          <View style={styles.basketBottom} />
+          {/* Team side indicator */}
+          <Text
+            style={[
+              styles.teamSideIndicator,
+              teamSide === "home" ? styles.teamSideHome : styles.teamSideAway,
+              { color: finalTeamColor },
+            ]}
+          >
+            {teamSide.toUpperCase()}
+          </Text>
+          {/* Shot location */}
+          <View
+            style={[
+              styles.shotMarker,
+              isScoring ? styles.madeShotMarker : styles.missedShotMarker,
+              {
+                position: "absolute",
+                left: `${finalLeftPercent}%`,
+                bottom: `${clampedBottom}%`,
+                backgroundColor: isScoring ? finalTeamColor : "white",
+                borderColor: isScoring ? "white" : finalTeamColor,
+                marginLeft: -5,
+                marginBottom: -5,
+              },
+            ]}
+          />
+        </View>
+      </View>
+    );
+  }
+);
 
 // Player Props Tab Component - DraftKings Style
 const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
@@ -859,6 +997,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
   const [selectedTab, setSelectedTab] = useState("stats");
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [boxScoreRowHeights, setBoxScoreRowHeights] = useState({});
+  const [courtScale, setCourtScale] = useState(1.67);
+  const [courtContainerHeight, setCourtContainerHeight] = useState(200);
+  const [courtContainerWidth, setCourtContainerWidth] = useState(300);
+
+  // Refs for synchronized scrolling in box score
+  const boxScoreScrollRefs = useRef({});
+  const isBoxScoreScrolling = useRef(false);
 
   const tabFontSize = getTabFontSize();
 
@@ -961,7 +1107,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
   }, [gameData.linescores1, gameData.linescores2]);
 
   // Parse box score data from API
-  const parseBoxScore = (teamAbbr) => {
+  const parseBoxScore = (teamAbbr, isPre = false) => {
     if (!summaryData?.boxscore?.teams) return [];
 
     const teamData = summaryData.boxscore.teams.find(
@@ -971,17 +1117,61 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     if (!teamData?.statistics) return [];
 
     const stats = teamData.statistics;
-    return [
-      { label: "FG%", value: stats["FG%"] || "-" },
-      { label: "3P%", value: stats["3P%"] || "-" },
-      { label: "FT%", value: stats["FT%"] || "-" },
-      { label: "REB", value: stats.REB || "-" },
-      { label: "AST", value: stats.AST || "-" },
-      { label: "STL", value: stats.STL || "-" },
-      { label: "BLK", value: stats.BLK || "-" },
-      { label: "TO", value: stats.TO || "-" },
-      { label: "PF", value: stats.PF || "-" },
-    ];
+
+    if (isPre) {
+      // Pre-game: Show all stats except streak
+      return [
+        {
+          label: "Field Goal %",
+          value: stats["Field Goal %"] || stats["FG%"] || "-",
+        },
+        {
+          label: "Three Point %",
+          value: stats["Three Point %"] || stats["3P%"] || "-",
+        },
+        { label: "Points Per Game", value: stats["Points Per Game"] || "-" },
+        {
+          label: "Rebounds Per Game",
+          value: stats["Rebounds Per Game"] || "-",
+        },
+        { label: "Assists Per Game", value: stats["Assists Per Game"] || "-" },
+        { label: "Steals Per Game", value: stats["Steals Per Game"] || "-" },
+        { label: "Blocks Per Game", value: stats["Blocks Per Game"] || "-" },
+        {
+          label: "Total Turnovers Per Game",
+          value: stats["Total Turnovers Per Game"] || "-",
+        },
+      ];
+    } else {
+      // Live/Completed: Show specific in-game stats
+      return [
+        { label: "Field Goal", value: stats["FG"] || stats["FG"] || "-" },
+        { label: "Field Goal %", value: stats["Field Goal %"] || "-" },
+        { label: "Three Point", value: stats["3PT"] || stats["3P%"] || "-" },
+        { label: "Free Throw", value: stats["FT"] || "-" },
+        { label: "Rebounds", value: stats["Rebounds"] || "-" },
+        {
+          label: "Offensive Rebounds",
+          value: stats["Offensive Rebounds"] || "-",
+        },
+        {
+          label: "Defensive Rebounds",
+          value: stats["Defensive Rebounds"] || "-",
+        },
+        { label: "Assists", value: stats["Assists"] || "-" },
+        { label: "Steals", value: stats["Steals"] || "-" },
+        { label: "Blocks", value: stats["Blocks"] || "-" },
+        { label: "Turnovers", value: stats["Turnovers"] || "-" },
+        {
+          label: "Points Off Turnovers",
+          value: stats["Points Conceded Off Turnovers"] || "-",
+        },
+        {
+          label: "Largest Lead",
+          value: stats["Largest Lead"] || stats.LL || "-",
+        },
+      ];
+    }
   };
 
   // Generate win probability data
@@ -997,12 +1187,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
   };
 
   const team1BoxScore = useMemo(
-    () => parseBoxScore(gameData.team1Abbr),
-    [summaryData, gameData.team1Abbr]
+    () => parseBoxScore(gameData.team1Abbr, gameData.status === "pre"),
+    [summaryData, gameData.team1Abbr, gameData.status]
   );
   const team2BoxScore = useMemo(
-    () => parseBoxScore(gameData.team2Abbr),
-    [summaryData, gameData.team2Abbr]
+    () => parseBoxScore(gameData.team2Abbr, gameData.status === "pre"),
+    [summaryData, gameData.team2Abbr, gameData.status]
   );
   const winProbData = useMemo(
     () => summaryData?.winprobability || generateWinProbability(),
@@ -1148,16 +1338,360 @@ const BetGameDetailScreen = ({ navigation, route }) => {
               </>
             )}
 
+            {/* Box Score Section - Only show for in progress or completed games */}
+            {(gameData.status === "in" || gameData.status === "post") &&
+              summaryData?.boxscore?.players && (
+                <>
+                  {summaryData.boxscore.players.map((teamData, teamIndex) => {
+                    const team = teamData.team;
+                    const athletes = teamData.statistics?.athletes || [];
+
+                    // Determine if game is live or completed
+                    const isLive = gameData.status === "in";
+
+                    // Group players based on game state
+                    let primaryGroup, secondaryGroup;
+                    let primaryLabel, secondaryLabel;
+
+                    if (isLive) {
+                      // Live game: On Court vs Bench
+                      primaryGroup = athletes.filter((p) => p.active === true);
+                      secondaryGroup = athletes.filter(
+                        (p) => p.active === false
+                      );
+                      primaryLabel = "On Court";
+                      secondaryLabel = "Bench";
+                    } else {
+                      // Completed game: Starters vs Bench (sorted by MIN)
+                      primaryGroup = athletes.filter((p) => p.starter === true);
+                      secondaryGroup = athletes
+                        .filter((p) => p.starter === false)
+                        .sort((a, b) => {
+                          const minA = parseInt(a.stats?.MIN || "0");
+                          const minB = parseInt(b.stats?.MIN || "0");
+                          return minB - minA; // Sort descending
+                        });
+                      primaryLabel = "Starters";
+                      secondaryLabel = "Bench";
+                    }
+
+                    // Get all stat keys from first player with stats
+                    const statKeys =
+                      primaryGroup.length > 0 && primaryGroup[0].stats
+                        ? Object.keys(primaryGroup[0].stats)
+                        : [];
+
+                    // Get team logo based on team abbreviation
+                    const teamLogo =
+                      team.abbreviation === gameData.team1Abbr
+                        ? gameData.team1Logo
+                        : gameData.team2Logo;
+
+                    // Combine all players with group labels
+                    const allPlayers = [];
+                    if (primaryGroup.length > 0) {
+                      allPlayers.push({ type: "header", label: primaryLabel });
+                      primaryGroup.forEach((player) =>
+                        allPlayers.push({ type: "player", data: player })
+                      );
+                    }
+                    if (secondaryGroup.length > 0) {
+                      allPlayers.push({
+                        type: "header",
+                        label: secondaryLabel,
+                      });
+                      secondaryGroup.forEach((player) =>
+                        allPlayers.push({ type: "player", data: player })
+                      );
+                    }
+
+                    return (
+                      <View key={team.id} style={{ marginTop: 24 }}>
+                        <View style={styles.boxScoreTitleContainer}>
+                          <Image
+                            source={{ uri: teamLogo }}
+                            style={styles.boxScoreTitleLogo}
+                            resizeMode="contain"
+                          />
+                          <Text
+                            style={[styles.sectionTitle, { color: theme.text }]}
+                          >
+                            {team.displayName} Box Score
+                          </Text>
+                        </View>
+
+                        <View
+                          style={[
+                            styles.boxScoreContainer,
+                            { backgroundColor: theme.surfaceSecondary },
+                          ]}
+                        >
+                          {/* Two-Column Layout */}
+                          <View style={styles.boxScoreTwoColumnLayout}>
+                            {/* Left Column: Fixed Player Names */}
+                            <View style={styles.boxScoreLeftColumn}>
+                              {/* Header */}
+                              <View
+                                onLayout={(event) => {
+                                  const { height } = event.nativeEvent.layout;
+                                  setBoxScoreRowHeights((prev) => ({
+                                    ...prev,
+                                    [`${team.id}-header`]: height,
+                                  }));
+                                }}
+                                style={[
+                                  styles.boxScorePlayerCell,
+                                  styles.boxScoreHeaderCell,
+                                  {
+                                    backgroundColor: theme.surfaceSecondary,
+                                    borderBottomColor: theme.border,
+                                  },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.boxScoreHeaderText,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  Player
+                                </Text>
+                              </View>
+
+                              {/* All Players */}
+                              {allPlayers.map((item, idx) => {
+                                if (item.type === "header") {
+                                  const groupKey = `${team.id}-group-${idx}`;
+                                  return (
+                                    <View
+                                      key={`header-${idx}`}
+                                      onLayout={(event) => {
+                                        const { height } =
+                                          event.nativeEvent.layout;
+                                        setBoxScoreRowHeights((prev) => ({
+                                          ...prev,
+                                          [groupKey]: height,
+                                        }));
+                                      }}
+                                      style={[
+                                        styles.boxScoreGroupHeader,
+                                        { backgroundColor: theme.surface },
+                                      ]}
+                                    >
+                                      <Text
+                                        style={[
+                                          styles.boxScoreGroupLabel,
+                                          { color: theme.text },
+                                        ]}
+                                      >
+                                        {item.label}
+                                      </Text>
+                                    </View>
+                                  );
+                                }
+
+                                const player = item.data;
+                                if (
+                                  !player.athlete ||
+                                  !player.stats ||
+                                  Object.keys(player.stats).length === 0
+                                ) {
+                                  return null;
+                                }
+
+                                const headshotUrl = `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${player.athlete.id}.png&w=200`;
+                                const positionAbbr =
+                                  player.athlete.position?.abbreviation || "";
+                                const jersey = player.athlete.jersey || "";
+                                const rowKey = `${team.id}-${player.athlete.id}`;
+
+                                return (
+                                  <View
+                                    key={player.athlete.id}
+                                    onLayout={(event) => {
+                                      const { height } =
+                                        event.nativeEvent.layout;
+                                      setBoxScoreRowHeights((prev) => ({
+                                        ...prev,
+                                        [rowKey]: height,
+                                      }));
+                                    }}
+                                    style={[
+                                      styles.boxScorePlayerCell,
+                                      styles.boxScoreDataCell,
+                                      {
+                                        backgroundColor: theme.surfaceSecondary,
+                                        borderBottomColor: theme.border,
+                                      },
+                                    ]}
+                                  >
+                                    <Image
+                                      source={{ uri: headshotUrl }}
+                                      style={styles.boxScorePlayerImage}
+                                    />
+                                    <View style={styles.boxScorePlayerInfo}>
+                                      <Text
+                                        style={[
+                                          styles.boxScorePlayerName,
+                                          { color: theme.text },
+                                        ]}
+                                      >
+                                        {player.athlete.shortName}
+                                      </Text>
+                                      <Text
+                                        style={[
+                                          styles.boxScorePlayerDetails,
+                                          { color: theme.textSecondary },
+                                        ]}
+                                      >
+                                        {positionAbbr} • {jersey}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                );
+                              })}
+                            </View>
+
+                            {/* Right Column: Single Scrollable Stats */}
+                            <ScrollView
+                              horizontal
+                              showsHorizontalScrollIndicator={false}
+                              style={styles.boxScoreRightColumn}
+                            >
+                              <View>
+                                {/* Header Row */}
+                                <View
+                                  style={[
+                                    styles.boxScoreStatsRow,
+                                    styles.boxScoreHeaderCell,
+                                    {
+                                      borderBottomColor: theme.border,
+                                      height:
+                                        boxScoreRowHeights[
+                                          `${team.id}-header`
+                                        ] || undefined,
+                                    },
+                                  ]}
+                                >
+                                  {statKeys.map((statKey) => (
+                                    <View
+                                      key={statKey}
+                                      style={styles.boxScoreStatCell}
+                                    >
+                                      <Text
+                                        style={[
+                                          styles.boxScoreHeaderText,
+                                          { color: theme.textSecondary },
+                                        ]}
+                                      >
+                                        {statKey}
+                                      </Text>
+                                    </View>
+                                  ))}
+                                </View>
+
+                                {/* All Player Stats */}
+                                {allPlayers.map((item, idx) => {
+                                  if (item.type === "header") {
+                                    const groupKey = `${team.id}-group-${idx}`;
+                                    const groupHeight =
+                                      boxScoreRowHeights[groupKey];
+                                    return (
+                                      <View
+                                        key={`header-${idx}`}
+                                        style={[
+                                          styles.boxScoreGroupHeader,
+                                          {
+                                            backgroundColor: theme.surface,
+                                            height: groupHeight || undefined,
+                                          },
+                                        ]}
+                                      >
+                                        <Text
+                                          style={[
+                                            styles.boxScoreGroupLabel,
+                                            { color: "transparent" },
+                                          ]}
+                                        >
+                                          {item.label}
+                                        </Text>
+                                      </View>
+                                    );
+                                  }
+
+                                  const player = item.data;
+                                  if (
+                                    !player.athlete ||
+                                    !player.stats ||
+                                    Object.keys(player.stats).length === 0
+                                  ) {
+                                    return null;
+                                  }
+
+                                  const rowKey = `${team.id}-${player.athlete.id}`;
+                                  const rowHeight = boxScoreRowHeights[rowKey];
+
+                                  return (
+                                    <View
+                                      key={player.athlete.id}
+                                      style={[
+                                        styles.boxScoreStatsRow,
+                                        styles.boxScoreDataCell,
+                                        {
+                                          borderBottomColor: theme.border,
+                                          height: rowHeight || undefined,
+                                        },
+                                      ]}
+                                    >
+                                      {statKeys.map((statKey) => (
+                                        <View
+                                          key={statKey}
+                                          style={styles.boxScoreStatCell}
+                                        >
+                                          <Text
+                                            style={[
+                                              styles.boxScoreStatText,
+                                              { color: theme.text },
+                                            ]}
+                                          >
+                                            {player.stats[statKey] || "-"}
+                                          </Text>
+                                        </View>
+                                      ))}
+                                    </View>
+                                  );
+                                })}
+                              </View>
+                            </ScrollView>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </>
+              )}
+
             {/* Team Statistics with Bar Fills */}
-            <View style={styles.teamStatsContainer}>
-              <Text
-                style={[
-                  styles.statsSectionTitle,
-                  { color: theme.text, marginTop: 24 },
-                ]}
-              >
-                Team Statistics
-              </Text>
+            <Text
+              style={[
+                styles.sectionTitle,
+                { color: theme.text, marginTop: 24 },
+              ]}
+            >
+              {gameData.status === "pre"
+                ? "Season Averages"
+                : "Team Statistics"}
+            </Text>
+            <View
+              style={[
+                styles.teamStatsContainer,
+                {
+                  backgroundColor: theme.surfaceSecondary,
+                  borderRadius: 12,
+                  padding: 12,
+                },
+              ]}
+            >
               <View style={styles.statsHeader}>
                 <View style={styles.teamHeaderLeft}>
                   <Image
@@ -1291,223 +1825,240 @@ const BetGameDetailScreen = ({ navigation, route }) => {
               }
 
               return (
-                <View
-                  style={[
-                    styles.winProbabilityContainer,
-                    {
-                      backgroundColor: theme.surface,
-                      borderRadius: 12,
-                      padding: 12,
-                      marginTop: 24,
-                    },
-                  ]}
-                >
+                <>
                   <Text
                     style={[
                       styles.sectionTitle,
-                      { color: theme.text, marginBottom: 16 },
+                      { color: theme.text, marginTop: 24 },
                     ]}
                   >
                     Win Probability
                   </Text>
-
-                  <View style={styles.winProbabilityLegend}>
-                    <View style={styles.legendItem}>
-                      <View
-                        style={[
-                          styles.legendColor,
-                          { backgroundColor: team1Color },
-                        ]}
-                      />
-                      <Text style={[styles.legendText, { color: theme.text }]}>
-                        {gameData.team1Abbr}
-                      </Text>
-                    </View>
-                    <View style={styles.legendItem}>
-                      <View
-                        style={[
-                          styles.legendColor,
-                          { backgroundColor: team2Color },
-                        ]}
-                      />
-                      <Text style={[styles.legendText, { color: theme.text }]}>
-                        {gameData.team2Abbr}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.graphContainer}>
-                    <View style={styles.yAxisLabels}>
-                      <Text
-                        style={[
-                          styles.yAxisLabel,
-                          { color: theme.textSecondary },
-                        ]}
-                      >
-                        100%
-                      </Text>
-                      <Text
-                        style={[
-                          styles.yAxisLabel,
-                          { color: theme.textSecondary },
-                        ]}
-                      >
-                        75%
-                      </Text>
-                      <Text
-                        style={[
-                          styles.yAxisLabel,
-                          { color: theme.textSecondary },
-                        ]}
-                      >
-                        50%
-                      </Text>
-                      <Text
-                        style={[
-                          styles.yAxisLabel,
-                          { color: theme.textSecondary },
-                        ]}
-                      >
-                        25%
-                      </Text>
-                      <Text
-                        style={[
-                          styles.yAxisLabel,
-                          { color: theme.textSecondary },
-                        ]}
-                      >
-                        0%
-                      </Text>
-                    </View>
-
-                    <View style={styles.graphArea}>
-                      {/* Background grid lines */}
-                      <View style={styles.gridLines}>
-                        {[0, 25, 50, 75, 100].map((percentage) => (
-                          <View
-                            key={percentage}
-                            style={[
-                              styles.gridLine,
-                              {
-                                bottom: `${percentage}%`,
-                                borderBottomColor: theme.textSecondary + "20",
-                              },
-                            ]}
-                          />
-                        ))}
-                      </View>
-
-                      {/* 50% center line */}
-                      <View
-                        style={[
-                          styles.centerLine,
-                          { borderBottomColor: theme.textSecondary + "40" },
-                        ]}
-                      />
-
-                      {/* Win probability lines using SVG */}
-                      <View style={styles.svgContainer}>
-                        <Svg
-                          style={StyleSheet.absoluteFillObject}
-                          width="100%"
-                          height="100%"
-                          viewBox="0 0 100 100"
-                          preserveAspectRatio="none"
+                  <View
+                    style={[
+                      styles.winProbabilityContainer,
+                      {
+                        backgroundColor: theme.surfaceSecondary,
+                        borderRadius: 12,
+                        padding: 12,
+                      },
+                    ]}
+                  >
+                    <View style={styles.winProbabilityLegend}>
+                      <View style={styles.legendItem}>
+                        <View
+                          style={[
+                            styles.legendColor,
+                            { backgroundColor: team1Color },
+                          ]}
+                        />
+                        <Text
+                          style={[styles.legendText, { color: theme.text }]}
                         >
-                          {sampledData.length > 1 &&
-                            sampledData.map((point, index) => {
-                              if (index === 0) return null;
+                          {gameData.team1Abbr}
+                        </Text>
+                      </View>
+                      <View style={styles.legendItem}>
+                        <View
+                          style={[
+                            styles.legendColor,
+                            { backgroundColor: team2Color },
+                          ]}
+                        />
+                        <Text
+                          style={[styles.legendText, { color: theme.text }]}
+                        >
+                          {gameData.team2Abbr}
+                        </Text>
+                      </View>
+                    </View>
 
-                              const prevPoint = sampledData[index - 1];
-                              const x1 =
-                                ((index - 1) / (sampledData.length - 1)) * 100;
-                              const x2 =
-                                (index / (sampledData.length - 1)) * 100;
+                    <View style={styles.graphContainer}>
+                      <View style={styles.yAxisLabels}>
+                        <Text
+                          style={[
+                            styles.yAxisLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          100%
+                        </Text>
+                        <Text
+                          style={[
+                            styles.yAxisLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          75%
+                        </Text>
+                        <Text
+                          style={[
+                            styles.yAxisLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          50%
+                        </Text>
+                        <Text
+                          style={[
+                            styles.yAxisLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          25%
+                        </Text>
+                        <Text
+                          style={[
+                            styles.yAxisLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          0%
+                        </Text>
+                      </View>
 
-                              const team2Y1 =
-                                100 - prevPoint.team2WinPercentage;
-                              const team2Y2 = 100 - point.team2WinPercentage;
-                              const team1Y1 =
-                                100 - prevPoint.team1WinPercentage;
-                              const team1Y2 = 100 - point.team1WinPercentage;
+                      <View style={styles.graphArea}>
+                        {/* Background grid lines */}
+                        <View style={styles.gridLines}>
+                          {[0, 25, 50, 75, 100].map((percentage) => (
+                            <View
+                              key={percentage}
+                              style={[
+                                styles.gridLine,
+                                {
+                                  bottom: `${percentage}%`,
+                                  borderBottomColor: theme.textSecondary + "20",
+                                },
+                              ]}
+                            />
+                          ))}
+                        </View>
 
-                              return (
-                                <G key={index}>
-                                  {team1Y1 < team2Y1 ? (
-                                    <>
-                                      {/* Team 2 fill (bottom → team2 line) */}
-                                      <Path
-                                        d={`M${x1},100 L${x1},${team2Y1} L${x2},${team2Y2} L${x2},100 Z`}
-                                        fill={team2Color}
-                                        fillOpacity="0.3"
-                                      />
-                                      {/* Team 1 fill (team2 line → team1 line) */}
-                                      <Path
-                                        d={`M${x1},${team2Y1} L${x1},${team1Y1} L${x2},${team1Y2} L${x2},${team2Y2} Z`}
-                                        fill={team1Color}
-                                        fillOpacity="0.3"
-                                      />
-                                    </>
-                                  ) : (
-                                    <>
-                                      {/* Team 1 fill (bottom → team1 line) */}
-                                      <Path
-                                        d={`M${x1},100 L${x1},${team1Y1} L${x2},${team1Y2} L${x2},100 Z`}
-                                        fill={team1Color}
-                                        fillOpacity="0.3"
-                                      />
-                                      {/* Team 2 fill (team1 line → team2 line) */}
-                                      <Path
-                                        d={`M${x1},${team1Y1} L${x1},${team2Y1} L${x2},${team2Y2} L${x2},${team1Y2} Z`}
-                                        fill={team2Color}
-                                        fillOpacity="0.3"
-                                      />
-                                    </>
+                        {/* 50% center line */}
+                        <View
+                          style={[
+                            styles.centerLine,
+                            { borderBottomColor: theme.textSecondary + "40" },
+                          ]}
+                        />
+
+                        {/* Win probability lines using SVG */}
+                        <View style={styles.svgContainer}>
+                          <Svg
+                            style={StyleSheet.absoluteFillObject}
+                            width="100%"
+                            height="100%"
+                            viewBox="0 0 100 100"
+                            preserveAspectRatio="none"
+                          >
+                            {sampledData.length > 1 &&
+                              sampledData.map((point, index) => {
+                                if (index === 0) return null;
+
+                                const prevPoint = sampledData[index - 1];
+                                const x1 =
+                                  ((index - 1) / (sampledData.length - 1)) *
+                                  100;
+                                const x2 =
+                                  (index / (sampledData.length - 1)) * 100;
+
+                                const team2Y1 =
+                                  100 - prevPoint.team2WinPercentage;
+                                const team2Y2 = 100 - point.team2WinPercentage;
+                                const team1Y1 =
+                                  100 - prevPoint.team1WinPercentage;
+                                const team1Y2 = 100 - point.team1WinPercentage;
+
+                                return (
+                                  <G key={index}>
+                                    {team1Y1 < team2Y1 ? (
+                                      <>
+                                        {/* Team 2 fill (bottom → team2 line) */}
+                                        <Path
+                                          d={`M${x1},100 L${x1},${team2Y1} L${x2},${team2Y2} L${x2},100 Z`}
+                                          fill={team2Color}
+                                          fillOpacity="0.3"
+                                        />
+                                        {/* Team 1 fill (team2 line → team1 line) */}
+                                        <Path
+                                          d={`M${x1},${team2Y1} L${x1},${team1Y1} L${x2},${team1Y2} L${x2},${team2Y2} Z`}
+                                          fill={team1Color}
+                                          fillOpacity="0.3"
+                                        />
+                                      </>
+                                    ) : (
+                                      <>
+                                        {/* Team 1 fill (bottom → team1 line) */}
+                                        <Path
+                                          d={`M${x1},100 L${x1},${team1Y1} L${x2},${team1Y2} L${x2},100 Z`}
+                                          fill={team1Color}
+                                          fillOpacity="0.3"
+                                        />
+                                        {/* Team 2 fill (team1 line → team2 line) */}
+                                        <Path
+                                          d={`M${x1},${team1Y1} L${x1},${team2Y1} L${x2},${team2Y2} L${x2},${team1Y2} Z`}
+                                          fill={team2Color}
+                                          fillOpacity="0.3"
+                                        />
+                                      </>
+                                    )}
+                                  </G>
+                                );
+                              })}
+
+                            {/* Draw the actual lines */}
+                            {sampledData.length > 1 && (
+                              <>
+                                {/* Team 2 line */}
+                                <Path
+                                  d={sampledData.reduce(
+                                    (path, point, index) => {
+                                      const x =
+                                        (index / (sampledData.length - 1)) *
+                                        100;
+                                      const y = 100 - point.team2WinPercentage;
+                                      return (
+                                        path +
+                                        (index === 0
+                                          ? `M${x},${y}`
+                                          : ` L${x},${y}`)
+                                      );
+                                    },
+                                    ""
                                   )}
-                                </G>
-                              );
-                            })}
-
-                          {/* Draw the actual lines */}
-                          {sampledData.length > 1 && (
-                            <>
-                              {/* Team 2 line */}
-                              <Path
-                                d={sampledData.reduce((path, point, index) => {
-                                  const x =
-                                    (index / (sampledData.length - 1)) * 100;
-                                  const y = 100 - point.team2WinPercentage;
-                                  return (
-                                    path +
-                                    (index === 0 ? `M${x},${y}` : ` L${x},${y}`)
-                                  );
-                                }, "")}
-                                fill="none"
-                                stroke={team2Color}
-                                strokeWidth="0.5"
-                              />
-                              {/* Team 1 line */}
-                              <Path
-                                d={sampledData.reduce((path, point, index) => {
-                                  const x =
-                                    (index / (sampledData.length - 1)) * 100;
-                                  const y = 100 - point.team1WinPercentage;
-                                  return (
-                                    path +
-                                    (index === 0 ? `M${x},${y}` : ` L${x},${y}`)
-                                  );
-                                }, "")}
-                                fill="none"
-                                stroke={team1Color}
-                                strokeWidth="0.5"
-                              />
-                            </>
-                          )}
-                        </Svg>
+                                  fill="none"
+                                  stroke={team2Color}
+                                  strokeWidth="0.5"
+                                />
+                                {/* Team 1 line */}
+                                <Path
+                                  d={sampledData.reduce(
+                                    (path, point, index) => {
+                                      const x =
+                                        (index / (sampledData.length - 1)) *
+                                        100;
+                                      const y = 100 - point.team1WinPercentage;
+                                      return (
+                                        path +
+                                        (index === 0
+                                          ? `M${x},${y}`
+                                          : ` L${x},${y}`)
+                                      );
+                                    },
+                                    ""
+                                  )}
+                                  fill="none"
+                                  stroke={team1Color}
+                                  strokeWidth="0.5"
+                                />
+                              </>
+                            )}
+                          </Svg>
+                        </View>
                       </View>
                     </View>
                   </View>
-                </View>
+                </>
               );
             })()}
           </View>
@@ -1515,9 +2066,263 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       case "quick":
         return (
           <View style={styles.tabContent}>
-            <Text style={[styles.contentTitle, { color: theme.text }]}>
-              Flash Props
-            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingRight: 16,
+                marginBottom: 8,
+              }}
+            >
+              <Text style={[styles.contentTitle, { color: theme.text }]}>
+                Flash Props
+              </Text>
+            </View>
+
+            {/* Basketball Court Visualization */}
+            {(() => {
+              // Get smart team colors for proper color handling
+              const { team1Color, team2Color } = getSmartTeamColors(
+                {
+                  team1Color: gameData.team1Color,
+                  team1AlternateColor: gameData.team1AlternateColor,
+                },
+                {
+                  team2Color: gameData.team2Color,
+                  team2AlternateColor: gameData.team2AlternateColor,
+                }
+              );
+
+              return (
+            <View
+              style={[
+                styles.miniCourtContainer,
+                { height: courtContainerHeight },
+              ]}
+              onLayout={(event) => {
+                const { width } = event.nativeEvent.layout;
+                // Court is 200px wide when rotated (original height)
+                // Calculate scale to fit the container width
+                const scale = width / 200;
+                // When rotated, the height becomes 150 * scale
+                const height = 150 * scale;
+                setCourtScale(scale);
+                setCourtContainerHeight(height);
+                setCourtContainerWidth(width);
+              }}
+            >
+              <View style={{ position: "relative" }}>
+                <BasketballCourt
+                  coordinate={undefined}
+                  isScoring={false}
+                  teamSide="home"
+                  teamColor="#000000"
+                  styles={{
+                    ...styles,
+                    courtContainer: {
+                      ...styles.courtContainer,
+                      transform: [{ rotate: "90deg" }, { scale: courtScale }],
+                    },
+                  }}
+                />
+                {/* Home Team Logo in Center */}
+                <Image
+                  source={{ uri: gameData.team2Logo }}
+                  style={{
+                    position: "absolute",
+                    width: 50 * courtScale,
+                    height: 50 * courtScale,
+                    opacity: 0.6,
+                    top: "50%",
+                    left: "50%",
+                    transform: [
+                      { translateX: -25 * courtScale },
+                      { translateY: -25 * courtScale },
+                    ],
+                  }}
+                  resizeMode="contain"
+                />
+
+                {/* Overlay with exact court dimensions for positioning circles */}
+                <View
+                  style={{
+                    position: "absolute",
+                    width: 200 * courtScale,
+                    height: 150 * courtScale,
+                    top: "50%",
+                    left: "50%",
+                    marginLeft: (-200 * courtScale) / 2,
+                    marginTop: (-150 * courtScale) / 2,
+                  }}
+                >
+                  {/* ESPN Play Coordinate Visualization */}
+                    {summaryData?.plays?.coordinate && (() => {
+                      const { x: espnX, y: espnY } = summaryData.plays.coordinate;
+                      const period = summaryData.plays.period?.number || 1;
+                      const playTeam = summaryData.plays.team;
+                      
+                      // Determine which side teams are on based on period
+                      // Periods 1 & 2: home on right, away on left
+                      // Periods 3 & 4: home on left, away on right
+                      // Overtime: home on right, away on left
+                      let isHomeOnRight = true;
+                      if (period === 3 || period === 4) {
+                        isHomeOnRight = false;
+                      }
+                      
+                      // Determine if this play's team is home or away
+                      const isHomeTeam = playTeam === gameData.team2Abbr;
+                      
+                      // Determine if this team is shooting at the right basket
+                      const isTeamOnRight = (isHomeTeam && isHomeOnRight) || (!isHomeTeam && !isHomeOnRight);
+                      
+                      // Check for special positioning cases
+                      const pointsAttempted = summaryData.plays.pointsAttempted;
+                      let ourYPercent, ourXPercent;
+                      
+                      // Case 1: Free throw (pointsAttempted = 1)
+                      if (pointsAttempted === 1) {
+                        // Free throws: positioned at free throw line
+                        // Away team in periods 1&2 and home team in periods 3&4: X = 28%
+                        // Home team in periods 1&2 and away team in periods 3&4: X = 72%
+                        ourXPercent = isTeamOnRight ? 28 : 72;
+                        ourYPercent = 50; // Center of court width
+                      }
+                      // Case 2: No coordinates provided (both 0)
+                      else if (espnX === 0 && espnY === 0) {
+                        // Position at center
+                        ourXPercent = 50;
+                        ourYPercent = 50;
+                      }
+                      // Case 3: Normal field goal with coordinates
+                      else {
+                        // Convert ESPN coordinates to our coordinate system
+                        // ESPN: x (0-50) is court length, y (0-40) is court width
+                        // Our horizontal court: x is width (0-40), y is length (0-50)
+                        // So ESPN x → our y, ESPN y → our x
+                        
+                        // For teams on the right: ESPN x=0 is their basket (our y=100%), x=50 is opponent's basket (our y=0%)
+                        // For teams on the left: ESPN x=0 is their basket (our y=0%), x=50 is opponent's basket (our y=100%)
+                        if (isTeamOnRight) {
+                          // Right side: reverse the y-axis
+                          ourYPercent = 100 - (espnX / 50) * 100;
+                        } else {
+                          // Left side: direct mapping
+                          ourYPercent = (espnX / 50) * 100;
+                        }
+                        
+                        // X-axis (width) is always direct mapping
+                        ourXPercent = (espnY / 40) * 100;
+                      }
+                      
+                      // Convert percentages to actual pixel positions
+                      const padding = 4 * courtScale;
+                      const courtWidth = 200 * courtScale - (padding * 2);
+                      const courtHeight = 150 * courtScale - (padding * 2);
+                      
+                      const actualX = padding + (ourXPercent / 100) * courtWidth;
+                      const actualY = padding + (ourYPercent / 100) * courtHeight;
+                      
+                      // Get team color using same pattern as other sections
+                      const teamColor = playTeam === gameData.team1Abbr 
+                        ? team1Color
+                        : team2Color;
+                      
+                      // Determine styling based on scoring vs non-scoring
+                      const isScoring = summaryData.plays.scoringPlay;
+                      
+                      return (
+                        <View
+                          style={{
+                            position: "absolute",
+                            width: 7.5 * courtScale,
+                            height: 7.5 * courtScale,
+                            borderRadius: 3.75 * courtScale,
+                            backgroundColor: isScoring ? teamColor : "white",
+                            borderWidth: 2,
+                            borderColor: isScoring ? "white" : teamColor,
+                            left: actualX - (3.75 * courtScale),
+                            top: actualY - (3.75 * courtScale),
+                            zIndex: 50,
+                          }}
+                        />
+                      );
+                    })()}
+                </View>
+              </View>
+            </View>
+              );
+            })()}
+
+            {summaryData?.plays && (() => {
+              // Get smart team colors for proper color handling
+              const { team1Color, team2Color } = getSmartTeamColors(
+                {
+                  team1Color: gameData.team1Color,
+                  team1AlternateColor: gameData.team1AlternateColor,
+                },
+                {
+                  team2Color: gameData.team2Color,
+                  team2AlternateColor: gameData.team2AlternateColor,
+                }
+              );
+
+              return (
+              <View style={styles.playTextWrapper}>
+                <View
+                  style={[
+                    styles.playTextContainer,
+                    {
+                      backgroundColor: theme.surface,
+                      borderWidth: 2,
+                      borderColor: summaryData.plays.team
+                        ? summaryData.plays.team === gameData.team1Abbr
+                          ? team1Color
+                          : team2Color
+                        : theme.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.playText, { color: theme.text }]}>
+                    {summaryData.plays.text || "Waiting for next play..."}
+                  </Text>
+                  <View style={styles.playMetaContainer}>
+                    <Text
+                      style={[styles.playMeta, { color: theme.textSecondary }]}
+                    >
+                      {summaryData.plays.period?.displayValue} •{" "}
+                      {summaryData.plays.clock}
+                    </Text>
+                    {summaryData.plays.scoringPlay &&
+                      summaryData.plays.shortDescription && (() => {
+                        const bgColor = summaryData.plays.team
+                          ? summaryData.plays.team === gameData.team1Abbr
+                            ? team1Color
+                            : team2Color
+                          : colors.primary;
+                        const textColor = bgColor?.toLowerCase() === "#ffffff" ? "black" : "white";
+                        
+                        return (
+                        <View
+                          style={[
+                            styles.scoringBadge,
+                            {
+                              backgroundColor: bgColor,
+                            },
+                          ]}
+                        >
+                          <Text style={[styles.scoringBadgeText, { color: textColor }]}>
+                            {summaryData.plays.shortDescription}
+                          </Text>
+                        </View>
+                        );
+                      })()}
+                  </View>
+                </View>
+              </View>
+              );
+            })()}
 
             {/* Next Field Goal */}
             <View
@@ -2672,6 +3477,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 8,
+    marginTop: -40,
   },
   boxScoreTeamLogoImage: {
     width: 28,
@@ -2714,6 +3520,107 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     textAlign: "center",
+  },
+
+  // Horizontally Scrollable Box Score Styles
+  boxScoreTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  boxScoreTitleLogo: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
+  },
+  boxScoreContainer: {
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  boxScoreTwoColumnLayout: {
+    flexDirection: "row",
+  },
+  boxScoreLeftColumn: {
+    width: 180,
+    borderRightWidth: 1,
+    borderRightColor: "rgba(255,255,255,0.1)",
+  },
+  boxScoreRightColumn: {
+    flex: 1,
+  },
+  boxScoreHeaderCell: {
+    borderBottomWidth: 2,
+    borderBottomColor: "rgba(255,255,255,0.1)",
+  },
+  boxScoreDataCell: {
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
+  },
+  boxScoreStatsRow: {
+    flexDirection: "row",
+    minHeight: 56,
+  },
+  boxScorePlayerCell: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    minHeight: 56,
+  },
+  boxScorePlayerImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  boxScorePlayerInfo: {
+    marginLeft: 10,
+    flex: 1,
+  },
+  boxScorePlayerName: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  boxScorePlayerDetails: {
+    fontSize: 11,
+  },
+  boxScoreStatCell: {
+    width: 60,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 8,
+    minHeight: 56,
+  },
+  boxScoreStatText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  boxScoreHeaderText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  boxScoreGroupHeader: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    minHeight: 36,
+  },
+  boxScoreGroupLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  boxScoreTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  boxScoreTitleLogo: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
+    marginTop: -8,
   },
 
   // Team Statistics Styles
@@ -3086,6 +3993,269 @@ const styles = StyleSheet.create({
   },
 
   // Flash Props Styles
+  miniCourtContainer: {
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 16,
+    marginBottom: 16,
+    overflow: "visible",
+  },
+  courtContainer: {
+    width: 150,
+    height: 200,
+    position: "relative",
+    backgroundColor: "#D2691E",
+    borderWidth: 2,
+    borderColor: "#8B4513",
+    borderRadius: 4,
+  },
+  courtOutline: {
+    position: "absolute",
+    top: 2,
+    left: 2,
+    right: 2,
+    bottom: 2,
+    borderWidth: 2,
+    borderColor: "white",
+    borderRadius: 2,
+  },
+  courtOutlineCenterLine: {
+    position: "absolute",
+    top: "50%",
+    left: 2,
+    right: 2,
+    height: 2,
+    backgroundColor: "white",
+    marginTop: -1,
+  },
+  freeThrowCircleTop: {
+    position: "absolute",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    left: "50%",
+    top: 32,
+    marginLeft: -15,
+  },
+  freeThrowCircleBottom: {
+    position: "absolute",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    left: "50%",
+    bottom: 32,
+    marginLeft: -15,
+  },
+  freeThrowSemicircleTop: {
+    position: "absolute",
+    width: 40,
+    height: 20,
+    borderWidth: 2,
+    borderColor: "white",
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+    left: "50%",
+    bottom: 130,
+    marginLeft: -20,
+    backgroundColor: "transparent",
+  },
+  freeThrowSemicircleBottom: {
+    position: "absolute",
+    width: 40,
+    height: 20,
+    borderWidth: 2,
+    borderColor: "white",
+    borderBottomWidth: 0,
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    left: "50%",
+    top: 130,
+    marginLeft: -20,
+    backgroundColor: "transparent",
+  },
+  threePointSemicircleTop: {
+    position: "absolute",
+    width: 120,
+    height: 75,
+    borderWidth: 2,
+    borderColor: "white",
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 60,
+    borderBottomRightRadius: 60,
+    left: "50%",
+    bottom: 118,
+    marginLeft: -60,
+    backgroundColor: "transparent",
+  },
+  threePointSemicircleBottom: {
+    position: "absolute",
+    width: 120,
+    height: 75,
+    borderWidth: 2,
+    borderColor: "white",
+    borderBottomWidth: 0,
+    borderTopLeftRadius: 60,
+    borderTopRightRadius: 60,
+    left: "50%",
+    top: 118,
+    marginLeft: -60,
+    backgroundColor: "transparent",
+  },
+  centerCircle: {
+    position: "absolute",
+    width: 30,
+    height: 30,
+    borderWidth: 2,
+    borderColor: "white",
+    borderRadius: 15,
+    top: "50%",
+    left: "50%",
+    marginTop: -15,
+    marginLeft: -15,
+  },
+  basketTop: {
+    position: "absolute",
+    width: 12,
+    height: 3,
+    backgroundColor: "#FF4500",
+    left: "50%",
+    top: 10,
+    marginLeft: -6,
+    borderRadius: 2,
+    borderWidth: 1,
+    borderColor: "#8B0000",
+  },
+  basketBottom: {
+    position: "absolute",
+    width: 12,
+    height: 3,
+    backgroundColor: "#FF4500",
+    left: "50%",
+    bottom: 10,
+    marginLeft: -6,
+    borderRadius: 2,
+    borderWidth: 1,
+    borderColor: "#8B0000",
+  },
+  teamSideIndicator: {
+    position: "absolute",
+    fontSize: 8,
+    fontWeight: "bold",
+    textShadowColor: "rgba(0,0,0,0.7)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+    zIndex: 10,
+  },
+  teamSideHome: {
+    top: 2,
+    left: 2,
+  },
+  teamSideAway: {
+    bottom: 2,
+    right: 2,
+  },
+  shotMarker: {
+    width: 12,
+    height: 12,
+    borderRadius: 8,
+    zIndex: 10,
+    borderWidth: 2,
+  },
+  madeShotMarker: {
+    borderColor: "white",
+  },
+  missedShotMarker: {
+    backgroundColor: "white",
+  },
+  freeThrowLaneTop: {
+    position: "absolute",
+    width: 40,
+    height: 45,
+    borderWidth: 2,
+    borderColor: "white",
+    borderBottomWidth: 0,
+    borderRadius: 0,
+    top: 2,
+    left: "50%",
+    marginLeft: -20,
+    backgroundColor: "transparent",
+  },
+  freeThrowLaneBottom: {
+    position: "absolute",
+    width: 40,
+    height: 45,
+    borderWidth: 2,
+    borderColor: "white",
+    borderTopWidth: 0,
+    borderRadius: 0,
+    bottom: 2,
+    left: "50%",
+    marginLeft: -20,
+    backgroundColor: "transparent",
+  },
+  freeThrowLineTop: {
+    position: "absolute",
+    width: 40,
+    height: 2,
+    backgroundColor: "white",
+    top: 47,
+    left: "50%",
+    marginLeft: -20,
+  },
+  freeThrowLineBottom: {
+    position: "absolute",
+    width: 40,
+    height: 2,
+    backgroundColor: "white",
+    bottom: 47,
+    left: "50%",
+    marginLeft: -20,
+  },
+  playTextWrapper: {
+    marginBottom: 16,
+  },
+  playTextContainer: {
+    padding: 16,
+    borderRadius: 12,
+  },
+  playText: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 8,
+    lineHeight: 22,
+  },
+  playMetaContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  playMeta: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  scoringBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  scoringBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "white",
+  },
+  draggableButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  draggableButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
   flashPropCard: {
     padding: 16,
     borderRadius: 12,

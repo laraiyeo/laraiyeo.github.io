@@ -45,19 +45,10 @@ export const BetDataProvider = ({ children }) => {
       const response = await fetch(`${API_BASE_URL}/rosters`);
       const data = await response.json();
       setRostersData(data);
-
-      // Cache rosters data
-      await AsyncStorage.setItem("bet_rosters_data", JSON.stringify(data));
-      await AsyncStorage.setItem("bet_rosters_time", new Date().toISOString());
-
+      // Note: Rosters data is too large for AsyncStorage, so we don't cache it
       return data;
     } catch (error) {
       console.error("Error fetching rosters:", error);
-      // Try to load from cache on error
-      const cachedData = await AsyncStorage.getItem("bet_rosters_data");
-      if (cachedData) {
-        setRostersData(JSON.parse(cachedData));
-      }
       return null;
     }
   };

@@ -50,16 +50,6 @@ const BetSlip = ({ isGameDetail = false }) => {
     }).start();
   };
 
-  console.log('BetSlip render - bets:', bets);
-  console.log('BetSlip render - bets length:', bets.length);
-
-  if (bets.length === 0) {
-    console.log('BetSlip returning null - no bets');
-    return null;
-  }
-
-  console.log('BetSlip rendering with bets');
-
   const parlayOdds = calculateParlayOdds();
   const payout = calculatePayout(parseFloat(betAmount) || 0);
   const grouped = groupedBets();

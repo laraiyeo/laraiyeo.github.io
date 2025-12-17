@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,13 +7,16 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
-  Image,
 } from "react-native";
+import { Image } from "expo-image";
 import { Ionicons, FontAwesome6 } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetData } from "../../context/BetDataContext";
 import BetSlip from "../../components/BetSlip";
+
+// Global image cache - keeps image sources stable across re-renders
+const imageCache = new Map();
 
 const { width } = Dimensions.get("window");
 
@@ -96,6 +99,404 @@ const parseGameData = (events) => {
   return { live, scheduled, completed, hasLiveGames };
 };
 
+// Live Game Card - Defined outside component to prevent recreation on re-renders
+const LiveGameCard = React.memo(
+  ({ game, navigation, theme, colors }) => {
+    // Get stable image sources from cache (cached outside update loop)
+    const team1Source = imageCache.get(game.team1Logo) || {
+      uri: game.team1Logo,
+    };
+    const team2Source = imageCache.get(game.team2Logo) || {
+      uri: game.team2Logo,
+    };
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.liveGameCard,
+          { backgroundColor: theme.surfaceSecondary },
+        ]}
+        onPress={() =>
+          navigation.navigate("BetGameDetail", { gameId: game.id, game })
+        }
+      >
+        <View style={styles.liveIndicator}>
+          <View style={styles.liveDot} />
+          <Text style={styles.liveText}>LIVE</Text>
+        </View>
+
+        {/* Tournament Label */}
+        <Text
+          style={[styles.liveTournamentLabel, { color: theme.textTertiary }]}
+          numberOfLines={1}
+        >
+          {game.tournamentLabel}
+        </Text>
+
+        {/* Tournament Name with NBA Logo */}
+        <View style={styles.liveTournamentRow}>
+          <Image
+            source={require("../../../assets/nba.png")}
+            style={styles.nbaLogo}
+            contentFit="contain"
+            cachePolicy="memory-disk"
+          />
+          <Text
+            style={[styles.liveTournamentName, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {game.tournament}
+          </Text>
+        </View>
+
+        {/* Game Time/Period */}
+        <Text style={[styles.liveGameTime, { color: theme.textSecondary }]}>
+          {game.period && `${game.period} • `}
+          {game.time}
+        </Text>
+
+        {/* Teams and Score */}
+        <View style={styles.liveTeamsContainer}>
+          <View style={styles.liveTeamRow}>
+            <View style={styles.liveTeamInfo}>
+              <Image
+                source={team1Source}
+                style={styles.teamLogo}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+              />
+              <View style={styles.teamNameContainer}>
+                <Text
+                  style={[styles.liveTeamName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {game.team1}
+                </Text>
+                {game.team1Record && (
+                  <Text
+                    style={[styles.teamRecord, { color: theme.textSecondary }]}
+                    numberOfLines={1}
+                  >
+                    {game.team1Record}
+                  </Text>
+                )}
+              </View>
+            </View>
+            <Text style={[styles.liveScore, { color: theme.text }]}>
+              {game.score1}
+            </Text>
+          </View>
+
+          <View style={styles.liveTeamRow}>
+            <View style={styles.liveTeamInfo}>
+              <Image
+                source={team2Source}
+                style={styles.teamLogo}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+              />
+              <View style={styles.teamNameContainer}>
+                <Text
+                  style={[styles.liveTeamName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {game.team2}
+                </Text>
+                {game.team2Record && (
+                  <Text
+                    style={[styles.teamRecord, { color: theme.textSecondary }]}
+                    numberOfLines={1}
+                  >
+                    {game.team2Record}
+                  </Text>
+                )}
+              </View>
+            </View>
+            <Text style={[styles.liveScore, { color: theme.text }]}>
+              {game.score2}
+            </Text>
+          </View>
+        </View>
+
+        {/* Venue */}
+        {game.venue && (
+          <View style={styles.bettingInfo}>
+            <Text
+              style={[styles.bettingLine, { color: theme.textSecondary }]}
+              numberOfLines={1}
+            >
+              {game.venue}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  },
+  (prevProps, nextProps) => {
+    // Only re-render if game data actually changed
+    return (
+      prevProps.game.id === nextProps.game.id &&
+      prevProps.game.score1 === nextProps.game.score1 &&
+      prevProps.game.score2 === nextProps.game.score2 &&
+      prevProps.game.time === nextProps.game.time &&
+      prevProps.game.period === nextProps.game.period
+    );
+  }
+);
+
+// Scheduled Game Row - Defined outside component
+const ScheduledGameRow = React.memo(
+  ({ game, navigation, theme }) => {
+    const team1Source = imageCache.get(game.team1Logo) || {
+      uri: game.team1Logo,
+    };
+    const team2Source = imageCache.get(game.team2Logo) || {
+      uri: game.team2Logo,
+    };
+
+    return (
+      <TouchableOpacity
+        style={styles.upcomingGameRow}
+        onPress={() =>
+          navigation.navigate("BetGameDetail", {
+            gameId: game.id,
+            game,
+          })
+        }
+      >
+        {/* Time */}
+        <View style={styles.gameTimeContainer}>
+          <Text style={[styles.gameTime, { color: theme.textSecondary }]}>
+            {game.time}
+          </Text>
+          <Text style={[styles.gameTimePeriod, { color: theme.textTertiary }]}>
+            {game.timePeriod}
+          </Text>
+        </View>
+
+        {/* Teams */}
+        <View style={styles.stackedTeams}>
+          <View style={styles.teamWithIcon}>
+            <Image
+              source={team1Source}
+              style={styles.teamLogoSmall}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+            />
+            <View style={styles.teamNameRecordContainer}>
+              <Text
+                style={[styles.stackedTeamName, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {game.team1}
+              </Text>
+              {game.team1Record && (
+                <Text
+                  style={[
+                    styles.teamRecordSmall,
+                    { color: theme.textSecondary },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {game.team1Record}
+                </Text>
+              )}
+            </View>
+          </View>
+          <View style={styles.teamWithIcon}>
+            <Image
+              source={team2Source}
+              style={styles.teamLogoSmall}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+            />
+            <View style={styles.teamNameRecordContainer}>
+              <Text
+                style={[styles.stackedTeamName, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {game.team2}
+              </Text>
+              {game.team2Record && (
+                <Text
+                  style={[
+                    styles.teamRecordSmall,
+                    { color: theme.textSecondary },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {game.team2Record}
+                </Text>
+              )}
+            </View>
+          </View>
+        </View>
+
+        {/* Short Name and Venue */}
+        <View style={styles.upcomingGameInfo}>
+          <Text
+            style={[styles.gameShortName, { color: theme.textSecondary }]}
+            numberOfLines={1}
+          >
+            {game.shortName}
+          </Text>
+          {game.venue && (
+            <Text
+              style={[styles.gameVenue, { color: theme.textTertiary }]}
+              numberOfLines={1}
+            >
+              {game.venue}
+            </Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  },
+  (prevProps, nextProps) => {
+    // Scheduled games don't change, so only re-render if ID changes
+    return prevProps.game.id === nextProps.game.id;
+  }
+);
+
+// Completed Game Card - Defined outside component
+const CompletedGameCard = React.memo(
+  ({ game, navigation, theme, colors }) => {
+    const team1Source = imageCache.get(game.team1Logo) || {
+      uri: game.team1Logo,
+    };
+    const team2Source = imageCache.get(game.team2Logo) || {
+      uri: game.team2Logo,
+    };
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.completedGameCard,
+          { backgroundColor: theme.surfaceSecondary },
+        ]}
+        onPress={() =>
+          navigation.navigate("BetGameDetail", { gameId: game.id, game })
+        }
+      >
+        <View style={styles.completedHeaderRow}>
+          <Image
+            source={require("../../../assets/nba.png")}
+            style={styles.nbaLogoTiny}
+            contentFit="contain"
+            cachePolicy="memory-disk"
+          />
+          <Text
+            style={[
+              styles.completedTournamentLabel,
+              { color: theme.textTertiary },
+            ]}
+            numberOfLines={1}
+          >
+            {game.tournament}
+          </Text>
+        </View>
+
+        <Text style={[styles.completedStatus, { color: theme.textSecondary }]}>
+          Final
+        </Text>
+
+        <View style={styles.completedTeamsContainer}>
+          <View style={styles.completedTeamRow}>
+            <View style={styles.completedTeamInfo}>
+              <Image
+                source={team1Source}
+                style={styles.teamLogoTiny}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+              />
+              <View style={styles.completedTeamNameContainer}>
+                <Text
+                  style={[styles.completedTeamName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {game.team1}
+                </Text>
+                {game.team1Record && (
+                  <Text
+                    style={[
+                      styles.completedTeamRecord,
+                      { color: theme.textTertiary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {game.team1Record}
+                  </Text>
+                )}
+              </View>
+            </View>
+            <Text
+              style={[
+                styles.completedScore,
+                {
+                  color:
+                    game.score1 > game.score2
+                      ? colors.primary
+                      : theme.textSecondary,
+                  fontWeight: game.score1 > game.score2 ? "bold" : "normal",
+                },
+              ]}
+            >
+              {game.score1}
+            </Text>
+          </View>
+
+          <View style={styles.completedTeamRow}>
+            <View style={styles.completedTeamInfo}>
+              <Image
+                source={team2Source}
+                style={styles.teamLogoTiny}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+              />
+              <View style={styles.completedTeamNameContainer}>
+                <Text
+                  style={[styles.completedTeamName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {game.team2}
+                </Text>
+                {game.team2Record && (
+                  <Text
+                    style={[
+                      styles.completedTeamRecord,
+                      { color: theme.textTertiary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {game.team2Record}
+                  </Text>
+                )}
+              </View>
+            </View>
+            <Text
+              style={[
+                styles.completedScore,
+                {
+                  color:
+                    game.score2 > game.score1
+                      ? colors.primary
+                      : theme.textSecondary,
+                  fontWeight: game.score2 > game.score1 ? "bold" : "normal",
+                },
+              ]}
+            >
+              {game.score2}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  },
+  (prevProps, nextProps) => {
+    return prevProps.game.id === nextProps.game.id;
+  }
+);
+
 const BetHomeScreen = ({ navigation }) => {
   const { colors, theme } = useTheme();
   const { scoreboardData, fetchScoreboard } = useBetData();
@@ -117,7 +518,28 @@ const BetHomeScreen = ({ navigation }) => {
     }, [])
   );
 
+  // Pre-cache images when scoreboard data arrives - only cache new logos
+  useEffect(() => {
+    if (scoreboardData?.events) {
+      scoreboardData.events.forEach((event) => {
+        const competition = event.competitions?.[0];
+        if (!competition) return;
+
+        const competitors = competition.competitors || [];
+        competitors.forEach((competitor) => {
+          const logoUrl = competitor.team?.logo;
+          if (logoUrl && !imageCache.has(logoUrl)) {
+            imageCache.set(logoUrl, { uri: logoUrl });
+          }
+        });
+      });
+    }
+  }, [scoreboardData?.events?.length]); // Only run when number of events changes
+
   // Update games when scoreboard data changes
+  // Store previous game data to maintain object references when data hasn't changed
+  const prevGamesCache = useRef(new Map());
+
   useEffect(() => {
     if (scoreboardData?.events) {
       const {
@@ -126,9 +548,40 @@ const BetHomeScreen = ({ navigation }) => {
         completed,
         hasLiveGames: hasLive,
       } = parseGameData(scoreboardData.events);
-      setLiveGames(live);
-      setScheduledGames(scheduled);
-      setCompletedGames(completed);
+
+      // Reuse previous game objects if the data hasn't changed
+      const stableLive = live.map((game) => {
+        const prevGame = prevGamesCache.current.get(game.id);
+        if (
+          prevGame &&
+          prevGame.score1 === game.score1 &&
+          prevGame.score2 === game.score2 &&
+          prevGame.time === game.time &&
+          prevGame.period === game.period
+        ) {
+          return prevGame; // Reuse previous object reference
+        }
+        prevGamesCache.current.set(game.id, game);
+        return game;
+      });
+
+      const stableScheduled = scheduled.map((game) => {
+        const prevGame = prevGamesCache.current.get(game.id);
+        if (prevGame) return prevGame;
+        prevGamesCache.current.set(game.id, game);
+        return game;
+      });
+
+      const stableCompleted = completed.map((game) => {
+        const prevGame = prevGamesCache.current.get(game.id);
+        if (prevGame) return prevGame;
+        prevGamesCache.current.set(game.id, game);
+        return game;
+      });
+
+      setLiveGames(stableLive);
+      setScheduledGames(stableScheduled);
+      setCompletedGames(stableCompleted);
       setHasLiveGames(hasLive);
     }
   }, [scoreboardData]);
@@ -195,128 +648,6 @@ const BetHomeScreen = ({ navigation }) => {
     return Object.values(grouped);
   };
 
-  // Live Game Card - Similar to VAL style
-  const LiveGameCard = ({ game }) => (
-    <TouchableOpacity
-      style={[styles.liveGameCard, { backgroundColor: theme.surfaceSecondary }]}
-      onPress={() =>
-        navigation.navigate("BetGameDetail", { gameId: game.id, game })
-      }
-    >
-      <View style={styles.liveIndicator}>
-        <View style={styles.liveDot} />
-        <Text style={styles.liveText}>LIVE</Text>
-      </View>
-
-      {/* Tournament Label */}
-      <Text
-        style={[styles.liveTournamentLabel, { color: theme.textTertiary }]}
-        numberOfLines={1}
-      >
-        {game.tournamentLabel}
-      </Text>
-
-      {/* Tournament Name with NBA Logo */}
-      <View style={styles.liveTournamentRow}>
-        <Image
-          source={require("../../../assets/nba.png")}
-          style={styles.nbaLogo}
-          resizeMode="contain"
-        />
-        <Text
-          style={[styles.liveTournamentName, { color: theme.text }]}
-          numberOfLines={1}
-        >
-          {game.tournament}
-        </Text>
-      </View>
-
-      {/* Game Time/Period */}
-      <Text style={[styles.liveGameTime, { color: theme.textSecondary }]}>
-        {game.period && `${game.period} • `}
-        {game.time}
-      </Text>
-
-      {/* Teams and Score */}
-      <View style={styles.liveTeamsContainer}>
-        <View style={styles.liveTeamRow}>
-          <View style={styles.liveTeamInfo}>
-            <Image
-              source={{
-                uri: game.team1Logo,
-              }}
-              style={styles.teamLogo}
-              resizeMode="contain"
-            />
-            <View style={styles.teamNameContainer}>
-              <Text
-                style={[styles.liveTeamName, { color: theme.text }]}
-                numberOfLines={1}
-              >
-                {game.team1}
-              </Text>
-              {game.team1Record && (
-                <Text
-                  style={[styles.teamRecord, { color: theme.textSecondary }]}
-                  numberOfLines={1}
-                >
-                  {game.team1Record}
-                </Text>
-              )}
-            </View>
-          </View>
-          <Text style={[styles.liveScore, { color: theme.text }]}>
-            {game.score1}
-          </Text>
-        </View>
-
-        <View style={styles.liveTeamRow}>
-          <View style={styles.liveTeamInfo}>
-            <Image
-              source={{
-                uri: game.team2Logo,
-              }}
-              style={styles.teamLogo}
-              resizeMode="contain"
-            />
-            <View style={styles.teamNameContainer}>
-              <Text
-                style={[styles.liveTeamName, { color: theme.text }]}
-                numberOfLines={1}
-              >
-                {game.team2}
-              </Text>
-              {game.team2Record && (
-                <Text
-                  style={[styles.teamRecord, { color: theme.textSecondary }]}
-                  numberOfLines={1}
-                >
-                  {game.team2Record}
-                </Text>
-              )}
-            </View>
-          </View>
-          <Text style={[styles.liveScore, { color: theme.text }]}>
-            {game.score2}
-          </Text>
-        </View>
-      </View>
-
-      {/* Venue */}
-      {game.venue && (
-        <View style={styles.bettingInfo}>
-          <Text
-            style={[styles.bettingLine, { color: theme.textSecondary }]}
-            numberOfLines={1}
-          >
-            {game.venue}
-          </Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
-
-  // Upcoming Games Section - Grouped by Tournament
   const UpcomingGamesSection = ({ games }) => {
     const groupedTournaments = groupGamesByTournament(games);
 
@@ -336,7 +667,8 @@ const BetHomeScreen = ({ navigation }) => {
                 <Image
                   source={require("../../../assets/nba.png")}
                   style={styles.nbaLogoSmall}
-                  resizeMode="contain"
+                  contentFit="contain"
+                  cachePolicy="memory-disk"
                 />
               </View>
 
@@ -363,125 +695,11 @@ const BetHomeScreen = ({ navigation }) => {
             <View style={styles.gamesList}>
               {group.games.map((game, index) => (
                 <View key={game.id}>
-                  <TouchableOpacity
-                    style={styles.upcomingGameRow}
-                    onPress={() =>
-                      navigation.navigate("BetGameDetail", {
-                        gameId: game.id,
-                        game,
-                      })
-                    }
-                  >
-                    {/* Time */}
-                    <View style={styles.gameTimeContainer}>
-                      <Text
-                        style={[
-                          styles.gameTime,
-                          { color: theme.textSecondary },
-                        ]}
-                      >
-                        {game.time}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.gameTimePeriod,
-                          { color: theme.textTertiary },
-                        ]}
-                      >
-                        {game.timePeriod}
-                      </Text>
-                    </View>
-
-                    {/* Teams */}
-                    <View style={styles.stackedTeams}>
-                      <View style={styles.teamWithIcon}>
-                        <Image
-                          source={{
-                            uri: game.team1Logo,
-                          }}
-                          style={styles.teamLogoSmall}
-                          resizeMode="contain"
-                        />
-                        <View style={styles.teamNameRecordContainer}>
-                          <Text
-                            style={[
-                              styles.stackedTeamName,
-                              { color: theme.text },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {game.team1}
-                          </Text>
-                          {game.team1Record && (
-                            <Text
-                              style={[
-                                styles.teamRecordSmall,
-                                { color: theme.textSecondary },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {game.team1Record}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-                      <View style={styles.teamWithIcon}>
-                        <Image
-                          source={{
-                            uri: game.team2Logo,
-                          }}
-                          style={styles.teamLogoSmall}
-                          resizeMode="contain"
-                        />
-                        <View style={styles.teamNameRecordContainer}>
-                          <Text
-                            style={[
-                              styles.stackedTeamName,
-                              { color: theme.text },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {game.team2}
-                          </Text>
-                          {game.team2Record && (
-                            <Text
-                              style={[
-                                styles.teamRecordSmall,
-                                { color: theme.textSecondary },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {game.team2Record}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Short Name and Venue */}
-                    <View style={styles.upcomingGameInfo}>
-                      <Text
-                        style={[
-                          styles.gameShortName,
-                          { color: theme.textSecondary },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {game.shortName}
-                      </Text>
-                      {game.venue && (
-                        <Text
-                          style={[
-                            styles.gameVenue,
-                            { color: theme.textTertiary },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {game.venue}
-                        </Text>
-                      )}
-                    </View>
-                  </TouchableOpacity>
+                  <ScheduledGameRow
+                    game={game}
+                    navigation={navigation}
+                    theme={theme}
+                  />
 
                   {index < group.games.length - 1 && (
                     <View
@@ -499,132 +717,6 @@ const BetHomeScreen = ({ navigation }) => {
       </View>
     );
   };
-
-  // Completed Game Card
-  const CompletedGameCard = ({ game }) => (
-    <TouchableOpacity
-      style={[
-        styles.completedGameCard,
-        { backgroundColor: theme.surfaceSecondary },
-      ]}
-      onPress={() =>
-        navigation.navigate("BetGameDetail", { gameId: game.id, game })
-      }
-    >
-      <View style={styles.completedHeaderRow}>
-        <Image
-          source={require("../../../assets/nba.png")}
-          style={styles.nbaLogoTiny}
-          resizeMode="contain"
-        />
-        <Text
-          style={[
-            styles.completedTournamentLabel,
-            { color: theme.textTertiary },
-          ]}
-          numberOfLines={1}
-        >
-          {game.tournament}
-        </Text>
-      </View>
-
-      <Text style={[styles.completedStatus, { color: theme.textSecondary }]}>
-        Final
-      </Text>
-
-      <View style={styles.completedTeamsContainer}>
-        <View style={styles.completedTeamRow}>
-          <View style={styles.completedTeamInfo}>
-            <Image
-              source={{
-                uri: game.team1Logo,
-              }}
-              style={styles.teamLogoTiny}
-              resizeMode="contain"
-            />
-            <View style={styles.completedTeamNameContainer}>
-              <Text
-                style={[styles.completedTeamName, { color: theme.text }]}
-                numberOfLines={1}
-              >
-                {game.team1}
-              </Text>
-              {game.team1Record && (
-                <Text
-                  style={[
-                    styles.completedTeamRecord,
-                    { color: theme.textTertiary },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {game.team1Record}
-                </Text>
-              )}
-            </View>
-          </View>
-          <Text
-            style={[
-              styles.completedScore,
-              {
-                color:
-                  game.score1 > game.score2
-                    ? colors.primary
-                    : theme.textSecondary,
-                fontWeight: game.score1 > game.score2 ? "bold" : "normal",
-              },
-            ]}
-          >
-            {game.score1}
-          </Text>
-        </View>
-
-        <View style={styles.completedTeamRow}>
-          <View style={styles.completedTeamInfo}>
-            <Image
-              source={{
-                uri: game.team2Logo,
-              }}
-              style={styles.teamLogoTiny}
-              resizeMode="contain"
-            />
-            <View style={styles.completedTeamNameContainer}>
-              <Text
-                style={[styles.completedTeamName, { color: theme.text }]}
-                numberOfLines={1}
-              >
-                {game.team2}
-              </Text>
-              {game.team2Record && (
-                <Text
-                  style={[
-                    styles.completedTeamRecord,
-                    { color: theme.textTertiary },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {game.team2Record}
-                </Text>
-              )}
-            </View>
-          </View>
-          <Text
-            style={[
-              styles.completedScore,
-              {
-                color:
-                  game.score2 > game.score1
-                    ? colors.primary
-                    : theme.textSecondary,
-                fontWeight: game.score2 > game.score1 ? "bold" : "normal",
-              },
-            ]}
-          >
-            {game.score2}
-          </Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -649,7 +741,13 @@ const BetHomeScreen = ({ navigation }) => {
               style={styles.horizontalScroll}
             >
               {liveGames.map((game) => (
-                <LiveGameCard key={game.id} game={game} />
+                <LiveGameCard
+                  key={game.id}
+                  game={game}
+                  navigation={navigation}
+                  theme={theme}
+                  colors={colors}
+                />
               ))}
             </ScrollView>
           </View>
@@ -683,7 +781,13 @@ const BetHomeScreen = ({ navigation }) => {
               style={styles.horizontalScroll}
             >
               {completedGames.map((game) => (
-                <CompletedGameCard key={game.id} game={game} />
+                <CompletedGameCard
+                  key={game.id}
+                  game={game}
+                  navigation={navigation}
+                  theme={theme}
+                  colors={colors}
+                />
               ))}
             </ScrollView>
           </View>

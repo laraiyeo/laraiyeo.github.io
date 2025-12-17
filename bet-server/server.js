@@ -41,6 +41,23 @@ function getPSTTime() {
   return pstTime;
 }
 
+function getScoreboardDate() {
+  const pstTime = getPSTTime();
+  const hour = pstTime.getHours();
+  
+  // If before 2am PST, use previous day
+  if (hour < 2) {
+    pstTime.setDate(pstTime.getDate() - 1);
+  }
+  
+  // Format as YYYYMMDD
+  const year = pstTime.getFullYear();
+  const month = String(pstTime.getMonth() + 1).padStart(2, '0');
+  const day = String(pstTime.getDate()).padStart(2, '0');
+  
+  return `${year}${month}${day}`;
+}
+
 function isGameLive(status) {
   return status?.type?.state === "in";
 }
@@ -208,11 +225,14 @@ function generatePlayerOdds(gamelog, opponentTeamData) {
 
   const labels = gamelog.labels || [];
   const seasonTypes = gamelog.seasonTypes || [];
+  const events = gamelog.events || {};
 
-  // Collect all stats for each category
+  // Collect all stats for each category with opponent info
   const allStats = {};
+  const opponentStats = {}; // Track stats against specific opponents
   labels.forEach((label) => {
     allStats[label] = [];
+    opponentStats[label] = {};
   });
 
   // Extract all event stats
@@ -222,12 +242,23 @@ function generatePlayerOdds(gamelog, opponentTeamData) {
       const categoryEvents = category.events || [];
       categoryEvents.forEach((eventData) => {
         const stats = eventData.stats || [];
+        const eventId = eventData.eventId;
+        const opponent = events[eventId]?.opponent;
+        
         labels.forEach((label, index) => {
           if (stats[index] !== undefined && stats[index] !== null) {
             // Parse numeric values (handle formats like "10-20")
             const value = parseFloat(String(stats[index]).split("-")[0]);
             if (!isNaN(value)) {
               allStats[label].push(value);
+              
+              // Track opponent-specific stats
+              if (opponent?.id) {
+                if (!opponentStats[label][opponent.id]) {
+                  opponentStats[label][opponent.id] = [];
+                }
+                opponentStats[label][opponent.id].push(value);
+              }
             }
           }
         });
@@ -268,13 +299,55 @@ function generatePlayerOdds(gamelog, opponentTeamData) {
 
     // Over/Under lines - always end in .5
     const overLine = Math.floor(avg) + 0.5;
-    const overProb = values.filter((v) => v > overLine).length / values.length;
-    const underProb = 1 - overProb;
+    
+    // Calculate hit counts for different time periods
+    const last5 = values.slice(-5);
+    const last10 = values.slice(-10);
+    const seasonTotal = values.length;
+    
+    const over5 = last5.filter((v) => v > overLine).length;
+    const over10 = last10.filter((v) => v > overLine).length;
+    const overSeason = values.filter((v) => v > overLine).length;
+    
+    const under5 = last5.filter((v) => v < overLine).length;
+    const under10 = last10.filter((v) => v < overLine).length;
+    const underSeason = values.filter((v) => v < overLine).length;
+    
+    // H2H stats against today's opponent
+    let overH2h = 0;
+    let underH2h = 0;
+    let h2hTotal = 0;
+    if (opponentTeamData?.id && opponentStats[category]?.[opponentTeamData.id]) {
+      const h2hValues = opponentStats[category][opponentTeamData.id];
+      h2hTotal = h2hValues.length;
+      overH2h = h2hValues.filter((v) => v > overLine).length;
+      underH2h = h2hValues.filter((v) => v < overLine).length;
+    }
+    
+    // Calculate confidence (weighted: recent 40%, season 30%, h2h 30%)
+    const recentOverRate = over10 / Math.min(10, values.length);
+    const seasonOverRate = overSeason / seasonTotal;
+    const h2hOverRate = h2hTotal > 0 ? overH2h / h2hTotal : seasonOverRate;
+    
+    const overConfidence = Math.round(
+      (recentOverRate * 0.4 + seasonOverRate * 0.3 + h2hOverRate * 0.3) * 100
+    );
+    const underConfidence = 100 - overConfidence;
 
     odds.overUnder[category] = {
       line: overLine,
-      over: calculateOdds(overProb > 0.5 ? overProb : 0.5),
-      under: calculateOdds(underProb > 0.5 ? underProb : 0.5),
+      over: calculateOdds(overConfidence / 100),
+      under: calculateOdds(underConfidence / 100),
+      o5: over5,
+      o10: over10,
+      oSeason: overSeason,
+      oH2h: overH2h,
+      oConfidence: overConfidence,
+      u5: under5,
+      u10: under10,
+      uSeason: underSeason,
+      uH2h: underH2h,
+      uConfidence: underConfidence,
     };
 
     // Milestones - increment by 5 for PTS and PRA, by 1 for others
@@ -688,8 +761,9 @@ function transformRostersData(rostersData) {
 // Fetch functions
 async function fetchScoreboard() {
   try {
-    console.log("[Scoreboard] Fetching data...");
-    const response = await axios.get(`${ESPN_BASE_URL}/scoreboard`);
+    const dateParam = getScoreboardDate();
+    console.log(`[Scoreboard] Fetching data for date ${dateParam}...`);
+    const response = await axios.get(`${ESPN_BASE_URL}/scoreboard?dates=${dateParam}`);
     scoreboardData = response.data;
 
     // Check game statuses and update scheduling
@@ -709,6 +783,7 @@ async function fetchSummary(eventId) {
     const response = await axios.get(
       `${ESPN_BASE_URL}/summary?event=${eventId}`
     );
+    response.data.lastPolledTime = new Date();
     summaryDataCache[eventId] = response.data;
     console.log(`[Summary] Data fetched successfully for event ${eventId}`);
     return response.data;
@@ -876,37 +951,29 @@ function updateSchedulingLogic() {
   const nextGameTime = findNextGameStart(events);
   nextGameStartTime = nextGameTime;
 
+  // Check if we should start fast polling for upcoming games
+  let shouldStartFastPolling = hasLiveGames;
+  if (!hasLiveGames && nextGameTime) {
+    const minutesUntilStart = getTimeDifferenceInMinutes(now, nextGameTime);
+    if (minutesUntilStart <= 5) {
+      shouldStartFastPolling = true;
+    }
+  }
+
   // Update scoreboard fetching interval
-  if (hasLiveGames && !isAnyGameLive) {
+  if (shouldStartFastPolling && !isAnyGameLive) {
     console.log(
-      "[Scheduler] Live games detected. Switching to 2-second interval."
+      "[Scheduler] Live games or game starting soon detected. Switching to 2-second interval."
     );
     startScoreboardFastPolling();
-  } else if (!hasLiveGames && nextGameTime) {
-    const minutesUntilStart = getTimeDifferenceInMinutes(now, nextGameTime);
-    if (minutesUntilStart <= 5 && isAnyGameLive) {
-      console.log(
-        "[Scheduler] Game starting in 5 minutes. Maintaining fast polling."
-      );
-    } else if (minutesUntilStart <= 5 && !isAnyGameLive) {
-      console.log(
-        "[Scheduler] Game starting in 5 minutes. Switching to 2-second interval."
-      );
-      startScoreboardFastPolling();
-    } else if (isAnyGameLive) {
-      console.log(
-        "[Scheduler] No live games. Switching to 30-minute interval."
-      );
-      startScoreboardSlowPolling();
-    }
-  } else if (!hasLiveGames && !nextGameTime && isAnyGameLive) {
+  } else if (!shouldStartFastPolling && isAnyGameLive) {
     console.log(
       "[Scheduler] No live or upcoming games. Switching to 30-minute interval."
     );
     startScoreboardSlowPolling();
   }
 
-  isAnyGameLive = hasLiveGames;
+  isAnyGameLive = shouldStartFastPolling;
 
   // Update summary fetching for each event
   updateSummaryScheduling(events);
@@ -935,9 +1002,21 @@ function updateSummaryScheduling(events) {
     const gameDate = new Date(event.date);
 
     const isLive = isGameLive(status);
+    const isPost = status?.type?.state === 'post';
     const minutesUntilStart = getTimeDifferenceInMinutes(now, gameDate);
-    const shouldFastPoll =
-      isLive || (minutesUntilStart <= 5 && minutesUntilStart >= 0);
+    
+    // Fast poll if: game is live, starting in 5 minutes, or ended within last 5 minutes
+    let shouldFastPoll = isLive || (minutesUntilStart <= 5 && minutesUntilStart >= 0);
+    
+    // If game is post, check if it ended within the last 5 minutes
+    // We'll use the last update time from cache if available
+    if (isPost && summaryDataCache[eventId]) {
+      const lastUpdate = summaryDataCache[eventId].lastPolledTime || now;
+      const minutesSinceEnd = getTimeDifferenceInMinutes(lastUpdate, now);
+      if (minutesSinceEnd <= 5) {
+        shouldFastPoll = true;
+      }
+    }
 
     // Check if we need to update the interval for this event
     const hasInterval = currentSummaryIntervals[eventId];
