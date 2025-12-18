@@ -42,7 +42,10 @@ async function ensureConnectivity() {
     console.log("Connected to PostgreSQL database");
     return;
   } catch (err) {
-    console.error("Postgres initial connection failed:", err && err.code ? err.code : err.message || err);
+    console.error(
+      "Postgres initial connection failed:",
+      err && err.code ? err.code : err.message || err
+    );
 
     // If the error indicates IPv6/unreachable, try IPv4 lookup and recreate pool
     const host = new URL(process.env.DATABASE_URL).hostname;
@@ -76,11 +79,16 @@ async function ensureConnectivity() {
         return;
       }
     } catch (dnsErr) {
-      console.error("IPv4 lookup for DB host failed or no IPv4 address:", dnsErr && dnsErr.code ? dnsErr.code : dnsErr.message || dnsErr);
+      console.error(
+        "IPv4 lookup for DB host failed or no IPv4 address:",
+        dnsErr && dnsErr.code ? dnsErr.code : dnsErr.message || dnsErr
+      );
     }
 
     // If we reach here, connectivity couldn't be established
-    console.error("FATAL: Unable to connect to Postgres DB. Check DATABASE_URL and network connectivity.");
+    console.error(
+      "FATAL: Unable to connect to Postgres DB. Check DATABASE_URL and network connectivity."
+    );
     // Rethrow to let the process manager / logs capture the full error
     throw err;
   }
@@ -88,7 +96,10 @@ async function ensureConnectivity() {
 
 // Start connectivity check (async). If it throws, allow the error to bubble up.
 ensureConnectivity().catch((e) => {
-  console.error("Database connectivity check failed, exiting.", e && e.stack ? e.stack : e);
+  console.error(
+    "Database connectivity check failed, exiting.",
+    e && e.stack ? e.stack : e
+  );
   process.exit(1);
 });
 
