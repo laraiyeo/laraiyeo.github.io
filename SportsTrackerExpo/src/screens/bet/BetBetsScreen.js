@@ -23,11 +23,13 @@ const BetBetsScreen = () => {
   useEffect(() => {
     const fetchScoreboard = async () => {
       try {
-        const response = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard');
+        const response = await fetch(
+          "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
+        );
         const data = await response.json();
         setScoreboardData(data.events || []);
       } catch (error) {
-        console.error('Error fetching scoreboard:', error);
+        console.error("Error fetching scoreboard:", error);
       }
     };
 
@@ -39,15 +41,15 @@ const BetBetsScreen = () => {
 
   // Get live game data for a specific event ID
   const getLiveGameData = (eventId) => {
-    return scoreboardData.find(event => event.id === eventId);
+    return scoreboardData.find((event) => event.id === eventId);
   };
 
   // Filter bets by tab
-  const bets = submittedBets.filter(bet => {
-    if (selectedTab === 'open') {
-      return bet.status === 'open';
-    } else if (selectedTab === 'settled') {
-      return bet.status === 'won' || bet.status === 'lost';
+  const bets = submittedBets.filter((bet) => {
+    if (selectedTab === "open") {
+      return bet.status === "open";
+    } else if (selectedTab === "settled") {
+      return bet.status === "won" || bet.status === "lost";
     }
     return false;
   });
@@ -76,7 +78,11 @@ const BetBetsScreen = () => {
         <View
           style={[
             styles.statusIcon,
-            { backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.border },
+            {
+              backgroundColor: theme.cardBackground,
+              borderWidth: 1,
+              borderColor: theme.border,
+            },
           ]}
         />
       );
@@ -85,7 +91,11 @@ const BetBetsScreen = () => {
         <View
           style={[
             styles.statusIcon,
-            { backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.border },
+            {
+              backgroundColor: theme.cardBackground,
+              borderWidth: 1,
+              borderColor: theme.border,
+            },
           ]}
         />
       );
@@ -93,7 +103,9 @@ const BetBetsScreen = () => {
   };
 
   const renderProgressBar = (pick) => {
-    const progress = pick.currentValue ? Math.min((pick.currentValue / pick.line) * 100, 100) : 0;
+    const progress = pick.currentValue
+      ? Math.min((pick.currentValue / pick.line) * 100, 100)
+      : 0;
     const isOver = pick.currentValue >= pick.line;
 
     return (
@@ -110,7 +122,9 @@ const BetBetsScreen = () => {
           />
         </View>
         <View style={styles.progressLabels}>
-          <Text style={[styles.progressValue, { color: theme.text }]}>{pick.line}</Text>
+          <Text style={[styles.progressValue, { color: theme.text }]}>
+            {pick.line}
+          </Text>
           {pick.currentValue !== null && (
             <View
               style={[
@@ -121,7 +135,9 @@ const BetBetsScreen = () => {
                 },
               ]}
             >
-              <Text style={styles.progressIndicatorText}>{pick.currentValue}</Text>
+              <Text style={styles.progressIndicatorText}>
+                {pick.currentValue}
+              </Text>
             </View>
           )}
         </View>
@@ -130,24 +146,35 @@ const BetBetsScreen = () => {
   };
 
   const renderPlayerPick = (pick, isInParlay = false) => (
-    <View key={pick.id} style={[styles.pickCard, { backgroundColor: theme.surface }]}>
+    <View
+      key={pick.id}
+      style={[styles.pickCard, { backgroundColor: theme.surface }]}
+    >
       <View style={styles.pickHeader}>
         {pick.headshot && (
-          <Image 
-            source={{ uri: pick.headshot }} 
+          <Image
+            source={{ uri: pick.headshot }}
             style={styles.playerHeadshot}
           />
         )}
         <View style={styles.pickPlayerInfo}>
-          <Text style={[styles.pickPlayerName, { color: theme.text }]}>{pick.playerName}</Text>
-          <Text style={[styles.pickPlayerProp, { color: theme.textSecondary }]}>{pick.prop}</Text>
+          <Text style={[styles.pickPlayerName, { color: theme.text }]}>
+            {pick.playerName}
+          </Text>
+          <Text style={[styles.pickPlayerProp, { color: theme.textSecondary }]}>
+            {pick.prop}
+          </Text>
         </View>
         {getStatusIcon(pick.status)}
       </View>
-      {pick.currentValue !== null && pick.currentValue !== undefined && renderProgressBar(pick)}
+      {pick.currentValue !== null &&
+        pick.currentValue !== undefined &&
+        renderProgressBar(pick)}
       {!isInParlay && (
         <View style={styles.pickFooter}>
-          <Text style={[styles.pickGameInfo, { color: theme.textSecondary }]}>{pick.gameInfo}</Text>
+          <Text style={[styles.pickGameInfo, { color: theme.textSecondary }]}>
+            {pick.gameInfo}
+          </Text>
           <Text style={[styles.pickGameStatus, { color: theme.textTertiary }]}>
             {pick.gameStatus}
           </Text>
@@ -157,39 +184,48 @@ const BetBetsScreen = () => {
   );
 
   const renderTeamPick = (pick, isInParlay = false) => (
-    <View key={pick.id} style={[styles.pickCard, { backgroundColor: theme.surface }]}>
+    <View
+      key={pick.id}
+      style={[styles.pickCard, { backgroundColor: theme.surface }]}
+    >
       <View style={styles.pickHeader}>
         {pick.isTotal && pick.homeTeamLogo && pick.awayTeamLogo ? (
           <View style={styles.overlappingLogos}>
-            <Image 
-              source={{ uri: pick.homeTeamLogo }} 
+            <Image
+              source={{ uri: pick.homeTeamLogo }}
               style={styles.homeTeamLogo}
             />
-            <Image 
-              source={{ uri: pick.awayTeamLogo }} 
+            <Image
+              source={{ uri: pick.awayTeamLogo }}
               style={styles.awayTeamLogo}
             />
           </View>
         ) : (
           pick.teamLogo && (
-            <Image 
-              source={{ uri: pick.teamLogo }} 
+            <Image
+              source={{ uri: pick.teamLogo }}
               style={styles.playerHeadshot}
             />
           )
         )}
         <View style={styles.pickPlayerInfo}>
-          <Text style={[styles.pickPlayerName, { color: theme.text }]}>{pick.displayName || pick.team || 'GAME'}</Text>
+          <Text style={[styles.pickPlayerName, { color: theme.text }]}>
+            {pick.displayName || pick.team || "GAME"}
+          </Text>
           <Text style={[styles.pickPlayerProp, { color: theme.textSecondary }]}>
             {pick.prop}
           </Text>
         </View>
         {getStatusIcon(pick.status)}
       </View>
-      {pick.currentValue !== null && pick.currentValue !== undefined && renderProgressBar(pick)}
+      {pick.currentValue !== null &&
+        pick.currentValue !== undefined &&
+        renderProgressBar(pick)}
       {!isInParlay && (
         <View style={styles.pickFooter}>
-          <Text style={[styles.pickGameInfo, { color: theme.textSecondary }]}>{pick.gameInfo}</Text>
+          <Text style={[styles.pickGameInfo, { color: theme.textSecondary }]}>
+            {pick.gameInfo}
+          </Text>
           <Text style={[styles.pickGameStatus, { color: theme.textTertiary }]}>
             {pick.gameStatus}
           </Text>
@@ -216,23 +252,33 @@ const BetBetsScreen = () => {
         {getStatusIcon(bet.status)}
         <View style={styles.teamBetInfo}>
           <View style={styles.teamBetTeam}>
-            <View style={[styles.teamLogo, { backgroundColor: colors.primary }]}>
+            <View
+              style={[styles.teamLogo, { backgroundColor: colors.primary }]}
+            >
               <Ionicons name="basketball" size={20} color="#FFF" />
             </View>
             <View>
-              <Text style={[styles.teamBetName, { color: theme.text }]}>{bet.teamName}</Text>
-              <Text style={[styles.teamBetType, { color: theme.textSecondary }]}>
-                {bet.betType?.toUpperCase() || 'MONEYLINE'}
+              <Text style={[styles.teamBetName, { color: theme.text }]}>
+                {bet.teamName}
+              </Text>
+              <Text
+                style={[styles.teamBetType, { color: theme.textSecondary }]}
+              >
+                {bet.betType?.toUpperCase() || "MONEYLINE"}
               </Text>
             </View>
           </View>
-          <Text style={[styles.teamBetOdds, { color: theme.text }]}>{bet.odds}</Text>
+          <Text style={[styles.teamBetOdds, { color: theme.text }]}>
+            {bet.odds}
+          </Text>
         </View>
       </View>
 
       <View style={styles.teamBetGame}>
         <View style={styles.teamBetScore}>
-          <Text style={[styles.teamBetGameInfo, { color: theme.textSecondary }]}>
+          <Text
+            style={[styles.teamBetGameInfo, { color: theme.textSecondary }]}
+          >
             {bet.gameInfo}
           </Text>
           {bet.scores && (
@@ -241,7 +287,12 @@ const BetBetsScreen = () => {
                 {bet.scores.team1} - {bet.scores.team2}
               </Text>
               {bet.status === "winning" || bet.status === "losing" ? (
-                <View style={[styles.liveIndicator, { backgroundColor: "#EF4444", marginLeft: 8 }]}>
+                <View
+                  style={[
+                    styles.liveIndicator,
+                    { backgroundColor: "#EF4444", marginLeft: 8 },
+                  ]}
+                >
                   <Text style={styles.liveText}>LIVE</Text>
                 </View>
               ) : null}
@@ -252,7 +303,9 @@ const BetBetsScreen = () => {
           {bet.gameStatus}
         </Text>
         {bet.quarter && (
-          <Text style={[styles.teamBetQuarter, { color: theme.textTertiary }]}>{bet.quarter}</Text>
+          <Text style={[styles.teamBetQuarter, { color: theme.textTertiary }]}>
+            {bet.quarter}
+          </Text>
         )}
       </View>
     </TouchableOpacity>
@@ -265,18 +318,27 @@ const BetBetsScreen = () => {
     // If single pick, always show expanded
     if (isSinglePick) {
       return (
-        <View key={parlay.id} style={[styles.betCard, { backgroundColor: theme.surface }]}>
+        <View
+          key={parlay.id}
+          style={[styles.betCard, { backgroundColor: theme.surface }]}
+        >
           <View style={styles.parlayExpandedHeader}>
             <View style={styles.parlayBadge}>
               <Text style={styles.parlayBadgeText}>SGP</Text>
             </View>
-            <Text style={[styles.parlayTitle, { color: theme.text }]}>Same Game Parlay</Text>
-            <Text style={[styles.parlayOdds, { color: theme.text }]}>{parlay.odds}</Text>
+            <Text style={[styles.parlayTitle, { color: theme.text }]}>
+              Same Game Parlay
+            </Text>
+            <Text style={[styles.parlayOdds, { color: theme.text }]}>
+              {parlay.odds}
+            </Text>
           </View>
 
           <View style={styles.parlayGameInfo}>
             <View style={styles.parlayGameScore}>
-              <Text style={[styles.parlayGameText, { color: theme.textSecondary }]}>
+              <Text
+                style={[styles.parlayGameText, { color: theme.textSecondary }]}
+              >
                 {parlay.gameInfo}
               </Text>
               <Text style={[styles.scoreText, { color: theme.text }]}>
@@ -284,16 +346,25 @@ const BetBetsScreen = () => {
               </Text>
             </View>
             <View style={styles.parlayGameStatusRow}>
-              <View style={[styles.liveIndicator, { backgroundColor: "#EF4444" }]}>
+              <View
+                style={[styles.liveIndicator, { backgroundColor: "#EF4444" }]}
+              >
                 <Text style={styles.liveText}>LIVE</Text>
               </View>
-              <Text style={[styles.parlayGameStatus, { color: theme.textTertiary, marginLeft: 8 }]}>
+              <Text
+                style={[
+                  styles.parlayGameStatus,
+                  { color: theme.textTertiary, marginLeft: 8 },
+                ]}
+              >
                 {parlay.gameStatus}
               </Text>
             </View>
           </View>
 
-          <View style={styles.parlayPicks}>{parlay.picks.map((pick) => renderPick(pick, true))}</View>
+          <View style={styles.parlayPicks}>
+            {parlay.picks.map((pick) => renderPick(pick, true))}
+          </View>
         </View>
       );
     }
@@ -310,13 +381,19 @@ const BetBetsScreen = () => {
             <View style={styles.parlayBadge}>
               <Text style={styles.parlayBadgeText}>SGP</Text>
             </View>
-            <Text style={[styles.parlayTitle, { color: theme.text }]}>Same Game Parlay</Text>
-            <Text style={[styles.parlayOdds, { color: theme.text }]}>{parlay.odds}</Text>
+            <Text style={[styles.parlayTitle, { color: theme.text }]}>
+              Same Game Parlay
+            </Text>
+            <Text style={[styles.parlayOdds, { color: theme.text }]}>
+              {parlay.odds}
+            </Text>
           </View>
 
           <View style={styles.parlayGameInfo}>
             <View style={styles.parlayGameScore}>
-              <Text style={[styles.parlayGameText, { color: theme.textSecondary }]}>
+              <Text
+                style={[styles.parlayGameText, { color: theme.textSecondary }]}
+              >
                 {parlay.gameInfo}
               </Text>
               <Text style={[styles.scoreText, { color: theme.text }]}>
@@ -324,16 +401,25 @@ const BetBetsScreen = () => {
               </Text>
             </View>
             <View style={styles.parlayGameStatusRow}>
-              <View style={[styles.liveIndicator, { backgroundColor: "#EF4444" }]}>
+              <View
+                style={[styles.liveIndicator, { backgroundColor: "#EF4444" }]}
+              >
                 <Text style={styles.liveText}>LIVE</Text>
               </View>
-              <Text style={[styles.parlayGameStatus, { color: theme.textTertiary, marginLeft: 8 }]}>
+              <Text
+                style={[
+                  styles.parlayGameStatus,
+                  { color: theme.textTertiary, marginLeft: 8 },
+                ]}
+              >
                 {parlay.gameStatus}
               </Text>
             </View>
           </View>
 
-          <View style={[styles.parlaySummary, { borderTopColor: theme.border }]}>
+          <View
+            style={[styles.parlaySummary, { borderTopColor: theme.border }]}
+          >
             <View style={styles.parlaySummaryItem}>
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
                 {parlay.picks.length} Picks
@@ -343,7 +429,12 @@ const BetBetsScreen = () => {
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
                 ${parlay.wager.toFixed(2)}
               </Text>
-              <Text style={[styles.parlaySummarySubLabel, { color: theme.textTertiary }]}>
+              <Text
+                style={[
+                  styles.parlaySummarySubLabel,
+                  { color: theme.textTertiary },
+                ]}
+              >
                 TOTAL WAGER
               </Text>
             </View>
@@ -351,21 +442,36 @@ const BetBetsScreen = () => {
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
                 ${parlay.potentialPayout.toFixed(2)}
               </Text>
-              <Text style={[styles.parlaySummarySubLabel, { color: theme.textTertiary }]}>
+              <Text
+                style={[
+                  styles.parlaySummarySubLabel,
+                  { color: theme.textTertiary },
+                ]}
+              >
                 TOTAL PAYOUT
               </Text>
             </View>
           </View>
 
           {parlay.cashOutValue && (
-            <TouchableOpacity style={[styles.cashOutButton, { backgroundColor: "#22C55E" }]}>
-              <Text style={styles.cashOutButtonText}>Cash out ${parlay.cashOutValue.toFixed(2)}</Text>
-              <Text style={styles.cashOutSubtext}>BONUS BET STAKE NOT INCLUDED</Text>
+            <TouchableOpacity
+              style={[styles.cashOutButton, { backgroundColor: "#22C55E" }]}
+            >
+              <Text style={styles.cashOutButtonText}>
+                Cash out ${parlay.cashOutValue.toFixed(2)}
+              </Text>
+              <Text style={styles.cashOutSubtext}>
+                BONUS BET STAKE NOT INCLUDED
+              </Text>
             </TouchableOpacity>
           )}
 
           <View style={styles.expandIndicator}>
-            <Ionicons name="chevron-down" size={20} color={theme.textSecondary} />
+            <Ionicons
+              name="chevron-down"
+              size={20}
+              color={theme.textSecondary}
+            />
           </View>
         </TouchableOpacity>
       );
@@ -373,18 +479,27 @@ const BetBetsScreen = () => {
 
     // Expanded view
     return (
-      <View key={parlay.id} style={[styles.betCard, { backgroundColor: theme.surface }]}>
+      <View
+        key={parlay.id}
+        style={[styles.betCard, { backgroundColor: theme.surface }]}
+      >
         <View style={styles.parlayExpandedHeader}>
           <View style={styles.parlayBadge}>
             <Text style={styles.parlayBadgeText}>SGP</Text>
           </View>
-          <Text style={[styles.parlayTitle, { color: theme.text }]}>Same Game Parlay</Text>
-          <Text style={[styles.parlayOdds, { color: theme.text }]}>{parlay.odds}</Text>
+          <Text style={[styles.parlayTitle, { color: theme.text }]}>
+            Same Game Parlay
+          </Text>
+          <Text style={[styles.parlayOdds, { color: theme.text }]}>
+            {parlay.odds}
+          </Text>
         </View>
 
         <View style={styles.parlayGameInfo}>
           <View style={styles.parlayGameScore}>
-            <Text style={[styles.parlayGameText, { color: theme.textSecondary }]}>
+            <Text
+              style={[styles.parlayGameText, { color: theme.textSecondary }]}
+            >
               {parlay.gameInfo}
             </Text>
             <Text style={[styles.scoreText, { color: theme.text }]}>
@@ -392,18 +507,30 @@ const BetBetsScreen = () => {
             </Text>
           </View>
           <View style={styles.parlayGameStatusRow}>
-            <View style={[styles.liveIndicator, { backgroundColor: "#EF4444" }]}>
+            <View
+              style={[styles.liveIndicator, { backgroundColor: "#EF4444" }]}
+            >
               <Text style={styles.liveText}>LIVE</Text>
             </View>
-            <Text style={[styles.parlayGameStatus, { color: theme.textTertiary, marginLeft: 8 }]}>
+            <Text
+              style={[
+                styles.parlayGameStatus,
+                { color: theme.textTertiary, marginLeft: 8 },
+              ]}
+            >
               {parlay.gameStatus}
             </Text>
           </View>
         </View>
 
-        <View style={styles.parlayPicks}>{parlay.picks.map((pick) => renderPick(pick, true))}</View>
+        <View style={styles.parlayPicks}>
+          {parlay.picks.map((pick) => renderPick(pick, true))}
+        </View>
 
-        <TouchableOpacity style={styles.collapseButton} onPress={() => toggleParlay(parlay.id)}>
+        <TouchableOpacity
+          style={styles.collapseButton}
+          onPress={() => toggleParlay(parlay.id)}
+        >
           <Ionicons name="chevron-up" size={20} color={theme.textSecondary} />
         </TouchableOpacity>
       </View>
@@ -413,37 +540,37 @@ const BetBetsScreen = () => {
   // Render a submitted bet slip
   const renderSubmittedBet = (betSlip) => {
     const { betslipData, bets: originalBets, amount } = betSlip;
-    
+
     // Determine badge type
-    const gameIds = [...new Set(originalBets.map(bet => bet.gameId))];
+    const gameIds = [...new Set(originalBets.map((bet) => bet.gameId))];
     const gamesCount = gameIds.length;
-    let badgeType = 'SINGLE';
-    let badgeColor = '#3B82F6';
-    
+    let badgeType = "SINGLE";
+    let badgeColor = "#3B82F6";
+
     if (originalBets.length === 1) {
-      badgeType = 'SINGLE';
-      badgeColor = '#10B981';
+      badgeType = "SINGLE";
+      badgeColor = "#10B981";
     } else if (gamesCount === 1) {
-      badgeType = 'SGP';
-      badgeColor = '#3B82F6';
+      badgeType = "SGP";
+      badgeColor = "#3B82F6";
     } else if (gamesCount > 1) {
       // Check if any game has 2+ picks (SGP+)
       const picksByGame = {};
-      originalBets.forEach(bet => {
+      originalBets.forEach((bet) => {
         picksByGame[bet.gameId] = (picksByGame[bet.gameId] || 0) + 1;
       });
-      const hasSGP = Object.values(picksByGame).some(count => count >= 2);
+      const hasSGP = Object.values(picksByGame).some((count) => count >= 2);
       if (hasSGP) {
-        badgeType = 'SGP+';
-        badgeColor = '#8B5CF6';
+        badgeType = "SGP+";
+        badgeColor = "#8B5CF6";
       } else {
-        badgeType = 'PARLAY';
-        badgeColor = '#F59E0B';
+        badgeType = "PARLAY";
+        badgeColor = "#F59E0B";
       }
     }
 
     // Build picks from originalBets with betslipData if available
-    const allPicks = originalBets.map(bet => {
+    const allPicks = originalBets.map((bet) => {
       const pick = {
         id: bet.id,
         gameId: bet.gameId,
@@ -451,8 +578,11 @@ const BetBetsScreen = () => {
 
       // Get live game data
       const liveGame = getLiveGameData(bet.gameId);
-      pick.gameInfo = liveGame?.shortName || bet.gameInfo?.teams || 'Game';
-      pick.gameStatus = liveGame?.status?.type?.shortDetail || bet.gameInfo?.time || 'Scheduled';
+      pick.gameInfo = liveGame?.shortName || bet.gameInfo?.teams || "Game";
+      pick.gameStatus =
+        liveGame?.status?.type?.shortDetail ||
+        bet.gameInfo?.time ||
+        "Scheduled";
 
       // Player props
       if (bet.playerId) {
@@ -463,97 +593,136 @@ const BetBetsScreen = () => {
         pick.line = bet.line;
         pick.type = bet.type;
         pick.betValue = bet.betValue;
-        
+
         // Try to get current value from betslipData
         if (betslipData?.events) {
-          const eventData = betslipData.events.find(e => e.eventId === bet.gameId);
+          const eventData = betslipData.events.find(
+            (e) => e.eventId === bet.gameId
+          );
           if (eventData?.bets?.players) {
-            const playerData = eventData.bets.players.find(p => p.id === bet.playerId);
+            const playerData = eventData.bets.players.find(
+              (p) => p.id === bet.playerId
+            );
             if (playerData) {
               const statUpper = bet.statType.toUpperCase().substring(0, 3);
               const statMap = {
-                'POI': 'PTS', 'REB': 'REB', 'ASS': 'AST',
-                'BLO': 'BLK', 'STE': 'STL', 'TUR': 'TO'
+                POI: "PTS",
+                REB: "REB",
+                ASS: "AST",
+                BLO: "BLK",
+                STE: "STL",
+                TUR: "TO",
               };
-              const statKey = statMap[statUpper] || 'PTS';
-              
-              if (bet.type === 'milestone' && playerData.milestones?.[statKey]) {
+              const statKey = statMap[statUpper] || "PTS";
+
+              if (
+                bet.type === "milestone" &&
+                playerData.milestones?.[statKey]
+              ) {
                 pick.currentValue = playerData.milestones[statKey].current;
-                pick.status = playerData.milestones[statKey].won ? 'winning' : 'losing';
+                pick.status = playerData.milestones[statKey].won
+                  ? "winning"
+                  : "losing";
               } else if (playerData.overUnder?.[statKey]) {
                 pick.currentValue = playerData.overUnder[statKey].current;
-                pick.status = playerData.overUnder[statKey].won ? 'winning' : 'losing';
+                pick.status = playerData.overUnder[statKey].won
+                  ? "winning"
+                  : "losing";
               } else {
-                pick.status = 'pending';
+                pick.status = "pending";
               }
             }
           }
         } else {
-          pick.status = 'pending';
+          pick.status = "pending";
         }
       }
       // Game line bets
-      else if (bet.type === 'Spread' || bet.type === 'Total' || bet.type === 'Moneyline') {
+      else if (
+        bet.type === "Spread" ||
+        bet.type === "Total" ||
+        bet.type === "Moneyline"
+      ) {
         pick.betType = bet.type.toLowerCase();
         pick.team = bet.team;
         pick.line = bet.line;
-        
+
         // Construct prop text based on bet type
-        if (bet.type === 'Spread') {
+        if (bet.type === "Spread") {
           pick.prop = `${bet.team} ${bet.line}`;
-        } else if (bet.type === 'Moneyline') {
+        } else if (bet.type === "Moneyline") {
           pick.prop = `${bet.team} ${bet.type}`;
-        } else if (bet.type === 'Total') {
+        } else if (bet.type === "Total") {
           // For Total bets: displayName = type (OVER/UNDER), prop = line
           pick.displayName = bet.description?.toUpperCase() || bet.type;
           pick.prop = bet.line;
         }
-        
+
         // For Total bets, get both team logos
-        if (bet.type === 'Total') {
+        if (bet.type === "Total") {
           // Use team abbreviations from bet if available, otherwise extract from gameInfo
           let awayTeam = bet.awayTeam;
           let homeTeam = bet.homeTeam;
-          
+
           if (!awayTeam || !homeTeam) {
             if (liveGame?.competitions?.[0]?.competitors) {
               const competitors = liveGame.competitions[0].competitors;
-              awayTeam = competitors.find(c => c.homeAway === 'away')?.team?.abbreviation;
-              homeTeam = competitors.find(c => c.homeAway === 'home')?.team?.abbreviation;
+              awayTeam = competitors.find((c) => c.homeAway === "away")?.team
+                ?.abbreviation;
+              homeTeam = competitors.find((c) => c.homeAway === "home")?.team
+                ?.abbreviation;
             } else if (bet.gameInfo?.teams) {
               // Parse from "MEM @ MIN" format
-              const teams = bet.gameInfo.teams.split(' @ ');
+              const teams = bet.gameInfo.teams.split(" @ ");
               awayTeam = teams[0]?.trim();
               homeTeam = teams[1]?.trim();
             }
           }
-          
-          pick.awayTeamLogo = awayTeam ? `https://a.espncdn.com/i/teamlogos/nba/500${isDarkMode ? "-dark" : ""}/${awayTeam.toLowerCase()}.png` : null;
-          pick.homeTeamLogo = homeTeam ? `https://a.espncdn.com/i/teamlogos/nba/500${isDarkMode ? "-dark" : ""}/${homeTeam.toLowerCase()}.png` : null;
+
+          pick.awayTeamLogo = awayTeam
+            ? `https://a.espncdn.com/i/teamlogos/nba/500${
+                isDarkMode ? "-dark" : ""
+              }/${awayTeam.toLowerCase()}.png`
+            : null;
+          pick.homeTeamLogo = homeTeam
+            ? `https://a.espncdn.com/i/teamlogos/nba/500${
+                isDarkMode ? "-dark" : ""
+              }/${homeTeam.toLowerCase()}.png`
+            : null;
           pick.isTotal = true;
         } else {
-          pick.teamLogo = `https://a.espncdn.com/i/teamlogos/nba/500${isDarkMode ? "-dark" : ""}/${bet.team?.toLowerCase()}.png`;
+          pick.teamLogo = `https://a.espncdn.com/i/teamlogos/nba/500${
+            isDarkMode ? "-dark" : ""
+          }/${bet.team?.toLowerCase()}.png`;
         }
-        
+
         // Try to get current value from betslipData
         if (betslipData?.events) {
-          const eventData = betslipData.events.find(e => e.eventId === bet.gameId);
+          const eventData = betslipData.events.find(
+            (e) => e.eventId === bet.gameId
+          );
           if (eventData?.bets) {
-            if (bet.type === 'Moneyline' && eventData.bets.moneyline) {
+            if (bet.type === "Moneyline" && eventData.bets.moneyline) {
               pick.currentValue = eventData.bets.moneyline.current?.score;
-              pick.status = eventData.bets.moneyline.current?.won ? 'winning' : 'losing';
-            } else if (bet.type === 'Spread' && eventData.bets.spread) {
+              pick.status = eventData.bets.moneyline.current?.won
+                ? "winning"
+                : "losing";
+            } else if (bet.type === "Spread" && eventData.bets.spread) {
               pick.currentValue = eventData.bets.spread.current?.adjustedScore;
-              pick.status = eventData.bets.spread.current?.won ? 'winning' : 'losing';
-            } else if (bet.type === 'Total' && eventData.bets.totalPoints) {
+              pick.status = eventData.bets.spread.current?.won
+                ? "winning"
+                : "losing";
+            } else if (bet.type === "Total" && eventData.bets.totalPoints) {
               pick.currentValue = eventData.bets.totalPoints.current;
-              pick.status = eventData.bets.totalPoints.won ? 'winning' : 'losing';
+              pick.status = eventData.bets.totalPoints.won
+                ? "winning"
+                : "losing";
             } else {
-              pick.status = 'pending';
+              pick.status = "pending";
             }
           }
         } else {
-          pick.status = 'pending';
+          pick.status = "pending";
         }
       }
 
@@ -572,9 +741,10 @@ const BetBetsScreen = () => {
         }
       });
       const totalDecimal = decimalOdds.reduce((acc, odd) => acc * odd, 1);
-      const americanOdds = totalDecimal >= 2 
-        ? `+${Math.round((totalDecimal - 1) * 100)}`
-        : `-${Math.round(100 / (totalDecimal - 1))}`;
+      const americanOdds =
+        totalDecimal >= 2
+          ? `+${Math.round((totalDecimal - 1) * 100)}`
+          : `-${Math.round(100 / (totalDecimal - 1))}`;
       return americanOdds;
     };
 
@@ -600,9 +770,12 @@ const BetBetsScreen = () => {
       const pick = allPicks[0];
       const liveGame = getLiveGameData(pick.gameId);
       const scores = liveGame?.competitions?.[0]?.competitors;
-      
+
       return (
-        <View key={betSlip.id} style={[styles.betCard, { backgroundColor: theme.surface }]}>
+        <View
+          key={betSlip.id}
+          style={[styles.betCard, { backgroundColor: theme.surface }]}
+        >
           <View style={styles.parlayExpandedHeader}>
             <View style={[styles.parlayBadge, { backgroundColor: badgeColor }]}>
               <Text style={styles.parlayBadgeText}>{badgeType}</Text>
@@ -610,12 +783,16 @@ const BetBetsScreen = () => {
             <Text style={[styles.parlayTitle, { color: theme.text }]}>
               Single Bet
             </Text>
-            <Text style={[styles.parlayOdds, { color: theme.text }]}>{odds}</Text>
+            <Text style={[styles.parlayOdds, { color: theme.text }]}>
+              {odds}
+            </Text>
           </View>
 
           <View style={styles.parlayGameInfo}>
             <View style={styles.parlayGameScore}>
-              <Text style={[styles.parlayGameText, { color: theme.textSecondary }]}>
+              <Text
+                style={[styles.parlayGameText, { color: theme.textSecondary }]}
+              >
                 {liveGame?.shortName || pick.gameInfo}
               </Text>
               {scores && (
@@ -625,27 +802,39 @@ const BetBetsScreen = () => {
               )}
             </View>
             <View style={styles.parlayGameStatusRow}>
-              {liveGame?.status?.type?.state === 'in' && (
-                <View style={[styles.liveIndicator, { backgroundColor: "#EF4444" }]}>
+              {liveGame?.status?.type?.state === "in" && (
+                <View
+                  style={[styles.liveIndicator, { backgroundColor: "#EF4444" }]}
+                >
                   <Text style={styles.liveText}>LIVE</Text>
                 </View>
               )}
-              <Text style={[styles.parlayGameStatus, { color: theme.textTertiary, marginLeft: 8 }]}>
+              <Text
+                style={[
+                  styles.parlayGameStatus,
+                  { color: theme.textTertiary, marginLeft: 8 },
+                ]}
+              >
                 {liveGame?.status?.type?.shortDetail || pick.gameStatus}
               </Text>
             </View>
           </View>
 
-          <View style={styles.parlayPicks}>
-            {renderPick(pick, true)}
-          </View>
+          <View style={styles.parlayPicks}>{renderPick(pick, true)}</View>
 
-          <View style={[styles.parlaySummary, { borderTopColor: theme.border }]}>
+          <View
+            style={[styles.parlaySummary, { borderTopColor: theme.border }]}
+          >
             <View style={styles.parlaySummaryItem}>
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
                 ${amount.toFixed(2)}
               </Text>
-              <Text style={[styles.parlaySummarySubLabel, { color: theme.textTertiary }]}>
+              <Text
+                style={[
+                  styles.parlaySummarySubLabel,
+                  { color: theme.textTertiary },
+                ]}
+              >
                 WAGER
               </Text>
             </View>
@@ -653,7 +842,12 @@ const BetBetsScreen = () => {
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
                 ${potentialPayout}
               </Text>
-              <Text style={[styles.parlaySummarySubLabel, { color: theme.textTertiary }]}>
+              <Text
+                style={[
+                  styles.parlaySummarySubLabel,
+                  { color: theme.textTertiary },
+                ]}
+              >
                 PAYOUT
               </Text>
             </View>
@@ -667,9 +861,12 @@ const BetBetsScreen = () => {
       const firstPick = allPicks[0];
       const liveGame = getLiveGameData(firstPick.gameId);
       const scores = liveGame?.competitions?.[0]?.competitors;
-      
+
       return (
-        <View key={betSlip.id} style={[styles.betCard, { backgroundColor: theme.surface }]}>
+        <View
+          key={betSlip.id}
+          style={[styles.betCard, { backgroundColor: theme.surface }]}
+        >
           <View style={styles.parlayExpandedHeader}>
             <View style={[styles.parlayBadge, { backgroundColor: badgeColor }]}>
               <Text style={styles.parlayBadgeText}>{badgeType}</Text>
@@ -677,12 +874,16 @@ const BetBetsScreen = () => {
             <Text style={[styles.parlayTitle, { color: theme.text }]}>
               Same Game Parlay
             </Text>
-            <Text style={[styles.parlayOdds, { color: theme.text }]}>{odds}</Text>
+            <Text style={[styles.parlayOdds, { color: theme.text }]}>
+              {odds}
+            </Text>
           </View>
 
           <View style={styles.parlayGameInfo}>
             <View style={styles.parlayGameScore}>
-              <Text style={[styles.parlayGameText, { color: theme.textSecondary }]}>
+              <Text
+                style={[styles.parlayGameText, { color: theme.textSecondary }]}
+              >
                 {liveGame?.shortName || firstPick.gameInfo}
               </Text>
               {scores && (
@@ -692,12 +893,19 @@ const BetBetsScreen = () => {
               )}
             </View>
             <View style={styles.parlayGameStatusRow}>
-              {liveGame?.status?.type?.state === 'in' && (
-                <View style={[styles.liveIndicator, { backgroundColor: "#EF4444" }]}>
+              {liveGame?.status?.type?.state === "in" && (
+                <View
+                  style={[styles.liveIndicator, { backgroundColor: "#EF4444" }]}
+                >
                   <Text style={styles.liveText}>LIVE</Text>
                 </View>
               )}
-              <Text style={[styles.parlayGameStatus, { color: theme.textTertiary, marginLeft: 8 }]}>
+              <Text
+                style={[
+                  styles.parlayGameStatus,
+                  { color: theme.textTertiary, marginLeft: 8 },
+                ]}
+              >
                 {liveGame?.status?.type?.shortDetail || firstPick.gameStatus}
               </Text>
             </View>
@@ -707,7 +915,9 @@ const BetBetsScreen = () => {
             {allPicks.map((pick) => renderPick(pick, true))}
           </View>
 
-          <View style={[styles.parlaySummary, { borderTopColor: theme.border }]}>
+          <View
+            style={[styles.parlaySummary, { borderTopColor: theme.border }]}
+          >
             <View style={styles.parlaySummaryItem}>
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
                 {allPicks.length} Picks
@@ -717,7 +927,12 @@ const BetBetsScreen = () => {
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
                 ${amount.toFixed(2)}
               </Text>
-              <Text style={[styles.parlaySummarySubLabel, { color: theme.textTertiary }]}>
+              <Text
+                style={[
+                  styles.parlaySummarySubLabel,
+                  { color: theme.textTertiary },
+                ]}
+              >
                 WAGER
               </Text>
             </View>
@@ -725,7 +940,12 @@ const BetBetsScreen = () => {
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
                 ${potentialPayout}
               </Text>
-              <Text style={[styles.parlaySummarySubLabel, { color: theme.textTertiary }]}>
+              <Text
+                style={[
+                  styles.parlaySummarySubLabel,
+                  { color: theme.textTertiary },
+                ]}
+              >
                 PAYOUT
               </Text>
             </View>
@@ -749,10 +969,14 @@ const BetBetsScreen = () => {
             <Text style={[styles.parlayTitle, { color: theme.text }]}>
               {gamesCount} Games
             </Text>
-            <Text style={[styles.parlayOdds, { color: theme.text }]}>{odds}</Text>
+            <Text style={[styles.parlayOdds, { color: theme.text }]}>
+              {odds}
+            </Text>
           </View>
 
-          <View style={[styles.parlaySummary, { borderTopColor: theme.border }]}>
+          <View
+            style={[styles.parlaySummary, { borderTopColor: theme.border }]}
+          >
             <View style={styles.parlaySummaryItem}>
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
                 {allPicks.length} Picks
@@ -762,7 +986,12 @@ const BetBetsScreen = () => {
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
                 ${amount.toFixed(2)}
               </Text>
-              <Text style={[styles.parlaySummarySubLabel, { color: theme.textTertiary }]}>
+              <Text
+                style={[
+                  styles.parlaySummarySubLabel,
+                  { color: theme.textTertiary },
+                ]}
+              >
                 WAGER
               </Text>
             </View>
@@ -770,14 +999,23 @@ const BetBetsScreen = () => {
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
                 ${potentialPayout}
               </Text>
-              <Text style={[styles.parlaySummarySubLabel, { color: theme.textTertiary }]}>
+              <Text
+                style={[
+                  styles.parlaySummarySubLabel,
+                  { color: theme.textTertiary },
+                ]}
+              >
                 PAYOUT
               </Text>
             </View>
           </View>
 
           <View style={styles.expandIndicator}>
-            <Ionicons name="chevron-down" size={20} color={theme.textSecondary} />
+            <Ionicons
+              name="chevron-down"
+              size={20}
+              color={theme.textSecondary}
+            />
           </View>
         </TouchableOpacity>
       );
@@ -786,7 +1024,7 @@ const BetBetsScreen = () => {
     // Expanded multi-game view
     // Group picks by game
     const picksByGame = {};
-    allPicks.forEach(pick => {
+    allPicks.forEach((pick) => {
       if (!picksByGame[pick.gameId]) {
         picksByGame[pick.gameId] = [];
       }
@@ -794,7 +1032,10 @@ const BetBetsScreen = () => {
     });
 
     return (
-      <View key={betSlip.id} style={[styles.betCard, { backgroundColor: theme.surface }]}>
+      <View
+        key={betSlip.id}
+        style={[styles.betCard, { backgroundColor: theme.surface }]}
+      >
         <View style={styles.parlayExpandedHeader}>
           <View style={[styles.parlayBadge, { backgroundColor: badgeColor }]}>
             <Text style={styles.parlayBadgeText}>{badgeType}</Text>
@@ -808,12 +1049,17 @@ const BetBetsScreen = () => {
         {Object.entries(picksByGame).map(([gameId, picks]) => {
           const liveGame = getLiveGameData(gameId);
           const scores = liveGame?.competitions?.[0]?.competitors;
-          
+
           return (
             <View key={gameId} style={{ marginBottom: 16 }}>
               <View style={styles.parlayGameInfo}>
                 <View style={styles.parlayGameScore}>
-                  <Text style={[styles.parlayGameText, { color: theme.textSecondary }]}>
+                  <Text
+                    style={[
+                      styles.parlayGameText,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
                     {liveGame?.shortName || picks[0].gameInfo}
                   </Text>
                   {scores && (
@@ -823,12 +1069,22 @@ const BetBetsScreen = () => {
                   )}
                 </View>
                 <View style={styles.parlayGameStatusRow}>
-                  {liveGame?.status?.type?.state === 'in' && (
-                    <View style={[styles.liveIndicator, { backgroundColor: "#EF4444" }]}>
+                  {liveGame?.status?.type?.state === "in" && (
+                    <View
+                      style={[
+                        styles.liveIndicator,
+                        { backgroundColor: "#EF4444" },
+                      ]}
+                    >
                       <Text style={styles.liveText}>LIVE</Text>
                     </View>
                   )}
-                  <Text style={[styles.parlayGameStatus, { color: theme.textTertiary, marginLeft: 8 }]}>
+                  <Text
+                    style={[
+                      styles.parlayGameStatus,
+                      { color: theme.textTertiary, marginLeft: 8 },
+                    ]}
+                  >
                     {liveGame?.status?.type?.shortDetail || picks[0].gameStatus}
                   </Text>
                 </View>
@@ -841,7 +1097,10 @@ const BetBetsScreen = () => {
           );
         })}
 
-        <TouchableOpacity style={styles.collapseButton} onPress={() => toggleParlay(betSlip.id)}>
+        <TouchableOpacity
+          style={styles.collapseButton}
+          onPress={() => toggleParlay(betSlip.id)}
+        >
           <Ionicons name="chevron-up" size={20} color={theme.textSecondary} />
         </TouchableOpacity>
       </View>
@@ -854,7 +1113,10 @@ const BetBetsScreen = () => {
       <View
         style={[
           styles.tabBar,
-          { backgroundColor: theme.background, borderBottomColor: theme.border },
+          {
+            backgroundColor: theme.background,
+            borderBottomColor: theme.border,
+          },
         ]}
       >
         <TouchableOpacity
@@ -864,13 +1126,18 @@ const BetBetsScreen = () => {
           <Text
             style={[
               styles.tabText,
-              { color: selectedTab === "open" ? colors.primary : theme.textSecondary },
+              {
+                color:
+                  selectedTab === "open" ? colors.primary : theme.textSecondary,
+              },
             ]}
           >
             Open
           </Text>
           {selectedTab === "open" && (
-            <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />
+            <View
+              style={[styles.tabIndicator, { backgroundColor: colors.primary }]}
+            />
           )}
         </TouchableOpacity>
 
@@ -881,28 +1148,47 @@ const BetBetsScreen = () => {
           <Text
             style={[
               styles.tabText,
-              { color: selectedTab === "settled" ? colors.primary : theme.textSecondary },
+              {
+                color:
+                  selectedTab === "settled"
+                    ? colors.primary
+                    : theme.textSecondary,
+              },
             ]}
           >
             Settled
           </Text>
           {selectedTab === "settled" && (
-            <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />
+            <View
+              style={[styles.tabIndicator, { backgroundColor: colors.primary }]}
+            />
           )}
         </TouchableOpacity>
-
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         {bets.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="receipt-outline" size={64} color={theme.textTertiary} />
+            <Ionicons
+              name="receipt-outline"
+              size={64}
+              color={theme.textTertiary}
+            />
             <Text style={[styles.emptyStateTitle, { color: theme.text }]}>
               No {selectedTab} bets
             </Text>
-            <Text style={[styles.emptyStateSubtitle, { color: theme.textSecondary }]}>
+            <Text
+              style={[
+                styles.emptyStateSubtitle,
+                { color: theme.textSecondary },
+              ]}
+            >
               {selectedTab === "open" && "Place a bet to get started"}
-              {selectedTab === "settled" && "Your settled bets will appear here"}
+              {selectedTab === "settled" &&
+                "Your settled bets will appear here"}
               {selectedTab === "saved" && "Save bets to view them later"}
             </Text>
           </View>
@@ -1006,10 +1292,10 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     marginRight: 12,
-    position: 'relative',
+    position: "relative",
   },
   homeTeamLogo: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     zIndex: 2,
@@ -1018,7 +1304,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   awayTeamLogo: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     right: 0,
     zIndex: 1,

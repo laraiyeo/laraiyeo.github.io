@@ -27,7 +27,7 @@ let currentScoreboardInterval = null;
 let currentSummaryIntervals = {}; // { eventId: intervalId }
 let isAnyGameLive = false;
 let nextGameStartTime = null;
-let currentPollingMode = 'slow'; // 'slow', 'moderate', 'fast'
+let currentPollingMode = "slow"; // 'slow', 'moderate', 'fast'
 
 // Helper functions
 function getTimeDifferenceInMinutes(date1, date2) {
@@ -1031,30 +1031,30 @@ function updateSchedulingLogic() {
   nextGameStartTime = nextGameTime;
 
   // Determine polling mode
-  let newPollingMode = 'slow';
-  
+  let newPollingMode = "slow";
+
   if (hasLiveGames) {
     // Fast polling: games are live
-    newPollingMode = 'fast';
+    newPollingMode = "fast";
   } else if (nextGameTime) {
     const minutesUntilStart = getTimeDifferenceInMinutes(now, nextGameTime);
     if (minutesUntilStart <= 5) {
       // Fast polling: game starting within 5 minutes
-      newPollingMode = 'fast';
+      newPollingMode = "fast";
     } else if (hasScheduledGames) {
       // Moderate polling: games scheduled today but not imminent
-      newPollingMode = 'moderate';
+      newPollingMode = "moderate";
     }
   }
 
   // Update scoreboard fetching interval if mode changed
   if (newPollingMode !== currentPollingMode) {
-    if (newPollingMode === 'fast') {
+    if (newPollingMode === "fast") {
       console.log(
         "[Scheduler] Live games or game starting soon detected. Switching to 2-second interval."
       );
       startScoreboardFastPolling();
-    } else if (newPollingMode === 'moderate') {
+    } else if (newPollingMode === "moderate") {
       console.log(
         "[Scheduler] Scheduled games detected. Switching to 90-second interval."
       );
@@ -1078,7 +1078,7 @@ function startScoreboardFastPolling() {
   if (currentScoreboardInterval) {
     clearInterval(currentScoreboardInterval);
   }
-  console.log('[Polling] Switching to FAST polling (2 seconds)');
+  console.log("[Polling] Switching to FAST polling (2 seconds)");
   currentScoreboardInterval = setInterval(fetchScoreboard, 2000); // Every 2 seconds
 }
 
@@ -1086,7 +1086,7 @@ function startScoreboardModeratePolling() {
   if (currentScoreboardInterval) {
     clearInterval(currentScoreboardInterval);
   }
-  console.log('[Polling] Switching to MODERATE polling (90 seconds)');
+  console.log("[Polling] Switching to MODERATE polling (90 seconds)");
   currentScoreboardInterval = setInterval(fetchScoreboard, 90 * 1000); // Every 90 seconds
 }
 
@@ -1094,7 +1094,7 @@ function startScoreboardSlowPolling() {
   if (currentScoreboardInterval) {
     clearInterval(currentScoreboardInterval);
   }
-  console.log('[Polling] Switching to SLOW polling (30 minutes)');
+  console.log("[Polling] Switching to SLOW polling (30 minutes)");
   currentScoreboardInterval = setInterval(fetchScoreboard, 30 * 60 * 1000); // Every 30 minutes
 }
 
@@ -1674,7 +1674,7 @@ async function initialize() {
 
   // Determine initial polling mode based on scoreboard
   updateSchedulingLogic();
-  
+
   // If no games detected, start slow polling as fallback
   if (!currentScoreboardInterval) {
     startScoreboardSlowPolling();

@@ -37,19 +37,19 @@ const BetTopScreen = () => {
   if (rostersData?.teams) {
     // Prop type mapping for consistent IDs
     const propTypeMap = {
-      'PTS': 'Points',
-      'REB': 'Rebounds',
-      'AST': 'Assists',
-      'BLK': 'Blocks',
-      'STL': 'Steals',
-      'TO': 'Turnovers',
-      'PF': 'Fouls',
-      'FGM': 'Field Goals Made',
-      'FGA': 'Field Goals Attempted',
-      'FG3M': '3-Pointers Made',
-      'FTM': 'Free Throws Made'
+      PTS: "Points",
+      REB: "Rebounds",
+      AST: "Assists",
+      BLK: "Blocks",
+      STL: "Steals",
+      TO: "Turnovers",
+      PF: "Fouls",
+      FGM: "Field Goals Made",
+      FGA: "Field Goals Attempted",
+      FG3M: "3-Pointers Made",
+      FTM: "Free Throws Made",
     };
-    
+
     rostersData.teams.forEach((team) => {
       team.athletes?.forEach((athlete) => {
         if (!athlete.odds?.overUnder) return;
@@ -57,7 +57,7 @@ const BetTopScreen = () => {
         // Process each prop type
         Object.entries(athlete.odds.overUnder).forEach(([propType, data]) => {
           if (!data.line) return;
-          
+
           // Convert propType to full word for consistent IDs
           const fullPropType = propTypeMap[propType] || propType;
 
@@ -131,10 +131,10 @@ const BetTopScreen = () => {
   };
 
   const filteredProps = allProps.filter((prop) => {
-    const matchesSearch = prop.playerName
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase()) ||
-      (prop.fullName && prop.fullName.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesSearch =
+      prop.playerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (prop.fullName &&
+        prop.fullName.toLowerCase().includes(searchQuery.toLowerCase()));
     let matchesConfidence = true;
     let matchesPropType =
       selectedPropType === "All" || prop.propType === selectedPropType;
@@ -197,22 +197,23 @@ const BetTopScreen = () => {
     if (selectedProp) {
       // Convert prop type abbreviations to full words
       const propTypeMap = {
-        'PTS': 'Points',
-        'REB': 'Rebounds',
-        'AST': 'Assists',
-        'BLK': 'Blocks',
-        'STL': 'Steals',
-        'TO': 'Turnovers',
-        'PF': 'Fouls',
-        'FGM': 'Field Goals Made',
-        'FGA': 'Field Goals Attempted',
-        'FG3M': '3-Pointers Made',
-        'FTM': 'Free Throws Made',
-        'PRA': 'PRA'
+        PTS: "Points",
+        REB: "Rebounds",
+        AST: "Assists",
+        BLK: "Blocks",
+        STL: "Steals",
+        TO: "Turnovers",
+        PF: "Fouls",
+        FGM: "Field Goals Made",
+        FGA: "Field Goals Attempted",
+        FG3M: "3-Pointers Made",
+        FTM: "Free Throws Made",
+        PRA: "PRA",
       };
-      
-      const fullPropType = propTypeMap[selectedProp.propType] || selectedProp.propType;
-      
+
+      const fullPropType =
+        propTypeMap[selectedProp.propType] || selectedProp.propType;
+
       // Convert to lowercase for statType to match BetGameDetailScreen format
       const statType = fullPropType.toLowerCase();
 
@@ -230,12 +231,12 @@ const BetTopScreen = () => {
       };
 
       if (scoreboardData?.events) {
-        const game = scoreboardData.events.find(event => {
+        const game = scoreboardData.events.find((event) => {
           const competition = event.competitions?.[0];
           const competitors = competition?.competitors || [];
           // Check if this game includes the team
-          return competitors.some(competitor => 
-            competitor.team?.abbreviation === selectedProp.team
+          return competitors.some(
+            (competitor) => competitor.team?.abbreviation === selectedProp.team
           );
         });
 
@@ -244,7 +245,7 @@ const BetTopScreen = () => {
           const competition = game.competitions?.[0];
           const shortDetail = game?.status?.type?.shortDetail || "TBD";
           const shortName = game.shortName || "TBD";
-          
+
           gameInfo = {
             time: shortDetail,
             teams: shortName,
@@ -265,7 +266,9 @@ const BetTopScreen = () => {
         type: selectedProp.type === "over" ? "over" : "under",
         line: `${selectedProp.line}`,
         odds: selectedProp.odds,
-        description: `${selectedProp.playerName} ${fullPropType} ${selectedProp.type === "over" ? "O" : "U"}${selectedProp.line}`,
+        description: `${selectedProp.playerName} ${fullPropType} ${
+          selectedProp.type === "over" ? "O" : "U"
+        }${selectedProp.line}`,
       });
       setSelectedProp(null);
     }

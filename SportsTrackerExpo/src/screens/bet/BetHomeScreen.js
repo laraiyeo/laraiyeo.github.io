@@ -825,7 +825,9 @@ const BetHomeScreen = ({ navigation }) => {
 
         <View style={styles.bottomPadding} />
       </ScrollView>
-      <BetSlip scoreboardGames={[...liveGames, ...scheduledGames, ...completedGames]} />
+      <BetSlip
+        scoreboardGames={[...liveGames, ...scheduledGames, ...completedGames]}
+      />
     </View>
   );
 };

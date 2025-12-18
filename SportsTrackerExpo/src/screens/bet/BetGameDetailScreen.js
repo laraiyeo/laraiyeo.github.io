@@ -3483,7 +3483,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         <View style={styles.lastFiveGameCardContent}>
                           <Image
                             source={{
-                              uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${isDarkMode ? "-dark" : ""}/${game.opponentAbbreviation?.toLowerCase()}.png&h=40&w=40`,
+                              uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${
+                                isDarkMode ? "-dark" : ""
+                              }/${game.opponentAbbreviation?.toLowerCase()}.png&h=40&w=40`,
                             }}
                             style={styles.lastFiveGameLogo}
                           />
@@ -3573,7 +3575,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         >
                           <Image
                             source={{
-                              uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${isDarkMode ? "-dark" : ""}/${game.opponentAbbreviation?.toLowerCase()}.png&h=40&w=40`,
+                              uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${
+                                isDarkMode ? "-dark" : ""
+                              }/${game.opponentAbbreviation?.toLowerCase()}.png&h=40&w=40`,
                             }}
                             style={[
                               styles.lastFiveGameLogo,
@@ -3832,8 +3836,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       </ScrollView>
 
       {/* Bet Slip Bottom Bar */}
-      <BetSlip 
-        isGameDetail={true} 
+      <BetSlip
+        isGameDetail={true}
         scoreboardGames={scoreboardData?.events || []}
       />
     </View>

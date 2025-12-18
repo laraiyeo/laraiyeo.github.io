@@ -65,24 +65,26 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
 
   const handleConfirmBet = async () => {
     const amount = parseFloat(betAmount) || 20;
-    
+
     // Build API query from bets
-    const gameIds = [...new Set(bets.map(bet => bet.gameId))].filter(Boolean);
+    const gameIds = [...new Set(bets.map((bet) => bet.gameId))].filter(Boolean);
     const playerBets = {};
     const gameLineBets = { moneyline: null, total: null, spread: null };
 
     // Group player bets and game line bets
     bets.forEach((bet) => {
       // Game line bets (Spread, Total, Moneyline)
-      if (bet.type === 'Spread') {
+      if (bet.type === "Spread") {
         gameLineBets.spread = `${bet.team}${bet.line}`;
-      } else if (bet.type === 'Total') {
+      } else if (bet.type === "Total") {
         // Extract o/u from description (e.g., "OVER" or "UNDER")
-        const overUnder = bet.description?.toLowerCase().includes('over') ? 'o' : 'u';
+        const overUnder = bet.description?.toLowerCase().includes("over")
+          ? "o"
+          : "u";
         // Extract just the number from bet.line (e.g., "U 242.5" -> "242.5")
-        const lineNumber = bet.line.replace(/^[OU]\s+/, '');
+        const lineNumber = bet.line.replace(/^[OU]\s+/, "");
         gameLineBets.total = `${overUnder}${lineNumber}`;
-      } else if (bet.type === 'Moneyline') {
+      } else if (bet.type === "Moneyline") {
         gameLineBets.moneyline = bet.team;
       }
       // Player prop bets
@@ -95,53 +97,53 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
     });
 
     // Build query string
-    let query = `gameId=${gameIds.join(',')}`;
-    
+    let query = `gameId=${gameIds.join(",")}`;
+
     if (gameLineBets.moneyline) query += `&moneyline=${gameLineBets.moneyline}`;
     if (gameLineBets.total) query += `&total=${gameLineBets.total}`;
     if (gameLineBets.spread) query += `&spread=${gameLineBets.spread}`;
-    
+
     Object.entries(playerBets).forEach(([playerId, stats], index) => {
       const playerNum = index + 1;
       query += `&p${playerNum}=${playerId}`;
       Object.entries(stats).forEach(([statType, betValue]) => {
         // Convert statType to short form for API
         const statTypeMap = {
-          'points': 'pts',
-          'rebounds': 'reb',
-          'assists': 'ast',
-          'blocks': 'blk',
-          'steals': 'stl',
-          'turnovers': 'to',
-          'threes': '3pt',
-          'pra': 'pra',
+          points: "pts",
+          rebounds: "reb",
+          assists: "ast",
+          blocks: "blk",
+          steals: "stl",
+          turnovers: "to",
+          threes: "3pt",
+          pra: "pra",
         };
-        const shortStat = statTypeMap[statType.toLowerCase()] || 'pts';
+        const shortStat = statTypeMap[statType.toLowerCase()] || "pts";
         query += `&p${playerNum}_${shortStat}=${betValue}`;
       });
     });
 
     const apiUrl = `https://laraiyeogithubio-production-f5af.up.railway.app/api/betslip?${query}`;
-    console.log('Fetching betslip:', apiUrl);
+    console.log("Fetching betslip:", apiUrl);
 
     try {
       // Fetch betslip data
       const response = await fetch(apiUrl);
       const betslipData = await response.json();
-      console.log('Betslip response:', betslipData);
+      console.log("Betslip response:", betslipData);
 
       // Submit bet slip with betslip data
       await submitBetSlip(amount, betslipData);
-      
+
       // Close slip and reset
-      setBetAmount('');
+      setBetAmount("");
       setShowNumpad(false);
       closeSlip();
     } catch (error) {
-      console.error('Error fetching betslip:', error);
+      console.error("Error fetching betslip:", error);
       // Still submit even if fetch fails
       await submitBetSlip(amount, null);
-      setBetAmount('');
+      setBetAmount("");
       setShowNumpad(false);
       closeSlip();
     }
@@ -358,180 +360,210 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             >
               {Object.entries(grouped).map(([gameId, group]) => {
                 // Find game data from scoreboard
-                let gameData = scoreboardGames.find(g => g.id === gameId);
-                
+                let gameData = scoreboardGames.find((g) => g.id === gameId);
+
                 // Format game header info
                 let gameHeaderInfo;
-                
+
                 if (gameData) {
                   // Check if it's a raw ESPN event or parsed game object
                   if (gameData.competitions) {
                     // Raw ESPN event format
                     const competition = gameData.competitions[0];
                     const competitors = competition?.competitors || [];
-                    const awayTeam = competitors.find(c => c.homeAway === 'away');
-                    const homeTeam = competitors.find(c => c.homeAway === 'home');
-                    
+                    const awayTeam = competitors.find(
+                      (c) => c.homeAway === "away"
+                    );
+                    const homeTeam = competitors.find(
+                      (c) => c.homeAway === "home"
+                    );
+
                     gameHeaderInfo = {
-                      teams: gameData.shortName || 'TBD',
-                      time: competition?.status?.type?.shortDetail || 'TBD',
-                      period: null
+                      teams: gameData.shortName || "TBD",
+                      time: competition?.status?.type?.shortDetail || "TBD",
+                      period: null,
                     };
                   } else {
                     // Parsed game object format (from BetHomeScreen)
                     gameHeaderInfo = {
                       teams: `${gameData.team1Abbr} vs ${gameData.team2Abbr}`,
                       time: gameData.time,
-                      period: gameData.period
+                      period: gameData.period,
                     };
                   }
                 } else {
-                  gameHeaderInfo = group.gameInfo || { teams: 'TBD', time: 'TBD' };
+                  gameHeaderInfo = group.gameInfo || {
+                    teams: "TBD",
+                    time: "TBD",
+                  };
                 }
-                
+
                 // Use full gameInfo.time if available (for scheduled games)
-                const displayTime = group.gameInfo?.time || gameHeaderInfo?.time || 'TBD';
-                
+                const displayTime =
+                  group.gameInfo?.time || gameHeaderInfo?.time || "TBD";
+
                 return (
-                <View key={gameId} style={styles.gameGroup}>
-                  {/* Game Header */}
-                  {gameHeaderInfo && (
-                    <TouchableOpacity
-                      style={[
-                        styles.gameHeader,
-                        { backgroundColor: theme.surface },
-                      ]}
-                      onPress={() => {
-                        // Close slip first, then navigate
-                        closeSlip();
-                        
-                        // Navigate even if gameData is not found - BetGameDetailScreen will handle it
-                        navigation.navigate('BetGameDetail', { 
-                          gameId: gameId, 
-                          game: gameData || { id: gameId }
-                        });
-                      }}
-                    >
-                      <View>
-                        <Text
-                          style={[
-                            styles.gameHeaderTeams,
-                            { color: theme.text },
-                          ]}
-                        >
-                          {gameHeaderInfo.teams}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.gameHeaderTime,
-                            { color: theme.textSecondary },
-                          ]}
-                        >
-                          {gameHeaderInfo.period ? `${gameHeaderInfo.period} • ` : ''}{displayTime}
-                        </Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        {group.bets.length >= 2 && (
-                          <View style={[styles.sgpBadge, { backgroundColor: colors.primary }]}>
-                            <Text style={styles.sgpBadgeText}>SGP</Text>
-                          </View>
-                        )}
-                        <Ionicons
-                          name="chevron-forward"
-                          size={16}
-                          color={theme.textSecondary}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                  )}
-
-                  {/* Bets in this game */}
-                  {group.bets.map((bet, index) => {
-                    // Format bet type display
-                    const getBetTypeDisplay = () => {
-                      if (!bet.type) return 'BET';
-                      
-                      if (bet.type === "milestone") {
-                        // Capitalize first letter and add stat type (e.g., "Milestone Points")
-                        const statType = bet.statType
-                          ? bet.statType.toUpperCase()
-                          : bet.prop?.split(" ")[0] || '';
-                        return `Milestone ${statType}`;
-                      }
-                      // For over/under player props, include stat type
-                      if ((bet.type === "over" || bet.type === "under") && bet.statType) {
-                        const capitalizedType = bet.type.charAt(0).toUpperCase() + bet.type.slice(1);
-                        return `${capitalizedType} ${bet.statType.toUpperCase()}`;
-                      }
-                      // For game lines (Spread, Total, Moneyline), just return the type
-                      return (
-                        bet.type.charAt(0).toUpperCase() + bet.type.slice(1)
-                      );
-                    };
-
-                    return (
-                      <View
-                        key={bet.id}
+                  <View key={gameId} style={styles.gameGroup}>
+                    {/* Game Header */}
+                    {gameHeaderInfo && (
+                      <TouchableOpacity
                         style={[
-                          styles.betItem,
-                          { backgroundColor: theme.surfaceSecondary },
-                          index === group.bets.length - 1 && styles.lastBetItem,
+                          styles.gameHeader,
+                          { backgroundColor: theme.surface },
                         ]}
-                      >
-                        {/* X button on left */}
-                        <TouchableOpacity
-                          style={styles.removeBetButton}
-                          onPress={() => removeBet(bet.id)}
-                        >
-                          <Ionicons
-                            name="close"
-                            size={24}
-                            color={theme.textSecondary}
-                          />
-                        </TouchableOpacity>
+                        onPress={() => {
+                          // Close slip first, then navigate
+                          closeSlip();
 
-                        {/* Player/Team info in center */}
-                        <View style={styles.betItemContent}>
+                          // Navigate even if gameData is not found - BetGameDetailScreen will handle it
+                          navigation.navigate("BetGameDetail", {
+                            gameId: gameId,
+                            game: gameData || { id: gameId },
+                          });
+                        }}
+                      >
+                        <View>
                           <Text
                             style={[
-                              styles.betDescription,
+                              styles.gameHeaderTeams,
                               { color: theme.text },
                             ]}
                           >
-                            {/* For team bets, show team/game and bet line */}
-                            {bet.type === 'Total' 
-                              ? `GAME • ${bet.line}`
-                              : bet.type === 'Moneyline'
-                              ? bet.team
-                              : bet.type === 'Spread'
-                              ? `${bet.team} • ${bet.line}`
-                              : `${bet.player} • ${bet.betValue}`}
+                            {gameHeaderInfo.teams}
                           </Text>
                           <Text
                             style={[
-                              styles.betType,
+                              styles.gameHeaderTime,
                               { color: theme.textSecondary },
                             ]}
                           >
-                            {getBetTypeDisplay()}
+                            {gameHeaderInfo.period
+                              ? `${gameHeaderInfo.period} • `
+                              : ""}
+                            {displayTime}
                           </Text>
                         </View>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          {group.bets.length >= 2 && (
+                            <View
+                              style={[
+                                styles.sgpBadge,
+                                { backgroundColor: colors.primary },
+                              ]}
+                            >
+                              <Text style={styles.sgpBadgeText}>SGP</Text>
+                            </View>
+                          )}
+                          <Ionicons
+                            name="chevron-forward"
+                            size={16}
+                            color={theme.textSecondary}
+                          />
+                        </View>
+                      </TouchableOpacity>
+                    )}
 
-                        {/* Odds on right */}
-                        <View style={styles.betOddsContainer}>
-                          <Text
-                            style={[styles.betOdds, { color: colors.primary }]}
+                    {/* Bets in this game */}
+                    {group.bets.map((bet, index) => {
+                      // Format bet type display
+                      const getBetTypeDisplay = () => {
+                        if (!bet.type) return "BET";
+
+                        if (bet.type === "milestone") {
+                          // Capitalize first letter and add stat type (e.g., "Milestone Points")
+                          const statType = bet.statType
+                            ? bet.statType.toUpperCase()
+                            : bet.prop?.split(" ")[0] || "";
+                          return `Milestone ${statType}`;
+                        }
+                        // For over/under player props, include stat type
+                        if (
+                          (bet.type === "over" || bet.type === "under") &&
+                          bet.statType
+                        ) {
+                          const capitalizedType =
+                            bet.type.charAt(0).toUpperCase() +
+                            bet.type.slice(1);
+                          return `${capitalizedType} ${bet.statType.toUpperCase()}`;
+                        }
+                        // For game lines (Spread, Total, Moneyline), just return the type
+                        return (
+                          bet.type.charAt(0).toUpperCase() + bet.type.slice(1)
+                        );
+                      };
+
+                      return (
+                        <View
+                          key={bet.id}
+                          style={[
+                            styles.betItem,
+                            { backgroundColor: theme.surfaceSecondary },
+                            index === group.bets.length - 1 &&
+                              styles.lastBetItem,
+                          ]}
+                        >
+                          {/* X button on left */}
+                          <TouchableOpacity
+                            style={styles.removeBetButton}
+                            onPress={() => removeBet(bet.id)}
                           >
-                            {bet.odds}
-                          </Text>
+                            <Ionicons
+                              name="close"
+                              size={24}
+                              color={theme.textSecondary}
+                            />
+                          </TouchableOpacity>
+
+                          {/* Player/Team info in center */}
+                          <View style={styles.betItemContent}>
+                            <Text
+                              style={[
+                                styles.betDescription,
+                                { color: theme.text },
+                              ]}
+                            >
+                              {/* For team bets, show team/game and bet line */}
+                              {bet.type === "Total"
+                                ? `GAME • ${bet.line}`
+                                : bet.type === "Moneyline"
+                                ? bet.team
+                                : bet.type === "Spread"
+                                ? `${bet.team} • ${bet.line}`
+                                : `${bet.player} • ${bet.betValue}`}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.betType,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {getBetTypeDisplay()}
+                            </Text>
+                          </View>
+
+                          {/* Odds on right */}
+                          <View style={styles.betOddsContainer}>
+                            <Text
+                              style={[
+                                styles.betOdds,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              {bet.odds}
+                            </Text>
+                          </View>
                         </View>
-                      </View>
-                    );
-                  })}
-                </View>
+                      );
+                    })}
+                  </View>
                 );
               })}
-
             </ScrollView>
 
             {/* Bottom Section - Bet Input */}
@@ -866,7 +898,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalBackdrop: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
