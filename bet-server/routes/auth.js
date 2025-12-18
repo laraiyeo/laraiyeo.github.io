@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { body, validationResult } = require("express-validator");
 const pool = require("../db/database");
+const supabaseAdmin = require("../services/supabaseClient");
 const authMiddleware = require("../middleware/auth");
 
 const router = express.Router();
@@ -84,18 +85,32 @@ router.post("/login", async (req, res) => {
     const { username, password } = req.body;
     console.log("Auth: login attempt for username:", username);
 
-    // Get user
-    const result = await pool.query(
-      "SELECT id, username, password_hash, credits FROM users WHERE username = $1",
-      [username]
-    );
-    console.log("Auth: DB query completed, rows:", result.rows.length);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "User not found" });
+    // Get user (try Supabase admin client first to avoid direct TCP to the DB)
+    let user = null;
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('users')
+        .select('id, username, password_hash, credits')
+        .eq('username', username)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      user = data;
+      console.log('Auth: Supabase admin lookup succeeded for username', username);
+    } catch (supErr) {
+      console.warn('Auth: Supabase admin lookup failed, falling back to direct DB pool:', supErr && supErr.message ? supErr.message : supErr);
+      const result = await pool.query(
+        'SELECT id, username, password_hash, credits FROM users WHERE username = $1',
+        [username]
+      );
+      console.log('Auth: DB query completed, rows:', result.rows.length);
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      user = result.rows[0];
     }
-
-    const user = result.rows[0];
 
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
