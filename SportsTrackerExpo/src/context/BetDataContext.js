@@ -129,10 +129,13 @@ export const BetDataProvider = ({ children }) => {
           "bet_scoreboard_time",
           new Date().toISOString()
         );
-        console.log('[BetData] Cached scoreboard data');
+        console.log("[BetData] Cached scoreboard data");
       } catch (cacheErr) {
         // AsyncStorage quota exceeded or other storage error — warn but don't fail the fetch
-        console.warn('[BetData] Warning: failed to cache scoreboard data (ignored):', cacheErr);
+        console.warn(
+          "[BetData] Warning: failed to cache scoreboard data (ignored):",
+          cacheErr
+        );
       }
 
       // Update polling mode based on new data

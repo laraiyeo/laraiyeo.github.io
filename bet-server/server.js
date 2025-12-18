@@ -1689,7 +1689,9 @@ async function initialize() {
   // This ensures the server refreshes ESPN's scoreboard feed on a regular cadence
   // regardless of the dynamic polling mode used for live games.
   if (!rostersScoreboardInterval) {
-    console.log("[Rosters Scheduler] Starting 30-minute scoreboard refresh for /api/rosters");
+    console.log(
+      "[Rosters Scheduler] Starting 30-minute scoreboard refresh for /api/rosters"
+    );
     rostersScoreboardInterval = setInterval(async () => {
       try {
         console.log("[Rosters Scheduler] Refreshing scoreboard for rosters...");
@@ -1699,10 +1701,15 @@ async function initialize() {
         // fetchAllRostersAndGamelogs here to keep this interval lightweight.
         if (rosterGamelogCache["all"]) {
           delete rosterGamelogCache["all"];
-          console.log("[Rosters Scheduler] Cleared rosterGamelogCache[\"all\"] to force refresh on next request");
+          console.log(
+            '[Rosters Scheduler] Cleared rosterGamelogCache["all"] to force refresh on next request'
+          );
         }
       } catch (err) {
-        console.error("[Rosters Scheduler] Error refreshing scoreboard:", err?.message || err);
+        console.error(
+          "[Rosters Scheduler] Error refreshing scoreboard:",
+          err?.message || err
+        );
       }
     }, 30 * 60 * 1000);
   }

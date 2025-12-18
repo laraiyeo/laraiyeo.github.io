@@ -184,17 +184,25 @@ const BetLoginScreen = ({ navigation }) => {
               // Persist credentials locally so inputs stay filled
               await saveCredentials(signupUsername, signupPassword, phone);
               try {
-                console.log('BetLogin: signup success - fetching scoreboard now');
+                console.log(
+                  "BetLogin: signup success - fetching scoreboard now"
+                );
                 await fetchScoreboard();
-                console.log('BetLogin: signup - scoreboard fetch complete');
+                console.log("BetLogin: signup - scoreboard fetch complete");
               } catch (e) {
-                console.error('BetLogin: signup - fetchScoreboard error', e);
+                console.error("BetLogin: signup - fetchScoreboard error", e);
               }
               // Start rosters fetch in background
               if (fetchRosters) {
                 fetchRosters()
-                  .then(() => console.log('BetLogin: signup - rosters fetch started/completed'))
-                  .catch((e) => console.error('BetLogin: signup - fetchRosters error', e));
+                  .then(() =>
+                    console.log(
+                      "BetLogin: signup - rosters fetch started/completed"
+                    )
+                  )
+                  .catch((e) =>
+                    console.error("BetLogin: signup - fetchRosters error", e)
+                  );
               }
               navigation.navigate("BetMain");
             },
@@ -292,16 +300,20 @@ const BetLoginScreen = ({ navigation }) => {
       await saveCredentials(username, password, userPhone);
       // Trigger scoreboard + rosters fetch immediately from login
       try {
-        console.log('BetLogin: login success - fetching scoreboard now');
+        console.log("BetLogin: login success - fetching scoreboard now");
         await fetchScoreboard();
-        console.log('BetLogin: login - scoreboard fetch complete');
+        console.log("BetLogin: login - scoreboard fetch complete");
       } catch (e) {
-        console.error('BetLogin: login - fetchScoreboard error', e);
+        console.error("BetLogin: login - fetchScoreboard error", e);
       }
       if (fetchRosters) {
         fetchRosters()
-          .then(() => console.log('BetLogin: login - rosters fetch started/completed'))
-          .catch((e) => console.error('BetLogin: login - fetchRosters error', e));
+          .then(() =>
+            console.log("BetLogin: login - rosters fetch started/completed")
+          )
+          .catch((e) =>
+            console.error("BetLogin: login - fetchRosters error", e)
+          );
       }
       navigation.navigate("BetMain");
     } catch (error) {
