@@ -309,12 +309,17 @@ const BetLoginScreen = ({ navigation }) => {
         console.log("BetLogin: supabase.auth.getSession result:", {
           sessionData: !!sessionData,
         });
-        const accessToken = sessionData?.session?.access_token || sessionData?.access_token || null;
+        const accessToken =
+          sessionData?.session?.access_token ||
+          sessionData?.access_token ||
+          null;
         const headers = { "Content-Type": "application/json" };
         if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
         // Extensive debug logging before calling server
-        const maskedToken = accessToken ? `${accessToken.slice(0, 8)}...<masked>` : null;
+        const maskedToken = accessToken
+          ? `${accessToken.slice(0, 8)}...<masked>`
+          : null;
         const requestBody = JSON.stringify({ username });
         console.log("BetLogin: will POST to server /auth/login", {
           url: `${API_URL}/auth/login`,
@@ -335,7 +340,10 @@ const BetLoginScreen = ({ navigation }) => {
             body: requestBody,
           });
         } catch (netErr) {
-          console.error("BetLogin: network error during server auth exchange:", netErr);
+          console.error(
+            "BetLogin: network error during server auth exchange:",
+            netErr
+          );
           throw netErr;
         }
 
@@ -343,16 +351,25 @@ const BetLoginScreen = ({ navigation }) => {
         try {
           text = await res.text();
         } catch (readErr) {
-          console.error("BetLogin: error reading server response text:", readErr);
+          console.error(
+            "BetLogin: error reading server response text:",
+            readErr
+          );
         }
 
-        console.log("BetLogin: server response raw text length", text ? text.length : 0);
+        console.log(
+          "BetLogin: server response raw text length",
+          text ? text.length : 0
+        );
         try {
           const j = text ? JSON.parse(text) : null;
           console.log("BetLogin: server response parsed JSON", j);
           if (res.ok && j && j.token) {
             await AsyncStorage.setItem("@bet_token", j.token);
-            console.log("BetLogin: stored server auth token (length)", j.token.length || null);
+            console.log(
+              "BetLogin: stored server auth token (length)",
+              j.token.length || null
+            );
             // Register for push notifications now that server token is available
             try {
               await registerForPushNotifications(j.token);

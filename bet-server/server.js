@@ -142,21 +142,19 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
         "push_notifications insert failed with user_id, retrying without user_id",
         insErr?.message || insErr
       );
-      await supabaseAdmin
-        .from("push_notifications")
-        .insert({
-          user_id: null,
-          title,
-          body: bodyText,
-          data: {
-            ...data,
-            user_uuid: resolvedProfileId || null,
-            legacy_user_id:
-              typeof userId === "number" || /^[0-9]+$/.test(String(userId))
-                ? userId
-                : null,
-          },
-        });
+      await supabaseAdmin.from("push_notifications").insert({
+        user_id: null,
+        title,
+        body: bodyText,
+        data: {
+          ...data,
+          user_uuid: resolvedProfileId || null,
+          legacy_user_id:
+            typeof userId === "number" || /^[0-9]+$/.test(String(userId))
+              ? userId
+              : null,
+        },
+      });
     }
   } catch (err) {
     console.error("sendPushNotification error", err?.message || err);
@@ -2017,18 +2015,16 @@ app.post(
         process.env.JWT_SECRET,
         { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
       );
-      res
-        .status(201)
-        .json({
-          message: "User created",
-          user: {
-            id: data.id,
-            username: data.username,
-            credits: data.credits,
-            profileId,
-          },
-          token,
-        });
+      res.status(201).json({
+        message: "User created",
+        user: {
+          id: data.id,
+          username: data.username,
+          credits: data.credits,
+          profileId,
+        },
+        token,
+      });
     } catch (e) {
       console.error("signup error", e);
       res.status(500).json({ message: "Server error" });
@@ -2043,20 +2039,31 @@ app.post("/api/auth/login", async (req, res) => {
     // Sanitize headers: mask Authorization
     const incomingHeaders = { ...req.headers };
     if (incomingHeaders.authorization) {
-      const token = incomingHeaders.authorization.split(" ")[1] || incomingHeaders.authorization;
+      const token =
+        incomingHeaders.authorization.split(" ")[1] ||
+        incomingHeaders.authorization;
       incomingHeaders.authorization = `${String(token).slice(0, 8)}...<masked>`;
     }
     // Avoid printing cookies or other very large headers
     if (incomingHeaders.cookie) incomingHeaders.cookie = "<cookie masked>";
 
-    console.log('[auth/login] incoming headers (sanitized):', incomingHeaders);
-    console.log('[auth/login] request body (sanitized):', { username: username || null, password: password ? '***' : null, rawBody });
+    console.log("[auth/login] incoming headers (sanitized):", incomingHeaders);
+    console.log("[auth/login] request body (sanitized):", {
+      username: username || null,
+      password: password ? "***" : null,
+      rawBody,
+    });
     const { data: user, error } = await supabaseAdmin
       .from("users")
       .select("id, username, password_hash, credits")
       .eq("username", username)
       .maybeSingle();
-    console.log('[auth/login] users.select result:', { user: user ? { id: user.id, username: user.username, credits: user.credits } : null, error: error ? (error.message || error) : null });
+    console.log("[auth/login] users.select result:", {
+      user: user
+        ? { id: user.id, username: user.username, credits: user.credits }
+        : null,
+      error: error ? error.message || error : null,
+    });
     if (error) throw error;
     if (!user) return res.status(404).json({ message: "User not found" });
     const ok = await bcrypt.compare(password, user.password_hash);
@@ -2066,13 +2073,19 @@ app.post("/api/auth/login", async (req, res) => {
     // Try to find a matching profile UUID for this username
     let profileId = null;
     try {
-      console.log('[auth/login] attempting profiles.select by username=', user.username);
+      console.log(
+        "[auth/login] attempting profiles.select by username=",
+        user.username
+      );
       const { data: prof, error: profErr } = await supabaseAdmin
         .from("profiles")
         .select("id")
         .eq("username", user.username)
         .maybeSingle();
-      console.log('[auth/login] profiles.select result:', { prof: prof || null, error: profErr ? (profErr.message || profErr) : null });
+      console.log("[auth/login] profiles.select result:", {
+        prof: prof || null,
+        error: profErr ? profErr.message || profErr : null,
+      });
       if (prof && prof.id) profileId = prof.id;
     } catch (e) {
       /* ignore */
@@ -2393,24 +2406,20 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
       })
       .select()
       .maybeSingle();
-    await supabaseAdmin
-      .from("bet_history")
-      .insert({
-        user_id: req.userId,
-        betslip_id: inserted.id,
-        action: "placed",
-        credits_change: -totalStake,
-        credits_after: newCredits,
-      });
+    await supabaseAdmin.from("bet_history").insert({
+      user_id: req.userId,
+      betslip_id: inserted.id,
+      action: "placed",
+      credits_change: -totalStake,
+      credits_after: newCredits,
+    });
     // start watcher
     startWatcherInline(inserted.id);
-    res
-      .status(201)
-      .json({
-        message: "Bet placed",
-        betslipId: inserted.id,
-        creditsRemaining: newCredits,
-      });
+    res.status(201).json({
+      message: "Bet placed",
+      betslipId: inserted.id,
+      creditsRemaining: newCredits,
+    });
   } catch (e) {
     console.error("place bet", e);
     res.status(500).json({ message: "Server error" });
