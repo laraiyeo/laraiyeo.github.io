@@ -1,9 +1,6 @@
 const { Pool } = require("pg");
 const dns = require("dns");
 const { URL } = require("url");
-const { Pool } = require("pg");
-const dns = require("dns");
-const { URL } = require("url");
 
 // If DATABASE_URL is not set but Supabase admin credentials exist, do not exit –
 // the server can operate using the Supabase admin client (HTTP) instead of
@@ -28,17 +25,16 @@ if (!process.env.DATABASE_URL) {
       end: async () => {},
     };
     module.exports = stub;
-    return;
+  } else {
+    console.error(
+      "FATAL: Missing DATABASE_URL environment variable. Server cannot connect to Postgres."
+    );
+    console.error(
+      "Set DATABASE_URL to your Postgres connection string (postgres://user:pass@host:port/dbname) in the environment."
+    );
+    process.exit(1);
   }
-
-  console.error(
-    "FATAL: Missing DATABASE_URL environment variable. Server cannot connect to Postgres."
-  );
-  console.error(
-    "Set DATABASE_URL to your Postgres connection string (postgres://user:pass@host:port/dbname) in the environment."
-  );
-  process.exit(1);
-}
+} else {
 
 // Helper to build a Pool config object from components
 function buildPoolConfig({ user, password, host, port, database, sslEnabled }) {
@@ -122,22 +118,14 @@ async function ensureConnectivity() {
   }
 }
 
-// Start connectivity check (async). If it throws, allow the error to bubble up.
-ensureConnectivity().catch((e) => {
-  console.error(
-    "Database connectivity check failed, exiting.",
-    e && e.stack ? e.stack : e
-  );
-  process.exit(1);
-});
-// Start connectivity check (async). If it throws, allow the error to bubble up.
-ensureConnectivity().catch((e) => {
-  console.error(
-    "Database connectivity check failed, exiting.",
-    e && e.stack ? e.stack : e
-  );
-  process.exit(1);
-});
+  // Start connectivity check (async). If it throws, allow the error to bubble up.
+  ensureConnectivity().catch((e) => {
+    console.error(
+      "Database connectivity check failed, exiting.",
+      e && e.stack ? e.stack : e
+    );
+    process.exit(1);
+  });
 
 // Test connection
 pool.on("connect", () => {
@@ -149,4 +137,5 @@ pool.on("error", (err) => {
   process.exit(-1);
 });
 
-module.exports = pool;
+  module.exports = pool;
+}
