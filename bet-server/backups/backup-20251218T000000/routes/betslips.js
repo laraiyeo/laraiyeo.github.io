@@ -256,7 +256,7 @@ function startWatcher(betslipId) {
               await sendPushNotification(
                 fresh.user_id,
                 "Pick Won",
-                `Your pick (${ 
+                `Your pick (${
                   bet.description ||
                   bet.selection ||
                   bet.team ||
@@ -278,7 +278,7 @@ function startWatcher(betslipId) {
               await sendPushNotification(
                 fresh.user_id,
                 "Pick Lost",
-                `Your pick (${ 
+                `Your pick (${
                   bet.description ||
                   bet.selection ||
                   bet.team ||

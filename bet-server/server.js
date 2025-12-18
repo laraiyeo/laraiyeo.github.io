@@ -14,9 +14,13 @@ const { Expo } = require("expo-server-sdk");
 // Create Supabase admin client from env
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabaseAdmin = createClient(SUPABASE_URL || "", SUPABASE_SERVICE_ROLE_KEY || "", {
-  auth: { persistSession: false },
-});
+const supabaseAdmin = createClient(
+  SUPABASE_URL || "",
+  SUPABASE_SERVICE_ROLE_KEY || "",
+  {
+    auth: { persistSession: false },
+  }
+);
 
 const expo = new Expo();
 
@@ -30,79 +34,161 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
 
     // Try to get legacy users row (may contain push_token and username)
     try {
-      const { data: urow, error: uerr } = await supabaseAdmin.from('users').select('id, username, push_token').eq('id', userId).maybeSingle();
+      const { data: urow, error: uerr } = await supabaseAdmin
+        .from("users")
+        .select("id, username, push_token")
+        .eq("id", userId)
+        .maybeSingle();
       if (uerr) throw uerr;
       resolvedUserRow = urow || null;
-      if (resolvedUserRow && resolvedUserRow.push_token) pushToken = resolvedUserRow.push_token;
+      if (resolvedUserRow && resolvedUserRow.push_token)
+        pushToken = resolvedUserRow.push_token;
     } catch (e) {
-      console.warn('sendPushNotification: users lookup failed,', e?.message || e);
+      console.warn(
+        "sendPushNotification: users lookup failed,",
+        e?.message || e
+      );
     }
 
     // Try to resolve a profile UUID for this user (by username if available, or directly if userId already looks like a UUID)
     try {
-      const looksLikeUuid = typeof userId === 'string' && userId.includes('-');
+      const looksLikeUuid = typeof userId === "string" && userId.includes("-");
       if (looksLikeUuid) {
-        const { data: prof, error: perr } = await supabaseAdmin.from('profiles').select('id, username').eq('id', userId).maybeSingle();
+        const { data: prof, error: perr } = await supabaseAdmin
+          .from("profiles")
+          .select("id, username")
+          .eq("id", userId)
+          .maybeSingle();
         if (!perr && prof) resolvedProfileId = prof.id;
       } else if (resolvedUserRow && resolvedUserRow.username) {
-        const { data: prof, error: perr } = await supabaseAdmin.from('profiles').select('id').eq('username', resolvedUserRow.username).maybeSingle();
+        const { data: prof, error: perr } = await supabaseAdmin
+          .from("profiles")
+          .select("id")
+          .eq("username", resolvedUserRow.username)
+          .maybeSingle();
         if (!perr && prof) resolvedProfileId = prof.id;
       }
     } catch (e) {
-      console.warn('sendPushNotification: profiles lookup failed,', e?.message || e);
+      console.warn(
+        "sendPushNotification: profiles lookup failed,",
+        e?.message || e
+      );
     }
 
     // If no push token yet, check push_tokens using resolvedProfileId first, then fallback to userId
     if (!pushToken) {
       if (resolvedProfileId) {
-        const { data: tokensByProfile, error: tpfErr } = await supabaseAdmin.from('push_tokens').select('expo_push_token').eq('user_id', resolvedProfileId).order('created_at', { ascending: false }).limit(1);
-        if (!tpfErr && tokensByProfile && tokensByProfile.length > 0) pushToken = tokensByProfile[0].expo_push_token;
+        const { data: tokensByProfile, error: tpfErr } = await supabaseAdmin
+          .from("push_tokens")
+          .select("expo_push_token")
+          .eq("user_id", resolvedProfileId)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        if (!tpfErr && tokensByProfile && tokensByProfile.length > 0)
+          pushToken = tokensByProfile[0].expo_push_token;
       }
     }
 
     if (!pushToken) {
-      const { data: tokens, error: tokenErr } = await supabaseAdmin.from('push_tokens').select('expo_push_token').eq('user_id', userId).order('created_at', { ascending: false }).limit(1);
-      if (!tokenErr && tokens && tokens.length > 0) pushToken = tokens[0].expo_push_token;
+      const { data: tokens, error: tokenErr } = await supabaseAdmin
+        .from("push_tokens")
+        .select("expo_push_token")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (!tokenErr && tokens && tokens.length > 0)
+        pushToken = tokens[0].expo_push_token;
     }
 
     if (!pushToken) {
-      console.log('No push token for user', userId, 'resolvedProfileId', resolvedProfileId);
+      console.log(
+        "No push token for user",
+        userId,
+        "resolvedProfileId",
+        resolvedProfileId
+      );
       return;
     }
 
     if (!Expo.isExpoPushToken(pushToken)) {
-      console.error('Invalid Expo push token:', pushToken);
+      console.error("Invalid Expo push token:", pushToken);
       return;
     }
 
-    const message = { to: pushToken, sound: 'default', title, body: bodyText, data, priority: 'high' };
+    const message = {
+      to: pushToken,
+      sound: "default",
+      title,
+      body: bodyText,
+      data,
+      priority: "high",
+    };
     const chunks = expo.chunkPushNotifications([message]);
     for (const chunk of chunks) {
-      try { await expo.sendPushNotificationsAsync(chunk); } catch (err) { console.error('expo send error', err); }
+      try {
+        await expo.sendPushNotificationsAsync(chunk);
+      } catch (err) {
+        console.error("expo send error", err);
+      }
     }
 
     // Try to persist a push_notifications record. If the user_id type conflicts, fall back to storing null and include uuid in data.
     try {
-      await supabaseAdmin.from('push_notifications').insert({ user_id: userId, title, body: bodyText, data });
+      await supabaseAdmin
+        .from("push_notifications")
+        .insert({ user_id: userId, title, body: bodyText, data });
     } catch (insErr) {
-      console.warn('push_notifications insert failed with user_id, retrying without user_id', insErr?.message || insErr);
-      await supabaseAdmin.from('push_notifications').insert({ user_id: null, title, body: bodyText, data: { ...data, user_uuid: resolvedProfileId || null, legacy_user_id: typeof userId === 'number' || /^[0-9]+$/.test(String(userId)) ? userId : null } });
+      console.warn(
+        "push_notifications insert failed with user_id, retrying without user_id",
+        insErr?.message || insErr
+      );
+      await supabaseAdmin
+        .from("push_notifications")
+        .insert({
+          user_id: null,
+          title,
+          body: bodyText,
+          data: {
+            ...data,
+            user_uuid: resolvedProfileId || null,
+            legacy_user_id:
+              typeof userId === "number" || /^[0-9]+$/.test(String(userId))
+                ? userId
+                : null,
+          },
+        });
     }
   } catch (err) {
-    console.error('sendPushNotification error', err?.message || err);
+    console.error("sendPushNotification error", err?.message || err);
   }
 }
 
 async function broadcastToAll(title, bodyText, data = {}) {
   try {
-    const { data: tokens } = await supabaseAdmin.from("push_tokens").select("expo_push_token");
-    const messages = (tokens || []).map(t => ({ to: t.expo_push_token, sound: 'default', title, body: bodyText, data }));
+    const { data: tokens } = await supabaseAdmin
+      .from("push_tokens")
+      .select("expo_push_token");
+    const messages = (tokens || []).map((t) => ({
+      to: t.expo_push_token,
+      sound: "default",
+      title,
+      body: bodyText,
+      data,
+    }));
     const chunks = expo.chunkPushNotifications(messages);
     for (const chunk of chunks) {
-      try { await expo.sendPushNotificationsAsync(chunk); } catch (e) { console.error('broadcast chunk error', e); }
+      try {
+        await expo.sendPushNotificationsAsync(chunk);
+      } catch (e) {
+        console.error("broadcast chunk error", e);
+      }
     }
-    await supabaseAdmin.from('push_notifications').insert({ title, body: bodyText, data });
-  } catch (e) { console.error('broadcastToAll error', e); }
+    await supabaseAdmin
+      .from("push_notifications")
+      .insert({ title, body: bodyText, data });
+  } catch (e) {
+    console.error("broadcastToAll error", e);
+  }
 }
 
 const app = express();
@@ -1882,129 +1968,238 @@ async function initialize() {
 // --------------------------
 // Inlined Auth routes
 // --------------------------
-app.post("/api/auth/signup", [body("username").isLength({ min: 3 }).trim().escape(), body("password").isLength({ min: 6 })], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-
-    const { username, password, credits = 2500 } = req.body;
-    // check exists
-    const { data: existing } = await supabaseAdmin.from('users').select('id').eq('username', username).limit(1);
-    if (existing && existing.length > 0) return res.status(400).json({ message: 'Username already exists' });
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    const { data, error } = await supabaseAdmin.from('users').insert({ username, password_hash: passwordHash, credits }).select().maybeSingle();
-    if (error) throw error;
-    // After creating a user, check for an existing profile with same username and include profileId if present
-    let profileId = null;
+app.post(
+  "/api/auth/signup",
+  [
+    body("username").isLength({ min: 3 }).trim().escape(),
+    body("password").isLength({ min: 6 }),
+  ],
+  async (req, res) => {
     try {
-      const { data: prof } = await supabaseAdmin.from('profiles').select('id').eq('username', username).maybeSingle();
-      if (prof && prof.id) profileId = prof.id;
-    } catch (e) { /* ignore */ }
+      const errors = validationResult(req);
+      if (!errors.isEmpty())
+        return res.status(400).json({ errors: errors.array() });
 
-    if (!process.env.JWT_SECRET) return res.status(500).json({ message: 'JWT_SECRET not configured' });
-    const token = jwt.sign({ userId: data.id, username: data.username, profileId }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
-    res.status(201).json({ message: 'User created', user: { id: data.id, username: data.username, credits: data.credits, profileId }, token });
-  } catch (e) { console.error('signup error', e); res.status(500).json({ message: 'Server error' }); }
-});
+      const { username, password, credits = 2500 } = req.body;
+      // check exists
+      const { data: existing } = await supabaseAdmin
+        .from("users")
+        .select("id")
+        .eq("username", username)
+        .limit(1);
+      if (existing && existing.length > 0)
+        return res.status(400).json({ message: "Username already exists" });
 
-app.post('/api/auth/login', async (req, res) => {
+      const passwordHash = await bcrypt.hash(password, 10);
+      const { data, error } = await supabaseAdmin
+        .from("users")
+        .insert({ username, password_hash: passwordHash, credits })
+        .select()
+        .maybeSingle();
+      if (error) throw error;
+      // After creating a user, check for an existing profile with same username and include profileId if present
+      let profileId = null;
+      try {
+        const { data: prof } = await supabaseAdmin
+          .from("profiles")
+          .select("id")
+          .eq("username", username)
+          .maybeSingle();
+        if (prof && prof.id) profileId = prof.id;
+      } catch (e) {
+        /* ignore */
+      }
+
+      if (!process.env.JWT_SECRET)
+        return res.status(500).json({ message: "JWT_SECRET not configured" });
+      const token = jwt.sign(
+        { userId: data.id, username: data.username, profileId },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+      );
+      res
+        .status(201)
+        .json({
+          message: "User created",
+          user: {
+            id: data.id,
+            username: data.username,
+            credits: data.credits,
+            profileId,
+          },
+          token,
+        });
+    } catch (e) {
+      console.error("signup error", e);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+app.post("/api/auth/login", async (req, res) => {
   try {
     const { username, password } = req.body;
-    const { data: user, error } = await supabaseAdmin.from('users').select('id, username, password_hash, credits').eq('username', username).maybeSingle();
+    const { data: user, error } = await supabaseAdmin
+      .from("users")
+      .select("id, username, password_hash, credits")
+      .eq("username", username)
+      .maybeSingle();
     if (error) throw error;
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user) return res.status(404).json({ message: "User not found" });
     const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) return res.status(401).json({ message: 'Invalid password' });
-    if (!process.env.JWT_SECRET) return res.status(500).json({ message: 'JWT_SECRET not configured' });
+    if (!ok) return res.status(401).json({ message: "Invalid password" });
+    if (!process.env.JWT_SECRET)
+      return res.status(500).json({ message: "JWT_SECRET not configured" });
     // Try to find a matching profile UUID for this username
     let profileId = null;
     try {
-      const { data: prof } = await supabaseAdmin.from('profiles').select('id').eq('username', user.username).maybeSingle();
+      const { data: prof } = await supabaseAdmin
+        .from("profiles")
+        .select("id")
+        .eq("username", user.username)
+        .maybeSingle();
       if (prof && prof.id) profileId = prof.id;
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      /* ignore */
+    }
 
-    const token = jwt.sign({ userId: user.id, username: user.username, profileId }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
-    res.json({ message: 'Login successful', user: { id: user.id, username: user.username, credits: user.credits, profileId }, token });
-  } catch (e) { console.error('login error', e); res.status(500).json({ message: 'Server error' }); }
+    const token = jwt.sign(
+      { userId: user.id, username: user.username, profileId },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+    );
+    res.json({
+      message: "Login successful",
+      user: {
+        id: user.id,
+        username: user.username,
+        credits: user.credits,
+        profileId,
+      },
+      token,
+    });
+  } catch (e) {
+    console.error("login error", e);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
 // Simple auth middleware used by inlined routes
 function authMiddlewareInline(req, res, next) {
   const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized' });
-  const token = auth.split(' ')[1];
+  if (!auth || !auth.startsWith("Bearer "))
+    return res.status(401).json({ message: "Unauthorized" });
+  const token = auth.split(" ")[1];
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.userId = decoded.userId;
     req.username = decoded.username || null;
     next();
-  } catch (e) { return res.status(401).json({ message: 'Invalid token' }); }
+  } catch (e) {
+    return res.status(401).json({ message: "Invalid token" });
+  }
 }
 
-
-app.post('/api/auth/verify', authMiddlewareInline, async (req, res) => {
+app.post("/api/auth/verify", authMiddlewareInline, async (req, res) => {
   try {
     // Prefer returning profile info when available
     if (req.username) {
-      const { data: prof } = await supabaseAdmin.from('profiles').select('id, username, credits, phone, created_at').eq('username', req.username).maybeSingle();
+      const { data: prof } = await supabaseAdmin
+        .from("profiles")
+        .select("id, username, credits, phone, created_at")
+        .eq("username", req.username)
+        .maybeSingle();
       if (prof) return res.json({ user: prof });
     }
-    const { data } = await supabaseAdmin.from('users').select('id, username, credits').eq('id', req.userId).maybeSingle();
-    if (!data) return res.status(404).json({ message: 'User not found' });
+    const { data } = await supabaseAdmin
+      .from("users")
+      .select("id, username, credits")
+      .eq("id", req.userId)
+      .maybeSingle();
+    if (!data) return res.status(404).json({ message: "User not found" });
     res.json({ user: data });
-  } catch (e) { console.error(e); res.status(500).json({ message: 'Server error' }); }
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
 // --------------------------
 // Inlined profile route (push-token upsert)
 // --------------------------
-app.post('/api/profile/push-token', authMiddlewareInline, async (req, res) => {
+app.post("/api/profile/push-token", authMiddlewareInline, async (req, res) => {
   try {
     const { pushToken, platform } = req.body;
-    if (!pushToken) return res.status(400).json({ message: 'pushToken required' });
+    if (!pushToken)
+      return res.status(400).json({ message: "pushToken required" });
     // Prefer profiles->push_tokens when a profile UUID exists for this user
     let profileId = null;
     try {
-      if (typeof req.userId === 'string' && req.userId.includes('-')) {
+      if (typeof req.userId === "string" && req.userId.includes("-")) {
         // userId is already a UUID, assume it maps to profiles.id
         profileId = req.userId;
       } else if (req.username) {
-        const { data: prof } = await supabaseAdmin.from('profiles').select('id').eq('username', req.username).maybeSingle();
+        const { data: prof } = await supabaseAdmin
+          .from("profiles")
+          .select("id")
+          .eq("username", req.username)
+          .maybeSingle();
         if (prof && prof.id) profileId = prof.id;
       }
     } catch (e) {
-      console.warn('profile resolution failed', e?.message || e);
+      console.warn("profile resolution failed", e?.message || e);
     }
 
     if (profileId) {
       try {
-        const { error } = await supabaseAdmin.from('push_tokens').upsert({ user_id: profileId, expo_push_token: pushToken, platform }).eq('user_id', profileId);
+        const { error } = await supabaseAdmin
+          .from("push_tokens")
+          .upsert({ user_id: profileId, expo_push_token: pushToken, platform })
+          .eq("user_id", profileId);
         if (error) throw error;
-        return res.json({ success: true, source: 'push_tokens:profile' });
+        return res.json({ success: true, source: "push_tokens:profile" });
       } catch (err) {
-        console.warn('push_tokens upsert with profileId failed', err?.message || err);
+        console.warn(
+          "push_tokens upsert with profileId failed",
+          err?.message || err
+        );
         // fallback to legacy path below
       }
     }
 
     // Legacy/fallback: try upserting with whatever userId we have, then update users.push_token if that fails
     try {
-      const { error } = await supabaseAdmin.from('push_tokens').upsert({ user_id: req.userId, expo_push_token: pushToken, platform }).eq('user_id', req.userId);
-      if (!error) return res.json({ success: true, source: 'push_tokens:legacy' });
+      const { error } = await supabaseAdmin
+        .from("push_tokens")
+        .upsert({ user_id: req.userId, expo_push_token: pushToken, platform })
+        .eq("user_id", req.userId);
+      if (!error)
+        return res.json({ success: true, source: "push_tokens:legacy" });
       throw error;
     } catch (upsertErr) {
-      console.warn('push_tokens upsert legacy failed, attempting users.push_token fallback', upsertErr?.message || upsertErr);
+      console.warn(
+        "push_tokens upsert legacy failed, attempting users.push_token fallback",
+        upsertErr?.message || upsertErr
+      );
       try {
-        const { error: updErr } = await supabaseAdmin.from('users').update({ push_token: pushToken }).eq('id', req.userId);
+        const { error: updErr } = await supabaseAdmin
+          .from("users")
+          .update({ push_token: pushToken })
+          .eq("id", req.userId);
         if (updErr) throw updErr;
-        return res.json({ success: true, source: 'users.push_token' });
+        return res.json({ success: true, source: "users.push_token" });
       } catch (updErr) {
-        console.error('push-token update users failed', updErr?.message || updErr);
+        console.error(
+          "push-token update users failed",
+          updErr?.message || updErr
+        );
         throw updErr;
       }
     }
-  } catch (e) { console.error('push-token upsert', e); res.status(500).json({ message: 'Server error' }); }
+  } catch (e) {
+    console.error("push-token upsert", e);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
 // --------------------------
@@ -2017,89 +2212,261 @@ function startWatcherInline(betslipId) {
   const lastStates = {};
   const intervalId = setInterval(async () => {
     try {
-      const { data: rows } = await supabaseAdmin.from('betslips').select('*').eq('id', betslipId).limit(1);
+      const { data: rows } = await supabaseAdmin
+        .from("betslips")
+        .select("*")
+        .eq("id", betslipId)
+        .limit(1);
       const fresh = (rows && rows[0]) || null;
-      if (!fresh) { clearInterval(intervalId); delete betslipWatchers[betslipId]; return; }
+      if (!fresh) {
+        clearInterval(intervalId);
+        delete betslipWatchers[betslipId];
+        return;
+      }
       const betsArr = (fresh.betslip_data && fresh.betslip_data.bets) || [];
       // fetch summaries
       const summaries = {};
-      for (const evId of Array.from(new Set(betsArr.map(b => b.gameId || b.game_id).filter(Boolean)))) {
-        try { const resp = await axios.get(`${ESPN_BASE_URL}/summary?event=${evId}`); summaries[evId] = resp.data; } catch(e){ console.error('summary fetch', e); }
+      for (const evId of Array.from(
+        new Set(betsArr.map((b) => b.gameId || b.game_id).filter(Boolean))
+      )) {
+        try {
+          const resp = await axios.get(
+            `${ESPN_BASE_URL}/summary?event=${evId}`
+          );
+          summaries[evId] = resp.data;
+        } catch (e) {
+          console.error("summary fetch", e);
+        }
       }
-      let allFinal = true; let anyLost = false;
+      let allFinal = true;
+      let anyLost = false;
       for (const bet of betsArr) {
         const pickKey = bet.id || JSON.stringify(bet);
         const evId = bet.gameId || bet.game_id;
         const summary = summaries[evId];
         let newState = null;
-        if (!summary) newState = 'in progress'; else {
+        if (!summary) newState = "in progress";
+        else {
           const gameStatus = summary.header?.competitions?.[0]?.status?.type;
           const isCompleted = gameStatus?.completed || false;
           // simplified heuristics (moneyline/total/spread/player)
           if (!bet.playerId && !bet.player && !bet.prop) {
-            const competitors = summary.header?.competitions?.[0]?.competitors || [];
-            const betTeam = competitors.find(c => c.team?.abbreviation === (bet.team||bet.selection||bet.description));
-            const opp = competitors.find(c => c.team?.abbreviation !== (bet.team||bet.selection||bet.description));
-            if (betTeam && opp) { const betScore = parseInt(betTeam.score)||0; const oppScore = parseInt(opp.score)||0; const isWinning = betScore>oppScore; newState = isCompleted ? (isWinning ? 'won':'lost') : (isWinning ? 'in progress': false); }
+            const competitors =
+              summary.header?.competitions?.[0]?.competitors || [];
+            const betTeam = competitors.find(
+              (c) =>
+                c.team?.abbreviation ===
+                (bet.team || bet.selection || bet.description)
+            );
+            const opp = competitors.find(
+              (c) =>
+                c.team?.abbreviation !==
+                (bet.team || bet.selection || bet.description)
+            );
+            if (betTeam && opp) {
+              const betScore = parseInt(betTeam.score) || 0;
+              const oppScore = parseInt(opp.score) || 0;
+              const isWinning = betScore > oppScore;
+              newState = isCompleted
+                ? isWinning
+                  ? "won"
+                  : "lost"
+                : isWinning
+                ? "in progress"
+                : false;
+            }
           }
-          if (newState===null && (bet.line||bet.betValue||bet.type==='total')) {
-            const competitors = summary.header?.competitions?.[0]?.competitors || []; const home = parseInt(competitors.find(c=>c.homeAway==='home')?.score)||0; const away=parseInt(competitors.find(c=>c.homeAway==='away')?.score)||0; const currentTotal = home+away; const raw = bet.line||bet.betValue||''; const isOver = String(raw).toLowerCase().startsWith('o'); const lineNum = parseFloat(String(raw).replace(/[^0-9\.\-]/g,''))||0; const isWinning = isOver?currentTotal>lineNum:currentTotal<lineNum; newState = isCompleted ? (isWinning?'won':'lost') : (isWinning?'in progress':false);
+          if (
+            newState === null &&
+            (bet.line || bet.betValue || bet.type === "total")
+          ) {
+            const competitors =
+              summary.header?.competitions?.[0]?.competitors || [];
+            const home =
+              parseInt(competitors.find((c) => c.homeAway === "home")?.score) ||
+              0;
+            const away =
+              parseInt(competitors.find((c) => c.homeAway === "away")?.score) ||
+              0;
+            const currentTotal = home + away;
+            const raw = bet.line || bet.betValue || "";
+            const isOver = String(raw).toLowerCase().startsWith("o");
+            const lineNum =
+              parseFloat(String(raw).replace(/[^0-9\.\-]/g, "")) || 0;
+            const isWinning = isOver
+              ? currentTotal > lineNum
+              : currentTotal < lineNum;
+            newState = isCompleted
+              ? isWinning
+                ? "won"
+                : "lost"
+              : isWinning
+              ? "in progress"
+              : false;
           }
-          if (newState===null) newState='in progress';
+          if (newState === null) newState = "in progress";
         }
         if (lastStates[pickKey] !== newState) {
-          if (newState === 'won') await sendPushNotification(fresh.user_id, 'Pick Won', `Your pick won`, { betslipId: fresh.id, pick: bet });
-          if (newState === 'lost') await sendPushNotification(fresh.user_id, 'Pick Lost', `Your pick lost`, { betslipId: fresh.id, pick: bet });
-          lastStates[pickKey]=newState;
+          if (newState === "won")
+            await sendPushNotification(
+              fresh.user_id,
+              "Pick Won",
+              `Your pick won`,
+              { betslipId: fresh.id, pick: bet }
+            );
+          if (newState === "lost")
+            await sendPushNotification(
+              fresh.user_id,
+              "Pick Lost",
+              `Your pick lost`,
+              { betslipId: fresh.id, pick: bet }
+            );
+          lastStates[pickKey] = newState;
         }
-        if (newState === 'in progress') allFinal=false;
-        if (newState === 'lost') anyLost=true;
+        if (newState === "in progress") allFinal = false;
+        if (newState === "lost") anyLost = true;
       }
       if (allFinal) {
-        const newStatus = anyLost ? 'lost' : 'won';
+        const newStatus = anyLost ? "lost" : "won";
         if (fresh.status !== newStatus) {
-          await supabaseAdmin.from('betslips').update({ status: newStatus }).eq('id', betslipId);
+          await supabaseAdmin
+            .from("betslips")
+            .update({ status: newStatus })
+            .eq("id", betslipId);
           // send bet result
-          await sendPushNotification(fresh.user_id, newStatus==='won' ? 'Bet Won' : 'Bet Lost', `Your bet has ${newStatus}`, { betslipId });
+          await sendPushNotification(
+            fresh.user_id,
+            newStatus === "won" ? "Bet Won" : "Bet Lost",
+            `Your bet has ${newStatus}`,
+            { betslipId }
+          );
         }
-        clearInterval(intervalId); delete betslipWatchers[betslipId];
+        clearInterval(intervalId);
+        delete betslipWatchers[betslipId];
       }
-    } catch(e){ console.error('watcher tick error', e); }
+    } catch (e) {
+      console.error("watcher tick error", e);
+    }
   }, 5000);
   betslipWatchers[betslipId] = { intervalId, lastStates };
 }
 
-app.post('/api/betslips', authMiddlewareInline, async (req, res) => {
+app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
   try {
     const { betslipData, totalStake, potentialPayout } = req.body;
-    const { data: user } = await supabaseAdmin.from('users').select('credits').eq('id', req.userId).maybeSingle();
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    if (parseFloat(user.credits) < totalStake) return res.status(400).json({ message: 'Insufficient credits' });
+    const { data: user } = await supabaseAdmin
+      .from("users")
+      .select("credits")
+      .eq("id", req.userId)
+      .maybeSingle();
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (parseFloat(user.credits) < totalStake)
+      return res.status(400).json({ message: "Insufficient credits" });
     const newCredits = parseFloat(user.credits) - totalStake;
-    const { error: updErr } = await supabaseAdmin.from('users').update({ credits: newCredits }).eq('id', req.userId);
+    const { error: updErr } = await supabaseAdmin
+      .from("users")
+      .update({ credits: newCredits })
+      .eq("id", req.userId);
     if (updErr) throw updErr;
-    const { data: inserted } = await supabaseAdmin.from('betslips').insert({ user_id: req.userId, betslip_data: betslipData, total_stake: totalStake, potential_payout: potentialPayout }).select().maybeSingle();
-    await supabaseAdmin.from('bet_history').insert({ user_id: req.userId, betslip_id: inserted.id, action: 'placed', credits_change: -totalStake, credits_after: newCredits });
+    const { data: inserted } = await supabaseAdmin
+      .from("betslips")
+      .insert({
+        user_id: req.userId,
+        betslip_data: betslipData,
+        total_stake: totalStake,
+        potential_payout: potentialPayout,
+      })
+      .select()
+      .maybeSingle();
+    await supabaseAdmin
+      .from("bet_history")
+      .insert({
+        user_id: req.userId,
+        betslip_id: inserted.id,
+        action: "placed",
+        credits_change: -totalStake,
+        credits_after: newCredits,
+      });
     // start watcher
     startWatcherInline(inserted.id);
-    res.status(201).json({ message: 'Bet placed', betslipId: inserted.id, creditsRemaining: newCredits });
-  } catch(e){ console.error('place bet', e); res.status(500).json({ message: 'Server error' }); }
+    res
+      .status(201)
+      .json({
+        message: "Bet placed",
+        betslipId: inserted.id,
+        creditsRemaining: newCredits,
+      });
+  } catch (e) {
+    console.error("place bet", e);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
-app.get('/api/betslips', authMiddlewareInline, async (req, res) => {
-  try { const { data } = await supabaseAdmin.from('betslips').select('*').eq('user_id', req.userId).order('created_at', { ascending: false }); res.json({ betslips: data || [] }); } catch (e) { console.error(e); res.status(500).json({ message: 'Server error' }); }
+app.get("/api/betslips", authMiddlewareInline, async (req, res) => {
+  try {
+    const { data } = await supabaseAdmin
+      .from("betslips")
+      .select("*")
+      .eq("user_id", req.userId)
+      .order("created_at", { ascending: false });
+    res.json({ betslips: data || [] });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
-app.get('/api/betslips/:id', authMiddlewareInline, async (req, res) => {
-  try { const { data } = await supabaseAdmin.from('betslips').select('*').eq('id', req.params.id).maybeSingle(); if (!data) return res.status(404).json({ message: 'Betslip not found' }); res.json({ betslip: data }); } catch(e){ console.error(e); res.status(500).json({ message: 'Server error' }); }
+app.get("/api/betslips/:id", authMiddlewareInline, async (req, res) => {
+  try {
+    const { data } = await supabaseAdmin
+      .from("betslips")
+      .select("*")
+      .eq("id", req.params.id)
+      .maybeSingle();
+    if (!data) return res.status(404).json({ message: "Betslip not found" });
+    res.json({ betslip: data });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
-app.post('/api/betslips/:id/watch', authMiddlewareInline, async (req, res) => {
-  const id = req.params.id; try { const { data } = await supabaseAdmin.from('betslips').select('id, user_id').eq('id', id).maybeSingle(); if (!data) return res.status(404).json({ message: 'Betslip not found' }); if (data.user_id !== req.userId) return res.status(403).json({ message: 'Forbidden' }); if (betslipWatchers[id]) return res.json({ message: 'Already watching' }); startWatcherInline(id); res.json({ message: 'Watcher started' }); } catch(e){ console.error(e); res.status(500).json({ message: 'Server error' }); }
+app.post("/api/betslips/:id/watch", authMiddlewareInline, async (req, res) => {
+  const id = req.params.id;
+  try {
+    const { data } = await supabaseAdmin
+      .from("betslips")
+      .select("id, user_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (!data) return res.status(404).json({ message: "Betslip not found" });
+    if (data.user_id !== req.userId)
+      return res.status(403).json({ message: "Forbidden" });
+    if (betslipWatchers[id]) return res.json({ message: "Already watching" });
+    startWatcherInline(id);
+    res.json({ message: "Watcher started" });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
-app.delete('/api/betslips/:id/watch', authMiddlewareInline, async (req, res) => { const id = req.params.id; try { if (!betslipWatchers[id]) return res.json({ watching: false }); clearInterval(betslipWatchers[id].intervalId); delete betslipWatchers[id]; res.json({ watching: false }); } catch(e){ console.error(e); res.status(500).json({ message: 'Server error' }); } });
-
+app.delete(
+  "/api/betslips/:id/watch",
+  authMiddlewareInline,
+  async (req, res) => {
+    const id = req.params.id;
+    try {
+      if (!betslipWatchers[id]) return res.json({ watching: false });
+      clearInterval(betslipWatchers[id].intervalId);
+      delete betslipWatchers[id];
+      res.json({ watching: false });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
 
 // Start server
 app.listen(PORT, () => {

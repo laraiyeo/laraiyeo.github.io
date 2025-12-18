@@ -4,11 +4,17 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // Helper: decode a JWT without external deps (returns payload object)
 function decodeJwt(token) {
   try {
-    const parts = token.split('.');
+    const parts = token.split(".");
     if (parts.length < 2) return null;
     const payload = parts[1];
-    const padded = payload.padEnd(payload.length + (4 - (payload.length % 4)) % 4, '=');
-    const decoded = Buffer.from(padded.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+    const padded = payload.padEnd(
+      payload.length + ((4 - (payload.length % 4)) % 4),
+      "="
+    );
+    const decoded = Buffer.from(
+      padded.replace(/-/g, "+").replace(/_/g, "/"),
+      "base64"
+    ).toString("utf8");
     return JSON.parse(decoded);
   } catch (e) {
     return null;
@@ -122,9 +128,15 @@ export const getUserBetslips = async (status = null) => {
 
     if (!profileId) {
       try {
-        const { data: prof } = await supabase.from('profiles').select('id').eq('id', user.id).maybeSingle();
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("id", user.id)
+          .maybeSingle();
         if (prof && prof.id) profileId = prof.id;
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        /* ignore */
+      }
     }
 
     const uid = profileId || user.id;
@@ -181,7 +193,11 @@ export const getBetHistory = async () => {
     } catch (e) {}
     if (!profileId) {
       try {
-        const { data: prof } = await supabase.from('profiles').select('id').eq('id', user.id).maybeSingle();
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("id", user.id)
+          .maybeSingle();
         if (prof && prof.id) profileId = prof.id;
       } catch (e) {}
     }
@@ -238,17 +254,25 @@ export const createBetslip = async (
     let username = null;
     try {
       if (profileId) {
-        const { data: profileData } = await supabase.from('profiles').select('username').eq('id', profileId).maybeSingle();
-        if (profileData && profileData.username) username = profileData.username;
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", profileId)
+          .maybeSingle();
+        if (profileData && profileData.username)
+          username = profileData.username;
       } else {
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("username")
           .eq("id", user.id)
           .maybeSingle();
-        if (profileData && profileData.username) username = profileData.username;
+        if (profileData && profileData.username)
+          username = profileData.username;
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      /* ignore */
+    }
 
     // Normalize bets
     const bets = Array.isArray(betslipData && betslipData.bets)
