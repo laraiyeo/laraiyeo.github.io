@@ -1262,23 +1262,36 @@ app.get("/api/summary/:eventId", async (req, res) => {
     // If we had an old summary, compare game state transitions
     try {
       const oldState = old?.header?.competitions?.[0]?.status?.type?.state;
-      const newState = newSummary?.header?.competitions?.[0]?.status?.type?.state;
+      const newState =
+        newSummary?.header?.competitions?.[0]?.status?.type?.state;
       if (oldState && newState && oldState !== newState) {
         const comp = newSummary.header?.competitions?.[0];
-        const home = comp?.competitors?.find((c) => c.homeAway === 'home')?.team?.abbreviation || '';
-        const away = comp?.competitors?.find((c) => c.homeAway === 'away')?.team?.abbreviation || '';
-        if (oldState === 'pre' && newState === 'in') {
+        const home =
+          comp?.competitors?.find((c) => c.homeAway === "home")?.team
+            ?.abbreviation || "";
+        const away =
+          comp?.competitors?.find((c) => c.homeAway === "away")?.team
+            ?.abbreviation || "";
+        if (oldState === "pre" && newState === "in") {
           // game started
-          broadcastToAll('Game Starts', `${home} vs ${away} has now started`, { eventId });
+          broadcastToAll("Game Starts", `${home} vs ${away} has now started`, {
+            eventId,
+          });
         }
-        if (oldState === 'in' && newState === 'post') {
-          const homeScore = comp?.competitors?.find((c) => c.homeAway === 'home')?.score || 0;
-          const awayScore = comp?.competitors?.find((c) => c.homeAway === 'away')?.score || 0;
-          broadcastToAll('Game Ended', `${home} ${homeScore} vs ${away} ${awayScore} has ended!`, { eventId });
+        if (oldState === "in" && newState === "post") {
+          const homeScore =
+            comp?.competitors?.find((c) => c.homeAway === "home")?.score || 0;
+          const awayScore =
+            comp?.competitors?.find((c) => c.homeAway === "away")?.score || 0;
+          broadcastToAll(
+            "Game Ended",
+            `${home} ${homeScore} vs ${away} ${awayScore} has ended!`,
+            { eventId }
+          );
         }
       }
     } catch (e) {
-      console.error('Error comparing summary states', e?.message || e);
+      console.error("Error comparing summary states", e?.message || e);
     }
 
     // Transform and return only the filtered data
@@ -1359,11 +1372,23 @@ app.get("/api/betslip", async (req, res) => {
             state: gameStatus?.state,
             date: summaryData.header?.competitions?.[0]?.date || null,
             game: {
-                homeTeam: summaryData.header?.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home')?.team?.abbreviation || null,
-                awayTeam: summaryData.header?.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away')?.team?.abbreviation || null,
-                homeScore: summaryData.header?.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home')?.score || null,
-                awayScore: summaryData.header?.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away')?.score || null,
-            }
+              homeTeam:
+                summaryData.header?.competitions?.[0]?.competitors?.find(
+                  (c) => c.homeAway === "home"
+                )?.team?.abbreviation || null,
+              awayTeam:
+                summaryData.header?.competitions?.[0]?.competitors?.find(
+                  (c) => c.homeAway === "away"
+                )?.team?.abbreviation || null,
+              homeScore:
+                summaryData.header?.competitions?.[0]?.competitors?.find(
+                  (c) => c.homeAway === "home"
+                )?.score || null,
+              awayScore:
+                summaryData.header?.competitions?.[0]?.competitors?.find(
+                  (c) => c.homeAway === "away"
+                )?.score || null,
+            },
           },
           bets: {},
         };
@@ -1693,13 +1718,13 @@ app.get("/api/betslip", async (req, res) => {
 });
 
 // Backwards-compatible alias: redirect /api/betslip/notification to /api/betslip
-const url = require('url');
-app.get('/api/betslip/notification', (req, res) => {
+const url = require("url");
+app.get("/api/betslip/notification", (req, res) => {
   try {
-    const search = url.parse(req.url).search || '';
-    return res.redirect(307, '/api/betslip' + search);
+    const search = url.parse(req.url).search || "";
+    return res.redirect(307, "/api/betslip" + search);
   } catch (e) {
-    return res.status(500).json({ error: 'Redirect failed' });
+    return res.status(500).json({ error: "Redirect failed" });
   }
 });
 

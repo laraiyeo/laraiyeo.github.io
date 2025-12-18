@@ -2930,7 +2930,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           style={[
                             styles.gameLineCellLine,
                             {
-                              color: isBetSelected(overBetId) ? "white" : theme.text,
+                              color: isBetSelected(overBetId)
+                                ? "white"
+                                : theme.text,
                             },
                           ]}
                         >
@@ -3101,7 +3103,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           style={[
                             styles.gameLineCellLine,
                             {
-                              color: isBetSelected(underBetId) ? "white" : theme.text,
+                              color: isBetSelected(underBetId)
+                                ? "white"
+                                : theme.text,
                             },
                           ]}
                         >

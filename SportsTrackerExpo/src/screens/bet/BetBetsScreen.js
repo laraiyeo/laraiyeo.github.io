@@ -57,18 +57,20 @@ const BetBetsScreen = () => {
   // Helper to get ticket timestamp (prefer `timestamp`, then `createdAt`, then `created_at`)
   const getTicketTimestamp = (ticket) => {
     return (
-      ticket.timestamp || ticket.createdAt || ticket.created_at || ticket.created || null
+      ticket.timestamp ||
+      ticket.createdAt ||
+      ticket.created_at ||
+      ticket.created ||
+      null
     );
   };
 
   // Sort tickets so earliest created_at is on top (ascending by timestamp)
-  const bets = filteredBets
-    .slice()
-    .sort((a, b) => {
-      const ta = new Date(getTicketTimestamp(a) || 0).getTime();
-      const tb = new Date(getTicketTimestamp(b) || 0).getTime();
-      return ta - tb;
-    });
+  const bets = filteredBets.slice().sort((a, b) => {
+    const ta = new Date(getTicketTimestamp(a) || 0).getTime();
+    const tb = new Date(getTicketTimestamp(b) || 0).getTime();
+    return ta - tb;
+  });
 
   const toggleParlay = (parlayId) => {
     setExpandedParlays((prev) => {
@@ -88,7 +90,9 @@ const BetBetsScreen = () => {
     // interactions from being immediately overridden by the effect.
     if (bets.length === 1) {
       const desired = new Set([bets[0].id]);
-      const same = expandedParlays.size === desired.size && [...desired].every((id) => expandedParlays.has(id));
+      const same =
+        expandedParlays.size === desired.size &&
+        [...desired].every((id) => expandedParlays.has(id));
       if (!same) setExpandedParlays(desired);
     } else {
       if (expandedParlays.size > 0) setExpandedParlays(new Set());
@@ -159,8 +163,17 @@ const BetBetsScreen = () => {
   const formatToESTDateTime = (iso) => {
     try {
       const date = iso ? new Date(iso) : new Date();
-      const optsDate = { timeZone: "America/New_York", month: "short", day: "2-digit" };
-      const optsTime = { timeZone: "America/New_York", hour: "numeric", minute: "2-digit", hour12: true };
+      const optsDate = {
+        timeZone: "America/New_York",
+        month: "short",
+        day: "2-digit",
+      };
+      const optsTime = {
+        timeZone: "America/New_York",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      };
       const dateStr = date.toLocaleDateString("en-US", optsDate);
       const timeStr = date.toLocaleTimeString("en-US", optsTime) + " EST";
       return { dateStr, timeStr };
@@ -683,9 +696,7 @@ const BetBetsScreen = () => {
       const liveGame = getLiveGameData(bet.gameId);
       pick.gameInfo = liveGame?.shortName || bet.gameInfoTeams || "Game";
       pick.gameStatus =
-        liveGame?.status?.type?.shortDetail ||
-        bet.gameInfoTime ||
-        "Scheduled";
+        liveGame?.status?.type?.shortDetail || bet.gameInfoTime || "Scheduled";
 
       // Player props
       if (bet.playerId) {
@@ -957,7 +968,14 @@ const BetBetsScreen = () => {
           </View>
           {/* collapse / timestamp */}
           <TouchableOpacity
-            style={[styles.collapseButton, { flexDirection: "row", alignItems: "center", justifyContent: "center" }]}
+            style={[
+              styles.collapseButton,
+              {
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+              },
+            ]}
             onPress={() => toggleParlay(betSlip.id)}
           >
             <Ionicons name="chevron-up" size={20} color={theme.textSecondary} />
@@ -966,8 +984,12 @@ const BetBetsScreen = () => {
               const { dateStr, timeStr } = formatToESTDateTime(ts);
               return (
                 <View style={{ marginLeft: 8, alignItems: "flex-start" }}>
-                  <Text style={{ color: theme.textSecondary, fontSize: 12 }}>{dateStr}</Text>
-                  <Text style={{ color: theme.textTertiary, fontSize: 12 }}>{timeStr}</Text>
+                  <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
+                    {dateStr}
+                  </Text>
+                  <Text style={{ color: theme.textTertiary, fontSize: 12 }}>
+                    {timeStr}
+                  </Text>
                 </View>
               );
             })()}
@@ -1072,7 +1094,14 @@ const BetBetsScreen = () => {
           </View>
           {/* collapse / timestamp */}
           <TouchableOpacity
-            style={[styles.collapseButton, { flexDirection: "row", alignItems: "center", justifyContent: "center" }]}
+            style={[
+              styles.collapseButton,
+              {
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+              },
+            ]}
             onPress={() => toggleParlay(betSlip.id)}
           >
             <Ionicons name="chevron-up" size={20} color={theme.textSecondary} />
@@ -1081,8 +1110,12 @@ const BetBetsScreen = () => {
               const { dateStr, timeStr } = formatToESTDateTime(ts);
               return (
                 <View style={{ marginLeft: 8, alignItems: "flex-start" }}>
-                  <Text style={{ color: theme.textSecondary, fontSize: 12 }}>{dateStr}</Text>
-                  <Text style={{ color: theme.textTertiary, fontSize: 12 }}>{timeStr}</Text>
+                  <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
+                    {dateStr}
+                  </Text>
+                  <Text style={{ color: theme.textTertiary, fontSize: 12 }}>
+                    {timeStr}
+                  </Text>
                 </View>
               );
             })()}
@@ -1170,8 +1203,10 @@ const BetBetsScreen = () => {
 
     // Sort games within a ticket by start time parsed from picks[0].gameInfo
     const sortedGameEntries = Object.entries(picksByGame).sort((a, b) => {
-      const aInfo = a[1][0].gameInfo || a[1][0].gameInfoTeams || a[1][0].gameInfoTime;
-      const bInfo = b[1][0].gameInfo || b[1][0].gameInfoTeams || b[1][0].gameInfoTime;
+      const aInfo =
+        a[1][0].gameInfo || a[1][0].gameInfoTeams || a[1][0].gameInfoTime;
+      const bInfo =
+        b[1][0].gameInfo || b[1][0].gameInfoTeams || b[1][0].gameInfoTime;
       const ta = parseGameInfoTime(aInfo);
       const tb = parseGameInfoTime(bInfo);
       return ta - tb;
@@ -1197,8 +1232,12 @@ const BetBetsScreen = () => {
           const scores = liveGame?.competitions?.[0]?.competitors;
           // ensure picks for this game are sorted by their parsed start time
           picks.sort((p1, p2) => {
-            const t1 = parseGameInfoTime(p1.gameInfo || p1.gameInfoTeams || p1.gameInfoTime);
-            const t2 = parseGameInfoTime(p2.gameInfo || p2.gameInfoTeams || p2.gameInfoTime);
+            const t1 = parseGameInfoTime(
+              p1.gameInfo || p1.gameInfoTeams || p1.gameInfoTime
+            );
+            const t2 = parseGameInfoTime(
+              p2.gameInfo || p2.gameInfoTeams || p2.gameInfoTime
+            );
             return t1 - t2;
           });
           return (
@@ -1249,7 +1288,14 @@ const BetBetsScreen = () => {
         })}
 
         <TouchableOpacity
-          style={[styles.collapseButton, { flexDirection: "row", alignItems: "center", justifyContent: "center" }]}
+          style={[
+            styles.collapseButton,
+            {
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+            },
+          ]}
           onPress={() => toggleParlay(betSlip.id)}
         >
           <Ionicons name="chevron-up" size={20} color={theme.textSecondary} />
@@ -1258,8 +1304,12 @@ const BetBetsScreen = () => {
             const { dateStr, timeStr } = formatToESTDateTime(ts);
             return (
               <View style={{ marginLeft: 8, alignItems: "flex-start" }}>
-                <Text style={{ color: theme.textSecondary, fontSize: 12 }}>{dateStr}</Text>
-                <Text style={{ color: theme.textTertiary, fontSize: 12 }}>{timeStr}</Text>
+                <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
+                  {dateStr}
+                </Text>
+                <Text style={{ color: theme.textTertiary, fontSize: 12 }}>
+                  {timeStr}
+                </Text>
               </View>
             );
           })()}

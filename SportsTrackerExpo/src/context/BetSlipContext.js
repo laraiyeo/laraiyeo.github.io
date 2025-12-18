@@ -323,12 +323,16 @@ export const BetSlipProvider = ({ children }) => {
               // Use only the aggregated row's bets to avoid duplicating per-bet rows
               timestamp =
                 aggregatedRow.created_at ||
-                (aggregatedRow.betslip_data && aggregatedRow.betslip_data.createdAt) ||
+                (aggregatedRow.betslip_data &&
+                  aggregatedRow.betslip_data.createdAt) ||
                 timestamp;
               status = aggregatedRow.status || status;
               if (Array.isArray(aggregatedRow.betslip_data?.bets)) {
                 aggregatedRow.betslip_data.bets.forEach((b) => bets.push(b));
-              } else if (aggregatedRow.betslip_data && aggregatedRow.betslip_data.id) {
+              } else if (
+                aggregatedRow.betslip_data &&
+                aggregatedRow.betslip_data.id
+              ) {
                 bets.push(aggregatedRow.betslip_data);
               }
             } else {
@@ -338,7 +342,8 @@ export const BetSlipProvider = ({ children }) => {
                     row.created_at ||
                     (row.betslip_data && row.betslip_data.createdAt) ||
                     null;
-                if (!status || status === "pending") status = row.status || status;
+                if (!status || status === "pending")
+                  status = row.status || status;
 
                 bets.push({
                   id: row.id,
