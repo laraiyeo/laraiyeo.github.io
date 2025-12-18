@@ -45,7 +45,7 @@ const BetBetsScreen = () => {
   };
 
   // Filter bets by tab
-  const bets = submittedBets.filter((bet) => {
+  const filteredBets = submittedBets.filter((bet) => {
     if (selectedTab === "open") {
       return bet.status === "open";
     } else if (selectedTab === "settled") {
@@ -53,6 +53,22 @@ const BetBetsScreen = () => {
     }
     return false;
   });
+
+  // Helper to get ticket timestamp (prefer `timestamp`, then `createdAt`, then `created_at`)
+  const getTicketTimestamp = (ticket) => {
+    return (
+      ticket.timestamp || ticket.createdAt || ticket.created_at || ticket.created || null
+    );
+  };
+
+  // Sort tickets so earliest created_at is on top (ascending by timestamp)
+  const bets = filteredBets
+    .slice()
+    .sort((a, b) => {
+      const ta = new Date(getTicketTimestamp(a) || 0).getTime();
+      const tb = new Date(getTicketTimestamp(b) || 0).getTime();
+      return ta - tb;
+    });
 
   const toggleParlay = (parlayId) => {
     setExpandedParlays((prev) => {
@@ -64,6 +80,93 @@ const BetBetsScreen = () => {
       }
       return newSet;
     });
+  };
+
+  // Auto-expand behavior: if there's exactly one ticket, expand it. If multiple, collapse all.
+  useEffect(() => {
+    // Run only when the number of tickets changes. This prevents toggle
+    // interactions from being immediately overridden by the effect.
+    if (bets.length === 1) {
+      const desired = new Set([bets[0].id]);
+      const same = expandedParlays.size === desired.size && [...desired].every((id) => expandedParlays.has(id));
+      if (!same) setExpandedParlays(desired);
+    } else {
+      if (expandedParlays.size > 0) setExpandedParlays(new Set());
+    }
+    // Intentionally only depend on bets.length so user toggles aren't reset
+    // by this effect. eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bets.length]);
+
+  // Parse various gameInfo formats into a timestamp (ms).
+  // Handles strings like "12/18 - 7:00 PM EST", "LAC @ OKC - 12/18 - 7:00 PM EST",
+  // and other variants. It finds the date (MM/DD) and the time (hh:mm AM/PM)
+  // segments and builds a Date using America/New_York (EST) for ordering.
+  const parseGameInfoTime = (gameInfo) => {
+    try {
+      if (!gameInfo) return 0;
+      const str = String(gameInfo);
+
+      // Split on " - " and find parts that look like a date or time
+      const parts = str.split(" - ").map((p) => p.trim());
+
+      // regexes
+      const dateRegex = /\b(\d{1,2})\/(\d{1,2})\b/; // MM/DD
+      const timeRegex = /(\d{1,2}:\d{2})\s*(AM|PM|am|pm)/;
+
+      let datePart = null;
+      let timePart = null;
+
+      // search parts for time and date components
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const p = parts[i];
+        if (!timePart && timeRegex.test(p)) {
+          const m = p.match(timeRegex);
+          timePart = m ? m[0] : p;
+          continue;
+        }
+        if (!datePart && dateRegex.test(p)) {
+          const m = p.match(dateRegex);
+          datePart = m ? `${m[1]}/${m[2]}` : p;
+          continue;
+        }
+      }
+
+      // As a fallback, try to extract date/time from the whole string
+      if (!timePart) {
+        const m = str.match(timeRegex);
+        if (m) timePart = m[0];
+      }
+      if (!datePart) {
+        const m = str.match(dateRegex);
+        if (m) datePart = `${m[1]}/${m[2]}`;
+      }
+
+      if (!datePart || !timePart) return 0;
+
+      const [month, day] = datePart.split("/").map((n) => parseInt(n, 10));
+      const year = new Date().getFullYear();
+
+      // Compose a string that Date.parse understands with explicit EST
+      const human = `${month}/${day}/${year} ${timePart} EST`;
+      const ts = Date.parse(human);
+      return isNaN(ts) ? 0 : ts;
+    } catch (e) {
+      return 0;
+    }
+  };
+
+  // Format timestamp to EST date and time strings
+  const formatToESTDateTime = (iso) => {
+    try {
+      const date = iso ? new Date(iso) : new Date();
+      const optsDate = { timeZone: "America/New_York", month: "short", day: "2-digit" };
+      const optsTime = { timeZone: "America/New_York", hour: "numeric", minute: "2-digit", hour12: true };
+      const dateStr = date.toLocaleDateString("en-US", optsDate);
+      const timeStr = date.toLocaleTimeString("en-US", optsTime) + " EST";
+      return { dateStr, timeStr };
+    } catch (e) {
+      return { dateStr: "", timeStr: "" };
+    }
   };
 
   const getStatusIcon = (status) => {
@@ -578,10 +681,10 @@ const BetBetsScreen = () => {
 
       // Get live game data
       const liveGame = getLiveGameData(bet.gameId);
-      pick.gameInfo = liveGame?.shortName || bet.gameInfo?.teams || "Game";
+      pick.gameInfo = liveGame?.shortName || bet.gameInfoTeams || "Game";
       pick.gameStatus =
         liveGame?.status?.type?.shortDetail ||
-        bet.gameInfo?.time ||
+        bet.gameInfoTime ||
         "Scheduled";
 
       // Player props
@@ -812,7 +915,7 @@ const BetBetsScreen = () => {
               <Text
                 style={[
                   styles.parlayGameStatus,
-                  { color: theme.textTertiary, marginLeft: 8 },
+                  { color: theme.textTertiary, marginLeft: 0 },
                 ]}
               >
                 {liveGame?.status?.type?.shortDetail || pick.gameStatus}
@@ -852,6 +955,23 @@ const BetBetsScreen = () => {
               </Text>
             </View>
           </View>
+          {/* collapse / timestamp */}
+          <TouchableOpacity
+            style={[styles.collapseButton, { flexDirection: "row", alignItems: "center", justifyContent: "center" }]}
+            onPress={() => toggleParlay(betSlip.id)}
+          >
+            <Ionicons name="chevron-up" size={20} color={theme.textSecondary} />
+            {(() => {
+              const ts = getTicketTimestamp(betSlip);
+              const { dateStr, timeStr } = formatToESTDateTime(ts);
+              return (
+                <View style={{ marginLeft: 8, alignItems: "flex-start" }}>
+                  <Text style={{ color: theme.textSecondary, fontSize: 12 }}>{dateStr}</Text>
+                  <Text style={{ color: theme.textTertiary, fontSize: 12 }}>{timeStr}</Text>
+                </View>
+              );
+            })()}
+          </TouchableOpacity>
         </View>
       );
     }
@@ -886,7 +1006,7 @@ const BetBetsScreen = () => {
               >
                 {liveGame?.shortName || firstPick.gameInfo}
               </Text>
-              {scores && (
+              {scores && liveGame?.status?.type?.state === "in" && (
                 <Text style={[styles.scoreText, { color: theme.text }]}>
                   {scores[1]?.score || 0} - {scores[0]?.score || 0}
                 </Text>
@@ -903,7 +1023,7 @@ const BetBetsScreen = () => {
               <Text
                 style={[
                   styles.parlayGameStatus,
-                  { color: theme.textTertiary, marginLeft: 8 },
+                  { color: theme.textTertiary, marginLeft: 0 },
                 ]}
               >
                 {liveGame?.status?.type?.shortDetail || firstPick.gameStatus}
@@ -950,6 +1070,23 @@ const BetBetsScreen = () => {
               </Text>
             </View>
           </View>
+          {/* collapse / timestamp */}
+          <TouchableOpacity
+            style={[styles.collapseButton, { flexDirection: "row", alignItems: "center", justifyContent: "center" }]}
+            onPress={() => toggleParlay(betSlip.id)}
+          >
+            <Ionicons name="chevron-up" size={20} color={theme.textSecondary} />
+            {(() => {
+              const ts = getTicketTimestamp(betSlip);
+              const { dateStr, timeStr } = formatToESTDateTime(ts);
+              return (
+                <View style={{ marginLeft: 8, alignItems: "flex-start" }}>
+                  <Text style={{ color: theme.textSecondary, fontSize: 12 }}>{dateStr}</Text>
+                  <Text style={{ color: theme.textTertiary, fontSize: 12 }}>{timeStr}</Text>
+                </View>
+              );
+            })()}
+          </TouchableOpacity>
         </View>
       );
     }
@@ -1031,6 +1168,15 @@ const BetBetsScreen = () => {
       picksByGame[pick.gameId].push(pick);
     });
 
+    // Sort games within a ticket by start time parsed from picks[0].gameInfo
+    const sortedGameEntries = Object.entries(picksByGame).sort((a, b) => {
+      const aInfo = a[1][0].gameInfo || a[1][0].gameInfoTeams || a[1][0].gameInfoTime;
+      const bInfo = b[1][0].gameInfo || b[1][0].gameInfoTeams || b[1][0].gameInfoTime;
+      const ta = parseGameInfoTime(aInfo);
+      const tb = parseGameInfoTime(bInfo);
+      return ta - tb;
+    });
+
     return (
       <View
         key={betSlip.id}
@@ -1046,10 +1192,15 @@ const BetBetsScreen = () => {
           <Text style={[styles.parlayOdds, { color: theme.text }]}>{odds}</Text>
         </View>
 
-        {Object.entries(picksByGame).map(([gameId, picks]) => {
+        {sortedGameEntries.map(([gameId, picks]) => {
           const liveGame = getLiveGameData(gameId);
           const scores = liveGame?.competitions?.[0]?.competitors;
-
+          // ensure picks for this game are sorted by their parsed start time
+          picks.sort((p1, p2) => {
+            const t1 = parseGameInfoTime(p1.gameInfo || p1.gameInfoTeams || p1.gameInfoTime);
+            const t2 = parseGameInfoTime(p2.gameInfo || p2.gameInfoTeams || p2.gameInfoTime);
+            return t1 - t2;
+          });
           return (
             <View key={gameId} style={{ marginBottom: 16 }}>
               <View style={styles.parlayGameInfo}>
@@ -1062,7 +1213,7 @@ const BetBetsScreen = () => {
                   >
                     {liveGame?.shortName || picks[0].gameInfo}
                   </Text>
-                  {scores && (
+                  {scores && liveGame?.status?.type?.state === "in" && (
                     <Text style={[styles.scoreText, { color: theme.text }]}>
                       {scores[1]?.score || 0} - {scores[0]?.score || 0}
                     </Text>
@@ -1082,7 +1233,7 @@ const BetBetsScreen = () => {
                   <Text
                     style={[
                       styles.parlayGameStatus,
-                      { color: theme.textTertiary, marginLeft: 8 },
+                      { color: theme.textTertiary, marginLeft: 0 },
                     ]}
                   >
                     {liveGame?.status?.type?.shortDetail || picks[0].gameStatus}
@@ -1098,10 +1249,20 @@ const BetBetsScreen = () => {
         })}
 
         <TouchableOpacity
-          style={styles.collapseButton}
+          style={[styles.collapseButton, { flexDirection: "row", alignItems: "center", justifyContent: "center" }]}
           onPress={() => toggleParlay(betSlip.id)}
         >
           <Ionicons name="chevron-up" size={20} color={theme.textSecondary} />
+          {(() => {
+            const ts = getTicketTimestamp(betSlip);
+            const { dateStr, timeStr } = formatToESTDateTime(ts);
+            return (
+              <View style={{ marginLeft: 8, alignItems: "flex-start" }}>
+                <Text style={{ color: theme.textSecondary, fontSize: 12 }}>{dateStr}</Text>
+                <Text style={{ color: theme.textTertiary, fontSize: 12 }}>{timeStr}</Text>
+              </View>
+            );
+          })()}
         </TouchableOpacity>
       </View>
     );

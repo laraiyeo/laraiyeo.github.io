@@ -1870,7 +1870,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                           { color: theme.textSecondary },
                                         ]}
                                       >
-                                        {positionAbbr} • {jersey}
+                                        {positionAbbr} • #{jersey}
                                       </Text>
                                     </View>
                                   </View>
@@ -2892,60 +2892,65 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.gameLineCell,
-                      {
-                        backgroundColor: isBetSelected("over")
-                          ? colors.primary
-                          : theme.surface,
-                      },
-                    ]}
-                    onPress={() => {
-                      const betId = "over";
-                      if (isBetSelected(betId)) {
-                        toggleBet(betId);
-                      } else {
-                        toggleBet({
-                          id: betId,
-                          gameId: gameData.id,
-                          gameInfo: {
-                            time: gameData.statusDetail || "TBD",
-                            teams: `${awayTeam} @ ${homeTeam}`,
+                  {(() => {
+                    const overBetId = `total-${gameData.id}-over`;
+                    return (
+                      <TouchableOpacity
+                        style={[
+                          styles.gameLineCell,
+                          {
+                            backgroundColor: isBetSelected(overBetId)
+                              ? colors.primary
+                              : theme.surface,
                           },
-                          type: "Total",
-                          description: "Over",
-                          line: `O ${overData?.line}`,
-                          odds: formatOdds(overData?.odds),
-                          awayTeam,
-                          homeTeam,
-                        });
-                      }
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.gameLineCellLine,
-                        {
-                          color: isBetSelected("over") ? "white" : theme.text,
-                        },
-                      ]}
-                    >
-                      O {overData?.line}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.gameLineCellOdds,
-                        {
-                          color: isBetSelected("over")
-                            ? "white"
-                            : colors.primary,
-                        },
-                      ]}
-                    >
-                      {formatOdds(overData?.odds)}
-                    </Text>
-                  </TouchableOpacity>
+                        ]}
+                        onPress={() => {
+                          const betId = overBetId;
+                          if (isBetSelected(betId)) {
+                            toggleBet(betId);
+                          } else {
+                            toggleBet({
+                              id: betId,
+                              gameId: gameData.id,
+                              gameInfo: {
+                                time: gameData.statusDetail || "TBD",
+                                teams: `${awayTeam} @ ${homeTeam}`,
+                              },
+                              type: "Total",
+                              description: "Over",
+                              line: `O ${overData?.line}`,
+                              odds: formatOdds(overData?.odds),
+                              awayTeam,
+                              homeTeam,
+                            });
+                          }
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.gameLineCellLine,
+                            {
+                              color: isBetSelected(overBetId) ? "white" : theme.text,
+                            },
+                          ]}
+                        >
+                          O {overData?.line}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.gameLineCellOdds,
+                            {
+                              color: isBetSelected(overBetId)
+                                ? "white"
+                                : colors.primary,
+                            },
+                          ]}
+                        >
+                          {formatOdds(overData?.odds)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })()}
 
                   <TouchableOpacity
                     style={[
@@ -3058,60 +3063,65 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.gameLineCell,
-                      {
-                        backgroundColor: isBetSelected("under")
-                          ? colors.primary
-                          : theme.surface,
-                      },
-                    ]}
-                    onPress={() => {
-                      const betId = "under";
-                      if (isBetSelected(betId)) {
-                        toggleBet(betId);
-                      } else {
-                        toggleBet({
-                          id: betId,
-                          gameId: gameData.id,
-                          gameInfo: {
-                            time: gameData.statusDetail || "TBD",
-                            teams: `${awayTeam} @ ${homeTeam}`,
+                  {(() => {
+                    const underBetId = `total-${gameData.id}-under`;
+                    return (
+                      <TouchableOpacity
+                        style={[
+                          styles.gameLineCell,
+                          {
+                            backgroundColor: isBetSelected(underBetId)
+                              ? colors.primary
+                              : theme.surface,
                           },
-                          type: "Total",
-                          description: "Under",
-                          line: `U ${underData?.line}`,
-                          odds: formatOdds(underData?.odds),
-                          awayTeam,
-                          homeTeam,
-                        });
-                      }
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.gameLineCellLine,
-                        {
-                          color: isBetSelected("under") ? "white" : theme.text,
-                        },
-                      ]}
-                    >
-                      U {underData?.line}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.gameLineCellOdds,
-                        {
-                          color: isBetSelected("under")
-                            ? "white"
-                            : colors.primary,
-                        },
-                      ]}
-                    >
-                      {formatOdds(underData?.odds)}
-                    </Text>
-                  </TouchableOpacity>
+                        ]}
+                        onPress={() => {
+                          const betId = underBetId;
+                          if (isBetSelected(betId)) {
+                            toggleBet(betId);
+                          } else {
+                            toggleBet({
+                              id: betId,
+                              gameId: gameData.id,
+                              gameInfo: {
+                                time: gameData.statusDetail || "TBD",
+                                teams: `${awayTeam} @ ${homeTeam}`,
+                              },
+                              type: "Total",
+                              description: "Under",
+                              line: `U ${underData?.line}`,
+                              odds: formatOdds(underData?.odds),
+                              awayTeam,
+                              homeTeam,
+                            });
+                          }
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.gameLineCellLine,
+                            {
+                              color: isBetSelected(underBetId) ? "white" : theme.text,
+                            },
+                          ]}
+                        >
+                          U {underData?.line}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.gameLineCellOdds,
+                            {
+                              color: isBetSelected(underBetId)
+                                ? "white"
+                                : colors.primary,
+                            },
+                          ]}
+                        >
+                          {formatOdds(underData?.odds)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })()}
 
                   <TouchableOpacity
                     style={[

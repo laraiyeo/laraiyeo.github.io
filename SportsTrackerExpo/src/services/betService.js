@@ -147,6 +147,149 @@ export const getBetHistory = async () => {
 };
 
 /**
+ * Create a betslip record for the authenticated user
+ * Attempts an aggregated insert (single row with `betslip_data`), falls back
+ * to per-bet rows using a shared `created_at` timestamp. Returns {success, betslipId}.
+ */
+export const createBetslip = async (
+  betslipData,
+  totalStake = 0,
+  potentialPayout = 0
+) => {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "Not authenticated" };
+
+    // Attempt to fetch username for top-level column
+    let username = null;
+    try {
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", user.id)
+        .single();
+      if (!profileError && profileData) username = profileData.username;
+    } catch (e) {
+      // ignore
+    }
+
+    // Normalize bets
+    const bets = Array.isArray(betslipData && betslipData.bets)
+      ? betslipData.bets
+      : betslipData && betslipData.bets
+      ? [betslipData.bets]
+      : betslipData && betslipData.id
+      ? [betslipData]
+      : [];
+
+    const createdAt = new Date().toISOString();
+
+    const firstBet = bets[0] || betslipData || {};
+
+    // compute total decimal odds for the ticket (product of individual decimal odds)
+    const decimalOddsArr = bets.map((b) => {
+      const o = parseInt(b.odds);
+      if (isNaN(o)) return 1;
+      return o > 0 ? o / 100 + 1 : 100 / Math.abs(o) + 1;
+    });
+    const totalDecimalOdds = decimalOddsArr.reduce((acc, v) => acc * v, 1);
+
+    const payload = {
+      user_id: user.id,
+      user_username: username,
+      betslip_data: typeof betslipData === "object" ? betslipData : { bets },
+      total_stake: totalStake || 0,
+      potential_payout:
+        potentialPayout || +((totalStake || 0) * totalDecimalOdds).toFixed(2),
+      total_odds: totalDecimalOdds,
+      status: "pending",
+      created_at: createdAt,
+      // representative structured columns so older UI queries can read them
+      game_id: firstBet.gameId || firstBet.game_id || "",
+      selection: firstBet.description || firstBet.selection || null,
+      amount: firstBet.amount != null ? parseFloat(firstBet.amount) : null,
+      odds: firstBet.odds != null ? String(firstBet.odds) : null,
+    };
+
+    // Try aggregated insert and return inserted id
+    const insertRes = await supabase
+      .from("betslips")
+      .insert(payload)
+      .select("id")
+      .single();
+    if (!insertRes.error && insertRes.data && insertRes.data.id) {
+      return { success: true, betslipId: insertRes.data.id };
+    }
+
+    // Aggregated insert failed — fallback to per-bet inserts with shared created_at
+    // Build an aggregated betslip object to store on the first fallback row so
+    // the DB contains a ticket-level representation even when single-row insert fails.
+    const aggregatedBetslip = {
+      bets,
+      meta: { timestamp: createdAt, amount: totalStake || 0 },
+      total_odds: totalDecimalOdds,
+      total_stake: totalStake || 0,
+      potential_payout:
+        potentialPayout || +((totalStake || 0) * totalDecimalOdds).toFixed(2),
+    };
+
+    // Instead of creating one DB row per pick (legacy per-bet rows), insert
+    // a single aggregated ticket row so we only create one row per betslip.
+    // This keeps DB state consistent (one row with `betslip_data`) while
+    // preserving representative legacy columns for compatibility.
+    const first = bets[0] || {};
+    const singlePayload = {
+      user_id: user.id,
+      user_username: username,
+      betslip_data: aggregatedBetslip,
+      total_stake: totalStake || 0,
+      potential_payout:
+        potentialPayout || +((totalStake || 0) * totalDecimalOdds).toFixed(2),
+      total_odds: totalDecimalOdds,
+      status: "pending",
+      created_at: createdAt,
+      // representative legacy columns (keep types safe)
+      game_id: first.gameId || first.game_id || "",
+      selection: first.description || first.selection || null,
+      amount: first.amount != null ? parseFloat(first.amount) : totalStake || 0,
+      odds: first.odds != null ? String(first.odds) : null,
+      // camelCase compatibility fields
+      gameId: first.gameId || first.game_id || "",
+      betValue: first.betValue || first.line || null,
+      description: first.description || first.selection || null,
+      gameInfoTime: (first.gameInfo && first.gameInfo.time) || null,
+      gameInfoTeams: (first.gameInfo && first.gameInfo.teams) || null,
+      line: first.line || null,
+      player: first.player || null,
+      playerId: first.playerId || null,
+      prop: first.prop || null,
+      statType: first.statType || null,
+      team: first.team || null,
+      type: first.type || null,
+      createdAt: createdAt,
+    };
+
+    const { data: d2, error: e2 } = await supabase
+      .from("betslips")
+      .insert(singlePayload)
+      .select("id")
+      .single();
+    if (e2) throw e2;
+    const id = d2 && d2.id ? d2.id : null;
+    return { success: true, betslipId: id };
+  } catch (error) {
+    console.error("Create betslip error:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to create betslip",
+    };
+  }
+};
+
+/**
  * Save/update push notification token
  * @param {string} expoPushToken - Expo push token
  * @param {string} platform - 'ios' or 'android'

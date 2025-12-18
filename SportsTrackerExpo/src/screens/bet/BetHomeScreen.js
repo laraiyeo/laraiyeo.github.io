@@ -51,18 +51,26 @@ const mergeGames = (prevGames, newGames) => {
   });
 };
 
-// Format time to EST
+// Format time to EST (robust across platforms). Returns { time, period }
+// Uses Intl.DateTimeFormat.formatToParts to reliably extract hour/minute and dayPeriod.
 const formatTimeEST = (dateString) => {
   const date = new Date(dateString);
-  const options = {
+  const fmt = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-  };
-  const timeStr = date.toLocaleString("en-US", options);
-  const [time, period] = timeStr.split(" ");
-  return { time, period: `${period} EST` };
+  });
+
+  // formatToParts gives structured pieces we can rely on rather than splitting strings
+  const parts = fmt.formatToParts(date);
+  const hourPart = parts.find((p) => p.type === "hour")?.value || "";
+  const minutePart = parts.find((p) => p.type === "minute")?.value || "00";
+  const dayPeriod = parts.find((p) => p.type === "dayPeriod")?.value || "";
+
+  const time = `${hourPart}:${minutePart}`;
+  const period = dayPeriod ? `${dayPeriod} EST` : "EST";
+  return { time, period };
 };
 
 // Parse game data from API
