@@ -1,8 +1,34 @@
 const { Pool } = require("pg");
 const dns = require("dns");
 const { URL } = require("url");
+const { Pool } = require("pg");
+const dns = require("dns");
+const { URL } = require("url");
 
+// If DATABASE_URL is not set but Supabase admin credentials exist, do not exit –
+// the server can operate using the Supabase admin client (HTTP) instead of
+// direct Postgres TCP connections. Export a stub pool in that case.
 if (!process.env.DATABASE_URL) {
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn("DATABASE_URL not provided; Supabase admin credentials detected. Skipping direct Postgres connection.");
+    // export a minimal pool-like stub that instructs callers to use supabaseAdmin
+    const stub = {
+      query: async () => {
+        throw new Error(
+          "Direct Postgres queries are disabled because DATABASE_URL is not configured. Use the Supabase admin client instead."
+        );
+      },
+      connect: async () => {
+        throw new Error(
+          "Direct Postgres connections are disabled because DATABASE_URL is not configured. Use the Supabase admin client instead."
+        );
+      },
+      end: async () => {},
+    };
+    module.exports = stub;
+    return;
+  }
+
   console.error(
     "FATAL: Missing DATABASE_URL environment variable. Server cannot connect to Postgres."
   );
@@ -42,10 +68,7 @@ async function ensureConnectivity() {
     console.log("Connected to PostgreSQL database");
     return;
   } catch (err) {
-    console.error(
-      "Postgres initial connection failed:",
-      err && err.code ? err.code : err.message || err
-    );
+    console.error("Postgres initial connection failed:", err && err.code ? err.code : err.message || err);
 
     // If the error indicates IPv6/unreachable, try IPv4 lookup and recreate pool
     const host = new URL(process.env.DATABASE_URL).hostname;
@@ -79,21 +102,21 @@ async function ensureConnectivity() {
         return;
       }
     } catch (dnsErr) {
-      console.error(
-        "IPv4 lookup for DB host failed or no IPv4 address:",
-        dnsErr && dnsErr.code ? dnsErr.code : dnsErr.message || dnsErr
-      );
+      console.error("IPv4 lookup for DB host failed or no IPv4 address:", dnsErr && dnsErr.code ? dnsErr.code : dnsErr.message || dnsErr);
     }
 
     // If we reach here, connectivity couldn't be established
-    console.error(
-      "FATAL: Unable to connect to Postgres DB. Check DATABASE_URL and network connectivity."
-    );
+    console.error("FATAL: Unable to connect to Postgres DB. Check DATABASE_URL and network connectivity.");
     // Rethrow to let the process manager / logs capture the full error
     throw err;
   }
 }
 
+// Start connectivity check (async). If it throws, allow the error to bubble up.
+ensureConnectivity().catch((e) => {
+  console.error("Database connectivity check failed, exiting.", e && e.stack ? e.stack : e);
+  process.exit(1);
+});
 // Start connectivity check (async). If it throws, allow the error to bubble up.
 ensureConnectivity().catch((e) => {
   console.error(
