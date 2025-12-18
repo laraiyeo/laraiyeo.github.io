@@ -1,5 +1,5 @@
-const { Expo } = require('expo-server-sdk');
-const pool = require('../db/database');
+const { Expo } = require("expo-server-sdk");
+const pool = require("../db/database");
 
 const expo = new Expo();
 
@@ -7,12 +7,12 @@ async function sendPushNotification(userId, title, body, data = {}) {
   try {
     // Get user's push token
     const result = await pool.query(
-      'SELECT push_token FROM users WHERE id = $1',
+      "SELECT push_token FROM users WHERE id = $1",
       [userId]
     );
 
     if (result.rows.length === 0 || !result.rows[0].push_token) {
-      console.log('No push token found for user:', userId);
+      console.log("No push token found for user:", userId);
       return;
     }
 
@@ -20,18 +20,18 @@ async function sendPushNotification(userId, title, body, data = {}) {
 
     // Check if token is valid
     if (!Expo.isExpoPushToken(pushToken)) {
-      console.error('Invalid Expo push token:', pushToken);
+      console.error("Invalid Expo push token:", pushToken);
       return;
     }
 
     // Create message
     const message = {
       to: pushToken,
-      sound: 'default',
+      sound: "default",
       title,
       body,
       data,
-      priority: 'high',
+      priority: "high",
     };
 
     // Send notification
@@ -43,27 +43,27 @@ async function sendPushNotification(userId, title, body, data = {}) {
         const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
         tickets.push(...ticketChunk);
       } catch (error) {
-        console.error('Error sending chunk:', error);
+        console.error("Error sending chunk:", error);
       }
     }
 
     // Save notification to database
     await pool.query(
-      'INSERT INTO push_notifications (user_id, title, body, data) VALUES ($1, $2, $3, $4)',
+      "INSERT INTO push_notifications (user_id, title, body, data) VALUES ($1, $2, $3, $4)",
       [userId, title, body, JSON.stringify(data)]
     );
 
-    console.log('Notification sent to user:', userId);
+    console.log("Notification sent to user:", userId);
     return tickets;
   } catch (error) {
-    console.error('Push notification error:', error);
+    console.error("Push notification error:", error);
   }
 }
 
 async function sendBetResultNotification(betslipId) {
   try {
     const result = await pool.query(
-      'SELECT b.*, u.id as user_id FROM betslips b JOIN users u ON b.user_id = u.id WHERE b.id = $1',
+      "SELECT b.*, u.id as user_id FROM betslips b JOIN users u ON b.user_id = u.id WHERE b.id = $1",
       [betslipId]
     );
 
@@ -73,11 +73,11 @@ async function sendBetResultNotification(betslipId) {
     const status = betslip.status;
 
     let title, body;
-    if (status === 'won') {
-      title = '🎉 Bet Won!';
+    if (status === "won") {
+      title = "🎉 Bet Won!";
       body = `Your bet has won! You've earned ${betslip.potential_payout} credits.`;
-    } else if (status === 'lost') {
-      title = '😔 Bet Lost';
+    } else if (status === "lost") {
+      title = "😔 Bet Lost";
       body = `Unfortunately, your bet didn't win this time.`;
     }
 
@@ -86,7 +86,7 @@ async function sendBetResultNotification(betslipId) {
       status,
     });
   } catch (error) {
-    console.error('Bet result notification error:', error);
+    console.error("Bet result notification error:", error);
   }
 }
 

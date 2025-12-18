@@ -1,6 +1,7 @@
 # Betting Authentication & Database Setup Guide
 
 ## 📋 Overview
+
 This guide provides step-by-step instructions for setting up a complete authentication system for the betting feature, including user management, credit system, betslip storage, and push notifications.
 
 ---
@@ -10,18 +11,21 @@ This guide provides step-by-step instructions for setting up a complete authenti
 ### Option 1: PostgreSQL (Recommended for Production)
 
 #### Step 1: Choose a PostgreSQL Provider
+
 - **Railway** (Already using): Free tier, easy to set up
 - **Supabase**: Free tier with additional features
 - **Neon**: Serverless PostgreSQL
 - **Heroku**: Free tier available
 
 #### Step 2: Create Database on Railway
+
 1. Go to https://railway.app
 2. Create a new project
 3. Click "New" → "Database" → "PostgreSQL"
 4. Save the connection credentials
 
 #### Step 3: Database Schema
+
 ```sql
 -- Users table
 CREATE TABLE users (
@@ -92,6 +96,7 @@ npm install bcrypt jsonwebtoken pg dotenv express-validator
 ### Step 2: Environment Variables
 
 Create/update `backend/.env`:
+
 ```env
 # Database
 DATABASE_URL=postgresql://user:password@host:port/database
@@ -109,21 +114,25 @@ EXPO_ACCESS_TOKEN=your-expo-access-token
 ### Step 3: Create Database Connection
 
 Create `backend/db/database.js`:
+
 ```javascript
-const { Pool } = require('pg');
+const { Pool } = require("pg");
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl:
+    process.env.NODE_ENV === "production"
+      ? { rejectUnauthorized: false }
+      : false,
 });
 
 // Test connection
-pool.on('connect', () => {
-  console.log('Connected to PostgreSQL database');
+pool.on("connect", () => {
+  console.log("Connected to PostgreSQL database");
 });
 
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
+pool.on("error", (err) => {
+  console.error("Unexpected error on idle client", err);
   process.exit(-1);
 });
 
@@ -133,24 +142,25 @@ module.exports = pool;
 ### Step 4: Create Authentication Middleware
 
 Create `backend/middleware/auth.js`:
+
 ```javascript
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
 
 const authMiddleware = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
+    const token = req.headers.authorization?.replace("Bearer ", "");
+
     if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
+      return res.status(401).json({ message: "No token provided" });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.userId = decoded.userId;
     req.username = decoded.username;
-    
+
     next();
   } catch (error) {
-    res.status(401).json({ message: 'Invalid or expired token' });
+    res.status(401).json({ message: "Invalid or expired token" });
   }
 };
 
@@ -160,22 +170,23 @@ module.exports = authMiddleware;
 ### Step 5: Create Auth Routes
 
 Create `backend/routes/auth.js`:
+
 ```javascript
-const express = require('express');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const { body, validationResult } = require('express-validator');
-const pool = require('../db/database');
-const authMiddleware = require('../middleware/auth');
+const express = require("express");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const { body, validationResult } = require("express-validator");
+const pool = require("../db/database");
+const authMiddleware = require("../middleware/auth");
 
 const router = express.Router();
 
 // Signup
 router.post(
-  '/signup',
+  "/signup",
   [
-    body('username').isLength({ min: 3 }).trim().escape(),
-    body('password').isLength({ min: 6 }),
+    body("username").isLength({ min: 3 }).trim().escape(),
+    body("password").isLength({ min: 6 }),
   ],
   async (req, res) => {
     try {
@@ -188,12 +199,12 @@ router.post(
 
       // Check if user exists
       const existingUser = await pool.query(
-        'SELECT id FROM users WHERE username = $1',
+        "SELECT id FROM users WHERE username = $1",
         [username]
       );
 
       if (existingUser.rows.length > 0) {
-        return res.status(400).json({ message: 'Username already exists' });
+        return res.status(400).json({ message: "Username already exists" });
       }
 
       // Hash password
@@ -202,7 +213,7 @@ router.post(
 
       // Create user
       const result = await pool.query(
-        'INSERT INTO users (username, password_hash, credits) VALUES ($1, $2, $3) RETURNING id, username, credits, created_at',
+        "INSERT INTO users (username, password_hash, credits) VALUES ($1, $2, $3) RETURNING id, username, credits, created_at",
         [username, passwordHash, credits]
       );
 
@@ -212,11 +223,11 @@ router.post(
       const token = jwt.sign(
         { userId: user.id, username: user.username },
         process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+        { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
       );
 
       res.status(201).json({
-        message: 'User created successfully',
+        message: "User created successfully",
         user: {
           id: user.id,
           username: user.username,
@@ -225,25 +236,25 @@ router.post(
         token,
       });
     } catch (error) {
-      console.error('Signup error:', error);
-      res.status(500).json({ message: 'Server error during signup' });
+      console.error("Signup error:", error);
+      res.status(500).json({ message: "Server error during signup" });
     }
   }
 );
 
 // Login
-router.post('/login', async (req, res) => {
+router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
 
     // Get user
     const result = await pool.query(
-      'SELECT id, username, password_hash, credits FROM users WHERE username = $1',
+      "SELECT id, username, password_hash, credits FROM users WHERE username = $1",
       [username]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     const user = result.rows[0];
@@ -252,18 +263,18 @@ router.post('/login', async (req, res) => {
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
 
     if (!isValidPassword) {
-      return res.status(401).json({ message: 'Invalid password' });
+      return res.status(401).json({ message: "Invalid password" });
     }
 
     // Generate JWT token
     const token = jwt.sign(
       { userId: user.id, username: user.username },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
     );
 
     res.json({
-      message: 'Login successful',
+      message: "Login successful",
       user: {
         id: user.id,
         username: user.username,
@@ -272,65 +283,65 @@ router.post('/login', async (req, res) => {
       token,
     });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error during login' });
+    console.error("Login error:", error);
+    res.status(500).json({ message: "Server error during login" });
   }
 });
 
 // Verify token
-router.post('/verify', authMiddleware, async (req, res) => {
+router.post("/verify", authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, username, credits FROM users WHERE id = $1',
+      "SELECT id, username, credits FROM users WHERE id = $1",
       [req.userId]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     res.json({
       user: result.rows[0],
     });
   } catch (error) {
-    console.error('Verify error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Verify error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
 // Get user profile
-router.get('/profile', authMiddleware, async (req, res) => {
+router.get("/profile", authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, username, credits, created_at FROM users WHERE id = $1',
+      "SELECT id, username, credits, created_at FROM users WHERE id = $1",
       [req.userId]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     res.json({ user: result.rows[0] });
   } catch (error) {
-    console.error('Profile error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Profile error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
 // Update push token
-router.post('/push-token', authMiddleware, async (req, res) => {
+router.post("/push-token", authMiddleware, async (req, res) => {
   try {
     const { pushToken } = req.body;
 
-    await pool.query(
-      'UPDATE users SET push_token = $1 WHERE id = $2',
-      [pushToken, req.userId]
-    );
+    await pool.query("UPDATE users SET push_token = $1 WHERE id = $2", [
+      pushToken,
+      req.userId,
+    ]);
 
-    res.json({ message: 'Push token updated' });
+    res.json({ message: "Push token updated" });
   } catch (error) {
-    console.error('Push token error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Push token error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -340,45 +351,46 @@ module.exports = router;
 ### Step 6: Create Betslip Routes
 
 Create `backend/routes/betslips.js`:
+
 ```javascript
-const express = require('express');
-const pool = require('../db/database');
-const authMiddleware = require('../middleware/auth');
+const express = require("express");
+const pool = require("../db/database");
+const authMiddleware = require("../middleware/auth");
 
 const router = express.Router();
 
 // Place a bet
-router.post('/', authMiddleware, async (req, res) => {
+router.post("/", authMiddleware, async (req, res) => {
   const client = await pool.connect();
-  
+
   try {
-    await client.query('BEGIN');
+    await client.query("BEGIN");
 
     const { betslipData, totalStake, potentialPayout } = req.body;
 
     // Check if user has enough credits
     const userResult = await client.query(
-      'SELECT credits FROM users WHERE id = $1',
+      "SELECT credits FROM users WHERE id = $1",
       [req.userId]
     );
 
     const currentCredits = parseFloat(userResult.rows[0].credits);
 
     if (currentCredits < totalStake) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ message: 'Insufficient credits' });
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "Insufficient credits" });
     }
 
     // Deduct credits
     const newCredits = currentCredits - totalStake;
-    await client.query(
-      'UPDATE users SET credits = $1 WHERE id = $2',
-      [newCredits, req.userId]
-    );
+    await client.query("UPDATE users SET credits = $1 WHERE id = $2", [
+      newCredits,
+      req.userId,
+    ]);
 
     // Create betslip
     const betslipResult = await client.query(
-      'INSERT INTO betslips (user_id, betslip_data, total_stake, potential_payout) VALUES ($1, $2, $3, $4) RETURNING id',
+      "INSERT INTO betslips (user_id, betslip_data, total_stake, potential_payout) VALUES ($1, $2, $3, $4) RETURNING id",
       [req.userId, JSON.stringify(betslipData), totalStake, potentialPayout]
     );
 
@@ -386,57 +398,57 @@ router.post('/', authMiddleware, async (req, res) => {
 
     // Record in history
     await client.query(
-      'INSERT INTO bet_history (user_id, betslip_id, action, credits_change, credits_after) VALUES ($1, $2, $3, $4, $5)',
-      [req.userId, betslipId, 'placed', -totalStake, newCredits]
+      "INSERT INTO bet_history (user_id, betslip_id, action, credits_change, credits_after) VALUES ($1, $2, $3, $4, $5)",
+      [req.userId, betslipId, "placed", -totalStake, newCredits]
     );
 
-    await client.query('COMMIT');
+    await client.query("COMMIT");
 
     res.status(201).json({
-      message: 'Bet placed successfully',
+      message: "Bet placed successfully",
       betslipId,
       creditsRemaining: newCredits,
     });
   } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Place bet error:', error);
-    res.status(500).json({ message: 'Server error' });
+    await client.query("ROLLBACK");
+    console.error("Place bet error:", error);
+    res.status(500).json({ message: "Server error" });
   } finally {
     client.release();
   }
 });
 
 // Get user betslips
-router.get('/', authMiddleware, async (req, res) => {
+router.get("/", authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT * FROM betslips WHERE user_id = $1 ORDER BY created_at DESC',
+      "SELECT * FROM betslips WHERE user_id = $1 ORDER BY created_at DESC",
       [req.userId]
     );
 
     res.json({ betslips: result.rows });
   } catch (error) {
-    console.error('Get betslips error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Get betslips error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
 // Get single betslip
-router.get('/:id', authMiddleware, async (req, res) => {
+router.get("/:id", authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT * FROM betslips WHERE id = $1 AND user_id = $2',
+      "SELECT * FROM betslips WHERE id = $1 AND user_id = $2",
       [req.params.id, req.userId]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Betslip not found' });
+      return res.status(404).json({ message: "Betslip not found" });
     }
 
     res.json({ betslip: result.rows[0] });
   } catch (error) {
-    console.error('Get betslip error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Get betslip error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -446,13 +458,14 @@ module.exports = router;
 ### Step 7: Update `backend/server.js`
 
 Add these lines to your server.js:
+
 ```javascript
-const authRoutes = require('./routes/auth');
-const betslipRoutes = require('./routes/betslips');
+const authRoutes = require("./routes/auth");
+const betslipRoutes = require("./routes/betslips");
 
 // Add routes
-app.use('/api/auth', authRoutes);
-app.use('/api/betslips', betslipRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/betslips", betslipRoutes);
 ```
 
 ---
@@ -462,6 +475,7 @@ app.use('/api/betslips', betslipRoutes);
 ### Step 1: Install Expo Notifications
 
 In your React Native app:
+
 ```bash
 cd SportsTrackerExpo
 npx expo install expo-notifications expo-device expo-constants
@@ -470,14 +484,15 @@ npx expo install expo-notifications expo-device expo-constants
 ### Step 2: Create Notification Service
 
 Create `SportsTrackerExpo/src/services/notificationService.js`:
-```javascript
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = 'https://laraiyeogithubio-production-f5af.up.railway.app/api';
+```javascript
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
+import Constants from "expo-constants";
+import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const API_URL = "https://laraiyeogithubio-production-f5af.up.railway.app/api";
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -491,53 +506,56 @@ Notifications.setNotificationHandler({
 export const registerForPushNotifications = async () => {
   let token;
 
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "default",
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
+      lightColor: "#FF231F7C",
     });
   }
 
   if (Device.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    const { status: existingStatus } =
+      await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
-    
-    if (existingStatus !== 'granted') {
+
+    if (existingStatus !== "granted") {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }
-    
-    if (finalStatus !== 'granted') {
-      alert('Failed to get push token for push notification!');
+
+    if (finalStatus !== "granted") {
+      alert("Failed to get push token for push notification!");
       return;
     }
-    
-    token = (await Notifications.getExpoPushTokenAsync({
-      projectId: Constants.expoConfig.extra.eas.projectId,
-    })).data;
-    
-    console.log('Push token:', token);
+
+    token = (
+      await Notifications.getExpoPushTokenAsync({
+        projectId: Constants.expoConfig.extra.eas.projectId,
+      })
+    ).data;
+
+    console.log("Push token:", token);
 
     // Save token to backend
     try {
-      const authToken = await AsyncStorage.getItem('@bet_token');
+      const authToken = await AsyncStorage.getItem("@bet_token");
       if (authToken) {
         await fetch(`${API_URL}/auth/push-token`, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             Authorization: `Bearer ${authToken}`,
           },
           body: JSON.stringify({ pushToken: token }),
         });
       }
     } catch (error) {
-      console.error('Error saving push token:', error);
+      console.error("Error saving push token:", error);
     }
   } else {
-    alert('Must use physical device for Push Notifications');
+    alert("Must use physical device for Push Notifications");
   }
 
   return token;
@@ -559,9 +577,10 @@ export const scheduleNotification = async (title, body, data, seconds = 1) => {
 ### Step 3: Create Backend Push Notification Service
 
 Create `backend/services/pushNotifications.js`:
+
 ```javascript
-const { Expo } = require('expo-server-sdk');
-const pool = require('../db/database');
+const { Expo } = require("expo-server-sdk");
+const pool = require("../db/database");
 
 const expo = new Expo();
 
@@ -569,12 +588,12 @@ async function sendPushNotification(userId, title, body, data = {}) {
   try {
     // Get user's push token
     const result = await pool.query(
-      'SELECT push_token FROM users WHERE id = $1',
+      "SELECT push_token FROM users WHERE id = $1",
       [userId]
     );
 
     if (result.rows.length === 0 || !result.rows[0].push_token) {
-      console.log('No push token found for user:', userId);
+      console.log("No push token found for user:", userId);
       return;
     }
 
@@ -582,18 +601,18 @@ async function sendPushNotification(userId, title, body, data = {}) {
 
     // Check if token is valid
     if (!Expo.isExpoPushToken(pushToken)) {
-      console.error('Invalid Expo push token:', pushToken);
+      console.error("Invalid Expo push token:", pushToken);
       return;
     }
 
     // Create message
     const message = {
       to: pushToken,
-      sound: 'default',
+      sound: "default",
       title,
       body,
       data,
-      priority: 'high',
+      priority: "high",
     };
 
     // Send notification
@@ -605,27 +624,27 @@ async function sendPushNotification(userId, title, body, data = {}) {
         const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
         tickets.push(...ticketChunk);
       } catch (error) {
-        console.error('Error sending chunk:', error);
+        console.error("Error sending chunk:", error);
       }
     }
 
     // Save notification to database
     await pool.query(
-      'INSERT INTO push_notifications (user_id, title, body, data) VALUES ($1, $2, $3, $4)',
+      "INSERT INTO push_notifications (user_id, title, body, data) VALUES ($1, $2, $3, $4)",
       [userId, title, body, JSON.stringify(data)]
     );
 
-    console.log('Notification sent to user:', userId);
+    console.log("Notification sent to user:", userId);
     return tickets;
   } catch (error) {
-    console.error('Push notification error:', error);
+    console.error("Push notification error:", error);
   }
 }
 
 async function sendBetResultNotification(betslipId) {
   try {
     const result = await pool.query(
-      'SELECT b.*, u.id as user_id FROM betslips b JOIN users u ON b.user_id = u.id WHERE b.id = $1',
+      "SELECT b.*, u.id as user_id FROM betslips b JOIN users u ON b.user_id = u.id WHERE b.id = $1",
       [betslipId]
     );
 
@@ -635,11 +654,11 @@ async function sendBetResultNotification(betslipId) {
     const status = betslip.status;
 
     let title, body;
-    if (status === 'won') {
-      title = '🎉 Bet Won!';
+    if (status === "won") {
+      title = "🎉 Bet Won!";
       body = `Your bet has won! You've earned ${betslip.potential_payout} credits.`;
-    } else if (status === 'lost') {
-      title = '😔 Bet Lost';
+    } else if (status === "lost") {
+      title = "😔 Bet Lost";
       body = `Unfortunately, your bet didn't win this time.`;
     }
 
@@ -648,7 +667,7 @@ async function sendBetResultNotification(betslipId) {
       status,
     });
   } catch (error) {
-    console.error('Bet result notification error:', error);
+    console.error("Bet result notification error:", error);
   }
 }
 
@@ -670,22 +689,26 @@ npm install expo-server-sdk
 ## 🚀 Deployment Steps
 
 ### 1. Database
+
 - ✅ Create PostgreSQL database on Railway
 - ✅ Run schema SQL to create tables
 - ✅ Save database URL to environment variables
 
 ### 2. Backend
+
 - ✅ Add all new routes and services
 - ✅ Update environment variables
 - ✅ Deploy to Railway (it auto-deploys on git push)
 
 ### 3. Frontend
+
 - ✅ BetLoginScreen updated with auth
 - ✅ AsyncStorage installed
 - ✅ Notification service created
 - ⚠️ Update API_URL in BetLoginScreen.js to your Railway URL
 
 ### 4. Testing
+
 - Test signup flow
 - Test login flow
 - Test auto-login
@@ -721,16 +744,19 @@ npm install expo-server-sdk
 ## 🆘 Troubleshooting
 
 ### Issue: "Cannot connect to database"
+
 - Check DATABASE_URL in .env
 - Verify Railway database is running
 - Check SSL configuration
 
 ### Issue: "JWT token invalid"
+
 - Verify JWT_SECRET matches between signup and login
 - Check token expiry settings
 - Clear AsyncStorage and try again
 
 ### Issue: "Push notifications not working"
+
 - Verify using physical device (not emulator)
 - Check permissions are granted
 - Verify push token is saved to database

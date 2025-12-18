@@ -16,7 +16,8 @@ import { useTheme } from "../../context/ThemeContext";
 import { useBetData } from "../../context/BetDataContext";
 
 // API endpoint - Update this with your bet-server Railway URL
-const API_URL = "https://laraiyeogithubio-production-f5af.up.railway.app/api/auth";
+const API_URL =
+  "https://laraiyeogithubio-production-f5af.up.railway.app/api/auth";
 
 const BetLoginScreen = ({ navigation }) => {
   const { colors, theme } = useTheme();
@@ -35,12 +36,12 @@ const BetLoginScreen = ({ navigation }) => {
     try {
       const savedUser = await AsyncStorage.getItem("@bet_user");
       const savedToken = await AsyncStorage.getItem("@bet_token");
-      
+
       if (savedUser && savedToken) {
         const user = JSON.parse(savedUser);
         // Auto-fill credentials
         setUsername(user.username);
-        
+
         // Optionally auto-login if token exists
         // You can verify the token with the backend first
         try {
@@ -51,7 +52,7 @@ const BetLoginScreen = ({ navigation }) => {
               Authorization: `Bearer ${savedToken}`,
             },
           });
-          
+
           if (response.ok) {
             // Token is valid, auto-login
             await fetchInitialData();
@@ -96,7 +97,7 @@ const BetLoginScreen = ({ navigation }) => {
       if (response.ok) {
         // Save credentials
         await saveCredentials(data.user, data.token);
-        
+
         Alert.alert(
           "Success",
           `Account created! You've been given ${data.user.credits} credits to start.`,
@@ -111,7 +112,10 @@ const BetLoginScreen = ({ navigation }) => {
           ]
         );
       } else {
-        Alert.alert("Signup Failed", data.message || "Could not create account");
+        Alert.alert(
+          "Signup Failed",
+          data.message || "Could not create account"
+        );
       }
     } catch (error) {
       console.error("Signup error:", error);
@@ -145,7 +149,7 @@ const BetLoginScreen = ({ navigation }) => {
       if (response.ok) {
         // Save credentials
         await saveCredentials(data.user, data.token);
-        
+
         // Fetch initial data before navigating
         await fetchInitialData();
 

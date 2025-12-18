@@ -294,9 +294,9 @@ const BasketballCourt = React.memo(
     // Boundaries: away 49.5-98.5%, home 1.5-50.5%
     let clampedTop = finalTopPercent;
     if (teamSide === "home") {
-      clampedTop = Math.min(clampedTop, 50.5);  // Home stays on right (≤50.5% top)
+      clampedTop = Math.min(clampedTop, 50.5); // Home stays on right (≤50.5% top)
     } else {
-      clampedTop = Math.max(clampedTop, 49.5);  // Away stays on left (≥49.5% top)
+      clampedTop = Math.max(clampedTop, 49.5); // Away stays on left (≥49.5% top)
     }
 
     // Log coordinates for debugging
@@ -1082,7 +1082,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
   const [courtScale, setCourtScale] = useState(1.67);
   const [courtContainerHeight, setCourtContainerHeight] = useState(200);
   const [courtContainerWidth, setCourtContainerWidth] = useState(300);
-  
+
   // Live tracker state
   const [liveTrackerVisible, setLiveTrackerVisible] = useState(false);
   const [liveTrackerUuid, setLiveTrackerUuid] = useState(null);
@@ -1092,7 +1092,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
   const isBoxScoreScrolling = useRef(false);
 
   const tabFontSize = getTabFontSize();
-  
+
   // Game presence tracking
   const { viewerData, isJoined } = useGamePresence(game?.id);
 
@@ -1149,7 +1149,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     route?.params?.liveTrackerMatchId,
     route?.params?.liveTrackerDiaryUrl,
   ]);
-  
+
   // Fetch game summary data (initial load)
   useEffect(() => {
     const fetchGameSummary = async () => {
@@ -3450,40 +3450,40 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         showsVerticalScrollIndicator={false}
         stickyHeaderIndices={liveTrackerVisible ? [] : [1]}
         contentContainerStyle={
-          liveTrackerVisible 
-            ? { paddingBottom: 80, marginTop: -6 } 
+          liveTrackerVisible
+            ? { paddingBottom: 80, marginTop: -6 }
             : { paddingBottom: 80 }
         }
       >
         {/* Live Tracker Embed */}
-        {liveTrackerVisible ? (
-          (() => {
-            const deviceWidth = Dimensions.get("window").width;
-            const formulaO = 0;
-            const homeLogo = gameData?.team2Logo;
-            const awayLogo = gameData?.team1Logo;
-            const wrapperUrl = `https://laraiye.github.io/live-sports-tracker/livetracker-test.html?uuid=${liveTrackerUuid}${
-              homeLogo ? `&home_logo=${awayLogo}` : ""
-            }${awayLogo ? `&away_logo=${homeLogo}` : ""}&reverse=1`;
-            const ratio = 0.505;
-            const initialEmbedHeight =
-              Math.round(deviceWidth * ratio) + formulaO;
+        {liveTrackerVisible
+          ? (() => {
+              const deviceWidth = Dimensions.get("window").width;
+              const formulaO = 0;
+              const homeLogo = gameData?.team2Logo;
+              const awayLogo = gameData?.team1Logo;
+              const wrapperUrl = `https://laraiye.github.io/live-sports-tracker/livetracker-test.html?uuid=${liveTrackerUuid}${
+                homeLogo ? `&home_logo=${awayLogo}` : ""
+              }${awayLogo ? `&away_logo=${homeLogo}` : ""}&reverse=1`;
+              const ratio = 0.505;
+              const initialEmbedHeight =
+                Math.round(deviceWidth * ratio) + formulaO;
 
-            return (
-              <LiveTrackerEmbed
-                uuid={liveTrackerUuid}
-                visible={true}
-                inline={true}
-                wrapperUrl={wrapperUrl}
-                initialHeight={initialEmbedHeight}
-                formulaO={formulaO}
-                showHeader={false}
-                onClose={() => setLiveTrackerVisible(false)}
-              />
-            );
-          })()
-        ) : null}
-        
+              return (
+                <LiveTrackerEmbed
+                  uuid={liveTrackerUuid}
+                  visible={true}
+                  inline={true}
+                  wrapperUrl={wrapperUrl}
+                  initialHeight={initialEmbedHeight}
+                  formulaO={formulaO}
+                  showHeader={false}
+                  onClose={() => setLiveTrackerVisible(false)}
+                />
+              );
+            })()
+          : null}
+
         {/* Header with Teams and Scores */}
         {(() => {
           // Get smart team colors for proper color handling
