@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -9,14 +9,16 @@ import {
   TextInput,
   Animated,
   Dimensions,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../context/ThemeContext';
-import { useBetSlip } from '../context/BetSlipContext';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { useTheme } from "../context/ThemeContext";
+import { useBetSlip } from "../context/BetSlipContext";
 
-const { height } = Dimensions.get('window');
+const { height } = Dimensions.get("window");
 
-const BetSlip = ({ isGameDetail = false }) => {
+const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
+  const navigation = useNavigation();
   const { colors, theme } = useTheme();
   const {
     bets,
@@ -27,32 +29,220 @@ const BetSlip = ({ isGameDetail = false }) => {
     groupedBets,
     isSlipOpen,
     setIsSlipOpen,
+    submitBetSlip,
   } = useBetSlip();
 
-  const [betAmount, setBetAmount] = useState('');
-  const [slideAnim] = useState(new Animated.Value(height));
+  const [betAmount, setBetAmount] = useState("");
+  const [showNumpad, setShowNumpad] = useState(false);
 
   const openSlip = () => {
     setIsSlipOpen(true);
-    Animated.spring(slideAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      damping: 20,
-    }).start();
   };
 
   const closeSlip = () => {
     setIsSlipOpen(false);
-    Animated.spring(slideAnim, {
-      toValue: height,
-      useNativeDriver: true,
-      damping: 20,
-    }).start();
+    setShowNumpad(false);
+  };
+
+  const handleQuickAdd = (amount) => {
+    const currentAmount = parseFloat(betAmount) || 0;
+    const newAmount = currentAmount + amount;
+    setBetAmount(newAmount.toString());
+  };
+
+  const handleNumpadPress = (value) => {
+    if (value === "backspace") {
+      setBetAmount(betAmount.slice(0, -1));
+    } else if (value === ".") {
+      if (!betAmount.includes(".")) {
+        setBetAmount(betAmount + value);
+      }
+    } else {
+      const newAmount = betAmount + value;
+      setBetAmount(newAmount);
+    }
+  };
+
+  const handleConfirmBet = async () => {
+    const amount = parseFloat(betAmount) || 20;
+    
+    // Build API query from bets
+    const gameIds = [...new Set(bets.map(bet => bet.gameId))].filter(Boolean);
+    const playerBets = {};
+    const gameLineBets = { moneyline: null, total: null, spread: null };
+
+    // Group player bets and game line bets
+    bets.forEach((bet) => {
+      // Game line bets (Spread, Total, Moneyline)
+      if (bet.type === 'Spread') {
+        gameLineBets.spread = `${bet.team}${bet.line}`;
+      } else if (bet.type === 'Total') {
+        // Extract o/u from description (e.g., "OVER" or "UNDER")
+        const overUnder = bet.description?.toLowerCase().includes('over') ? 'o' : 'u';
+        // Extract just the number from bet.line (e.g., "U 242.5" -> "242.5")
+        const lineNumber = bet.line.replace(/^[OU]\s+/, '');
+        gameLineBets.total = `${overUnder}${lineNumber}`;
+      } else if (bet.type === 'Moneyline') {
+        gameLineBets.moneyline = bet.team;
+      }
+      // Player prop bets
+      else if (bet.playerId && bet.statType) {
+        if (!playerBets[bet.playerId]) {
+          playerBets[bet.playerId] = {};
+        }
+        playerBets[bet.playerId][bet.statType] = bet.betValue;
+      }
+    });
+
+    // Build query string
+    let query = `gameId=${gameIds.join(',')}`;
+    
+    if (gameLineBets.moneyline) query += `&moneyline=${gameLineBets.moneyline}`;
+    if (gameLineBets.total) query += `&total=${gameLineBets.total}`;
+    if (gameLineBets.spread) query += `&spread=${gameLineBets.spread}`;
+    
+    Object.entries(playerBets).forEach(([playerId, stats], index) => {
+      const playerNum = index + 1;
+      query += `&p${playerNum}=${playerId}`;
+      Object.entries(stats).forEach(([statType, betValue]) => {
+        // Convert statType to short form for API
+        const statTypeMap = {
+          'points': 'pts',
+          'rebounds': 'reb',
+          'assists': 'ast',
+          'blocks': 'blk',
+          'steals': 'stl',
+          'turnovers': 'to',
+          'threes': '3pt',
+          'pra': 'pra',
+        };
+        const shortStat = statTypeMap[statType.toLowerCase()] || 'pts';
+        query += `&p${playerNum}_${shortStat}=${betValue}`;
+      });
+    });
+
+    const apiUrl = `https://laraiyeogithubio-production-f5af.up.railway.app/api/betslip?${query}`;
+    console.log('Fetching betslip:', apiUrl);
+
+    try {
+      // Fetch betslip data
+      const response = await fetch(apiUrl);
+      const betslipData = await response.json();
+      console.log('Betslip response:', betslipData);
+
+      // Submit bet slip with betslip data
+      await submitBetSlip(amount, betslipData);
+      
+      // Close slip and reset
+      setBetAmount('');
+      setShowNumpad(false);
+      closeSlip();
+    } catch (error) {
+      console.error('Error fetching betslip:', error);
+      // Still submit even if fetch fails
+      await submitBetSlip(amount, null);
+      setBetAmount('');
+      setShowNumpad(false);
+      closeSlip();
+    }
+  };
+
+  const handleConfirmBetOld = () => {
+    // Build API query from bets
+    const betsByGame = {};
+
+    // Group bets by game
+    bets.forEach((bet) => {
+      if (!betsByGame[bet.gameId]) {
+        betsByGame[bet.gameId] = {
+          gameId: bet.gameId,
+          players: [],
+        };
+      }
+
+      // Add player bet if not already added
+      const existingPlayer = betsByGame[bet.gameId].players.find(
+        (p) => p.playerId === bet.playerId
+      );
+      if (existingPlayer) {
+        // Add additional stat for this player
+        existingPlayer.stats[bet.statType] = bet.betValue;
+      } else {
+        // New player
+        betsByGame[bet.gameId].players.push({
+          playerId: bet.playerId,
+          stats: {
+            [bet.statType]: bet.betValue,
+          },
+        });
+      }
+    });
+
+    // Build query string for each game
+    const queryStrings = Object.values(betsByGame).map((game) => {
+      let query = `gameId=${game.gameId}`;
+
+      game.players.forEach((player, index) => {
+        const playerNum = index + 1;
+        query += `&p${playerNum}=${player.playerId}`;
+
+        Object.entries(player.stats).forEach(([statType, betValue]) => {
+          query += `&p${playerNum}_${statType}=${betValue}`;
+        });
+      });
+
+      return query;
+    });
+
+    // Log the query strings (in production, you'd make the API call here)
+    console.log("Bet Query Strings:");
+    queryStrings.forEach((qs) => {
+      console.log(`/api/betslip?${qs}`);
+    });
+
+    // TODO: Make actual API call to /api/betslip
+    // For now, just close the numpad
+    setShowNumpad(false);
   };
 
   const parlayOdds = calculateParlayOdds();
-  const payout = calculatePayout(parseFloat(betAmount) || 0);
+  const betAmountNum = parseFloat(betAmount) || 20; // Default to 20
+
+  // Calculate To Win: (betAmount * totalDecimalOdds) - betAmount
+  const calculateToWin = () => {
+    const amount = parseFloat(betAmount) || 20; // Default to 20
+    if (bets.length === 0) return "0.00";
+
+    const decimalOdds = bets.map((bet) => {
+      const odds = parseInt(bet.odds);
+      if (odds > 0) {
+        return odds / 100 + 1;
+      } else {
+        return 100 / Math.abs(odds) + 1;
+      }
+    });
+
+    const totalDecimal = decimalOdds.reduce((acc, odd) => acc * odd, 1);
+    const toWin = amount * totalDecimal - amount;
+    return toWin.toFixed(2);
+  };
+
+  // Calculate Payout: betAmount + toWin
+  const calculatePayoutTotal = () => {
+    const amount = parseFloat(betAmount) || 20; // Default to 20
+    if (bets.length === 0) return "0.00";
+    const toWin = parseFloat(calculateToWin());
+    return (amount + toWin).toFixed(2);
+  };
+
+  const toWin = calculateToWin();
+  const payout = calculatePayoutTotal();
   const grouped = groupedBets();
+
+  // Don't render if no bets
+  if (bets.length === 0) {
+    return null;
+  }
 
   return (
     <>
@@ -66,16 +256,25 @@ const BetSlip = ({ isGameDetail = false }) => {
         onPress={openSlip}
         activeOpacity={0.9}
       >
-        <View style={[styles.bottomBarLeft, isGameDetail && { marginBottom: 30 }]}>
+        <View
+          style={[styles.bottomBarLeft, isGameDetail && { marginBottom: 30 }]}
+        >
           <View style={styles.betCountBadge}>
             <Text style={styles.betCountText}>{bets.length}</Text>
           </View>
           <Text style={styles.bottomBarText}>Betslip</Text>
         </View>
-        <View style={[styles.bottomBarRight, isGameDetail && { marginBottom: 30 }]}>
+        <View
+          style={[styles.bottomBarRight, isGameDetail && { marginBottom: 30 }]}
+        >
           {bets.length > 1 && (
             <View style={styles.parlayBadge}>
-              <Text style={styles.parlayText}>PARLAY</Text>
+              <Text style={styles.parlayText}>{parlayOdds}</Text>
+            </View>
+          )}
+          {bets.length === 1 && (
+            <View style={styles.parlayBadge}>
+              <Text style={styles.parlayText}>{bets[0].odds}</Text>
             </View>
           )}
           <Ionicons name="chevron-up" size={24} color="white" />
@@ -86,196 +285,521 @@ const BetSlip = ({ isGameDetail = false }) => {
       <Modal
         visible={isSlipOpen}
         transparent={true}
-        animationType="none"
+        animationType="slide"
         onRequestClose={closeSlip}
       >
         <View style={styles.modalOverlay}>
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={closeSlip}
-          />
-          <Animated.View
+          <View
             style={[
               styles.modalContent,
               {
                 backgroundColor: theme.background,
-                transform: [{ translateY: slideAnim }],
               },
             ]}
           >
             {/* Header */}
-            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+            <View
+              style={[styles.modalHeader, { borderBottomColor: theme.border }]}
+            >
               <View style={styles.modalHeaderLeft}>
-                <View style={[styles.betCountBadge, { backgroundColor: colors.primary }]}>
+                <View
+                  style={[
+                    styles.betCountBadge,
+                    { backgroundColor: colors.primary },
+                  ]}
+                >
                   <Text style={styles.betCountText}>{bets.length}</Text>
                 </View>
-                <Text style={[styles.modalTitle, { color: theme.text }]}>Betslip</Text>
+                <Text style={[styles.modalTitle, { color: theme.text }]}>
+                  Betslip
+                </Text>
               </View>
               <View style={styles.modalHeaderRight}>
-                <TouchableOpacity onPress={clearBets} style={styles.clearButton}>
-                  <Text style={[styles.clearButtonText, { color: theme.error }]}>
+                <TouchableOpacity
+                  onPress={clearBets}
+                  style={styles.clearButton}
+                >
+                  <Text
+                    style={[styles.clearButtonText, { color: theme.error }]}
+                  >
                     Clear All
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={closeSlip} style={styles.closeButton}>
+                <TouchableOpacity
+                  onPress={closeSlip}
+                  style={styles.closeButton}
+                >
                   <Ionicons name="close" size={28} color={theme.text} />
                 </TouchableOpacity>
               </View>
             </View>
 
             {/* Tabs */}
-            <View style={[styles.tabsContainer, { backgroundColor: theme.surface }]}>
+            <View
+              style={[styles.tabsContainer, { backgroundColor: theme.surface }]}
+            >
               <TouchableOpacity
-                style={[styles.tab, styles.activeTab, { borderBottomColor: colors.primary }]}
+                style={[
+                  styles.tab,
+                  styles.activeTab,
+                  { borderBottomColor: colors.primary },
+                ]}
               >
                 <Text style={[styles.tabText, { color: colors.primary }]}>
-                  {bets.length === 1 ? 'STRAIGHT' : 'PARLAY'}
+                  {bets.length === 1 ? "STRAIGHT" : "PARLAY"}
                 </Text>
               </TouchableOpacity>
-              {bets.length > 1 && (
-                <TouchableOpacity style={styles.tab}>
-                  <Text style={[styles.tabText, { color: theme.textSecondary }]}>TEASER</Text>
-                </TouchableOpacity>
-              )}
             </View>
 
             {/* Bets List */}
-            <ScrollView style={styles.betsList} showsVerticalScrollIndicator={false}>
-              {Object.entries(grouped).map(([gameId, group]) => (
+            <ScrollView
+              style={styles.betsList}
+              showsVerticalScrollIndicator={false}
+            >
+              {Object.entries(grouped).map(([gameId, group]) => {
+                // Find game data from scoreboard
+                let gameData = scoreboardGames.find(g => g.id === gameId);
+                
+                // Format game header info
+                let gameHeaderInfo;
+                
+                if (gameData) {
+                  // Check if it's a raw ESPN event or parsed game object
+                  if (gameData.competitions) {
+                    // Raw ESPN event format
+                    const competition = gameData.competitions[0];
+                    const competitors = competition?.competitors || [];
+                    const awayTeam = competitors.find(c => c.homeAway === 'away');
+                    const homeTeam = competitors.find(c => c.homeAway === 'home');
+                    
+                    gameHeaderInfo = {
+                      teams: gameData.shortName || 'TBD',
+                      time: competition?.status?.type?.shortDetail || 'TBD',
+                      period: null
+                    };
+                  } else {
+                    // Parsed game object format (from BetHomeScreen)
+                    gameHeaderInfo = {
+                      teams: `${gameData.team1Abbr} vs ${gameData.team2Abbr}`,
+                      time: gameData.time,
+                      period: gameData.period
+                    };
+                  }
+                } else {
+                  gameHeaderInfo = group.gameInfo || { teams: 'TBD', time: 'TBD' };
+                }
+                
+                // Use full gameInfo.time if available (for scheduled games)
+                const displayTime = group.gameInfo?.time || gameHeaderInfo?.time || 'TBD';
+                
+                return (
                 <View key={gameId} style={styles.gameGroup}>
                   {/* Game Header */}
-                  {group.gameInfo && (
-                    <View style={[styles.gameHeader, { backgroundColor: theme.surface }]}>
-                      <Text style={[styles.gameHeaderText, { color: theme.textSecondary }]}>
-                        {group.gameInfo.time} · {group.gameInfo.teams}
-                      </Text>
-                      <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
-                    </View>
+                  {gameHeaderInfo && (
+                    <TouchableOpacity
+                      style={[
+                        styles.gameHeader,
+                        { backgroundColor: theme.surface },
+                      ]}
+                      onPress={() => {
+                        // Close slip first, then navigate
+                        closeSlip();
+                        
+                        // Navigate even if gameData is not found - BetGameDetailScreen will handle it
+                        navigation.navigate('BetGameDetail', { 
+                          gameId: gameId, 
+                          game: gameData || { id: gameId }
+                        });
+                      }}
+                    >
+                      <View>
+                        <Text
+                          style={[
+                            styles.gameHeaderTeams,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {gameHeaderInfo.teams}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.gameHeaderTime,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {gameHeaderInfo.period ? `${gameHeaderInfo.period} • ` : ''}{displayTime}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        {group.bets.length >= 2 && (
+                          <View style={[styles.sgpBadge, { backgroundColor: colors.primary }]}>
+                            <Text style={styles.sgpBadgeText}>SGP</Text>
+                          </View>
+                        )}
+                        <Ionicons
+                          name="chevron-forward"
+                          size={16}
+                          color={theme.textSecondary}
+                        />
+                      </View>
+                    </TouchableOpacity>
                   )}
 
                   {/* Bets in this game */}
-                  {group.bets.map((bet, index) => (
-                    <View
-                      key={bet.id}
-                      style={[
-                        styles.betItem,
-                        { backgroundColor: theme.surfaceSecondary },
-                        index === group.bets.length - 1 && styles.lastBetItem,
-                      ]}
-                    >
-                      <TouchableOpacity
-                        style={styles.removeBetButton}
-                        onPress={() => removeBet(bet.id)}
-                      >
-                        <Ionicons name="close-circle" size={20} color={theme.textSecondary} />
-                      </TouchableOpacity>
+                  {group.bets.map((bet, index) => {
+                    // Format bet type display
+                    const getBetTypeDisplay = () => {
+                      if (!bet.type) return 'BET';
+                      
+                      if (bet.type === "milestone") {
+                        // Capitalize first letter and add stat type (e.g., "Milestone Points")
+                        const statType = bet.statType
+                          ? bet.statType.toUpperCase()
+                          : bet.prop?.split(" ")[0] || '';
+                        return `Milestone ${statType}`;
+                      }
+                      // For over/under player props, include stat type
+                      if ((bet.type === "over" || bet.type === "under") && bet.statType) {
+                        const capitalizedType = bet.type.charAt(0).toUpperCase() + bet.type.slice(1);
+                        return `${capitalizedType} ${bet.statType.toUpperCase()}`;
+                      }
+                      // For game lines (Spread, Total, Moneyline), just return the type
+                      return (
+                        bet.type.charAt(0).toUpperCase() + bet.type.slice(1)
+                      );
+                    };
 
-                      <View style={styles.betItemContent}>
-                        <Text style={[styles.betType, { color: theme.textSecondary }]}>
-                          {bet.type}
-                        </Text>
-                        <Text style={[styles.betDescription, { color: theme.text }]}>
-                          {bet.description}
-                        </Text>
-                        <View style={styles.betOddsContainer}>
-                          <Text style={[styles.betLine, { color: theme.text }]}>
-                            {bet.line}
+                    return (
+                      <View
+                        key={bet.id}
+                        style={[
+                          styles.betItem,
+                          { backgroundColor: theme.surfaceSecondary },
+                          index === group.bets.length - 1 && styles.lastBetItem,
+                        ]}
+                      >
+                        {/* X button on left */}
+                        <TouchableOpacity
+                          style={styles.removeBetButton}
+                          onPress={() => removeBet(bet.id)}
+                        >
+                          <Ionicons
+                            name="close"
+                            size={24}
+                            color={theme.textSecondary}
+                          />
+                        </TouchableOpacity>
+
+                        {/* Player/Team info in center */}
+                        <View style={styles.betItemContent}>
+                          <Text
+                            style={[
+                              styles.betDescription,
+                              { color: theme.text },
+                            ]}
+                          >
+                            {/* For team bets, show team/game and bet line */}
+                            {bet.type === 'Total' 
+                              ? `GAME • ${bet.line}`
+                              : bet.type === 'Moneyline'
+                              ? bet.team
+                              : bet.type === 'Spread'
+                              ? `${bet.team} • ${bet.line}`
+                              : `${bet.player} • ${bet.betValue}`}
                           </Text>
-                          <Text style={[styles.betOdds, { color: colors.primary }]}>
+                          <Text
+                            style={[
+                              styles.betType,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {getBetTypeDisplay()}
+                          </Text>
+                        </View>
+
+                        {/* Odds on right */}
+                        <View style={styles.betOddsContainer}>
+                          <Text
+                            style={[styles.betOdds, { color: colors.primary }]}
+                          >
                             {bet.odds}
                           </Text>
                         </View>
                       </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
-              ))}
+                );
+              })}
 
-              {/* Parlay Info */}
-              {bets.length > 1 && (
-                <View style={[styles.parlayInfo, { backgroundColor: theme.surface }]}>
-                  <View style={styles.parlayInfoRow}>
-                    <View style={styles.parlayInfoLeft}>
-                      <Ionicons name="information-circle" size={18} color={colors.primary} />
-                      <Text style={[styles.parlayInfoTitle, { color: theme.text }]}>PARLAY</Text>
-                    </View>
-                    <Text style={[styles.parlayInfoOdds, { color: colors.primary }]}>
-                      {parlayOdds}
-                    </Text>
-                  </View>
-                  <Text style={[styles.parlayInfoSubtext, { color: theme.textSecondary }]}>
-                    {bets.length} legs - All legs must win
-                  </Text>
-                </View>
-              )}
             </ScrollView>
 
             {/* Bottom Section - Bet Input */}
-            <View style={[styles.bottomSection, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
-              {/* Quick bet amounts */}
-              <View style={styles.quickAmounts}>
-                {['$20', '$50', '$100', '$200'].map((amount) => (
+            <View
+              style={[
+                styles.bottomSection,
+                {
+                  backgroundColor: theme.surface,
+                  borderTopColor: theme.border,
+                },
+              ]}
+            >
+              {/* Parlay Odds Display */}
+              <View style={styles.oddsRow}>
+                <View
+                  style={[
+                    styles.oddsDisplayContainer,
+                    { backgroundColor: theme.surfaceSecondary },
+                  ]}
+                >
+                  <View style={styles.oddsDisplayLeft}>
+                    <Text
+                      style={[
+                        styles.oddsDisplayLabel,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {bets.length > 1 ? "PARLAY" : "ODDS"}
+                    </Text>
+                    {bets.length > 1 && (
+                      <Text
+                        style={[
+                          styles.oddsDisplaySubtext,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {bets.length} legs
+                      </Text>
+                    )}
+                  </View>
+                  <Text
+                    style={[styles.oddsDisplayValue, { color: colors.primary }]}
+                  >
+                    {parlayOdds}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Quick Add Buttons + Amount Display */}
+              <View style={styles.quickAddAndAmountRow}>
+                {[1, 5, 20].map((amount) => (
                   <TouchableOpacity
                     key={amount}
-                    style={[styles.quickAmountButton, { backgroundColor: theme.surfaceSecondary }]}
-                    onPress={() => setBetAmount(amount.replace('$', ''))}
+                    style={[
+                      styles.quickAddButton,
+                      { backgroundColor: "rgba(76, 175, 80, 0.15)" },
+                    ]}
+                    onPress={() => handleQuickAdd(amount)}
                   >
-                    <Text style={[styles.quickAmountText, { color: colors.primary }]}>
-                      +{amount}
+                    <Text style={[styles.quickAddText, { color: "#4CAF50" }]}>
+                      +${amount}
                     </Text>
                   </TouchableOpacity>
                 ))}
+
+                {/* Amount Display Box */}
+                <TouchableOpacity
+                  style={[
+                    styles.amountDisplayBox,
+                    {
+                      backgroundColor: theme.surfaceSecondary,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                  onPress={() => setShowNumpad(true)}
+                >
+                  <Text
+                    style={[
+                      styles.amountDisplayText,
+                      { color: betAmount ? theme.text : theme.textSecondary },
+                    ]}
+                  >
+                    ${betAmount || "20"}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              {/* Bet Amount Input */}
-              <View style={styles.inputRow}>
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Bet</Text>
-                  <View style={[styles.inputContainer, { backgroundColor: theme.background, borderColor: theme.border }]}>
-                    <Text style={[styles.currencySymbol, { color: theme.text }]}>$</Text>
-                    <TextInput
-                      style={[styles.input, { color: theme.text }]}
-                      value={betAmount}
-                      onChangeText={setBetAmount}
-                      keyboardType="numeric"
-                      placeholder="0.00"
-                      placeholderTextColor={theme.textTertiary}
-                    />
+              {/* Numpad (appears here when open) */}
+              {showNumpad && (
+                <View style={styles.numpadContainer}>
+                  <View style={styles.numpadRow}>
+                    {["1", "2", "3"].map((num) => (
+                      <TouchableOpacity
+                        key={num}
+                        style={[
+                          styles.numpadButton,
+                          {
+                            backgroundColor: theme.surfaceSecondary,
+                            borderColor: theme.border,
+                          },
+                        ]}
+                        onPress={() => handleNumpadPress(num)}
+                      >
+                        <Text
+                          style={[
+                            styles.numpadButtonText,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {num}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <View style={styles.numpadRow}>
+                    {["4", "5", "6"].map((num) => (
+                      <TouchableOpacity
+                        key={num}
+                        style={[
+                          styles.numpadButton,
+                          {
+                            backgroundColor: theme.surfaceSecondary,
+                            borderColor: theme.border,
+                          },
+                        ]}
+                        onPress={() => handleNumpadPress(num)}
+                      >
+                        <Text
+                          style={[
+                            styles.numpadButtonText,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {num}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <View style={styles.numpadRow}>
+                    {["7", "8", "9"].map((num) => (
+                      <TouchableOpacity
+                        key={num}
+                        style={[
+                          styles.numpadButton,
+                          {
+                            backgroundColor: theme.surfaceSecondary,
+                            borderColor: theme.border,
+                          },
+                        ]}
+                        onPress={() => handleNumpadPress(num)}
+                      >
+                        <Text
+                          style={[
+                            styles.numpadButtonText,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {num}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <View style={styles.numpadRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.numpadButton,
+                        {
+                          backgroundColor: theme.surfaceSecondary,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                      onPress={() => handleNumpadPress(".")}
+                    >
+                      <Text
+                        style={[styles.numpadButtonText, { color: theme.text }]}
+                      >
+                        .
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.numpadButton,
+                        {
+                          backgroundColor: theme.surfaceSecondary,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                      onPress={() => handleNumpadPress("0")}
+                    >
+                      <Text
+                        style={[styles.numpadButtonText, { color: theme.text }]}
+                      >
+                        0
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.numpadButton,
+                        {
+                          backgroundColor: theme.surfaceSecondary,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                      onPress={() => handleNumpadPress("backspace")}
+                    >
+                      <Text
+                        style={[styles.numpadButtonText, { color: theme.text }]}
+                      >
+                        ⌫
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
+              )}
 
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>To Win</Text>
-                  <View style={[styles.inputContainer, { backgroundColor: theme.background, borderColor: theme.border }]}>
-                    <Text style={[styles.currencySymbol, { color: theme.text }]}>$</Text>
-                    <Text style={[styles.toWinText, { color: theme.text }]}>
-                      {payout || '0.00'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Place Bet Button */}
+              {/* Main Bet Button */}
               <TouchableOpacity
                 style={[
-                  styles.placeBetButton,
-                  { backgroundColor: betAmount ? colors.primary : theme.textTertiary },
+                  styles.mainBetButton,
+                  {
+                    backgroundColor:
+                      showNumpad && betAmount
+                        ? colors.primary
+                        : theme.surfaceSecondary,
+                    borderColor: theme.border,
+                  },
                 ]}
-                disabled={!betAmount}
+                onPress={() => {
+                  if (showNumpad && betAmount) {
+                    handleConfirmBet();
+                  } else {
+                    setShowNumpad(true);
+                  }
+                }}
               >
-                <Text style={styles.placeBetButtonText}>Bet</Text>
+                {!showNumpad || !betAmount ? (
+                  <>
+                    <Text
+                      style={[
+                        styles.mainBetButtonLabel,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      Enter Wager Amount
+                    </Text>
+                    <Text
+                      style={[styles.mainBetButtonValue, { color: theme.text }]}
+                    >
+                      ${betAmount || "20.00"} pays ${payout}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text
+                      style={[styles.mainBetButtonLabel, { color: "#FFF" }]}
+                    >
+                      Confirm Bet
+                    </Text>
+                    <Text
+                      style={[styles.mainBetButtonValue, { color: "#FFF" }]}
+                    >
+                      Total Payout: ${payout}
+                    </Text>
+                  </>
+                )}
               </TouchableOpacity>
-
-              {/* Payout Display */}
-              <View style={[styles.payoutRow, isGameDetail && { marginBottom: 30 }]}>
-                <Text style={[styles.payoutLabel, { color: theme.textSecondary }]}>PAYOUT</Text>
-                <Text style={[styles.payoutAmount, { color: theme.text }]}>
-                  ${payout || '0.00'}
-                </Text>
-              </View>
             </View>
-          </Animated.View>
+          </View>
         </View>
       </Modal>
     </>
@@ -284,69 +808,72 @@ const BetSlip = ({ isGameDetail = false }) => {
 
 const styles = StyleSheet.create({
   bottomBar: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     height: 60,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     elevation: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
   },
   bottomBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   bottomBarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   betCountBadge: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: "rgba(255,255,255,0.3)",
     borderRadius: 12,
     width: 24,
     height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   betCountText: {
-    color: 'white',
+    color: "white",
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   bottomBarText: {
-    color: 'white',
+    color: "white",
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   parlayBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: "rgba(255,255,255,0.2)",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
   },
   parlayText: {
-    color: 'white',
+    color: "white",
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalBackdrop: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   modalContent: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -355,52 +882,52 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
   },
   modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 16,
     borderBottomWidth: 1,
   },
   modalHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   modalHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   clearButton: {
     paddingHorizontal: 8,
   },
   clearButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   closeButton: {
     padding: 4,
   },
   tabsContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 16,
   },
   tab: {
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    borderBottomColor: "transparent",
   },
   activeTab: {
     borderBottomWidth: 2,
   },
   tabText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   betsList: {
     flex: 1,
@@ -409,59 +936,74 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   gameHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 12,
     marginHorizontal: 16,
     marginTop: 8,
     borderRadius: 8,
   },
-  gameHeaderText: {
+  gameHeaderTeams: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  gameHeaderTime: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
+  },
+  sgpBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  sgpBadgeText: {
+    color: "white",
+    fontSize: 11,
+    fontWeight: "700",
   },
   betItem: {
     marginHorizontal: 16,
     padding: 16,
     borderRadius: 8,
     marginTop: 8,
-    position: 'relative',
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   lastBetItem: {
     marginBottom: 8,
   },
   removeBetButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    zIndex: 1,
+    padding: 4,
   },
   betItemContent: {
-    paddingRight: 28,
+    flex: 1,
   },
   betType: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 4,
+    textTransform: "uppercase",
   },
   betDescription: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 4,
   },
   betOddsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 60,
   },
   betLine: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: "600",
   },
   betOdds: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: "bold",
   },
   parlayInfo: {
     marginHorizontal: 16,
@@ -471,23 +1013,23 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   parlayInfoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 4,
   },
   parlayInfoLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   parlayInfoTitle: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   parlayInfoOdds: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   parlayInfoSubtext: {
     fontSize: 12,
@@ -496,81 +1038,98 @@ const styles = StyleSheet.create({
   bottomSection: {
     padding: 16,
     borderTopWidth: 1,
+    paddingBottom: 30,
   },
-  quickAmounts: {
-    flexDirection: 'row',
-    gap: 8,
+  oddsRow: {
     marginBottom: 16,
   },
-  quickAmountButton: {
+  oddsDisplayContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  oddsDisplayLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  oddsDisplayLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
+  },
+  oddsDisplayValue: {
+    fontSize: 24,
+    fontWeight: "bold",
+  },
+  oddsDisplaySubtext: {
+    fontSize: 11,
+  },
+  quickAddAndAmountRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
+  },
+  quickAddButton: {
     flex: 1,
     paddingVertical: 10,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
-  quickAmountText: {
-    fontSize: 14,
-    fontWeight: '700',
+  quickAddText: {
+    fontSize: 16,
+    fontWeight: "700",
   },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  inputGroup: {
+  amountDisplayBox: {
     flex: 1,
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    height: 50,
   },
-  currencySymbol: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginRight: 4,
+  amountDisplayText: {
+    fontSize: 16,
+    fontWeight: "700",
   },
-  input: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  toWinText: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  placeBetButton: {
+  mainBetButton: {
     paddingVertical: 16,
+    paddingHorizontal: 20,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
+    borderWidth: 1,
     marginBottom: 12,
   },
-  placeBetButtonText: {
-    color: 'white',
+  mainBetButtonLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  mainBetButtonValue: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
-  payoutRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  numpadContainer: {
+    borderRadius: 8,
+    overflow: "hidden",
+    marginBottom: 12,
   },
-  payoutLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+  numpadRow: {
+    flexDirection: "row",
   },
-  payoutAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  numpadButton: {
+    flex: 1,
+    paddingVertical: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderBottomWidth: 1,
+    borderRightWidth: 1,
+  },
+  numpadButtonText: {
+    fontSize: 24,
+    fontWeight: "600",
   },
 });
 

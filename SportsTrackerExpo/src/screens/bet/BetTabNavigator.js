@@ -13,8 +13,6 @@ const BetTabNavigator = ({ navigation, route }) => {
 
   const sports = [
     { key: "NBA", label: "NBA" },
-    { key: "NFL", label: "NFL" },
-    { key: "SOCCER", label: "SOCCER" },
   ];
 
   const renderActiveSport = () => {

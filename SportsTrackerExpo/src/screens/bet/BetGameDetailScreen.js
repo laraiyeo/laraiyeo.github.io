@@ -562,12 +562,21 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                         } else {
                           toggleBet({
                             id: betId,
-                            type: "milestone",
+                            gameId: gameId,
+                            gameInfo: {
+                              time: gameData.statusDetail || "TBD",
+                              teams: `${gameData.team1Abbr} @ ${gameData.team2Abbr}`,
+                            },
+                            playerId: player.id,
                             player: player.shortName,
                             team: player.teamAbbr,
                             prop: `${selectedPropType} ${milestone.label}`,
+                            statType: selectedPropType.toLowerCase(),
+                            betValue: milestone.label, // e.g., "10+", "20+"
+                            type: "milestone",
+                            line: milestone.label,
                             odds: formattedOdds,
-                            gameId: gameId,
+                            description: `${player.shortName} ${selectedPropType} ${milestone.label}`,
                           });
                         }
                       }}
@@ -714,12 +723,21 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                     } else {
                       toggleBet({
                         id: overBetId,
-                        type: "over",
+                        gameId: gameId,
+                        gameInfo: {
+                          time: gameData.statusDetail || "TBD",
+                          teams: `${gameData.team1Abbr} @ ${gameData.team2Abbr}`,
+                        },
+                        playerId: player.id,
                         player: player.shortName,
                         team: player.teamAbbr,
                         prop: `${selectedPropType} O${line}`,
+                        statType: selectedPropType.toLowerCase(),
+                        betValue: `o${line}`,
+                        type: "over",
+                        line: line.toString(),
                         odds: formattedOverOdds,
-                        gameId: gameId,
+                        description: `${player.shortName} ${selectedPropType} O${line}`,
                       });
                     }
                   }}
@@ -776,12 +794,21 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                     } else {
                       toggleBet({
                         id: underBetId,
-                        type: "under",
+                        gameId: gameId,
+                        gameInfo: {
+                          time: gameData.statusDetail || "TBD",
+                          teams: `${gameData.team1Abbr} @ ${gameData.team2Abbr}`,
+                        },
+                        playerId: player.id,
                         player: player.shortName,
                         team: player.teamAbbr,
                         prop: `${selectedPropType} U${line}`,
+                        statType: selectedPropType.toLowerCase(),
+                        betValue: `u${line}`,
+                        type: "under",
+                        line: line.toString(),
                         odds: formattedUnderOdds,
-                        gameId: gameId,
+                        description: `${player.shortName} ${selectedPropType} U${line}`,
                       });
                     }
                   }}
@@ -1026,6 +1053,7 @@ const AlternateSpreadSection = ({ gameData, theme, colors }) => {
 const BetGameDetailScreen = ({ navigation, route }) => {
   const { colors, theme, isDarkMode } = useTheme();
   const { toggleBet, isBetSelected } = useBetSlip();
+  const { scoreboardData } = useBetData();
   const { game } = route.params || {};
   const [selectedTab, setSelectedTab] = useState("stats");
   const [summaryData, setSummaryData] = useState(null);
@@ -2934,7 +2962,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
         // Get predictor percentages
         const homeWinPct = predictor?.homeTeam?.WIN || "50";
-        const awayWinPct = String(100 - parseFloat(homeWinPct));
+        const awayWinPct = String((100 - parseFloat(homeWinPct)).toFixed(1));
 
         // Format date helper
         const formatGameDate = (dateString) => {
@@ -3002,7 +3030,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       { color: theme.textSecondary },
                     ]}
                   >
-                    Total
+                    Game Total
                   </Text>
                   <Text
                     style={[
@@ -3043,8 +3071,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           gameId: gameData.id,
                           gameInfo: {
                             time: gameData.statusDetail || "TBD",
-                            teams: `${gameData.team1} @ ${gameData.team2}`,
+                            teams: `${awayTeam} @ ${homeTeam}`,
                           },
+                          team: awayTeam,
                           type: "Spread",
                           description: awayTeam,
                           line: formatOdds(awaySpread?.line),
@@ -3098,12 +3127,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           gameId: gameData.id,
                           gameInfo: {
                             time: gameData.statusDetail || "TBD",
-                            teams: `${gameData.team1} @ ${gameData.team2}`,
+                            teams: `${awayTeam} @ ${homeTeam}`,
                           },
                           type: "Total",
                           description: "Over",
                           line: `O ${overData?.line}`,
                           odds: formatOdds(overData?.odds),
+                          awayTeam,
+                          homeTeam,
                         });
                       }
                     }}
@@ -3151,8 +3182,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           gameId: gameData.id,
                           gameInfo: {
                             time: gameData.statusDetail || "TBD",
-                            teams: `${gameData.team1} @ ${gameData.team2}`,
+                            teams: `${awayTeam} @ ${homeTeam}`,
                           },
+                          team: awayTeam,
                           type: "Moneyline",
                           description: awayTeam,
                           line: "",
@@ -3205,8 +3237,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           gameId: gameData.id,
                           gameInfo: {
                             time: gameData.statusDetail || "TBD",
-                            teams: `${gameData.team1} @ ${gameData.team2}`,
+                            teams: `${awayTeam} @ ${homeTeam}`,
                           },
+                          team: homeTeam,
                           type: "Spread",
                           description: homeTeam,
                           line: formatOdds(homeSpread?.line),
@@ -3260,12 +3293,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           gameId: gameData.id,
                           gameInfo: {
                             time: gameData.statusDetail || "TBD",
-                            teams: `${gameData.team1} @ ${gameData.team2}`,
+                            teams: `${awayTeam} @ ${homeTeam}`,
                           },
                           type: "Total",
                           description: "Under",
                           line: `U ${underData?.line}`,
                           odds: formatOdds(underData?.odds),
+                          awayTeam,
+                          homeTeam,
                         });
                       }
                     }}
@@ -3313,8 +3348,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           gameId: gameData.id,
                           gameInfo: {
                             time: gameData.statusDetail || "TBD",
-                            teams: `${gameData.team1} @ ${gameData.team2}`,
+                            teams: `${awayTeam} @ ${homeTeam}`,
                           },
+                          team: homeTeam,
                           type: "Moneyline",
                           description: homeTeam,
                           line: "",
@@ -3447,7 +3483,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         <View style={styles.lastFiveGameCardContent}>
                           <Image
                             source={{
-                              uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${game.opponentAbbreviation?.toLowerCase()}.png&h=40&w=40`,
+                              uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${isDarkMode ? "-dark" : ""}/${game.opponentAbbreviation?.toLowerCase()}.png&h=40&w=40`,
                             }}
                             style={styles.lastFiveGameLogo}
                           />
@@ -3537,7 +3573,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         >
                           <Image
                             source={{
-                              uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${game.opponentAbbreviation?.toLowerCase()}.png&h=40&w=40`,
+                              uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${isDarkMode ? "-dark" : ""}/${game.opponentAbbreviation?.toLowerCase()}.png&h=40&w=40`,
                             }}
                             style={[
                               styles.lastFiveGameLogo,
@@ -3796,7 +3832,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       </ScrollView>
 
       {/* Bet Slip Bottom Bar */}
-      <BetSlip isGameDetail={true} />
+      <BetSlip 
+        isGameDetail={true} 
+        scoreboardGames={scoreboardData?.events || []}
+      />
     </View>
   );
 };

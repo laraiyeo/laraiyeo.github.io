@@ -13,25 +13,108 @@ export const useBetSlip = () => {
 export const BetSlipProvider = ({ children }) => {
   const [bets, setBets] = useState([]);
   const [isSlipOpen, setIsSlipOpen] = useState(false);
+  const [submittedBets, setSubmittedBets] = useState([]); // Store submitted bets
 
   // Add or remove bet from slip
   const toggleBet = useCallback((bet) => {
     console.log('toggleBet called with:', bet);
     setBets((prevBets) => {
       console.log('Previous bets:', prevBets);
+      
+      // If bet is just an ID string, find and remove it
+      if (typeof bet === 'string') {
+        const filteredBets = prevBets.filter(b => b.id !== bet);
+        console.log('Removing bet with ID:', bet);
+        console.log('New bets array:', filteredBets);
+        return filteredBets;
+      }
+      
+      // Otherwise bet is an object
       const existingIndex = prevBets.findIndex(
         (b) => b.id === bet.id
       );
       console.log('Existing bet index:', existingIndex);
 
       if (existingIndex >= 0) {
-        // Remove bet if already selected
-        console.log('Removing bet:', bet.id);
-        return prevBets.filter((_, index) => index !== existingIndex);
+        // Bet already exists, remove it
+        const filteredBets = prevBets.filter(b => b.id !== bet.id);
+        console.log('Removing existing bet:', bet.id);
+        console.log('New bets array:', filteredBets);
+        return filteredBets;
       } else {
-        // Add bet
+        // Check max pick limit (10 bets)
+        if (prevBets.length >= 10) {
+          console.log('Max pick limit reached (10)');
+          return prevBets;
+        }
+
+        // Find conflicting bets to remove
+        let betsToRemove = [];
+
+        // PLAYER PROP RESTRICTIONS (same player, same stat)
+        if (bet.playerId && bet.statType) {
+          prevBets.forEach(existingBet => {
+            if (existingBet.playerId === bet.playerId && 
+                existingBet.statType === bet.statType) {
+              
+              // Can't have multiple milestones for same player/stat
+              if (bet.type === 'milestone' && existingBet.type === 'milestone') {
+                betsToRemove.push(existingBet.id);
+              }
+              
+              // Can't have both over and under for same player/stat
+              if ((bet.type === 'over' && existingBet.type === 'under') ||
+                  (bet.type === 'under' && existingBet.type === 'over')) {
+                betsToRemove.push(existingBet.id);
+              }
+              
+              // Can't have milestone and over/under for same player/stat
+              if ((bet.type === 'milestone' && (existingBet.type === 'over' || existingBet.type === 'under')) ||
+                  ((bet.type === 'over' || bet.type === 'under') && existingBet.type === 'milestone')) {
+                betsToRemove.push(existingBet.id);
+              }
+            }
+          });
+        }
+
+        // GAME LINE RESTRICTIONS
+        if (bet.gameId && (bet.type === 'Spread' || bet.type === 'Total' || bet.type === 'Moneyline')) {
+          prevBets.forEach(existingBet => {
+            if (existingBet.gameId === bet.gameId) {
+              
+              // Can't select both moneylines (both teams)
+              if (bet.type === 'Moneyline' && existingBet.type === 'Moneyline') {
+                betsToRemove.push(existingBet.id);
+              }
+              
+              // Can't select both game totals (over and under)
+              if (bet.type === 'Total' && existingBet.type === 'Total') {
+                betsToRemove.push(existingBet.id);
+              }
+              
+              // Can't select both spreads (both teams)
+              if (bet.type === 'Spread' && existingBet.type === 'Spread') {
+                betsToRemove.push(existingBet.id);
+              }
+              
+              // Can't select spread and moneyline for same team
+              if ((bet.type === 'Spread' && existingBet.type === 'Moneyline' && bet.team === existingBet.team) ||
+                  (bet.type === 'Moneyline' && existingBet.type === 'Spread' && bet.team === existingBet.team)) {
+                betsToRemove.push(existingBet.id);
+              }
+            }
+          });
+        }
+
+        // Remove conflicting bets
+        const filteredBets = prevBets.filter(b => !betsToRemove.includes(b.id));
+        
+        // Add the new bet
         console.log('Adding bet:', bet);
-        const newBets = [...prevBets, bet];
+        if (betsToRemove.length > 0) {
+          console.log('Removed conflicting bets:', betsToRemove);
+        }
+        const newBets = [...filteredBets, bet];
         console.log('New bets array:', newBets);
         return newBets;
       }
@@ -111,6 +194,29 @@ export const BetSlipProvider = ({ children }) => {
     return groups;
   }, [bets]);
 
+  // Submit bet slip and store it
+  const submitBetSlip = useCallback(async (amount, betslipData = null) => {
+    if (bets.length === 0) return null;
+
+    // Create bet slip object
+    const betSlip = {
+      id: Date.now().toString(),
+      bets: [...bets],
+      amount: parseFloat(amount),
+      timestamp: new Date().toISOString(),
+      status: 'open', // open, won, lost
+      betslipData, // API response with events and bet results
+    };
+
+    // Add to submitted bets
+    setSubmittedBets(prev => [betSlip, ...prev]);
+
+    // Clear current bets
+    setBets([]);
+
+    return betSlip;
+  }, [bets]);
+
   const value = {
     bets,
     toggleBet,
@@ -122,6 +228,8 @@ export const BetSlipProvider = ({ children }) => {
     groupedBets,
     isSlipOpen,
     setIsSlipOpen,
+    submittedBets,
+    submitBetSlip,
   };
 
   return (

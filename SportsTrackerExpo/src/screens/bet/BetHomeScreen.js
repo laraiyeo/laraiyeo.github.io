@@ -20,6 +20,37 @@ const imageCache = new Map();
 
 const { width } = Dimensions.get("window");
 
+// Merge new games with previous games, preserving object identity for unchanged items
+const mergeGames = (prevGames, newGames) => {
+  if (!Array.isArray(prevGames) || prevGames.length === 0) return newGames;
+  if (!Array.isArray(newGames)) return newGames;
+
+  // Build map of previous games by id
+  const prevMap = new Map();
+  prevGames.forEach((g) => {
+    if (g && g.id) prevMap.set(String(g.id), g);
+  });
+
+  return newGames.map((g) => {
+    if (!g || !g.id) return g;
+    const id = String(g.id);
+    const prev = prevMap.get(id);
+    if (!prev) return g;
+
+    // Quick shallow compare for key fields
+    const fields = ["score1", "score2", "time", "period", "status"];
+    let changed = false;
+    for (const f of fields) {
+      if (prev[f] !== g[f]) {
+        changed = true;
+        break;
+      }
+    }
+
+    return changed ? g : prev;
+  });
+};
+
 // Format time to EST
 const formatTimeEST = (dateString) => {
   const date = new Date(dateString);
@@ -525,25 +556,26 @@ const BetHomeScreen = ({ navigation }) => {
   // Pre-cache images when scoreboard data arrives - only cache new logos
   useEffect(() => {
     if (scoreboardData?.events) {
+      const darkSuffix = isDarkMode ? "-dark" : "";
       scoreboardData.events.forEach((event) => {
         const competition = event.competitions?.[0];
         if (!competition) return;
 
         const competitors = competition.competitors || [];
         competitors.forEach((competitor) => {
-          const logoUrl = competitor.team?.logo;
-          if (logoUrl && !imageCache.has(logoUrl)) {
-            imageCache.set(logoUrl, { uri: logoUrl });
+          const abbr = competitor.team?.abbreviation?.toLowerCase();
+          if (abbr) {
+            const logoUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${darkSuffix}/${abbr}.png&h=200&w=200`;
+            if (!imageCache.has(logoUrl)) {
+              imageCache.set(logoUrl, { uri: logoUrl });
+            }
           }
         });
       });
     }
-  }, [scoreboardData?.events?.length]); // Only run when number of events changes
+  }, [scoreboardData?.events?.length, isDarkMode]); // Only run when number of events changes or theme changes
 
   // Update games when scoreboard data changes
-  // Store previous game data to maintain object references when data hasn't changed
-  const prevGamesCache = useRef(new Map());
-
   useEffect(() => {
     if (scoreboardData?.events) {
       const {
@@ -553,39 +585,10 @@ const BetHomeScreen = ({ navigation }) => {
         hasLiveGames: hasLive,
       } = parseGameData(scoreboardData.events, isDarkMode);
 
-      // Reuse previous game objects if the data hasn't changed
-      const stableLive = live.map((game) => {
-        const prevGame = prevGamesCache.current.get(game.id);
-        if (
-          prevGame &&
-          prevGame.score1 === game.score1 &&
-          prevGame.score2 === game.score2 &&
-          prevGame.time === game.time &&
-          prevGame.period === game.period
-        ) {
-          return prevGame; // Reuse previous object reference
-        }
-        prevGamesCache.current.set(game.id, game);
-        return game;
-      });
-
-      const stableScheduled = scheduled.map((game) => {
-        const prevGame = prevGamesCache.current.get(game.id);
-        if (prevGame) return prevGame;
-        prevGamesCache.current.set(game.id, game);
-        return game;
-      });
-
-      const stableCompleted = completed.map((game) => {
-        const prevGame = prevGamesCache.current.get(game.id);
-        if (prevGame) return prevGame;
-        prevGamesCache.current.set(game.id, game);
-        return game;
-      });
-
-      setLiveGames(stableLive);
-      setScheduledGames(stableScheduled);
-      setCompletedGames(stableCompleted);
+      // Merge with previous games to maintain object identity
+      setLiveGames((prev) => mergeGames(prev, live));
+      setScheduledGames((prev) => mergeGames(prev, scheduled));
+      setCompletedGames((prev) => mergeGames(prev, completed));
       setHasLiveGames(hasLive);
     }
   }, [scoreboardData, isDarkMode]);
@@ -822,7 +825,7 @@ const BetHomeScreen = ({ navigation }) => {
 
         <View style={styles.bottomPadding} />
       </ScrollView>
-      <BetSlip />
+      <BetSlip scoreboardGames={[...liveGames, ...scheduledGames, ...completedGames]} />
     </View>
   );
 };
