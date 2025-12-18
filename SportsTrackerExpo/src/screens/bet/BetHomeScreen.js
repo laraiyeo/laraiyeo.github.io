@@ -540,18 +540,6 @@ const BetHomeScreen = ({ navigation }) => {
   const [scheduledGames, setScheduledGames] = useState([]);
   const [completedGames, setCompletedGames] = useState([]);
   const [hasLiveGames, setHasLiveGames] = useState(false);
-  const [isFocused, setIsFocused] = useState(true);
-  const pollingIntervalRef = useRef(null);
-
-  // Track screen focus
-  useFocusEffect(
-    React.useCallback(() => {
-      setIsFocused(true);
-      return () => {
-        setIsFocused(false);
-      };
-    }, [])
-  );
 
   // Pre-cache images when scoreboard data arrives - only cache new logos
   useEffect(() => {
@@ -592,34 +580,6 @@ const BetHomeScreen = ({ navigation }) => {
       setHasLiveGames(hasLive);
     }
   }, [scoreboardData, isDarkMode]);
-
-  // Set up smart polling based on live game status and screen focus
-  useEffect(() => {
-    // Clear any existing interval
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-    }
-
-    // Only poll when screen is focused
-    if (!isFocused) {
-      return;
-    }
-
-    // Poll every 2 seconds if there are live games, otherwise every 5 minutes
-    const interval = hasLiveGames ? 2000 : 300000;
-
-    pollingIntervalRef.current = setInterval(() => {
-      fetchScoreboard();
-    }, interval);
-
-    // Cleanup on unmount
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    };
-  }, [hasLiveGames, isFocused]);
 
   const onRefresh = async () => {
     setRefreshing(true);

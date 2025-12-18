@@ -9,6 +9,8 @@ require('dotenv').config();
 const favoritesRouter = require('./routes/favorites');
 const notificationsRouter = require('./routes/notifications');
 const sportsRouter = require('./routes/sports');
+const authRouter = require('./routes/auth');
+const betslipsRouter = require('./routes/betslips');
 const { startBackgroundJobs } = require('./services/backgroundJobs');
 const { initializeRedis } = require('./services/cacheService');
 
@@ -51,6 +53,8 @@ app.get('/health', (req, res) => {
 app.use('/api/favorites', favoritesRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/sports', sportsRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/betslips', betslipsRouter);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -4,6 +4,10 @@ const axios = require("axios");
 const cron = require("node-cron");
 require("dotenv").config();
 
+// Import authentication routes
+const authRoutes = require("./routes/auth");
+const betslipRoutes = require("./routes/betslips");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -1683,9 +1687,15 @@ async function initialize() {
   console.log("Server initialized successfully");
 }
 
+// Authentication and Betting Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/betslips", betslipRoutes);
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Authentication API: http://localhost:${PORT}/api/auth`);
+  console.log(`Betslips API: http://localhost:${PORT}/api/betslips`);
   initialize();
 });
 

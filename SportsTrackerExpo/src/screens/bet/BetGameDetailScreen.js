@@ -26,6 +26,9 @@ import { useBetSlip } from "../../context/BetSlipContext";
 import { useBetData } from "../../context/BetDataContext";
 import BetSlip from "../../components/BetSlip";
 import PlayerStatsPopup from "../../components/PlayerStatsPopup";
+import { useGamePresence } from "../../hooks/useGamePresence";
+import LiveTrackerEmbed from "../../components/LiveTrackerEmbed";
+import LiveTrackerService from "../../services/liveTrackerService";
 
 const { width } = Dimensions.get("window");
 
@@ -219,7 +222,7 @@ const getTabFontSize = () => {
   return 14;
 };
 
-// Basketball Court Component for Flash Props
+// Basketball Court Component for Live Play
 const BasketballCourt = React.memo(
   ({ coordinate, isScoring, teamSide, teamColor, styles }) => {
     // Base court without coordinate
@@ -265,28 +268,44 @@ const BasketballCourt = React.memo(
     const espnX = coordinate.x;
     const espnY = coordinate.y;
 
-    let leftPercent, bottomPercent;
+    let leftPercent, topPercent;
+
+    // IMPORTANT: Court is 150x200 (vertical) but ROTATED 90deg via transform
+    // After rotation: left becomes vertical position, top becomes horizontal position
+    // So we use the VERTICAL court logic but swap which variable gets which axis
 
     if (teamSide === "home") {
-      bottomPercent = (52 - espnY) * 2;
+      // Home on right side AFTER rotation - use away's formula with Math.min
+      topPercent = espnY * 2 - 6;
       leftPercent = espnX * 2;
     } else {
-      bottomPercent = espnY * 2 - 6;
+      // Away on left side AFTER rotation - use home's formula with Math.max
+      topPercent = (52 - espnY) * 2;
       leftPercent = (50 - espnX) * 2;
     }
 
     const finalLeftPercent = Math.max(2, Math.min(98, leftPercent));
-    const finalBottomPercent = Math.max(2, Math.min(98, bottomPercent));
+    const finalTopPercent = Math.max(1.5, Math.min(98.5, topPercent));
     const finalTeamColor = teamColor.startsWith("#")
       ? teamColor
       : `#${teamColor}`;
 
-    let clampedBottom = finalBottomPercent;
+    // Clamp to respective sides (top controls horizontal after 90deg rotation)
+    // Boundaries: away 49.5-98.5%, home 1.5-50.5%
+    let clampedTop = finalTopPercent;
     if (teamSide === "home") {
-      clampedBottom = Math.max(clampedBottom, 50);
+      clampedTop = Math.min(clampedTop, 50.5);  // Home stays on right (≤50.5% top)
     } else {
-      clampedBottom = Math.min(clampedBottom, 50);
+      clampedTop = Math.max(clampedTop, 49.5);  // Away stays on left (≥49.5% top)
     }
+
+    // Log coordinates for debugging
+    console.log("[Court] API coords:", { x: espnX, y: espnY, teamSide });
+    console.log("[Court] Calculated %:", { leftPercent, topPercent });
+    console.log("[Court] Final placement:", {
+      left: finalLeftPercent,
+      top: clampedTop,
+    });
 
     return (
       <View style={styles.miniCourtContainer}>
@@ -315,6 +334,7 @@ const BasketballCourt = React.memo(
           {/* Baskets */}
           <View style={styles.basketTop} />
           <View style={styles.basketBottom} />
+
           {/* Team side indicator */}
           <Text
             style={[
@@ -333,11 +353,11 @@ const BasketballCourt = React.memo(
               {
                 position: "absolute",
                 left: `${finalLeftPercent}%`,
-                bottom: `${clampedBottom}%`,
+                top: `${clampedTop}%`,
                 backgroundColor: isScoring ? finalTeamColor : "white",
                 borderColor: isScoring ? "white" : finalTeamColor,
                 marginLeft: -5,
-                marginBottom: -5,
+                marginTop: -5,
               },
             ]}
           />
@@ -1062,13 +1082,74 @@ const BetGameDetailScreen = ({ navigation, route }) => {
   const [courtScale, setCourtScale] = useState(1.67);
   const [courtContainerHeight, setCourtContainerHeight] = useState(200);
   const [courtContainerWidth, setCourtContainerWidth] = useState(300);
+  
+  // Live tracker state
+  const [liveTrackerVisible, setLiveTrackerVisible] = useState(false);
+  const [liveTrackerUuid, setLiveTrackerUuid] = useState(null);
 
   // Refs for synchronized scrolling in box score
   const boxScoreScrollRefs = useRef({});
   const isBoxScoreScrolling = useRef(false);
 
   const tabFontSize = getTabFontSize();
+  
+  // Game presence tracking
+  const { viewerData, isJoined } = useGamePresence(game?.id);
 
+  // Live tracker resolver effect
+  useEffect(() => {
+    let cancelled = false;
+    const resolveTracker = async () => {
+      // Prefer explicit id passed via route params
+      const provided = route?.params?.liveTrackerMatchId;
+      if (provided) {
+        setLiveTrackerUuid(provided);
+        return;
+      }
+
+      // Prefer a diary URL passed from the scoreboard; fallback to basketball diary
+      const diaryUrl =
+        route?.params?.liveTrackerDiaryUrl ||
+        LiveTrackerService.buildDiaryUrl("basketball");
+
+      // Derive team names from summaryData
+      const competition =
+        summaryData?.header?.competitions?.[0] ||
+        summaryData?.competitions?.[0] ||
+        null;
+
+      const homeName =
+        competition?.competitors?.find((c) => c.homeAway === "home")?.team
+          ?.displayName || "";
+      const awayName =
+        competition?.competitors?.find((c) => c.homeAway === "away")?.team
+          ?.displayName || "";
+
+      if (!diaryUrl || !homeName || !awayName) return;
+
+      try {
+        await LiveTrackerService.initDiary(diaryUrl);
+        const id = await LiveTrackerService.findMatchIdByTeams(
+          homeName,
+          awayName,
+          "basketball"
+        );
+        if (!cancelled && id) setLiveTrackerUuid(id);
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    resolveTracker();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    summaryData,
+    route?.params?.liveTrackerMatchId,
+    route?.params?.liveTrackerDiaryUrl,
+  ]);
+  
   // Fetch game summary data (initial load)
   useEffect(() => {
     const fetchGameSummary = async () => {
@@ -1196,6 +1277,51 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
     return () => clearInterval(intervalId);
   }, [game?.id, summaryData]);
+
+  // Debug logging: Log play coordinates every 2 seconds
+  useEffect(() => {
+    const logInterval = setInterval(() => {
+      if (
+        summaryData?.plays?.coordinate &&
+        summaryData?.header?.competitions?.[0]
+      ) {
+        const play = summaryData.plays;
+        const { x: espnX, y: espnY } = play.coordinate;
+        const period = play.period?.number || 1;
+        const playTeam = play.team;
+
+        // Get team abbreviations from summary data
+        const competition = summaryData.header.competitions[0];
+        const competitors = competition.competitors;
+        const homeTeam = competitors.find((c) => c.homeAway === "home");
+        const isHomeTeam = playTeam === homeTeam?.team?.abbreviation;
+
+        // Determine which side teams are on based on period
+        let isHomeOnRight = true;
+        if (period === 3 || period === 4) {
+          isHomeOnRight = false;
+        }
+
+        const isTeamOnRight =
+          (isHomeTeam && isHomeOnRight) || (!isHomeTeam && !isHomeOnRight);
+        const teamSide = isTeamOnRight ? "home" : "away";
+
+        // Calculate our coordinate system (same as BasketballCourt component)
+        let leftPercent, bottomPercent;
+        if (teamSide === "home") {
+          // Home shoots on right side (50% to 100%)
+          leftPercent = 50 + espnX * 1.25; // 0->50%, 40->100%
+          bottomPercent = (52 - espnY) * 2;
+        } else {
+          // Away shoots on left side (0% to 50%)
+          leftPercent = 50 - espnX * 1.25; // 0->50%, 40->0%
+          bottomPercent = espnY * 2 - 6;
+        }
+      }
+    }, 2000);
+
+    return () => clearInterval(logInterval);
+  }, [summaryData]);
 
   // Parse game data from summary
   const gameData = useMemo(() => {
@@ -1391,7 +1517,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         },
       ];
     } else if (gameState === "in") {
-      // In-game: Game Stats, Flash Props
+      // In-game: Game Stats, Live Play
       return [
         {
           id: "stats",
@@ -1401,7 +1527,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         {
           id: "quick",
           icon: "flash",
-          label: "Flash Props",
+          label: "Live Play",
         },
       ];
     } else {
@@ -2274,7 +2400,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
               }}
             >
               <Text style={[styles.contentTitle, { color: theme.text }]}>
-                Flash Props
+                Live Play
               </Text>
             </View>
 
@@ -2547,348 +2673,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   </View>
                 );
               })()}
-
-            {/* Next Field Goal */}
-            <View
-              style={[
-                styles.flashPropCard,
-                { backgroundColor: theme.surfaceSecondary },
-              ]}
-            >
-              <View style={styles.flashPropHeader}>
-                <Ionicons name="basketball" size={20} color={colors.primary} />
-                <Text style={[styles.flashPropTitle, { color: theme.text }]}>
-                  Next basket will be ...?
-                </Text>
-              </View>
-              <Text
-                style={[
-                  styles.flashPropSubtitle,
-                  { color: theme.textSecondary },
-                ]}
-              >
-                Next Field Goal Exact Type (after Score 85-81)
-              </Text>
-
-              <View style={styles.flashPropGrid}>
-                <TouchableOpacity
-                  style={[
-                    styles.flashPropOption,
-                    {
-                      backgroundColor: isBetSelected("flash-1")
-                        ? colors.primary
-                        : theme.surface,
-                    },
-                  ]}
-                  onPress={() => {
-                    toggleBet({
-                      id: "flash-1",
-                      gameId: gameData.id,
-                      gameInfo: {
-                        time: gameData.time || "TBD",
-                        teams: `${gameData.team1} @ ${gameData.team2}`,
-                      },
-                      type: "Flash Prop",
-                      description: "Next basket - TOR Two Points",
-                      line: "",
-                      odds: "+240",
-                    });
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.flashPropOptionText,
-                      {
-                        color: isBetSelected("flash-1") ? "white" : theme.text,
-                      },
-                    ]}
-                  >
-                    TOR Raptors Two Points
-                  </Text>
-                  <Text
-                    style={[
-                      styles.flashPropOptionOdds,
-                      {
-                        color: isBetSelected("flash-1")
-                          ? "white"
-                          : colors.primary,
-                      },
-                    ]}
-                  >
-                    2.40
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.flashPropOption,
-                    {
-                      backgroundColor: isBetSelected("flash-2")
-                        ? colors.primary
-                        : theme.surface,
-                    },
-                  ]}
-                  onPress={() => {
-                    toggleBet({
-                      id: "flash-2",
-                      gameId: gameData.id,
-                      gameInfo: {
-                        time: gameData.time || "TBD",
-                        teams: `${gameData.team1} @ ${gameData.team2}`,
-                      },
-                      type: "Flash Prop",
-                      description: "Next basket - TOR Three Points",
-                      line: "",
-                      odds: "+430",
-                    });
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.flashPropOptionText,
-                      {
-                        color: isBetSelected("flash-2") ? "white" : theme.text,
-                      },
-                    ]}
-                  >
-                    TOR Raptors Three Points
-                  </Text>
-                  <Text
-                    style={[
-                      styles.flashPropOptionOdds,
-                      {
-                        color: isBetSelected("flash-2")
-                          ? "white"
-                          : colors.primary,
-                      },
-                    ]}
-                  >
-                    4.30
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.flashPropOption,
-                    {
-                      backgroundColor: isBetSelected("flash-3")
-                        ? colors.primary
-                        : theme.surface,
-                    },
-                  ]}
-                  onPress={() => {
-                    toggleBet({
-                      id: "flash-3",
-                      gameId: gameData.id,
-                      gameInfo: {
-                        time: gameData.time || "TBD",
-                        teams: `${gameData.team1} @ ${gameData.team2}`,
-                      },
-                      type: "Flash Prop",
-                      description: "Next basket - MIA Two Points",
-                      line: "",
-                      odds: "+295",
-                    });
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.flashPropOptionText,
-                      {
-                        color: isBetSelected("flash-3") ? "white" : theme.text,
-                      },
-                    ]}
-                  >
-                    MIA Heat Two Points
-                  </Text>
-                  <Text
-                    style={[
-                      styles.flashPropOptionOdds,
-                      {
-                        color: isBetSelected("flash-3")
-                          ? "white"
-                          : colors.primary,
-                      },
-                    ]}
-                  >
-                    2.95
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.flashPropOption,
-                    {
-                      backgroundColor: isBetSelected("flash-4")
-                        ? colors.primary
-                        : theme.surface,
-                    },
-                  ]}
-                  onPress={() => {
-                    toggleBet({
-                      id: "flash-4",
-                      gameId: gameData.id,
-                      gameInfo: {
-                        time: gameData.time || "TBD",
-                        teams: `${gameData.team1} @ ${gameData.team2}`,
-                      },
-                      type: "Flash Prop",
-                      description: "Next basket - MIA Three Points",
-                      line: "",
-                      odds: "+650",
-                    });
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.flashPropOptionText,
-                      {
-                        color: isBetSelected("flash-4") ? "white" : theme.text,
-                      },
-                    ]}
-                  >
-                    MIA Heat Three Points
-                  </Text>
-                  <Text
-                    style={[
-                      styles.flashPropOptionOdds,
-                      {
-                        color: isBetSelected("flash-4")
-                          ? "white"
-                          : colors.primary,
-                      },
-                    ]}
-                  >
-                    6.50
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Next Team to Score */}
-            <View
-              style={[
-                styles.flashPropCard,
-                { backgroundColor: theme.surfaceSecondary },
-              ]}
-            >
-              <View style={styles.flashPropHeader}>
-                <Ionicons name="basketball" size={20} color={colors.primary} />
-                <Text style={[styles.flashPropTitle, { color: theme.text }]}>
-                  Next basket will be scored by the...?
-                </Text>
-              </View>
-              <Text
-                style={[
-                  styles.flashPropSubtitle,
-                  { color: theme.textSecondary },
-                ]}
-              >
-                Team to Score the Next Field Goal (after Score 85-81)
-              </Text>
-
-              <View style={styles.flashPropRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.flashPropChoiceButton,
-                    {
-                      backgroundColor: isBetSelected("team-score-1")
-                        ? colors.primary
-                        : theme.surface,
-                    },
-                  ]}
-                  onPress={() => {
-                    toggleBet({
-                      id: "team-score-1",
-                      gameId: gameData.id,
-                      gameInfo: {
-                        time: gameData.time || "TBD",
-                        teams: `${gameData.team1} @ ${gameData.team2}`,
-                      },
-                      type: "Flash Prop",
-                      description: "Next team to score - TOR Raptors",
-                      line: "",
-                      odds: "+164",
-                    });
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.flashPropChoiceText,
-                      {
-                        color: isBetSelected("team-score-1")
-                          ? "white"
-                          : theme.text,
-                      },
-                    ]}
-                  >
-                    TOR Raptors
-                  </Text>
-                  <Text
-                    style={[
-                      styles.flashPropChoiceOdds,
-                      {
-                        color: isBetSelected("team-score-1")
-                          ? "white"
-                          : colors.primary,
-                      },
-                    ]}
-                  >
-                    1.64
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.flashPropChoiceButton,
-                    {
-                      backgroundColor: isBetSelected("team-score-2")
-                        ? colors.primary
-                        : theme.surface,
-                    },
-                  ]}
-                  onPress={() => {
-                    toggleBet({
-                      id: "team-score-2",
-                      gameId: gameData.id,
-                      gameInfo: {
-                        time: gameData.time || "TBD",
-                        teams: `${gameData.team1} @ ${gameData.team2}`,
-                      },
-                      type: "Flash Prop",
-                      description: "Next team to score - MIA Heat",
-                      line: "",
-                      odds: "+225",
-                    });
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.flashPropChoiceText,
-                      {
-                        color: isBetSelected("team-score-2")
-                          ? "white"
-                          : theme.text,
-                      },
-                    ]}
-                  >
-                    MIA Heat
-                  </Text>
-                  <Text
-                    style={[
-                      styles.flashPropChoiceOdds,
-                      {
-                        color: isBetSelected("team-score-2")
-                          ? "white"
-                          : colors.primary,
-                      },
-                    ]}
-                  >
-                    2.25
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
           </View>
         );
       case "props":
@@ -3664,9 +3448,42 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        stickyHeaderIndices={[1]}
-        contentContainerStyle={{ paddingBottom: 80 }}
+        stickyHeaderIndices={liveTrackerVisible ? [] : [1]}
+        contentContainerStyle={
+          liveTrackerVisible 
+            ? { paddingBottom: 80, marginTop: -6 } 
+            : { paddingBottom: 80 }
+        }
       >
+        {/* Live Tracker Embed */}
+        {liveTrackerVisible ? (
+          (() => {
+            const deviceWidth = Dimensions.get("window").width;
+            const formulaO = 0;
+            const homeLogo = gameData?.team2Logo;
+            const awayLogo = gameData?.team1Logo;
+            const wrapperUrl = `https://laraiye.github.io/live-sports-tracker/livetracker-test.html?uuid=${liveTrackerUuid}${
+              homeLogo ? `&home_logo=${awayLogo}` : ""
+            }${awayLogo ? `&away_logo=${homeLogo}` : ""}&reverse=1`;
+            const ratio = 0.505;
+            const initialEmbedHeight =
+              Math.round(deviceWidth * ratio) + formulaO;
+
+            return (
+              <LiveTrackerEmbed
+                uuid={liveTrackerUuid}
+                visible={true}
+                inline={true}
+                wrapperUrl={wrapperUrl}
+                initialHeight={initialEmbedHeight}
+                formulaO={formulaO}
+                showHeader={false}
+                onClose={() => setLiveTrackerVisible(false)}
+              />
+            );
+          })()
+        ) : null}
+        
         {/* Header with Teams and Scores */}
         {(() => {
           // Get smart team colors for proper color handling
@@ -3791,6 +3608,34 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             </View>
           );
         })()}
+
+        {/* Tracker Button - show if we resolved a liveTracker UUID */}
+        {liveTrackerUuid && !liveTrackerVisible && (
+          <View style={{ paddingHorizontal: 16, marginVertical: 12 }}>
+            <TouchableOpacity
+              style={[
+                {
+                  backgroundColor: colors.secondary,
+                  paddingVertical: 14,
+                  paddingHorizontal: 20,
+                  borderRadius: 8,
+                  alignItems: "center",
+                  justifyContent: "center",
+                },
+              ]}
+              onPress={() => {
+                setLiveTrackerVisible(true);
+              }}
+            >
+              <Text
+                allowFontScaling={false}
+                style={{ color: "white", fontSize: 16, fontWeight: "bold" }}
+              >
+                Tracker
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Sticky Tab Buttons */}
         <View
@@ -4546,7 +4391,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  // Flash Props Styles
+  // Live Play Styles
   miniCourtContainer: {
     width: "100%",
     justifyContent: "center",

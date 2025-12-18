@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,9 +10,13 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetData } from "../../context/BetDataContext";
+
+// API endpoint - Update this with your bet-server Railway URL
+const API_URL = "https://laraiyeogithubio-production-f5af.up.railway.app/api/auth";
 
 const BetLoginScreen = ({ navigation }) => {
   const { colors, theme } = useTheme();
@@ -20,6 +24,102 @@ const BetLoginScreen = ({ navigation }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Load saved credentials on mount
+  useEffect(() => {
+    loadSavedCredentials();
+  }, []);
+
+  const loadSavedCredentials = async () => {
+    try {
+      const savedUser = await AsyncStorage.getItem("@bet_user");
+      const savedToken = await AsyncStorage.getItem("@bet_token");
+      
+      if (savedUser && savedToken) {
+        const user = JSON.parse(savedUser);
+        // Auto-fill credentials
+        setUsername(user.username);
+        
+        // Optionally auto-login if token exists
+        // You can verify the token with the backend first
+        try {
+          const response = await fetch(`${API_URL}/verify`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${savedToken}`,
+            },
+          });
+          
+          if (response.ok) {
+            // Token is valid, auto-login
+            await fetchInitialData();
+            navigation.navigate("BetMain");
+          }
+        } catch (error) {
+          // Token verification failed, user needs to login
+          console.log("Auto-login failed:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading saved credentials:", error);
+    }
+  };
+
+  const saveCredentials = async (user, token) => {
+    try {
+      await AsyncStorage.setItem("@bet_user", JSON.stringify(user));
+      await AsyncStorage.setItem("@bet_token", token);
+    } catch (error) {
+      console.error("Error saving credentials:", error);
+    }
+  };
+
+  const handleSignup = async (username, password) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_URL}/signup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username,
+          password,
+          credits: 1000, // Starting credits for new users
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Save credentials
+        await saveCredentials(data.user, data.token);
+        
+        Alert.alert(
+          "Success",
+          `Account created! You've been given ${data.user.credits} credits to start.`,
+          [
+            {
+              text: "OK",
+              onPress: async () => {
+                await fetchInitialData();
+                navigation.navigate("BetMain");
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert("Signup Failed", data.message || "Could not create account");
+      }
+    } catch (error) {
+      console.error("Signup error:", error);
+      Alert.alert("Error", "Failed to create account. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async () => {
     if (!username || !password) {
@@ -27,18 +127,54 @@ const BetLoginScreen = ({ navigation }) => {
       return;
     }
 
-    // Validate credentials
-    if (username === "username" && password === "password") {
-      // Fetch initial data before navigating
-      await fetchInitialData();
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username,
+          password,
+        }),
+      });
 
-      // Navigate to BetMain (which is in the MainStackNavigator)
-      navigation.navigate("BetMain");
-    } else {
-      Alert.alert(
-        "Error",
-        'Invalid username or password. Use "username" and "password"'
-      );
+      const data = await response.json();
+
+      if (response.ok) {
+        // Save credentials
+        await saveCredentials(data.user, data.token);
+        
+        // Fetch initial data before navigating
+        await fetchInitialData();
+
+        // Navigate to BetMain
+        navigation.navigate("BetMain");
+      } else if (response.status === 404) {
+        // User not found - offer to sign up
+        Alert.alert(
+          "Signup",
+          "Account not found. Would you like to create a new account with these credentials?",
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+            {
+              text: "OK",
+              onPress: () => handleSignup(username, password),
+            },
+          ]
+        );
+      } else {
+        Alert.alert("Error", data.message || "Invalid credentials");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      Alert.alert("Error", "Failed to login. Please check your connection.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -59,7 +195,7 @@ const BetLoginScreen = ({ navigation }) => {
           Welcome to Betting
         </Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Demo Mode - Enter any credentials
+          Login or create a new account
         </Text>
 
         {/* Form */}
@@ -82,6 +218,7 @@ const BetLoginScreen = ({ navigation }) => {
               value={username}
               onChangeText={setUsername}
               autoCapitalize="none"
+              editable={!loading}
             />
           </View>
 
@@ -104,6 +241,7 @@ const BetLoginScreen = ({ navigation }) => {
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
+              editable={!loading}
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
               <Ionicons
@@ -118,12 +256,12 @@ const BetLoginScreen = ({ navigation }) => {
             style={[
               styles.loginButton,
               { backgroundColor: colors.primary },
-              isLoading && styles.loginButtonDisabled,
+              loading && styles.loginButtonDisabled,
             ]}
             onPress={handleLogin}
-            disabled={isLoading}
+            disabled={loading}
           >
-            {isLoading ? (
+            {loading ? (
               <ActivityIndicator color="white" />
             ) : (
               <Text style={styles.loginButtonText}>Login</Text>
@@ -131,7 +269,7 @@ const BetLoginScreen = ({ navigation }) => {
           </TouchableOpacity>
 
           <Text style={[styles.demoNote, { color: theme.textTertiary }]}>
-            This is a demo feature with placeholder data
+            New users will be prompted to create an account
           </Text>
         </View>
       </View>

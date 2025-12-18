@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const BetDataContext = createContext();
@@ -11,6 +17,102 @@ export const BetDataProvider = ({ children }) => {
   const [rostersData, setRostersData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState(null);
+  const [currentPollingMode, setCurrentPollingMode] = useState("slow");
+  const pollingIntervalRef = useRef(null);
+
+  // Helper functions
+  const getTimeDifferenceInMinutes = (date1, date2) => {
+    return Math.abs(date2 - date1) / (1000 * 60);
+  };
+
+  const isGameLive = (status) => {
+    return status?.type?.state === "in";
+  };
+
+  const isGameScheduled = (status) => {
+    return status?.type?.state === "pre";
+  };
+
+  const findNextGameStart = (events) => {
+    const now = new Date();
+    const upcomingGames = events
+      .filter((event) => {
+        const gameDate = new Date(event.date);
+        const status = event.competitions?.[0]?.status;
+        return gameDate > now && isGameScheduled(status);
+      })
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    return upcomingGames.length > 0 ? new Date(upcomingGames[0].date) : null;
+  };
+
+  // Determine polling mode based on game states
+  const determinePollingMode = (events) => {
+    if (!events || !Array.isArray(events)) return "slow";
+
+    let hasLiveGames = false;
+    let hasScheduledGames = false;
+    const now = new Date();
+
+    // Check if any games are live or scheduled
+    for (const event of events) {
+      const status = event.competitions?.[0]?.status;
+      if (isGameLive(status)) {
+        hasLiveGames = true;
+        break;
+      }
+      if (isGameScheduled(status)) {
+        hasScheduledGames = true;
+      }
+    }
+
+    // Find next game start time
+    const nextGameTime = findNextGameStart(events);
+
+    // Determine polling mode
+    if (hasLiveGames) {
+      return "fast"; // Games are live
+    } else if (nextGameTime) {
+      const minutesUntilStart = getTimeDifferenceInMinutes(now, nextGameTime);
+      if (minutesUntilStart <= 5) {
+        return "fast"; // Game starting within 5 minutes
+      } else if (hasScheduledGames) {
+        return "moderate"; // Games scheduled today but not imminent
+      }
+    }
+
+    return "slow"; // No games scheduled
+  };
+
+  // Start polling with appropriate interval
+  const startPolling = (mode) => {
+    // Clear existing interval
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+
+    let interval;
+    switch (mode) {
+      case "fast":
+        interval = 2000; // 2 seconds
+        console.log("[BetData] Starting FAST polling (2 seconds)");
+        break;
+      case "moderate":
+        interval = 90000; // 90 seconds
+        console.log("[BetData] Starting MODERATE polling (90 seconds)");
+        break;
+      default:
+        interval = 30 * 60 * 1000; // 30 minutes
+        console.log("[BetData] Starting SLOW polling (30 minutes)");
+    }
+
+    pollingIntervalRef.current = setInterval(() => {
+      fetchScoreboard();
+    }, interval);
+
+    setCurrentPollingMode(mode);
+  };
 
   // Fetch scoreboard data
   const fetchScoreboard = async () => {
@@ -26,6 +128,12 @@ export const BetDataProvider = ({ children }) => {
         "bet_scoreboard_time",
         new Date().toISOString()
       );
+
+      // Update polling mode based on new data
+      const newMode = determinePollingMode(data?.events);
+      if (newMode !== currentPollingMode) {
+        startPolling(newMode);
+      }
 
       return data;
     } catch (error) {
@@ -58,7 +166,11 @@ export const BetDataProvider = ({ children }) => {
     setIsLoading(true);
     try {
       // Fetch scoreboard first (blocking)
-      await fetchScoreboard();
+      const data = await fetchScoreboard();
+
+      // Start polling based on initial data
+      const initialMode = determinePollingMode(data?.events);
+      startPolling(initialMode);
 
       // Fetch rosters in background (non-blocking)
       fetchRosters().catch((error) => {
@@ -80,8 +192,17 @@ export const BetDataProvider = ({ children }) => {
         const cachedTime = await AsyncStorage.getItem("bet_scoreboard_time");
 
         if (cachedScoreboard) {
-          setScoreboardData(JSON.parse(cachedScoreboard));
+          const data = JSON.parse(cachedScoreboard);
+          setScoreboardData(data);
+
+          // Start polling based on cached data
+          const initialMode = determinePollingMode(data?.events);
+          startPolling(initialMode);
+        } else {
+          // No cached data, start slow polling
+          startPolling("slow");
         }
+
         if (cachedRosters) {
           setRostersData(JSON.parse(cachedRosters));
         }
@@ -90,10 +211,21 @@ export const BetDataProvider = ({ children }) => {
         }
       } catch (error) {
         console.error("Error loading cached data:", error);
+        // Start slow polling even on error
+        startPolling("slow");
       }
     };
 
     loadCachedData();
+
+    // Cleanup on unmount
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+        console.log("[BetData] Polling stopped");
+      }
+    };
   }, []);
 
   const value = {
@@ -101,6 +233,7 @@ export const BetDataProvider = ({ children }) => {
     rostersData,
     isLoading,
     lastFetchTime,
+    currentPollingMode,
     fetchScoreboard,
     fetchRosters,
     fetchInitialData,
