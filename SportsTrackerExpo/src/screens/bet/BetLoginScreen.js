@@ -15,6 +15,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useBetData } from "../../context/BetDataContext";
 import { supabase } from "../../config/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { registerForPushNotifications, API_URL } from "../../services/notificationService";
 import { useFocusEffect } from "@react-navigation/native";
 
 const BetLoginScreen = ({ navigation }) => {
@@ -298,6 +299,36 @@ const BetLoginScreen = ({ navigation }) => {
       // Success - save credentials including the phone we looked up
       console.log("BetLogin: login successful");
       await saveCredentials(username, password, userPhone);
+      // Exchange credentials with server to receive app JWT and store it
+      try {
+        const res = await fetch(`${API_URL}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+        console.log("BetLogin: server auth exchange status", res.status);
+        const text = await res.text();
+        try {
+          // try parse JSON for convenience
+          const j = JSON.parse(text);
+          if (res.ok && j && j.token) {
+            await AsyncStorage.setItem("@bet_token", j.token);
+            console.log("BetLogin: stored server auth token");
+            // Register for push notifications now that server token is available
+            try {
+              await registerForPushNotifications(j.token);
+            } catch (e) {
+              console.error("Push registration after login failed:", e);
+            }
+          } else {
+            console.warn("Login exchange returned no token or failed:", res.status, j);
+          }
+        } catch (parseErr) {
+          console.warn("BetLogin: server exchange non-JSON response", res.status, text);
+        }
+      } catch (e) {
+        console.error("Server auth exchange error:", e);
+      }
       // Trigger scoreboard + rosters fetch immediately from login
       try {
         console.log("BetLogin: login success - fetching scoreboard now");

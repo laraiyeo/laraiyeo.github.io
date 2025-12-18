@@ -46,11 +46,18 @@ router.post(
       const user = result.rows[0];
 
       // Generate JWT token
-      const token = jwt.sign(
-        { userId: user.id, username: user.username },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
-      );
+          if (!process.env.JWT_SECRET) {
+            console.error("JWT_SECRET is not configured in environment");
+            return res
+              .status(500)
+              .json({ message: "Server misconfiguration: JWT_SECRET not set" });
+          }
+
+          const token = jwt.sign(
+            { userId: user.id, username: user.username },
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+          );
 
       res.status(201).json({
         message: "User created successfully",
@@ -62,7 +69,7 @@ router.post(
         token,
       });
     } catch (error) {
-      console.error("Signup error:", error);
+      console.error("Signup error:", error && error.stack ? error.stack : error);
       res.status(500).json({ message: "Server error during signup" });
     }
   }
@@ -72,12 +79,14 @@ router.post(
 router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
+    console.log("Auth: login attempt for username:", username);
 
     // Get user
     const result = await pool.query(
       "SELECT id, username, password_hash, credits FROM users WHERE username = $1",
       [username]
     );
+    console.log("Auth: DB query completed, rows:", result.rows.length);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: "User not found" });
@@ -87,17 +96,25 @@ router.post("/login", async (req, res) => {
 
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    console.log("Auth: password verification result for userId", user.id, "...", isValidPassword ? 'valid' : 'invalid');
 
     if (!isValidPassword) {
       return res.status(401).json({ message: "Invalid password" });
     }
 
     // Generate JWT token
-    const token = jwt.sign(
-      { userId: user.id, username: user.username },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
-    );
+      if (!process.env.JWT_SECRET) {
+        console.error("JWT_SECRET is not configured in environment");
+        return res
+          .status(500)
+          .json({ message: "Server misconfiguration: JWT_SECRET not set" });
+      }
+
+      const token = jwt.sign(
+        { userId: user.id, username: user.username },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+      );
 
     res.json({
       message: "Login successful",
@@ -109,7 +126,7 @@ router.post("/login", async (req, res) => {
       token,
     });
   } catch (error) {
-    console.error("Login error:", error);
+    console.error("Login error:", error && error.stack ? error.stack : error);
     res.status(500).json({ message: "Server error during login" });
   }
 });
@@ -130,7 +147,7 @@ router.post("/verify", authMiddleware, async (req, res) => {
       user: result.rows[0],
     });
   } catch (error) {
-    console.error("Verify error:", error);
+    console.error("Verify error:", error && error.stack ? error.stack : error);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -149,7 +166,7 @@ router.get("/profile", authMiddleware, async (req, res) => {
 
     res.json({ user: result.rows[0] });
   } catch (error) {
-    console.error("Profile error:", error);
+    console.error("Profile error:", error && error.stack ? error.stack : error);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -166,7 +183,7 @@ router.post("/push-token", authMiddleware, async (req, res) => {
 
     res.json({ message: "Push token updated" });
   } catch (error) {
-    console.error("Push token error:", error);
+    console.error("Push token error:", error && error.stack ? error.stack : error);
     res.status(500).json({ message: "Server error" });
   }
 });

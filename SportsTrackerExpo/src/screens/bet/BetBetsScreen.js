@@ -11,6 +11,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetSlip } from "../../context/BetSlipContext";
 import BetSlip from "../../components/BetSlip";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { registerForPushNotifications } from "../../services/notificationService";
 
 const BetBetsScreen = () => {
   const { colors, theme, isDarkMode } = useTheme();
@@ -37,6 +39,21 @@ const BetBetsScreen = () => {
     const interval = setInterval(fetchScoreboard, 30000); // Update every 30 seconds
 
     return () => clearInterval(interval);
+  }, []);
+
+  // Register push token on startup if user authenticated
+  useEffect(() => {
+    const tryRegister = async () => {
+      try {
+        const authToken = await AsyncStorage.getItem("@bet_token");
+        if (authToken) {
+          await registerForPushNotifications();
+        }
+      } catch (e) {
+        console.error("Push registration error:", e);
+      }
+    };
+    tryRegister();
   }, []);
 
   // Get live game data for a specific event ID
@@ -909,7 +926,7 @@ const BetBetsScreen = () => {
               >
                 {liveGame?.shortName || pick.gameInfo}
               </Text>
-              {scores && (
+              {scores && liveGame?.status?.type?.state === "in" && (
                 <Text style={[styles.scoreText, { color: theme.text }]}>
                   {scores[1]?.score || 0} - {scores[0]?.score || 0}
                 </Text>

@@ -31,10 +31,12 @@
     "expo-clipboard": "~8.0.7",
     "expo-constants": "~18.0.9",
     "expo-dev-client": "~6.0.17",
+    "expo-device": "^8.0.10",
     "expo-file-system": "^19.0.17",
     "expo-font": "~14.0.9",
     "expo-image": "^3.0.11",
     "expo-media-library": "^18.2.0",
+    "expo-notifications": "^0.32.15",
     "expo-sharing": "^14.0.7",
     "expo-splash-screen": "^31.0.10",
     "expo-status-bar": "~3.0.8",
@@ -56,9 +58,7 @@
     "react-native-view-shot": "^4.0.3",
     "react-native-web": "^0.21.0",
     "react-native-webview": "13.15.0",
-    "reanimated-color-picker": "^4.1.1",
-    "expo-device": "^5.3.0",
-    "expo-notifications": "^0.19.0"
+    "reanimated-color-picker": "^4.1.1"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
