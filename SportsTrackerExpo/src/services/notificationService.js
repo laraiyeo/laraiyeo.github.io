@@ -4,7 +4,8 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export const API_URL = "https://laraiyeogithubio-production-f5af.up.railway.app/api";
+export const API_URL =
+  "https://laraiyeogithubio-production-f5af.up.railway.app/api";
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -28,7 +29,7 @@ export const registerForPushNotifications = async (serverAuthToken = null) => {
     });
   }
 
-    if (Device.isDevice) {
+  if (Device.isDevice) {
     const { status: existingStatus } =
       await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -59,7 +60,8 @@ export const registerForPushNotifications = async (serverAuthToken = null) => {
 
     // Save token to backend (POST to profile upsert endpoint)
     try {
-      const authToken = serverAuthToken || (await AsyncStorage.getItem("@bet_token"));
+      const authToken =
+        serverAuthToken || (await AsyncStorage.getItem("@bet_token"));
       if (authToken) {
         console.log("Registering push token with server (upsert)");
         const res = await fetch(`${API_URL}/profile/push-token`, {
@@ -68,7 +70,10 @@ export const registerForPushNotifications = async (serverAuthToken = null) => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${authToken}`,
           },
-          body: JSON.stringify({ pushToken: token, platform: Device.osName || null }),
+          body: JSON.stringify({
+            pushToken: token,
+            platform: Device.osName || null,
+          }),
         });
         const text = await res.text();
         if (!res.ok) {

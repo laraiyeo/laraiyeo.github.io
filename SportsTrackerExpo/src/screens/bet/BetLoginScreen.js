@@ -15,7 +15,10 @@ import { useTheme } from "../../context/ThemeContext";
 import { useBetData } from "../../context/BetDataContext";
 import { supabase } from "../../config/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { registerForPushNotifications, API_URL } from "../../services/notificationService";
+import {
+  registerForPushNotifications,
+  API_URL,
+} from "../../services/notificationService";
 import { useFocusEffect } from "@react-navigation/native";
 
 const BetLoginScreen = ({ navigation }) => {
@@ -321,10 +324,18 @@ const BetLoginScreen = ({ navigation }) => {
               console.error("Push registration after login failed:", e);
             }
           } else {
-            console.warn("Login exchange returned no token or failed:", res.status, j);
+            console.warn(
+              "Login exchange returned no token or failed:",
+              res.status,
+              j
+            );
           }
         } catch (parseErr) {
-          console.warn("BetLogin: server exchange non-JSON response", res.status, text);
+          console.warn(
+            "BetLogin: server exchange non-JSON response",
+            res.status,
+            text
+          );
         }
       } catch (e) {
         console.error("Server auth exchange error:", e);

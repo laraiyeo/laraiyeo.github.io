@@ -46,18 +46,18 @@ router.post(
       const user = result.rows[0];
 
       // Generate JWT token
-          if (!process.env.JWT_SECRET) {
-            console.error("JWT_SECRET is not configured in environment");
-            return res
-              .status(500)
-              .json({ message: "Server misconfiguration: JWT_SECRET not set" });
-          }
+      if (!process.env.JWT_SECRET) {
+        console.error("JWT_SECRET is not configured in environment");
+        return res
+          .status(500)
+          .json({ message: "Server misconfiguration: JWT_SECRET not set" });
+      }
 
-          const token = jwt.sign(
-            { userId: user.id, username: user.username },
-            process.env.JWT_SECRET,
-            { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
-          );
+      const token = jwt.sign(
+        { userId: user.id, username: user.username },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+      );
 
       res.status(201).json({
         message: "User created successfully",
@@ -69,7 +69,10 @@ router.post(
         token,
       });
     } catch (error) {
-      console.error("Signup error:", error && error.stack ? error.stack : error);
+      console.error(
+        "Signup error:",
+        error && error.stack ? error.stack : error
+      );
       res.status(500).json({ message: "Server error during signup" });
     }
   }
@@ -96,25 +99,30 @@ router.post("/login", async (req, res) => {
 
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
-    console.log("Auth: password verification result for userId", user.id, "...", isValidPassword ? 'valid' : 'invalid');
+    console.log(
+      "Auth: password verification result for userId",
+      user.id,
+      "...",
+      isValidPassword ? "valid" : "invalid"
+    );
 
     if (!isValidPassword) {
       return res.status(401).json({ message: "Invalid password" });
     }
 
     // Generate JWT token
-      if (!process.env.JWT_SECRET) {
-        console.error("JWT_SECRET is not configured in environment");
-        return res
-          .status(500)
-          .json({ message: "Server misconfiguration: JWT_SECRET not set" });
-      }
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is not configured in environment");
+      return res
+        .status(500)
+        .json({ message: "Server misconfiguration: JWT_SECRET not set" });
+    }
 
-      const token = jwt.sign(
-        { userId: user.id, username: user.username },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
-      );
+    const token = jwt.sign(
+      { userId: user.id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+    );
 
     res.json({
       message: "Login successful",
@@ -183,7 +191,10 @@ router.post("/push-token", authMiddleware, async (req, res) => {
 
     res.json({ message: "Push token updated" });
   } catch (error) {
-    console.error("Push token error:", error && error.stack ? error.stack : error);
+    console.error(
+      "Push token error:",
+      error && error.stack ? error.stack : error
+    );
     res.status(500).json({ message: "Server error" });
   }
 });
