@@ -113,6 +113,8 @@ const parseGameData = (events, isDarkMode = false) => {
         status.type?.state === "in" && status.displayClock
           ? status.displayClock
           : timeFormatted.time,
+      // Keep original ISO start time for accurate sorting and comparisons
+      startTime: event.date,
       timePeriod: timeFormatted.period,
       venue: competition.venue?.fullName,
     };
@@ -605,6 +607,14 @@ const BetHomeScreen = ({ navigation }) => {
     // Sort games within each tournament by time
     Object.values(grouped).forEach((group) => {
       group.games.sort((a, b) => {
+        // Prefer comparing the original ISO start times when available
+        if (a.startTime && b.startTime) {
+          const ta = new Date(a.startTime).getTime();
+          const tb = new Date(b.startTime).getTime();
+          return ta - tb;
+        }
+
+        // Fallback to comparing the formatted time strings
         if (a.time && b.time) {
           return a.time.localeCompare(b.time);
         }

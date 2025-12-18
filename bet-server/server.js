@@ -32,6 +32,7 @@ let currentSummaryIntervals = {}; // { eventId: intervalId }
 let isAnyGameLive = false;
 let nextGameStartTime = null;
 let currentPollingMode = "slow"; // 'slow', 'moderate', 'fast'
+let rostersScoreboardInterval = null; // Dedicated 30-minute refresh for /api/rosters
 
 // Helper functions
 function getTimeDifferenceInMinutes(date1, date2) {
@@ -1684,6 +1685,28 @@ async function initialize() {
     startScoreboardSlowPolling();
   }
 
+  // Start a dedicated 30-minute scoreboard refresh to keep /api/rosters up-to-date.
+  // This ensures the server refreshes ESPN's scoreboard feed on a regular cadence
+  // regardless of the dynamic polling mode used for live games.
+  if (!rostersScoreboardInterval) {
+    console.log("[Rosters Scheduler] Starting 30-minute scoreboard refresh for /api/rosters");
+    rostersScoreboardInterval = setInterval(async () => {
+      try {
+        console.log("[Rosters Scheduler] Refreshing scoreboard for rosters...");
+        await fetchScoreboard();
+        // Clear the cached combined rosters/gamelogs so the next /api/rosters call
+        // will rebuild data based on the fresh scoreboard. We avoid immediate
+        // fetchAllRostersAndGamelogs here to keep this interval lightweight.
+        if (rosterGamelogCache["all"]) {
+          delete rosterGamelogCache["all"];
+          console.log("[Rosters Scheduler] Cleared rosterGamelogCache[\"all\"] to force refresh on next request");
+        }
+      } catch (err) {
+        console.error("[Rosters Scheduler] Error refreshing scoreboard:", err?.message || err);
+      }
+    }, 30 * 60 * 1000);
+  }
+
   console.log("Server initialized successfully");
 }
 
@@ -1711,6 +1734,10 @@ process.on("SIGTERM", () => {
   Object.values(currentSummaryIntervals).forEach((interval) => {
     clearInterval(interval);
   });
+
+  if (rostersScoreboardInterval) {
+    clearInterval(rostersScoreboardInterval);
+  }
 
   process.exit(0);
 });

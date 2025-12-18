@@ -122,12 +122,18 @@ export const BetDataProvider = ({ children }) => {
       setScoreboardData(data);
       setLastFetchTime(new Date().toISOString());
 
-      // Cache scoreboard data
-      await AsyncStorage.setItem("bet_scoreboard_data", JSON.stringify(data));
-      await AsyncStorage.setItem(
-        "bet_scoreboard_time",
-        new Date().toISOString()
-      );
+      // Cache scoreboard data (best-effort). Handle quota errors gracefully.
+      try {
+        await AsyncStorage.setItem("bet_scoreboard_data", JSON.stringify(data));
+        await AsyncStorage.setItem(
+          "bet_scoreboard_time",
+          new Date().toISOString()
+        );
+        console.log('[BetData] Cached scoreboard data');
+      } catch (cacheErr) {
+        // AsyncStorage quota exceeded or other storage error — warn but don't fail the fetch
+        console.warn('[BetData] Warning: failed to cache scoreboard data (ignored):', cacheErr);
+      }
 
       // Update polling mode based on new data
       const newMode = determinePollingMode(data?.events);
@@ -199,8 +205,16 @@ export const BetDataProvider = ({ children }) => {
           const initialMode = determinePollingMode(data?.events);
           startPolling(initialMode);
         } else {
-          // No cached data, start slow polling
-          startPolling("slow");
+          // No cached data — fetch scoreboard immediately, then start polling.
+          try {
+            const data = await fetchScoreboard();
+            const initialMode = determinePollingMode(data?.events);
+            startPolling(initialMode || "slow");
+          } catch (e) {
+            console.error("[BetData] Initial fetch failed:", e);
+            // fallback to slow polling
+            startPolling("slow");
+          }
         }
 
         if (cachedRosters) {

@@ -1,13 +1,16 @@
-import analytics from "@react-native-firebase/analytics";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
-import app from "../config/firebase"; // Import Firebase app
+import app from "../config/firebase"; // Import Firebase app (web SDK)
 
 class AnalyticsService {
   constructor() {
     this.initialized = false;
     this.isDevelopment = __DEV__;
-    this.isExpoGo = Constants.executionEnvironment === "storeClient";
+    // Detect Expo Go / managed client
+    this.isExpoGo =
+      Constants.appOwnership === "expo" ||
+      Constants.executionEnvironment === "storeClient";
+    this._analyticsModule = null; // will hold dynamic import of native analytics
   }
 
   async initialize() {
@@ -18,7 +21,7 @@ class AnalyticsService {
         return;
       }
 
-      // Check if Firebase app is available
+      // Check if Firebase app is available (web SDK)
       if (!app) {
         console.warn(
           "Firebase app not available, skipping analytics initialization"
@@ -26,17 +29,31 @@ class AnalyticsService {
         return;
       }
 
-      // Initialize Firebase Analytics
-      await analytics().setAnalyticsCollectionEnabled(!this.isDevelopment);
+      // Dynamically import the native analytics module to avoid errors in Expo Go
+      try {
+        const analytics = (await import("@react-native-firebase/analytics"))
+          .default;
+        this._analyticsModule = analytics;
 
-      this.initialized = true;
-      console.log("Firebase Analytics initialized successfully");
+        // Initialize Firebase Analytics (native)
+        await analytics().setAnalyticsCollectionEnabled(!this.isDevelopment);
 
-      // Log app open event
-      this.logEvent("app_open", {
-        platform: Platform.OS,
-        development: this.isDevelopment,
-      });
+        this.initialized = true;
+        console.log("Firebase Analytics initialized successfully");
+
+        // Log app open event
+        this.logEvent("app_open", {
+          platform: Platform.OS,
+          development: this.isDevelopment,
+        });
+      } catch (err) {
+        // If native module not available, skip gracefully
+        console.warn(
+          "Native Firebase Analytics not available:",
+          err.message || err
+        );
+        return;
+      }
     } catch (error) {
       console.error("Firebase Analytics initialization failed:", error);
     }
@@ -44,7 +61,7 @@ class AnalyticsService {
 
   async logEvent(eventName, parameters = {}) {
     try {
-      if (!this.initialized || this.isExpoGo) {
+      if (!this.initialized || this.isExpoGo || !this._analyticsModule) {
         console.log(
           `Analytics Event (${this.isExpoGo ? "Expo Go" : "Not Initialized"}):`,
           eventName,
@@ -53,7 +70,7 @@ class AnalyticsService {
         return;
       }
 
-      await analytics().logEvent(eventName, parameters);
+      await this._analyticsModule().logEvent(eventName, parameters);
       console.log("Analytics Event Logged:", eventName, parameters);
     } catch (error) {
       console.error("Failed to log analytics event:", error);
@@ -62,9 +79,9 @@ class AnalyticsService {
 
   async setUserId(userId) {
     try {
-      if (!this.initialized || this.isExpoGo) return;
+      if (!this.initialized || this.isExpoGo || !this._analyticsModule) return;
 
-      await analytics().setUserId(userId);
+      await this._analyticsModule().setUserId(userId);
       console.log("Analytics User ID set:", userId);
     } catch (error) {
       console.error("Failed to set analytics user ID:", error);
@@ -73,9 +90,9 @@ class AnalyticsService {
 
   async setUserProperty(name, value) {
     try {
-      if (!this.initialized || this.isExpoGo) return;
+      if (!this.initialized || this.isExpoGo || !this._analyticsModule) return;
 
-      await analytics().setUserProperty(name, value);
+      await this._analyticsModule().setUserProperty(name, value);
       console.log("Analytics User Property set:", name, value);
     } catch (error) {
       console.error("Failed to set analytics user property:", error);
@@ -84,15 +101,14 @@ class AnalyticsService {
 
   async logScreenView(screenName, screenClass) {
     try {
-      if (!this.initialized || this.isExpoGo) {
+      if (!this.initialized || this.isExpoGo || !this._analyticsModule) {
         console.log(
           `Screen View (${this.isExpoGo ? "Expo Go" : "Not Initialized"}):`,
           screenName
         );
         return;
       }
-
-      await analytics().logScreenView({
+      await this._analyticsModule().logScreenView({
         screen_name: screenName,
         screen_class: screenClass || screenName,
       });

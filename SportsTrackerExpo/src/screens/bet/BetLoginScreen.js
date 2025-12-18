@@ -10,116 +10,200 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetData } from "../../context/BetDataContext";
-
-// API endpoint - Update this with your bet-server Railway URL
-const API_URL =
-  "https://laraiyeogithubio-production-f5af.up.railway.app/api/auth";
+import { supabase } from "../../config/supabase";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 
 const BetLoginScreen = ({ navigation }) => {
   const { colors, theme } = useTheme();
-  const { fetchInitialData, isLoading } = useBetData();
+  const { fetchScoreboard, fetchRosters, isLoading } = useBetData();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showPhoneForm, setShowPhoneForm] = useState(false);
+  const [phone, setPhone] = useState("");
 
-  // Load saved credentials on mount
-  useEffect(() => {
-    loadSavedCredentials();
-  }, []);
+  const CRED_KEY = "bet_credentials_v1";
 
   const loadSavedCredentials = async () => {
     try {
-      const savedUser = await AsyncStorage.getItem("@bet_user");
-      const savedToken = await AsyncStorage.getItem("@bet_token");
+      const json = await AsyncStorage.getItem(CRED_KEY);
+      console.log("BetLogin: loadSavedCredentials raw:", json);
+      if (json) {
+        const {
+          username: sUser,
+          phone: sPhone,
+          password: sPass,
+        } = JSON.parse(json);
+        console.log("BetLogin: loaded creds:", {
+          sUser,
+          sPhone,
+          sPass: sPass ? "***" : null,
+        });
+        if (sUser) setUsername(sUser);
+        if (sPhone) setPhone(sPhone);
+        if (sPass) setPassword(sPass);
+      }
+    } catch (e) {
+      console.error("Failed to load saved credentials", e);
+    }
+  };
 
-      if (savedUser && savedToken) {
-        const user = JSON.parse(savedUser);
-        // Auto-fill credentials
-        setUsername(user.username);
+  const saveCredentials = async (u, p, ph) => {
+    try {
+      const payload = JSON.stringify({
+        username: u || "",
+        password: p || "",
+        phone: ph || "",
+      });
+      console.log("BetLogin: saving credentials payload:", {
+        username: u,
+        phone: ph,
+        password: p ? "***" : null,
+      });
+      await AsyncStorage.setItem(CRED_KEY, payload);
+      // Read back immediately to verify
+      const verify = await AsyncStorage.getItem(CRED_KEY);
+      console.log("BetLogin: saved value verify:", verify);
+    } catch (e) {
+      console.error("Failed to save credentials", e);
+    }
+  };
 
-        // Optionally auto-login if token exists
-        // You can verify the token with the backend first
-        try {
-          const response = await fetch(`${API_URL}/verify`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${savedToken}`,
-            },
-          });
+  // Load saved credentials when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log("BetLogin: focused, loading saved credentials");
+      loadSavedCredentials();
+      setLoading(false);
+    }, [])
+  );
 
-          if (response.ok) {
-            // Token is valid, auto-login
-            await fetchInitialData();
-            navigation.navigate("BetMain");
-          }
-        } catch (error) {
-          // Token verification failed, user needs to login
-          console.log("Auto-login failed:", error);
-        }
+  const checkSession = async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session) {
+        // User is already logged in, navigate to BetMain
+        await fetchInitialData();
+        navigation.navigate("BetMain");
       }
     } catch (error) {
-      console.error("Error loading saved credentials:", error);
+      console.error("Session check error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const saveCredentials = async (user, token) => {
-    try {
-      await AsyncStorage.setItem("@bet_user", JSON.stringify(user));
-      await AsyncStorage.setItem("@bet_token", token);
-    } catch (error) {
-      console.error("Error saving credentials:", error);
-    }
-  };
+  // Note: phone is entered by the user. Placeholder below shows a test number.
 
-  const handleSignup = async (username, password) => {
+  const handleSignup = async (signupUsername, signupPassword) => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/signup`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username,
-          password,
-          credits: 1000, // Starting credits for new users
-        }),
-      });
 
-      const data = await response.json();
+      // Use the provided phone. Require phone to be entered.
+      const signupPhone = phone;
 
-      if (response.ok) {
-        // Save credentials
-        await saveCredentials(data.user, data.token);
-
-        Alert.alert(
-          "Success",
-          `Account created! You've been given ${data.user.credits} credits to start.`,
-          [
-            {
-              text: "OK",
-              onPress: async () => {
-                await fetchInitialData();
-                navigation.navigate("BetMain");
-              },
-            },
-          ]
-        );
-      } else {
+      if (!signupPhone) {
         Alert.alert(
           "Signup Failed",
-          data.message || "Could not create account"
+          "Please enter a phone number before creating an account."
         );
+        return;
       }
+
+      // Check username uniqueness in profiles
+      const { data: existingUser, error: existingErr } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", signupUsername)
+        .maybeSingle();
+
+      if (existingErr) {
+        throw existingErr;
+      }
+
+      if (existingUser) {
+        Alert.alert("Signup Failed", "Username is already taken.");
+        return;
+      }
+
+      // Sign up the user with phone. Your Supabase project must have
+      // phone auth enabled (you mentioned SMS confirmation disabled).
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        phone: signupPhone,
+        password: signupPassword,
+      });
+
+      if (authError) {
+        // Common case: phone already registered
+        const msg = authError.message || "Phone signup failed";
+        if (
+          msg.toLowerCase().includes("phone") ||
+          msg.toLowerCase().includes("already")
+        ) {
+          Alert.alert("Signup Failed", "Phone number is already in use.");
+          return;
+        }
+        throw authError;
+      }
+
+      // Create profile with initial credits
+      const { error: profileError } = await supabase.from("profiles").insert({
+        id: authData.user.id,
+        username: signupUsername,
+        phone: signupPhone,
+        credits: 2500,
+      });
+
+      if (profileError) {
+        // username duplicate (race)
+        if (
+          profileError.message &&
+          profileError.message.toLowerCase().includes("duplicate")
+        ) {
+          Alert.alert("Signup Failed", "Username is already taken.");
+          return;
+        }
+        throw profileError;
+      }
+
+      Alert.alert(
+        "Success",
+        "Account created! You've been given 2500 credits to start.",
+        [
+          {
+            text: "OK",
+            onPress: async () => {
+              // Persist credentials locally so inputs stay filled
+              await saveCredentials(signupUsername, signupPassword, phone);
+              try {
+                console.log('BetLogin: signup success - fetching scoreboard now');
+                await fetchScoreboard();
+                console.log('BetLogin: signup - scoreboard fetch complete');
+              } catch (e) {
+                console.error('BetLogin: signup - fetchScoreboard error', e);
+              }
+              // Start rosters fetch in background
+              if (fetchRosters) {
+                fetchRosters()
+                  .then(() => console.log('BetLogin: signup - rosters fetch started/completed'))
+                  .catch((e) => console.error('BetLogin: signup - fetchRosters error', e));
+              }
+              navigation.navigate("BetMain");
+            },
+          },
+        ]
+      );
     } catch (error) {
       console.error("Signup error:", error);
-      Alert.alert("Error", "Failed to create account. Please try again.");
+      Alert.alert("Signup Failed", error.message || "Could not create account");
     } finally {
       setLoading(false);
     }
@@ -133,50 +217,99 @@ const BetLoginScreen = ({ navigation }) => {
 
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username,
-          password,
-        }),
-      });
+      console.log("BetLogin: attempting login for username:", username);
 
-      const data = await response.json();
+      // Secure lookup: call RPC 'get_phone_by_username' which returns only the phone
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        "get_phone_by_username",
+        { uname: username }
+      );
 
-      if (response.ok) {
-        // Save credentials
-        await saveCredentials(data.user, data.token);
+      console.log("BetLogin: rpc lookup result:", { rpcData, rpcError });
 
-        // Fetch initial data before navigating
-        await fetchInitialData();
-
-        // Navigate to BetMain
-        navigation.navigate("BetMain");
-      } else if (response.status === 404) {
-        // User not found - offer to sign up
-        Alert.alert(
-          "Signup",
-          "Account not found. Would you like to create a new account with these credentials?",
-          [
-            {
-              text: "Cancel",
-              style: "cancel",
-            },
-            {
-              text: "OK",
-              onPress: () => handleSignup(username, password),
-            },
-          ]
-        );
-      } else {
-        Alert.alert("Error", data.message || "Invalid credentials");
+      if (rpcError) {
+        throw rpcError;
       }
+
+      // rpcData might be a scalar string, an array, or an object depending on function
+      let userPhone = null;
+      if (!rpcData) {
+        Alert.alert(
+          "Account Not Found",
+          "No account exists with that username. Please create an account."
+        );
+        setShowPhoneForm(true);
+        setLoading(false);
+        return;
+      }
+
+      if (typeof rpcData === "string") {
+        userPhone = rpcData;
+      } else if (Array.isArray(rpcData) && rpcData.length > 0) {
+        userPhone = rpcData[0];
+      } else if (rpcData.phone) {
+        userPhone = rpcData.phone;
+      }
+
+      if (!userPhone) {
+        // Profile exists but no phone stored - ask user to enter it
+        Alert.alert(
+          "Phone Required",
+          "Please enter the phone number you used to sign up."
+        );
+        setShowPhoneForm(true);
+        setLoading(false);
+        return;
+      }
+
+      // Now sign in with the phone + password
+      console.log("BetLogin: attempting phone sign-in with", userPhone);
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({
+          phone: userPhone,
+          password,
+        });
+
+      console.log("BetLogin: sign-in result:", { authData, authError });
+
+      if (authError) {
+        console.warn("BetLogin: sign-in error", authError);
+        if (
+          authError.message &&
+          (authError.message.includes("Invalid") ||
+            authError.message.includes("credentials"))
+        ) {
+          Alert.alert("Login Failed", "Invalid password. Please try again.");
+        } else {
+          Alert.alert("Login Failed", authError.message || "Failed to login");
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Success - save credentials including the phone we looked up
+      console.log("BetLogin: login successful");
+      await saveCredentials(username, password, userPhone);
+      // Trigger scoreboard + rosters fetch immediately from login
+      try {
+        console.log('BetLogin: login success - fetching scoreboard now');
+        await fetchScoreboard();
+        console.log('BetLogin: login - scoreboard fetch complete');
+      } catch (e) {
+        console.error('BetLogin: login - fetchScoreboard error', e);
+      }
+      if (fetchRosters) {
+        fetchRosters()
+          .then(() => console.log('BetLogin: login - rosters fetch started/completed'))
+          .catch((e) => console.error('BetLogin: login - fetchRosters error', e));
+      }
+      navigation.navigate("BetMain");
     } catch (error) {
-      console.error("Login error:", error);
-      Alert.alert("Error", "Failed to login. Please check your connection.");
+      console.error("Login error (catch):", error);
+      Alert.alert(
+        "Login Failed",
+        error.message || "An unexpected error occurred"
+      );
     } finally {
       setLoading(false);
     }
@@ -204,6 +337,32 @@ const BetLoginScreen = ({ navigation }) => {
 
         {/* Form */}
         <View style={styles.form}>
+          {showPhoneForm && (
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{ color: theme.text, marginBottom: 8 }}>Phone</Text>
+              <View
+                style={[
+                  styles.inputContainer,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <Ionicons
+                  name="call-outline"
+                  size={20}
+                  color={theme.textSecondary}
+                />
+                <TextInput
+                  style={[styles.input, { color: theme.text }]}
+                  placeholder="+12345678910"
+                  placeholderTextColor={theme.textSecondary}
+                  value={phone}
+                  onChangeText={setPhone}
+                  autoCapitalize="none"
+                  editable={!loading}
+                />
+              </View>
+            </View>
+          )}
           <View
             style={[
               styles.inputContainer,
@@ -256,21 +415,56 @@ const BetLoginScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={[
-              styles.loginButton,
-              { backgroundColor: colors.primary },
-              loading && styles.loginButtonDisabled,
-            ]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={styles.loginButtonText}>Login</Text>
-            )}
-          </TouchableOpacity>
+          {showPhoneForm ? (
+            <>
+              <TouchableOpacity
+                style={[
+                  styles.loginButton,
+                  { backgroundColor: colors.primary },
+                  loading && styles.loginButtonDisabled,
+                ]}
+                onPress={() => handleSignup(username, password)}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.loginButtonText}>Create account</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.loginButton,
+                  { backgroundColor: theme.surface, marginTop: 8 },
+                ]}
+                onPress={() => setShowPhoneForm(false)}
+                disabled={loading}
+              >
+                <Text
+                  style={[styles.loginButtonText, { color: colors.primary }]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.loginButton,
+                { backgroundColor: colors.primary },
+                loading && styles.loginButtonDisabled,
+              ]}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.loginButtonText}>Login</Text>
+              )}
+            </TouchableOpacity>
+          )}
 
           <Text style={[styles.demoNote, { color: theme.textTertiary }]}>
             New users will be prompted to create an account
