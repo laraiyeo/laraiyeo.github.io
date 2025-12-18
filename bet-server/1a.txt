@@ -1,0 +1,115 @@
+create table public.bet_history (
+  id uuid not null default gen_random_uuid (),
+  user_id uuid not null,
+  betslip_id uuid null,
+  change_amount numeric not null,
+  reason text null,
+  created_at timestamp with time zone not null default now(),
+  constraint bet_history_pkey primary key (id),
+  constraint bet_history_betslip_id_fkey foreign KEY (betslip_id) references betslips (id) on delete CASCADE,
+  constraint bet_history_user_id_fkey foreign KEY (user_id) references auth.users (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists idx_bet_history_user_id on public.bet_history using btree (user_id) TABLESPACE pg_default;
+
+create index IF not exists idx_bet_history_betslip_id on public.bet_history using btree (betslip_id) TABLESPACE pg_default;
+
+
+create table public.betslips (
+  id uuid not null default gen_random_uuid (),
+  user_id uuid not null,
+  game_id text not null,
+  selection text not null,
+  amount numeric not null,
+  odds double precision not null,
+  status text not null default 'pending'::text,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  betslip_data jsonb null,
+  total_stake numeric null,
+  potential_payout numeric null,
+  user_username text null,
+  "gameId" text null,
+  "betValue" text null,
+  description text null,
+  "gameInfoTime" text null,
+  "gameInfoTeams" text null,
+  line text null,
+  player text null,
+  "playerId" text null,
+  prop text null,
+  "statType" text null,
+  team text null,
+  type text null,
+  "createdAt" timestamp with time zone null,
+  total_odds numeric not null,
+  constraint betslips_pkey primary key (id),
+  constraint betslips_user_id_fkey foreign KEY (user_id) references auth.users (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists idx_betslips_user_id on public.betslips using btree (user_id) TABLESPACE pg_default;
+
+create index IF not exists idx_betslips_status on public.betslips using btree (status) TABLESPACE pg_default;
+
+create index IF not exists idx_betslips_user_created on public.betslips using btree (user_id, created_at desc) TABLESPACE pg_default;
+
+create index IF not exists idx_betslips_gameid on public.betslips using btree ("gameId") TABLESPACE pg_default;
+
+create trigger update_betslips_updated_at BEFORE
+update on betslips for EACH row
+execute FUNCTION update_updated_at_column ();
+
+
+create table public.profiles (
+  id uuid not null,
+  username text not null,
+  credits integer not null default 2500,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  phone text not null,
+  constraint profiles_pkey primary key (id),
+  constraint profiles_phone_key unique (phone),
+  constraint profiles_username_key unique (username),
+  constraint profiles_id_fkey foreign KEY (id) references auth.users (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create trigger update_profiles_updated_at BEFORE
+update on profiles for EACH row
+execute FUNCTION update_updated_at_column ();
+
+
+create table public.push_notifications (
+  id bigint generated always as identity not null,
+  user_id bigint null,
+  title text null,
+  body text null,
+  data jsonb null,
+  created_at timestamp with time zone null default now(),
+  constraint push_notifications_pkey primary key (id)
+) TABLESPACE pg_default;
+
+
+create table public.push_tokens (
+  id uuid not null default gen_random_uuid (),
+  user_id uuid not null,
+  expo_push_token text not null,
+  platform text null,
+  created_at timestamp with time zone not null default now(),
+  constraint push_tokens_pkey primary key (id),
+  constraint push_tokens_user_id_key unique (user_id),
+  constraint push_tokens_user_id_fkey foreign KEY (user_id) references auth.users (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists idx_push_tokens_user_id on public.push_tokens using btree (user_id) TABLESPACE pg_default;
+
+
+create table public.users (
+  id bigint generated always as identity not null,
+  username text not null,
+  password_hash text not null,
+  credits numeric null default 0,
+  push_token text null,
+  created_at timestamp with time zone null default now(),
+  constraint users_pkey primary key (id),
+  constraint users_username_key unique (username)
+) TABLESPACE pg_default;

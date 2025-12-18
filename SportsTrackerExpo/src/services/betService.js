@@ -1,4 +1,19 @@
 import { supabase } from "../config/supabase";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// Helper: decode a JWT without external deps (returns payload object)
+function decodeJwt(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const payload = parts[1];
+    const padded = payload.padEnd(payload.length + (4 - (payload.length % 4)) % 4, '=');
+    const decoded = Buffer.from(padded.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+    return JSON.parse(decoded);
+  } catch (e) {
+    return null;
+  }
+}
 
 /**
  * Place a bet - automatically deducts credits
@@ -48,11 +63,22 @@ export const getUserProfile = async () => {
       throw new Error("Not authenticated");
     }
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
+    // Prefer profileId from server JWT if present
+    let profileId = null;
+    try {
+      const serverToken = await AsyncStorage.getItem("@bet_token");
+      if (serverToken) {
+        const p = decodeJwt(serverToken);
+        if (p && p.profileId) profileId = p.profileId;
+      }
+    } catch (e) {}
+
+    // Try to resolve profile by profileId, then by auth user id
+    let query = supabase.from("profiles").select("*").limit(1);
+    if (profileId) query = query.eq("id", profileId);
+    else query = query.eq("id", user.id);
+
+    const { data, error } = await query.single();
 
     if (error) throw error;
 
@@ -84,10 +110,29 @@ export const getUserBetslips = async (status = null) => {
       throw new Error("Not authenticated");
     }
 
+    // Resolve profileId (prefer server token, then profiles table, else auth user id)
+    let profileId = null;
+    try {
+      const serverToken = await AsyncStorage.getItem("@bet_token");
+      if (serverToken) {
+        const p = decodeJwt(serverToken);
+        if (p && p.profileId) profileId = p.profileId;
+      }
+    } catch (e) {}
+
+    if (!profileId) {
+      try {
+        const { data: prof } = await supabase.from('profiles').select('id').eq('id', user.id).maybeSingle();
+        if (prof && prof.id) profileId = prof.id;
+      } catch (e) { /* ignore */ }
+    }
+
+    const uid = profileId || user.id;
+
     let query = supabase
       .from("betslips")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", uid)
       .order("created_at", { ascending: false });
 
     if (status) {
@@ -125,10 +170,27 @@ export const getBetHistory = async () => {
       throw new Error("Not authenticated");
     }
 
+    // Resolve profileId as above
+    let profileId = null;
+    try {
+      const serverToken = await AsyncStorage.getItem("@bet_token");
+      if (serverToken) {
+        const p = decodeJwt(serverToken);
+        if (p && p.profileId) profileId = p.profileId;
+      }
+    } catch (e) {}
+    if (!profileId) {
+      try {
+        const { data: prof } = await supabase.from('profiles').select('id').eq('id', user.id).maybeSingle();
+        if (prof && prof.id) profileId = prof.id;
+      } catch (e) {}
+    }
+    const uid = profileId || user.id;
+
     const { data, error } = await supabase
       .from("bet_history")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", uid)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -163,18 +225,30 @@ export const createBetslip = async (
 
     if (!user) return { success: false, error: "Not authenticated" };
 
-    // Attempt to fetch username for top-level column
+    // Resolve profileId (prefer server token, then profiles table, else auth user id)
+    let profileId = null;
+    try {
+      const serverToken = await AsyncStorage.getItem("@bet_token");
+      if (serverToken) {
+        const p = decodeJwt(serverToken);
+        if (p && p.profileId) profileId = p.profileId;
+      }
+    } catch (e) {}
+
     let username = null;
     try {
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("username")
-        .eq("id", user.id)
-        .single();
-      if (!profileError && profileData) username = profileData.username;
-    } catch (e) {
-      // ignore
-    }
+      if (profileId) {
+        const { data: profileData } = await supabase.from('profiles').select('username').eq('id', profileId).maybeSingle();
+        if (profileData && profileData.username) username = profileData.username;
+      } else {
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (profileData && profileData.username) username = profileData.username;
+      }
+    } catch (e) { /* ignore */ }
 
     // Normalize bets
     const bets = Array.isArray(betslipData && betslipData.bets)
@@ -198,7 +272,7 @@ export const createBetslip = async (
     const totalDecimalOdds = decimalOddsArr.reduce((acc, v) => acc * v, 1);
 
     const payload = {
-      user_id: user.id,
+      user_id: profileId || user.id,
       user_username: username,
       betslip_data: typeof betslipData === "object" ? betslipData : { bets },
       total_stake: totalStake || 0,
@@ -242,7 +316,7 @@ export const createBetslip = async (
     // preserving representative legacy columns for compatibility.
     const first = bets[0] || {};
     const singlePayload = {
-      user_id: user.id,
+      user_id: profileId || user.id,
       user_username: username,
       betslip_data: aggregatedBetslip,
       total_stake: totalStake || 0,

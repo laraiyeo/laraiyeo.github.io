@@ -1,0 +1,37 @@
+{
+  "name": "bet-server",
+  "version": "1.0.0",
+  "description": "ESPN API Data Fetcher for NBA Statistics",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "nba",
+    "espn",
+    "api",
+    "sports"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.89.0",
+    "axios": "^1.6.2",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "expo-server-sdk": "^4.0.0",
+    "express": "^4.18.2",
+    "express-validator": "^7.3.1",
+    "jsonwebtoken": "^9.0.3",
+    "node-cron": "^3.0.3",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
