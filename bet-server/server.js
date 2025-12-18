@@ -2038,12 +2038,25 @@ app.post(
 
 app.post("/api/auth/login", async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const rawBody = req.body || {};
+    const { username, password } = rawBody;
+    // Sanitize headers: mask Authorization
+    const incomingHeaders = { ...req.headers };
+    if (incomingHeaders.authorization) {
+      const token = incomingHeaders.authorization.split(" ")[1] || incomingHeaders.authorization;
+      incomingHeaders.authorization = `${String(token).slice(0, 8)}...<masked>`;
+    }
+    // Avoid printing cookies or other very large headers
+    if (incomingHeaders.cookie) incomingHeaders.cookie = "<cookie masked>";
+
+    console.log('[auth/login] incoming headers (sanitized):', incomingHeaders);
+    console.log('[auth/login] request body (sanitized):', { username: username || null, password: password ? '***' : null, rawBody });
     const { data: user, error } = await supabaseAdmin
       .from("users")
       .select("id, username, password_hash, credits")
       .eq("username", username)
       .maybeSingle();
+    console.log('[auth/login] users.select result:', { user: user ? { id: user.id, username: user.username, credits: user.credits } : null, error: error ? (error.message || error) : null });
     if (error) throw error;
     if (!user) return res.status(404).json({ message: "User not found" });
     const ok = await bcrypt.compare(password, user.password_hash);
@@ -2053,11 +2066,13 @@ app.post("/api/auth/login", async (req, res) => {
     // Try to find a matching profile UUID for this username
     let profileId = null;
     try {
-      const { data: prof } = await supabaseAdmin
+      console.log('[auth/login] attempting profiles.select by username=', user.username);
+      const { data: prof, error: profErr } = await supabaseAdmin
         .from("profiles")
         .select("id")
         .eq("username", user.username)
         .maybeSingle();
+      console.log('[auth/login] profiles.select result:', { prof: prof || null, error: profErr ? (profErr.message || profErr) : null });
       if (prof && prof.id) profileId = prof.id;
     } catch (e) {
       /* ignore */

@@ -302,21 +302,57 @@ const BetLoginScreen = ({ navigation }) => {
       // Success - save credentials including the phone we looked up
       console.log("BetLogin: login successful");
       await saveCredentials(username, password, userPhone);
-      // Exchange credentials with server to receive app JWT and store it
+      // Exchange Supabase session token with server to receive app JWT and store it
       try {
-        const res = await fetch(`${API_URL}/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password }),
+        // get current session access token
+        const { data: sessionData } = await supabase.auth.getSession();
+        console.log("BetLogin: supabase.auth.getSession result:", {
+          sessionData: !!sessionData,
         });
-        console.log("BetLogin: server auth exchange status", res.status);
-        const text = await res.text();
+        const accessToken = sessionData?.session?.access_token || sessionData?.access_token || null;
+        const headers = { "Content-Type": "application/json" };
+        if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+        // Extensive debug logging before calling server
+        const maskedToken = accessToken ? `${accessToken.slice(0, 8)}...<masked>` : null;
+        const requestBody = JSON.stringify({ username });
+        console.log("BetLogin: will POST to server /auth/login", {
+          url: `${API_URL}/auth/login`,
+          headers: {
+            // only show non-sensitive headers and masked auth
+            "Content-Type": headers["Content-Type"],
+            Authorization: maskedToken,
+          },
+          body: requestBody,
+        });
+
+        let res;
+        let text = null;
         try {
-          // try parse JSON for convenience
-          const j = JSON.parse(text);
+          res = await fetch(`${API_URL}/auth/login`, {
+            method: "POST",
+            headers,
+            body: requestBody,
+          });
+        } catch (netErr) {
+          console.error("BetLogin: network error during server auth exchange:", netErr);
+          throw netErr;
+        }
+
+        console.log("BetLogin: server auth exchange status", res.status);
+        try {
+          text = await res.text();
+        } catch (readErr) {
+          console.error("BetLogin: error reading server response text:", readErr);
+        }
+
+        console.log("BetLogin: server response raw text length", text ? text.length : 0);
+        try {
+          const j = text ? JSON.parse(text) : null;
+          console.log("BetLogin: server response parsed JSON", j);
           if (res.ok && j && j.token) {
             await AsyncStorage.setItem("@bet_token", j.token);
-            console.log("BetLogin: stored server auth token");
+            console.log("BetLogin: stored server auth token (length)", j.token.length || null);
             // Register for push notifications now that server token is available
             try {
               await registerForPushNotifications(j.token);
@@ -324,18 +360,17 @@ const BetLoginScreen = ({ navigation }) => {
               console.error("Push registration after login failed:", e);
             }
           } else {
-            console.warn(
-              "Login exchange returned no token or failed:",
-              res.status,
-              j
-            );
+            console.warn("Login exchange returned no token or failed", {
+              status: res.status,
+              body: j || text,
+            });
           }
         } catch (parseErr) {
-          console.warn(
-            "BetLogin: server exchange non-JSON response",
-            res.status,
-            text
-          );
+          console.warn("BetLogin: server exchange non-JSON response", {
+            status: res.status,
+            raw: text,
+            parseError: parseErr && parseErr.message,
+          });
         }
       } catch (e) {
         console.error("Server auth exchange error:", e);
