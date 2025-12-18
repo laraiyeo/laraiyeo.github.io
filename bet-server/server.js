@@ -2065,7 +2065,56 @@ app.post("/api/auth/login", async (req, res) => {
       error: error ? error.message || error : null,
     });
     if (error) throw error;
-    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // If no legacy users row, attempt to resolve using the provided Supabase access token (if present)
+    if (!user) {
+      const authHeaderRaw = req.headers.authorization || null;
+      const incomingToken = authHeaderRaw
+        ? authHeaderRaw.startsWith("Bearer ")
+          ? authHeaderRaw.split(" ")[1]
+          : authHeaderRaw
+        : null;
+      console.log('[auth/login] no legacy users row found for username; incomingToken present=', !!incomingToken);
+      if (incomingToken) {
+        try {
+          console.log('[auth/login] attempting supabaseAdmin.auth.getUser with masked token', `${String(incomingToken).slice(0,8)}...<masked>`);
+          const { data: sbData, error: sbErr } = await supabaseAdmin.auth.getUser(incomingToken);
+          console.log('[auth/login] supabaseAdmin.auth.getUser result:', { sbData: sbData || null, error: sbErr ? (sbErr.message || sbErr) : null });
+          const supabaseUser = sbData && sbData.user ? sbData.user : null;
+          if (supabaseUser && supabaseUser.id) {
+            // Try to find a profile with this Supabase UUID
+            try {
+              const { data: prof, error: profErr } = await supabaseAdmin
+                .from("profiles")
+                .select("id, username, phone, credits")
+                .eq("id", supabaseUser.id)
+                .maybeSingle();
+              console.log('[auth/login] profiles.select by supabase user id result:', { prof: prof || null, error: profErr ? (profErr.message || profErr) : null });
+              if (prof && prof.id) {
+                if (!process.env.JWT_SECRET)
+                  return res.status(500).json({ message: "JWT_SECRET not configured" });
+                const token = jwt.sign(
+                  { userId: null, username: prof.username || username, profileId: prof.id, supabaseUserId: supabaseUser.id },
+                  process.env.JWT_SECRET,
+                  { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+                );
+                return res.json({
+                  message: "Login successful (via Supabase token)",
+                  user: { id: null, username: prof.username || username, credits: prof.credits || null, profileId: prof.id },
+                  token,
+                });
+              }
+            } catch (profLookupErr) {
+              console.error('[auth/login] error looking up profile by supabase id', profLookupErr);
+            }
+          }
+        } catch (e) {
+          console.error('[auth/login] error resolving supabase token', e && e.message ? e.message : e);
+        }
+      }
+      return res.status(404).json({ message: "User not found" });
+    }
+
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ message: "Invalid password" });
     if (!process.env.JWT_SECRET)
