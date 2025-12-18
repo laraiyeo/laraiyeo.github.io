@@ -2524,62 +2524,67 @@ app.get("/api/betslips", authMiddlewareInline, async (req, res) => {
 });
 
 // Debug: send a test push notification to the caller's profile (or specified profileId)
-app.post(
-  "/api/debug/push-test",
-  authMiddlewareInline,
-  async (req, res) => {
-    try {
-      const body = req.body || {};
-      const targetProfileId = body.profileId || req.profileId || null;
+app.post("/api/debug/push-test", authMiddlewareInline, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const targetProfileId = body.profileId || req.profileId || null;
 
-      // If JWT includes profileId, prefer it
-      let profileId = targetProfileId || null;
-      if (!profileId && req.username) {
-        // Try to resolve profileId from username
-        try {
-          const { data: prof } = await supabaseAdmin
-            .from("profiles")
-            .select("id")
-            .eq("username", req.username)
-            .maybeSingle();
-          if (prof && prof.id) profileId = prof.id;
-        } catch (e) {
-          console.error("/api/debug/push-test profile lookup error", e);
-        }
+    // If JWT includes profileId, prefer it
+    let profileId = targetProfileId || null;
+    if (!profileId && req.username) {
+      // Try to resolve profileId from username
+      try {
+        const { data: prof } = await supabaseAdmin
+          .from("profiles")
+          .select("id")
+          .eq("username", req.username)
+          .maybeSingle();
+        if (prof && prof.id) profileId = prof.id;
+      } catch (e) {
+        console.error("/api/debug/push-test profile lookup error", e);
       }
-
-      if (!profileId) {
-        return res.status(400).json({ message: "profileId required" });
-      }
-
-      // fetch push tokens
-      const { data: tokens, error: tokErr } = await supabaseAdmin
-        .from("push_tokens")
-        .select("expo_push_token, platform")
-        .eq("user_id", profileId);
-      if (tokErr) throw tokErr;
-      if (!tokens || tokens.length === 0)
-        return res.status(404).json({ message: "No push tokens for profile" });
-
-      // send to each token
-      const results = [];
-      for (const t of tokens) {
-        try {
-          await sendPushNotification(profileId, body.title || "Test", body.body || "This is a test notification", body.data || {});
-          results.push({ token: t.expo_push_token, status: "sent" });
-        } catch (e) {
-          console.error("/api/debug/push-test send error", e);
-          results.push({ token: t.expo_push_token, status: "error", error: e && e.message });
-        }
-      }
-
-      res.json({ success: true, results });
-    } catch (e) {
-      console.error("/api/debug/push-test error", e);
-      res.status(500).json({ message: "Server error" });
     }
+
+    if (!profileId) {
+      return res.status(400).json({ message: "profileId required" });
+    }
+
+    // fetch push tokens
+    const { data: tokens, error: tokErr } = await supabaseAdmin
+      .from("push_tokens")
+      .select("expo_push_token, platform")
+      .eq("user_id", profileId);
+    if (tokErr) throw tokErr;
+    if (!tokens || tokens.length === 0)
+      return res.status(404).json({ message: "No push tokens for profile" });
+
+    // send to each token
+    const results = [];
+    for (const t of tokens) {
+      try {
+        await sendPushNotification(
+          profileId,
+          body.title || "Test",
+          body.body || "This is a test notification",
+          body.data || {}
+        );
+        results.push({ token: t.expo_push_token, status: "sent" });
+      } catch (e) {
+        console.error("/api/debug/push-test send error", e);
+        results.push({
+          token: t.expo_push_token,
+          status: "error",
+          error: e && e.message,
+        });
+      }
+    }
+
+    res.json({ success: true, results });
+  } catch (e) {
+    console.error("/api/debug/push-test error", e);
+    res.status(500).json({ message: "Server error" });
   }
-);
+});
 
 app.get("/api/betslips/:id", authMiddlewareInline, async (req, res) => {
   try {
