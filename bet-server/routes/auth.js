@@ -89,25 +89,31 @@ router.post("/login", async (req, res) => {
     let user = null;
     try {
       const { data, error } = await supabaseAdmin
-        .from('users')
-        .select('id, username, password_hash, credits')
-        .eq('username', username)
+        .from("users")
+        .select("id, username, password_hash, credits")
+        .eq("username", username)
         .maybeSingle();
       if (error) throw error;
       if (!data) {
-        return res.status(404).json({ message: 'User not found' });
+        return res.status(404).json({ message: "User not found" });
       }
       user = data;
-      console.log('Auth: Supabase admin lookup succeeded for username', username);
+      console.log(
+        "Auth: Supabase admin lookup succeeded for username",
+        username
+      );
     } catch (supErr) {
-      console.warn('Auth: Supabase admin lookup failed, falling back to direct DB pool:', supErr && supErr.message ? supErr.message : supErr);
+      console.warn(
+        "Auth: Supabase admin lookup failed, falling back to direct DB pool:",
+        supErr && supErr.message ? supErr.message : supErr
+      );
       const result = await pool.query(
-        'SELECT id, username, password_hash, credits FROM users WHERE username = $1',
+        "SELECT id, username, password_hash, credits FROM users WHERE username = $1",
         [username]
       );
-      console.log('Auth: DB query completed, rows:', result.rows.length);
+      console.log("Auth: DB query completed, rows:", result.rows.length);
       if (result.rows.length === 0) {
-        return res.status(404).json({ message: 'User not found' });
+        return res.status(404).json({ message: "User not found" });
       }
       user = result.rows[0];
     }
