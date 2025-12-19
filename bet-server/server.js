@@ -2241,7 +2241,10 @@ async function initialize() {
   try {
     setupBetslipRealtimeListener();
   } catch (e) {
-    console.warn("Failed to initialize betslips realtime listener:", e?.message || e);
+    console.warn(
+      "Failed to initialize betslips realtime listener:",
+      e?.message || e
+    );
   }
 
   console.log("Server initialized successfully");
