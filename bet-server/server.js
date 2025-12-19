@@ -1830,10 +1830,21 @@ app.get("/api/betslip", async (req, res) => {
 
                       // Find stat index in labels
                       const statIndex = labels.indexOf(statUpper);
-                      const current =
-                        statIndex >= 0
-                          ? parseFloat(athlete.stats?.[statIndex]) || 0
-                          : 0;
+                      // Compute current value. If the requested stat is PRA
+                      // (Points+Rebounds+Assists), sum the corresponding
+                      // PTS, REB and AST values from the athlete.stats array.
+                      let current = 0;
+                      if (statUpper === "PRA") {
+                        const ptsIdx = labels.indexOf("PTS");
+                        const rebIdx = labels.indexOf("REB");
+                        const astIdx = labels.indexOf("AST");
+                        const pts = ptsIdx >= 0 ? parseFloat(athlete.stats?.[ptsIdx]) || 0 : 0;
+                        const reb = rebIdx >= 0 ? parseFloat(athlete.stats?.[rebIdx]) || 0 : 0;
+                        const ast = astIdx >= 0 ? parseFloat(athlete.stats?.[astIdx]) || 0 : 0;
+                        current = pts + reb + ast;
+                      } else {
+                        current = statIndex >= 0 ? parseFloat(athlete.stats?.[statIndex]) || 0 : 0;
+                      }
 
                       console.log(
                         `[Betslip] Processing bet: ${betKey}, stat: ${statUpper}, current: ${current}, betValue: ${betValue}`
