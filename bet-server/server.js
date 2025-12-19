@@ -271,10 +271,7 @@ const ESPN_BASE_URL =
 const ESPN_WEB_API_URL =
   "https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba";
 // Prefer using the transformed internal summary endpoint when available
-const PUBLIC_API_URL =
-  process.env.PUBLIC_API_URL ||
-  process.env.CUSTOM_API_URL ||
-  "https://laraiyeogithubio-production-f5af.up.railway.app";
+const PUBLIC_API_URL = "https://laraiyeogithubio-production-f5af.up.railway.app";
 
 // Scheduling state
 let currentScoreboardInterval = null;
@@ -283,6 +280,8 @@ let isAnyGameLive = false;
 let nextGameStartTime = null;
 let currentPollingMode = "slow"; // 'slow', 'moderate', 'fast'
 let rostersScoreboardInterval = null; // Dedicated 30-minute refresh for /api/rosters
+// Track last broadcasted state per event to avoid duplicate start/end broadcasts
+const eventBroadcastState = {}; // { [eventId]: 'pre'|'in'|'post' }
 
 // Helper functions
 function getTimeDifferenceInMinutes(date1, date2) {
@@ -1077,7 +1076,6 @@ function transformRostersData(rostersData) {
 async function fetchScoreboard() {
   try {
     const dateParam = getScoreboardDate();
-    console.log(`[Scoreboard] Fetching data for date ${dateParam}...`);
     const response = await axios.get(
       `${ESPN_BASE_URL}/scoreboard?dates=${dateParam}`
     );
@@ -1095,23 +1093,14 @@ async function fetchScoreboard() {
 
 async function fetchSummary(eventId) {
   try {
-    // Prefer transformed summary endpoint (smaller, normalized payload)
-    try {
-      const response = await axios.get(
-        `${PUBLIC_API_URL}/api/summary/${eventId}`
-      );
-      response.data.lastPolledTime = new Date();
-      summaryDataCache[eventId] = response.data;
-      return response.data;
-    } catch (e) {
-      // fallback to ESPN raw summary if internal API unavailable
-      const response = await axios.get(
-        `${ESPN_BASE_URL}/summary?event=${eventId}`
-      );
-      response.data.lastPolledTime = new Date();
-      summaryDataCache[eventId] = response.data;
-      return response.data;
-    }
+    console.log(`[Summary] Fetching data for event ${eventId}...`);
+    const response = await axios.get(
+      `${ESPN_BASE_URL}/summary?event=${eventId}`
+    );
+    response.data.lastPolledTime = new Date();
+    summaryDataCache[eventId] = response.data;
+    console.log(`[Summary] Data fetched successfully for event ${eventId}`);
+    return response.data;
   } catch (error) {
     console.error(
       `[Summary] Error fetching data for event ${eventId}:`,
@@ -1391,9 +1380,6 @@ function updateSummaryScheduling(events) {
     const hasInterval = currentSummaryIntervals[eventId];
 
     if (shouldFastPoll && !hasInterval) {
-      console.log(
-        `[Summary Scheduler] Starting fast polling for event ${eventId}`
-      );
       currentSummaryIntervals[eventId] = setInterval(
         () => fetchSummary(eventId),
         2000
@@ -1528,13 +1514,17 @@ app.get("/api/summary/:eventId", async (req, res) => {
         const away =
           comp?.competitors?.find((c) => c.homeAway === "away")?.team
             ?.abbreviation || "";
-        if (oldState === "pre" && newState === "in") {
+        // Only broadcast once per transition using eventBroadcastState
+        const lastBroadcast = eventBroadcastState[eventId] || null;
+        if (oldState === "pre" && newState === "in" && lastBroadcast !== "in") {
+          eventBroadcastState[eventId] = "in";
           // game started
           broadcastToAll("Game Starts", `${home} vs ${away} has now started`, {
             eventId,
           });
         }
-        if (oldState === "in" && newState === "post") {
+        if (oldState === "in" && newState === "post" && lastBroadcast !== "post") {
+          eventBroadcastState[eventId] = "post";
           const homeScore =
             comp?.competitors?.find((c) => c.homeAway === "home")?.score || 0;
           const awayScore =
@@ -2547,20 +2537,12 @@ function startWatcherInline(betslipId) {
         new Set(betsArr.map((b) => b.gameId || b.game_id).filter(Boolean))
       )) {
         try {
-          try {
-            const resp = await axios.get(
-              `${PUBLIC_API_URL}/api/summary/${evId}`
-            );
-            summaries[evId] = resp.data;
-          } catch (e) {
-            // fallback to ESPN raw summary
-            const resp2 = await axios.get(
-              `${ESPN_BASE_URL}/summary?event=${evId}`
-            );
-            summaries[evId] = resp2.data;
-          }
+          const resp = await axios.get(
+            `${ESPN_BASE_URL}/summary?event=${evId}`
+          );
+          summaries[evId] = resp.data;
         } catch (e) {
-          console.error("summary fetch", e?.message || e);
+          console.error("summary fetch", e);
         }
       }
       console.log(
