@@ -85,42 +85,75 @@ const groupGamesByTournament = (games) => {
 };
 
 // UpcomingGamesSection as a top-level memoized component to avoid remounts
-const UpcomingGamesSection = React.memo(({ games, navigation, theme }) => {
-  const groupedTournaments = groupGamesByTournament(games);
+const UpcomingGamesSection = React.memo(
+  ({ games, navigation, theme }) => {
+    const groupedTournaments = groupGamesByTournament(games);
 
-  return (
-    <View style={styles.upcomingContainer}>
-      {groupedTournaments.map((group) => (
-        <View
-          key={group.tournament}
-          style={[styles.tournamentContainer, { backgroundColor: theme.surfaceSecondary }]}
-        >
-          <View style={styles.tournamentHeader}>
-            <View style={styles.tournamentIconContainer}>
-              <Image source={NBA_LOGO} style={styles.nbaLogoSmall} contentFit="contain" cachePolicy="memory-disk" />
-            </View>
-            <View style={styles.tournamentInfo}>
-              <Text style={[styles.tournamentName, { color: theme.text }]} numberOfLines={1}>{group.tournament}</Text>
-              <Text style={[styles.tournamentLabel, { color: theme.textTertiary }]} numberOfLines={1}>{group.tournamentLabel}</Text>
-            </View>
-          </View>
-
-          <View style={styles.gamesList}>
-            {group.games.map((game, index) => (
-              <View key={game.id}>
-                <ScheduledGameRow game={game} navigation={navigation} theme={theme} />
-
-                {index < group.games.length - 1 && (
-                  <View style={[styles.gameSeparator, { backgroundColor: theme.border }]} />
-                )}
+    return (
+      <View style={styles.upcomingContainer}>
+        {groupedTournaments.map((group) => (
+          <View
+            key={group.tournament}
+            style={[
+              styles.tournamentContainer,
+              { backgroundColor: theme.surfaceSecondary },
+            ]}
+          >
+            <View style={styles.tournamentHeader}>
+              <View style={styles.tournamentIconContainer}>
+                <Image
+                  source={NBA_LOGO}
+                  style={styles.nbaLogoSmall}
+                  contentFit="contain"
+                  cachePolicy="memory-disk"
+                />
               </View>
-            ))}
+              <View style={styles.tournamentInfo}>
+                <Text
+                  style={[styles.tournamentName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {group.tournament}
+                </Text>
+                <Text
+                  style={[
+                    styles.tournamentLabel,
+                    { color: theme.textTertiary },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {group.tournamentLabel}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.gamesList}>
+              {group.games.map((game, index) => (
+                <View key={game.id}>
+                  <ScheduledGameRow
+                    game={game}
+                    navigation={navigation}
+                    theme={theme}
+                  />
+
+                  {index < group.games.length - 1 && (
+                    <View
+                      style={[
+                        styles.gameSeparator,
+                        { backgroundColor: theme.border },
+                      ]}
+                    />
+                  )}
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
-      ))}
-    </View>
-  );
-}, (prev, next) => prev.games === next.games && prev.theme === next.theme);
+        ))}
+      </View>
+    );
+  },
+  (prev, next) => prev.games === next.games && prev.theme === next.theme
+);
 
 // Format time to EST (robust across platforms). Returns { time, period }
 // Uses Intl.DateTimeFormat.formatToParts to reliably extract hour/minute and dayPeriod.
@@ -687,8 +720,13 @@ const BetHomeScreen = ({ navigation }) => {
           focusPollRef.current = null;
         }
 
-        const mode = hasLiveGames ? "fast" : scheduledGames.length ? "moderate" : "slow";
-        const intervalMs = mode === "fast" ? 2000 : mode === "moderate" ? 90000 : 30 * 60 * 1000;
+        const mode = hasLiveGames
+          ? "fast"
+          : scheduledGames.length
+          ? "moderate"
+          : "slow";
+        const intervalMs =
+          mode === "fast" ? 2000 : mode === "moderate" ? 90000 : 30 * 60 * 1000;
 
         const id = setInterval(() => {
           fetchScoreboard().catch(() => {});
@@ -702,8 +740,13 @@ const BetHomeScreen = ({ navigation }) => {
       // Also watch for changes to live/scheduled state while focused
       const visibilityInterval = setInterval(() => {
         // if mode changed, restart focused polling
-        const mode = hasLiveGames ? "fast" : scheduledGames.length ? "moderate" : "slow";
-        const desiredInterval = mode === "fast" ? 2000 : mode === "moderate" ? 90000 : 30 * 60 * 1000;
+        const mode = hasLiveGames
+          ? "fast"
+          : scheduledGames.length
+          ? "moderate"
+          : "slow";
+        const desiredInterval =
+          mode === "fast" ? 2000 : mode === "moderate" ? 90000 : 30 * 60 * 1000;
         const currentInterval = focusPollRef.current?.intervalMs || null;
         if (!focusPollRef.current || currentInterval !== desiredInterval) {
           startFocusedPolling();

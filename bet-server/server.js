@@ -2430,8 +2430,12 @@ function startWatcherInline(betslipId) {
         } else {
           const gameStatus = summary.header?.competitions?.[0]?.status?.type;
           const statusName =
-            gameStatus?.name || gameStatus?.state || gameStatus?.description || "";
-          const isInProgress = /in/i.test(String(statusName)) && !gameStatus?.completed;
+            gameStatus?.name ||
+            gameStatus?.state ||
+            gameStatus?.description ||
+            "";
+          const isInProgress =
+            /in/i.test(String(statusName)) && !gameStatus?.completed;
           isCompleted = gameStatus?.completed || false;
 
           // detect game started and emit once per event (skip on first tick)
@@ -2444,7 +2448,11 @@ function startWatcherInline(betslipId) {
               { betslipId: fresh.id, eventId: evId }
             );
           }
-          lastEventStatus[evId] = isCompleted ? "completed" : isInProgress ? "in progress" : "scheduled";
+          lastEventStatus[evId] = isCompleted
+            ? "completed"
+            : isInProgress
+            ? "in progress"
+            : "scheduled";
 
           // simplified heuristics (moneyline/total/spread/player)
           if (!bet.playerId && !bet.player && !bet.prop) {
@@ -2543,7 +2551,10 @@ function startWatcherInline(betslipId) {
       // New finalization rule: if any completed pick exists and any completed pick is not won -> mark whole bet lost
       if (anyCompleted && anyCompletedNotWon) {
         if (fresh.status !== "lost") {
-          await supabaseAdmin.from("betslips").update({ status: "lost" }).eq("id", betslipId);
+          await supabaseAdmin
+            .from("betslips")
+            .update({ status: "lost" })
+            .eq("id", betslipId);
           await sendPushNotification(
             fresh.user_id,
             "Bet Lost",
@@ -2612,10 +2623,18 @@ function startMinuteNotifier(betslipId) {
         const comp = s.header?.competitions?.[0] || {};
         const shortDetail = comp.shortDetail || comp.name || `Game ${evId}`;
         const competitors = comp.competitors || [];
-        const home = competitors.find((c) => c.homeAway === "home") || competitors[0] || {};
-        const away = competitors.find((c) => c.homeAway === "away") || competitors[1] || {};
-        const homeTeam = home.team?.displayName || home.team?.abbreviation || "Home";
-        const awayTeam = away.team?.displayName || away.team?.abbreviation || "Away";
+        const home =
+          competitors.find((c) => c.homeAway === "home") ||
+          competitors[0] ||
+          {};
+        const away =
+          competitors.find((c) => c.homeAway === "away") ||
+          competitors[1] ||
+          {};
+        const homeTeam =
+          home.team?.displayName || home.team?.abbreviation || "Home";
+        const awayTeam =
+          away.team?.displayName || away.team?.abbreviation || "Away";
         const homeScore = home.score ?? 0;
         const awayScore = away.score ?? 0;
         const body = `${homeTeam} ${homeScore} - ${awayTeam} ${awayScore}`;
@@ -2696,7 +2715,8 @@ app.post(
   async (req, res) => {
     try {
       const { betslipId } = req.body || {};
-      if (!betslipId) return res.status(400).json({ message: "betslipId required" });
+      if (!betslipId)
+        return res.status(400).json({ message: "betslipId required" });
       const { data } = await supabaseAdmin
         .from("betslips")
         .select("id, user_id")
