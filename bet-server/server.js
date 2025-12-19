@@ -1838,12 +1838,24 @@ app.get("/api/betslip", async (req, res) => {
                         const ptsIdx = labels.indexOf("PTS");
                         const rebIdx = labels.indexOf("REB");
                         const astIdx = labels.indexOf("AST");
-                        const pts = ptsIdx >= 0 ? parseFloat(athlete.stats?.[ptsIdx]) || 0 : 0;
-                        const reb = rebIdx >= 0 ? parseFloat(athlete.stats?.[rebIdx]) || 0 : 0;
-                        const ast = astIdx >= 0 ? parseFloat(athlete.stats?.[astIdx]) || 0 : 0;
+                        const pts =
+                          ptsIdx >= 0
+                            ? parseFloat(athlete.stats?.[ptsIdx]) || 0
+                            : 0;
+                        const reb =
+                          rebIdx >= 0
+                            ? parseFloat(athlete.stats?.[rebIdx]) || 0
+                            : 0;
+                        const ast =
+                          astIdx >= 0
+                            ? parseFloat(athlete.stats?.[astIdx]) || 0
+                            : 0;
                         current = pts + reb + ast;
                       } else {
-                        current = statIndex >= 0 ? parseFloat(athlete.stats?.[statIndex]) || 0 : 0;
+                        current =
+                          statIndex >= 0
+                            ? parseFloat(athlete.stats?.[statIndex]) || 0
+                            : 0;
                       }
 
                       console.log(
