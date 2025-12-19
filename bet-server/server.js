@@ -2237,6 +2237,13 @@ async function initialize() {
     }, 30 * 60 * 1000);
   }
 
+  // Start realtime listener so server reacts to external inserts into Supabase
+  try {
+    setupBetslipRealtimeListener();
+  } catch (e) {
+    console.warn("Failed to initialize betslips realtime listener:", e?.message || e);
+  }
+
   console.log("Server initialized successfully");
 }
 
@@ -3106,6 +3113,53 @@ function stopTestNotifier(betslipId) {
   if (!testNotifiers[betslipId]) return;
   clearInterval(testNotifiers[betslipId].intervalId);
   delete testNotifiers[betslipId];
+}
+
+// Supabase Realtime listener: automatically start watcher when a new
+// betslip row is inserted (handles clients that write directly to Supabase)
+function setupBetslipRealtimeListener() {
+  try {
+    console.log("[realtime] setting up betslips INSERT listener...");
+    const ch = supabaseAdmin
+      .channel("betslips-watcher")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "betslips" },
+        (payload) => {
+          try {
+            const id = payload?.new?.id;
+            const userId = payload?.new?.user_id;
+            console.log(
+              `[realtime] betslips INSERT detected id:${id} user:${userId}`
+            );
+            if (id) {
+              // Start watcher for the new betslip (startWatcherInline is idempotent)
+              try {
+                startWatcherInline(id);
+                if (betslipWatchers[id]) {
+                  console.log(`[realtime] watcher started for ${id}`);
+                } else {
+                  console.warn(`[realtime] watcher did not start for ${id}`);
+                }
+              } catch (e) {
+                console.error(
+                  `[realtime] error starting watcher for ${id}`,
+                  e?.message || e
+                );
+              }
+            }
+          } catch (e) {
+            console.error("[realtime] payload handling error", e?.message || e);
+          }
+        }
+      );
+
+    ch.subscribe((status) => {
+      console.log(`[realtime] subscription status: ${status}`);
+    });
+  } catch (e) {
+    console.error("[realtime] failed to setup listener", e?.message || e);
+  }
 }
 
 // Minute-notifier implementation removed.
