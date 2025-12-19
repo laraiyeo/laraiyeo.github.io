@@ -596,7 +596,6 @@ function transformScoreboardData(data) {
             displayName: competitor.team?.displayName,
             color: competitor.team?.color,
             alternateColor: competitor.team?.alternateColor,
-            logo: competitor.team?.logo,
           },
           score: competitor.score,
           linescores: transformLinescores(competitor.linescores),
@@ -683,11 +682,14 @@ function generatePlayerOdds(gamelog, opponentTeamData) {
   const seasonTypes = gamelog.seasonTypes || [];
   const events = gamelog.events || {};
 
-  // Collect all stats for each category with opponent info
-  const allStats = {};
-  const opponentStats = {}; // Track stats against specific opponents
+  // Collect all stats for each category with opponent info. Instead of
+  // pushing plain values, record the event's date so we can sort by
+  // gameDate (oldest -> newest) and then compute last 5/10 using the same
+  // recent-game selection logic used for `recentGames`.
+  const allStatsEntries = {};
+  const opponentStats = {}; // Track stats against specific opponents (values only)
   labels.forEach((label) => {
-    allStats[label] = [];
+    allStatsEntries[label] = [];
     opponentStats[label] = {};
   });
 
@@ -700,15 +702,20 @@ function generatePlayerOdds(gamelog, opponentTeamData) {
         const stats = eventData.stats || [];
         const eventId = eventData.eventId;
         const opponent = events[eventId]?.opponent;
+        const gameDate = events[eventId]?.gameDate || null;
 
         labels.forEach((label, index) => {
           if (stats[index] !== undefined && stats[index] !== null) {
             // Parse numeric values (handle formats like "10-20")
             const value = parseFloat(String(stats[index]).split("-")[0]);
             if (!isNaN(value)) {
-              allStats[label].push(value);
+              allStatsEntries[label].push({
+                value,
+                eventId,
+                gameDate,
+              });
 
-              // Track opponent-specific stats
+              // Track opponent-specific stats (values only)
               if (opponent?.id) {
                 if (!opponentStats[label][opponent.id]) {
                   opponentStats[label][opponent.id] = [];
@@ -720,6 +727,14 @@ function generatePlayerOdds(gamelog, opponentTeamData) {
         });
       });
     });
+  });
+
+  // Convert entries into ordered numeric arrays (oldest -> newest)
+  const allStats = {};
+  labels.forEach((label) => {
+    const entries = allStatsEntries[label] || [];
+    entries.sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
+    allStats[label] = entries.map((e) => e.value);
   });
 
   // Calculate PRA (Points + Rebounds + Assists)
@@ -903,7 +918,6 @@ function transformSummaryData(data) {
           shortDisplayName: teamData.team?.shortDisplayName,
           color: teamData.team?.color,
           alternateColor: teamData.team?.alternateColor,
-          logo: teamData.team?.logo,
         },
         statistics: transformStatistics(teamData.statistics),
         homeAway: teamData.homeAway,
@@ -928,12 +942,8 @@ function transformSummaryData(data) {
                     id: athleteData.athlete?.id,
                     displayName: athleteData.athlete?.displayName,
                     shortName: athleteData.athlete?.shortName,
-                    headshot: athleteData.athlete?.headshot?.href,
                     jersey: athleteData.athlete?.jersey,
-                    position: {
-                      name: athleteData.athlete?.position?.name,
-                      abbreviation: athleteData.athlete?.position?.abbreviation,
-                    },
+                    position: athleteData.athlete?.position?.abbreviation,
                   },
                   starter: athleteData.starter,
                   stats: transformPlayerStats(athleteData.stats, stats.labels),
@@ -959,7 +969,6 @@ function transformSummaryData(data) {
         id: teamGames.team?.id,
         displayName: teamGames.team?.displayName,
         abbreviation: teamGames.team?.abbreviation,
-        logo: teamGames.team?.logo,
       },
       events: teamGames.events?.map((event) => ({
         id: event.id,
@@ -1118,7 +1127,6 @@ function transformSummaryData(data) {
             displayName: competitor.team?.displayName,
             color: competitor.team?.color,
             alternateColor: competitor.team?.alternateColor,
-            logo: competitor.team?.logo,
           },
           score: competitor.score,
           linescores: transformLinescores(competitor.linescores),
@@ -1163,12 +1171,8 @@ function transformRostersData(rostersData) {
         id: athlete.id,
         name: `${athlete.firstName} ${athlete.lastName}`,
         shortName: athlete.shortName,
-        headshot: athlete.headshot?.href || null,
         jersey: athlete.jersey,
-        position: {
-          displayName: athlete.position?.displayName || null,
-          abbreviation: athlete.position?.abbreviation || null,
-        },
+        position: athlete.position?.abbreviation || null,
       };
 
       // Add gamelog data if available
@@ -1221,7 +1225,6 @@ function transformRostersData(rostersData) {
             opponent: {
               id: event.opponent?.id || null,
               displayName: event.opponent?.displayName || null,
-              logo: event.opponent?.logo || null,
             },
             stats: eventStatsMap[event.id] || null,
           };
@@ -1273,7 +1276,6 @@ function transformRostersData(rostersData) {
       abbreviation: team.abbreviation,
       displayName: team.displayName,
       color: team.color,
-      logo: team.logo,
       athletes,
     };
   });
@@ -1856,12 +1858,6 @@ app.get("/api/betslip", async (req, res) => {
 
         // Get team logos from boxscore
         const boxscoreTeams = summaryData.boxscore?.teams || [];
-        const getTeamLogo = (abbreviation) => {
-          const team = boxscoreTeams.find(
-            (t) => t.team?.abbreviation === abbreviation
-          );
-          return team?.team?.logo || null;
-        };
 
         // Process moneyline bet
         if (moneyline) {
@@ -1883,7 +1879,6 @@ app.get("/api/betslip", async (req, res) => {
 
             eventData.bets.moneyline = {
               team: moneyline,
-              teamLogo: getTeamLogo(moneyline),
               current: {
                 score: `${betScore}-${oppScore}`,
                 lead:
@@ -1969,7 +1964,6 @@ app.get("/api/betslip", async (req, res) => {
 
               eventData.bets.spread = {
                 team: teamAbbr,
-                teamLogo: getTeamLogo(teamAbbr),
                 line: spreadLine,
                 current: {
                   score: `${betScore}-${oppScore}`,
@@ -1998,7 +1992,6 @@ app.get("/api/betslip", async (req, res) => {
             const playerData = {
               id: playerId,
               name: null,
-              headshot: null,
               overUnder: {},
               milestones: {},
             };
@@ -2047,7 +2040,6 @@ app.get("/api/betslip", async (req, res) => {
                   `[Betslip] Found player: ${athlete.athlete?.displayName}`
                 );
                 playerData.name = athlete.athlete?.displayName;
-                playerData.headshot = athlete.athlete?.headshot?.href;
 
                 // Get stat labels for mapping
                 const labels = statisticsData.labels || [];

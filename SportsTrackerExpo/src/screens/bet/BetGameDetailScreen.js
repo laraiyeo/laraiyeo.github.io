@@ -543,7 +543,7 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                       { color: theme.textSecondary },
                     ]}
                   >
-                    {player.position?.abbreviation} • {player.teamAbbr} •{" "}
+                    {player.position} • {player.teamAbbr} •{" "}
                     {player.statValue.toFixed(1)} AVG
                   </Text>
                 </View>
@@ -720,7 +720,7 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                       { color: theme.textSecondary },
                     ]}
                   >
-                    {player.position?.abbreviation} • {player.teamAbbr} •{" "}
+                    {player.position} • {player.teamAbbr} •{" "}
                     {player.statValue.toFixed(1)} AVG
                   </Text>
                 </View>
@@ -1827,7 +1827,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
                                 const headshotUrl = `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${player.athlete.id}.png&w=200`;
                                 const positionAbbr =
-                                  player.athlete.position?.abbreviation || "";
+                                  player.athlete.position || "";
                                 const jersey = player.athlete.jersey || "";
                                 const rowKey = `${team.id}-${player.athlete.id}`;
 

@@ -87,15 +87,7 @@ const PlayerStatsPopup = ({
         months[gameDate.getMonth()]
       } ${gameDate.getDate()}`;
 
-      // Extract team abbreviation from logo URL
-      const logoUrl = game.opponent.logo || "";
-      const teamAbbr =
-        logoUrl.split("/500/")[1]?.split(".png")[0]?.toUpperCase() ||
-        game.opponent.displayName
-          .split(" ")
-          .pop()
-          .substring(0, 3)
-          .toUpperCase();
+      const teamAbbr = game.opponent.abbreviation || "";
 
       return {
         game: `${game.atVs} ${teamAbbr}`,
@@ -151,9 +143,7 @@ const PlayerStatsPopup = ({
               >
                 <Image
                   source={{
-                    uri:
-                      player.headshot ||
-                      `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${player.id}.png&w=200`,
+                    uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${player.id}.png&w=200`,
                   }}
                   style={styles.playerIconImage}
                 />
