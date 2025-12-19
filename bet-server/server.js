@@ -3173,28 +3173,47 @@ function setupBetslipRealtimeListener() {
         try {
           const lookbackMs = 60 * 60 * 1000; // 60 minutes
           const sinceTime = new Date(Date.now() - lookbackMs).toISOString();
-          console.log(`[realtime-fallback] initial scan for betslips since ${sinceTime}`);
+          console.log(
+            `[realtime-fallback] initial scan for betslips since ${sinceTime}`
+          );
           const { data: recentRows, error: recentErr } = await supabaseAdmin
             .from("betslips")
             .select("id,created_at")
             .gt("created_at", sinceTime)
             .order("created_at", { ascending: true })
             .limit(200);
-          if (recentErr) return console.error("[realtime-fallback] initial scan error", recentErr.message || recentErr);
+          if (recentErr)
+            return console.error(
+              "[realtime-fallback] initial scan error",
+              recentErr.message || recentErr
+            );
           if (recentRows && recentRows.length > 0) {
             for (const r of recentRows) {
               try {
-                console.log(`[realtime-fallback] initial scan found betslip id:${r.id} created_at:${r.created_at}`);
+                console.log(
+                  `[realtime-fallback] initial scan found betslip id:${r.id} created_at:${r.created_at}`
+                );
                 startWatcherInline(r.id);
-                if (betslipWatchers[r.id]) console.log(`[realtime-fallback] watcher started for ${r.id}`);
+                if (betslipWatchers[r.id])
+                  console.log(
+                    `[realtime-fallback] watcher started for ${r.id}`
+                  );
               } catch (e) {
-                console.error(`[realtime-fallback] failed to start watcher for ${r.id} during initial scan`, e?.message || e);
+                console.error(
+                  `[realtime-fallback] failed to start watcher for ${r.id} during initial scan`,
+                  e?.message || e
+                );
               }
             }
-            lastBetslipPollTimestamp = recentRows[recentRows.length - 1].created_at || new Date().toISOString();
+            lastBetslipPollTimestamp =
+              recentRows[recentRows.length - 1].created_at ||
+              new Date().toISOString();
           }
         } catch (e) {
-          console.error("[realtime-fallback] initial scan error", e?.message || e);
+          console.error(
+            "[realtime-fallback] initial scan error",
+            e?.message || e
+          );
         }
       })();
       realtimeFallbackInterval = setInterval(async () => {
