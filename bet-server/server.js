@@ -25,78 +25,182 @@ const supabaseAdmin = createClient(
 const expo = new Expo();
 
 // Small helper: send push notification via Supabase-stored tokens
-async function sendPushNotification(userId, title, bodyText, data = {}) {
+async function sendPushNotification(
+  userId,
+  title,
+  bodyText,
+  data = {}
+) {
   try {
-    // Attempt to resolve tokens from multiple schema shapes: public.users (legacy) and public.profiles + push_tokens (uuid)
     let pushToken = null;
     let resolvedProfileId = null;
     let resolvedUserRow = null;
 
-    // Try to get legacy users row (may contain push_token and username)
+    // ------------------------------------------------------------------
+    // Try to get legacy users row / betslip info
+    // ------------------------------------------------------------------
     try {
-      const { data: urow, error: uerr } = await supabaseAdmin
-        .from("users")
-        .select("id, username, push_token")
-        .eq("id", userId)
+      const { data: bs, error: bsErr } = await supabaseAdmin
+        .from("betslips")
+        .select("*, user_id")
+        .eq("id", betslipId)
         .maybeSingle();
-      if (uerr) throw uerr;
-      resolvedUserRow = urow || null;
-      if (resolvedUserRow && resolvedUserRow.push_token)
-        pushToken = resolvedUserRow.push_token;
+
+      if (bsErr) {
+        console.error("sendBetResultNotification supabase error", bsErr);
+        return;
+      }
+      if (!bs) return;
+
+      const status = bs.status;
+
+      // Determine legs count
+      let legsCount = 0;
+      try {
+        const dataObj =
+          typeof bs.betslip_data === "string"
+            ? JSON.parse(bs.betslip_data)
+            : bs.betslip_data;
+
+        if (dataObj) {
+          if (Array.isArray(dataObj.bets)) {
+            legsCount = dataObj.bets.length;
+          } else if (Array.isArray(dataObj.events)) {
+            for (const ev of dataObj.events) {
+              if (ev.bets) {
+                if (Array.isArray(ev.bets.players))
+                  legsCount += ev.bets.players.length;
+                if (ev.bets.moneyline) legsCount += 1;
+                if (ev.bets.totalPoints) legsCount += 1;
+                if (ev.bets.spread) legsCount += 1;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(
+          "sendBetResultNotification: failed to parse betslip_data",
+          e?.message || e
+        );
+      }
+
+      const stake =
+        parseFloat(
+          bs.total_stake ||
+            bs.amount ||
+            (bs.betslip_data &&
+            typeof bs.betslip_data === "object"
+              ? bs.betslip_data.total_stake
+              : NaN)
+        ) || 0;
+
+      const potential =
+        parseFloat(
+          bs.potential_payout ||
+            (bs.betslip_data &&
+            typeof bs.betslip_data === "object"
+              ? bs.betslip_data.potential_payout
+              : bs.potential_payout)
+        ) || 0;
+
+      const potentialRounded = Number.isFinite(potential)
+        ? potential.toFixed(2)
+        : null;
+
+      let notifTitle = "Bet Update";
+      let notifBody = "Your bet status has changed.";
+
+      if (status === "won") {
+        notifTitle = "🎉 Bet Won!";
+        if (legsCount > 0 && potentialRounded) {
+          notifBody = `Congrats! Your ${legsCount} leg bet has won! You've won ${potentialRounded} credits!`;
+        } else if (potentialRounded) {
+          notifBody = `Congrats! Your bet has won! You've won ${potentialRounded} credits!`;
+        } else {
+          notifBody = "Congrats! Your bet has won!";
+        }
+      } else if (status === "lost") {
+        notifTitle = "Bet Lost 😔";
+        if (legsCount > 0) {
+          notifBody = `Unfortunately, your ${legsCount} leg bet has lost.`;
+        } else if (stake) {
+          notifBody = `Unfortunately, your bet of ${stake} credits has lost.`;
+        } else {
+          notifBody = "Unfortunately, your bet has lost.";
+        }
+      } else {
+        notifBody = `Your bet status is now ${status}`;
+      }
+
+      console.log(
+        `[sendBetResultNotification] attempt -> user:${bs.user_id} title:${notifTitle} betslip:${betslipId}`
+      );
+
+      await sendPushNotification(bs.user_id, notifTitle, notifBody, {
+        betslipId,
+      });
     } catch (e) {
-      console.warn(
-        "sendPushNotification: users lookup failed,",
+      console.error(
+        "sendBetResultNotification inner error",
         e?.message || e
       );
     }
 
-    // Try to resolve a profile UUID for this user (by username if available, or directly if userId already looks like a UUID)
+    // ------------------------------------------------------------------
+    // Resolve profile UUID
+    // ------------------------------------------------------------------
     try {
-      const looksLikeUuid = typeof userId === "string" && userId.includes("-");
+      const looksLikeUuid =
+        typeof userId === "string" && userId.includes("-");
+
       if (looksLikeUuid) {
         const { data: prof, error: perr } = await supabaseAdmin
           .from("profiles")
           .select("id, username")
           .eq("id", userId)
           .maybeSingle();
+
         if (!perr && prof) resolvedProfileId = prof.id;
-      } else if (resolvedUserRow && resolvedUserRow.username) {
+      } else if (resolvedUserRow?.username) {
         const { data: prof, error: perr } = await supabaseAdmin
           .from("profiles")
           .select("id")
           .eq("username", resolvedUserRow.username)
           .maybeSingle();
+
         if (!perr && prof) resolvedProfileId = prof.id;
       }
     } catch (e) {
       console.warn(
-        "sendPushNotification: profiles lookup failed,",
+        "sendPushNotification: profiles lookup failed",
         e?.message || e
       );
     }
 
-    // If no push token yet, check push_tokens using resolvedProfileId first, then fallback to userId
-    if (!pushToken) {
-      if (resolvedProfileId) {
-        const { data: tokensByProfile, error: tpfErr } = await supabaseAdmin
-          .from("push_tokens")
-          .select("expo_push_token")
-          .eq("user_id", resolvedProfileId)
-          .order("created_at", { ascending: false })
-          .limit(1);
-        if (!tpfErr && tokensByProfile && tokensByProfile.length > 0)
-          pushToken = tokensByProfile[0].expo_push_token;
-      }
+    // ------------------------------------------------------------------
+    // Fetch push token
+    // ------------------------------------------------------------------
+    if (!pushToken && resolvedProfileId) {
+      const { data: tokensByProfile, error } = await supabaseAdmin
+        .from("push_tokens")
+        .select("expo_push_token")
+        .eq("user_id", resolvedProfileId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (!error && tokensByProfile?.length)
+        pushToken = tokensByProfile[0].expo_push_token;
     }
 
     if (!pushToken) {
-      const { data: tokens, error: tokenErr } = await supabaseAdmin
+      const { data: tokens, error } = await supabaseAdmin
         .from("push_tokens")
         .select("expo_push_token")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(1);
-      if (!tokenErr && tokens && tokens.length > 0)
+
+      if (!error && tokens?.length)
         pushToken = tokens[0].expo_push_token;
     }
 
@@ -115,6 +219,9 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
       return;
     }
 
+    // ------------------------------------------------------------------
+    // Send push
+    // ------------------------------------------------------------------
     const message = {
       to: pushToken,
       sound: "default",
@@ -123,6 +230,7 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
       data,
       priority: "high",
     };
+
     const chunks = expo.chunkPushNotifications([message]);
     for (const chunk of chunks) {
       try {
@@ -132,16 +240,22 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
       }
     }
 
-    // Try to persist a push_notifications record. If the user_id type conflicts, fall back to storing null and include uuid in data.
+    // ------------------------------------------------------------------
+    // Persist notification
+    // ------------------------------------------------------------------
     try {
-      await supabaseAdmin
-        .from("push_notifications")
-        .insert({ user_id: userId, title, body: bodyText, data });
+      await supabaseAdmin.from("push_notifications").insert({
+        user_id: userId,
+        title,
+        body: bodyText,
+        data,
+      });
     } catch (insErr) {
       console.warn(
-        "push_notifications insert failed with user_id, retrying without user_id",
+        "push_notifications insert failed, retrying without user_id",
         insErr?.message || insErr
       );
+
       await supabaseAdmin.from("push_notifications").insert({
         user_id: null,
         title,
@@ -160,6 +274,7 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
     console.error("sendPushNotification error", err?.message || err);
   }
 }
+
 
 async function broadcastToAll(title, bodyText, data = {}) {
   try {
@@ -2769,7 +2884,8 @@ function startWatcherInline(betslipId) {
         // a previous /api/betslip computation or external update), prefer
         // those markers so we can notify immediately.
         try {
-          // Direct flag on bet
+          // Accept multiple shapes for resolved flags.
+          // 1) Top-level `won` boolean
           if (bet.won === true) {
             newState = "won";
             isCompleted = true;
@@ -2778,7 +2894,18 @@ function startWatcherInline(betslipId) {
             isCompleted = true;
           }
 
-          // Nested overUnder entries
+          // 2) Normalized shape from betslip_url: { current: { current, won } }
+          if (newState === null && bet.current && typeof bet.current === "object") {
+            if (bet.current.won === true) {
+              newState = "won";
+              isCompleted = true;
+            } else if (bet.current.won === false) {
+              newState = "lost";
+              isCompleted = true;
+            }
+          }
+
+          // 3) Original nested overUnder entries (per-player object)
           if (
             newState === null &&
             bet.overUnder &&
@@ -2799,7 +2926,7 @@ function startWatcherInline(betslipId) {
             }
           }
 
-          // Nested milestones entries
+          // 4) Nested milestones entries
           if (
             newState === null &&
             bet.milestones &&
@@ -2820,10 +2947,7 @@ function startWatcherInline(betslipId) {
             }
           }
         } catch (e) {
-          console.warn(
-            "watcher: error checking stored bet flags",
-            e?.message || e
-          );
+          console.warn("watcher: error checking stored bet flags", e?.message || e);
         }
 
         if (!summary) {
