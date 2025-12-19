@@ -260,6 +260,34 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Backwards-compatibility aliases: map singular /api/betslip (used by client)
+// to the plural /api/betslips routes implemented in this server. We only
+// rewrite requests that are intended to hit the betslips handlers so we don't
+// accidentally remap the existing /api/betslip GET (which returns a generated
+// betslip payload).
+app.use((req, res, next) => {
+  try {
+    const method = (req.method || "").toUpperCase();
+    const orig = req.originalUrl || req.url || "";
+    const path = req.path || "";
+
+    // Map POST /api/betslip -> /api/betslips (create bet)
+    if (method === "POST" && path === "/api/betslip") {
+      req.url = orig.replace("/api/betslip", "/api/betslips");
+      console.log(`[route-alias] Rewritten POST ${orig} -> ${req.url}`);
+    }
+
+    // Map per-id operations: /api/betslip/:id/... -> /api/betslips/:id/...
+    if (path.startsWith("/api/betslip/")) {
+      req.url = orig.replace("/api/betslip/", "/api/betslips/");
+      console.log(`[route-alias] Rewritten ${method} ${orig} -> ${req.url}`);
+    }
+  } catch (e) {
+    console.warn("route-alias middleware error", e?.message || e);
+  }
+  next();
+});
+
 // Data cache
 let scoreboardData = null;
 let summaryDataCache = {}; // { eventId: data }
