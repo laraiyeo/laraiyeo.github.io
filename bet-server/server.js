@@ -392,6 +392,9 @@ let currentPollingMode = "slow"; // 'slow', 'moderate', 'fast'
 let rostersScoreboardInterval = null; // Dedicated 30-minute refresh for /api/rosters
 // Track last broadcasted state per event to avoid duplicate start/end broadcasts
 const eventBroadcastState = {}; // { [eventId]: 'pre'|'in'|'post' }
+// Realtime fallback polling state
+let realtimeFallbackInterval = null;
+let lastBetslipPollTimestamp = null;
 
 // Helper functions
 function getTimeDifferenceInMinutes(date1, date2) {
@@ -3157,8 +3160,63 @@ function setupBetslipRealtimeListener() {
         }
       );
 
+    // Track last poll time so fallback only picks up new rows
+    if (!lastBetslipPollTimestamp) lastBetslipPollTimestamp = new Date().toISOString();
+
+    // Helper: start a fallback poller when realtime cannot subscribe
+    function startRealtimeFallback() {
+      if (realtimeFallbackInterval) return;
+      console.warn("[realtime] starting fallback poller for betslips (5s)");
+      realtimeFallbackInterval = setInterval(async () => {
+        try {
+          const since = lastBetslipPollTimestamp || new Date().toISOString();
+          const { data: rows, error } = await supabaseAdmin
+            .from("betslips")
+            .select("id,created_at")
+            .gt("created_at", since)
+            .order("created_at", { ascending: true })
+            .limit(100);
+          if (error) return console.error("[realtime-fallback] query error", error.message || error);
+          if (rows && rows.length > 0) {
+            for (const r of rows) {
+              try {
+                console.log(`[realtime-fallback] detected new betslip id:${r.id} created_at:${r.created_at}`);
+                startWatcherInline(r.id);
+                if (betslipWatchers[r.id]) console.log(`[realtime-fallback] watcher started for ${r.id}`);
+              } catch (e) {
+                console.error(`[realtime-fallback] failed to start watcher for ${r.id}`, e?.message || e);
+              }
+            }
+            // update last seen timestamp to newest row
+            lastBetslipPollTimestamp = rows[rows.length - 1].created_at || new Date().toISOString();
+          }
+        } catch (e) {
+          console.error("[realtime-fallback] poll error", e?.message || e);
+        }
+      }, 5000);
+    }
+
+    function stopRealtimeFallback() {
+      if (!realtimeFallbackInterval) return;
+      clearInterval(realtimeFallbackInterval);
+      realtimeFallbackInterval = null;
+      console.log("[realtime] stopped fallback poller");
+    }
+
     ch.subscribe((status) => {
       console.log(`[realtime] subscription status: ${status}`);
+      try {
+        // If subscription timed out, start the fallback poller
+        if (String(status).toUpperCase().includes("TIMED_OUT") || String(status).toUpperCase().includes("TIMEOUT")) {
+          console.warn("[realtime] subscription timed out — enabling fallback polling");
+          startRealtimeFallback();
+        } else {
+          // any successful status -> stop fallback if running
+          stopRealtimeFallback();
+        }
+      } catch (e) {
+        console.error("[realtime] subscription status handler error", e?.message || e);
+      }
     });
   } catch (e) {
     console.error("[realtime] failed to setup listener", e?.message || e);
