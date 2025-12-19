@@ -2465,7 +2465,11 @@ function startWatcherInline(betslipId) {
           }
 
           // Nested overUnder entries
-          if (newState === null && bet.overUnder && typeof bet.overUnder === "object") {
+          if (
+            newState === null &&
+            bet.overUnder &&
+            typeof bet.overUnder === "object"
+          ) {
             for (const k of Object.keys(bet.overUnder)) {
               const entry = bet.overUnder[k];
               if (entry && entry.won === true) {
@@ -2482,7 +2486,11 @@ function startWatcherInline(betslipId) {
           }
 
           // Nested milestones entries
-          if (newState === null && bet.milestones && typeof bet.milestones === "object") {
+          if (
+            newState === null &&
+            bet.milestones &&
+            typeof bet.milestones === "object"
+          ) {
             for (const k of Object.keys(bet.milestones)) {
               const entry = bet.milestones[k];
               if (entry && entry.won === true) {
@@ -2498,7 +2506,10 @@ function startWatcherInline(betslipId) {
             }
           }
         } catch (e) {
-          console.warn("watcher: error checking stored bet flags", e?.message || e);
+          console.warn(
+            "watcher: error checking stored bet flags",
+            e?.message || e
+          );
         }
 
         if (!summary) {
