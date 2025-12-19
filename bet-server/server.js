@@ -2733,7 +2733,7 @@ function startWatcherInline(betslipId) {
       }
 
       // New finalization rule: if any completed pick exists and any completed pick is not won -> mark whole bet lost
-        if (anyCompleted && anyCompletedNotWon) {
+      if (anyCompleted && anyCompletedNotWon) {
         if (fresh.status !== "lost") {
           await supabaseAdmin
             .from("betslips")
@@ -2810,7 +2810,10 @@ function startTestNotifier(betslipId) {
           const resp = await axios.get(betslipUrl);
           payload = resp.data || null;
         } catch (e) {
-          console.warn("test-notifier: failed to fetch betslip_url", e?.message || e);
+          console.warn(
+            "test-notifier: failed to fetch betslip_url",
+            e?.message || e
+          );
         }
       }
 
@@ -2909,7 +2912,11 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
     try {
       startTestNotifier(inserted.id);
     } catch (e) {
-      console.warn("Failed to start test notifier for", inserted.id, e?.message || e);
+      console.warn(
+        "Failed to start test notifier for",
+        inserted.id,
+        e?.message || e
+      );
     }
     // start minute-based test notifier automatically for this betslip
     try {
