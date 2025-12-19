@@ -31,109 +31,97 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
     let resolvedProfileId = null;
     let resolvedUserRow = null;
 
-    // ------------------------------------------------------------------
-    // Try to get legacy users row / betslip info
-    // ------------------------------------------------------------------
+    // If caller didn't provide title/body but supplied a betslipId, fetch
+    // the betslip row here and build the notification content from it.
     try {
-      const { data: bs, error: bsErr } = await supabaseAdmin
-        .from("betslips")
-        .select("*, user_id")
-        .eq("id", betslipId)
-        .maybeSingle();
+      const betslipId = data?.betslipId;
+      if ((!title || !bodyText) && betslipId) {
+        const { data: bs, error: bsErr } = await supabaseAdmin
+          .from("betslips")
+          .select("*")
+          .eq("id", betslipId)
+          .maybeSingle();
 
-      if (bsErr) {
-        console.error("sendBetResultNotification supabase error", bsErr);
-        return;
-      }
-      if (!bs) return;
+        if (bsErr) {
+          console.error("sendPushNotification: failed to fetch betslip", bsErr);
+        } else if (bs) {
+          // If userId was not provided, prefer the betslip's user
+          if (!userId && bs.user_id) userId = bs.user_id;
 
-      const status = bs.status;
-
-      // Determine legs count
-      let legsCount = 0;
-      try {
-        const dataObj =
-          typeof bs.betslip_data === "string"
-            ? JSON.parse(bs.betslip_data)
-            : bs.betslip_data;
-
-        if (dataObj) {
-          if (Array.isArray(dataObj.bets)) {
-            legsCount = dataObj.bets.length;
-          } else if (Array.isArray(dataObj.events)) {
-            for (const ev of dataObj.events) {
-              if (ev.bets) {
-                if (Array.isArray(ev.bets.players))
-                  legsCount += ev.bets.players.length;
-                if (ev.bets.moneyline) legsCount += 1;
-                if (ev.bets.totalPoints) legsCount += 1;
-                if (ev.bets.spread) legsCount += 1;
+          // Determine legs count from stored shapes
+          let legsCount = 0;
+          try {
+            const dataObj =
+              typeof bs.betslip_data === "string"
+                ? JSON.parse(bs.betslip_data)
+                : bs.betslip_data;
+            if (dataObj) {
+              if (Array.isArray(dataObj.bets)) legsCount = dataObj.bets.length;
+              else if (Array.isArray(dataObj.events)) {
+                for (const ev of dataObj.events) {
+                  if (ev.bets) {
+                    if (Array.isArray(ev.bets.players)) legsCount += ev.bets.players.length;
+                    if (ev.bets.moneyline) legsCount += 1;
+                    if (ev.bets.totalPoints) legsCount += 1;
+                    if (ev.bets.spread) legsCount += 1;
+                  }
+                }
               }
+            }
+          } catch (e) {
+            console.warn("sendPushNotification: failed to parse betslip_data", e?.message || e);
+          }
+
+          const stake =
+            parseFloat(
+              bs.total_stake ||
+                bs.amount ||
+                (bs.betslip_data && typeof bs.betslip_data === "object"
+                  ? bs.betslip_data.total_stake
+                  : NaN)
+            ) || 0;
+
+          const potential =
+            parseFloat(
+              bs.potential_payout ||
+                (bs.betslip_data && typeof bs.betslip_data === "object"
+                  ? bs.betslip_data.potential_payout
+                  : bs.potential_payout)
+            );
+
+          const potentialRounded = Number.isFinite(potential) ? potential.toFixed(2) : null;
+
+          // Only set title/body if they weren't provided by caller
+          if (!title) {
+            if (bs.status === "won") title = "🎉 Bet Won!";
+            else if (bs.status === "lost") title = "Bet Lost 😔";
+            else title = "Bet Update";
+          }
+          if (!bodyText) {
+            if (bs.status === "won") {
+              if (legsCount > 0 && potentialRounded) {
+                bodyText = `Congrats! Your ${legsCount} leg bet has won! You've won ${potentialRounded} credits!`;
+              } else if (potentialRounded) {
+                bodyText = `Congrats! Your bet has won! You've won ${potentialRounded} credits!`;
+              } else {
+                bodyText = `Congrats! Your bet has won!`;
+              }
+            } else if (bs.status === "lost") {
+              if (legsCount > 0) {
+                bodyText = `Unfortunately, your ${legsCount} leg bet has lost.`;
+              } else if (stake) {
+                bodyText = `Unfortunately, your bet of ${stake} credits has lost.`;
+              } else {
+                bodyText = `Unfortunately, your bet has lost.`;
+              }
+            } else {
+              bodyText = `Your bet status is now ${bs.status}`;
             }
           }
         }
-      } catch (e) {
-        console.warn(
-          "sendBetResultNotification: failed to parse betslip_data",
-          e?.message || e
-        );
       }
-
-      const stake =
-        parseFloat(
-          bs.total_stake ||
-            bs.amount ||
-            (bs.betslip_data && typeof bs.betslip_data === "object"
-              ? bs.betslip_data.total_stake
-              : NaN)
-        ) || 0;
-
-      const potential =
-        parseFloat(
-          bs.potential_payout ||
-            (bs.betslip_data && typeof bs.betslip_data === "object"
-              ? bs.betslip_data.potential_payout
-              : bs.potential_payout)
-        ) || 0;
-
-      const potentialRounded = Number.isFinite(potential)
-        ? potential.toFixed(2)
-        : null;
-
-      let notifTitle = "Bet Update";
-      let notifBody = "Your bet status has changed.";
-
-      if (status === "won") {
-        notifTitle = "🎉 Bet Won!";
-        if (legsCount > 0 && potentialRounded) {
-          notifBody = `Congrats! Your ${legsCount} leg bet has won! You've won ${potentialRounded} credits!`;
-        } else if (potentialRounded) {
-          notifBody = `Congrats! Your bet has won! You've won ${potentialRounded} credits!`;
-        } else {
-          notifBody = "Congrats! Your bet has won!";
-        }
-      } else if (status === "lost") {
-        notifTitle = "Bet Lost 😔";
-        if (legsCount > 0) {
-          notifBody = `Unfortunately, your ${legsCount} leg bet has lost.`;
-        } else if (stake) {
-          notifBody = `Unfortunately, your bet of ${stake} credits has lost.`;
-        } else {
-          notifBody = "Unfortunately, your bet has lost.";
-        }
-      } else {
-        notifBody = `Your bet status is now ${status}`;
-      }
-
-      console.log(
-        `[sendBetResultNotification] attempt -> user:${bs.user_id} title:${notifTitle} betslip:${betslipId}`
-      );
-
-      await sendPushNotification(bs.user_id, notifTitle, notifBody, {
-        betslipId,
-      });
     } catch (e) {
-      console.error("sendBetResultNotification inner error", e?.message || e);
+      console.error("sendPushNotification: betslip lookup/build failed", e?.message || e);
     }
 
     // ------------------------------------------------------------------
@@ -328,28 +316,16 @@ async function sendBetResultNotification(betslipId) {
   try {
     const { data: bs, error: bsErr } = await supabaseAdmin
       .from("betslips")
-      .select("*, user_id")
+      .select("user_id")
       .eq("id", betslipId)
       .maybeSingle();
     if (bsErr) throw bsErr;
     if (!bs) return;
 
-    const status = bs.status;
-    let title, bodyText;
-    if (status === "won") {
-      title = "🎉 Bet Won!";
-      bodyText = `Your bet has won!`;
-    } else if (status === "lost") {
-      title = "😔 Bet Lost";
-      bodyText = `Unfortunately, your bet didn't win this time.`;
-    } else {
-      return;
-    }
-
-    console.log(
-      `[sendBetResultNotification] attempt -> user:${bs.user_id} title:${title} betslip:${betslipId}`
-    );
-    await sendPushNotification(bs.user_id, title, bodyText, { betslipId });
+    const userId = bs.user_id;
+    console.log(`[sendBetResultNotification] delegating -> user:${userId} betslip:${betslipId}`);
+    // Only send user id and betslip reference; let centralized push handler decide message
+    await sendPushNotification(userId, null, null, { betslipId });
   } catch (e) {
     console.error("sendBetResultNotification error", e);
   }
@@ -1191,12 +1167,21 @@ function transformRostersData(rostersData) {
         const events = gamelog.events || {};
         const seasonTypes = gamelog.seasonTypes || [];
 
-        // Get first 5 events and their stats
-        const eventIds = Object.keys(events).slice(0, 5);
+        // Normalize events into an array, sort by gameDate descending (newest first),
+        // then take the first 5 for recent games. This ensures we pick the most
+        // recent matches regardless of the original object/array ordering from ESPN.
+        const allEventsArray = Array.isArray(events)
+          ? events.slice()
+          : Object.values(events || {});
+        const sortedEvents = allEventsArray.sort((a, b) =>
+          new Date(b.gameDate) - new Date(a.gameDate)
+        );
+        const recentEvents = sortedEvents.slice(0, 5);
 
-        // Build a map of eventId to stats
+        // Build a map of eventId to stats for only the recent events
         const eventStatsMap = {};
-        eventIds.forEach((eventId) => {
+        const recentEventIds = recentEvents.map((e) => e.id);
+        recentEventIds.forEach((eventId) => {
           seasonTypes.forEach((seasonType) => {
             const categories = seasonType.categories || [];
             categories.forEach((category) => {
@@ -1217,9 +1202,8 @@ function transformRostersData(rostersData) {
           });
         });
 
-        // Create recentGames with embedded stats
-        const recentGames = eventIds.map((eventId) => {
-          const event = events[eventId];
+        // Create recentGames with embedded stats from the sorted recent events
+        const recentGames = recentEvents.map((event) => {
           return {
             atVs: event.atVs,
             gameDate: event.gameDate,
@@ -1229,7 +1213,7 @@ function transformRostersData(rostersData) {
               displayName: event.opponent?.displayName || null,
               logo: event.opponent?.logo || null,
             },
-            stats: eventStatsMap[eventId] || null,
+            stats: eventStatsMap[event.id] || null,
           };
         });
 
@@ -1424,7 +1408,11 @@ async function fetchAllRostersAndGamelogs() {
     const teamIds = new Set();
     const opponentMap = {}; // teamId -> opponentTeamId
 
+    // Only include teams for events that are scheduled (pre-game)
     scoreboardData.events.forEach((event) => {
+      const state = event.competitions?.[0]?.status?.type?.state;
+      if (state !== "pre") return; // skip non-scheduled games
+
       const competitors = event.competitions?.[0]?.competitors || [];
       competitors.forEach((competitor) => {
         teamIds.add(competitor.team.id);
@@ -1914,18 +1902,32 @@ app.get("/api/betslip", async (req, res) => {
 
           const isOver = total.startsWith("o") || total.startsWith("O");
           const line = parseFloat(total.substring(1));
-          // For overs we consider >= as winning (reaches or surpasses). For unders <=.
-          const isWinning = isOver
-            ? currentTotal >= line
-            : currentTotal <= line;
           const isInProgress = !isCompleted && gameStatus?.state === "in";
+
+          let won;
+          if (isOver) {
+            // Overs: consider >= as currently winning; keep existing behaviour
+            const isWinning = currentTotal >= line;
+            won = isWinning ? true : isInProgress ? "in progress" : false;
+          } else {
+            // Unders: do NOT mark won while game is in progress even if current <= line.
+            // If game is in progress and current <= line -> still "in progress".
+            // If current > line while game is in progress -> mark as lost (false).
+            if (isInProgress) {
+              won = currentTotal <= line ? "in progress" : false;
+            } else {
+              // Game completed or not in-progress: under wins if current <= line
+              const isWinning = currentTotal <= line;
+              won = isWinning ? true : false;
+            }
+          }
 
           eventData.bets.totalPoints = {
             bet: total,
             line: line,
             type: isOver ? "over" : "under",
             current: currentTotal,
-            won: isWinning ? true : isInProgress ? "in progress" : false,
+            won,
           };
         }
 
@@ -2088,22 +2090,28 @@ app.get("/api/betslip", async (req, res) => {
                         const isOver =
                           betValue.startsWith("o") || betValue.startsWith("O");
                         const line = parseFloat(betValue.substring(1));
-                        // Overs and unders are considered winning immediately when threshold is reached
-                        const isWinning = isOver
-                          ? current >= line
-                          : current <= line;
-                        const isInProgress =
-                          !isCompleted && gameStatus?.state === "in";
+                        // Determine win state with special handling for unders
+                        const isInProgress = !isCompleted && gameStatus?.state === "in";
+                        let won;
+                        if (isOver) {
+                          const isWinning = current >= line;
+                          won = isWinning ? true : isInProgress ? "in progress" : false;
+                        } else {
+                          // Under: while game in progress and current <= line -> still in progress
+                          // If current > line while in progress -> lost (false)
+                          if (isInProgress) {
+                            won = current <= line ? "in progress" : false;
+                          } else {
+                            const isWinning = current <= line;
+                            won = isWinning ? true : false;
+                          }
+                        }
 
                         playerData.overUnder[statUpper] = {
                           bet: line,
                           type: isOver ? "over" : "under",
                           current: current,
-                          won: isWinning
-                            ? true
-                            : isInProgress
-                            ? "in progress"
-                            : false,
+                          won,
                         };
                       }
                       // Check if it's a milestone (any number, may have + or % at the end)
@@ -3092,12 +3100,8 @@ function startWatcherInline(betslipId) {
           console.log(
             `[watcher ${betslipId}] notify -> Bet Lost user:${fresh.user_id}`
           );
-          await sendPushNotification(
-            fresh.user_id,
-            "Bet Lost",
-            `Your bet has lost`,
-            { betslipId }
-          );
+          // Use centralized formatter to produce richer notification
+          await sendBetResultNotification(betslipId);
         }
         clearInterval(intervalId);
         delete betslipWatchers[betslipId];
@@ -3114,16 +3118,11 @@ function startWatcherInline(betslipId) {
             .from("betslips")
             .update({ status: newStatus })
             .eq("id", betslipId);
-          // send bet result
+          // send bet result using centralized formatter
           console.log(
             `[watcher ${betslipId}] notify -> Bet ${newStatus} user:${fresh.user_id}`
           );
-          await sendPushNotification(
-            fresh.user_id,
-            newStatus === "won" ? "Bet Won" : "Bet Lost",
-            `Your bet has ${newStatus}`,
-            { betslipId }
-          );
+          await sendBetResultNotification(betslipId);
         }
         clearInterval(intervalId);
         delete betslipWatchers[betslipId];
