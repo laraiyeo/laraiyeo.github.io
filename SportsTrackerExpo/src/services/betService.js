@@ -295,10 +295,21 @@ export const createBetslip = async (
     });
     const totalDecimalOdds = decimalOddsArr.reduce((acc, v) => acc * v, 1);
 
+    // Support multiple shapes: client may pass `betslip_url` at top-level or
+    // nested inside `betslipData`/`betslip_data` depending on callers.
+    const resolvedBetslipUrl =
+      (betslipData && typeof betslipData === "object" && betslipData.betslip_url) ||
+      (betslipData && typeof betslipData === "object" && betslipData.betslipData && betslipData.betslipData.betslip_url) ||
+      (betslipData && typeof betslipData === "object" && betslipData.betslip_data && betslipData.betslip_data.betslip_url) ||
+      null;
+
     const payload = {
       user_id: profileId || user.id,
       user_username: username,
+      // Persist the raw aggregated betslip payload in `betslip_data` and also
+      // expose a top-level `betslip_url` column when supplied by the client.
       betslip_data: typeof betslipData === "object" ? betslipData : { bets },
+      betslip_url: resolvedBetslipUrl,
       total_stake: totalStake || 0,
       potential_payout:
         potentialPayout || +((totalStake || 0) * totalDecimalOdds).toFixed(2),
@@ -343,6 +354,7 @@ export const createBetslip = async (
       user_id: profileId || user.id,
       user_username: username,
       betslip_data: aggregatedBetslip,
+      betslip_url: resolvedBetslipUrl,
       total_stake: totalStake || 0,
       potential_payout:
         potentialPayout || +((totalStake || 0) * totalDecimalOdds).toFixed(2),

@@ -125,11 +125,6 @@ export const BetDataProvider = ({ children }) => {
         .split("\n")
         .slice(2, 6)
         .join(" | ");
-      console.log(
-        `[BetData][DEBUG] fetchScoreboard call #${
-          fetchCounterRef.current
-        } at ${new Date().toISOString()} callers: ${shortStack}`
-      );
     } catch (dbgErr) {
       /* ignore debug failures */
     }

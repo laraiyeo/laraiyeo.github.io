@@ -129,10 +129,18 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
     try {
       // Fetch betslip data
       const response = await fetch(apiUrl);
-      const betslipData = await response.json();
+      let betslipData = await response.json();
       console.log("Betslip response:", betslipData);
 
-      // Submit bet slip with betslip data
+      // Attach the generated apiUrl into the betslip payload so the server
+      // can persist it into the `betslip_url` column and background workers
+      // can fetch the aggregated payload.
+      if (!betslipData || typeof betslipData !== "object") {
+        betslipData = { events: [], metadata: {} };
+      }
+      betslipData.betslip_url = apiUrl;
+
+      // Submit bet slip with betslip data (includes `betslip_url`)
       await submitBetSlip(amount, betslipData);
 
       // Close slip and reset
@@ -141,8 +149,9 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
       closeSlip();
     } catch (error) {
       console.error("Error fetching betslip:", error);
-      // Still submit even if fetch fails
-      await submitBetSlip(amount, null);
+      // Still submit even if fetch fails; include the URL so server can try
+      // fetching the aggregated payload later.
+      await submitBetSlip(amount, { bets: bets, betslip_url: apiUrl });
       setBetAmount("");
       setShowNumpad(false);
       closeSlip();

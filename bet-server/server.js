@@ -2022,29 +2022,6 @@ async function initialize() {
   }
 
   console.log("Server initialized successfully");
-
-  // Start minute notifiers for any pending betslips on startup
-  try {
-    const { data: pending, error: pendErr } = await supabaseAdmin
-      .from("betslips")
-      .select("id")
-      .eq("status", "pending");
-    if (!pendErr && Array.isArray(pending)) {
-      pending.forEach((row) => {
-        try {
-          startMinuteNotifier(row.id);
-        } catch (e) {
-          console.warn(
-            "Failed to start minute notifier for existing betslip",
-            row.id,
-            e?.message || e
-          );
-        }
-      });
-    }
-  } catch (e) {
-    console.warn("Failed to initialize minute notifiers:", e?.message || e);
-  }
 }
 
 // --------------------------
@@ -2615,74 +2592,10 @@ function startWatcherInline(betslipId) {
   betslipWatchers[betslipId] = { intervalId, lastStates, lastEventStatus };
 }
 
-// Minute-based test notifiers: send a notification every minute for a betslip's first game
-const betslipMinuteNotifiers = {};
-
-function startMinuteNotifier(betslipId) {
-  if (betslipMinuteNotifiers[betslipId]) return;
-  const intervalId = setInterval(async () => {
-    try {
-      const { data: rows } = await supabaseAdmin
-        .from("betslips")
-        .select("id, user_id, betslip_data")
-        .eq("id", betslipId)
-        .limit(1);
-      const fresh = (rows && rows[0]) || null;
-      if (!fresh) {
-        clearInterval(intervalId);
-        delete betslipMinuteNotifiers[betslipId];
-        return;
-      }
-
-      const betsArr = (fresh.betslip_data && fresh.betslip_data.bets) || [];
-      if (!betsArr.length) return;
-      const firstBet = betsArr[0];
-      const evId = firstBet.gameId || firstBet.game_id;
-      if (!evId) return;
-
-      try {
-        const resp = await axios.get(`${ESPN_BASE_URL}/summary?event=${evId}`);
-        const s = resp.data;
-        const comp = s.header?.competitions?.[0] || {};
-        const shortDetail = comp.shortDetail || comp.name || `Game ${evId}`;
-        const competitors = comp.competitors || [];
-        const home =
-          competitors.find((c) => c.homeAway === "home") ||
-          competitors[0] ||
-          {};
-        const away =
-          competitors.find((c) => c.homeAway === "away") ||
-          competitors[1] ||
-          {};
-        const homeTeam =
-          home.team?.displayName || home.team?.abbreviation || "Home";
-        const awayTeam =
-          away.team?.displayName || away.team?.abbreviation || "Away";
-        const homeScore = home.score ?? 0;
-        const awayScore = away.score ?? 0;
-        const body = `${homeTeam} ${homeScore} - ${awayTeam} ${awayScore}`;
-
-        await sendPushNotification(fresh.user_id, shortDetail, body, {
-          betslipId: fresh.id,
-          eventId: evId,
-          minuteNotifier: true,
-        });
-      } catch (e) {
-        console.error("minute notifier summary fetch error", e?.message || e);
-      }
-    } catch (e) {
-      console.error("minute notifier error", e?.message || e);
-    }
-  }, 60 * 1000);
-  betslipMinuteNotifiers[betslipId] = { intervalId };
-}
-
-function stopMinuteNotifier(betslipId) {
-  const n = betslipMinuteNotifiers[betslipId];
-  if (!n) return;
-  clearInterval(n.intervalId);
-  delete betslipMinuteNotifiers[betslipId];
-}
+// Minute-notifier implementation removed.
+// The server will persist `betslip_url` when provided by the client; external
+// workers or background processes should fetch that URL and send notifications
+// as desired. Debugging per-minute notifiers has been disabled.
 
 app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
   try {
@@ -2722,13 +2635,36 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
     startWatcherInline(inserted.id);
     // start minute-based test notifier automatically for this betslip
     try {
-      startMinuteNotifier(inserted.id);
+      // build a betslip URL and store it inside betslip_data so background workers
+      // can fetch the aggregated betslip payload instead of hitting ESPN summary.
+      try {
+        const baseApi = process.env.PUBLIC_API_URL || `http://localhost:${PORT}`;
+        const betsList = (inserted.betslip_data && inserted.betslip_data.bets) || [];
+        let betslipUrl = null;
+        if (betsList.length > 0) {
+          const first = betsList[0];
+          const params = new URLSearchParams();
+          if (first.gameId) params.set("gameId", String(first.gameId));
+          if (first.team || first.selection || first.teamCode) {
+            params.set("moneyline", first.team || first.selection || first.teamCode);
+          }
+          betslipUrl = `${baseApi.replace(/\/$/,"")}/api/betslip?${params.toString()}`;
+        }
+
+        if (betslipUrl) {
+          const updatedData = Object.assign({}, inserted.betslip_data, { betslip_url: betslipUrl });
+          await supabaseAdmin
+            .from("betslips")
+            .update({ betslip_data: updatedData })
+            .eq("id", inserted.id);
+          inserted.betslip_data = updatedData;
+        }
+      } catch (e) {
+        console.warn("Failed to persist betslip_url for", inserted.id, e?.message || e);
+      }
+
     } catch (e) {
-      console.warn(
-        "Failed to start minute notifier for betslip",
-        inserted.id,
-        e?.message || e
-      );
+      console.warn("Failed to persist betslip_url for", inserted.id, e?.message || e);
     }
     res.status(201).json({
       message: "Bet placed",
@@ -2741,58 +2677,7 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
   }
 });
 
-// Debug endpoints to start/stop the minute notifier for a betslip
-app.post(
-  "/api/debug/betslip-minute-notify/start",
-  authMiddlewareInline,
-  async (req, res) => {
-    try {
-      const { betslipId } = req.body || {};
-      if (!betslipId)
-        return res.status(400).json({ message: "betslipId required" });
-      const { data } = await supabaseAdmin
-        .from("betslips")
-        .select("id, user_id")
-        .eq("id", betslipId)
-        .maybeSingle();
-      if (!data) return res.status(404).json({ message: "Betslip not found" });
-      if (data.user_id !== req.userId)
-        return res.status(403).json({ message: "Forbidden" });
-      if (betslipMinuteNotifiers[betslipId])
-        return res.json({ message: "Minute notifier already running" });
-      startMinuteNotifier(betslipId);
-      res.json({ message: "Minute notifier started", betslipId });
-    } catch (e) {
-      console.error("start minute notifier", e);
-      res.status(500).json({ message: "Server error" });
-    }
-  }
-);
-
-app.delete(
-  "/api/debug/betslip-minute-notify/:id",
-  authMiddlewareInline,
-  async (req, res) => {
-    try {
-      const betslipId = req.params.id;
-      const { data } = await supabaseAdmin
-        .from("betslips")
-        .select("id, user_id")
-        .eq("id", betslipId)
-        .maybeSingle();
-      if (!data) return res.status(404).json({ message: "Betslip not found" });
-      if (data.user_id !== req.userId)
-        return res.status(403).json({ message: "Forbidden" });
-      if (!betslipMinuteNotifiers[betslipId])
-        return res.json({ message: "Minute notifier not running" });
-      stopMinuteNotifier(betslipId);
-      res.json({ message: "Minute notifier stopped", betslipId });
-    } catch (e) {
-      console.error("stop minute notifier", e);
-      res.status(500).json({ message: "Server error" });
-    }
-  }
-);
+// Debug minute-notifier endpoints removed.
 
 app.get("/api/betslips", authMiddlewareInline, async (req, res) => {
   try {
@@ -2909,20 +2794,7 @@ app.post("/api/betslips/:id/watch", authMiddlewareInline, async (req, res) => {
 // --------------------------
 // Internal debug endpoints (development only, guarded by DEBUG_INTERNAL=1)
 // --------------------------
-app.post("/internal/debug/start-minute-notifier", async (req, res) => {
-  if (process.env.DEBUG_INTERNAL !== "1")
-    return res.status(403).json({ message: "disabled" });
-  try {
-    const { betslipId } = req.body || {};
-    if (!betslipId)
-      return res.status(400).json({ message: "betslipId required" });
-    startMinuteNotifier(betslipId);
-    return res.json({ started: true, betslipId });
-  } catch (e) {
-    console.error("internal start-minute-notifier error", e);
-    return res.status(500).json({ message: "Server error" });
-  }
-});
+// internal debug start-minute-notifier endpoint removed (minute-notifier disabled)
 
 app.post("/internal/debug/send-push-to-profile", async (req, res) => {
   if (process.env.DEBUG_INTERNAL !== "1")
