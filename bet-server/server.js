@@ -2638,21 +2638,31 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
       // build a betslip URL and store it inside betslip_data so background workers
       // can fetch the aggregated betslip payload instead of hitting ESPN summary.
       try {
-        const baseApi = process.env.PUBLIC_API_URL || `http://localhost:${PORT}`;
-        const betsList = (inserted.betslip_data && inserted.betslip_data.bets) || [];
+        const baseApi =
+          process.env.PUBLIC_API_URL || `http://localhost:${PORT}`;
+        const betsList =
+          (inserted.betslip_data && inserted.betslip_data.bets) || [];
         let betslipUrl = null;
         if (betsList.length > 0) {
           const first = betsList[0];
           const params = new URLSearchParams();
           if (first.gameId) params.set("gameId", String(first.gameId));
           if (first.team || first.selection || first.teamCode) {
-            params.set("moneyline", first.team || first.selection || first.teamCode);
+            params.set(
+              "moneyline",
+              first.team || first.selection || first.teamCode
+            );
           }
-          betslipUrl = `${baseApi.replace(/\/$/,"")}/api/betslip?${params.toString()}`;
+          betslipUrl = `${baseApi.replace(
+            /\/$/,
+            ""
+          )}/api/betslip?${params.toString()}`;
         }
 
         if (betslipUrl) {
-          const updatedData = Object.assign({}, inserted.betslip_data, { betslip_url: betslipUrl });
+          const updatedData = Object.assign({}, inserted.betslip_data, {
+            betslip_url: betslipUrl,
+          });
           await supabaseAdmin
             .from("betslips")
             .update({ betslip_data: updatedData })
@@ -2660,11 +2670,18 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
           inserted.betslip_data = updatedData;
         }
       } catch (e) {
-        console.warn("Failed to persist betslip_url for", inserted.id, e?.message || e);
+        console.warn(
+          "Failed to persist betslip_url for",
+          inserted.id,
+          e?.message || e
+        );
       }
-
     } catch (e) {
-      console.warn("Failed to persist betslip_url for", inserted.id, e?.message || e);
+      console.warn(
+        "Failed to persist betslip_url for",
+        inserted.id,
+        e?.message || e
+      );
     }
     res.status(201).json({
       message: "Bet placed",

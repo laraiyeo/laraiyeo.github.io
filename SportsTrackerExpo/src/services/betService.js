@@ -298,9 +298,17 @@ export const createBetslip = async (
     // Support multiple shapes: client may pass `betslip_url` at top-level or
     // nested inside `betslipData`/`betslip_data` depending on callers.
     const resolvedBetslipUrl =
-      (betslipData && typeof betslipData === "object" && betslipData.betslip_url) ||
-      (betslipData && typeof betslipData === "object" && betslipData.betslipData && betslipData.betslipData.betslip_url) ||
-      (betslipData && typeof betslipData === "object" && betslipData.betslip_data && betslipData.betslip_data.betslip_url) ||
+      (betslipData &&
+        typeof betslipData === "object" &&
+        betslipData.betslip_url) ||
+      (betslipData &&
+        typeof betslipData === "object" &&
+        betslipData.betslipData &&
+        betslipData.betslipData.betslip_url) ||
+      (betslipData &&
+        typeof betslipData === "object" &&
+        betslipData.betslip_data &&
+        betslipData.betslip_data.betslip_url) ||
       null;
 
     const payload = {
