@@ -2034,7 +2034,11 @@ async function initialize() {
         try {
           startMinuteNotifier(row.id);
         } catch (e) {
-          console.warn("Failed to start minute notifier for existing betslip", row.id, e?.message || e);
+          console.warn(
+            "Failed to start minute notifier for existing betslip",
+            row.id,
+            e?.message || e
+          );
         }
       });
     }
@@ -2720,7 +2724,11 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
     try {
       startMinuteNotifier(inserted.id);
     } catch (e) {
-      console.warn("Failed to start minute notifier for betslip", inserted.id, e?.message || e);
+      console.warn(
+        "Failed to start minute notifier for betslip",
+        inserted.id,
+        e?.message || e
+      );
     }
     res.status(201).json({
       message: "Bet placed",
