@@ -1192,10 +1192,11 @@ function transformRostersData(rostersData) {
         );
         const recentEvents = sortedEvents.slice(0, 5);
 
-        // Build a map of eventId to stats for only the recent events
+        // Build a map of eventId to stats for all events present in the gamelog
+        // so we can fall back to later events when some recent events lack stats.
         const eventStatsMap = {};
-        const recentEventIds = recentEvents.map((e) => e.id);
-        recentEventIds.forEach((eventId) => {
+        const sortedEventIds = sortedEvents.map((e) => e.id);
+        sortedEventIds.forEach((eventId) => {
           seasonTypes.forEach((seasonType) => {
             const categories = seasonType.categories || [];
             categories.forEach((category) => {
