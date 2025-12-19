@@ -1225,6 +1225,7 @@ function transformRostersData(rostersData) {
             opponent: {
               id: event.opponent?.id || null,
               displayName: event.opponent?.displayName || null,
+              abbreviation: event.opponent?.abbreviation || null,
             },
             stats: eventStatsMap[event.id] || null,
           };

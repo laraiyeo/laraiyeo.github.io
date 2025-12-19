@@ -53,7 +53,6 @@ const PlayerStatsPopup = ({
   const recentGames = player.recentGames || [];
   const last5Games = recentGames
     .slice(0, 5)
-    .reverse()
     .map((game) => {
       // Parse stat value based on propType
       let value = 0;

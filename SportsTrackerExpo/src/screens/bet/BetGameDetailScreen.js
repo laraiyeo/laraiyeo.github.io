@@ -543,8 +543,8 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                       { color: theme.textSecondary },
                     ]}
                   >
-                    {player.position} • {player.teamAbbr} •{" "}
-                    {player.statValue.toFixed(1)} AVG
+                    {player.position} • {player.teamAbbr}
+                    {"\n"}{player.statValue.toFixed(1)} AVG
                   </Text>
                 </View>
               </View>
@@ -3291,7 +3291,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             source={{
                               uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${
                                 isDarkMode ? "-dark" : ""
-                              }/${game.opponentAbbreviation?.toLowerCase()}.png&h=40&w=40`,
+                              }/${game.opponentAbbreviation?.toLowerCase()}.png&h=100&w=100`,
                             }}
                             style={styles.lastFiveGameLogo}
                           />
@@ -3383,7 +3383,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             source={{
                               uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${
                                 isDarkMode ? "-dark" : ""
-                              }/${game.opponentAbbreviation?.toLowerCase()}.png&h=40&w=40`,
+                              }/${game.opponentAbbreviation?.toLowerCase()}.png&h=100&w=100`,
                             }}
                             style={[
                               styles.lastFiveGameLogo,
