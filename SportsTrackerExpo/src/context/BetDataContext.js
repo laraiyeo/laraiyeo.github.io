@@ -4,6 +4,7 @@ import React, {
   useState,
   useEffect,
   useRef,
+  useCallback,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -115,7 +116,7 @@ export const BetDataProvider = ({ children }) => {
   };
 
   // Fetch scoreboard data
-  const fetchScoreboard = async () => {
+  const fetchScoreboard = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/scoreboard`);
       const data = await response.json();
@@ -154,7 +155,7 @@ export const BetDataProvider = ({ children }) => {
       }
       return null;
     }
-  };
+  }, [currentPollingMode]);
 
   // Fetch rosters data
   const fetchRosters = async () => {

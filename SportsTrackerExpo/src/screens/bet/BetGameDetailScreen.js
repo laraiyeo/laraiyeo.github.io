@@ -2436,7 +2436,15 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     setCourtContainerWidth(width);
                   }}
                 >
-                  <View style={{ position: "relative" }}>
+                  <View
+                    style={{
+                      position: "relative",
+                      width: courtContainerWidth,
+                      height: courtContainerHeight,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
                     <BasketballCourt
                       coordinate={undefined}
                       isScoring={false}

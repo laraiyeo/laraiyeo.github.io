@@ -189,6 +189,67 @@ async function broadcastToAll(title, bodyText, data = {}) {
   }
 }
 
+// Send a push to a single Expo token (no DB user association)
+async function sendPushToToken(pushToken, title, bodyText, data = {}) {
+  try {
+    if (!Expo.isExpoPushToken(pushToken)) {
+      console.error("Invalid Expo push token:", pushToken);
+      return false;
+    }
+
+    const message = {
+      to: pushToken,
+      sound: "default",
+      title,
+      body: bodyText,
+      data,
+      priority: "high",
+    };
+
+    const chunks = expo.chunkPushNotifications([message]);
+    for (const chunk of chunks) {
+      try {
+        await expo.sendPushNotificationsAsync(chunk);
+      } catch (err) {
+        console.error("sendPushToToken chunk error", err);
+      }
+    }
+    return true;
+  } catch (e) {
+    console.error("sendPushToToken error", e);
+    return false;
+  }
+}
+
+// Send bet result notification by looking up betslip and profile, then delegating to sendPushNotification
+async function sendBetResultNotification(betslipId) {
+  try {
+    const { data: bs, error: bsErr } = await supabaseAdmin
+      .from("betslips")
+      .select("*, user_id")
+      .eq("id", betslipId)
+      .maybeSingle();
+    if (bsErr) throw bsErr;
+    if (!bs) return;
+
+    const status = bs.status;
+    let title, bodyText;
+    if (status === "won") {
+      title = "🎉 Bet Won!";
+      bodyText = `Your bet has won!`;
+    } else if (status === "lost") {
+      title = "😔 Bet Lost";
+      bodyText = `Unfortunately, your bet didn't win this time.`;
+    } else {
+      return;
+    }
+
+    await sendPushNotification(bs.user_id, title, bodyText, { betslipId });
+  } catch (e) {
+    console.error("sendBetResultNotification error", e);
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -2321,6 +2382,7 @@ const betslipWatchers = {};
 function startWatcherInline(betslipId) {
   if (betslipWatchers[betslipId]) return;
   const lastStates = {};
+  const lastEventStatus = {};
   const intervalId = setInterval(async () => {
     try {
       const { data: rows } = await supabaseAdmin
@@ -2349,17 +2411,41 @@ function startWatcherInline(betslipId) {
           console.error("summary fetch", e);
         }
       }
+
+      const isFirstTick = Object.keys(lastStates).length === 0;
       let allFinal = true;
       let anyLost = false;
+      let anyCompleted = false;
+      let anyCompletedNotWon = false;
+
       for (const bet of betsArr) {
         const pickKey = bet.id || JSON.stringify(bet);
         const evId = bet.gameId || bet.game_id;
         const summary = summaries[evId];
         let newState = null;
-        if (!summary) newState = "in progress";
-        else {
+        let isCompleted = false;
+
+        if (!summary) {
+          newState = "in progress";
+        } else {
           const gameStatus = summary.header?.competitions?.[0]?.status?.type;
-          const isCompleted = gameStatus?.completed || false;
+          const statusName =
+            gameStatus?.name || gameStatus?.state || gameStatus?.description || "";
+          const isInProgress = /in/i.test(String(statusName)) && !gameStatus?.completed;
+          isCompleted = gameStatus?.completed || false;
+
+          // detect game started and emit once per event (skip on first tick)
+          const prevEvent = lastEventStatus[evId];
+          if (!isFirstTick && prevEvent !== "in progress" && isInProgress) {
+            await sendPushNotification(
+              fresh.user_id,
+              "Game Started",
+              `A game has started: ${evId}`,
+              { betslipId: fresh.id, eventId: evId }
+            );
+          }
+          lastEventStatus[evId] = isCompleted ? "completed" : isInProgress ? "in progress" : "scheduled";
+
           // simplified heuristics (moneyline/total/spread/player)
           if (!bet.playerId && !bet.player && !bet.prop) {
             const competitors =
@@ -2403,7 +2489,7 @@ function startWatcherInline(betslipId) {
             const raw = bet.line || bet.betValue || "";
             const isOver = String(raw).toLowerCase().startsWith("o");
             const lineNum =
-              parseFloat(String(raw).replace(/[^0-9\.\-]/g, "")) || 0;
+              parseFloat(String(raw).replace(/[^0-9\\.\\-]/g, "")) || 0;
             const isWinning = isOver
               ? currentTotal > lineNum
               : currentTotal < lineNum;
@@ -2417,26 +2503,59 @@ function startWatcherInline(betslipId) {
           }
           if (newState === null) newState = "in progress";
         }
+
+        // track completion metrics for finalization rule
+        if (isCompleted) anyCompleted = true;
+        if (isCompleted && newState !== "won") anyCompletedNotWon = true;
+
+        // avoid spamming notifications on the very first tick when watcher starts
         if (lastStates[pickKey] !== newState) {
-          if (newState === "won")
-            await sendPushNotification(
-              fresh.user_id,
-              "Pick Won",
-              `Your pick won`,
-              { betslipId: fresh.id, pick: bet }
-            );
-          if (newState === "lost")
-            await sendPushNotification(
-              fresh.user_id,
-              "Pick Lost",
-              `Your pick lost`,
-              { betslipId: fresh.id, pick: bet }
-            );
+          if (!isFirstTick) {
+            if (newState === "won")
+              await sendPushNotification(
+                fresh.user_id,
+                "Pick Won",
+                `Your pick won`,
+                { betslipId: fresh.id, pick: bet }
+              );
+            if (newState === "lost")
+              await sendPushNotification(
+                fresh.user_id,
+                "Pick Lost",
+                `Your pick lost`,
+                { betslipId: fresh.id, pick: bet }
+              );
+            if (newState === "in progress")
+              await sendPushNotification(
+                fresh.user_id,
+                "Pick In Progress",
+                `Your pick is now in progress`,
+                { betslipId: fresh.id, pick: bet }
+              );
+          }
           lastStates[pickKey] = newState;
         }
+
         if (newState === "in progress") allFinal = false;
         if (newState === "lost") anyLost = true;
       }
+
+      // New finalization rule: if any completed pick exists and any completed pick is not won -> mark whole bet lost
+      if (anyCompleted && anyCompletedNotWon) {
+        if (fresh.status !== "lost") {
+          await supabaseAdmin.from("betslips").update({ status: "lost" }).eq("id", betslipId);
+          await sendPushNotification(
+            fresh.user_id,
+            "Bet Lost",
+            `Your bet has lost`,
+            { betslipId }
+          );
+        }
+        clearInterval(intervalId);
+        delete betslipWatchers[betslipId];
+        return;
+      }
+
       if (allFinal) {
         const newStatus = anyLost ? "lost" : "won";
         if (fresh.status !== newStatus) {
@@ -2459,7 +2578,68 @@ function startWatcherInline(betslipId) {
       console.error("watcher tick error", e);
     }
   }, 5000);
-  betslipWatchers[betslipId] = { intervalId, lastStates };
+  betslipWatchers[betslipId] = { intervalId, lastStates, lastEventStatus };
+}
+
+// Minute-based test notifiers: send a notification every minute for a betslip's first game
+const betslipMinuteNotifiers = {};
+
+function startMinuteNotifier(betslipId) {
+  if (betslipMinuteNotifiers[betslipId]) return;
+  const intervalId = setInterval(async () => {
+    try {
+      const { data: rows } = await supabaseAdmin
+        .from("betslips")
+        .select("id, user_id, betslip_data")
+        .eq("id", betslipId)
+        .limit(1);
+      const fresh = (rows && rows[0]) || null;
+      if (!fresh) {
+        clearInterval(intervalId);
+        delete betslipMinuteNotifiers[betslipId];
+        return;
+      }
+
+      const betsArr = (fresh.betslip_data && fresh.betslip_data.bets) || [];
+      if (!betsArr.length) return;
+      const firstBet = betsArr[0];
+      const evId = firstBet.gameId || firstBet.game_id;
+      if (!evId) return;
+
+      try {
+        const resp = await axios.get(`${ESPN_BASE_URL}/summary?event=${evId}`);
+        const s = resp.data;
+        const comp = s.header?.competitions?.[0] || {};
+        const shortDetail = comp.shortDetail || comp.name || `Game ${evId}`;
+        const competitors = comp.competitors || [];
+        const home = competitors.find((c) => c.homeAway === "home") || competitors[0] || {};
+        const away = competitors.find((c) => c.homeAway === "away") || competitors[1] || {};
+        const homeTeam = home.team?.displayName || home.team?.abbreviation || "Home";
+        const awayTeam = away.team?.displayName || away.team?.abbreviation || "Away";
+        const homeScore = home.score ?? 0;
+        const awayScore = away.score ?? 0;
+        const body = `${homeTeam} ${homeScore} - ${awayTeam} ${awayScore}`;
+
+        await sendPushNotification(fresh.user_id, shortDetail, body, {
+          betslipId: fresh.id,
+          eventId: evId,
+          minuteNotifier: true,
+        });
+      } catch (e) {
+        console.error("minute notifier summary fetch error", e?.message || e);
+      }
+    } catch (e) {
+      console.error("minute notifier error", e?.message || e);
+    }
+  }, 60 * 1000);
+  betslipMinuteNotifiers[betslipId] = { intervalId };
+}
+
+function stopMinuteNotifier(betslipId) {
+  const n = betslipMinuteNotifiers[betslipId];
+  if (!n) return;
+  clearInterval(n.intervalId);
+  delete betslipMinuteNotifiers[betslipId];
 }
 
 app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
@@ -2508,6 +2688,58 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+// Debug endpoints to start/stop the minute notifier for a betslip
+app.post(
+  "/api/debug/betslip-minute-notify/start",
+  authMiddlewareInline,
+  async (req, res) => {
+    try {
+      const { betslipId } = req.body || {};
+      if (!betslipId) return res.status(400).json({ message: "betslipId required" });
+      const { data } = await supabaseAdmin
+        .from("betslips")
+        .select("id, user_id")
+        .eq("id", betslipId)
+        .maybeSingle();
+      if (!data) return res.status(404).json({ message: "Betslip not found" });
+      if (data.user_id !== req.userId)
+        return res.status(403).json({ message: "Forbidden" });
+      if (betslipMinuteNotifiers[betslipId])
+        return res.json({ message: "Minute notifier already running" });
+      startMinuteNotifier(betslipId);
+      res.json({ message: "Minute notifier started", betslipId });
+    } catch (e) {
+      console.error("start minute notifier", e);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+app.delete(
+  "/api/debug/betslip-minute-notify/:id",
+  authMiddlewareInline,
+  async (req, res) => {
+    try {
+      const betslipId = req.params.id;
+      const { data } = await supabaseAdmin
+        .from("betslips")
+        .select("id, user_id")
+        .eq("id", betslipId)
+        .maybeSingle();
+      if (!data) return res.status(404).json({ message: "Betslip not found" });
+      if (data.user_id !== req.userId)
+        return res.status(403).json({ message: "Forbidden" });
+      if (!betslipMinuteNotifiers[betslipId])
+        return res.json({ message: "Minute notifier not running" });
+      stopMinuteNotifier(betslipId);
+      res.json({ message: "Minute notifier stopped", betslipId });
+    } catch (e) {
+      console.error("stop minute notifier", e);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
 
 app.get("/api/betslips", authMiddlewareInline, async (req, res) => {
   try {

@@ -18,6 +18,9 @@ import BetSlip from "../../components/BetSlip";
 // Global image cache - keeps image sources stable across re-renders
 const imageCache = new Map();
 
+// Static tournament/logo assets (stable identity prevents remounts)
+const NBA_LOGO = require("../../../assets/nba.png");
+
 const { width } = Dimensions.get("window");
 
 // Merge new games with previous games, preserving object identity for unchanged items
@@ -50,6 +53,74 @@ const mergeGames = (prevGames, newGames) => {
     return changed ? g : prev;
   });
 };
+
+// Helper: group games by their tournament key (top-level so it's stable)
+const groupGamesByTournament = (games) => {
+  const grouped = {};
+  games.forEach((game) => {
+    const tournamentKey = game.tournament;
+    if (!grouped[tournamentKey]) {
+      grouped[tournamentKey] = {
+        tournament: game.tournament,
+        tournamentLabel: game.tournamentLabel,
+        games: [],
+      };
+    }
+    grouped[tournamentKey].games.push(game);
+  });
+
+  Object.values(grouped).forEach((group) => {
+    group.games.sort((a, b) => {
+      if (a.startTime && b.startTime) {
+        const ta = new Date(a.startTime).getTime();
+        const tb = new Date(b.startTime).getTime();
+        return ta - tb;
+      }
+      if (a.time && b.time) return a.time.localeCompare(b.time);
+      return 0;
+    });
+  });
+
+  return Object.values(grouped);
+};
+
+// UpcomingGamesSection as a top-level memoized component to avoid remounts
+const UpcomingGamesSection = React.memo(({ games, navigation, theme }) => {
+  const groupedTournaments = groupGamesByTournament(games);
+
+  return (
+    <View style={styles.upcomingContainer}>
+      {groupedTournaments.map((group) => (
+        <View
+          key={group.tournament}
+          style={[styles.tournamentContainer, { backgroundColor: theme.surfaceSecondary }]}
+        >
+          <View style={styles.tournamentHeader}>
+            <View style={styles.tournamentIconContainer}>
+              <Image source={NBA_LOGO} style={styles.nbaLogoSmall} contentFit="contain" cachePolicy="memory-disk" />
+            </View>
+            <View style={styles.tournamentInfo}>
+              <Text style={[styles.tournamentName, { color: theme.text }]} numberOfLines={1}>{group.tournament}</Text>
+              <Text style={[styles.tournamentLabel, { color: theme.textTertiary }]} numberOfLines={1}>{group.tournamentLabel}</Text>
+            </View>
+          </View>
+
+          <View style={styles.gamesList}>
+            {group.games.map((game, index) => (
+              <View key={game.id}>
+                <ScheduledGameRow game={game} navigation={navigation} theme={theme} />
+
+                {index < group.games.length - 1 && (
+                  <View style={[styles.gameSeparator, { backgroundColor: theme.border }]} />
+                )}
+              </View>
+            ))}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}, (prev, next) => prev.games === next.games && prev.theme === next.theme);
 
 // Format time to EST (robust across platforms). Returns { time, period }
 // Uses Intl.DateTimeFormat.formatToParts to reliably extract hour/minute and dayPeriod.
@@ -181,7 +252,7 @@ const LiveGameCard = React.memo(
         {/* Tournament Name with NBA Logo */}
         <View style={styles.liveTournamentRow}>
           <Image
-            source={require("../../../assets/nba.png")}
+            source={NBA_LOGO}
             style={styles.nbaLogo}
             contentFit="contain"
             cachePolicy="memory-disk"
@@ -425,7 +496,7 @@ const CompletedGameCard = React.memo(
       >
         <View style={styles.completedHeaderRow}>
           <Image
-            source={require("../../../assets/nba.png")}
+            source={NBA_LOGO}
             style={styles.nbaLogoTiny}
             contentFit="contain"
             cachePolicy="memory-disk"
@@ -545,6 +616,7 @@ const CompletedGameCard = React.memo(
 const BetHomeScreen = ({ navigation }) => {
   const { colors, theme, isDarkMode } = useTheme();
   const { scoreboardData, fetchScoreboard } = useBetData();
+  const focusPollRef = useRef(null);
   const [refreshing, setRefreshing] = useState(false);
   const [liveGames, setLiveGames] = useState([]);
   const [scheduledGames, setScheduledGames] = useState([]);
@@ -590,6 +662,64 @@ const BetHomeScreen = ({ navigation }) => {
       setHasLiveGames(hasLive);
     }
   }, [scoreboardData, isDarkMode]);
+
+  // Focused-local polling: while the Home screen is focused we ensure
+  // the scoreboard link updates at 2s when live games exist and 90s when
+  // games are scheduled. This supplements the global BetDataProvider polling
+  // and guarantees UI responsiveness while the user is on the Home screen.
+  useFocusEffect(
+    React.useCallback(() => {
+      // Immediate fetch on focus
+      let mounted = true;
+      (async () => {
+        try {
+          await fetchScoreboard();
+        } catch (e) {
+          /* ignore */
+        }
+      })();
+
+      // Start interval according to current state
+      const startFocusedPolling = () => {
+        // clear any existing
+        if (focusPollRef.current) {
+          clearInterval(focusPollRef.current.id);
+          focusPollRef.current = null;
+        }
+
+        const mode = hasLiveGames ? "fast" : scheduledGames.length ? "moderate" : "slow";
+        const intervalMs = mode === "fast" ? 2000 : mode === "moderate" ? 90000 : 30 * 60 * 1000;
+
+        const id = setInterval(() => {
+          fetchScoreboard().catch(() => {});
+        }, intervalMs);
+        focusPollRef.current = { id, intervalMs };
+      };
+
+      // start immediately
+      startFocusedPolling();
+
+      // Also watch for changes to live/scheduled state while focused
+      const visibilityInterval = setInterval(() => {
+        // if mode changed, restart focused polling
+        const mode = hasLiveGames ? "fast" : scheduledGames.length ? "moderate" : "slow";
+        const desiredInterval = mode === "fast" ? 2000 : mode === "moderate" ? 90000 : 30 * 60 * 1000;
+        const currentInterval = focusPollRef.current?.intervalMs || null;
+        if (!focusPollRef.current || currentInterval !== desiredInterval) {
+          startFocusedPolling();
+        }
+      }, 2000);
+
+      return () => {
+        mounted = false;
+        if (focusPollRef.current) {
+          clearInterval(focusPollRef.current);
+          focusPollRef.current = null;
+        }
+        clearInterval(visibilityInterval);
+      };
+    }, [hasLiveGames, scheduledGames.length])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -650,7 +780,7 @@ const BetHomeScreen = ({ navigation }) => {
             <View style={styles.tournamentHeader}>
               <View style={styles.tournamentIconContainer}>
                 <Image
-                  source={require("../../../assets/nba.png")}
+                  source={NBA_LOGO}
                   style={styles.nbaLogoSmall}
                   contentFit="contain"
                   cachePolicy="memory-disk"
