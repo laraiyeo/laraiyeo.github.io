@@ -288,6 +288,61 @@ app.use((req, res, next) => {
   next();
 });
 
+// Forwarding aliases: for clients that call singular `/api/betslip` for writes
+// (the project historically used the singular path), forward those requests to
+// the plural handlers implemented below. This preserves existing client code
+// without duplicating full handler logic. We forward the method, headers and
+// body and return the upstream response. These forwards are logged.
+app.post("/api/betslip", async (req, res) => {
+  try {
+    const base = process.env.PUBLIC_API_URL || `http://localhost:${PORT}`;
+    console.log(`[route-alias-forward] forwarding POST /api/betslip -> ${base}/api/betslips`);
+    const resp = await axios.post(`${base.replace(/\/$/,"")}/api/betslips`, req.body, {
+      headers: { ...(req.headers || {}), host: undefined },
+      timeout: 15000,
+    });
+    return res.status(resp.status).json(resp.data);
+  } catch (e) {
+    console.error("[route-alias-forward] POST /api/betslip forward failed", e?.message || e);
+    if (e.response) return res.status(e.response.status).send(e.response.data);
+    return res.status(500).json({ error: "forward failed" });
+  }
+});
+
+app.post("/api/betslip/:id/watch", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const base = process.env.PUBLIC_API_URL || `http://localhost:${PORT}`;
+    console.log(`[route-alias-forward] forwarding POST /api/betslip/${id}/watch -> ${base}/api/betslips/${id}/watch`);
+    const resp = await axios.post(`${base.replace(/\/$/,"")}/api/betslips/${id}/watch`, req.body || {}, {
+      headers: { ...(req.headers || {}), host: undefined },
+      timeout: 10000,
+    });
+    return res.status(resp.status).json(resp.data);
+  } catch (e) {
+    console.error("[route-alias-forward] POST /api/betslip/:id/watch forward failed", e?.message || e);
+    if (e.response) return res.status(e.response.status).send(e.response.data);
+    return res.status(500).json({ error: "forward failed" });
+  }
+});
+
+app.delete("/api/betslip/:id/watch", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const base = process.env.PUBLIC_API_URL || `http://localhost:${PORT}`;
+    console.log(`[route-alias-forward] forwarding DELETE /api/betslip/${id}/watch -> ${base}/api/betslips/${id}/watch`);
+    const resp = await axios.delete(`${base.replace(/\/$/,"")}/api/betslips/${id}/watch`, {
+      headers: { ...(req.headers || {}), host: undefined },
+      timeout: 10000,
+    });
+    return res.status(resp.status).json(resp.data);
+  } catch (e) {
+    console.error("[route-alias-forward] DELETE /api/betslip/:id/watch forward failed", e?.message || e);
+    if (e.response) return res.status(e.response.status).send(e.response.data);
+    return res.status(500).json({ error: "forward failed" });
+  }
+});
+
 // Data cache
 let scoreboardData = null;
 let summaryDataCache = {}; // { eventId: data }
