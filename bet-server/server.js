@@ -2116,7 +2116,10 @@ app.post("/api/betslip", authMiddlewareInline, async (req, res) => {
     });
     return res.status(resp.status).json(resp.data);
   } catch (e) {
-    console.error("[route-alias-local] POST /api/betslip forward failed", e?.message || e);
+    console.error(
+      "[route-alias-local] POST /api/betslip forward failed",
+      e?.message || e
+    );
     if (e.response) return res.status(e.response.status).send(e.response.data);
     return res.status(500).json({ error: "forward failed" });
   }
@@ -2129,10 +2132,14 @@ app.post("/api/betslip/:id/watch", authMiddlewareInline, async (req, res) => {
     console.log(
       `[route-alias-local] forwarding POST /api/betslip/${id}/watch -> ${localBase}/api/betslips/${id}/watch`
     );
-    const resp = await axios.post(`${localBase}/api/betslips/${id}/watch`, req.body || {}, {
-      headers: { ...(req.headers || {}), host: undefined },
-      timeout: 15000,
-    });
+    const resp = await axios.post(
+      `${localBase}/api/betslips/${id}/watch`,
+      req.body || {},
+      {
+        headers: { ...(req.headers || {}), host: undefined },
+        timeout: 15000,
+      }
+    );
     return res.status(resp.status).json(resp.data);
   } catch (e) {
     console.error(
