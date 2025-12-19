@@ -2458,7 +2458,10 @@ function startWatcherInline(betslipId) {
                   gameId: gid,
                   type: "total",
                   line: ev.bets.totalPoints.line,
-                  current: { current: ev.bets.totalPoints.current, won: ev.bets.totalPoints.won },
+                  current: {
+                    current: ev.bets.totalPoints.current,
+                    won: ev.bets.totalPoints.won,
+                  },
                 });
               }
               // spread
@@ -2507,7 +2510,10 @@ function startWatcherInline(betslipId) {
           }
           if (normalized.length > 0) betsArr = normalized;
         } catch (e) {
-          console.warn("watcher: failed to fetch betslip_url, falling back to stored data", e?.message || e);
+          console.warn(
+            "watcher: failed to fetch betslip_url, falling back to stored data",
+            e?.message || e
+          );
         }
       }
       // fetch summaries
