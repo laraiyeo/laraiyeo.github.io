@@ -60,7 +60,8 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
               else if (Array.isArray(dataObj.events)) {
                 for (const ev of dataObj.events) {
                   if (ev.bets) {
-                    if (Array.isArray(ev.bets.players)) legsCount += ev.bets.players.length;
+                    if (Array.isArray(ev.bets.players))
+                      legsCount += ev.bets.players.length;
                     if (ev.bets.moneyline) legsCount += 1;
                     if (ev.bets.totalPoints) legsCount += 1;
                     if (ev.bets.spread) legsCount += 1;
@@ -69,7 +70,10 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
               }
             }
           } catch (e) {
-            console.warn("sendPushNotification: failed to parse betslip_data", e?.message || e);
+            console.warn(
+              "sendPushNotification: failed to parse betslip_data",
+              e?.message || e
+            );
           }
 
           const stake =
@@ -81,15 +85,16 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
                   : NaN)
             ) || 0;
 
-          const potential =
-            parseFloat(
-              bs.potential_payout ||
-                (bs.betslip_data && typeof bs.betslip_data === "object"
-                  ? bs.betslip_data.potential_payout
-                  : bs.potential_payout)
-            );
+          const potential = parseFloat(
+            bs.potential_payout ||
+              (bs.betslip_data && typeof bs.betslip_data === "object"
+                ? bs.betslip_data.potential_payout
+                : bs.potential_payout)
+          );
 
-          const potentialRounded = Number.isFinite(potential) ? potential.toFixed(2) : null;
+          const potentialRounded = Number.isFinite(potential)
+            ? potential.toFixed(2)
+            : null;
 
           // Only set title/body if they weren't provided by caller
           if (!title) {
@@ -121,7 +126,10 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
         }
       }
     } catch (e) {
-      console.error("sendPushNotification: betslip lookup/build failed", e?.message || e);
+      console.error(
+        "sendPushNotification: betslip lookup/build failed",
+        e?.message || e
+      );
     }
 
     // ------------------------------------------------------------------
@@ -323,7 +331,9 @@ async function sendBetResultNotification(betslipId) {
     if (!bs) return;
 
     const userId = bs.user_id;
-    console.log(`[sendBetResultNotification] delegating -> user:${userId} betslip:${betslipId}`);
+    console.log(
+      `[sendBetResultNotification] delegating -> user:${userId} betslip:${betslipId}`
+    );
     // Only send user id and betslip reference; let centralized push handler decide message
     await sendPushNotification(userId, null, null, { betslipId });
   } catch (e) {
@@ -1173,8 +1183,8 @@ function transformRostersData(rostersData) {
         const allEventsArray = Array.isArray(events)
           ? events.slice()
           : Object.values(events || {});
-        const sortedEvents = allEventsArray.sort((a, b) =>
-          new Date(b.gameDate) - new Date(a.gameDate)
+        const sortedEvents = allEventsArray.sort(
+          (a, b) => new Date(b.gameDate) - new Date(a.gameDate)
         );
         const recentEvents = sortedEvents.slice(0, 5);
 
@@ -2091,11 +2101,16 @@ app.get("/api/betslip", async (req, res) => {
                           betValue.startsWith("o") || betValue.startsWith("O");
                         const line = parseFloat(betValue.substring(1));
                         // Determine win state with special handling for unders
-                        const isInProgress = !isCompleted && gameStatus?.state === "in";
+                        const isInProgress =
+                          !isCompleted && gameStatus?.state === "in";
                         let won;
                         if (isOver) {
                           const isWinning = current >= line;
-                          won = isWinning ? true : isInProgress ? "in progress" : false;
+                          won = isWinning
+                            ? true
+                            : isInProgress
+                            ? "in progress"
+                            : false;
                         } else {
                           // Under: while game in progress and current <= line -> still in progress
                           // If current > line while in progress -> lost (false)
