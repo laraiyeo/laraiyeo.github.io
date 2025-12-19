@@ -20,6 +20,7 @@ export const BetDataProvider = ({ children }) => {
   const [lastFetchTime, setLastFetchTime] = useState(null);
   const [currentPollingMode, setCurrentPollingMode] = useState("slow");
   const pollingIntervalRef = useRef(null);
+  const fetchCounterRef = useRef(0);
 
   // Helper functions
   const getTimeDifferenceInMinutes = (date1, date2) => {
@@ -117,6 +118,14 @@ export const BetDataProvider = ({ children }) => {
 
   // Fetch scoreboard data
   const fetchScoreboard = useCallback(async () => {
+    // Debug instrumentation: count calls and print short stack to identify callers
+    try {
+      fetchCounterRef.current = (fetchCounterRef.current || 0) + 1;
+      const shortStack = (new Error().stack || "").split("\n").slice(2, 6).join(" | ");
+      console.log(`[BetData][DEBUG] fetchScoreboard call #${fetchCounterRef.current} at ${new Date().toISOString()} callers: ${shortStack}`);
+    } catch (dbgErr) {
+      /* ignore debug failures */
+    }
     try {
       const response = await fetch(`${API_BASE_URL}/scoreboard`);
       const data = await response.json();

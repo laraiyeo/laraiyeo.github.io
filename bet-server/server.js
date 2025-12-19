@@ -2873,6 +2873,38 @@ app.post("/api/betslips/:id/watch", authMiddlewareInline, async (req, res) => {
   }
 });
 
+// --------------------------
+// Internal debug endpoints (development only, guarded by DEBUG_INTERNAL=1)
+// --------------------------
+app.post("/internal/debug/start-minute-notifier", async (req, res) => {
+  if (process.env.DEBUG_INTERNAL !== "1")
+    return res.status(403).json({ message: "disabled" });
+  try {
+    const { betslipId } = req.body || {};
+    if (!betslipId) return res.status(400).json({ message: "betslipId required" });
+    startMinuteNotifier(betslipId);
+    return res.json({ started: true, betslipId });
+  } catch (e) {
+    console.error("internal start-minute-notifier error", e);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.post("/internal/debug/send-push-to-profile", async (req, res) => {
+  if (process.env.DEBUG_INTERNAL !== "1")
+    return res.status(403).json({ message: "disabled" });
+  try {
+    const { profileId, title, body: bodyText, data } = req.body || {};
+    if (!profileId) return res.status(400).json({ message: "profileId required" });
+    // Attempt to send a push using the same sendPushNotification helper
+    await sendPushNotification(profileId, title || "Test", bodyText || "Test push", data || {});
+    return res.json({ sent: true, profileId });
+  } catch (e) {
+    console.error("internal send-push-to-profile error", e);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 app.delete(
   "/api/betslips/:id/watch",
   authMiddlewareInline,

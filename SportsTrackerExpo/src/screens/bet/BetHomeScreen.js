@@ -220,7 +220,7 @@ const parseGameData = (events, isDarkMode = false) => {
       team2Record: homeTeam.record || null,
       score1: awayTeam.score || 0,
       score2: homeTeam.score || 0,
-      period: status.period ? `Q${status.period}` : null,
+      shortDetail: status.type.shortDetail || null,
       time:
         status.type?.state === "in" && status.displayClock
           ? status.displayClock
@@ -300,8 +300,7 @@ const LiveGameCard = React.memo(
 
         {/* Game Time/Period */}
         <Text style={[styles.liveGameTime, { color: theme.textSecondary }]}>
-          {game.period && `${game.period} • `}
-          {game.time}
+          {game.shortDetail && `${game.shortDetail}`}
         </Text>
 
         {/* Teams and Score */}
@@ -756,7 +755,16 @@ const BetHomeScreen = ({ navigation }) => {
       return () => {
         mounted = false;
         if (focusPollRef.current) {
-          clearInterval(focusPollRef.current);
+          try {
+            clearInterval(focusPollRef.current.id);
+          } catch (e) {
+            // fallback: if ref was a raw id for any reason
+            try {
+              clearInterval(focusPollRef.current);
+            } catch (e2) {
+              /* ignore */
+            }
+          }
           focusPollRef.current = null;
         }
         clearInterval(visibilityInterval);
