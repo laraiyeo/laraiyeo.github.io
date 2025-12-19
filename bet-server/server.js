@@ -2422,7 +2422,94 @@ function startWatcherInline(betslipId) {
         delete betslipWatchers[betslipId];
         return;
       }
-      const betsArr = (fresh.betslip_data && fresh.betslip_data.bets) || [];
+      // Prefer fetching the canonical betslip payload via persisted `betslip_url`.
+      // If available, fetch that URL and normalize its `events` into per-pick entries.
+      let betsArr = (fresh.betslip_data && fresh.betslip_data.bets) || [];
+      const betslipUrl =
+        fresh.betslip_url ||
+        fresh.betslip_data?.betslip_url ||
+        fresh.betslip_data?.betslipUrl ||
+        null;
+
+      if (betslipUrl) {
+        try {
+          const resp = await axios.get(betslipUrl);
+          const payload = resp.data || {};
+          const events = payload.events || [];
+          const normalized = [];
+          for (const ev of events) {
+            const gid = ev.eventId || ev.id || ev.eventId || null;
+            // event-level bets
+            if (ev.bets) {
+              // moneyline
+              if (ev.bets.moneyline) {
+                normalized.push({
+                  id: `moneyline:${gid}:${ev.bets.moneyline.team}`,
+                  gameId: gid,
+                  type: "moneyline",
+                  team: ev.bets.moneyline.team,
+                  current: ev.bets.moneyline.current,
+                });
+              }
+              // total points
+              if (ev.bets.totalPoints) {
+                normalized.push({
+                  id: `total:${gid}`,
+                  gameId: gid,
+                  type: "total",
+                  line: ev.bets.totalPoints.line,
+                  current: { current: ev.bets.totalPoints.current, won: ev.bets.totalPoints.won },
+                });
+              }
+              // spread
+              if (ev.bets.spread) {
+                normalized.push({
+                  id: `spread:${gid}:${ev.bets.spread.team}`,
+                  gameId: gid,
+                  type: "spread",
+                  team: ev.bets.spread.team,
+                  current: ev.bets.spread.current,
+                });
+              }
+              // players
+              if (Array.isArray(ev.bets.players)) {
+                for (const p of ev.bets.players) {
+                  const pid = p.id || p.playerId || null;
+                  // overUnder entries
+                  for (const k of Object.keys(p.overUnder || {})) {
+                    const entry = p.overUnder[k];
+                    normalized.push({
+                      id: `player:${gid}:${pid}:${k}:ou`,
+                      gameId: gid,
+                      type: "player_overunder",
+                      playerId: pid,
+                      stat: k,
+                      bet: entry?.bet,
+                      current: { current: entry?.current, won: entry?.won },
+                    });
+                  }
+                  // milestones
+                  for (const k of Object.keys(p.milestones || {})) {
+                    const entry = p.milestones[k];
+                    normalized.push({
+                      id: `player:${gid}:${pid}:${k}:ms`,
+                      gameId: gid,
+                      type: "player_milestone",
+                      playerId: pid,
+                      stat: k,
+                      threshold: entry?.threshold || entry?.bet,
+                      current: { current: entry?.current, won: entry?.won },
+                    });
+                  }
+                }
+              }
+            }
+          }
+          if (normalized.length > 0) betsArr = normalized;
+        } catch (e) {
+          console.warn("watcher: failed to fetch betslip_url, falling back to stored data", e?.message || e);
+        }
+      }
       // fetch summaries
       const summaries = {};
       for (const evId of Array.from(
@@ -2675,7 +2762,7 @@ function startWatcherInline(betslipId) {
     } catch (e) {
       console.error("watcher tick error", e);
     }
-  }, 5000);
+  }, 4000);
   betslipWatchers[betslipId] = { intervalId, lastStates, lastEventStatus };
 }
 
