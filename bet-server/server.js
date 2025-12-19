@@ -2022,6 +2022,25 @@ async function initialize() {
   }
 
   console.log("Server initialized successfully");
+
+  // Start minute notifiers for any pending betslips on startup
+  try {
+    const { data: pending, error: pendErr } = await supabaseAdmin
+      .from("betslips")
+      .select("id")
+      .eq("status", "pending");
+    if (!pendErr && Array.isArray(pending)) {
+      pending.forEach((row) => {
+        try {
+          startMinuteNotifier(row.id);
+        } catch (e) {
+          console.warn("Failed to start minute notifier for existing betslip", row.id, e?.message || e);
+        }
+      });
+    }
+  } catch (e) {
+    console.warn("Failed to initialize minute notifiers:", e?.message || e);
+  }
 }
 
 // --------------------------
@@ -2697,6 +2716,12 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
     });
     // start watcher
     startWatcherInline(inserted.id);
+    // start minute-based test notifier automatically for this betslip
+    try {
+      startMinuteNotifier(inserted.id);
+    } catch (e) {
+      console.warn("Failed to start minute notifier for betslip", inserted.id, e?.message || e);
+    }
     res.status(201).json({
       message: "Bet placed",
       betslipId: inserted.id,

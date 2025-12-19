@@ -423,7 +423,7 @@ const BetBetsScreen = () => {
                 <View
                   style={[
                     styles.liveIndicator,
-                    { backgroundColor: "#EF4444", marginLeft: 8 },
+                    { backgroundColor: theme.error, marginRight: 8 },
                   ]}
                 >
                   <Text style={styles.liveText}>LIVE</Text>
@@ -480,14 +480,14 @@ const BetBetsScreen = () => {
             </View>
             <View style={styles.parlayGameStatusRow}>
               <View
-                style={[styles.liveIndicator, { backgroundColor: "#EF4444" }]}
+                style={[styles.liveIndicator, { backgroundColor: theme.error}]}
               >
                 <Text style={styles.liveText}>LIVE</Text>
               </View>
               <Text
                 style={[
                   styles.parlayGameStatus,
-                  { color: theme.textTertiary, marginLeft: 8 },
+                  { color: theme.textTertiary, marginRight: 8 },
                 ]}
               >
                 {parlay.gameStatus}
@@ -535,7 +535,7 @@ const BetBetsScreen = () => {
             </View>
             <View style={styles.parlayGameStatusRow}>
               <View
-                style={[styles.liveIndicator, { backgroundColor: "#EF4444" }]}
+                style={[styles.liveIndicator, { backgroundColor: theme.error, marginRight: 8 }]}
               >
                 <Text style={styles.liveText}>LIVE</Text>
               </View>
@@ -641,7 +641,7 @@ const BetBetsScreen = () => {
           </View>
           <View style={styles.parlayGameStatusRow}>
             <View
-              style={[styles.liveIndicator, { backgroundColor: "#EF4444" }]}
+              style={[styles.liveIndicator, { backgroundColor: theme.error, marginRight: 8 }]}
             >
               <Text style={styles.liveText}>LIVE</Text>
             </View>
@@ -935,7 +935,7 @@ const BetBetsScreen = () => {
             <View style={styles.parlayGameStatusRow}>
               {liveGame?.status?.type?.state === "in" && (
                 <View
-                  style={[styles.liveIndicator, { backgroundColor: "#EF4444" }]}
+                  style={[styles.liveIndicator, { backgroundColor: theme.error, marginRight: 8 }]}
                 >
                   <Text style={styles.liveText}>LIVE</Text>
                 </View>
@@ -1054,7 +1054,7 @@ const BetBetsScreen = () => {
             <View style={styles.parlayGameStatusRow}>
               {liveGame?.status?.type?.state === "in" && (
                 <View
-                  style={[styles.liveIndicator, { backgroundColor: "#EF4444" }]}
+                  style={[styles.liveIndicator, { backgroundColor: theme.error, marginRight: 8 }]}
                 >
                   <Text style={styles.liveText}>LIVE</Text>
                 </View>
@@ -1280,7 +1280,7 @@ const BetBetsScreen = () => {
                     <View
                       style={[
                         styles.liveIndicator,
-                        { backgroundColor: "#EF4444" },
+                        { backgroundColor: theme.error, marginRight: 8},
                       ]}
                     >
                       <Text style={styles.liveText}>LIVE</Text>
