@@ -1658,6 +1658,7 @@ app.get("/api/betslip", async (req, res) => {
             const betScore = parseInt(betTeam.score) || 0;
             const oppScore = parseInt(opposingTeam.score) || 0;
             const isWinning = betScore > oppScore;
+            const isInProgress = !isCompleted && gameStatus?.state === "in";
 
             eventData.bets.moneyline = {
               team: moneyline,
@@ -1670,11 +1671,7 @@ app.get("/api/betslip", async (req, res) => {
                     : betScore < oppScore
                     ? opposingTeam.team?.abbreviation
                     : "Tied",
-                won: isCompleted
-                  ? isWinning
-                  : isWinning
-                  ? "in progress"
-                  : false,
+                won: isInProgress ? "in progress" : isWinning,
               },
             };
           }
@@ -1694,14 +1691,16 @@ app.get("/api/betslip", async (req, res) => {
 
           const isOver = total.startsWith("o") || total.startsWith("O");
           const line = parseFloat(total.substring(1));
-          const isWinning = isOver ? currentTotal > line : currentTotal < line;
+          // For overs we consider >= as winning (reaches or surpasses). For unders <=.
+          const isWinning = isOver ? currentTotal >= line : currentTotal <= line;
+          const isInProgress = !isCompleted && gameStatus?.state === "in";
 
           eventData.bets.totalPoints = {
             bet: total,
             line: line,
             type: isOver ? "over" : "under",
             current: currentTotal,
-            won: isCompleted ? isWinning : isWinning ? "in progress" : false,
+            won: isWinning ? true : isInProgress ? "in progress" : false,
           };
         }
 
@@ -1729,6 +1728,7 @@ app.get("/api/betslip", async (req, res) => {
               const oppScore = parseInt(opposingTeam.score) || 0;
               const adjustedScore = betScore + spreadLine;
               const isWinning = adjustedScore > oppScore;
+              const isInProgress = !isCompleted && gameStatus?.state === "in";
 
               eventData.bets.spread = {
                 team: teamAbbr,
@@ -1737,11 +1737,7 @@ app.get("/api/betslip", async (req, res) => {
                 current: {
                   score: `${betScore}-${oppScore}`,
                   adjustedScore: adjustedScore.toFixed(1),
-                  won: isCompleted
-                    ? isWinning
-                    : isWinning
-                    ? "in progress"
-                    : false,
+                  won: isInProgress ? "in progress" : isWinning,
                 },
               };
             }
@@ -1867,19 +1863,15 @@ app.get("/api/betslip", async (req, res) => {
                         const isOver =
                           betValue.startsWith("o") || betValue.startsWith("O");
                         const line = parseFloat(betValue.substring(1));
-                        const isWinning = isOver
-                          ? current > line
-                          : current < line;
+                        // Overs and unders are considered winning immediately when threshold is reached
+                        const isWinning = isOver ? current >= line : current <= line;
+                        const isInProgress = !isCompleted && gameStatus?.state === "in";
 
                         playerData.overUnder[statUpper] = {
                           bet: line,
                           type: isOver ? "over" : "under",
                           current: current,
-                          won: isCompleted
-                            ? isWinning
-                            : isWinning
-                            ? "in progress"
-                            : false,
+                          won: isWinning ? true : isInProgress ? "in progress" : false,
                         };
                       }
                       // Check if it's a milestone (any number, may have + or % at the end)
@@ -1890,16 +1882,13 @@ app.get("/api/betslip", async (req, res) => {
                         );
                         if (!isNaN(threshold)) {
                           const isWinning = current >= threshold;
+                          const isInProgress = !isCompleted && gameStatus?.state === "in";
 
                           playerData.milestones[statUpper] = {
                             bet: betValue,
                             threshold: threshold,
                             current: current,
-                            won: isCompleted
-                              ? isWinning
-                              : isWinning
-                              ? "in progress"
-                              : false,
+                            won: isWinning ? true : isInProgress ? "in progress" : false,
                           };
                         }
                       }
