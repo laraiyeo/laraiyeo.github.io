@@ -1094,13 +1094,11 @@ async function fetchScoreboard() {
 
 async function fetchSummary(eventId) {
   try {
-    console.log(`[Summary] Fetching data for event ${eventId}...`);
     const response = await axios.get(
       `${ESPN_BASE_URL}/summary?event=${eventId}`
     );
     response.data.lastPolledTime = new Date();
     summaryDataCache[eventId] = response.data;
-    console.log(`[Summary] Data fetched successfully for event ${eventId}`);
     return response.data;
   } catch (error) {
     console.error(
@@ -2418,7 +2416,11 @@ const betslipWatchers = {};
 const testNotifiers = {};
 
 function startWatcherInline(betslipId) {
-  if (betslipWatchers[betslipId]) return;
+  console.log(`[watcher] startWatcherInline requested for ${betslipId}`);
+  if (betslipWatchers[betslipId]) {
+    console.log(`[watcher] already watching ${betslipId}, skipping start`);
+    return;
+  }
   const lastStates = {};
   const lastEventStatus = {};
   const intervalId = setInterval(async () => {
@@ -2822,10 +2824,15 @@ function startWatcherInline(betslipId) {
     }
   }, 4000);
   betslipWatchers[betslipId] = { intervalId, lastStates, lastEventStatus };
+  console.log(`[watcher] started watcher for ${betslipId}`);
 }
 
 function startTestNotifier(betslipId) {
-  if (testNotifiers[betslipId]) return;
+  console.log(`[testNotifier] start requested for ${betslipId}`);
+  if (testNotifiers[betslipId]) {
+    console.log(`[testNotifier] already running for ${betslipId}`);
+    return;
+  }
   const intervalId = setInterval(async () => {
     try {
       const { data: rows } = await supabaseAdmin
@@ -2911,6 +2918,7 @@ function startTestNotifier(betslipId) {
     }
   }, 60 * 1000);
   testNotifiers[betslipId] = { intervalId };
+  console.log(`[testNotifier] started for ${betslipId}`);
 }
 
 function stopTestNotifier(betslipId) {
@@ -2960,9 +2968,20 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
     });
     // start watcher
     startWatcherInline(inserted.id);
+    console.log(`[betslips] startWatcherInline called for ${inserted.id}`);
+    if (betslipWatchers[inserted.id]) {
+      console.log(`[betslips] watcher confirmed running for ${inserted.id}`);
+    } else {
+      console.warn(`[betslips] watcher not found after start attempt for ${inserted.id}`);
+    }
     // start minute-based test notifier automatically for this betslip (short test)
     try {
       startTestNotifier(inserted.id);
+      if (testNotifiers[inserted.id]) {
+        console.log(`[betslips] testNotifier running for ${inserted.id}`);
+      } else {
+        console.warn(`[betslips] testNotifier not started for ${inserted.id}`);
+      }
     } catch (e) {
       console.warn(
         "Failed to start test notifier for",
@@ -3005,6 +3024,7 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
             .update({ betslip_data: updatedData })
             .eq("id", inserted.id);
           inserted.betslip_data = updatedData;
+          console.log(`[betslips] persisted betslip_url for ${inserted.id}: ${betslipUrl}`);
         }
       } catch (e) {
         console.warn(
@@ -3143,7 +3163,13 @@ app.post("/api/betslips/:id/watch", authMiddlewareInline, async (req, res) => {
       return res.status(403).json({ message: "Forbidden" });
     if (betslipWatchers[id]) return res.json({ message: "Already watching" });
     startWatcherInline(id);
-    res.json({ message: "Watcher started" });
+    console.log(`[api/watch] startWatcherInline called for ${id} by user ${req.userId}`);
+    if (betslipWatchers[id]) {
+      console.log(`[api/watch] watcher active for ${id}`);
+      return res.json({ message: "Watcher started" });
+    }
+    console.warn(`[api/watch] watcher start call returned but watcher not active for ${id}`);
+    return res.status(500).json({ message: "Failed to start watcher" });
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Server error" });
@@ -3192,6 +3218,7 @@ app.delete(
       if (!betslipWatchers[id]) return res.json({ watching: false });
       clearInterval(betslipWatchers[id].intervalId);
       delete betslipWatchers[id];
+      console.log(`[api/watch] stopped watcher for ${id} by user ${req.userId}`);
       res.json({ watching: false });
     } catch (e) {
       console.error(e);
