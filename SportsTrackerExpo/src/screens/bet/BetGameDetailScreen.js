@@ -720,8 +720,8 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                       { color: theme.textSecondary },
                     ]}
                   >
-                    {player.position} • {player.teamAbbr} •{" "}
-                    {player.statValue.toFixed(1)} AVG
+                    {player.position} • {player.teamAbbr}
+                    {"\n"}{player.statValue.toFixed(1)} AVG
                   </Text>
                 </View>
               </TouchableOpacity>

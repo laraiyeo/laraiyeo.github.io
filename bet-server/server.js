@@ -1216,20 +1216,30 @@ function transformRostersData(rostersData) {
           });
         });
 
-        // Create recentGames with embedded stats from the sorted recent events
-        const recentGames = recentEvents.map((event) => {
-          return {
-            atVs: event.atVs,
-            gameDate: event.gameDate,
-            score: event.score,
-            opponent: {
-              id: event.opponent?.id || null,
-              displayName: event.opponent?.displayName || null,
-              abbreviation: event.opponent?.abbreviation || null,
-            },
-            stats: eventStatsMap[event.id] || null,
-          };
-        });
+        // Create recentGames using only events that have stats available.
+        // If a recent event has null/missing stats, skip it and use the
+        // next-most-recent event that does have stats so the list reflects
+        // the player's last N games with stats.
+        const recentWithStats = [];
+        for (const ev of sortedEvents) {
+          if (recentWithStats.length >= 5) break;
+          const statsForEv = eventStatsMap[ev.id];
+          if (statsForEv && Object.keys(statsForEv).length > 0) {
+            recentWithStats.push({ event: ev, stats: statsForEv });
+          }
+        }
+
+        const recentGames = recentWithStats.map(({ event, stats }) => ({
+          atVs: event.atVs,
+          gameDate: event.gameDate,
+          score: event.score,
+          opponent: {
+            id: event.opponent?.id || null,
+            displayName: event.opponent?.displayName || null,
+            abbreviation: event.opponent?.abbreviation || null,
+          },
+          stats: stats,
+        }));
 
         // Get averages from summary
         let averages = null;
