@@ -3161,7 +3161,8 @@ function setupBetslipRealtimeListener() {
       );
 
     // Track last poll time so fallback only picks up new rows
-    if (!lastBetslipPollTimestamp) lastBetslipPollTimestamp = new Date().toISOString();
+    if (!lastBetslipPollTimestamp)
+      lastBetslipPollTimestamp = new Date().toISOString();
 
     // Helper: start a fallback poller when realtime cannot subscribe
     function startRealtimeFallback() {
@@ -3176,19 +3177,32 @@ function setupBetslipRealtimeListener() {
             .gt("created_at", since)
             .order("created_at", { ascending: true })
             .limit(100);
-          if (error) return console.error("[realtime-fallback] query error", error.message || error);
+          if (error)
+            return console.error(
+              "[realtime-fallback] query error",
+              error.message || error
+            );
           if (rows && rows.length > 0) {
             for (const r of rows) {
               try {
-                console.log(`[realtime-fallback] detected new betslip id:${r.id} created_at:${r.created_at}`);
+                console.log(
+                  `[realtime-fallback] detected new betslip id:${r.id} created_at:${r.created_at}`
+                );
                 startWatcherInline(r.id);
-                if (betslipWatchers[r.id]) console.log(`[realtime-fallback] watcher started for ${r.id}`);
+                if (betslipWatchers[r.id])
+                  console.log(
+                    `[realtime-fallback] watcher started for ${r.id}`
+                  );
               } catch (e) {
-                console.error(`[realtime-fallback] failed to start watcher for ${r.id}`, e?.message || e);
+                console.error(
+                  `[realtime-fallback] failed to start watcher for ${r.id}`,
+                  e?.message || e
+                );
               }
             }
             // update last seen timestamp to newest row
-            lastBetslipPollTimestamp = rows[rows.length - 1].created_at || new Date().toISOString();
+            lastBetslipPollTimestamp =
+              rows[rows.length - 1].created_at || new Date().toISOString();
           }
         } catch (e) {
           console.error("[realtime-fallback] poll error", e?.message || e);
@@ -3207,15 +3221,23 @@ function setupBetslipRealtimeListener() {
       console.log(`[realtime] subscription status: ${status}`);
       try {
         // If subscription timed out, start the fallback poller
-        if (String(status).toUpperCase().includes("TIMED_OUT") || String(status).toUpperCase().includes("TIMEOUT")) {
-          console.warn("[realtime] subscription timed out — enabling fallback polling");
+        if (
+          String(status).toUpperCase().includes("TIMED_OUT") ||
+          String(status).toUpperCase().includes("TIMEOUT")
+        ) {
+          console.warn(
+            "[realtime] subscription timed out — enabling fallback polling"
+          );
           startRealtimeFallback();
         } else {
           // any successful status -> stop fallback if running
           stopRealtimeFallback();
         }
       } catch (e) {
-        console.error("[realtime] subscription status handler error", e?.message || e);
+        console.error(
+          "[realtime] subscription status handler error",
+          e?.message || e
+        );
       }
     });
   } catch (e) {
