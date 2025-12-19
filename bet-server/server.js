@@ -2404,6 +2404,7 @@ app.post("/api/profile/push-token", authMiddlewareInline, async (req, res) => {
 // Inlined betslips routes and watcher (uses Supabase HTTP)
 // --------------------------
 const betslipWatchers = {};
+const testNotifiers = {};
 
 function startWatcherInline(betslipId) {
   if (betslipWatchers[betslipId]) return;
@@ -2420,6 +2421,9 @@ function startWatcherInline(betslipId) {
       if (!fresh) {
         clearInterval(intervalId);
         delete betslipWatchers[betslipId];
+        try {
+          stopTestNotifier(betslipId);
+        } catch (e) {}
         return;
       }
       // Prefer fetching the canonical betslip payload via persisted `betslip_url`.
@@ -2729,7 +2733,7 @@ function startWatcherInline(betslipId) {
       }
 
       // New finalization rule: if any completed pick exists and any completed pick is not won -> mark whole bet lost
-      if (anyCompleted && anyCompletedNotWon) {
+        if (anyCompleted && anyCompletedNotWon) {
         if (fresh.status !== "lost") {
           await supabaseAdmin
             .from("betslips")
@@ -2744,6 +2748,9 @@ function startWatcherInline(betslipId) {
         }
         clearInterval(intervalId);
         delete betslipWatchers[betslipId];
+        try {
+          stopTestNotifier(betslipId);
+        } catch (e) {}
         return;
       }
 
@@ -2764,12 +2771,97 @@ function startWatcherInline(betslipId) {
         }
         clearInterval(intervalId);
         delete betslipWatchers[betslipId];
+        try {
+          stopTestNotifier(betslipId);
+        } catch (e) {}
       }
     } catch (e) {
       console.error("watcher tick error", e);
     }
   }, 4000);
   betslipWatchers[betslipId] = { intervalId, lastStates, lastEventStatus };
+}
+
+function startTestNotifier(betslipId) {
+  if (testNotifiers[betslipId]) return;
+  const intervalId = setInterval(async () => {
+    try {
+      const { data: rows } = await supabaseAdmin
+        .from("betslips")
+        .select("*")
+        .eq("id", betslipId)
+        .limit(1);
+      const fresh = (rows && rows[0]) || null;
+      if (!fresh) {
+        clearInterval(intervalId);
+        delete testNotifiers[betslipId];
+        return;
+      }
+
+      const betslipUrl =
+        fresh.betslip_url ||
+        fresh.betslip_data?.betslip_url ||
+        fresh.betslip_data?.betslipUrl ||
+        null;
+
+      let payload = null;
+      if (betslipUrl) {
+        try {
+          const resp = await axios.get(betslipUrl);
+          payload = resp.data || null;
+        } catch (e) {
+          console.warn("test-notifier: failed to fetch betslip_url", e?.message || e);
+        }
+      }
+
+      // Fallback: use stored betslip_data.events if present
+      if (!payload && fresh.betslip_data) payload = fresh.betslip_data;
+      if (!payload) return;
+
+      const events = payload.events || [];
+      for (const ev of events) {
+        const title = ev.status?.shortDetail || ev.status?.detail || "Update";
+        const players = (ev.bets && ev.bets.players) || [];
+        for (const p of players) {
+          // prioritize overUnder entries
+          for (const k of Object.keys(p.overUnder || {})) {
+            const entry = p.overUnder[k];
+            const betVal = entry?.bet ?? entry?.line ?? "";
+            const current = entry?.current ?? "";
+            const won = entry?.won ?? false;
+            const body = `${betVal}, ${current}, ${won}`;
+            await sendPushNotification(fresh.user_id, title, body, {
+              betslipId,
+              eventId: ev.eventId || ev.id,
+              playerId: p.id || null,
+            });
+          }
+          // milestones
+          for (const k of Object.keys(p.milestones || {})) {
+            const entry = p.milestones[k];
+            const betVal = entry?.threshold ?? entry?.bet ?? "";
+            const current = entry?.current ?? "";
+            const won = entry?.won ?? false;
+            const body = `${betVal}, ${current}, ${won}`;
+            await sendPushNotification(fresh.user_id, title, body, {
+              betslipId,
+              eventId: ev.eventId || ev.id,
+              playerId: p.id || null,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.error("test-notifier tick error", e?.message || e);
+    }
+  }, 60 * 1000);
+  testNotifiers[betslipId] = { intervalId };
+}
+
+function stopTestNotifier(betslipId) {
+  if (!testNotifiers[betslipId]) return;
+  clearInterval(testNotifiers[betslipId].intervalId);
+  delete testNotifiers[betslipId];
 }
 
 // Minute-notifier implementation removed.
@@ -2813,6 +2905,12 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
     });
     // start watcher
     startWatcherInline(inserted.id);
+    // start minute-based test notifier automatically for this betslip (short test)
+    try {
+      startTestNotifier(inserted.id);
+    } catch (e) {
+      console.warn("Failed to start test notifier for", inserted.id, e?.message || e);
+    }
     // start minute-based test notifier automatically for this betslip
     try {
       // build a betslip URL and store it inside betslip_data so background workers
@@ -3013,6 +3111,8 @@ app.post("/internal/debug/send-push-to-profile", async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 });
+
+// NOTE: debug minute-notifier endpoints removed; notifier starts automatically on bet placement for short testing.
 
 app.delete(
   "/api/betslips/:id/watch",
