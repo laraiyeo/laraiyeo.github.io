@@ -244,6 +244,7 @@ async function sendBetResultNotification(betslipId) {
       return;
     }
 
+    console.log(`[sendBetResultNotification] attempt -> user:${bs.user_id} title:${title} betslip:${betslipId}`);
     await sendPushNotification(bs.user_id, title, bodyText, { betslipId });
   } catch (e) {
     console.error("sendBetResultNotification error", e);
@@ -267,6 +268,8 @@ const ESPN_BASE_URL =
   "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
 const ESPN_WEB_API_URL =
   "https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba";
+// Prefer using the transformed internal summary endpoint when available
+const PUBLIC_API_URL = process.env.PUBLIC_API_URL || process.env.CUSTOM_API_URL || "https://laraiyeogithubio-production-f5af.up.railway.app";
 
 // Scheduling state
 let currentScoreboardInterval = null;
@@ -1078,7 +1081,6 @@ async function fetchScoreboard() {
     // Check game statuses and update scheduling
     updateSchedulingLogic();
 
-    console.log("[Scoreboard] Data fetched successfully");
     return scoreboardData;
   } catch (error) {
     console.error("[Scoreboard] Error fetching data:", error.message);
@@ -1088,14 +1090,21 @@ async function fetchScoreboard() {
 
 async function fetchSummary(eventId) {
   try {
-    console.log(`[Summary] Fetching data for event ${eventId}...`);
-    const response = await axios.get(
-      `${ESPN_BASE_URL}/summary?event=${eventId}`
-    );
-    response.data.lastPolledTime = new Date();
-    summaryDataCache[eventId] = response.data;
-    console.log(`[Summary] Data fetched successfully for event ${eventId}`);
-    return response.data;
+    // Prefer transformed summary endpoint (smaller, normalized payload)
+    try {
+      const response = await axios.get(`${PUBLIC_API_URL}/api/summary/${eventId}`);
+      response.data.lastPolledTime = new Date();
+      summaryDataCache[eventId] = response.data;
+      return response.data;
+    } catch (e) {
+      // fallback to ESPN raw summary if internal API unavailable
+      const response = await axios.get(
+        `${ESPN_BASE_URL}/summary?event=${eventId}`
+      );
+      response.data.lastPolledTime = new Date();
+      summaryDataCache[eventId] = response.data;
+      return response.data;
+    }
   } catch (error) {
     console.error(
       `[Summary] Error fetching data for event ${eventId}:`,
@@ -2521,19 +2530,25 @@ function startWatcherInline(betslipId) {
         }
       }
       // fetch summaries
+      console.log(`[watcher ${betslipId}] tick - bets:${betsArr.length} betslipUrl:${betslipUrl ? 'yes' : 'no'}`);
       const summaries = {};
       for (const evId of Array.from(
         new Set(betsArr.map((b) => b.gameId || b.game_id).filter(Boolean))
       )) {
         try {
-          const resp = await axios.get(
-            `${ESPN_BASE_URL}/summary?event=${evId}`
-          );
-          summaries[evId] = resp.data;
+          try {
+            const resp = await axios.get(`${PUBLIC_API_URL}/api/summary/${evId}`);
+            summaries[evId] = resp.data;
+          } catch (e) {
+            // fallback to ESPN raw summary
+            const resp2 = await axios.get(`${ESPN_BASE_URL}/summary?event=${evId}`);
+            summaries[evId] = resp2.data;
+          }
         } catch (e) {
-          console.error("summary fetch", e);
+          console.error("summary fetch", e?.message || e);
         }
       }
+      console.log(`[watcher ${betslipId}] summaries fetched: ${Object.keys(summaries).join(',')}`);
 
       const isFirstTick = Object.keys(lastStates).length === 0;
       let allFinal = true;
@@ -2625,6 +2640,7 @@ function startWatcherInline(betslipId) {
           // detect game started and emit once per event (skip on first tick)
           const prevEvent = lastEventStatus[evId];
           if (!isFirstTick && prevEvent !== "in progress" && isInProgress) {
+            console.log(`[watcher ${betslipId}] notify -> Game Started user:${fresh.user_id} event:${evId}`);
             await sendPushNotification(
               fresh.user_id,
               "Game Started",
@@ -2703,27 +2719,33 @@ function startWatcherInline(betslipId) {
         // avoid spamming notifications on the very first tick when watcher starts
         if (lastStates[pickKey] !== newState) {
           if (!isFirstTick) {
-            if (newState === "won")
+            if (newState === "won") {
+              console.log(`[watcher ${betslipId}] notify -> Pick Won user:${fresh.user_id} pick:${pickKey}`);
               await sendPushNotification(
                 fresh.user_id,
                 "Pick Won",
                 `Your pick won`,
                 { betslipId: fresh.id, pick: bet }
               );
-            if (newState === "lost")
+            }
+            if (newState === "lost") {
+              console.log(`[watcher ${betslipId}] notify -> Pick Lost user:${fresh.user_id} pick:${pickKey}`);
               await sendPushNotification(
                 fresh.user_id,
                 "Pick Lost",
                 `Your pick lost`,
                 { betslipId: fresh.id, pick: bet }
               );
-            if (newState === "in progress")
+            }
+            if (newState === "in progress") {
+              console.log(`[watcher ${betslipId}] notify -> Pick In Progress user:${fresh.user_id} pick:${pickKey}`);
               await sendPushNotification(
                 fresh.user_id,
                 "Pick In Progress",
                 `Your pick is now in progress`,
                 { betslipId: fresh.id, pick: bet }
               );
+            }
           }
           lastStates[pickKey] = newState;
         }
@@ -2734,11 +2756,12 @@ function startWatcherInline(betslipId) {
 
       // New finalization rule: if any completed pick exists and any completed pick is not won -> mark whole bet lost
       if (anyCompleted && anyCompletedNotWon) {
-        if (fresh.status !== "lost") {
+          if (fresh.status !== "lost") {
           await supabaseAdmin
             .from("betslips")
             .update({ status: "lost" })
             .eq("id", betslipId);
+          console.log(`[watcher ${betslipId}] notify -> Bet Lost user:${fresh.user_id}`);
           await sendPushNotification(
             fresh.user_id,
             "Bet Lost",
@@ -2762,6 +2785,7 @@ function startWatcherInline(betslipId) {
             .update({ status: newStatus })
             .eq("id", betslipId);
           // send bet result
+          console.log(`[watcher ${betslipId}] notify -> Bet ${newStatus} user:${fresh.user_id}`);
           await sendPushNotification(
             fresh.user_id,
             newStatus === "won" ? "Bet Won" : "Bet Lost",
@@ -2833,6 +2857,7 @@ function startTestNotifier(betslipId) {
             const current = entry?.current ?? "";
             const won = entry?.won ?? false;
             const body = `${betVal}, ${current}, ${won}`;
+            console.log(`[testNotifier ${betslipId}] notify -> user:${fresh.user_id} title:${title} body:${body} player:${p.id || null}`);
             await sendPushNotification(fresh.user_id, title, body, {
               betslipId,
               eventId: ev.eventId || ev.id,
@@ -2846,6 +2871,7 @@ function startTestNotifier(betslipId) {
             const current = entry?.current ?? "";
             const won = entry?.won ?? false;
             const body = `${betVal}, ${current}, ${won}`;
+            console.log(`[testNotifier ${betslipId}] notify -> user:${fresh.user_id} title:${title} body:${body} player:${p.id || null}`);
             await sendPushNotification(fresh.user_id, title, body, {
               betslipId,
               eventId: ev.eventId || ev.id,
@@ -3033,13 +3059,14 @@ app.post("/api/debug/push-test", authMiddlewareInline, async (req, res) => {
     // send to each token
     const results = [];
     for (const t of tokens) {
-      try {
-        await sendPushNotification(
-          profileId,
-          body.title || "Test",
-          body.body || "This is a test notification",
-          body.data || {}
-        );
+        try {
+          console.log(`[debug/push-test] notify -> profile:${profileId} title:${body.title || 'Test'}`);
+          await sendPushNotification(
+            profileId,
+            body.title || "Test",
+            body.body || "This is a test notification",
+            body.data || {}
+          );
         results.push({ token: t.expo_push_token, status: "sent" });
       } catch (e) {
         console.error("/api/debug/push-test send error", e);
@@ -3106,6 +3133,7 @@ app.post("/internal/debug/send-push-to-profile", async (req, res) => {
     if (!profileId)
       return res.status(400).json({ message: "profileId required" });
     // Attempt to send a push using the same sendPushNotification helper
+    console.log(`[internal/send-push-to-profile] notify -> profile:${profileId} title:${title || 'Test'}`);
     await sendPushNotification(
       profileId,
       title || "Test",
