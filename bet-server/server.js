@@ -2101,6 +2101,71 @@ app.get("/api/betslip", async (req, res) => {
   }
 });
 
+// Backwards-compatible POST alias: allow clients to POST to /api/betslip
+// (singular) to create a betslip. This proxies to the implemented plural
+// handler on the local server so we don't duplicate logic.
+app.post("/api/betslip", authMiddlewareInline, async (req, res) => {
+  try {
+    const localBase = `http://127.0.0.1:${PORT}`;
+    console.log(
+      `[route-alias-local] forwarding POST /api/betslip -> ${localBase}/api/betslips`
+    );
+    const resp = await axios.post(`${localBase}/api/betslips`, req.body || {}, {
+      headers: { ...(req.headers || {}), host: undefined },
+      timeout: 20000,
+    });
+    return res.status(resp.status).json(resp.data);
+  } catch (e) {
+    console.error("[route-alias-local] POST /api/betslip forward failed", e?.message || e);
+    if (e.response) return res.status(e.response.status).send(e.response.data);
+    return res.status(500).json({ error: "forward failed" });
+  }
+});
+
+app.post("/api/betslip/:id/watch", authMiddlewareInline, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const localBase = `http://127.0.0.1:${PORT}`;
+    console.log(
+      `[route-alias-local] forwarding POST /api/betslip/${id}/watch -> ${localBase}/api/betslips/${id}/watch`
+    );
+    const resp = await axios.post(`${localBase}/api/betslips/${id}/watch`, req.body || {}, {
+      headers: { ...(req.headers || {}), host: undefined },
+      timeout: 15000,
+    });
+    return res.status(resp.status).json(resp.data);
+  } catch (e) {
+    console.error(
+      `[route-alias-local] POST /api/betslip/:id/watch forward failed for ${req.params.id}`,
+      e?.message || e
+    );
+    if (e.response) return res.status(e.response.status).send(e.response.data);
+    return res.status(500).json({ error: "forward failed" });
+  }
+});
+
+app.delete("/api/betslip/:id/watch", authMiddlewareInline, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const localBase = `http://127.0.0.1:${PORT}`;
+    console.log(
+      `[route-alias-local] forwarding DELETE /api/betslip/${id}/watch -> ${localBase}/api/betslips/${id}/watch`
+    );
+    const resp = await axios.delete(`${localBase}/api/betslips/${id}/watch`, {
+      headers: { ...(req.headers || {}), host: undefined },
+      timeout: 15000,
+    });
+    return res.status(resp.status).json(resp.data);
+  } catch (e) {
+    console.error(
+      `[route-alias-local] DELETE /api/betslip/:id/watch forward failed for ${req.params.id}`,
+      e?.message || e
+    );
+    if (e.response) return res.status(e.response.status).send(e.response.data);
+    return res.status(500).json({ error: "forward failed" });
+  }
+});
+
 // Backwards-compatible alias: redirect /api/betslip/notification to /api/betslip
 const url = require("url");
 app.get("/api/betslip/notification", (req, res) => {
