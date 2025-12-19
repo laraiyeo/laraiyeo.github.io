@@ -121,8 +121,15 @@ export const BetDataProvider = ({ children }) => {
     // Debug instrumentation: count calls and print short stack to identify callers
     try {
       fetchCounterRef.current = (fetchCounterRef.current || 0) + 1;
-      const shortStack = (new Error().stack || "").split("\n").slice(2, 6).join(" | ");
-      console.log(`[BetData][DEBUG] fetchScoreboard call #${fetchCounterRef.current} at ${new Date().toISOString()} callers: ${shortStack}`);
+      const shortStack = (new Error().stack || "")
+        .split("\n")
+        .slice(2, 6)
+        .join(" | ");
+      console.log(
+        `[BetData][DEBUG] fetchScoreboard call #${
+          fetchCounterRef.current
+        } at ${new Date().toISOString()} callers: ${shortStack}`
+      );
     } catch (dbgErr) {
       /* ignore debug failures */
     }

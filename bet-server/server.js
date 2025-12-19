@@ -2881,7 +2881,8 @@ app.post("/internal/debug/start-minute-notifier", async (req, res) => {
     return res.status(403).json({ message: "disabled" });
   try {
     const { betslipId } = req.body || {};
-    if (!betslipId) return res.status(400).json({ message: "betslipId required" });
+    if (!betslipId)
+      return res.status(400).json({ message: "betslipId required" });
     startMinuteNotifier(betslipId);
     return res.json({ started: true, betslipId });
   } catch (e) {
@@ -2895,9 +2896,15 @@ app.post("/internal/debug/send-push-to-profile", async (req, res) => {
     return res.status(403).json({ message: "disabled" });
   try {
     const { profileId, title, body: bodyText, data } = req.body || {};
-    if (!profileId) return res.status(400).json({ message: "profileId required" });
+    if (!profileId)
+      return res.status(400).json({ message: "profileId required" });
     // Attempt to send a push using the same sendPushNotification helper
-    await sendPushNotification(profileId, title || "Test", bodyText || "Test push", data || {});
+    await sendPushNotification(
+      profileId,
+      title || "Test",
+      bodyText || "Test push",
+      data || {}
+    );
     return res.json({ sent: true, profileId });
   } catch (e) {
     console.error("internal send-push-to-profile error", e);
