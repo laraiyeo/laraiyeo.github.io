@@ -271,7 +271,8 @@ const ESPN_BASE_URL =
 const ESPN_WEB_API_URL =
   "https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba";
 // Prefer using the transformed internal summary endpoint when available
-const PUBLIC_API_URL = "https://laraiyeogithubio-production-f5af.up.railway.app";
+const PUBLIC_API_URL =
+  "https://laraiyeogithubio-production-f5af.up.railway.app";
 
 // Scheduling state
 let currentScoreboardInterval = null;
@@ -1523,7 +1524,11 @@ app.get("/api/summary/:eventId", async (req, res) => {
             eventId,
           });
         }
-        if (oldState === "in" && newState === "post" && lastBroadcast !== "post") {
+        if (
+          oldState === "in" &&
+          newState === "post" &&
+          lastBroadcast !== "post"
+        ) {
           eventBroadcastState[eventId] = "post";
           const homeScore =
             comp?.competitors?.find((c) => c.homeAway === "home")?.score || 0;
