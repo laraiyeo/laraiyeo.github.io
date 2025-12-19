@@ -25,12 +25,7 @@ const supabaseAdmin = createClient(
 const expo = new Expo();
 
 // Small helper: send push notification via Supabase-stored tokens
-async function sendPushNotification(
-  userId,
-  title,
-  bodyText,
-  data = {}
-) {
+async function sendPushNotification(userId, title, bodyText, data = {}) {
   try {
     let pushToken = null;
     let resolvedProfileId = null;
@@ -88,8 +83,7 @@ async function sendPushNotification(
         parseFloat(
           bs.total_stake ||
             bs.amount ||
-            (bs.betslip_data &&
-            typeof bs.betslip_data === "object"
+            (bs.betslip_data && typeof bs.betslip_data === "object"
               ? bs.betslip_data.total_stake
               : NaN)
         ) || 0;
@@ -97,8 +91,7 @@ async function sendPushNotification(
       const potential =
         parseFloat(
           bs.potential_payout ||
-            (bs.betslip_data &&
-            typeof bs.betslip_data === "object"
+            (bs.betslip_data && typeof bs.betslip_data === "object"
               ? bs.betslip_data.potential_payout
               : bs.potential_payout)
         ) || 0;
@@ -140,18 +133,14 @@ async function sendPushNotification(
         betslipId,
       });
     } catch (e) {
-      console.error(
-        "sendBetResultNotification inner error",
-        e?.message || e
-      );
+      console.error("sendBetResultNotification inner error", e?.message || e);
     }
 
     // ------------------------------------------------------------------
     // Resolve profile UUID
     // ------------------------------------------------------------------
     try {
-      const looksLikeUuid =
-        typeof userId === "string" && userId.includes("-");
+      const looksLikeUuid = typeof userId === "string" && userId.includes("-");
 
       if (looksLikeUuid) {
         const { data: prof, error: perr } = await supabaseAdmin
@@ -200,8 +189,7 @@ async function sendPushNotification(
         .order("created_at", { ascending: false })
         .limit(1);
 
-      if (!error && tokens?.length)
-        pushToken = tokens[0].expo_push_token;
+      if (!error && tokens?.length) pushToken = tokens[0].expo_push_token;
     }
 
     if (!pushToken) {
@@ -274,7 +262,6 @@ async function sendPushNotification(
     console.error("sendPushNotification error", err?.message || err);
   }
 }
-
 
 async function broadcastToAll(title, bodyText, data = {}) {
   try {
@@ -2895,7 +2882,11 @@ function startWatcherInline(betslipId) {
           }
 
           // 2) Normalized shape from betslip_url: { current: { current, won } }
-          if (newState === null && bet.current && typeof bet.current === "object") {
+          if (
+            newState === null &&
+            bet.current &&
+            typeof bet.current === "object"
+          ) {
             if (bet.current.won === true) {
               newState = "won";
               isCompleted = true;
@@ -2947,7 +2938,10 @@ function startWatcherInline(betslipId) {
             }
           }
         } catch (e) {
-          console.warn("watcher: error checking stored bet flags", e?.message || e);
+          console.warn(
+            "watcher: error checking stored bet flags",
+            e?.message || e
+          );
         }
 
         if (!summary) {
