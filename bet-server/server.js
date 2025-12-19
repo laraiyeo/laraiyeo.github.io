@@ -2451,6 +2451,56 @@ function startWatcherInline(betslipId) {
         let newState = null;
         let isCompleted = false;
 
+        // If the stored bet object already contains resolved flags (e.g. from
+        // a previous /api/betslip computation or external update), prefer
+        // those markers so we can notify immediately.
+        try {
+          // Direct flag on bet
+          if (bet.won === true) {
+            newState = "won";
+            isCompleted = true;
+          } else if (bet.won === false) {
+            newState = "lost";
+            isCompleted = true;
+          }
+
+          // Nested overUnder entries
+          if (newState === null && bet.overUnder && typeof bet.overUnder === "object") {
+            for (const k of Object.keys(bet.overUnder)) {
+              const entry = bet.overUnder[k];
+              if (entry && entry.won === true) {
+                newState = "won";
+                isCompleted = true;
+                break;
+              }
+              if (entry && entry.won === false) {
+                newState = "lost";
+                isCompleted = true;
+                break;
+              }
+            }
+          }
+
+          // Nested milestones entries
+          if (newState === null && bet.milestones && typeof bet.milestones === "object") {
+            for (const k of Object.keys(bet.milestones)) {
+              const entry = bet.milestones[k];
+              if (entry && entry.won === true) {
+                newState = "won";
+                isCompleted = true;
+                break;
+              }
+              if (entry && entry.won === false) {
+                newState = "lost";
+                isCompleted = true;
+                break;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("watcher: error checking stored bet flags", e?.message || e);
+        }
+
         if (!summary) {
           newState = "in progress";
         } else {
