@@ -1692,7 +1692,9 @@ app.get("/api/betslip", async (req, res) => {
           const isOver = total.startsWith("o") || total.startsWith("O");
           const line = parseFloat(total.substring(1));
           // For overs we consider >= as winning (reaches or surpasses). For unders <=.
-          const isWinning = isOver ? currentTotal >= line : currentTotal <= line;
+          const isWinning = isOver
+            ? currentTotal >= line
+            : currentTotal <= line;
           const isInProgress = !isCompleted && gameStatus?.state === "in";
 
           eventData.bets.totalPoints = {
@@ -1864,14 +1866,21 @@ app.get("/api/betslip", async (req, res) => {
                           betValue.startsWith("o") || betValue.startsWith("O");
                         const line = parseFloat(betValue.substring(1));
                         // Overs and unders are considered winning immediately when threshold is reached
-                        const isWinning = isOver ? current >= line : current <= line;
-                        const isInProgress = !isCompleted && gameStatus?.state === "in";
+                        const isWinning = isOver
+                          ? current >= line
+                          : current <= line;
+                        const isInProgress =
+                          !isCompleted && gameStatus?.state === "in";
 
                         playerData.overUnder[statUpper] = {
                           bet: line,
                           type: isOver ? "over" : "under",
                           current: current,
-                          won: isWinning ? true : isInProgress ? "in progress" : false,
+                          won: isWinning
+                            ? true
+                            : isInProgress
+                            ? "in progress"
+                            : false,
                         };
                       }
                       // Check if it's a milestone (any number, may have + or % at the end)
@@ -1882,13 +1891,18 @@ app.get("/api/betslip", async (req, res) => {
                         );
                         if (!isNaN(threshold)) {
                           const isWinning = current >= threshold;
-                          const isInProgress = !isCompleted && gameStatus?.state === "in";
+                          const isInProgress =
+                            !isCompleted && gameStatus?.state === "in";
 
                           playerData.milestones[statUpper] = {
                             bet: betValue,
                             threshold: threshold,
                             current: current,
-                            won: isWinning ? true : isInProgress ? "in progress" : false,
+                            won: isWinning
+                              ? true
+                              : isInProgress
+                              ? "in progress"
+                              : false,
                           };
                         }
                       }
