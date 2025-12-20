@@ -21,53 +21,6 @@ function decodeJwt(token) {
   }
 }
 
-// Build normalized bets metadata used by both createBetslip and placeBet
-function buildBetsMetadata(betslipData, totalStake = 0, potentialPayout = 0) {
-  // Normalize bets into an array
-  let bets = [];
-  if (betslipData) {
-    if (Array.isArray(betslipData)) bets = betslipData;
-    else if (Array.isArray(betslipData.bets)) bets = betslipData.bets;
-    else if (betslipData.bets) bets = [betslipData.bets];
-    else if (betslipData.id || betslipData.gameId) bets = [betslipData];
-  }
-
-  const createdAt = new Date().toISOString();
-
-  // compute total decimal odds
-  const decimalOddsArr = bets.map((b) => {
-    const o = parseInt(b.odds);
-    if (isNaN(o)) return 1;
-    return o > 0 ? o / 100 + 1 : 100 / Math.abs(o) + 1;
-  });
-  const totalDecimalOdds = decimalOddsArr.reduce((acc, v) => acc * v, 1);
-
-  const firstBet = bets[0] || {};
-
-  // Resolve betslip_url if provided
-  const resolvedBetslipUrl =
-    (betslipData &&
-      typeof betslipData === "object" &&
-      (betslipData.betslip_url ||
-        (betslipData.betslipData && betslipData.betslipData.betslip_url))) ||
-    null;
-
-  const betslipObject =
-    typeof betslipData === "object" ? betslipData : { bets };
-
-  return {
-    bets,
-    createdAt,
-    totalDecimalOdds,
-    firstBet,
-    resolvedBetslipUrl,
-    betslipObject,
-    totalStake: totalStake || 0,
-    potentialPayout:
-      potentialPayout || +((totalStake || 0) * totalDecimalOdds).toFixed(2),
-  };
-}
-
 export const createBetslip = async (
   betslipData,
   totalStake = 0,
@@ -105,20 +58,39 @@ export const createBetslip = async (
       /* ignore */
     }
 
-    const {
-      bets,
-      createdAt,
-      totalDecimalOdds,
-      firstBet,
-      resolvedBetslipUrl,
-      betslipObject,
-    } = buildBetsMetadata(betslipData, totalStake, potentialPayout);
+    // Normalize bets into an array
+    let bets = [];
+    if (betslipData) {
+      if (Array.isArray(betslipData)) bets = betslipData;
+      else if (Array.isArray(betslipData.bets)) bets = betslipData.bets;
+      else if (betslipData.bets) bets = [betslipData.bets];
+      else if (betslipData.id || betslipData.gameId) bets = [betslipData];
+    }
+
+    const createdAt = new Date().toISOString();
+
+    // compute total decimal odds
+    const decimalOddsArr = bets.map((b) => {
+      const o = parseInt(b.odds);
+      if (isNaN(o)) return 1;
+      return o > 0 ? o / 100 + 1 : 100 / Math.abs(o) + 1;
+    });
+    const totalDecimalOdds = decimalOddsArr.reduce((acc, v) => acc * v, 1);
+
+    const firstBet = bets[0] || {};
+
+    // Resolve betslip_url if provided
+    const resolvedBetslipUrl =
+      (betslipData &&
+        typeof betslipData === "object" &&
+        (betslipData.betslip_url ||
+          (betslipData.betslipData && betslipData.betslipData.betslip_url))) ||
+      null;
 
     const payload = {
       user_id: profileId || user.id,
       user_username: username,
-      bets: bets,
-      betslip_data: betslipObject,
+      betslip_data: typeof betslipData === "object" ? betslipData : { bets },
       betslip_url: resolvedBetslipUrl,
       total_stake: totalStake || 0,
       potential_payout:
@@ -131,88 +103,6 @@ export const createBetslip = async (
       amount: firstBet.amount != null ? parseFloat(firstBet.amount) : null,
       odds: firstBet.odds != null ? String(firstBet.odds) : null,
     };
-
-    // Try atomic RPC first (ensures credits are deducted server-side)
-    try {
-      const rpcStake = payload.total_stake || 0;
-      const rpcPotential = payload.potential_payout || null;
-
-      // Debug: log RPC payload and context
-      console.log("createBetslip: calling place_betslip RPC", {
-        p_stake: rpcStake,
-        p_bets: bets,
-        p_potential_payout: rpcPotential,
-        profileId,
-        authUserId: (user && user.id) || null,
-      });
-
-      const { data: rpcData, error: rpcError } = await supabase.rpc(
-        "place_betslip",
-        {
-          p_stake: rpcStake,
-          p_bets: bets,
-          p_betslip_data: betslipObject,
-          p_potential_payout: rpcPotential,
-          p_betslip_url: resolvedBetslipUrl,
-          p_user_username: username,
-        }
-      );
-
-      if (!rpcError) {
-        // refresh profile to get updated credits
-        try {
-          const profileResp = await getUserProfile();
-          const creditsRemaining =
-            profileResp && profileResp.success && profileResp.profile
-              ? Number(profileResp.profile.credits)
-              : null;
-          console.log("createBetslip: place_betslip RPC succeeded", {
-            rpcData,
-            creditsRemaining,
-          });
-          return {
-            success: true,
-            betslipId: rpcData || null,
-            serverCalled: true,
-            serverFallback: false,
-            creditsRemaining,
-          };
-        } catch (e) {
-          console.log(
-            "createBetslip: place_betslip RPC succeeded (no profile)",
-            { rpcData }
-          );
-          return {
-            success: true,
-            betslipId: rpcData || null,
-            serverCalled: true,
-            serverFallback: false,
-          };
-        }
-      } else {
-        // Detailed RPC error logging
-        console.error(
-          "createBetslip RPC place_betslip error:",
-          JSON.stringify(rpcError, Object.getOwnPropertyNames(rpcError), 2)
-        );
-        // Also log error fields if available
-        try {
-          console.error(
-            "rpcError details:",
-            rpcError?.message,
-            rpcError?.details,
-            rpcError?.hint,
-            rpcError?.code
-          );
-        } catch (e) {}
-      }
-    } catch (e) {
-      console.error(
-        "createBetslip: place_betslip RPC threw:",
-        e?.message || e,
-        e
-      );
-    }
 
     // Prefer server endpoint when server token is available
     try {
@@ -319,7 +209,6 @@ export const createBetslip = async (
     const singlePayload = {
       user_id: profileId || user.id,
       user_username: username,
-      bets: bets,
       betslip_data: aggregatedBetslip,
       betslip_url: resolvedBetslipUrl,
       total_stake: totalStake || 0,
@@ -400,22 +289,11 @@ export const createBetslip = async (
  * @param {number} odds - Odds for the bet
  * @returns {Promise<{success: boolean, betslipId?: string, error?: string}>}
  */
-export const placeBet = async (
-  gameId,
-  selection,
-  amount,
-  odds,
-  betslipUrl = null,
-  betRaw = null
-) => {
+export const placeBet = async (gameId, selection, amount, odds) => {
   try {
     // Normalize and log inputs
     console.log("placeBet called with:", { gameId, selection, amount, odds });
 
-    // Ensure we have the authenticated user for username/profile resolution
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     // If odds looks like American (+120/-150 or integer >=100), convert to decimal
     let oddsValue = odds;
     try {
@@ -433,120 +311,12 @@ export const placeBet = async (
       // keep original
     }
 
-    // Build single-bet payloads so the DB function can persist full row shape
-    let profileId = null;
-    try {
-      const serverToken = await AsyncStorage.getItem("@bet_token");
-      if (serverToken) {
-        const p = decodeJwt(serverToken);
-        if (p && p.profileId) profileId = p.profileId;
-      }
-    } catch (e) {}
-
-    // Resolve username if possible
-    let username = null;
-    try {
-      const pid = profileId || (user && user.id);
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("username")
-        .eq("id", pid)
-        .maybeSingle();
-      if (profileData && profileData.username) username = profileData.username;
-    } catch (e) {
-      /* ignore */
-    }
-
-    const originalOddsRaw = odds;
-
-    // Build a rich bet object. Prefer the provided `betRaw` (from UI) so
-    // single-leg bets use the same metadata shape as multi-leg bets.
-    let betObj;
-    if (betRaw && typeof betRaw === "object") {
-      betObj = { ...betRaw };
-      // ensure amount and odds fields are present
-      betObj.amount = betObj.amount != null ? betObj.amount : amount;
-      if (betObj.odds == null) {
-        betObj.odds =
-          typeof originalOddsRaw === "string"
-            ? originalOddsRaw
-            : originalOddsRaw != null
-            ? String(originalOddsRaw)
-            : oddsValue != null
-            ? String(oddsValue)
-            : null;
-      }
-      if (!betObj.id) {
-        betObj.id = `bet-${gameId}-${Math.random().toString(36).slice(2, 8)}`;
-      }
-    } else {
-      betObj = {
-        id: `bet-${gameId}-${Math.random().toString(36).slice(2, 8)}`,
-        line: "",
-        odds:
-          typeof originalOddsRaw === "string"
-            ? originalOddsRaw
-            : originalOddsRaw != null
-            ? String(originalOddsRaw)
-            : oddsValue != null
-            ? String(oddsValue)
-            : null,
-        team: selection,
-        type:
-          selection === "Over" || selection === "Under" ? "Total" : "Moneyline",
-        gameId: gameId,
-        gameInfo: null,
-        description: selection,
-        amount: amount,
-      };
-    }
-
-    const singleBets = [betObj];
-
-    // Reuse the shared builder so single-leg RPC uses identical betslip_data
-    const {
-      bets: _b,
-      createdAt: _createdAt,
-      totalDecimalOdds: _totalDecimalOdds,
-      firstBet: _firstBet,
-      resolvedBetslipUrl: _resolvedBetslipUrl,
-      betslipObject: _betslipObject,
-      totalStake: _totalStake,
-      potentialPayout: _potentialPayout,
-    } = buildBetsMetadata(
-      { bets: singleBets },
-      amount,
-      +(amount * oddsValue).toFixed(2)
-    );
-
-    const singleBetslipData = _betslipObject;
-
-    // Ensure we have a betslip URL: prefer explicit betslipUrl param, then resolved value, otherwise build a server endpoint URL
-    const SERVER_BASE =
-      "https://laraiyeogithubio-production-f5af.up.railway.app";
-    const constructedBetslipUrl = `${SERVER_BASE}/api/betslip?gameId=${encodeURIComponent(
-      String(gameId)
-    )}&moneyline=${encodeURIComponent(String(selection))}`;
-    const finalBetslipUrl =
-      betslipUrl || _resolvedBetslipUrl || constructedBetslipUrl;
-    console.log("placeBet: resolved betslip URL", {
-      provided: betslipUrl,
-      _resolvedBetslipUrl,
-      constructedBetslipUrl,
-    });
-
-    // Call the place_bet database function (extended signature)
+    // Call the place_bet database function
     const { data, error } = await supabase.rpc("place_bet", {
       p_game_id: gameId,
       p_selection: selection,
       p_amount: amount,
       p_odds: oddsValue,
-      p_bets: singleBets,
-      p_betslip_data: singleBetslipData,
-      p_betslip_url: finalBetslipUrl,
-      p_user_username: username,
-      p_total_odds: oddsValue,
-      p_potential_payout: singleBetslipData.potential_payout,
     });
 
     if (error) {

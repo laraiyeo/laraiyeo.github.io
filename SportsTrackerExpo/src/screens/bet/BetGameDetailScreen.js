@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -23,6 +23,8 @@ import Svg, {
 } from "react-native-svg";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetSlip } from "../../context/BetSlipContext";
+import OddsDisplayContext from "../../context/OddsDisplayContext";
+import { formatOddsForDisplay } from "../../utils/odds";
 import { useBetData } from "../../context/BetDataContext";
 import BetSlip from "../../components/BetSlip";
 import PlayerStatsPopup from "../../components/PlayerStatsPopup";
@@ -371,6 +373,8 @@ const BasketballCourt = React.memo(
 const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
   const { toggleBet, isBetSelected, removeBet } = useBetSlip();
   const { rostersData } = useBetData();
+  const oddsContext = useContext(OddsDisplayContext);
+  const oddsDisplay = oddsContext ? oddsContext.oddsDisplay : "american";
   const [selectedPropType, setSelectedPropType] = useState(propTypes[0]);
   const [selectedPlayerForStats, setSelectedPlayerForStats] = useState(null);
   const [selectedPlayerTeamColor, setSelectedPlayerTeamColor] = useState(null);
@@ -544,7 +548,8 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                     ]}
                   >
                     {player.position} • {player.teamAbbr}
-                    {"\n"}{player.statValue.toFixed(1)} AVG
+                    {"\n"}
+                    {player.statValue.toFixed(1)} AVG
                   </Text>
                 </View>
               </View>
@@ -563,6 +568,10 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                   const formattedOdds = milestone.odds.match(/^[+-]/)
                     ? milestone.odds
                     : `+${milestone.odds}`;
+                  const displayOdds = formatOddsForDisplay(
+                    formattedOdds,
+                    oddsDisplay
+                  );
 
                   return (
                     <TouchableOpacity
@@ -615,7 +624,7 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                           { color: isSelected ? "white" : colors.primary },
                         ]}
                       >
-                        {formattedOdds}
+                        {displayOdds}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -686,6 +695,14 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
             overOdds > 0 ? `+${overOdds}` : String(overOdds);
           const formattedUnderOdds =
             underOdds > 0 ? `+${underOdds}` : String(underOdds);
+          const displayOverOdds = formatOddsForDisplay(
+            formattedOverOdds,
+            oddsDisplay
+          );
+          const displayUnderOdds = formatOddsForDisplay(
+            formattedUnderOdds,
+            oddsDisplay
+          );
 
           // Get smart color for player based on their team
           const playerTeamColor =
@@ -721,7 +738,8 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                     ]}
                   >
                     {player.position} • {player.teamAbbr}
-                    {"\n"}{player.statValue.toFixed(1)} AVG
+                    {"\n"}
+                    {player.statValue.toFixed(1)} AVG
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -794,7 +812,7 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                       },
                     ]}
                   >
-                    {formattedOverOdds}
+                    {displayOverOdds}
                   </Text>
                 </TouchableOpacity>
 
@@ -865,7 +883,7 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                       },
                     ]}
                   >
-                    {formattedUnderOdds}
+                    {displayUnderOdds}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1074,6 +1092,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
   const { colors, theme, isDarkMode } = useTheme();
   const { toggleBet, isBetSelected } = useBetSlip();
   const { scoreboardData } = useBetData();
+  const oddsContext = useContext(OddsDisplayContext);
+  const oddsDisplay = oddsContext ? oddsContext.oddsDisplay : "american";
   const { game } = route.params || {};
   const [selectedTab, setSelectedTab] = useState("stats");
   const [summaryData, setSummaryData] = useState(null);
@@ -2718,11 +2738,21 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           );
         }
 
-        // Format odds for display
+        // Format line values (spread/total lines) - keep + for positives
         const formatOdds = (odds) => {
-          if (!odds) return "-";
+          if (odds === undefined || odds === null) return "-";
           const num = parseFloat(odds);
           return num > 0 ? `+${num}` : String(num);
+        };
+
+        // Ensure odds are canonical American string (for storing in payloads)
+        const ensureAmerican = (odds) => {
+          if (odds === undefined || odds === null) return null;
+          if (typeof odds === "number")
+            return odds > 0 ? `+${odds}` : String(odds);
+          const asNum = parseFloat(odds);
+          if (!isNaN(asNum)) return asNum > 0 ? `+${asNum}` : String(asNum);
+          return String(odds);
         };
 
         // Convert odds to American format
@@ -2869,7 +2899,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           type: "Spread",
                           description: awayTeam,
                           line: formatOdds(awaySpread?.line),
-                          odds: formatOdds(awaySpread?.odds),
+                          odds: ensureAmerican(awaySpread?.odds),
                         });
                       }
                     }}
@@ -2896,7 +2926,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         },
                       ]}
                     >
-                      {formatOdds(awaySpread?.odds)}
+                      {formatOddsForDisplay(
+                        ensureAmerican(awaySpread?.odds),
+                        oddsDisplay
+                      )}
                     </Text>
                   </TouchableOpacity>
 
@@ -2927,7 +2960,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               type: "Total",
                               description: "Over",
                               line: `O ${overData?.line}`,
-                              odds: formatOdds(overData?.odds),
+                              odds: ensureAmerican(overData?.odds),
                               awayTeam,
                               homeTeam,
                             });
@@ -2956,7 +2989,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             },
                           ]}
                         >
-                          {formatOdds(overData?.odds)}
+                          {formatOddsForDisplay(
+                            ensureAmerican(overData?.odds),
+                            oddsDisplay
+                          )}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -2987,7 +3023,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           type: "Moneyline",
                           description: awayTeam,
                           line: "",
-                          odds: formatOdds(awayML?.odds),
+                          odds: ensureAmerican(awayML?.odds),
                         });
                       }
                     }}
@@ -3002,7 +3038,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         },
                       ]}
                     >
-                      {formatOdds(awayML?.odds)}
+                      {formatOddsForDisplay(
+                        ensureAmerican(awayML?.odds),
+                        oddsDisplay
+                      )}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -3042,7 +3081,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           type: "Spread",
                           description: homeTeam,
                           line: formatOdds(homeSpread?.line),
-                          odds: formatOdds(homeSpread?.odds),
+                          odds: ensureAmerican(homeSpread?.odds),
                         });
                       }
                     }}
@@ -3069,7 +3108,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         },
                       ]}
                     >
-                      {formatOdds(homeSpread?.odds)}
+                      {formatOddsForDisplay(
+                        ensureAmerican(homeSpread?.odds),
+                        oddsDisplay
+                      )}
                     </Text>
                   </TouchableOpacity>
 
@@ -3100,7 +3142,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               type: "Total",
                               description: "Under",
                               line: `U ${underData?.line}`,
-                              odds: formatOdds(underData?.odds),
+                              odds: ensureAmerican(underData?.odds),
                               awayTeam,
                               homeTeam,
                             });
@@ -3129,7 +3171,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             },
                           ]}
                         >
-                          {formatOdds(underData?.odds)}
+                          {formatOddsForDisplay(
+                            ensureAmerican(underData?.odds),
+                            oddsDisplay
+                          )}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -3160,7 +3205,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           type: "Moneyline",
                           description: homeTeam,
                           line: "",
-                          odds: formatOdds(homeML?.odds),
+                          odds: ensureAmerican(homeML?.odds),
                         });
                       }
                     }}
@@ -3175,7 +3220,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         },
                       ]}
                     >
-                      {formatOdds(homeML?.odds)}
+                      {formatOddsForDisplay(
+                        ensureAmerican(homeML?.odds),
+                        oddsDisplay
+                      )}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -3562,7 +3610,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
                   <View style={styles.scoreSection}>
                     <Text style={[styles.scoreText, { color: theme.text }]}>
-                      {gameData.score1 || "-"}
+                      {gameData.status !== "pre" ? gameData.score1 : ""}
                     </Text>
                     <Text
                       style={[
@@ -3570,10 +3618,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         { color: theme.textSecondary },
                       ]}
                     >
-                      -
+                      {gameData.status === "pre" ? "-VS-" : "-"}
                     </Text>
                     <Text style={[styles.scoreText, { color: theme.text }]}>
-                      {gameData.score2 || "-"}
+                      {gameData.status !== "pre" ? gameData.score2 : ""}
                     </Text>
                   </View>
 

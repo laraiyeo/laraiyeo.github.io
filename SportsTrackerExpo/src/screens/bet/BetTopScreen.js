@@ -10,6 +10,9 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
+import { useContext } from "react";
+import OddsDisplayContext from "../../context/OddsDisplayContext";
+import { formatOddsForDisplay } from "../../utils/odds";
 import BetSlip from "../../components/BetSlip";
 import { useBetSlip } from "../../context/BetSlipContext";
 import { useBetData } from "../../context/BetDataContext";
@@ -17,6 +20,8 @@ import { useBetData } from "../../context/BetDataContext";
 const BetTopScreen = () => {
   const { colors, theme } = useTheme();
   const { toggleBet } = useBetSlip();
+  const oddsContext = useContext(OddsDisplayContext);
+  const oddsDisplay = oddsContext ? oddsContext.oddsDisplay : "american";
   const { rostersData, scoreboardData } = useBetData();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedConfidence, setSelectedConfidence] = useState("All");
@@ -524,7 +529,7 @@ const BetTopScreen = () => {
                   {prop.line} {prop.propType}
                 </Text>
                 <Text style={[styles.propOdds, { color: colors.primary }]}>
-                  {prop.odds}
+                  {formatOddsForDisplay(prop.odds, oddsDisplay)}
                 </Text>
                 <Text style={[styles.propConfidence, { color: theme.text }]}>
                   {prop.confidence.toFixed(1)}% Confidence
@@ -667,7 +672,7 @@ const BetTopScreen = () => {
                     {selectedProp.line} {selectedProp.propType}
                   </Text>
                   <Text style={[styles.modalOdds, { color: colors.primary }]}>
-                    {selectedProp.odds}
+                    {formatOddsForDisplay(selectedProp.odds, oddsDisplay)}
                   </Text>
                   <Text style={[styles.modalConfidence, { color: theme.text }]}>
                     {selectedProp.confidence.toFixed(1)}% Confidence

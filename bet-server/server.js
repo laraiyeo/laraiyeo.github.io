@@ -22,6 +22,90 @@ const supabaseAdmin = createClient(
   }
 );
 
+// Betslip cleanup scheduler: clear betslips 24 hours after creation.
+const betslipCleanupTimers = {};
+
+const MS_IN_24H = 24 * 60 * 60 * 1000;
+
+async function clearBetslipNow(betslipId) {
+  try {
+    console.log(`[betslip-cleaner] clearing betslip ${betslipId} now`);
+    const { error } = await supabaseAdmin.from("betslips").delete().eq("id", betslipId);
+    if (error) {
+      console.error("[betslip-cleaner] failed to delete betslip", betslipId, error);
+    } else {
+      console.log(`[betslip-cleaner] deleted betslip ${betslipId}`);
+    }
+  } catch (e) {
+    console.error("[betslip-cleaner] error clearing betslip", betslipId, e?.message || e);
+  } finally {
+    try { if (betslipCleanupTimers[betslipId]) { clearTimeout(betslipCleanupTimers[betslipId]); delete betslipCleanupTimers[betslipId]; } } catch(e){}
+  }
+}
+
+function scheduleClearBetslip(betslip) {
+  try {
+    const id = betslip.id || betslip; // accept either id or object
+    const createdAt = betslip.created_at || betslip.createdAt || betslip.created || null;
+    let delay = MS_IN_24H;
+    if (createdAt) {
+      const createdTs = new Date(createdAt).getTime();
+      const target = createdTs + MS_IN_24H;
+      delay = target - Date.now();
+    }
+
+    if (delay <= 0) {
+      // already past 24h -> clear immediately (async)
+      clearBetslipNow(id);
+      return;
+    }
+
+    // Clear any existing timer
+    if (betslipCleanupTimers[id]) {
+      clearTimeout(betslipCleanupTimers[id]);
+    }
+
+    const handle = setTimeout(() => clearBetslipNow(id), delay);
+    betslipCleanupTimers[id] = handle;
+    console.log(`[betslip-cleaner] scheduled clear for ${id} in ${Math.round(delay/1000)}s`);
+  } catch (e) {
+    console.error("[betslip-cleaner] schedule error", e?.message || e);
+  }
+}
+
+// On startup, schedule clears for recent betslips (those created within the last 24h)
+async function initBetslipCleaner() {
+  try {
+    const threshold = new Date(Date.now() - MS_IN_24H).toISOString();
+    const { data, error } = await supabaseAdmin
+      .from("betslips")
+      .select("id, created_at")
+      .gt("created_at", threshold);
+    if (error) {
+      console.error("[betslip-cleaner] init query failed", error);
+    } else if (Array.isArray(data)) {
+      data.forEach((r) => scheduleClearBetslip(r));
+    }
+  } catch (e) {
+    console.error("[betslip-cleaner] init failed", e?.message || e);
+  }
+
+  // Periodic sweep to remove any missed rows (runs every 15 minutes)
+  setInterval(async () => {
+    try {
+      const threshold = new Date(Date.now() - MS_IN_24H).toISOString();
+      const { error } = await supabaseAdmin.from("betslips").delete().lte("created_at", threshold);
+      if (error) console.error("[betslip-cleaner] sweep delete error", error);
+      else console.log("[betslip-cleaner] sweep completed");
+    } catch (e) {
+      console.error("[betslip-cleaner] sweep failed", e?.message || e);
+    }
+  }, 15 * 60 * 1000);
+}
+
+// Initialize cleaner asynchronously (don't block startup)
+initBetslipCleaner().catch((e) => console.error("initBetslipCleaner", e));
+
 const expo = new Expo();
 
 // Small helper: send push notification via Supabase-stored tokens
@@ -1899,7 +1983,13 @@ app.get("/api/betslip", async (req, res) => {
                     : betScore < oppScore
                     ? opposingTeam.team?.abbreviation
                     : "Tied",
-                won: isInProgress ? "in progress" : isWinning,
+                won: isCompleted
+                  ? isWinning
+                    ? true
+                    : false
+                  : isInProgress
+                  ? "in progress"
+                  : "pending",
               },
             };
           }
@@ -1925,15 +2015,23 @@ app.get("/api/betslip", async (req, res) => {
           if (isOver) {
             // Overs: consider >= as currently winning; keep existing behaviour
             const isWinning = currentTotal >= line;
-            won = isWinning ? true : isInProgress ? "in progress" : false;
+            won = isCompleted
+              ? isWinning
+                ? true
+                : false
+              : isInProgress
+              ? "in progress"
+              : "pending";
           } else {
             // Unders: do NOT mark won while game is in progress even if current <= line.
             // If game is in progress and current <= line -> still "in progress".
             // If current > line while game is in progress -> mark as lost (false).
             if (isInProgress) {
               won = currentTotal <= line ? "in progress" : false;
+            } else if (!isCompleted) {
+              won = "pending";
             } else {
-              // Game completed or not in-progress: under wins if current <= line
+              // Game completed: under wins if current <= line
               const isWinning = currentTotal <= line;
               won = isWinning ? true : false;
             }
@@ -1980,7 +2078,13 @@ app.get("/api/betslip", async (req, res) => {
                 current: {
                   score: `${betScore}-${oppScore}`,
                   adjustedScore: adjustedScore.toFixed(1),
-                  won: isInProgress ? "in progress" : isWinning,
+                  won: isCompleted
+                    ? isWinning
+                      ? true
+                      : false
+                    : isInProgress
+                    ? "in progress"
+                    : "pending",
                 },
               };
             }
@@ -2110,11 +2214,13 @@ app.get("/api/betslip", async (req, res) => {
                         let won;
                         if (isOver) {
                           const isWinning = current >= line;
-                          won = isWinning
-                            ? true
+                          won = isCompleted
+                            ? isWinning
+                              ? true
+                              : false
                             : isInProgress
                             ? "in progress"
-                            : false;
+                            : "pending";
                         } else {
                           // Under: while game in progress and current <= line -> still in progress
                           // If current > line while in progress -> lost (false)
@@ -2152,6 +2258,8 @@ app.get("/api/betslip", async (req, res) => {
                               ? true
                               : isInProgress
                               ? "in progress"
+                              : !isCompleted
+                              ? "pending"
                               : false,
                           };
                         }
@@ -3027,7 +3135,7 @@ function startWatcherInline(betslipId) {
                   : "lost"
                 : isWinning
                 ? "in progress"
-                : false;
+                : "pending";
             }
           }
           if (
@@ -3056,7 +3164,7 @@ function startWatcherInline(betslipId) {
                 : "lost"
               : isWinning
               ? "in progress"
-              : false;
+              : "pending";
           }
           if (newState === null) newState = "in progress";
         }
@@ -3072,33 +3180,15 @@ function startWatcherInline(betslipId) {
               console.log(
                 `[watcher ${betslipId}] notify -> Pick Won user:${fresh.user_id} pick:${pickKey}`
               );
-              await sendPushNotification(
-                fresh.user_id,
-                "Pick Won",
-                `Your pick won`,
-                { betslipId: fresh.id, pick: bet }
-              );
             }
             if (newState === "lost") {
               console.log(
                 `[watcher ${betslipId}] notify -> Pick Lost user:${fresh.user_id} pick:${pickKey}`
               );
-              await sendPushNotification(
-                fresh.user_id,
-                "Pick Lost",
-                `Your pick lost`,
-                { betslipId: fresh.id, pick: bet }
-              );
             }
             if (newState === "in progress") {
               console.log(
                 `[watcher ${betslipId}] notify -> Pick In Progress user:${fresh.user_id} pick:${pickKey}`
-              );
-              await sendPushNotification(
-                fresh.user_id,
-                "Pick In Progress",
-                `Your pick is now in progress`,
-                { betslipId: fresh.id, pick: bet }
               );
             }
           }
@@ -3112,15 +3202,36 @@ function startWatcherInline(betslipId) {
       // New finalization rule: if any completed pick exists and any completed pick is not won -> mark whole bet lost
       if (anyCompleted && anyCompletedNotWon) {
         if (fresh.status !== "lost") {
-          await supabaseAdmin
-            .from("betslips")
-            .update({ status: "lost" })
-            .eq("id", betslipId);
-          console.log(
-            `[watcher ${betslipId}] notify -> Bet Lost user:${fresh.user_id}`
-          );
-          // Use centralized formatter to produce richer notification
-          await sendBetResultNotification(betslipId);
+          try {
+            // Use DB RPC to atomically settle and record ledger/history
+            const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc(
+              "settle_betslip",
+              { p_betslip_id: betslipId, p_result: "lost" }
+            );
+            if (rpcErr) {
+              console.error(
+                `[watcher ${betslipId}] settle_betslip RPC error`,
+                rpcErr
+              );
+              // Fallback: mark as lost without settlement ledger (best-effort)
+              await supabaseAdmin
+                .from("betslips")
+                .update({ status: "lost" })
+                .eq("id", betslipId);
+            } else {
+              console.log(
+                `[watcher ${betslipId}] settled (lost) via RPC for user:${fresh.user_id}`,
+                rpcRes
+              );
+            }
+            // Use centralized formatter to produce richer notification
+            await sendBetResultNotification(betslipId);
+          } catch (e) {
+            console.error(
+              `[watcher ${betslipId}] error while settling lost bet`,
+              e?.message || e
+            );
+          }
         }
         clearInterval(intervalId);
         delete betslipWatchers[betslipId];
@@ -3133,15 +3244,35 @@ function startWatcherInline(betslipId) {
       if (allFinal) {
         const newStatus = anyLost ? "lost" : "won";
         if (fresh.status !== newStatus) {
-          await supabaseAdmin
-            .from("betslips")
-            .update({ status: newStatus })
-            .eq("id", betslipId);
-          // send bet result using centralized formatter
-          console.log(
-            `[watcher ${betslipId}] notify -> Bet ${newStatus} user:${fresh.user_id}`
-          );
-          await sendBetResultNotification(betslipId);
+          try {
+            const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc(
+              "settle_betslip",
+              { p_betslip_id: betslipId, p_result: newStatus }
+            );
+            if (rpcErr) {
+              console.error(
+                `[watcher ${betslipId}] settle_betslip RPC error`,
+                rpcErr
+              );
+              // Fallback: update status only
+              await supabaseAdmin
+                .from("betslips")
+                .update({ status: newStatus })
+                .eq("id", betslipId);
+            } else {
+              console.log(
+                `[watcher ${betslipId}] settled via RPC -> ${newStatus} user:${fresh.user_id}`,
+                rpcRes
+              );
+            }
+            // send bet result using centralized formatter
+            await sendBetResultNotification(betslipId);
+          } catch (e) {
+            console.error(
+              `[watcher ${betslipId}] error while settling bet`,
+              e?.message || e
+            );
+          }
         }
         clearInterval(intervalId);
         delete betslipWatchers[betslipId];
@@ -3468,6 +3599,12 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
       credits_change: -totalStake,
       credits_after: newCredits,
     });
+    // Schedule automatic clearing 24 hours after creation
+    try {
+      scheduleClearBetslip(inserted);
+    } catch (e) {
+      console.warn("Failed to schedule betslip clear", e?.message || e);
+    }
     // start watcher
     startWatcherInline(inserted.id);
     console.log(`[betslips] startWatcherInline called for ${inserted.id}`);

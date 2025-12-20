@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useIsFocused } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -9,6 +10,9 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
+import { useContext } from "react";
+import OddsDisplayContext from "../../context/OddsDisplayContext";
+import { formatOddsForDisplay } from "../../utils/odds";
 import { useBetSlip } from "../../context/BetSlipContext";
 import BetSlip from "../../components/BetSlip";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -17,9 +21,24 @@ import { registerForPushNotifications } from "../../services/notificationService
 const BetBetsScreen = () => {
   const { colors, theme, isDarkMode } = useTheme();
   const { submittedBets } = useBetSlip();
+  const oddsContext = useContext(OddsDisplayContext);
+  const oddsDisplay = oddsContext ? oddsContext.oddsDisplay : "american";
   const [selectedTab, setSelectedTab] = useState("open"); // open, settled
   const [expandedParlays, setExpandedParlays] = useState(new Set([1])); // Default first parlay expanded
   const [scoreboardData, setScoreboardData] = useState([]);
+  // Live-updated betslip fetch map: ticketId -> latest fetched betslip data
+  const [betslipLiveMap, setBetslipLiveMap] = useState({});
+  // Timers per ticket (using setTimeout so interval can be dynamic)
+  const pollsRef = useRef({});
+  const isFocused = useIsFocused();
+
+  const clearPollForTicket = useCallback((ticketId) => {
+    const handle = pollsRef.current[ticketId];
+    if (handle) {
+      clearTimeout(handle);
+      delete pollsRef.current[ticketId];
+    }
+  }, []);
 
   // Fetch scoreboard data for live updates
   useEffect(() => {
@@ -40,6 +59,66 @@ const BetBetsScreen = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Helper: build betslip fetch URL from a ticket (fallback when betslip_url not present)
+  const buildBetslipUrlFromTicket = (ticket) => {
+    try {
+      const gameIds = [...new Set(ticket.bets.map((b) => b.gameId))].filter(
+        Boolean
+      );
+
+      const playerBets = {};
+      const gameLineBets = { moneyline: null, total: null, spread: null };
+
+      ticket.bets.forEach((bet) => {
+        if (bet.type === "Spread") {
+          gameLineBets.spread = `${bet.team}${bet.line}`;
+        } else if (bet.type === "Total") {
+          const overUnder = bet.description?.toLowerCase().includes("over")
+            ? "o"
+            : "u";
+          const lineNumber = String(bet.line || "").replace(/^[OU]\s+/, "");
+          gameLineBets.total = `${overUnder}${lineNumber}`;
+        } else if (bet.type === "Moneyline") {
+          gameLineBets.moneyline = bet.team;
+        } else if (bet.playerId && bet.statType) {
+          if (!playerBets[bet.playerId]) playerBets[bet.playerId] = {};
+          playerBets[bet.playerId][bet.statType] = bet.betValue;
+        }
+      });
+
+      let query = `gameId=${gameIds.join(",")}`;
+      if (gameLineBets.moneyline)
+        query += `&moneyline=${gameLineBets.moneyline}`;
+      if (gameLineBets.total) query += `&total=${gameLineBets.total}`;
+      if (gameLineBets.spread) query += `&spread=${gameLineBets.spread}`;
+
+      Object.entries(playerBets).forEach(([playerId, stats], index) => {
+        const playerNum = index + 1;
+        query += `&p${playerNum}=${playerId}`;
+        Object.entries(stats).forEach(([statType, betValue]) => {
+          const statTypeMap = {
+            points: "pts",
+            rebounds: "reb",
+            assists: "ast",
+            blocks: "blk",
+            steals: "stl",
+            turnovers: "to",
+            threes: "3pt",
+            pra: "pra",
+          };
+          const shortStat = statTypeMap[statType.toLowerCase()] || "pts";
+          query += `&p${playerNum}_${shortStat}=${encodeURIComponent(
+            String(betValue)
+          )}`;
+        });
+      });
+
+      return `https://laraiyeogithubio-production-f5af.up.railway.app/api/betslip?${query}`;
+    } catch (e) {
+      return null;
+    }
+  };
 
   // Register push token on startup if user authenticated
   useEffect(() => {
@@ -82,24 +161,107 @@ const BetBetsScreen = () => {
     );
   };
 
-  // Sort tickets so earliest created_at is on top (ascending by timestamp)
+  // Sort tickets. Open tab: oldest first (ascending). Settled tab: newest first (descending).
   const bets = filteredBets.slice().sort((a, b) => {
     const ta = new Date(getTicketTimestamp(a) || 0).getTime();
     const tb = new Date(getTicketTimestamp(b) || 0).getTime();
-    return ta - tb;
+    if (selectedTab === "settled") {
+      return tb - ta; // newest first
+    }
+    return ta - tb; // oldest first
   });
 
   const toggleParlay = (parlayId) => {
+    let willOpen = false;
     setExpandedParlays((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(parlayId)) {
         newSet.delete(parlayId);
+        willOpen = false;
       } else {
         newSet.add(parlayId);
+        willOpen = true;
       }
       return newSet;
     });
+
+    // NOTE: we intentionally do NOT fetch on each toggle; on-focus bulk fetch handles updates
+
+    // Dev: log constructed picks to verify parsed values (lines/current)
+    try {
+      if (typeof __DEV__ !== "undefined" && __DEV__) {
+        console.log("[BetBetsScreen] allPicks constructed:", allPicks);
+      }
+    } catch (e) {
+      /* ignore */
+    }
   };
+
+  // Fetch a ticket's canonical betslip payload on demand (used when user opens a ticket)
+  const fetchBetslipForTicket = async (ticket) => {
+    if (!ticket) return null;
+    try {
+      const storedUrl =
+        ticket.betslipData?.betslip_url || ticket.betslip_url || (ticket.betslipData && ticket.betslipData.betslip_url) || null;
+      const url = storedUrl || buildBetslipUrlFromTicket(ticket);
+      if (!url) return null;
+      const res = await fetch(url);
+      const data = await res.json();
+      setBetslipLiveMap((prev) => ({ ...prev, [ticket.id]: data }));
+      if (typeof __DEV__ !== "undefined" && __DEV__) {
+        console.log("[BetBetsScreen] on-demand fetch for ticket", ticket.id, data);
+      }
+      return data;
+    } catch (e) {
+      if (typeof __DEV__ !== "undefined" && __DEV__) {
+        console.warn("[BetBetsScreen] on-demand fetch failed for", ticket.id, e);
+      }
+      return null;
+    }
+  };
+
+  // When Bets screen is focused, fetch betslip_url for all tickets once and store results.
+  // This avoids fetching on every toggle while still getting fresh payloads when user opens the screen.
+  useEffect(() => {
+    if (!isFocused) return;
+
+    let mounted = true;
+    const fetchAll = async () => {
+      try {
+        const tasks = submittedBets.map(async (ticket) => {
+          try {
+            const storedUrl =
+              ticket.betslipData?.betslip_url || ticket.betslip_url || (ticket.betslipData && ticket.betslipData.betslip_url) || null;
+            const url = storedUrl || buildBetslipUrlFromTicket(ticket);
+            if (!url) return null;
+            const res = await fetch(url);
+            const data = await res.json();
+            return { id: ticket.id, data };
+          } catch (e) {
+            return null;
+          }
+        });
+
+        const results = await Promise.all(tasks);
+        if (!mounted) return;
+        const map = {};
+        results.forEach((r) => {
+          if (r && r.id) map[r.id] = r.data;
+        });
+        // merge into existing map
+        setBetslipLiveMap((prev) => ({ ...prev, ...map }));
+      } catch (e) {
+        /* ignore */
+      }
+    };
+
+    fetchAll();
+    return () => {
+      mounted = false;
+    };
+    // only run when screen becomes focused
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFocused]);
 
   // Auto-expand behavior: if there's exactly one ticket, expand it. If multiple, collapse all.
   useEffect(() => {
@@ -117,6 +279,161 @@ const BetBetsScreen = () => {
     // Intentionally only depend on bets.length so user toggles aren't reset
     // by this effect. eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bets.length]);
+
+  // Polling: for each submitted ticket, fetch its betslip data periodically and store in `betslipLiveMap`.
+  useEffect(() => {
+    let mounted = true;
+
+    const schedulePollForTicket = (ticket) => {
+      // clear existing
+      clearPollForTicket(ticket.id);
+
+      const runOnceAndSchedule = async () => {
+        let data = null;
+        try {
+          // Determine fetch URL: prefer stored betslip_url
+          const storedUrl =
+            ticket.betslipData?.betslip_url ||
+            ticket.betslip_url ||
+            (ticket.betslipData && ticket.betslipData.betslip_url) ||
+            null;
+          const url = storedUrl || buildBetslipUrlFromTicket(ticket);
+          if (!url) return;
+
+          const res = await fetch(url);
+          data = await res.json();
+          // Log full betslip JSON for debugging polling/state decisions
+          try {
+            console.log("Fetched betslip for ticket", ticket.id, data);
+          } catch (e) {
+            // ignore console issues in some environments
+          }
+          if (!mounted) return;
+          setBetslipLiveMap((prev) => ({ ...prev, [ticket.id]: data }));
+        } catch (e) {
+          // ignore fetch errors; keep polling
+        }
+
+        // Decide next interval based on game states for this ticket.
+        // Prefer authoritative states returned in the fetched betslip payload (`data.events`).
+        const gameIds = [
+          ...new Set(ticket.bets.map((b) => b.gameId).filter(Boolean)),
+        ];
+
+        let states = [];
+        if (data && Array.isArray(data.events) && data.events.length > 0) {
+          states = data.events.map((e) => {
+            return (
+              e?.status?.state ||
+              e?.status?.type?.state ||
+              (e?.status?.type?.name &&
+                String(e.status.type.name).toLowerCase()) ||
+              "pre"
+            );
+          });
+        } else {
+          // Fallback: consult scoreboardData when betslip payload doesn't include event states
+          states = gameIds.map((gid) => {
+            const ev = scoreboardData.find(
+              (g) =>
+                String(g.id) === String(gid) ||
+                g.header?.competitions?.[0]?.id === gid
+            );
+            return (
+              ev?.header?.competitions?.[0]?.status?.type?.state ||
+              ev?.status?.type?.state ||
+              ev?.status?.state ||
+              ev?.status ||
+              "pre"
+            );
+          });
+        }
+
+        // If all post -> stop polling for this ticket
+        if (
+          states.length > 0 &&
+          states.every((s) => String(s).toLowerCase() === "post")
+        ) {
+          clearPollForTicket(ticket.id);
+          return;
+        }
+
+        // If any in/live -> 5s, else while any pre -> 90s
+        const nextInterval = states.some((s) => {
+          const st = String(s).toLowerCase();
+          return (
+            st === "in" ||
+            st === "live" ||
+            st === "inprogress" ||
+            st === "in_progress"
+          );
+        })
+          ? 5000
+          : 90000;
+
+        // Schedule next run
+        const handle = setTimeout(runOnceAndSchedule, nextInterval);
+        pollsRef.current[ticket.id] = handle;
+      };
+
+      // start immediately
+      runOnceAndSchedule();
+    };
+
+    // Start/stop polls for each submitted ticket
+    submittedBets.forEach((ticket) => {
+      try {
+        // Only poll for open tickets and when this screen is focused
+        if (!isFocused) {
+          // ensure any active poll is cleared
+          if (pollsRef.current[ticket.id]) clearPollForTicket(ticket.id);
+          return;
+        }
+        if (ticket.status && String(ticket.status).toLowerCase() !== "open") {
+          if (pollsRef.current[ticket.id]) clearPollForTicket(ticket.id);
+          return;
+        }
+        // Prefer the most recent fetched payload when deciding whether to schedule.
+        const latest =
+          betslipLiveMap[ticket.id] ||
+          ticket.betslipData ||
+          ticket.betslip_data ||
+          null;
+        if (
+          latest &&
+          Array.isArray(latest.events) &&
+          latest.events.length > 0 &&
+          latest.events.every(
+            (e) =>
+              String(e?.status?.state || e?.status || "").toLowerCase() ===
+              "post"
+          )
+        ) {
+          // ensure any stray poll is cleared
+          if (pollsRef.current[ticket.id]) clearPollForTicket(ticket.id);
+          return; // skip scheduling
+        }
+      } catch (err) {
+        // fallthrough to scheduling
+      }
+
+      if (!pollsRef.current[ticket.id]) {
+        schedulePollForTicket(ticket);
+      }
+    });
+
+    // Clear polls for tickets that no longer exist
+    Object.keys(pollsRef.current).forEach((tid) => {
+      if (!submittedBets.find((t) => t.id === tid)) clearPollForTicket(tid);
+    });
+
+    return () => {
+      mounted = false;
+      // clear all
+      Object.keys(pollsRef.current).forEach((tid) => clearPollForTicket(tid));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [submittedBets, scoreboardData]);
 
   // Parse various gameInfo formats into a timestamp (ms).
   // Handles strings like "12/18 - 7:00 PM EST", "LAC @ OKC - 12/18 - 7:00 PM EST",
@@ -203,21 +520,14 @@ const BetBetsScreen = () => {
     if (status === "winning" || status === "won") {
       return (
         <View style={[styles.statusIcon, { backgroundColor: "#22C55E" }]}>
-          <Ionicons name="checkmark" size={12} color="#FFF" />
+          <Ionicons name="checkmark-sharp" size={12} color="#000" />
         </View>
       );
     } else if (status === "losing" || status === "lost") {
       return (
-        <View
-          style={[
-            styles.statusIcon,
-            {
-              backgroundColor: theme.cardBackground,
-              borderWidth: 1,
-              borderColor: theme.border,
-            },
-          ]}
-        />
+        <View style={[styles.statusIcon, { backgroundColor: "#EF4444" }]}>
+          <Ionicons name="close" size={12} color="#000" />
+        </View>
       );
     } else {
       return (
@@ -236,10 +546,35 @@ const BetBetsScreen = () => {
   };
 
   const renderProgressBar = (pick) => {
-    const progress = pick.currentValue
-      ? Math.min((pick.currentValue / pick.line) * 100, 100)
-      : 0;
-    const isOver = pick.currentValue >= pick.line;
+    const safeLine =
+      typeof pick.line === "number" && !isNaN(pick.line) && pick.line !== 0
+        ? pick.line
+        : null;
+    let progress = 0;
+    if (
+      pick.currentValue !== null &&
+      pick.currentValue !== undefined &&
+      safeLine !== null
+    ) {
+      progress = (pick.currentValue / safeLine) * 100;
+      progress = Math.max(0, Math.min(progress, 100));
+    }
+
+    // Determine color based on pick.status (winning/losing) rather than comparing values
+    const wonStatus = pick.status === "winning" || pick.status === "won";
+    const lostStatus = pick.status === "losing" || pick.status === "lost";
+    const fillColor = wonStatus
+      ? "#22C55E"
+      : lostStatus
+      ? "#EF4444"
+      : theme.textTertiary;
+    const indicatorBg = wonStatus
+      ? "#4ade80"
+      : lostStatus
+      ? "#f87171"
+      : theme.text;
+    const indicatorTextColor =
+      wonStatus || lostStatus ? "#000" : isDarkMode ? "#000" : "#FFF";
 
     return (
       <View style={styles.progressContainer}>
@@ -249,7 +584,7 @@ const BetBetsScreen = () => {
               styles.progressFill,
               {
                 width: `${progress}%`,
-                backgroundColor: isOver ? "#22C55E" : theme.textTertiary,
+                backgroundColor: fillColor,
               },
             ]}
           />
@@ -264,12 +599,19 @@ const BetBetsScreen = () => {
                 styles.progressIndicator,
                 {
                   left: `${Math.min(progress, 95)}%`,
-                  backgroundColor: isOver ? "#22C55E" : theme.text,
+                  backgroundColor: indicatorBg,
                 },
               ]}
             >
-              <Text style={styles.progressIndicatorText}>
-                {pick.currentValue}
+              <Text
+                style={[
+                  styles.progressIndicatorText,
+                  { color: indicatorTextColor },
+                ]}
+              >
+                {typeof pick.currentValue === "number"
+                  ? pick.currentValue
+                  : pick.currentValue}
               </Text>
             </View>
           )}
@@ -300,8 +642,9 @@ const BetBetsScreen = () => {
         </View>
         {getStatusIcon(pick.status)}
       </View>
-      {pick.currentValue !== null &&
-        pick.currentValue !== undefined &&
+      {typeof pick.currentValue === "number" &&
+        typeof pick.line === "number" &&
+        !isNaN(pick.line) &&
         renderProgressBar(pick)}
       {!isInParlay && (
         <View style={styles.pickFooter}>
@@ -351,9 +694,17 @@ const BetBetsScreen = () => {
         </View>
         {getStatusIcon(pick.status)}
       </View>
-      {pick.currentValue !== null &&
-        pick.currentValue !== undefined &&
-        renderProgressBar(pick)}
+      {typeof pick.currentValue === "number" &&
+        typeof pick.line === "number" &&
+        !isNaN(pick.line) &&
+        (function() {
+          try {
+            if (typeof __DEV__ !== "undefined" && __DEV__ && pick.isTotal) {
+              console.log('[BetBetsScreen] renderTeamPick total before progress', { pick });
+            }
+          } catch (e) {}
+          return renderProgressBar(pick);
+        })()}
       {!isInParlay && (
         <View style={styles.pickFooter}>
           <Text style={[styles.pickGameInfo, { color: theme.textSecondary }]}>
@@ -402,7 +753,7 @@ const BetBetsScreen = () => {
             </View>
           </View>
           <Text style={[styles.teamBetOdds, { color: theme.text }]}>
-            {bet.odds}
+            {formatOddsForDisplay(bet.odds, oddsDisplay)}
           </Text>
         </View>
       </View>
@@ -463,7 +814,7 @@ const BetBetsScreen = () => {
               Same Game Parlay
             </Text>
             <Text style={[styles.parlayOdds, { color: theme.text }]}>
-              {parlay.odds}
+              {formatOddsForDisplay(parlay.odds, oddsDisplay)}
             </Text>
           </View>
 
@@ -480,7 +831,7 @@ const BetBetsScreen = () => {
             </View>
             <View style={styles.parlayGameStatusRow}>
               <View
-                style={[styles.liveIndicator, { backgroundColor: theme.error}]}
+                style={[styles.liveIndicator, { backgroundColor: theme.error }]}
               >
                 <Text style={styles.liveText}>LIVE</Text>
               </View>
@@ -518,7 +869,7 @@ const BetBetsScreen = () => {
               Same Game Parlay
             </Text>
             <Text style={[styles.parlayOdds, { color: theme.text }]}>
-              {parlay.odds}
+              {formatOddsForDisplay(parlay.odds, oddsDisplay)}
             </Text>
           </View>
 
@@ -535,7 +886,10 @@ const BetBetsScreen = () => {
             </View>
             <View style={styles.parlayGameStatusRow}>
               <View
-                style={[styles.liveIndicator, { backgroundColor: theme.error, marginRight: 8 }]}
+                style={[
+                  styles.liveIndicator,
+                  { backgroundColor: theme.error, marginRight: 8 },
+                ]}
               >
                 <Text style={styles.liveText}>LIVE</Text>
               </View>
@@ -641,7 +995,10 @@ const BetBetsScreen = () => {
           </View>
           <View style={styles.parlayGameStatusRow}>
             <View
-              style={[styles.liveIndicator, { backgroundColor: theme.error, marginRight: 8 }]}
+              style={[
+                styles.liveIndicator,
+                { backgroundColor: theme.error, marginRight: 8 },
+              ]}
             >
               <Text style={styles.liveText}>LIVE</Text>
             </View>
@@ -672,7 +1029,12 @@ const BetBetsScreen = () => {
 
   // Render a submitted bet slip
   const renderSubmittedBet = (betSlip) => {
-    const { betslipData, bets: originalBets, amount } = betSlip;
+    // Prefer live-updated fetched data when available
+    const live = betslipLiveMap[betSlip.id];
+    const betslipData =
+      live || betSlip.betslipData || betSlip.betslip_data || null;
+    const originalBets = betSlip.bets || betSlip.bets || [];
+    const amount = betSlip.amount || 0;
 
     // Determine badge type
     const gameIds = [...new Set(originalBets.map((bet) => bet.gameId))];
@@ -709,11 +1071,37 @@ const BetBetsScreen = () => {
         gameId: bet.gameId,
       };
 
-      // Get live game data
-      const liveGame = getLiveGameData(bet.gameId);
-      pick.gameInfo = liveGame?.shortName || bet.gameInfoTeams || "Game";
-      pick.gameStatus =
-        liveGame?.status?.type?.shortDetail || bet.gameInfoTime || "Scheduled";
+      // Prefer betslipData.events for game info/status/scores
+      let eventData = null;
+      if (betslipData?.events) {
+        eventData = betslipData.events.find(
+          (e) => String(e.eventId) === String(bet.gameId)
+        );
+      }
+      if (eventData) {
+        // Use eventData for all game info
+        pick.gameInfo = eventData?.status?.game
+          ? `${eventData.status.game.awayTeam} @ ${eventData.status.game.homeTeam}`
+          : bet.gameInfoTeams || "Game";
+        pick.gameStatus =
+          eventData?.status?.shortDetail ||
+          eventData?.status?.state ||
+          "Scheduled";
+        pick.scores = eventData?.status?.game
+          ? {
+              team1: eventData.status.game.awayScore,
+              team2: eventData.status.game.homeScore,
+            }
+          : undefined;
+      } else {
+        // Fallback to scoreboard or ticket data
+        const liveGame = getLiveGameData(bet.gameId);
+        pick.gameInfo = liveGame?.shortName || bet.gameInfoTeams || "Game";
+        pick.gameStatus =
+          liveGame?.status?.type?.shortDetail ||
+          bet.gameInfoTime ||
+          "Scheduled";
+      }
 
       // Player props
       if (bet.playerId) {
@@ -721,7 +1109,7 @@ const BetBetsScreen = () => {
         pick.headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${bet.playerId}.png&w=200`;
         pick.prop = bet.prop;
         pick.propType = bet.statType;
-        pick.line = bet.line;
+        pick.line = Number(bet.line);
         pick.type = bet.type;
         pick.betValue = bet.betValue;
 
@@ -743,6 +1131,7 @@ const BetBetsScreen = () => {
                 BLO: "BLK",
                 STE: "STL",
                 TUR: "TO",
+                PRA: "PRA",
               };
               const statKey = statMap[statUpper] || "PTS";
 
@@ -750,15 +1139,15 @@ const BetBetsScreen = () => {
                 bet.type === "milestone" &&
                 playerData.milestones?.[statKey]
               ) {
-                pick.currentValue = playerData.milestones[statKey].current;
-                pick.status = playerData.milestones[statKey].won
-                  ? "winning"
-                  : "losing";
+                pick.currentValue = Number(
+                  playerData.milestones[statKey].current
+                );
+                pick.status = playerData.milestones[statKey].won === true ? "winning" : playerData.milestones[statKey].won === false ? "losing" : "pending";
               } else if (playerData.overUnder?.[statKey]) {
-                pick.currentValue = playerData.overUnder[statKey].current;
-                pick.status = playerData.overUnder[statKey].won
-                  ? "winning"
-                  : "losing";
+                pick.currentValue = Number(
+                  playerData.overUnder[statKey].current
+                );
+                pick.status = playerData.overUnder[statKey].won === true ? "winning" : playerData.overUnder[statKey].won === false ? "losing" : "pending";
               } else {
                 pick.status = "pending";
               }
@@ -776,7 +1165,7 @@ const BetBetsScreen = () => {
       ) {
         pick.betType = bet.type.toLowerCase();
         pick.team = bet.team;
-        pick.line = bet.line;
+        pick.line = Number(bet.line);
 
         // Construct prop text based on bet type
         if (bet.type === "Spread") {
@@ -834,20 +1223,90 @@ const BetBetsScreen = () => {
           );
           if (eventData?.bets) {
             if (bet.type === "Moneyline" && eventData.bets.moneyline) {
-              pick.currentValue = eventData.bets.moneyline.current?.score;
-              pick.status = eventData.bets.moneyline.current?.won
-                ? "winning"
-                : "losing";
+              // moneyline current may be a score string; do not set numeric currentValue
+              // to avoid rendering a progress bar for moneyline bets. Keep a scoreText for display if needed.
+              pick.scoreText = eventData.bets.moneyline.current?.score;
+              pick.currentValue = null;
+              pick.status = eventData.bets.moneyline.current?.won === true ? "winning" : eventData.bets.moneyline.current?.won === false ? "losing" : "pending";
             } else if (bet.type === "Spread" && eventData.bets.spread) {
-              pick.currentValue = eventData.bets.spread.current?.adjustedScore;
-              pick.status = eventData.bets.spread.current?.won
-                ? "winning"
-                : "losing";
+              // Compute current spread value using event scores so the slider bubble shows a meaningful numeric
+              const spreadCurrent = eventData.bets.spread.current;
+              const gameInfo = eventData.status?.game;
+              const homeTeam = gameInfo?.homeTeam;
+              const awayTeam = gameInfo?.awayTeam;
+              const homeScore = Number(gameInfo?.homeScore) || 0;
+              const awayScore = Number(gameInfo?.awayScore) || 0;
+              let teamScore = null;
+              let oppScore = null;
+              try {
+                if (
+                  String(bet.team).toUpperCase() ===
+                  String(homeTeam).toUpperCase()
+                ) {
+                  teamScore = homeScore;
+                  oppScore = awayScore;
+                } else {
+                  teamScore = awayScore;
+                  oppScore = homeScore;
+                }
+              } catch (e) {
+                teamScore = Number(spreadCurrent?.adjustedScore) || 0;
+                oppScore = 0;
+              }
+
+              const lineNum = Number(bet.line) || 0;
+              // If the original line is negative, compute opponent - team so more negative is better.
+              const currentSpreadValue =
+                lineNum < 0 ? oppScore - teamScore : teamScore - oppScore;
+              pick.currentValue = Number(currentSpreadValue);
+              pick.status = spreadCurrent?.won === true ? "winning" : spreadCurrent?.won === false ? "losing" : "pending";
             } else if (bet.type === "Total" && eventData.bets.totalPoints) {
-              pick.currentValue = eventData.bets.totalPoints.current;
-              pick.status = eventData.bets.totalPoints.won
-                ? "winning"
-                : "losing";
+              // ensure we have a numeric line to compute progress; prefer original bet.line but fall back to event payload
+              const payloadLine = eventData.bets.totalPoints.line;
+              if (typeof payloadLine === "number") {
+                pick.line = payloadLine;
+              } else if (payloadLine != null) {
+                const parsed = Number(payloadLine);
+                if (!isNaN(parsed)) pick.line = parsed;
+              }
+
+              // totalCurrent may be a number or an object like { score: 261 } depending on source
+              const totalCurrent = eventData.bets.totalPoints.current;
+              let parsedCurrent = null;
+              if (typeof totalCurrent === "number") {
+                parsedCurrent = totalCurrent;
+              } else if (totalCurrent && typeof totalCurrent === "object") {
+                parsedCurrent = Number(
+                  totalCurrent.score ?? totalCurrent.current ?? totalCurrent.value ?? NaN
+                );
+              } else if (totalCurrent != null) {
+                const n = Number(totalCurrent);
+                parsedCurrent = isNaN(n) ? null : n;
+              }
+
+              pick.currentValue =
+                parsedCurrent !== null && !isNaN(parsedCurrent)
+                  ? Number(parsedCurrent)
+                  : null;
+
+              pick.status =
+                eventData.bets.totalPoints.won === true
+                  ? "winning"
+                  : eventData.bets.totalPoints.won === false
+                  ? "losing"
+                  : "pending";
+
+              // Dev logging to debug missing progress bars for totals
+              try {
+                if (typeof __DEV__ !== "undefined" && __DEV__) {
+                  console.log(
+                    '[BetBetsScreen] Total parse',
+                    { gameId: bet.gameId, bet, payload: eventData.bets.totalPoints, pickLine: pick.line, pickCurrent: pick.currentValue }
+                  );
+                }
+              } catch (e) {
+                /* ignore logging errors */
+              }
             } else {
               pick.status = "pending";
             }
@@ -857,7 +1316,6 @@ const BetBetsScreen = () => {
         }
       }
 
-      return pick;
       return pick;
     });
 
@@ -894,18 +1352,111 @@ const BetBetsScreen = () => {
 
     const odds = calculateOdds();
     const potentialPayout = calculatePayout();
+    // For settled tickets, override displayed payout and add border color
+    const ticketStatus = betSlip.status ? String(betSlip.status).toLowerCase() : null; // 'won'|'lost'|'open'
+    let displayedPayout = potentialPayout;
+    if (ticketStatus === "won") {
+      // prefer server-provided potential_payout if present
+      const serverPayout = betSlip.potential_payout || betSlip.potentialPayout || betSlip.payout;
+      if (serverPayout != null) {
+        const asNum = Number(serverPayout);
+        displayedPayout = isNaN(asNum) ? potentialPayout : asNum.toFixed(2);
+      }
+    } else if (ticketStatus === "lost") {
+      displayedPayout = (0).toFixed(2);
+    }
     const isExpanded = expandedParlays.has(betSlip.id);
 
-    // Single pick - always expanded
+    // Single pick - follow expanded/collapsed state (do NOT force-expanded)
     if (allPicks.length === 1) {
       const pick = allPicks[0];
       const liveGame = getLiveGameData(pick.gameId);
       const scores = liveGame?.competitions?.[0]?.competitors;
 
+      if (!isExpanded) {
+        // Collapsed single view (click to expand)
+        return (
+          <TouchableOpacity
+            key={betSlip.id}
+            style={[
+              styles.betCard,
+              { backgroundColor: theme.surface },
+              ticketStatus === "won" ? { borderWidth: 2, borderColor: "#22C55E" } :
+              ticketStatus === "lost" ? { borderWidth: 2, borderColor: "#EF4444" } : {}
+            ]}
+            onPress={() => toggleParlay(betSlip.id)}
+          >
+            <View style={styles.parlayCollapsedHeader}>
+              <View
+                style={[styles.parlayBadge, { backgroundColor: badgeColor }]}
+              >
+                <Text style={styles.parlayBadgeText}>{badgeType}</Text>
+              </View>
+              <Text style={[styles.parlayTitle, { color: theme.text }]}>
+                Single Bet
+              </Text>
+              <Text style={[styles.parlayOdds, { color: theme.text }]}>
+                {" "}
+                {formatOddsForDisplay(odds, oddsDisplay)}{" "}
+              </Text>
+            </View>
+
+            <View
+              style={[styles.parlaySummary, { borderTopColor: theme.border }]}
+            >
+              <View style={styles.parlaySummaryItem}>
+                <Text
+                  style={[styles.parlaySummaryLabel, { color: theme.text }]}
+                >
+                  ${amount.toFixed(2)}
+                </Text>
+                <Text
+                  style={[
+                    styles.parlaySummarySubLabel,
+                    { color: theme.textTertiary },
+                  ]}
+                >
+                  WAGER
+                </Text>
+              </View>
+              <View style={styles.parlaySummaryItem}>
+                <Text
+                  style={[styles.parlaySummaryLabel, { color: theme.text }]}
+                >
+                  ${ticketStatus === "won" ? displayedPayout : ticketStatus === "lost" ? "0.00" : potentialPayout}
+                </Text>
+                <Text
+                  style={[
+                    styles.parlaySummarySubLabel,
+                    { color: theme.textTertiary },
+                  ]}
+                >
+                  PAYOUT
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.expandIndicator}>
+              <Ionicons
+                name="chevron-down"
+                size={20}
+                color={theme.textSecondary}
+              />
+            </View>
+          </TouchableOpacity>
+        );
+      }
+
+      // Expanded single view (when isExpanded)
       return (
         <View
           key={betSlip.id}
-          style={[styles.betCard, { backgroundColor: theme.surface }]}
+          style={[
+            styles.betCard,
+            { backgroundColor: theme.surface },
+            ticketStatus === "won" ? { borderWidth: 2, borderColor: "#22C55E" } :
+            ticketStatus === "lost" ? { borderWidth: 2, borderColor: "#EF4444" } : {}
+          ]}
         >
           <View style={styles.parlayExpandedHeader}>
             <View style={[styles.parlayBadge, { backgroundColor: badgeColor }]}>
@@ -915,7 +1466,7 @@ const BetBetsScreen = () => {
               Single Bet
             </Text>
             <Text style={[styles.parlayOdds, { color: theme.text }]}>
-              {odds}
+              {formatOddsForDisplay(odds, oddsDisplay)}
             </Text>
           </View>
 
@@ -935,7 +1486,10 @@ const BetBetsScreen = () => {
             <View style={styles.parlayGameStatusRow}>
               {liveGame?.status?.type?.state === "in" && (
                 <View
-                  style={[styles.liveIndicator, { backgroundColor: theme.error, marginRight: 8 }]}
+                  style={[
+                    styles.liveIndicator,
+                    { backgroundColor: theme.error, marginRight: 8 },
+                  ]}
                 >
                   <Text style={styles.liveText}>LIVE</Text>
                 </View>
@@ -970,9 +1524,9 @@ const BetBetsScreen = () => {
               </Text>
             </View>
             <View style={styles.parlaySummaryItem}>
-              <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
-                ${potentialPayout}
-              </Text>
+              <Text
+                style={[styles.parlaySummaryLabel, { color: theme.text }]}
+              >{`$${ticketStatus === "won" ? displayedPayout : ticketStatus === "lost" ? "0.00" : potentialPayout}`}</Text>
               <Text
                 style={[
                   styles.parlaySummarySubLabel,
@@ -983,7 +1537,7 @@ const BetBetsScreen = () => {
               </Text>
             </View>
           </View>
-          {/* collapse / timestamp */}
+
           <TouchableOpacity
             style={[
               styles.collapseButton,
@@ -1021,10 +1575,132 @@ const BetBetsScreen = () => {
       const liveGame = getLiveGameData(firstPick.gameId);
       const scores = liveGame?.competitions?.[0]?.competitors;
 
+      // collapsed SGP view when not expanded
+      if (!isExpanded) {
+        return (
+          <TouchableOpacity
+            key={betSlip.id}
+          style={[
+            styles.betCard,
+            { backgroundColor: theme.surface },
+            ticketStatus === "won" ? { borderWidth: 2, borderColor: "#22C55E" } :
+            ticketStatus === "lost" ? { borderWidth: 2, borderColor: "#EF4444" } : {}
+          ]}
+            onPress={() => toggleParlay(betSlip.id)}
+          >
+            <View style={styles.parlayCollapsedHeader}>
+              <View
+                style={[styles.parlayBadge, { backgroundColor: badgeColor }]}
+              >
+                <Text style={styles.parlayBadgeText}>{badgeType}</Text>
+              </View>
+              <Text style={[styles.parlayTitle, { color: theme.text }]}>
+                Same Game Parlay
+              </Text>
+              <Text style={[styles.parlayOdds, { color: theme.text }]}>
+                {formatOddsForDisplay(odds, oddsDisplay)}
+              </Text>
+            </View>
+
+            <View style={styles.parlayGameInfo}>
+              <View style={styles.parlayGameScore}>
+                <Text
+                  style={[
+                    styles.parlayGameText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {liveGame?.shortName || firstPick.gameInfo}
+                </Text>
+                {scores && liveGame?.status?.type?.state === "in" && (
+                  <Text style={[styles.scoreText, { color: theme.text }]}>
+                    {scores[1]?.score || 0} - {scores[0]?.score || 0}
+                  </Text>
+                )}
+              </View>
+              <View style={styles.parlayGameStatusRow}>
+                {liveGame?.status?.type?.state === "in" && (
+                  <View
+                    style={[
+                      styles.liveIndicator,
+                      { backgroundColor: theme.error, marginRight: 8 },
+                    ]}
+                  >
+                    <Text style={styles.liveText}>LIVE</Text>
+                  </View>
+                )}
+                <Text
+                  style={[
+                    styles.parlayGameStatus,
+                    { color: theme.textTertiary, marginLeft: 0 },
+                  ]}
+                >
+                  {liveGame?.status?.type?.shortDetail || firstPick.gameStatus}
+                </Text>
+              </View>
+            </View>
+
+            <View
+              style={[styles.parlaySummary, { borderTopColor: theme.border }]}
+            >
+              <View style={styles.parlaySummaryItem}>
+                <Text
+                  style={[styles.parlaySummaryLabel, { color: theme.text }]}
+                >
+                  {allPicks.length} Picks
+                </Text>
+              </View>
+              <View style={styles.parlaySummaryItem}>
+                <Text
+                  style={[styles.parlaySummaryLabel, { color: theme.text }]}
+                >
+                  ${amount.toFixed(2)}
+                </Text>
+                <Text
+                  style={[
+                    styles.parlaySummarySubLabel,
+                    { color: theme.textTertiary },
+                  ]}
+                >
+                  WAGER
+                </Text>
+              </View>
+              <View style={styles.parlaySummaryItem}>
+                <Text
+                  style={[styles.parlaySummaryLabel, { color: theme.text }]}
+                >{`$${ticketStatus === "won" ? displayedPayout : ticketStatus === "lost" ? "0.00" : potentialPayout}`}</Text>
+                <Text
+                  style={[
+                    styles.parlaySummarySubLabel,
+                    { color: theme.textTertiary },
+                  ]}
+                >
+                  PAYOUT
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.expandIndicator}>
+              <Ionicons
+                name="chevron-down"
+                size={20}
+                color={theme.textSecondary}
+              />
+            </View>
+          </TouchableOpacity>
+        );
+      }
+
+      // expanded SGP view
       return (
         <View
           key={betSlip.id}
-          style={[styles.betCard, { backgroundColor: theme.surface }]}
+          style={[
+            styles.betCard,
+            { backgroundColor: theme.surface },
+            ticketStatus === "won" ? { borderWidth: 2, borderColor: "#22C55E" } :
+            ticketStatus === "lost" ? { borderWidth: 2, borderColor: "#EF4444" } : {}
+          ]}
         >
           <View style={styles.parlayExpandedHeader}>
             <View style={[styles.parlayBadge, { backgroundColor: badgeColor }]}>
@@ -1034,7 +1710,7 @@ const BetBetsScreen = () => {
               Same Game Parlay
             </Text>
             <Text style={[styles.parlayOdds, { color: theme.text }]}>
-              {odds}
+              {formatOddsForDisplay(odds, oddsDisplay)}
             </Text>
           </View>
 
@@ -1054,7 +1730,10 @@ const BetBetsScreen = () => {
             <View style={styles.parlayGameStatusRow}>
               {liveGame?.status?.type?.state === "in" && (
                 <View
-                  style={[styles.liveIndicator, { backgroundColor: theme.error, marginRight: 8 }]}
+                  style={[
+                    styles.liveIndicator,
+                    { backgroundColor: theme.error, marginRight: 8 },
+                  ]}
                 >
                   <Text style={styles.liveText}>LIVE</Text>
                 </View>
@@ -1096,9 +1775,9 @@ const BetBetsScreen = () => {
               </Text>
             </View>
             <View style={styles.parlaySummaryItem}>
-              <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
-                ${potentialPayout}
-              </Text>
+              <Text
+                style={[styles.parlaySummaryLabel, { color: theme.text }]}
+              >{`$${ticketStatus === "won" ? displayedPayout : ticketStatus === "lost" ? "0.00" : potentialPayout}`}</Text>
               <Text
                 style={[
                   styles.parlaySummarySubLabel,
@@ -1109,7 +1788,7 @@ const BetBetsScreen = () => {
               </Text>
             </View>
           </View>
-          {/* collapse / timestamp */}
+
           <TouchableOpacity
             style={[
               styles.collapseButton,
@@ -1146,7 +1825,12 @@ const BetBetsScreen = () => {
       return (
         <TouchableOpacity
           key={betSlip.id}
-          style={[styles.betCard, { backgroundColor: theme.surface }]}
+          style={[
+            styles.betCard,
+            { backgroundColor: theme.surface },
+            ticketStatus === "won" ? { borderWidth: 2, borderColor: "#22C55E" } :
+            ticketStatus === "lost" ? { borderWidth: 2, borderColor: "#EF4444" } : {}
+          ]}
           onPress={() => toggleParlay(betSlip.id)}
         >
           <View style={styles.parlayCollapsedHeader}>
@@ -1157,7 +1841,7 @@ const BetBetsScreen = () => {
               {gamesCount} Games
             </Text>
             <Text style={[styles.parlayOdds, { color: theme.text }]}>
-              {odds}
+              {formatOddsForDisplay(odds, oddsDisplay)}
             </Text>
           </View>
 
@@ -1184,7 +1868,7 @@ const BetBetsScreen = () => {
             </View>
             <View style={styles.parlaySummaryItem}>
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
-                ${potentialPayout}
+                ${ticketStatus === "won" ? displayedPayout : ticketStatus === "lost" ? "0.00" : potentialPayout}
               </Text>
               <Text
                 style={[
@@ -1232,7 +1916,12 @@ const BetBetsScreen = () => {
     return (
       <View
         key={betSlip.id}
-        style={[styles.betCard, { backgroundColor: theme.surface }]}
+          style={[
+            styles.betCard,
+            { backgroundColor: theme.surface },
+            ticketStatus === "won" ? { borderWidth: 2, borderColor: "#22C55E" } :
+            ticketStatus === "lost" ? { borderWidth: 2, borderColor: "#EF4444" } : {}
+          ]}
       >
         <View style={styles.parlayExpandedHeader}>
           <View style={[styles.parlayBadge, { backgroundColor: badgeColor }]}>
@@ -1241,7 +1930,9 @@ const BetBetsScreen = () => {
           <Text style={[styles.parlayTitle, { color: theme.text }]}>
             {gamesCount} Games
           </Text>
-          <Text style={[styles.parlayOdds, { color: theme.text }]}>{odds}</Text>
+          <Text style={[styles.parlayOdds, { color: theme.text }]}>
+            {formatOddsForDisplay(odds, oddsDisplay)}
+          </Text>
         </View>
 
         {sortedGameEntries.map(([gameId, picks]) => {
@@ -1280,7 +1971,7 @@ const BetBetsScreen = () => {
                     <View
                       style={[
                         styles.liveIndicator,
-                        { backgroundColor: theme.error, marginRight: 8},
+                        { backgroundColor: theme.error, marginRight: 8 },
                       ]}
                     >
                       <Text style={styles.liveText}>LIVE</Text>
@@ -1555,7 +2246,7 @@ const styles = StyleSheet.create({
   progressLabels: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 8,
+    marginTop: 6,
     position: "relative",
   },
   progressValue: {
@@ -1575,7 +2266,7 @@ const styles = StyleSheet.create({
   progressIndicatorText: {
     color: "#FFF",
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   pickFooter: {
     marginTop: 8,

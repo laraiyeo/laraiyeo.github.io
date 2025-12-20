@@ -5,7 +5,13 @@ import React, {
   useCallback,
   useEffect,
 } from "react";
-import { createBetslip, getUserBetslips } from "../services/betService";
+import { Alert } from "react-native";
+import {
+  createBetslip,
+  getUserBetslips,
+  getUserProfile,
+  placeBet,
+} from "../services/betService";
 
 const BetSlipContext = createContext();
 
@@ -246,34 +252,136 @@ export const BetSlipProvider = ({ children }) => {
         betslipData, // API response with events and bet results
       };
 
-      // Persist to backend (Supabase) if user is authenticated
-      try {
-        const totalStake = betSlip.amount || 0;
-        const potentialPayout = betSlip.bets
-          ? betSlip.bets.reduce((acc, b) => {
-              const o = parseInt(b.odds) || 0;
-              const dec = o > 0 ? o / 100 + 1 : 100 / Math.abs(o) + 1;
-              return acc + dec * (betSlip.amount || 0);
-            }, 0)
-          : 0;
+      // Persist to backend (prefer server endpoint which enforces credits)
+      const totalStake = betSlip.amount || 0;
+      const potentialPayout = betSlip.bets
+        ? betSlip.bets.reduce((acc, b) => {
+            const o = parseInt(b.odds) || 0;
+            const dec = o > 0 ? o / 100 + 1 : 100 / Math.abs(o) + 1;
+            return acc + dec * (betSlip.amount || 0);
+          }, 0)
+        : 0;
 
-        const res = await createBetslip(
-          {
-            bets: betSlip.bets,
-            meta: { timestamp: betSlip.timestamp, amount: betSlip.amount },
-            betslipData,
-          },
-          totalStake,
-          potentialPayout
-        );
-        if (res.success && res.betslipId) {
-          betSlip.remoteId = res.betslipId;
+      // If this is a single-leg bet, prefer the DB RPC `place_bet` which
+      // atomically deducts credits and creates the betslip server-side.
+      let res = null;
+      if (betSlip.bets.length === 1) {
+        const single = betSlip.bets[0];
+        try {
+          const rpc = await placeBet(
+            single.gameId || single.game_id || single.game || null,
+            single.selection || single.team || single.description || null,
+            totalStake,
+            // pass original odds string so the RPC/client can preserve display format
+            single.odds || null,
+            // pass aggregated betslip_url when present so RPC can persist it
+            (betslipData && betslipData.betslip_url) || null,
+            // pass the original bet object so single-leg bets match multi-leg shape
+            single
+          );
+          if (rpc && rpc.success) {
+            // RPC returned created betslip id; refresh profile to reflect deduction
+            try {
+              const profileResp = await getUserProfile();
+              if (profileResp && profileResp.success && profileResp.profile) {
+                console.log(
+                  "Profile refreshed after RPC bet; credits:",
+                  profileResp.profile.credits
+                );
+              }
+            } catch (e) {
+              console.warn(
+                "Failed to refresh profile after RPC bet:",
+                e?.message || e
+              );
+            }
+            // Build local ticket and return
+            betSlip.remoteId = rpc.betslipId || rpc;
+            setSubmittedBets((prev) => [betSlip, ...prev]);
+            setBets([]);
+            Alert.alert("Bet placed", "Bet placed. Your balance was updated.");
+            return betSlip;
+          }
+          // If RPC failed, fall through to createBetslip fallback below
+          console.warn(
+            "placeBet RPC failed, falling back to createBetslip:",
+            rpc?.error || rpc
+          );
+        } catch (e) {
+          console.warn(
+            "placeBet RPC exception, falling back to createBetslip:",
+            e?.message || e
+          );
         }
-      } catch (e) {
-        console.error(
-          "submitBetSlip: failed to persist betslip:",
-          e?.message || e
+      }
+
+      // Fallback: aggregated insert path
+      res = await createBetslip(
+        {
+          bets: betSlip.bets,
+          meta: { timestamp: betSlip.timestamp, amount: betSlip.amount },
+          betslipData,
+        },
+        totalStake,
+        potentialPayout
+      );
+
+      if (!res || !res.success) {
+        const errMsg = res?.error || "Failed to create betslip";
+        console.error("submitBetSlip error:", errMsg);
+        throw new Error(errMsg);
+      }
+
+      // If server returned creditsRemaining then the server handled deduction.
+      if (res.creditsRemaining != null) {
+        try {
+          // Refresh local profile to reflect server-side deduction
+          const profileResp = await getUserProfile();
+          if (profileResp && profileResp.success && profileResp.profile) {
+            console.log(
+              "Profile refreshed after server bet; credits:",
+              profileResp.profile.credits
+            );
+          }
+        } catch (e) {
+          console.warn("Failed to refresh profile after bet:", e?.message || e);
+        }
+        Alert.alert(
+          "Bet placed",
+          `Bet placed. Credits remaining: ${res.creditsRemaining}`
         );
+      } else if (res && res.success && res.serverCalled && res.serverFallback) {
+        // Server was contacted but rejected/errored; we fell back to local DB insert
+        console.warn(
+          "Bet saved locally after server rejection:",
+          res.error || "server rejected request"
+        );
+        Alert.alert(
+          "Bet saved locally",
+          "Server rejected the create request; ticket saved locally. Credits were NOT deducted. Please retry or contact support."
+        );
+      } else if (res && res.success && res.serverFallback) {
+        // No server token available; local DB insert used
+        console.warn(
+          "Bet saved locally (no server token):",
+          res.error || "no server token"
+        );
+        Alert.alert(
+          "Bet saved locally",
+          "Could not reach the server; ticket saved locally. Credits were NOT deducted."
+        );
+      } else if (res && !res.success) {
+        console.error("submitBetSlip failed:", res.error);
+        Alert.alert("Bet failed", res.error || "Failed to place bet");
+      } else {
+        Alert.alert(
+          "Bet placed",
+          "Your bet was saved but we did not receive confirmation from the server about credits."
+        );
+      }
+
+      if (res.betslipId) {
+        betSlip.remoteId = res.betslipId;
       }
 
       // Add to submitted bets (local cache)

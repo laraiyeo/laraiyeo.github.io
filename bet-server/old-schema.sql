@@ -132,13 +132,7 @@ CREATE OR REPLACE FUNCTION place_bet(
   p_game_id text,
   p_selection text,
   p_amount numeric,
-  p_odds double precision,
-  p_bets jsonb DEFAULT NULL,
-  p_betslip_data jsonb DEFAULT NULL,
-  p_betslip_url text DEFAULT NULL,
-  p_user_username text DEFAULT NULL,
-  p_total_odds numeric DEFAULT NULL,
-  p_potential_payout numeric DEFAULT NULL
+  p_odds double precision
 )
 RETURNS uuid
 LANGUAGE plpgsql
@@ -148,8 +142,6 @@ DECLARE
   v_user_id uuid;
   v_user_credits numeric;
   v_betslip_id uuid;
-  v_total_odds numeric;
-  v_potential numeric;
 BEGIN
   v_user_id := auth.uid();
   IF v_user_id IS NULL THEN
@@ -169,24 +161,9 @@ BEGIN
   SET credits = credits - p_amount
   WHERE id = v_user_id;
 
-  -- determine totals
-  v_total_odds := COALESCE(p_total_odds, p_odds);
-  v_potential := COALESCE(p_potential_payout, (p_amount * v_total_odds));
-
-  INSERT INTO betslips (
-    user_id, game_id, selection, amount, odds, status,
-    bets, betslip_data, betslip_url, user_username,
-    total_stake, potential_payout, total_odds
-  )
-  VALUES (
-    v_user_id, p_game_id, p_selection, p_amount, p_odds, 'pending',
-    p_bets, p_betslip_data, p_betslip_url, p_user_username,
-    p_amount, v_potential, v_total_odds
-  )
+  INSERT INTO betslips (user_id, game_id, selection, amount, odds, status)
+  VALUES (v_user_id, p_game_id, p_selection, p_amount, p_odds, 'pending')
   RETURNING id INTO v_betslip_id;
-
-  INSERT INTO credit_ledger (user_id, betslip_id, change, reason)
-  VALUES (v_user_id, v_betslip_id, -p_amount, 'Bet placed');
 
   INSERT INTO bet_history (user_id, betslip_id, change_amount, reason)
   VALUES (v_user_id, v_betslip_id, -p_amount, 'Bet placed');
@@ -199,10 +176,7 @@ $$;
 CREATE OR REPLACE FUNCTION place_betslip(
   p_stake numeric,
   p_bets jsonb,
-  p_betslip_data jsonb DEFAULT NULL,
-  p_potential_payout numeric DEFAULT NULL,
-  p_betslip_url text DEFAULT NULL,
-  p_user_username text DEFAULT NULL
+  p_potential_payout numeric
 )
 RETURNS uuid
 LANGUAGE plpgsql
@@ -212,12 +186,6 @@ DECLARE
   v_user_id uuid;
   v_user_credits numeric;
   v_betslip_id uuid;
-  v_game_id text;
-  v_first jsonb;
-  v_selection text;
-  v_amount numeric;
-  v_odds double precision;
-  v_total_odds numeric;
 BEGIN
   v_user_id := auth.uid();
   IF v_user_id IS NULL THEN
@@ -237,67 +205,8 @@ BEGIN
   SET credits = credits - p_stake
   WHERE id = v_user_id;
 
-  -- derive a game_id from the first bet if available to satisfy DB constraints
-  v_game_id := NULL;
-  IF p_bets IS NOT NULL THEN
-    BEGIN
-      v_game_id := COALESCE(p_bets->0->>'gameId', p_bets->0->>'game_id', NULL);
-      v_first := p_bets->0;
-      v_selection := COALESCE(v_first->>'description', v_first->>'selection', v_first->>'team', NULL);
-      -- amount for multi-leg stored as the stake
-      v_amount := p_stake;
-      -- try to coerce odds from first bet if present
-      BEGIN
-        IF v_first ? 'odds' THEN
-          v_odds := (v_first->>'odds')::double precision;
-        ELSE
-          v_odds := NULL;
-        END IF;
-      EXCEPTION WHEN others THEN
-        v_odds := NULL;
-      END;
-      -- compute approximate total odds if possible (multiply decimal odds)
-      BEGIN
-        v_total_odds := 1;
-        FOR i IN 0 .. jsonb_array_length(p_bets) - 1 LOOP
-          v_total_odds := v_total_odds * (
-            CASE
-              WHEN (p_bets->i->>'odds') IS NULL THEN 1
-              WHEN (p_bets->i->>'odds') ~ '^\\+?\\d+$' THEN -- american-like integer
-                CASE WHEN (p_bets->i->>'odds')::double precision >= 100 THEN ( (p_bets->i->>'odds')::double precision / 100.0 + 1 ) ELSE (p_bets->i->>'odds')::double precision END
-              ELSE
-                -- try numeric interpretation
-                (p_bets->i->>'odds')::double precision
-            END
-          );
-        END LOOP;
-      EXCEPTION WHEN others THEN
-        v_total_odds := NULL;
-      END;
-    EXCEPTION WHEN others THEN
-      v_game_id := NULL;
-    END;
-  END IF;
-
-  INSERT INTO betslips (
-    user_id, game_id, bets, betslip_data, total_stake, potential_payout, status,
-    betslip_url, user_username, selection, amount, odds, total_odds
-  )
-  VALUES (
-    v_user_id,
-    NULLIF(v_game_id, ''),
-    p_bets,
-    p_betslip_data,
-    p_stake,
-    p_potential_payout,
-    'pending',
-    p_betslip_url,
-    p_user_username,
-    NULLIF(v_selection, ''),
-    v_amount,
-    v_odds,
-    v_total_odds
-  )
+  INSERT INTO betslips (user_id, bets, total_stake, potential_payout, status)
+  VALUES (v_user_id, p_bets, p_stake, p_potential_payout, 'pending')
   RETURNING id INTO v_betslip_id;
 
   INSERT INTO credit_ledger (user_id, betslip_id, change, reason)
@@ -347,8 +256,6 @@ BEGIN
   ELSE
     v_payout := 0;
   END IF;
-  -- Round payout to 2 decimal places for ledger and profile update
-  v_payout := ROUND(COALESCE(v_payout, 0)::numeric, 2);
 
   IF v_payout > 0 THEN
     UPDATE profiles SET credits = credits + v_payout WHERE id = v_user_id;
@@ -522,17 +429,3 @@ END$$;
 
 -- 7) Verification queries (optional)
 -- SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public';
-
--- 8) Compatibility: rename the old simple `place_bet` (4-arg) function
--- to avoid PostgREST overload ambiguity. This block is safe to run
--- multiple times and will silently skip if the function doesn't exist.
-DO $$
-BEGIN
-  BEGIN
-    ALTER FUNCTION public.place_bet(text, text, numeric, double precision)
-    RENAME TO place_bet_simple;
-  EXCEPTION WHEN undefined_function THEN
-    -- function not present; nothing to rename
-    NULL;
-  END;
-END$$;

@@ -21,6 +21,7 @@ import { EmoteProvider } from "./src/context/EmoteContext";
 import { MutedUsersProvider } from "./src/context/MutedUsersContext";
 import { BetSlipProvider } from "./src/context/BetSlipContext";
 import { BetDataProvider } from "./src/context/BetDataContext";
+import { OddsDisplayProvider } from "./src/context/OddsDisplayContext";
 
 // Import Analytics Service
 import analyticsService from "./src/services/AnalyticsService";
@@ -1883,7 +1884,7 @@ const MainStackNavigator = () => {
         name="BetMain"
         component={BetTabNavigator}
         options={{
-          title: "Sports Betting",
+          title: "SportsHeart Bet",
           headerShown: true,
           headerStyle: {
             backgroundColor: colors.primary,
@@ -2107,9 +2108,11 @@ export default function App() {
           <EmoteProvider>
             <MutedUsersProvider>
               <BetSlipProvider>
-                <BetDataProvider>
-                  <AppContent />
-                </BetDataProvider>
+                <OddsDisplayProvider>
+                  <BetDataProvider>
+                    <AppContent />
+                  </BetDataProvider>
+                </OddsDisplayProvider>
               </BetSlipProvider>
             </MutedUsersProvider>
           </EmoteProvider>

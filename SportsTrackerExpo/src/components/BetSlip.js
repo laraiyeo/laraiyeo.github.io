@@ -9,11 +9,16 @@ import {
   TextInput,
   Animated,
   Dimensions,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../context/ThemeContext";
 import { useBetSlip } from "../context/BetSlipContext";
+import { useContext } from "react";
+import OddsDisplayContext from "../context/OddsDisplayContext";
+import { formatOddsForDisplay } from "../utils/odds";
+import { getUserProfile } from "../services/betService";
 
 const { height } = Dimensions.get("window");
 
@@ -31,6 +36,9 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
     setIsSlipOpen,
     submitBetSlip,
   } = useBetSlip();
+
+  const oddsContext = useContext(OddsDisplayContext);
+  const oddsDisplay = oddsContext ? oddsContext.oddsDisplay : "american";
 
   const [betAmount, setBetAmount] = useState("");
   const [showNumpad, setShowNumpad] = useState(false);
@@ -65,96 +73,209 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
 
   const handleConfirmBet = async () => {
     const amount = parseFloat(betAmount) || 20;
-
-    // Build API query from bets
-    const gameIds = [...new Set(bets.map((bet) => bet.gameId))].filter(Boolean);
-    const playerBets = {};
-    const gameLineBets = { moneyline: null, total: null, spread: null };
-
-    // Group player bets and game line bets
-    bets.forEach((bet) => {
-      // Game line bets (Spread, Total, Moneyline)
-      if (bet.type === "Spread") {
-        gameLineBets.spread = `${bet.team}${bet.line}`;
-      } else if (bet.type === "Total") {
-        // Extract o/u from description (e.g., "OVER" or "UNDER")
-        const overUnder = bet.description?.toLowerCase().includes("over")
-          ? "o"
-          : "u";
-        // Extract just the number from bet.line (e.g., "U 242.5" -> "242.5")
-        const lineNumber = bet.line.replace(/^[OU]\s+/, "");
-        gameLineBets.total = `${overUnder}${lineNumber}`;
-      } else if (bet.type === "Moneyline") {
-        gameLineBets.moneyline = bet.team;
-      }
-      // Player prop bets
-      else if (bet.playerId && bet.statType) {
-        if (!playerBets[bet.playerId]) {
-          playerBets[bet.playerId] = {};
-        }
-        playerBets[bet.playerId][bet.statType] = bet.betValue;
-      }
+    console.log("handleConfirmBet invoked", {
+      amount,
+      betsCount: bets.length,
+      showNumpad,
+      betAmount,
     });
 
-    // Build query string
-    let query = `gameId=${gameIds.join(",")}`;
-
-    if (gameLineBets.moneyline) query += `&moneyline=${gameLineBets.moneyline}`;
-    if (gameLineBets.total) query += `&total=${gameLineBets.total}`;
-    if (gameLineBets.spread) query += `&spread=${gameLineBets.spread}`;
-
-    Object.entries(playerBets).forEach(([playerId, stats], index) => {
-      const playerNum = index + 1;
-      query += `&p${playerNum}=${playerId}`;
-      Object.entries(stats).forEach(([statType, betValue]) => {
-        // Convert statType to short form for API
-        const statTypeMap = {
-          points: "pts",
-          rebounds: "reb",
-          assists: "ast",
-          blocks: "blk",
-          steals: "stl",
-          turnovers: "to",
-          threes: "3pt",
-          pra: "pra",
-        };
-        const shortStat = statTypeMap[statType.toLowerCase()] || "pts";
-        query += `&p${playerNum}_${shortStat}=${betValue}`;
-      });
-    });
-
-    const apiUrl = `https://laraiyeogithubio-production-f5af.up.railway.app/api/betslip?${query}`;
-    console.log("Fetching betslip:", apiUrl);
-
+    // Check user balance before attempting to place the bet
     try {
-      // Fetch betslip data
-      const response = await fetch(apiUrl);
-      let betslipData = await response.json();
-      console.log("Betslip response:", betslipData);
-
-      // Attach the generated apiUrl into the betslip payload so the server
-      // can persist it into the `betslip_url` column and background workers
-      // can fetch the aggregated payload.
-      if (!betslipData || typeof betslipData !== "object") {
-        betslipData = { events: [], metadata: {} };
+      const profileResp = await getUserProfile();
+      if (profileResp && profileResp.success && profileResp.profile) {
+        const balance = Number(profileResp.profile.credits || 0);
+        if (amount > balance) {
+          Alert.alert(
+            "Insufficient credits",
+            `You only have ${balance.toFixed(2)} credits available.`
+          );
+          return;
+        }
+        console.log("Balance check OK", { balance });
       }
-      betslipData.betslip_url = apiUrl;
+    } catch (e) {
+      // If checking balance failed, continue and let server validate
+      console.warn(
+        "Failed to load profile for balance check:",
+        e?.message || e
+      );
+    }
+    try {
+      // Build API query from bets
+      const gameIds = [...new Set(bets.map((bet) => bet.gameId))].filter(
+        Boolean
+      );
+      console.log("Computed gameIds:", gameIds);
+      // Prevent placing bets on games that are not pre-game according to stored scoreboard
+      const liveGameIds = [];
+      gameIds.forEach((gid) => {
+        const sg =
+          scoreboardGames && typeof scoreboardGames.find === "function"
+            ? scoreboardGames.find(
+                (g) =>
+                  String(g.id) === String(gid) ||
+                  String(g.gameId) === String(gid) ||
+                  g.header?.competitions?.[0]?.id === gid
+              )
+            : undefined;
+        console.log(
+          "live-check: gid, scoreboardGames length, matched sg:",
+          gid,
+          Array.isArray(scoreboardGames) ? scoreboardGames.length : 0,
+          sg
+        );
+        if (!sg) return;
+        const state =
+          sg.header?.competitions?.[0]?.status?.type?.state ||
+          sg.status?.type?.state ||
+          sg.status?.state ||
+          sg.status;
+        console.log("live-check: gid state:", gid, state);
+        if (state && state !== "pre" && state !== "scheduled") {
+          liveGameIds.push(gid);
+        }
+      });
 
-      // Submit bet slip with betslip data (includes `betslip_url`)
-      await submitBetSlip(amount, betslipData);
+      console.log("liveGameIds computed:", liveGameIds);
 
-      // Close slip and reset
-      setBetAmount("");
-      setShowNumpad(false);
-      closeSlip();
-    } catch (error) {
-      console.error("Error fetching betslip:", error);
-      // Still submit even if fetch fails; include the URL so server can try
-      // fetching the aggregated payload later.
-      await submitBetSlip(amount, { bets: bets, betslip_url: apiUrl });
-      setBetAmount("");
-      setShowNumpad(false);
-      closeSlip();
+      if (liveGameIds.length > 0) {
+        console.log("liveGameIds > 0, will remove bets:", liveGameIds);
+        const removedBetIds = bets
+          .filter((b) => liveGameIds.includes(b.gameId))
+          .map((b) => b.id);
+
+        Alert.alert(
+          "Can't place bets",
+          "Can't place bets once a game goes live. Removing selections for live games.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                removedBetIds.forEach((id) => removeBet(id));
+              },
+            },
+          ]
+        );
+
+        return;
+      }
+      const playerBets = {};
+      const gameLineBets = { moneyline: null, total: null, spread: null };
+
+      // Group player bets and game line bets
+      try {
+        bets.forEach((bet) => {
+          // small guard to avoid throwing when fields missing
+          if (!bet) return;
+          // Game line bets (Spread, Total, Moneyline)
+          if (bet.type === "Spread") {
+            gameLineBets.spread = `${bet.team}${bet.line}`;
+          } else if (bet.type === "Total") {
+            // Extract o/u from description (e.g., "OVER" or "UNDER")
+            const overUnder = bet.description?.toLowerCase().includes("over")
+              ? "o"
+              : "u";
+            // Extract just the number from bet.line (e.g., "U 242.5" -> "242.5")
+            const lineNumber = bet.line.replace(/^[OU]\s+/, "");
+            gameLineBets.total = `${overUnder}${lineNumber}`;
+          } else if (bet.type === "Moneyline") {
+            gameLineBets.moneyline = bet.team;
+          }
+          // Player prop bets
+          else if (bet.playerId && bet.statType) {
+            if (!playerBets[bet.playerId]) {
+              playerBets[bet.playerId] = {};
+            }
+            playerBets[bet.playerId][bet.statType] = bet.betValue;
+          }
+        });
+      } catch (groupErr) {
+        console.error("Error grouping bets:", groupErr);
+        throw groupErr;
+      }
+
+      // Build query string
+      let query = `gameId=${gameIds.join(",")}`;
+      console.log("Player bets:", playerBets, "gameLineBets:", gameLineBets);
+
+      if (gameLineBets.moneyline)
+        query += `&moneyline=${gameLineBets.moneyline}`;
+      if (gameLineBets.total) query += `&total=${gameLineBets.total}`;
+      if (gameLineBets.spread) query += `&spread=${gameLineBets.spread}`;
+
+      Object.entries(playerBets).forEach(([playerId, stats], index) => {
+        const playerNum = index + 1;
+        query += `&p${playerNum}=${playerId}`;
+        Object.entries(stats).forEach(([statType, betValue]) => {
+          // Convert statType to short form for API
+          const statTypeMap = {
+            points: "pts",
+            rebounds: "reb",
+            assists: "ast",
+            blocks: "blk",
+            steals: "stl",
+            turnovers: "to",
+            threes: "3pt",
+            pra: "pra",
+          };
+          const shortStat = statTypeMap[statType.toLowerCase()] || "pts";
+          query += `&p${playerNum}_${shortStat}=${betValue}`;
+        });
+      });
+
+      console.log("Built query:", query);
+      const apiUrl = `https://laraiyeogithubio-production-f5af.up.railway.app/api/betslip?${query}`;
+      console.log("Fetching betslip:", apiUrl);
+
+      try {
+        console.log("Fetching aggregated betslip URL:", apiUrl);
+        // Fetch betslip data
+        const response = await fetch(apiUrl);
+        let betslipData = await response.json();
+        console.log("Betslip response:", betslipData);
+
+        // Attach the generated apiUrl into the betslip payload so the server
+        // can persist it into the `betslip_url` column and background workers
+        // can fetch the aggregated payload.
+        if (!betslipData || typeof betslipData !== "object") {
+          betslipData = { events: [], metadata: {} };
+        }
+        betslipData.betslip_url = apiUrl;
+
+        // Submit bet slip with betslip data (includes `betslip_url`)
+        try {
+          await submitBetSlip(amount, betslipData);
+        } catch (e) {
+          console.error("submitBetSlip failed:", e?.message || e);
+          Alert.alert("Bet failed", e?.message || "Failed to place bet");
+          return;
+        }
+
+        // Close slip and reset
+        setBetAmount("");
+        setShowNumpad(false);
+        closeSlip();
+      } catch (error) {
+        console.error("Error fetching betslip:", error);
+        // Still submit even if fetch fails; include the URL so server can try
+        // fetching the aggregated payload later.
+        try {
+          await submitBetSlip(amount, { bets: bets, betslip_url: apiUrl });
+        } catch (e) {
+          console.error("submitBetSlip failed (fallback):", e?.message || e);
+          Alert.alert("Bet failed", e?.message || "Failed to place bet");
+          return;
+        }
+
+        setBetAmount("");
+        setShowNumpad(false);
+        closeSlip();
+      }
+    } catch (err) {
+      console.error("handleConfirmBet unexpected error:", err);
+      Alert.alert("Bet failed", err?.message || String(err));
+      return;
     }
   };
 
@@ -280,12 +401,16 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         >
           {bets.length > 1 && (
             <View style={styles.parlayBadge}>
-              <Text style={styles.parlayText}>{parlayOdds}</Text>
+              <Text style={styles.parlayText}>
+                {formatOddsForDisplay(parlayOdds, oddsDisplay)}
+              </Text>
             </View>
           )}
           {bets.length === 1 && (
             <View style={styles.parlayBadge}>
-              <Text style={styles.parlayText}>{bets[0].odds}</Text>
+              <Text style={styles.parlayText}>
+                {formatOddsForDisplay(bets[0].odds, oddsDisplay)}
+              </Text>
             </View>
           )}
           <Ionicons name="chevron-up" size={24} color="white" />
@@ -508,8 +633,37 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                       };
 
                       return (
-                        <View
+                        <TouchableOpacity
                           key={bet.id}
+                          activeOpacity={0.85}
+                          onPress={() => {
+                            try {
+                              const scoreboardForGame = Array.isArray(
+                                scoreboardGames
+                              )
+                                ? scoreboardGames.find(
+                                    (g) =>
+                                      String(g.id) === String(bet.gameId) ||
+                                      String(g.gameId) === String(bet.gameId) ||
+                                      g.header?.competitions?.[0]?.id ===
+                                        bet.gameId
+                                  )
+                                : undefined;
+                              console.log("Bet clicked", {
+                                betId: bet.id,
+                                gameId: bet.gameId,
+                                bet,
+                                scoreboardForGame,
+                                scoreboardGamesCount: Array.isArray(
+                                  scoreboardGames
+                                )
+                                  ? scoreboardGames.length
+                                  : 0,
+                              });
+                            } catch (e) {
+                              console.error("Error logging bet click:", e);
+                            }
+                          }}
                           style={[
                             styles.betItem,
                             { backgroundColor: theme.surfaceSecondary },
@@ -564,10 +718,10 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                                 { color: colors.primary },
                               ]}
                             >
-                              {bet.odds}
+                              {formatOddsForDisplay(bet.odds, oddsDisplay)}
                             </Text>
                           </View>
-                        </View>
+                        </TouchableOpacity>
                       );
                     })}
                   </View>
@@ -616,7 +770,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                   <Text
                     style={[styles.oddsDisplayValue, { color: colors.primary }]}
                   >
-                    {parlayOdds}
+                    {formatOddsForDisplay(parlayOdds, oddsDisplay)}
                   </Text>
                 </View>
               </View>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useBetData } from "../../context/BetDataContext";
 import { supabase } from "../../config/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import OddsDisplayContext from "../../context/OddsDisplayContext";
 import {
   registerForPushNotifications,
   API_URL,
@@ -32,6 +33,7 @@ const BetLoginScreen = ({ navigation }) => {
   const [phone, setPhone] = useState("");
 
   const CRED_KEY = "bet_credentials_v1";
+  const oddsContext = useContext(OddsDisplayContext);
 
   const loadSavedCredentials = async () => {
     try {
@@ -409,6 +411,19 @@ const BetLoginScreen = ({ navigation }) => {
             console.error("BetLogin: login - fetchRosters error", e)
           );
       }
+      // Initialize odds display context from persisted storage (if present)
+      try {
+        const stored = await AsyncStorage.getItem("@odds_display");
+        console.log("BetLogin: persisted @odds_display =", stored);
+        if (stored === "decimal" || stored === "american") {
+          if (oddsContext && oddsContext.setOddsDisplay) {
+            oddsContext.setOddsDisplay(stored);
+            console.log("BetLogin: initialized OddsDisplayContext to", stored);
+          }
+        }
+      } catch (e) {
+        console.error("BetLogin: error initializing odds display context", e);
+      }
       navigation.navigate("BetMain");
     } catch (error) {
       console.error("Login error (catch):", error);
@@ -435,7 +450,7 @@ const BetLoginScreen = ({ navigation }) => {
         </View>
 
         <Text style={[styles.title, { color: theme.text }]}>
-          Welcome to SportsBet
+          Welcome to SportsHeart Bet
         </Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           Login or create a new account

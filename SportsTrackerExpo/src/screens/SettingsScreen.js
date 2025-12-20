@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -671,7 +671,12 @@ const SettingsScreen = ({ navigation }) => {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <View style={[styles.sectionHeader, { borderBottomColor: theme.border }]}>
+            <View
+              style={[
+                styles.sectionHeader,
+                { borderBottomColor: theme.border },
+              ]}
+            >
               <Text
                 allowFontScaling={false}
                 style={[styles.sectionTitle, { color: theme.text }]}
@@ -692,7 +697,13 @@ const SettingsScreen = ({ navigation }) => {
               )}
             </View>
 
-            <View style={{ paddingHorizontal: 16, paddingBottom: 12, marginBottom: 6 }}>
+            <View
+              style={{
+                paddingHorizontal: 16,
+                paddingBottom: 12,
+                marginBottom: 6,
+              }}
+            >
               <TouchableOpacity
                 onPress={() => {
                   // initialize temp colors from current custom palette
@@ -969,7 +980,12 @@ const SettingsScreen = ({ navigation }) => {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <View style={[styles.sectionHeader, { borderBottomColor: theme.surface }]}>
+            <View
+              style={[
+                styles.sectionHeader,
+                { borderBottomColor: theme.surface },
+              ]}
+            >
               <Text
                 allowFontScaling={false}
                 style={[styles.sectionTitle, { color: theme.text }]}
@@ -1201,7 +1217,12 @@ const SettingsScreen = ({ navigation }) => {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <View style={[styles.sectionHeader, { borderBottomColor: theme.border }]}>
+            <View
+              style={[
+                styles.sectionHeader,
+                { borderBottomColor: theme.border },
+              ]}
+            >
               <Text
                 allowFontScaling={false}
                 style={[styles.sectionTitle, { color: theme.text }]}
@@ -1362,7 +1383,12 @@ const SettingsScreen = ({ navigation }) => {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <View style={[styles.sectionHeader, { borderBottomColor: theme.border }]}>
+            <View
+              style={[
+                styles.sectionHeader,
+                { borderBottomColor: theme.border },
+              ]}
+            >
               <Text
                 allowFontScaling={false}
                 style={[styles.sectionTitle, { color: theme.text }]}
