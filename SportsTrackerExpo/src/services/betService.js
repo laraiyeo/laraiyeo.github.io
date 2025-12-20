@@ -825,7 +825,10 @@ export const getDailyRewardState = async (profileId) => {
     let state = null;
     if (raw) state = JSON.parse(raw);
     if (!state) {
-      state = { claimedDays: [false, false, false, false, false, false, false], nextAvailableAt: null };
+      state = {
+        claimedDays: [false, false, false, false, false, false, false],
+        nextAvailableAt: null,
+      };
     }
 
     const now = new Date();
@@ -835,15 +838,21 @@ export const getDailyRewardState = async (profileId) => {
     if (allClaimed && state.nextAvailableAt) {
       const next = new Date(state.nextAvailableAt);
       if (now >= next) {
-        state = { claimedDays: [false, false, false, false, false, false, false], nextAvailableAt: null };
+        state = {
+          claimedDays: [false, false, false, false, false, false, false],
+          nextAvailableAt: null,
+        };
         await AsyncStorage.setItem(key, JSON.stringify(state));
       }
     }
 
     // compute available index (first false)
     const availableIdx = state.claimedDays.findIndex((v) => !v);
-    const nextAvailableAt = state.nextAvailableAt ? new Date(state.nextAvailableAt) : null;
-    const canClaim = availableIdx !== -1 && (!nextAvailableAt || now >= nextAvailableAt);
+    const nextAvailableAt = state.nextAvailableAt
+      ? new Date(state.nextAvailableAt)
+      : null;
+    const canClaim =
+      availableIdx !== -1 && (!nextAvailableAt || now >= nextAvailableAt);
 
     return {
       success: true,
@@ -866,7 +875,12 @@ export const claimDailyReward = async (profileId) => {
   const key = DAILY_KEY_FOR(profileId);
   try {
     const raw = await AsyncStorage.getItem(key);
-    let state = raw ? JSON.parse(raw) : { claimedDays: [false, false, false, false, false, false, false], nextAvailableAt: null };
+    let state = raw
+      ? JSON.parse(raw)
+      : {
+          claimedDays: [false, false, false, false, false, false, false],
+          nextAvailableAt: null,
+        };
 
     const now = new Date();
 
@@ -875,45 +889,75 @@ export const claimDailyReward = async (profileId) => {
     if (allClaimed && state.nextAvailableAt) {
       const next = new Date(state.nextAvailableAt);
       if (now >= next) {
-        state = { claimedDays: [false, false, false, false, false, false, false], nextAvailableAt: null };
+        state = {
+          claimedDays: [false, false, false, false, false, false, false],
+          nextAvailableAt: null,
+        };
       }
     }
 
     const idx = state.claimedDays.findIndex((v) => !v);
     if (idx === -1) return { success: false, error: "Cycle already completed" };
 
-    const nextAvailableAt = state.nextAvailableAt ? new Date(state.nextAvailableAt) : null;
-    if (nextAvailableAt && now < nextAvailableAt) return { success: false, error: "Not available yet" };
+    const nextAvailableAt = state.nextAvailableAt
+      ? new Date(state.nextAvailableAt)
+      : null;
+    if (nextAvailableAt && now < nextAvailableAt)
+      return { success: false, error: "Not available yet" };
 
     const dayNum = idx + 1;
     const reward = dayNum < 7 ? 250 : 1000;
 
     // Fetch current profile credits
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     let uid = user?.id || profileId;
     // Try to fetch profile row
     let profile = null;
     try {
-      const { data, error } = await supabase.from("profiles").select("id,credits").eq("id", uid).maybeSingle();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id,credits")
+        .eq("id", uid)
+        .maybeSingle();
       if (!error && data) profile = data;
     } catch (e) {}
 
-    const currentCredits = profile && profile.credits != null ? Number(profile.credits) : 0;
+    const currentCredits =
+      profile && profile.credits != null ? Number(profile.credits) : 0;
     const newCredits = Math.round((currentCredits + reward) * 100) / 100;
 
     // Update profile credits
     try {
-      const { error } = await supabase.from("profiles").update({ credits: newCredits }).eq("id", uid);
-      if (error) console.warn("claimDailyReward: failed to update credits", error.message || error);
+      const { error } = await supabase
+        .from("profiles")
+        .update({ credits: newCredits })
+        .eq("id", uid);
+      if (error)
+        console.warn(
+          "claimDailyReward: failed to update credits",
+          error.message || error
+        );
     } catch (e) {
       console.error("claimDailyReward: update credits error", e);
     }
 
     // Insert credit_ledger entry (best-effort) - match DB schema: (change, reason)
     try {
-      await supabase.from("credit_ledger").insert({ user_id: uid, change: reward, reason: `Daily login day ${dayNum}`, created_at: new Date().toISOString() });
+      await supabase
+        .from("credit_ledger")
+        .insert({
+          user_id: uid,
+          change: reward,
+          reason: `Daily login day ${dayNum}`,
+          created_at: new Date().toISOString(),
+        });
     } catch (e) {
-      console.warn("claimDailyReward: failed to write credit_ledger", e?.message || e);
+      console.warn(
+        "claimDailyReward: failed to write credit_ledger",
+        e?.message || e
+      );
     }
 
     // Mark claimed and set nextAvailableAt = now + 24h
@@ -938,7 +982,12 @@ export const dismissDailyReward = async (profileId) => {
   const key = DAILY_KEY_FOR(profileId);
   try {
     const raw = await AsyncStorage.getItem(key);
-    let state = raw ? JSON.parse(raw) : { claimedDays: [false, false, false, false, false, false, false], nextAvailableAt: null };
+    let state = raw
+      ? JSON.parse(raw)
+      : {
+          claimedDays: [false, false, false, false, false, false, false],
+          nextAvailableAt: null,
+        };
     const now = new Date();
     const nextAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     state.nextAvailableAt = nextAt.toISOString();
@@ -959,13 +1008,18 @@ export const resetDailyRewardForTesting = async (profileId) => {
   const key = DAILY_KEY_FOR(profileId);
   try {
     const raw = await AsyncStorage.getItem(key);
-    let state = raw ? JSON.parse(raw) : { claimedDays: [false, false, false, false, false, false, false], nextAvailableAt: null };
+    let state = raw
+      ? JSON.parse(raw)
+      : {
+          claimedDays: [false, false, false, false, false, false, false],
+          nextAvailableAt: null,
+        };
     state.claimedDays = [false, false, false, false, false, false, false];
     state.nextAvailableAt = null;
     await AsyncStorage.setItem(key, JSON.stringify(state));
     return { success: true, ...state };
   } catch (e) {
-    console.error('resetDailyRewardForTesting error', e);
+    console.error("resetDailyRewardForTesting error", e);
     return { success: false, error: e?.message || String(e) };
   }
 };

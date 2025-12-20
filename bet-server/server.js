@@ -483,7 +483,9 @@ async function manualSettleBetslip(betslipId, result) {
       const currentCredits = Number(profile?.credits || 0);
       let newCredits = currentCredits + payout;
       if (!Number.isFinite(newCredits)) newCredits = 0;
-      newCredits = Number((Math.round((newCredits + Number.EPSILON) * 100) / 100).toFixed(2));
+      newCredits = Number(
+        (Math.round((newCredits + Number.EPSILON) * 100) / 100).toFixed(2)
+      );
       await supabaseAdmin
         .from("profiles")
         .update({ credits: newCredits })
@@ -631,7 +633,12 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
     // Insert ledger row for audit
     const { error: ledgerErr } = await supabaseAdmin
       .from("credit_ledger")
-      .insert({ user_id: userId, betslip_id: null, change: change, reason: reason || "Daily login" });
+      .insert({
+        user_id: userId,
+        betslip_id: null,
+        change: change,
+        reason: reason || "Daily login",
+      });
     if (ledgerErr) throw ledgerErr;
 
     return res.json({ user: updatedProfile });
@@ -3756,7 +3763,9 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
     let newCredits = parseFloat(user.credits) - totalStake;
     if (!Number.isFinite(newCredits)) newCredits = 0;
     // round to 2 decimals for storage
-    newCredits = Number((Math.round((newCredits + Number.EPSILON) * 100) / 100).toFixed(2));
+    newCredits = Number(
+      (Math.round((newCredits + Number.EPSILON) * 100) / 100).toFixed(2)
+    );
     const { error: updErr } = await supabaseAdmin
       .from("users")
       .update({ credits: newCredits })
