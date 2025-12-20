@@ -2894,16 +2894,34 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 // Simple auth middleware used by inlined routes
-function authMiddlewareInline(req, res, next) {
+// Accepts either the server-issued JWT (signed with JWT_SECRET) OR a
+// Supabase access token. For Supabase tokens we resolve the user via
+// the admin client so we can run privileged actions on behalf of the user.
+async function authMiddlewareInline(req, res, next) {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer "))
     return res.status(401).json({ message: "Unauthorized" });
   const token = auth.split(" ")[1];
+
+  // Try server JWT first
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.userId = decoded.userId;
     req.username = decoded.username || null;
-    next();
+    return next();
+  } catch (e) {
+    // Not a server JWT — try Supabase access token
+  }
+
+  try {
+    // supabaseAdmin.auth.getUser accepts an access token and returns user info
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !data || !data.user) {
+      return res.status(401).json({ message: "Invalid token" });
+    }
+    req.userId = data.user.id;
+    req.username = data.user.email || null;
+    return next();
   } catch (e) {
     return res.status(401).json({ message: "Invalid token" });
   }

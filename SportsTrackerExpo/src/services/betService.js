@@ -928,19 +928,71 @@ export const claimDailyReward = async (profileId) => {
       profile && profile.credits != null ? Number(profile.credits) : 0;
     const newCredits = Math.round((currentCredits + reward) * 100) / 100;
 
-    // Update profile credits
+    // Prefer calling server endpoint which uses service-role to update credits
+    let serverUpdated = false;
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ credits: newCredits })
-        .eq("id", uid);
-      if (error)
-        console.warn(
-          "claimDailyReward: failed to update credits",
-          error.message || error
-        );
+      // Try to get server token first, otherwise use Supabase session token
+      let authToken = null;
+      try {
+        const serverToken = await AsyncStorage.getItem("@bet_token");
+        if (serverToken) authToken = serverToken;
+      } catch (e) {}
+      if (!authToken) {
+        try {
+          const { data: { session } = {} } = await supabase.auth.getSession();
+          if (session && session.access_token) authToken = session.access_token;
+        } catch (e) {}
+      }
+
+      if (authToken) {
+        const SERVER_BASE =
+          "https://laraiyeogithubio-production-f5af.up.railway.app";
+        const resp = await fetch(`${SERVER_BASE}/api/daily/claim`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({ amount: reward, reason: `Daily login day ${dayNum}` }),
+        });
+        if (resp.ok) {
+          try {
+            const json = await resp.json();
+            if (json && json.user && json.user.credits != null) {
+              serverUpdated = true;
+              // Use the server-returned credits as authoritative
+              const svcCredits = Number(json.user.credits);
+              // Update local newCredits to reflect authoritative value
+              // (so the caller sees the right value)
+              // NOTE: we still write AsyncStorage state below.
+              return { success: true, day: dayNum, reward, newCredits: svcCredits };
+            }
+          } catch (e) {
+            // fall through to client update
+          }
+        } else {
+          // server rejected request; fall back to client update
+        }
+      }
     } catch (e) {
-      console.error("claimDailyReward: update credits error", e);
+      console.warn("claimDailyReward: server endpoint call failed", e?.message || e);
+    }
+
+    if (!serverUpdated) {
+      // Update profile credits locally via Supabase client (may be blocked by RLS)
+      try {
+        const { error } = await supabase
+          .from("profiles")
+          .update({ credits: newCredits })
+          .eq("id", uid);
+        if (error)
+          console.warn(
+            "claimDailyReward: failed to update credits",
+            error.message || error
+          );
+      } catch (e) {
+        console.error("claimDailyReward: update credits error", e);
+      }
     }
 
     // Insert credit_ledger entry (best-effort) - match DB schema: (change, reason)
