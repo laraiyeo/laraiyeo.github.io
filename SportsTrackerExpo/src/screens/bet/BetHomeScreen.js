@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
+  Modal,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons, FontAwesome6 } from "@expo/vector-icons";
@@ -14,6 +17,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetData } from "../../context/BetDataContext";
 import BetSlip from "../../components/BetSlip";
+import { getDailyRewardState, claimDailyReward, dismissDailyReward, getUserProfile } from "../../services/betService";
 
 // Global image cache - keeps image sources stable across re-renders
 const imageCache = new Map();
@@ -654,6 +658,48 @@ const BetHomeScreen = ({ navigation }) => {
   const [scheduledGames, setScheduledGames] = useState([]);
   const [completedGames, setCompletedGames] = useState([]);
   const [hasLiveGames, setHasLiveGames] = useState(false);
+  const [dailyVisible, setDailyVisible] = useState(false);
+  const [dailyState, setDailyState] = useState(null);
+  const [dailyLoading, setDailyLoading] = useState(false);
+  const [profileIdForDaily, setProfileIdForDaily] = useState(null);
+  const [dailyCountdownLabel, setDailyCountdownLabel] = useState("");
+
+  // Update countdown label while daily modal is visible
+  useEffect(() => {
+    let timer = null;
+    function computeLabel(state) {
+      try {
+        if (!state) return 'No reward available yet';
+        if (state.canClaim) return 'Available';
+        const next = state.nextAvailableAt ? new Date(state.nextAvailableAt) : null;
+        if (next) {
+          const diff = next.getTime() - Date.now();
+          if (diff <= 0) return 'Available';
+          const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+          const hours = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+          const mins = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
+          const secs = Math.floor((diff % (60 * 1000)) / 1000);
+          return `Available in ${hours}H ${mins}M ${secs}S`;
+        }
+        return state.availableDay ? '' : 'No reward available yet';
+      } catch (e) {
+        return state && state.availableDay ? '' : 'No reward available yet';
+      }
+    }
+
+    if (dailyVisible) {
+      setDailyCountdownLabel(computeLabel(dailyState));
+      timer = setInterval(() => {
+        setDailyCountdownLabel(computeLabel(dailyState));
+      }, 1000);
+    } else {
+      setDailyCountdownLabel('');
+    }
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [dailyVisible, dailyState]);
 
   // Pre-cache images when scoreboard data arrives - only cache new logos
   useEffect(() => {
@@ -772,6 +818,36 @@ const BetHomeScreen = ({ navigation }) => {
     }, [hasLiveGames, scheduledGames.length])
   );
 
+  // Load daily reward state on focus and show modal if claimable or progress exists
+  useFocusEffect(
+    React.useCallback(() => {
+      let mounted = true;
+      (async () => {
+        try {
+          const profileRes = await getUserProfile();
+          if (profileRes && profileRes.success && profileRes.profile && profileRes.profile.id) {
+            const pid = profileRes.profile.id;
+            setProfileIdForDaily(pid);
+            const dr = await getDailyRewardState(pid);
+            if (mounted && dr && dr.success) {
+              const hasProgress = Array.isArray(dr.claimedDays) && dr.claimedDays.some(Boolean);
+              if (dr.canClaim || hasProgress) {
+                setDailyState(dr);
+                setDailyVisible(true);
+              }
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      })();
+
+      return () => {
+        mounted = false;
+      };
+    }, [])
+  );
+
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchScoreboard();
@@ -886,6 +962,80 @@ const BetHomeScreen = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Modal
+        visible={dailyVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setDailyVisible(false)}
+      >
+        <View style={[styles.modalOverlay, { justifyContent: 'center', alignItems: 'center' }]}>
+          <View style={[styles.modalContent, { maxWidth: 640, backgroundColor: theme.background, borderColor: theme.border }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+              <Text style={{ color: theme.text, fontWeight: '700' }}>Daily Login Reward</Text>
+              <TouchableOpacity onPress={async () => {
+                try {
+                  if (profileIdForDaily) await dismissDailyReward(profileIdForDaily);
+                } catch (e) {}
+                setDailyVisible(false);
+              }}>
+                <Text style={{ color: colors.primary, fontWeight: '700' }}>Close</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ padding: 18, alignItems: 'center' }}>
+              <Text style={{ color: theme.text, fontSize: 16, marginBottom: 8 }}>Claim your daily credits</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'center', marginVertical: 12, flexWrap: 'wrap' }}>
+                { (dailyState && dailyState.claimedDays ? dailyState.claimedDays : new Array(7).fill(false)).map((claimed, i) => (
+                  <View key={i} style={{ width: 72, height: 72, margin: 8, borderRadius: 12, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: theme.text, fontWeight: '700', fontSize: 18 }}>{i+1}</Text>
+                    <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 6 }}>{i < 6 ? "$250.00" : "$1000.00"}</Text>
+                    {claimed ? (
+                      <View style={{ position: 'absolute', right: -6, top: -6, backgroundColor: '#28a745', width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="checkmark" size={16} color="#fff" />
+                      </View>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+
+              <Text style={{ color: theme.textSecondary, textAlign: 'center', marginBottom: 18 }}>
+                {dailyCountdownLabel || (dailyState && dailyState.availableDay ? '' : 'No reward available yet')}
+              </Text>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity
+                  disabled={!(dailyState && dailyState.canClaim) || dailyLoading}
+                  onPress={async () => {
+                    if (!profileIdForDaily) return;
+                    setDailyLoading(true);
+                    const res = await claimDailyReward(profileIdForDaily);
+                    setDailyLoading(false);
+                    if (res && res.success) {
+                      const dr = await getDailyRewardState(profileIdForDaily);
+                      setDailyState(dr);
+                      Alert.alert('Success', `You've received ${res.reward} credits.`);
+                    } else {
+                      Alert.alert('Unable to claim', res?.error || 'Claim failed');
+                    }
+                  }}
+                  style={[styles.dailyPrimaryButton, { marginRight: 12, opacity: (dailyState && dailyState.canClaim) ? 1 : 0.6 }]}
+                >
+                  {dailyLoading ? <ActivityIndicator color="#fff"/> : <Text style={styles.dailyPrimaryText}>{ (dailyState && dailyState.canClaim) ? 'Claim' : 'Unavailable' }</Text>}
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={async () => {
+                    try { if (profileIdForDaily) await dismissDailyReward(profileIdForDaily); } catch(e){}
+                    setDailyVisible(false);
+                  }}
+                  style={styles.dailySecondaryButton}
+                > 
+                  <Text style={styles.dailySecondaryText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <ScrollView
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -1296,6 +1446,49 @@ const styles = StyleSheet.create({
   noGamesSubtext: {
     fontSize: 14,
     marginTop: 8,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 720,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+    paddingBottom: 16,
+    backgroundColor: '#111',
+  },
+  dailyPrimaryButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    backgroundColor: '#c62828',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dailyPrimaryText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  dailySecondaryButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dailySecondaryText: {
+    color: '#c62828',
+    fontWeight: '700',
   },
 
   bottomPadding: {

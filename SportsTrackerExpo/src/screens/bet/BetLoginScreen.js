@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
@@ -20,6 +21,7 @@ import {
   registerForPushNotifications,
   API_URL,
 } from "../../services/notificationService";
+// daily reward handled in BetHomeScreen
 import { useFocusEffect } from "@react-navigation/native";
 
 const BetLoginScreen = ({ navigation }) => {
@@ -34,6 +36,7 @@ const BetLoginScreen = ({ navigation }) => {
 
   const CRED_KEY = "bet_credentials_v1";
   const oddsContext = useContext(OddsDisplayContext);
+  // daily reward UI is shown on the home screen after login
 
   const loadSavedCredentials = async () => {
     try {
@@ -592,6 +595,7 @@ const BetLoginScreen = ({ navigation }) => {
           </Text>
         </View>
       </View>
+      {/* daily reward modal moved to BetHomeScreen */}
     </KeyboardAvoidingView>
   );
 };

@@ -836,6 +836,8 @@ const BetBetsScreen = () => {
       {typeof pick.currentValue === "number" &&
         typeof pick.line === "number" &&
         !isNaN(pick.line) &&
+        // Only render progress bar when the game is not in pre-game state
+        pick.gameState !== "pre" &&
         renderProgressBar(pick)}
       {!isInParlay && (
         <View style={styles.pickFooter}>
@@ -888,6 +890,8 @@ const BetBetsScreen = () => {
       {typeof pick.currentValue === "number" &&
         typeof pick.line === "number" &&
         !isNaN(pick.line) &&
+        // Only render progress bar when the game is not in pre-game state
+        pick.gameState !== "pre" &&
         (function () {
           try {
             if (typeof __DEV__ !== "undefined" && __DEV__ && pick.isTotal) {
@@ -1281,6 +1285,8 @@ const BetBetsScreen = () => {
           eventData?.status?.shortDetail ||
           eventData?.status?.state ||
           "Scheduled";
+        // expose normalized state (pre/in/post) for conditional rendering
+        pick.gameState = eventData?.status?.state || null;
         pick.scores = eventData?.status?.game
           ? {
               team1: eventData.status.game.awayScore,
@@ -1295,6 +1301,7 @@ const BetBetsScreen = () => {
           liveGame?.status?.type?.shortDetail ||
           bet.gameInfoTime ||
           "Scheduled";
+        pick.gameState = liveGame?.status?.type?.state || null;
       }
 
       // Player props
@@ -2519,6 +2526,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   progressValue: {
+    marginTop: 5,
     fontSize: 12,
     fontWeight: "600",
   },

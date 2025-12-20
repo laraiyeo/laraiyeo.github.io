@@ -481,7 +481,9 @@ async function manualSettleBetslip(betslipId, result) {
         .limit(1);
       const profile = (profRows && profRows[0]) || null;
       const currentCredits = Number(profile?.credits || 0);
-      const newCredits = currentCredits + payout;
+      let newCredits = currentCredits + payout;
+      if (!Number.isFinite(newCredits)) newCredits = 0;
+      newCredits = Number((Math.round((newCredits + Number.EPSILON) * 100) / 100).toFixed(2));
       await supabaseAdmin
         .from("profiles")
         .update({ credits: newCredits })
@@ -592,6 +594,50 @@ app.post("/api/betslip", async (req, res) => {
     );
     if (e.response) return res.status(e.response.status).send(e.response.data);
     return res.status(500).json({ error: "forward failed" });
+  }
+});
+
+// Endpoint: claim daily reward (server-side, uses service-role client)
+app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const { amount, reason } = req.body || {};
+    const change = Number(amount || 0);
+    if (!change || isNaN(change))
+      return res.status(400).json({ message: "Invalid change amount" });
+
+    // Read current credits using service-role client (bypass RLS)
+    const { data: profileRow, error: selectErr } = await supabaseAdmin
+      .from("profiles")
+      .select("credits")
+      .eq("id", userId)
+      .maybeSingle();
+    if (selectErr) throw selectErr;
+
+    const currentCredits = Number(profileRow?.credits || 0);
+    const newCredits = Math.round((currentCredits + change) * 100) / 100;
+
+    // Update profile credits (service role — atomicity caveat: sequential update)
+    const { data: updatedProfile, error: updateErr } = await supabaseAdmin
+      .from("profiles")
+      .update({ credits: newCredits })
+      .eq("id", userId)
+      .select("id, credits")
+      .maybeSingle();
+    if (updateErr) throw updateErr;
+
+    // Insert ledger row for audit
+    const { error: ledgerErr } = await supabaseAdmin
+      .from("credit_ledger")
+      .insert({ user_id: userId, betslip_id: null, change: change, reason: reason || "Daily login" });
+    if (ledgerErr) throw ledgerErr;
+
+    return res.json({ user: updatedProfile });
+  } catch (e) {
+    console.error("/api/daily/claim error", e?.message || e);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -3707,7 +3753,10 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
     if (parseFloat(user.credits) < totalStake)
       return res.status(400).json({ message: "Insufficient credits" });
-    const newCredits = parseFloat(user.credits) - totalStake;
+    let newCredits = parseFloat(user.credits) - totalStake;
+    if (!Number.isFinite(newCredits)) newCredits = 0;
+    // round to 2 decimals for storage
+    newCredits = Number((Math.round((newCredits + Number.EPSILON) * 100) / 100).toFixed(2));
     const { error: updErr } = await supabaseAdmin
       .from("users")
       .update({ credits: newCredits })

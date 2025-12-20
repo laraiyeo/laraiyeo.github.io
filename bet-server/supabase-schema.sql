@@ -527,6 +527,32 @@ END$$;
 -- Credit ledger: restrict read/insert to service role only; create a permissive policy only if running admin tasks
 -- By default, do NOT create a policy allowing non-admin clients to modify ledger.
 
+-- OPTIONAL: create policies to allow users to insert/read their own ledger rows
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname = 'Users can read own credit ledger' AND tablename = 'credit_ledger'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Users can read own credit ledger"
+      ON public.credit_ledger
+      FOR SELECT
+      USING (auth.uid() = user_id);
+    $sql$;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname = 'Users can insert own credit ledger' AND tablename = 'credit_ledger'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Users can insert own credit ledger"
+      ON public.credit_ledger
+      FOR INSERT
+      WITH CHECK (auth.uid() = user_id);
+    $sql$;
+  END IF;
+END$$;
+
 -- 7) Verification queries (optional)
 -- SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public';
 

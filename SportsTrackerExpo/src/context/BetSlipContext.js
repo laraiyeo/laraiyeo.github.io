@@ -348,7 +348,7 @@ export const BetSlipProvider = ({ children }) => {
         }
         Alert.alert(
           "Bet placed",
-          `Bet placed. Credits remaining: ${res.creditsRemaining}`
+          `Bet placed. Credits remaining: ${(res.creditsRemaining).toFixed(2)}`
         );
       } else if (res && res.success && res.serverCalled && res.serverFallback) {
         // Server was contacted but rejected/errored; we fell back to local DB insert

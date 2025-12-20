@@ -12,8 +12,14 @@ import {
 import { useTheme } from "../../context/ThemeContext";
 import { supabase } from "../../config/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Ionicons } from "@expo/vector-icons";
 import OddsDisplayContext from "../../context/OddsDisplayContext";
-import { getUserProfile } from "../../services/betService";
+import {
+  getUserProfile,
+  getDailyRewardState,
+  claimDailyReward,
+  resetDailyRewardForTesting,
+} from "../../services/betService";
 
 const BetSettingsScreen = ({ navigation }) => {
   const { theme, colors } = useTheme();
@@ -161,7 +167,13 @@ const BetSettingsScreen = ({ navigation }) => {
   // Info modal / carousel
   const [infoVisible, setInfoVisible] = useState(false);
   const [infoPage, setInfoPage] = useState(0);
-  const width = Dimensions.get("window").width - 64; // modal padding
+  const [dailyVisible, setDailyVisible] = useState(false);
+  const [dailyLoading, setDailyLoading] = useState(false);
+  const [dailyState, setDailyState] = useState(null);
+  const [dailyCountdownLabel, setDailyCountdownLabel] = useState("");
+  const screenWidth = Dimensions.get("window").width;
+  const width = screenWidth - 64; // modal padding
+  const sidePadding = Math.max(12, Math.round((screenWidth - width) / 2));
 
   const infoPages = [
     {
@@ -174,7 +186,7 @@ const BetSettingsScreen = ({ navigation }) => {
     },
     {
       title: "Credits System",
-      body: "All wagers use app credits. Credits have no real-world value. They are used only for gameplay only and cannot be bought, sold, or redeemed for cash.",
+      body: "All wagers use app credits (C). Credits have no real-world value. They are used only for gameplay only and cannot be bought, sold, or redeemed for cash.",
     },
     {
       title: "How To Read Odds",
@@ -187,6 +199,137 @@ const BetSettingsScreen = ({ navigation }) => {
     const idx = Math.round(px / (width + 16));
     if (idx !== infoPage) setInfoPage(idx);
   }
+
+  // Claim daily reward (used by modal). After claim we refresh profile credits.
+  const handleClaimDaily = async () => {
+    try {
+      setDailyLoading(true);
+      const profileId = profileMeta?.id || (await getUserProfile())?.profile?.id;
+      if (!profileId) return;
+      console.log('handleClaimDaily: attempting claim', { profileId });
+      const claimRes = await claimDailyReward(profileId);
+      console.log('handleClaimDaily: claimDailyReward result', claimRes);
+      // refresh profile credits
+      const refreshed = await getUserProfile();
+      console.log('handleClaimDaily: refreshed profile', refreshed);
+      if (refreshed && refreshed.success && refreshed.profile) {
+        setProfileMeta((prev) => {
+          if (!prev) return refreshed.profile;
+          return { ...prev, credits: refreshed.profile.credits };
+        });
+        setProfile((prev) => {
+          if (!prev) return prev;
+          return { ...prev, credits: refreshed.profile.credits };
+        });
+      }
+      // refresh daily state and compute derived `canClaim` flag
+      const state = await getDailyRewardState(profileId);
+      console.log('handleClaimDaily: new daily state from server', state);
+      try {
+          let canClaim;
+          if (state && typeof state.canClaim !== 'undefined') {
+            canClaim = state.canClaim;
+          } else {
+            const claimedArr = state && state.claimedDays ? state.claimedDays : [];
+            const avail = state && state.availableDay ? state.availableDay : null;
+            canClaim = avail && !(claimedArr[avail - 1]);
+            console.log('handleClaimDaily: computed canClaim =', canClaim, 'claimedArr=', claimedArr, 'availableDay=', avail);
+          }
+          setDailyState({ ...(state || {}), canClaim });
+      } catch (e) {
+        setDailyState(state);
+      }
+        if (claimRes && claimRes.success) {
+          setDailyVisible(false);
+        } else {
+          console.warn('handleClaimDaily: claim did not succeed, keeping modal open', claimRes && claimRes.error);
+        }
+    } catch (e) {
+      console.warn("BetSettings: claim failed", e);
+    } finally {
+      setDailyLoading(false);
+    }
+  };
+
+  // Open daily modal (reused by Account button and new Settings section)
+  const openDailyModal = async () => {
+    try {
+      setDailyLoading(true);
+      const profileId = profileMeta?.id || (await getUserProfile())?.profile?.id;
+      if (!profileId) {
+        setDailyState(null);
+        setDailyVisible(true);
+        return;
+      }
+      const state = await getDailyRewardState(profileId);
+      console.log('openDailyModal: daily state from server', state);
+      try {
+        const serverCan = state && typeof state.canClaim !== 'undefined' ? state.canClaim : null;
+        const claimedArr = state && state.claimedDays ? state.claimedDays : [];
+        const avail = state && state.availableDay ? state.availableDay : null;
+        const computedCan = avail && !(claimedArr[avail - 1]);
+        // parse nextAvailableAt if present
+        let nextDiff = null;
+        if (state && state.nextAvailableAt) {
+          try {
+            const nextDate = new Date(state.nextAvailableAt);
+            nextDiff = Math.max(0, Math.round((nextDate.getTime() - Date.now()) / 1000));
+          } catch (e) {
+            nextDiff = null;
+          }
+        }
+        console.log('openDailyModal: serverCan=', serverCan, 'computedCan=', computedCan, 'claimedArr=', claimedArr, 'availableDay=', avail, 'nextAvailableInSec=', nextDiff);
+        const canClaim = serverCan !== null ? serverCan : computedCan;
+        setDailyState({ ...(state || {}), canClaim });
+      } catch (e) {
+        setDailyState(state);
+      }
+      setDailyVisible(true);
+    } catch (e) {
+      console.warn("Failed to open daily reward", e);
+      setDailyState(null);
+      setDailyVisible(true);
+    } finally {
+      setDailyLoading(false);
+    }
+  };
+
+  // Update countdown label while daily modal is visible
+  useEffect(() => {
+    let timer = null;
+    function computeLabel(state) {
+      try {
+        if (!state) return 'No reward available yet';
+        if (state.canClaim) return 'Available';
+        const next = state.nextAvailableAt ? new Date(state.nextAvailableAt) : null;
+        if (next) {
+          const diff = next.getTime() - Date.now();
+          if (diff <= 0) return 'Available';
+          const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+          const hours = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+          const mins = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
+          const secs = Math.floor((diff % (60 * 1000)) / 1000);
+          return `Available in ${hours}H ${mins}M ${secs}S`;
+        }
+        return state.availableDay ? `Day ${state.availableDay} available` : 'No reward available yet';
+      } catch (e) {
+        return state && state.availableDay ? `Day ${state.availableDay} available` : 'No reward available yet';
+      }
+    }
+
+    if (dailyVisible) {
+      setDailyCountdownLabel(computeLabel(dailyState));
+      timer = setInterval(() => {
+        setDailyCountdownLabel(computeLabel(dailyState));
+      }, 1000);
+    } else {
+      setDailyCountdownLabel('');
+    }
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [dailyVisible, dailyState]);
 
   if (loading) {
     return (
@@ -233,7 +376,6 @@ const BetSettingsScreen = ({ navigation }) => {
                       color: "#fff",
                       fontWeight: "700",
                       fontSize: 36,
-                      marginTop: -5,
                     }}
                   >
                     {profile && profile.username && profile.username[0]
@@ -280,11 +422,41 @@ const BetSettingsScreen = ({ navigation }) => {
                 </Text>
                 <Text style={{ color: theme.textSecondary, marginTop: 6 }}>
                   {profileMeta && profileMeta.credits != null
-                    ? `${profileMeta.credits} credits`
+                    ? `${(profileMeta.credits).toFixed(2)} Credits`
                     : ""}
                 </Text>
+                {/* Daily button moved to its own section below */}
               </View>
             </View>
+          </View>
+        </View>
+
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
+        >
+          <View
+            style={[styles.sectionHeader, { borderBottomColor: theme.border }]}
+          >
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Daily Login Reward</Text>
+          </View>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingLabel, { color: theme.text }]}>Daily Login Reward</Text>
+              <Text style={[styles.settingDescription, { color: theme.textSecondary }]}>Claim your daily credits reward</Text>
+            </View>
+            <TouchableOpacity
+              onPress={openDailyModal}
+              style={[
+                styles.openSettingsButton,
+                { backgroundColor: colors.primary, minWidth: 100 },
+              ]}
+            >
+              <Text style={styles.openSettingsButtonText}>{dailyLoading ? 'Loading' : 'Open'}</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -423,33 +595,6 @@ const BetSettingsScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         </View>
-
-        <View
-          style={[
-            styles.section,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          <View
-            style={[styles.sectionHeader, { borderBottomColor: theme.border }]}
-          >
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>
-              Account Actions
-            </Text>
-          </View>
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo} />
-            <TouchableOpacity
-              onPress={handleSignOut}
-              style={[
-                styles.openSettingsButton,
-                { backgroundColor: colors.primary, minWidth: 140 },
-              ]}
-            >
-              <Text style={styles.openSettingsButtonText}>Sign out</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
       </View>
 
       <Modal
@@ -487,54 +632,130 @@ const BetSettingsScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onScroll={onInfoScroll}
-              scrollEventThrottle={16}
-              contentContainerStyle={{ paddingHorizontal: 24 }}
-            >
-              {infoPages.map((p, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.carouselPage,
-                    { width: width, marginRight: 16 },
-                  ]}
+            <View style={{ paddingHorizontal: sidePadding, alignItems: "center", justifyContent: "center" }}>
+              <View style={[styles.carouselPage, { width: width }]}> 
+                <Text
+                  style={{
+                    color: theme.text,
+                    fontWeight: "700",
+                    fontSize: 16,
+                    marginBottom: 8,
+                    textAlign: "center",
+                  }}
                 >
-                  <Text
-                    style={{
-                      color: theme.text,
-                      fontWeight: "700",
-                      fontSize: 16,
-                      marginBottom: 8,
-                      textAlign: "center",
-                    }}
-                  >
-                    {p.title}
-                  </Text>
-                  <Text
-                    style={{
-                      color: theme.textSecondary,
-                      fontSize: 13,
-                      lineHeight: 20,
-                      textAlign: "center",
-                    }}
-                  >
-                    {p.body}
-                  </Text>
-                </View>
-              ))}
-            </ScrollView>
+                  {infoPages[infoPage].title}
+                </Text>
+                <Text
+                  style={{
+                    color: theme.textSecondary,
+                    fontSize: 13,
+                    lineHeight: 20,
+                    textAlign: "center",
+                  }}
+                >
+                  {infoPages[infoPage].body}
+                </Text>
+              </View>
 
-            <View style={styles.dotsContainer}>
-              {infoPages.map((_, i) => (
-                <View
-                  key={i}
-                  style={[styles.dot, infoPage === i ? styles.dotActive : null]}
-                />
-              ))}
+              <View style={[styles.dotsContainer, { alignItems: 'center' }]}> 
+                <TouchableOpacity
+                  onPress={() => setInfoPage((p) => Math.max(0, p - 1))}
+                  disabled={infoPage === 0}
+                  style={{ paddingHorizontal: 12 }}
+                >
+                  <Text style={{ color: infoPage === 0 ? theme.textSecondary : colors.primary }}>{'Prev'}</Text>
+                </TouchableOpacity>
+
+                {infoPages.map((_, i) => (
+                  <TouchableOpacity key={i} onPress={() => setInfoPage(i)} style={{ paddingHorizontal: 6 }}>
+                    <View style={[styles.dot, infoPage === i ? styles.dotActive : null]} />
+                  </TouchableOpacity>
+                ))}
+
+                <TouchableOpacity
+                  onPress={() => {
+                    if (infoPage === infoPages.length - 1) return setInfoVisible(false);
+                    setInfoPage((p) => Math.min(infoPages.length - 1, p + 1));
+                  }}
+                  style={{ paddingHorizontal: 12 }}
+                >
+                  <Text style={{ color: infoPage === infoPages.length - 1 ? colors.primary : colors.primary }}>{infoPage === infoPages.length - 1 ? 'Done' : 'Next'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        visible={dailyVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setDailyVisible(false)}
+      >
+        <View style={[styles.modalOverlay, { justifyContent: 'center', alignItems: 'center' }]}>
+          <View style={[styles.modalContent, { maxWidth: 640, backgroundColor: theme.background, borderColor: theme.border }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+              <Text style={{ color: theme.text, fontWeight: '700' }}>Daily Login Reward</Text>
+              <TouchableOpacity onPress={() => setDailyVisible(false)}>
+                <Text style={{ color: colors.primary, fontWeight: '700' }}>Close</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ padding: 18, alignItems: 'center' }}>
+              <Text style={{ color: theme.text, fontSize: 16, marginBottom: 8 }}>Claim your daily credits</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'center', marginVertical: 12, flexWrap: 'wrap' }}>
+                { (dailyState && dailyState.claimedDays ? dailyState.claimedDays : new Array(7).fill(false)).map((claimed, i) => (
+                  <View key={i} style={{ width: 72, height: 72, margin: 8, borderRadius: 12, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: theme.text, fontWeight: '700', fontSize: 18 }}>{i+1}</Text>
+                    <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 6 }}>{i < 6 ? "$250.00" : "$1000.00"}</Text>
+                    {claimed ? (
+                      <View style={{ position: 'absolute', right: -6, top: -6, backgroundColor: '#28a745', width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="checkmark" size={16} color="#fff" />
+                      </View>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+
+              <Text style={{ color: theme.textSecondary, textAlign: 'center', marginBottom: 18 }}>
+                {dailyCountdownLabel || (dailyState && dailyState.availableDay ? '' : 'No reward available yet')}
+              </Text>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity
+                  disabled={!(dailyState && dailyState.canClaim) || dailyLoading}
+                  onPress={handleClaimDaily}
+                  style={[styles.dailyPrimaryButton, { marginRight: 12, opacity: (dailyState && dailyState.canClaim) ? 1 : 0.6 }]}
+                >
+                  {dailyLoading ? <ActivityIndicator color="#fff"/> : <Text style={styles.dailyPrimaryText}>{ (dailyState && dailyState.canClaim) ? 'Claim' : 'Unavailable' }</Text>}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={async () => {
+                    try {
+                      setDailyLoading(true);
+                      const profileId = profileMeta?.id || (await getUserProfile())?.profile?.id;
+                      if (!profileId) return;
+                      console.log('resetNextAvailable: resetting daily state for', profileId);
+                      const res = await resetDailyRewardForTesting(profileId);
+                      console.log('resetNextAvailable: result', res);
+                      const state = await getDailyRewardState(profileId);
+                      setDailyState(state);
+                    } catch (e) {
+                      console.warn('resetNextAvailable failed', e);
+                    } finally {
+                      setDailyLoading(false);
+                    }
+                  }}
+                  style={[styles.dailySecondaryButton, { marginRight: 12 }]}
+                >
+                  <Text style={styles.dailySecondaryText}>Reset</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => setDailyVisible(false)} style={styles.dailySecondaryButton}>
+                  <Text style={styles.dailySecondaryText}>Close</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -682,6 +903,32 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     backgroundColor: "#fff",
+  },
+  dailyPrimaryButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    backgroundColor: '#c62828',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dailyPrimaryText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  dailySecondaryButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dailySecondaryText: {
+    color: '#c62828',
+    fontWeight: '700',
   },
 });
 
