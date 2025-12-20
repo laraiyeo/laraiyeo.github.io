@@ -30,23 +30,40 @@ const MS_IN_24H = 24 * 60 * 60 * 1000;
 async function clearBetslipNow(betslipId) {
   try {
     console.log(`[betslip-cleaner] clearing betslip ${betslipId} now`);
-    const { error } = await supabaseAdmin.from("betslips").delete().eq("id", betslipId);
+    const { error } = await supabaseAdmin
+      .from("betslips")
+      .delete()
+      .eq("id", betslipId);
     if (error) {
-      console.error("[betslip-cleaner] failed to delete betslip", betslipId, error);
+      console.error(
+        "[betslip-cleaner] failed to delete betslip",
+        betslipId,
+        error
+      );
     } else {
       console.log(`[betslip-cleaner] deleted betslip ${betslipId}`);
     }
   } catch (e) {
-    console.error("[betslip-cleaner] error clearing betslip", betslipId, e?.message || e);
+    console.error(
+      "[betslip-cleaner] error clearing betslip",
+      betslipId,
+      e?.message || e
+    );
   } finally {
-    try { if (betslipCleanupTimers[betslipId]) { clearTimeout(betslipCleanupTimers[betslipId]); delete betslipCleanupTimers[betslipId]; } } catch(e){}
+    try {
+      if (betslipCleanupTimers[betslipId]) {
+        clearTimeout(betslipCleanupTimers[betslipId]);
+        delete betslipCleanupTimers[betslipId];
+      }
+    } catch (e) {}
   }
 }
 
 function scheduleClearBetslip(betslip) {
   try {
     const id = betslip.id || betslip; // accept either id or object
-    const createdAt = betslip.created_at || betslip.createdAt || betslip.created || null;
+    const createdAt =
+      betslip.created_at || betslip.createdAt || betslip.created || null;
     let delay = MS_IN_24H;
     if (createdAt) {
       const createdTs = new Date(createdAt).getTime();
@@ -67,7 +84,11 @@ function scheduleClearBetslip(betslip) {
 
     const handle = setTimeout(() => clearBetslipNow(id), delay);
     betslipCleanupTimers[id] = handle;
-    console.log(`[betslip-cleaner] scheduled clear for ${id} in ${Math.round(delay/1000)}s`);
+    console.log(
+      `[betslip-cleaner] scheduled clear for ${id} in ${Math.round(
+        delay / 1000
+      )}s`
+    );
   } catch (e) {
     console.error("[betslip-cleaner] schedule error", e?.message || e);
   }
@@ -94,7 +115,10 @@ async function initBetslipCleaner() {
   setInterval(async () => {
     try {
       const threshold = new Date(Date.now() - MS_IN_24H).toISOString();
-      const { error } = await supabaseAdmin.from("betslips").delete().lte("created_at", threshold);
+      const { error } = await supabaseAdmin
+        .from("betslips")
+        .delete()
+        .lte("created_at", threshold);
       if (error) console.error("[betslip-cleaner] sweep delete error", error);
       else console.log("[betslip-cleaner] sweep completed");
     } catch (e) {
