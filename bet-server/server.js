@@ -509,15 +509,15 @@ async function manualSettleBetslip(betslipId, result) {
       });
     }
 
-      // Update betslip status to the final result (won/lost/push/void)
-      await supabaseAdmin
-        .from("betslips")
-        .update({
-          status: result,
-          payout: payout,
-          settled_at: new Date().toISOString(),
-        })
-        .eq("id", betslipId);
+    // Update betslip status to the final result (won/lost/push/void)
+    await supabaseAdmin
+      .from("betslips")
+      .update({
+        status: result,
+        payout: payout,
+        settled_at: new Date().toISOString(),
+      })
+      .eq("id", betslipId);
 
     console.log(
       `[manualSettleBetslip] settled ${betslipId} -> ${result} payout=${payout}`
