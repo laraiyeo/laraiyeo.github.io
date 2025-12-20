@@ -228,7 +228,7 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
                 bodyText = `Unfortunately, your bet has lost.`;
               }
             } else {
-              bodyText = `Your bet status is now ${bs.status}`;
+              bodyText = `Your ${legsCount} leg bet has successfully been updated.`;
             }
           }
         }
@@ -3333,7 +3333,8 @@ function startWatcherInline(betslipId) {
       }
 
       // New finalization rule: if any completed pick exists and any completed pick is not won -> mark whole bet lost
-      if (anyCompleted && anyCompletedNotWon) {
+      // NOTE: avoid finalizing on the very first tick immediately after creation
+      if (!isFirstTick && anyCompleted && anyCompletedNotWon) {
         if (fresh.status !== "lost") {
           try {
             // Use DB RPC to atomically settle and record ledger/history
@@ -3371,7 +3372,7 @@ function startWatcherInline(betslipId) {
         return;
       }
 
-      if (allFinal) {
+      if (!isFirstTick && allFinal) {
         const newStatus = anyLost ? "lost" : "won";
         if (fresh.status !== newStatus) {
           try {

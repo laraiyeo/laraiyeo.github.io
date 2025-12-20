@@ -109,6 +109,40 @@ const BetSettingsScreen = ({ navigation }) => {
     };
   }, []);
 
+  // On returning to this screen, silently refresh profile link and credits
+  useEffect(() => {
+    const onFocus = navigation.addListener("focus", async () => {
+      try {
+        const res = await getUserProfile();
+        if (res && res.success && res.profile) {
+          // store profile id for later use
+          try {
+            if (res.profile.id) {
+              await AsyncStorage.setItem("@profile_id", res.profile.id);
+            }
+          } catch (e) {
+            // ignore storage errors
+          }
+
+          // Only update credits shown silently
+          setProfileMeta((prev) => {
+            if (!prev) return res.profile;
+            return { ...prev, credits: res.profile.credits };
+          });
+          setProfile((prev) => {
+            if (!prev) return prev;
+            return { ...prev, credits: res.profile.credits };
+          });
+        }
+      } catch (e) {
+        // silent fail
+        console.warn("BetSettings: silent profile refresh failed", e?.message || e);
+      }
+    });
+
+    return onFocus;
+  }, [navigation]);
+
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();

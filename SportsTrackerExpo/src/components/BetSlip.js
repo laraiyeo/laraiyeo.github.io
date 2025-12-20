@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -42,6 +42,26 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
 
   const [betAmount, setBetAmount] = useState("");
   const [showNumpad, setShowNumpad] = useState(false);
+  const [credits, setCredits] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchProfile = async () => {
+      try {
+        const resp = await getUserProfile();
+        if (!mounted) return;
+        if (resp && resp.success && resp.profile) {
+          setCredits(Number(resp.profile.credits || 0));
+        }
+      } catch (e) {
+        console.warn("Failed to fetch profile for credits display:", e?.message || e);
+      }
+    };
+    if (isSlipOpen) fetchProfile();
+    return () => {
+      mounted = false;
+    };
+  }, [isSlipOpen]);
 
   const openSlip = () => {
     setIsSlipOpen(true);
@@ -474,17 +494,23 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             <View
               style={[styles.tabsContainer, { backgroundColor: theme.surface }]}
             >
-              <TouchableOpacity
-                style={[
-                  styles.tab,
-                  styles.activeTab,
-                  { borderBottomColor: colors.primary },
-                ]}
-              >
-                <Text style={[styles.tabText, { color: colors.primary }]}>
-                  {bets.length === 1 ? "STRAIGHT" : "PARLAY"}
-                </Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <TouchableOpacity
+                  style={[
+                    styles.tab,
+                    styles.activeTab,
+                    { borderBottomColor: colors.primary },
+                  ]}
+                >
+                  <Text style={[styles.tabText, { color: colors.primary }]}> 
+                    {bets.length === 1 ? "STRAIGHT" : "PARLAY"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.creditsContainer}>
+                <Text style={[styles.creditsText, { color: theme.text }]}>${Number(credits || 0).toFixed(2)}</Text>
+              </View>
             </View>
 
             {/* Bets List */}
@@ -1122,6 +1148,16 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 14,
+    fontWeight: "700",
+  },
+  creditsContainer: {
+    marginLeft: "auto",
+    justifyContent: "center",
+    alignItems: "flex-end",
+    paddingHorizontal: 8,
+  },
+  creditsText: {
+    fontSize: 16,
     fontWeight: "700",
   },
   betsList: {
