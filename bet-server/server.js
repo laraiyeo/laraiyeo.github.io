@@ -509,15 +509,15 @@ async function manualSettleBetslip(betslipId, result) {
       });
     }
 
-    await supabaseAdmin
-      .from("betslips")
-      .update({
-        status: "settled",
-        result: result,
-        payout: payout,
-        settled_at: new Date().toISOString(),
-      })
-      .eq("id", betslipId);
+      // Update betslip status to the final result (won/lost/push/void)
+      await supabaseAdmin
+        .from("betslips")
+        .update({
+          status: result,
+          payout: payout,
+          settled_at: new Date().toISOString(),
+        })
+        .eq("id", betslipId);
 
     console.log(
       `[manualSettleBetslip] settled ${betslipId} -> ${result} payout=${payout}`
@@ -3328,7 +3328,10 @@ function startWatcherInline(betslipId) {
           lastStates[pickKey] = newState;
         }
 
-        if (newState === "in progress") allFinal = false;
+        // Consider final states only: won, lost, push, void
+        if (!["won", "lost", "push", "void"].includes(newState)) {
+          allFinal = false;
+        }
         if (newState === "lost") anyLost = true;
       }
 
