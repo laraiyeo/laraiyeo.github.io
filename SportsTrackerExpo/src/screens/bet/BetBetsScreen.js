@@ -20,7 +20,7 @@ import { registerForPushNotifications } from "../../services/notificationService
 
 const BetBetsScreen = () => {
   const { colors, theme, isDarkMode } = useTheme();
-  const { submittedBets } = useBetSlip();
+  const { submittedBets, loadSubmittedBets } = useBetSlip();
   const oddsContext = useContext(OddsDisplayContext);
   const oddsDisplay = oddsContext ? oddsContext.oddsDisplay : "american";
   const [selectedTab, setSelectedTab] = useState("open"); // open, settled
@@ -28,6 +28,8 @@ const BetBetsScreen = () => {
   const [scoreboardData, setScoreboardData] = useState([]);
   // Live-updated betslip fetch map: ticketId -> latest fetched betslip data
   const [betslipLiveMap, setBetslipLiveMap] = useState({});
+  // Authoritative bets fetched from server when screen focused
+  const [serverBets, setServerBets] = useState(null);
   // Timers per ticket (using setTimeout so interval can be dynamic)
   const pollsRef = useRef({});
   const isFocused = useIsFocused();
@@ -141,7 +143,43 @@ const BetBetsScreen = () => {
   };
 
   // Filter bets by tab
-  const filteredBets = submittedBets.filter((bet) => {
+  // Prefer server-provided bets when available; otherwise use submittedBets
+  // but filter out purely-local tickets that haven't been persisted to Supabase.
+  const submittedFromSupabase = Array.isArray(submittedBets)
+    ? submittedBets.filter((b) => {
+        try {
+          // Persisted rows loaded from Supabase use an id like `ticket-<created_at>`
+          // or include a `remoteId`/`betslipData` returned by the server/RPC.
+          const idStr = String(b.id || "");
+          if (idStr.startsWith("ticket-")) return true;
+          if (b.remoteId) return true;
+          if (b.betslipData) return true;
+          // Also include rows that have an explicit created_at or createdAt field
+          if (b.created_at || b.createdAt) return true;
+          return false;
+        } catch (e) {
+          return false;
+        }
+      })
+    : [];
+
+  const displayedBets =
+    serverBets && Array.isArray(serverBets) && serverBets.length > 0
+      ? serverBets
+      : submittedFromSupabase;
+
+  // Dev log: show counts so it's clear whether UI is using Supabase rows or local-only slips
+  if (typeof __DEV__ !== "undefined" && __DEV__) {
+    try {
+      console.log(
+        `[BetBetsScreen] displayedBets count=${
+          (displayedBets && displayedBets.length) || 0
+        } submittedBets total=${(submittedBets && submittedBets.length) || 0} submittedFromSupabase=${submittedFromSupabase.length}`
+      );
+    } catch (e) {}
+  }
+
+  const filteredBets = displayedBets.filter((bet) => {
     if (selectedTab === "open") {
       return bet.status === "open";
     } else if (selectedTab === "settled") {
@@ -224,17 +262,102 @@ const BetBetsScreen = () => {
   // This avoids fetching on every toggle while still getting fresh payloads when user opens the screen.
   useEffect(() => {
     if (!isFocused) return;
-
     let mounted = true;
     const fetchAll = async () => {
       try {
-        const tasks = submittedBets.map(async (ticket) => {
+        // Refresh persisted Supabase rows so submittedBets reflects current DB state
+        try {
+          if (typeof loadSubmittedBets === "function") await loadSubmittedBets();
+        } catch (e) {
+          console.warn("[BetBetsScreen] failed to refresh submitted bets:", e?.message || e);
+        }
+        // First, attempt to fetch authoritative betslips from server
+        try {
+          const token = await AsyncStorage.getItem("@bet_token");
+          const base = process.env.PUBLIC_API_URL || "https://laraiyeogithubio-production-f5af.up.railway.app";
+          // Only attempt server-side /api/betslips if a full absolute base URL is configured
+          if (token && base && base.length > 0) {
+            const url = base.replace(/\/$/, "") + "/api/betslips";
+            try {
+              const resp = await fetch(url, {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              if (resp.ok) {
+                const json = await resp.json();
+                const authoritative = json.betslips || json.bets || json || [];
+                if (mounted) setServerBets(authoritative);
+                // use authoritative locally for this run
+                var authoritativeLocal = authoritative;
+                console.log(`[BetBetsScreen] fetched authoritative betslips: ${JSON.stringify(json)}`);
+              } else {
+                console.warn("[BetBetsScreen] failed to fetch server betslips", resp.status);
+              }
+            } catch (innerErr) {
+              console.warn("[BetBetsScreen] server bets fetch error", innerErr);
+            }
+          } else {
+            // No PUBLIC_API_URL configured in RN environment — skip server fetch to avoid network errors
+            if (typeof __DEV__ !== "undefined" && __DEV__) {
+              console.log("[BetBetsScreen] skipping server /api/betslips fetch — PUBLIC_API_URL not configured");
+            }
+          }
+        } catch (e) {
+          console.warn("[BetBetsScreen] server bets outer error", e);
+        }
+
+        // Decide which source of tickets to query for canonical payloads
+        const source = (typeof authoritativeLocal !== "undefined" && Array.isArray(authoritativeLocal) && authoritativeLocal.length > 0)
+          ? authoritativeLocal
+          : (serverBets && Array.isArray(serverBets) && serverBets.length > 0)
+          ? serverBets
+          : submittedBets;
+
+        // Log where the UI will source bets from when focused (helpful for debugging)
+        try {
+          if (typeof __DEV__ !== "undefined" && __DEV__) {
+            let sourceLabel = "submittedBets (Supabase)";
+            if (typeof authoritativeLocal !== "undefined" && Array.isArray(authoritativeLocal) && authoritativeLocal.length > 0) {
+              sourceLabel = `authoritativeLocal (bet-server) [${authoritativeLocal.length}]`;
+            } else if (serverBets && Array.isArray(serverBets) && serverBets.length > 0) {
+              sourceLabel = `serverBets (bet-server) [${serverBets.length}]`;
+            } else if (submittedBets && Array.isArray(submittedBets)) {
+              sourceLabel = `submittedBets (Supabase) [${submittedBets.length}]`;
+            }
+            console.log(`[BetBetsScreen] Focused: serving bets from -> ${sourceLabel}`);
+
+            // If we're using Supabase rows, log id, updated_at and status for each row
+            try {
+              if ((!authoritativeLocal || !Array.isArray(authoritativeLocal) || authoritativeLocal.length === 0) &&
+                  !(serverBets && Array.isArray(serverBets) && serverBets.length > 0) &&
+                  Array.isArray(submittedBets)) {
+                console.log(`[BetBetsScreen] Supabase-sourced bets (${submittedBets.length}) -- listing id, updated_at, status:`);
+                submittedBets.forEach((b) => {
+                  try {
+                    const id = b.id || b.bet_id || b.uuid || null;
+                    const updated = b.updated_at || b.updatedAt || b.updated || b.modified_at || b.modifiedAt || null;
+                    const status = b.status || b.state || null;
+                    console.log(`[BetBetsScreen] bet id=${id} updated_at=${updated} status=${status}`);
+                  } catch (inner) {
+                    // ignore per-row logging errors
+                  }
+                });
+              }
+            } catch (e2) {
+              // ignore
+            }
+          }
+        } catch (e) {
+          /* ignore logging errors */
+        }
+
+        const tasks = source.map(async (ticket) => {
           try {
             const storedUrl =
               ticket.betslipData?.betslip_url || ticket.betslip_url || (ticket.betslipData && ticket.betslipData.betslip_url) || null;
             const url = storedUrl || buildBetslipUrlFromTicket(ticket);
             if (!url) return null;
             const res = await fetch(url);
+            if (!res.ok) return null;
             const data = await res.json();
             return { id: ticket.id, data };
           } catch (e) {
@@ -380,8 +503,14 @@ const BetBetsScreen = () => {
       runOnceAndSchedule();
     };
 
-    // Start/stop polls for each submitted ticket
-    submittedBets.forEach((ticket) => {
+    // Start/stop polls for each ticket (prefer authoritative server bets when present)
+    const ticketsToUse =
+      serverBets && Array.isArray(serverBets) && serverBets.length > 0
+        ? serverBets
+        : submittedBets;
+
+    // Start/stop polls for each selected ticket
+    ticketsToUse.forEach((ticket) => {
       try {
         // Only poll for open tickets and when this screen is focused
         if (!isFocused) {
@@ -422,9 +551,9 @@ const BetBetsScreen = () => {
       }
     });
 
-    // Clear polls for tickets that no longer exist
+    // Clear polls for tickets that no longer exist in the active source
     Object.keys(pollsRef.current).forEach((tid) => {
-      if (!submittedBets.find((t) => t.id === tid)) clearPollForTicket(tid);
+      if (!ticketsToUse.find((t) => t.id === tid)) clearPollForTicket(tid);
     });
 
     return () => {
@@ -433,7 +562,7 @@ const BetBetsScreen = () => {
       Object.keys(pollsRef.current).forEach((tid) => clearPollForTicket(tid));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [submittedBets, scoreboardData]);
+  }, [serverBets, submittedBets, scoreboardData]);
 
   // Parse various gameInfo formats into a timestamp (ms).
   // Handles strings like "12/18 - 7:00 PM EST", "LAC @ OKC - 12/18 - 7:00 PM EST",

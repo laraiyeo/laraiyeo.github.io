@@ -449,6 +449,75 @@ async function sendBetResultNotification(betslipId) {
   }
 }
 
+// Manual fallback settlement when RPC is unavailable or errors.
+async function manualSettleBetslip(betslipId, result) {
+  try {
+    const { data: bsRows, error: bsErr } = await supabaseAdmin
+      .from("betslips")
+      .select("*")
+      .eq("id", betslipId)
+      .limit(1);
+    const fresh = (bsRows && bsRows[0]) || null;
+    if (!fresh) {
+      console.warn(`[manualSettleBetslip] betslip not found ${betslipId}`);
+      return;
+    }
+
+    let payout = 0;
+    if (result === "won") payout = Number(fresh.potential_payout || fresh.payout || 0);
+    else if (result === "push" || result === "void") payout = Number(fresh.total_stake || 0);
+    else payout = 0;
+    payout = Math.round((payout + Number.EPSILON) * 100) / 100;
+
+    // If positive payout, credit profile and record ledger/history
+    if (payout > 0) {
+      // Update profile credits atomically: read then update
+      const { data: profRows, error: profErr } = await supabaseAdmin
+        .from("profiles")
+        .select("credits")
+        .eq("id", fresh.user_id)
+        .limit(1);
+      const profile = (profRows && profRows[0]) || null;
+      const currentCredits = Number(profile?.credits || 0);
+      const newCredits = currentCredits + payout;
+      await supabaseAdmin
+        .from("profiles")
+        .update({ credits: newCredits })
+        .eq("id", fresh.user_id);
+
+      await supabaseAdmin.from("credit_ledger").insert({
+        user_id: fresh.user_id,
+        betslip_id: betslipId,
+        change: payout,
+        reason: "Bet won",
+      });
+
+      await supabaseAdmin.from("bet_history").insert({
+        user_id: fresh.user_id,
+        betslip_id: betslipId,
+        change_amount: payout,
+        reason: "Bet settled - payout",
+      });
+    } else {
+      await supabaseAdmin.from("bet_history").insert({
+        user_id: fresh.user_id,
+        betslip_id: betslipId,
+        change_amount: 0,
+        reason: "Bet settled - no payout",
+      });
+    }
+
+    await supabaseAdmin
+      .from("betslips")
+      .update({ status: "settled", result: result, payout: payout, settled_at: new Date().toISOString() })
+      .eq("id", betslipId);
+
+    console.log(`[manualSettleBetslip] settled ${betslipId} -> ${result} payout=${payout}`);
+  } catch (e) {
+    console.error(`[manualSettleBetslip] error settling ${betslipId}:`, e?.message || e);
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -2072,15 +2141,25 @@ app.get("/api/betslip", async (req, res) => {
 
         // Process spread bet
         if (req.query.spread) {
-          const spreadBet = req.query.spread;
+          // Accept spread formats like "DEN+1.5", "DEN 1.5", or "DEN-1.5".
+          // Express may decode '+' into a space, so normalize by preserving
+          // any explicit '+' or interpreting spaces as '+' when appropriate.
+          const rawSpread = String(req.query.spread || "");
+          const spreadBet = rawSpread.trim();
           const competitors =
             summaryData.header?.competitions?.[0]?.competitors || [];
 
-          // Parse spread (format: "BOS-1.5" or "DET+3.5")
-          const match = spreadBet.match(/^([A-Z]+)([+-]?[0-9.]+)$/);
+          // Match team (letters) then optional separator (+ or space or nothing) then signed number
+          const match = spreadBet.match(/^([A-Z]+)[+\s]?([+-]?[0-9.]+)$/i);
           if (match) {
-            const teamAbbr = match[1];
-            const spreadLine = parseFloat(match[2]);
+            const teamAbbr = match[1].toUpperCase();
+            const rawLine = match[2];
+            const spreadLine = parseFloat(rawLine);
+            const lineDisplay = String(rawLine).startsWith("+")
+              ? String(rawLine)
+              : spreadLine > 0
+              ? `+${spreadLine}`
+              : `${spreadLine}`;
 
             const betTeam = competitors.find(
               (c) => c.team?.abbreviation === teamAbbr
@@ -2098,10 +2177,13 @@ app.get("/api/betslip", async (req, res) => {
 
               eventData.bets.spread = {
                 team: teamAbbr,
+                // keep numeric line for comparisons and also provide a display string
                 line: spreadLine,
+                lineDisplay,
                 current: {
                   score: `${betScore}-${oppScore}`,
-                  adjustedScore: adjustedScore.toFixed(1),
+                  // carry the signed display so clients can show "+1.5"
+                  adjustedScore: lineDisplay,
                   won: isCompleted
                     ? isWinning
                       ? true
@@ -3153,13 +3235,15 @@ function startWatcherInline(betslipId) {
               const betScore = parseInt(betTeam.score) || 0;
               const oppScore = parseInt(opp.score) || 0;
               const isWinning = betScore > oppScore;
-              newState = isCompleted
-                ? isWinning
-                  ? "won"
-                  : "lost"
-                : isWinning
-                ? "in progress"
-                : "pending";
+              // Determine state carefully and log details for diagnostics
+              if (isCompleted) {
+                newState = isWinning ? "won" : "lost";
+              } else {
+                newState = isWinning ? "in progress" : "pending";
+              }
+              console.log(
+                `[watcher ${betslipId}] pick:${pickKey} moneyline check -> team:${bet.team || bet.selection || bet.description} score:${betScore}-${oppScore} isWinning:${isWinning} isInProgress:${isInProgress} isCompleted:${isCompleted} -> newState:${newState}`
+              );
             }
           }
           if (
@@ -3192,6 +3276,15 @@ function startWatcherInline(betslipId) {
           }
           if (newState === null) newState = "in progress";
         }
+
+        // Log computed state for this pick for easier debugging
+        try {
+          console.log(
+            `[watcher ${betslipId}] pickResult -> pick:${pickKey} computed:${newState} isCompleted:${isCompleted} rawBet:${JSON.stringify(
+              bet
+            )} summaryState:${summary?.header?.competitions?.[0]?.status?.type?.state}`
+          );
+        } catch (e) {}
 
         // track completion metrics for finalization rule
         if (isCompleted) anyCompleted = true;
@@ -3237,11 +3330,8 @@ function startWatcherInline(betslipId) {
                 `[watcher ${betslipId}] settle_betslip RPC error`,
                 rpcErr
               );
-              // Fallback: mark as lost without settlement ledger (best-effort)
-              await supabaseAdmin
-                .from("betslips")
-                .update({ status: "lost" })
-                .eq("id", betslipId);
+              // Fallback: attempt manual settlement using service role
+              await manualSettleBetslip(betslipId, "lost");
             } else {
               console.log(
                 `[watcher ${betslipId}] settled (lost) via RPC for user:${fresh.user_id}`,
@@ -3278,11 +3368,8 @@ function startWatcherInline(betslipId) {
                 `[watcher ${betslipId}] settle_betslip RPC error`,
                 rpcErr
               );
-              // Fallback: update status only
-              await supabaseAdmin
-                .from("betslips")
-                .update({ status: newStatus })
-                .eq("id", betslipId);
+              // Fallback: attempt manual settlement using service role
+              await manualSettleBetslip(betslipId, newStatus);
             } else {
               console.log(
                 `[watcher ${betslipId}] settled via RPC -> ${newStatus} user:${fresh.user_id}`,

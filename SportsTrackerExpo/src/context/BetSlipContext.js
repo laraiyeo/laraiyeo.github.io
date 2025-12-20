@@ -387,6 +387,26 @@ export const BetSlipProvider = ({ children }) => {
       // Add to submitted bets (local cache)
       setSubmittedBets((prev) => [betSlip, ...prev]);
 
+      // Try to refresh persisted betslips from Supabase so newly-created
+      // tickets appear with the authoritative DB id/updated_at when available.
+      try {
+        if (typeof getUserBetslips === "function") {
+          const fresh = await getUserBetslips();
+          if (fresh && fresh.success) {
+            // Let the load routine handle mapping; reuse the same mapping
+            // by calling the shared loader below (if available).
+            try {
+              await loadSubmittedBets();
+            } catch (e) {
+              // fallback: set raw rows if loader unavailable
+              // noop
+            }
+          }
+        }
+      } catch (e) {
+        // ignore loader errors and continue using local cache
+      }
+
       // Clear current bets
       setBets([]);
 
@@ -396,162 +416,159 @@ export const BetSlipProvider = ({ children }) => {
   );
 
   // Load user's persisted betslips on auth/session start
-  useEffect(() => {
+  // Shared loader: fetch persisted betslips from Supabase and map to UI tickets.
+  const loadSubmittedBets = useCallback(async () => {
     let mounted = true;
-    const load = async () => {
-      try {
-        const res = await getUserBetslips();
-        if (res.success && mounted) {
-          // Map DB rows to local format if necessary
-          const rows = res.betslips || [];
+    try {
+      const res = await getUserBetslips();
+      if (res.success && mounted) {
+        // Map DB rows to local format if necessary
+        const rows = res.betslips || [];
 
-          // Group all rows (legacy and modern) by a shared ticket timestamp so
-          // multiple per-bet rows inserted with the same `created_at` become one ticket.
-          const groups = {};
-          rows.forEach((row) => {
-            // Determine grouping key: prefer created_at, fall back to betslip_data.createdAt, else id
-            const key =
-              row.created_at ||
-              (row.betslip_data && row.betslip_data.createdAt) ||
-              row.id;
-            if (!groups[key]) groups[key] = [];
-            groups[key].push(row);
-          });
+        // Group all rows (legacy and modern) by a shared ticket timestamp so
+        // multiple per-bet rows inserted with the same `created_at` become one ticket.
+        const groups = {};
+        rows.forEach((row) => {
+          // Determine grouping key: prefer created_at, fall back to betslip_data.createdAt, else id
+          const key =
+            row.created_at ||
+            (row.betslip_data && row.betslip_data.createdAt) ||
+            row.id;
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(row);
+        });
 
-          const mapped = Object.values(groups).map((groupRows) => {
-            const bets = [];
-            let timestamp = null;
-            let status = "pending";
+        const mapped = Object.values(groups).map((groupRows) => {
+          const bets = [];
+          let timestamp = null;
+          let status = "pending";
 
-            // Prefer aggregated row if available
-            const aggregatedRow = groupRows.find((r) => r.betslip_data);
+          // Prefer aggregated row if available
+          const aggregatedRow = groupRows.find((r) => r.betslip_data);
 
-            // build bets list
-            if (aggregatedRow) {
-              // Use only the aggregated row's bets to avoid duplicating per-bet rows
-              timestamp =
-                aggregatedRow.created_at ||
-                (aggregatedRow.betslip_data &&
-                  aggregatedRow.betslip_data.createdAt) ||
-                timestamp;
-              status = aggregatedRow.status || status;
-              if (Array.isArray(aggregatedRow.betslip_data?.bets)) {
-                aggregatedRow.betslip_data.bets.forEach((b) => bets.push(b));
-              } else if (
-                aggregatedRow.betslip_data &&
-                aggregatedRow.betslip_data.id
-              ) {
-                bets.push(aggregatedRow.betslip_data);
-              }
-            } else {
-              groupRows.forEach((row) => {
-                if (!timestamp)
-                  timestamp =
-                    row.created_at ||
-                    (row.betslip_data && row.betslip_data.createdAt) ||
-                    null;
-                if (!status || status === "pending")
-                  status = row.status || status;
+          // build bets list
+          if (aggregatedRow) {
+            // Use only the aggregated row's bets to avoid duplicating per-bet rows
+            timestamp =
+              aggregatedRow.created_at ||
+              (aggregatedRow.betslip_data &&
+                aggregatedRow.betslip_data.createdAt) ||
+              timestamp;
+            status = aggregatedRow.status || status;
+            if (Array.isArray(aggregatedRow.betslip_data?.bets)) {
+              aggregatedRow.betslip_data.bets.forEach((b) => bets.push(b));
+            } else if (
+              aggregatedRow.betslip_data &&
+              aggregatedRow.betslip_data.id
+            ) {
+              bets.push(aggregatedRow.betslip_data);
+            }
+          } else {
+            groupRows.forEach((row) => {
+              if (!timestamp)
+                timestamp =
+                  row.created_at ||
+                  (row.betslip_data && row.betslip_data.createdAt) ||
+                  null;
+              if (!status || status === "pending") status = row.status || status;
 
-                bets.push({
-                  id: row.id,
-                  gameId: row.game_id || null,
-                  description: row.selection || null,
-                  amount: row.amount || 0,
-                  odds: row.odds || 0,
-                });
+              bets.push({
+                id: row.id,
+                gameId: row.game_id || null,
+                description: row.selection || null,
+                amount: row.amount || 0,
+                odds: row.odds || 0,
               });
-            }
+            });
+          }
 
-            // Determine ticket-level totals without summing duplicate per-row ticket totals
-            // totalStake: prefer explicit ticket total on aggregated row or first non-null total_stake
-            let totalStake = null;
-            if (aggregatedRow && aggregatedRow.total_stake)
-              totalStake = parseFloat(aggregatedRow.total_stake);
-            if (totalStake == null) {
-              const firstRowTotal = groupRows
-                .map((r) =>
-                  r.total_stake != null ? parseFloat(r.total_stake) : null
-                )
-                .find((v) => v != null);
-              if (firstRowTotal != null) totalStake = firstRowTotal;
-            }
-            // If still null, fall back to summing per-bet amounts (legacy rows without ticket totals)
-            if (totalStake == null) {
-              totalStake = bets.reduce(
-                (s, b) => s + (parseFloat(b.amount) || 0),
-                0
-              );
-            }
+          // Determine ticket-level totals without summing duplicate per-row ticket totals
+          // totalStake: prefer explicit ticket total on aggregated row or first non-null total_stake
+          let totalStake = null;
+          if (aggregatedRow && aggregatedRow.total_stake)
+            totalStake = parseFloat(aggregatedRow.total_stake);
+          if (totalStake == null) {
+            const firstRowTotal = groupRows
+              .map((r) =>
+                r.total_stake != null ? parseFloat(r.total_stake) : null
+              )
+              .find((v) => v != null);
+            if (firstRowTotal != null) totalStake = firstRowTotal;
+          }
+          // If still null, fall back to summing per-bet amounts (legacy rows without ticket totals)
+          if (totalStake == null) {
+            totalStake = bets.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+          }
 
-            // totalOdds: prefer explicit ticket total_odds, else compute from bets
-            let totalOdds = null;
-            if (aggregatedRow && aggregatedRow.total_odds)
-              totalOdds = parseFloat(aggregatedRow.total_odds);
-            if (totalOdds == null) {
-              const firstRowOdds = groupRows
-                .map((r) =>
-                  r.total_odds != null ? parseFloat(r.total_odds) : null
-                )
-                .find((v) => v != null);
-              if (firstRowOdds != null) totalOdds = firstRowOdds;
-            }
-            if (totalOdds == null) {
-              const decs = bets.map((b) => {
-                const o = parseInt(b.odds);
-                if (isNaN(o)) return 1;
-                return o > 0 ? o / 100 + 1 : 100 / Math.abs(o) + 1;
-              });
-              totalOdds = decs.reduce((acc, v) => acc * v, 1);
-            }
+          // totalOdds: prefer explicit ticket total_odds, else compute from bets
+          let totalOdds = null;
+          if (aggregatedRow && aggregatedRow.total_odds) totalOdds = parseFloat(aggregatedRow.total_odds);
+          if (totalOdds == null) {
+            const firstRowOdds = groupRows
+              .map((r) => (r.total_odds != null ? parseFloat(r.total_odds) : null))
+              .find((v) => v != null);
+            if (firstRowOdds != null) totalOdds = firstRowOdds;
+          }
+          if (totalOdds == null) {
+            const decs = bets.map((b) => {
+              const o = parseInt(b.odds);
+              if (isNaN(o)) return 1;
+              return o > 0 ? o / 100 + 1 : 100 / Math.abs(o) + 1;
+            });
+            totalOdds = decs.reduce((acc, v) => acc * v, 1);
+          }
 
-            // potential payout: prefer explicit, else compute
-            let potentialPayout = null;
-            if (aggregatedRow && aggregatedRow.potential_payout != null)
-              potentialPayout = parseFloat(aggregatedRow.potential_payout);
-            if (potentialPayout == null) {
-              const firstRowPayout = groupRows
-                .map((r) =>
-                  r.potential_payout != null
-                    ? parseFloat(r.potential_payout)
-                    : null
-                )
-                .find((v) => v != null);
-              if (firstRowPayout != null) potentialPayout = firstRowPayout;
-            }
-            if (potentialPayout == null)
-              potentialPayout =
-                totalStake && totalOdds
-                  ? +(totalStake * totalOdds).toFixed(2)
-                  : 0;
+          // potential payout: prefer explicit, else compute
+          let potentialPayout = null;
+          if (aggregatedRow && aggregatedRow.potential_payout != null) potentialPayout = parseFloat(aggregatedRow.potential_payout);
+          if (potentialPayout == null) {
+            const firstRowPayout = groupRows
+              .map((r) => (r.potential_payout != null ? parseFloat(r.potential_payout) : null))
+              .find((v) => v != null);
+            if (firstRowPayout != null) potentialPayout = firstRowPayout;
+          }
+          if (potentialPayout == null) potentialPayout = totalStake && totalOdds ? +(totalStake * totalOdds).toFixed(2) : 0;
 
-            return {
-              id: groupRows[0].created_at
-                ? `ticket-${groupRows[0].created_at}`
-                : `ticket-${groupRows[0].id}`,
-              remoteId: groupRows.map((r) => r.id),
-              bets,
-              amount: totalStake || 0,
-              total_odds: totalOdds,
-              potential_payout: potentialPayout,
-              timestamp,
-              status: status === "pending" ? "open" : status,
-              betslipData: aggregatedRow ? aggregatedRow.betslip_data : null,
-            };
-          });
+          // Determine a stable ticket id. Prefer the aggregated DB row's
+          // actual `id` (UUID) when present so UI and logs reference the
+          // persisted Supabase record. Fall back to a ticket-<created_at>
+          // string for legacy grouped rows.
+          const ticketId = aggregatedRow && aggregatedRow.id ? aggregatedRow.id : groupRows[0].created_at ? `ticket-${groupRows[0].created_at}` : `ticket-${groupRows[0].id}`;
 
-          setSubmittedBets(mapped);
-        }
-      } catch (err) {
-        console.error("Failed to load user betslips:", err?.message || err);
+          // Expose created_at/updated_at and underlying remote row ids for
+          // callers that need to reference the Supabase rows directly.
+          const createdAtField = aggregatedRow && aggregatedRow.created_at ? aggregatedRow.created_at : timestamp;
+          const updatedAtField = aggregatedRow && aggregatedRow.updated_at ? aggregatedRow.updated_at : null;
+
+          return {
+            id: ticketId,
+            remoteId: groupRows.map((r) => r.id),
+            bets,
+            amount: totalStake || 0,
+            total_odds: totalOdds,
+            potential_payout: potentialPayout,
+            timestamp,
+            created_at: createdAtField,
+            updated_at: updatedAtField,
+            status: status === "pending" ? "open" : status,
+            betslipData: aggregatedRow ? aggregatedRow.betslip_data : null,
+          };
+        });
+
+        setSubmittedBets(mapped);
       }
-    };
-
-    load();
+    } catch (err) {
+      console.error("Failed to load user betslips:", err?.message || err);
+    }
     return () => {
       mounted = false;
     };
   }, []);
+
+  // Load once on mount
+  useEffect(() => {
+    loadSubmittedBets();
+  }, [loadSubmittedBets]);
 
   const value = {
     bets,
@@ -565,6 +582,7 @@ export const BetSlipProvider = ({ children }) => {
     isSlipOpen,
     setIsSlipOpen,
     submittedBets,
+    loadSubmittedBets,
     submitBetSlip,
   };
 

@@ -326,6 +326,7 @@ DECLARE
   v_payout numeric := 0;
   v_status text;
 BEGIN
+  -- Lock the betslip row and read required fields
   SELECT user_id, total_stake, potential_payout, status
   INTO v_user_id, v_stake, v_potential, v_status
   FROM betslips
@@ -336,31 +337,37 @@ BEGIN
     RAISE EXCEPTION 'Betslip not found';
   END IF;
 
+  -- Only settle pending betslips
   IF v_status != 'pending' THEN
     RAISE EXCEPTION 'Betslip already settled';
   END IF;
 
+  -- Compute payout according to result
   IF p_result = 'won' THEN
-    v_payout := v_potential;
+    v_payout := COALESCE(v_potential, 0);
   ELSIF p_result IN ('push','void') THEN
-    v_payout := v_stake;
+    v_payout := COALESCE(v_stake, 0);
   ELSE
     v_payout := 0;
   END IF;
+
   -- Round payout to 2 decimal places for ledger and profile update
   v_payout := ROUND(COALESCE(v_payout, 0)::numeric, 2);
 
+  -- If there is a positive payout, credit the user's profile and record ledger/history
   IF v_payout > 0 THEN
     UPDATE profiles SET credits = credits + v_payout WHERE id = v_user_id;
     INSERT INTO credit_ledger (user_id, betslip_id, change, reason)
-      VALUES (v_user_id, p_betslip_id, v_payout, 'bet_settlement');
+    VALUES (v_user_id, p_betslip_id, v_payout, 'Bet won');
     INSERT INTO bet_history (user_id, betslip_id, change_amount, reason)
-      VALUES (v_user_id, p_betslip_id, v_payout, 'Bet settlement payout');
+    VALUES (v_user_id, p_betslip_id, v_payout, 'Bet settled - payout');
   ELSE
+    -- Still record settlement in bet_history for audit (zero change for loss)
     INSERT INTO bet_history (user_id, betslip_id, change_amount, reason)
-      VALUES (v_user_id, p_betslip_id, 0, 'Bet settlement - no payout');
+    VALUES (v_user_id, p_betslip_id, 0, 'Bet settled - no payout');
   END IF;
 
+  -- Mark betslip settled
   UPDATE betslips
   SET status = 'settled', result = p_result, payout = v_payout, settled_at = now()
   WHERE id = p_betslip_id;
