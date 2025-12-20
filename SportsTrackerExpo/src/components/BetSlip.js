@@ -54,7 +54,10 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
           setCredits(Number(resp.profile.credits || 0));
         }
       } catch (e) {
-        console.warn("Failed to fetch profile for credits display:", e?.message || e);
+        console.warn(
+          "Failed to fetch profile for credits display:",
+          e?.message || e
+        );
       }
     };
     if (isSlipOpen) fetchProfile();
@@ -502,14 +505,16 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                     { borderBottomColor: colors.primary },
                   ]}
                 >
-                  <Text style={[styles.tabText, { color: colors.primary }]}> 
+                  <Text style={[styles.tabText, { color: colors.primary }]}>
                     {bets.length === 1 ? "STRAIGHT" : "PARLAY"}
                   </Text>
                 </TouchableOpacity>
               </View>
 
               <View style={styles.creditsContainer}>
-                <Text style={[styles.creditsText, { color: theme.text }]}>${Number(credits || 0).toFixed(2)}</Text>
+                <Text style={[styles.creditsText, { color: theme.text }]}>
+                  ${Number(credits || 0).toFixed(2)}
+                </Text>
               </View>
             </View>
 

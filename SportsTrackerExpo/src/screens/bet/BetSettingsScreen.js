@@ -136,7 +136,10 @@ const BetSettingsScreen = ({ navigation }) => {
         }
       } catch (e) {
         // silent fail
-        console.warn("BetSettings: silent profile refresh failed", e?.message || e);
+        console.warn(
+          "BetSettings: silent profile refresh failed",
+          e?.message || e
+        );
       }
     });
 
