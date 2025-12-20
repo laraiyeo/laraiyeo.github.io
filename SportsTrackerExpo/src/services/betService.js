@@ -953,7 +953,10 @@ export const claimDailyReward = async (profileId) => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${authToken}`,
           },
-          body: JSON.stringify({ amount: reward, reason: `Daily login day ${dayNum}` }),
+          body: JSON.stringify({
+            amount: reward,
+            reason: `Daily login day ${dayNum}`,
+          }),
         });
         if (resp.ok) {
           try {
@@ -965,7 +968,12 @@ export const claimDailyReward = async (profileId) => {
               // Update local newCredits to reflect authoritative value
               // (so the caller sees the right value)
               // NOTE: we still write AsyncStorage state below.
-              return { success: true, day: dayNum, reward, newCredits: svcCredits };
+              return {
+                success: true,
+                day: dayNum,
+                reward,
+                newCredits: svcCredits,
+              };
             }
           } catch (e) {
             // fall through to client update
@@ -975,7 +983,10 @@ export const claimDailyReward = async (profileId) => {
         }
       }
     } catch (e) {
-      console.warn("claimDailyReward: server endpoint call failed", e?.message || e);
+      console.warn(
+        "claimDailyReward: server endpoint call failed",
+        e?.message || e
+      );
     }
 
     if (!serverUpdated) {
@@ -997,14 +1008,12 @@ export const claimDailyReward = async (profileId) => {
 
     // Insert credit_ledger entry (best-effort) - match DB schema: (change, reason)
     try {
-      await supabase
-        .from("credit_ledger")
-        .insert({
-          user_id: uid,
-          change: reward,
-          reason: `Daily login day ${dayNum}`,
-          created_at: new Date().toISOString(),
-        });
+      await supabase.from("credit_ledger").insert({
+        user_id: uid,
+        change: reward,
+        reason: `Daily login day ${dayNum}`,
+        created_at: new Date().toISOString(),
+      });
     } catch (e) {
       console.warn(
         "claimDailyReward: failed to write credit_ledger",
