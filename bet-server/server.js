@@ -464,8 +464,10 @@ async function manualSettleBetslip(betslipId, result) {
     }
 
     let payout = 0;
-    if (result === "won") payout = Number(fresh.potential_payout || fresh.payout || 0);
-    else if (result === "push" || result === "void") payout = Number(fresh.total_stake || 0);
+    if (result === "won")
+      payout = Number(fresh.potential_payout || fresh.payout || 0);
+    else if (result === "push" || result === "void")
+      payout = Number(fresh.total_stake || 0);
     else payout = 0;
     payout = Math.round((payout + Number.EPSILON) * 100) / 100;
 
@@ -509,12 +511,22 @@ async function manualSettleBetslip(betslipId, result) {
 
     await supabaseAdmin
       .from("betslips")
-      .update({ status: "settled", result: result, payout: payout, settled_at: new Date().toISOString() })
+      .update({
+        status: "settled",
+        result: result,
+        payout: payout,
+        settled_at: new Date().toISOString(),
+      })
       .eq("id", betslipId);
 
-    console.log(`[manualSettleBetslip] settled ${betslipId} -> ${result} payout=${payout}`);
+    console.log(
+      `[manualSettleBetslip] settled ${betslipId} -> ${result} payout=${payout}`
+    );
   } catch (e) {
-    console.error(`[manualSettleBetslip] error settling ${betslipId}:`, e?.message || e);
+    console.error(
+      `[manualSettleBetslip] error settling ${betslipId}:`,
+      e?.message || e
+    );
   }
 }
 
@@ -3242,7 +3254,9 @@ function startWatcherInline(betslipId) {
                 newState = isWinning ? "in progress" : "pending";
               }
               console.log(
-                `[watcher ${betslipId}] pick:${pickKey} moneyline check -> team:${bet.team || bet.selection || bet.description} score:${betScore}-${oppScore} isWinning:${isWinning} isInProgress:${isInProgress} isCompleted:${isCompleted} -> newState:${newState}`
+                `[watcher ${betslipId}] pick:${pickKey} moneyline check -> team:${
+                  bet.team || bet.selection || bet.description
+                } score:${betScore}-${oppScore} isWinning:${isWinning} isInProgress:${isInProgress} isCompleted:${isCompleted} -> newState:${newState}`
               );
             }
           }
@@ -3282,7 +3296,9 @@ function startWatcherInline(betslipId) {
           console.log(
             `[watcher ${betslipId}] pickResult -> pick:${pickKey} computed:${newState} isCompleted:${isCompleted} rawBet:${JSON.stringify(
               bet
-            )} summaryState:${summary?.header?.competitions?.[0]?.status?.type?.state}`
+            )} summaryState:${
+              summary?.header?.competitions?.[0]?.status?.type?.state
+            }`
           );
         } catch (e) {}
 

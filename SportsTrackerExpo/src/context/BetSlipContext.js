@@ -470,7 +470,8 @@ export const BetSlipProvider = ({ children }) => {
                   row.created_at ||
                   (row.betslip_data && row.betslip_data.createdAt) ||
                   null;
-              if (!status || status === "pending") status = row.status || status;
+              if (!status || status === "pending")
+                status = row.status || status;
 
               bets.push({
                 id: row.id,
@@ -497,15 +498,21 @@ export const BetSlipProvider = ({ children }) => {
           }
           // If still null, fall back to summing per-bet amounts (legacy rows without ticket totals)
           if (totalStake == null) {
-            totalStake = bets.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
+            totalStake = bets.reduce(
+              (s, b) => s + (parseFloat(b.amount) || 0),
+              0
+            );
           }
 
           // totalOdds: prefer explicit ticket total_odds, else compute from bets
           let totalOdds = null;
-          if (aggregatedRow && aggregatedRow.total_odds) totalOdds = parseFloat(aggregatedRow.total_odds);
+          if (aggregatedRow && aggregatedRow.total_odds)
+            totalOdds = parseFloat(aggregatedRow.total_odds);
           if (totalOdds == null) {
             const firstRowOdds = groupRows
-              .map((r) => (r.total_odds != null ? parseFloat(r.total_odds) : null))
+              .map((r) =>
+                r.total_odds != null ? parseFloat(r.total_odds) : null
+              )
               .find((v) => v != null);
             if (firstRowOdds != null) totalOdds = firstRowOdds;
           }
@@ -520,25 +527,45 @@ export const BetSlipProvider = ({ children }) => {
 
           // potential payout: prefer explicit, else compute
           let potentialPayout = null;
-          if (aggregatedRow && aggregatedRow.potential_payout != null) potentialPayout = parseFloat(aggregatedRow.potential_payout);
+          if (aggregatedRow && aggregatedRow.potential_payout != null)
+            potentialPayout = parseFloat(aggregatedRow.potential_payout);
           if (potentialPayout == null) {
             const firstRowPayout = groupRows
-              .map((r) => (r.potential_payout != null ? parseFloat(r.potential_payout) : null))
+              .map((r) =>
+                r.potential_payout != null
+                  ? parseFloat(r.potential_payout)
+                  : null
+              )
               .find((v) => v != null);
             if (firstRowPayout != null) potentialPayout = firstRowPayout;
           }
-          if (potentialPayout == null) potentialPayout = totalStake && totalOdds ? +(totalStake * totalOdds).toFixed(2) : 0;
+          if (potentialPayout == null)
+            potentialPayout =
+              totalStake && totalOdds
+                ? +(totalStake * totalOdds).toFixed(2)
+                : 0;
 
           // Determine a stable ticket id. Prefer the aggregated DB row's
           // actual `id` (UUID) when present so UI and logs reference the
           // persisted Supabase record. Fall back to a ticket-<created_at>
           // string for legacy grouped rows.
-          const ticketId = aggregatedRow && aggregatedRow.id ? aggregatedRow.id : groupRows[0].created_at ? `ticket-${groupRows[0].created_at}` : `ticket-${groupRows[0].id}`;
+          const ticketId =
+            aggregatedRow && aggregatedRow.id
+              ? aggregatedRow.id
+              : groupRows[0].created_at
+              ? `ticket-${groupRows[0].created_at}`
+              : `ticket-${groupRows[0].id}`;
 
           // Expose created_at/updated_at and underlying remote row ids for
           // callers that need to reference the Supabase rows directly.
-          const createdAtField = aggregatedRow && aggregatedRow.created_at ? aggregatedRow.created_at : timestamp;
-          const updatedAtField = aggregatedRow && aggregatedRow.updated_at ? aggregatedRow.updated_at : null;
+          const createdAtField =
+            aggregatedRow && aggregatedRow.created_at
+              ? aggregatedRow.created_at
+              : timestamp;
+          const updatedAtField =
+            aggregatedRow && aggregatedRow.updated_at
+              ? aggregatedRow.updated_at
+              : null;
 
           return {
             id: ticketId,

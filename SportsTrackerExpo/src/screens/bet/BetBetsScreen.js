@@ -174,7 +174,9 @@ const BetBetsScreen = () => {
       console.log(
         `[BetBetsScreen] displayedBets count=${
           (displayedBets && displayedBets.length) || 0
-        } submittedBets total=${(submittedBets && submittedBets.length) || 0} submittedFromSupabase=${submittedFromSupabase.length}`
+        } submittedBets total=${
+          (submittedBets && submittedBets.length) || 0
+        } submittedFromSupabase=${submittedFromSupabase.length}`
       );
     } catch (e) {}
   }
@@ -240,19 +242,30 @@ const BetBetsScreen = () => {
     if (!ticket) return null;
     try {
       const storedUrl =
-        ticket.betslipData?.betslip_url || ticket.betslip_url || (ticket.betslipData && ticket.betslipData.betslip_url) || null;
+        ticket.betslipData?.betslip_url ||
+        ticket.betslip_url ||
+        (ticket.betslipData && ticket.betslipData.betslip_url) ||
+        null;
       const url = storedUrl || buildBetslipUrlFromTicket(ticket);
       if (!url) return null;
       const res = await fetch(url);
       const data = await res.json();
       setBetslipLiveMap((prev) => ({ ...prev, [ticket.id]: data }));
       if (typeof __DEV__ !== "undefined" && __DEV__) {
-        console.log("[BetBetsScreen] on-demand fetch for ticket", ticket.id, data);
+        console.log(
+          "[BetBetsScreen] on-demand fetch for ticket",
+          ticket.id,
+          data
+        );
       }
       return data;
     } catch (e) {
       if (typeof __DEV__ !== "undefined" && __DEV__) {
-        console.warn("[BetBetsScreen] on-demand fetch failed for", ticket.id, e);
+        console.warn(
+          "[BetBetsScreen] on-demand fetch failed for",
+          ticket.id,
+          e
+        );
       }
       return null;
     }
@@ -267,14 +280,20 @@ const BetBetsScreen = () => {
       try {
         // Refresh persisted Supabase rows so submittedBets reflects current DB state
         try {
-          if (typeof loadSubmittedBets === "function") await loadSubmittedBets();
+          if (typeof loadSubmittedBets === "function")
+            await loadSubmittedBets();
         } catch (e) {
-          console.warn("[BetBetsScreen] failed to refresh submitted bets:", e?.message || e);
+          console.warn(
+            "[BetBetsScreen] failed to refresh submitted bets:",
+            e?.message || e
+          );
         }
         // First, attempt to fetch authoritative betslips from server
         try {
           const token = await AsyncStorage.getItem("@bet_token");
-          const base = process.env.PUBLIC_API_URL || "https://laraiyeogithubio-production-f5af.up.railway.app";
+          const base =
+            process.env.PUBLIC_API_URL ||
+            "https://laraiyeogithubio-production-f5af.up.railway.app";
           // Only attempt server-side /api/betslips if a full absolute base URL is configured
           if (token && base && base.length > 0) {
             const url = base.replace(/\/$/, "") + "/api/betslips";
@@ -288,9 +307,16 @@ const BetBetsScreen = () => {
                 if (mounted) setServerBets(authoritative);
                 // use authoritative locally for this run
                 var authoritativeLocal = authoritative;
-                console.log(`[BetBetsScreen] fetched authoritative betslips: ${JSON.stringify(json)}`);
+                console.log(
+                  `[BetBetsScreen] fetched authoritative betslips: ${JSON.stringify(
+                    json
+                  )}`
+                );
               } else {
-                console.warn("[BetBetsScreen] failed to fetch server betslips", resp.status);
+                console.warn(
+                  "[BetBetsScreen] failed to fetch server betslips",
+                  resp.status
+                );
               }
             } catch (innerErr) {
               console.warn("[BetBetsScreen] server bets fetch error", innerErr);
@@ -298,7 +324,9 @@ const BetBetsScreen = () => {
           } else {
             // No PUBLIC_API_URL configured in RN environment — skip server fetch to avoid network errors
             if (typeof __DEV__ !== "undefined" && __DEV__) {
-              console.log("[BetBetsScreen] skipping server /api/betslips fetch — PUBLIC_API_URL not configured");
+              console.log(
+                "[BetBetsScreen] skipping server /api/betslips fetch — PUBLIC_API_URL not configured"
+              );
             }
           }
         } catch (e) {
@@ -306,37 +334,68 @@ const BetBetsScreen = () => {
         }
 
         // Decide which source of tickets to query for canonical payloads
-        const source = (typeof authoritativeLocal !== "undefined" && Array.isArray(authoritativeLocal) && authoritativeLocal.length > 0)
-          ? authoritativeLocal
-          : (serverBets && Array.isArray(serverBets) && serverBets.length > 0)
-          ? serverBets
-          : submittedBets;
+        const source =
+          typeof authoritativeLocal !== "undefined" &&
+          Array.isArray(authoritativeLocal) &&
+          authoritativeLocal.length > 0
+            ? authoritativeLocal
+            : serverBets && Array.isArray(serverBets) && serverBets.length > 0
+            ? serverBets
+            : submittedBets;
 
         // Log where the UI will source bets from when focused (helpful for debugging)
         try {
           if (typeof __DEV__ !== "undefined" && __DEV__) {
             let sourceLabel = "submittedBets (Supabase)";
-            if (typeof authoritativeLocal !== "undefined" && Array.isArray(authoritativeLocal) && authoritativeLocal.length > 0) {
+            if (
+              typeof authoritativeLocal !== "undefined" &&
+              Array.isArray(authoritativeLocal) &&
+              authoritativeLocal.length > 0
+            ) {
               sourceLabel = `authoritativeLocal (bet-server) [${authoritativeLocal.length}]`;
-            } else if (serverBets && Array.isArray(serverBets) && serverBets.length > 0) {
+            } else if (
+              serverBets &&
+              Array.isArray(serverBets) &&
+              serverBets.length > 0
+            ) {
               sourceLabel = `serverBets (bet-server) [${serverBets.length}]`;
             } else if (submittedBets && Array.isArray(submittedBets)) {
               sourceLabel = `submittedBets (Supabase) [${submittedBets.length}]`;
             }
-            console.log(`[BetBetsScreen] Focused: serving bets from -> ${sourceLabel}`);
+            console.log(
+              `[BetBetsScreen] Focused: serving bets from -> ${sourceLabel}`
+            );
 
             // If we're using Supabase rows, log id, updated_at and status for each row
             try {
-              if ((!authoritativeLocal || !Array.isArray(authoritativeLocal) || authoritativeLocal.length === 0) &&
-                  !(serverBets && Array.isArray(serverBets) && serverBets.length > 0) &&
-                  Array.isArray(submittedBets)) {
-                console.log(`[BetBetsScreen] Supabase-sourced bets (${submittedBets.length}) -- listing id, updated_at, status:`);
+              if (
+                (!authoritativeLocal ||
+                  !Array.isArray(authoritativeLocal) ||
+                  authoritativeLocal.length === 0) &&
+                !(
+                  serverBets &&
+                  Array.isArray(serverBets) &&
+                  serverBets.length > 0
+                ) &&
+                Array.isArray(submittedBets)
+              ) {
+                console.log(
+                  `[BetBetsScreen] Supabase-sourced bets (${submittedBets.length}) -- listing id, updated_at, status:`
+                );
                 submittedBets.forEach((b) => {
                   try {
                     const id = b.id || b.bet_id || b.uuid || null;
-                    const updated = b.updated_at || b.updatedAt || b.updated || b.modified_at || b.modifiedAt || null;
+                    const updated =
+                      b.updated_at ||
+                      b.updatedAt ||
+                      b.updated ||
+                      b.modified_at ||
+                      b.modifiedAt ||
+                      null;
                     const status = b.status || b.state || null;
-                    console.log(`[BetBetsScreen] bet id=${id} updated_at=${updated} status=${status}`);
+                    console.log(
+                      `[BetBetsScreen] bet id=${id} updated_at=${updated} status=${status}`
+                    );
                   } catch (inner) {
                     // ignore per-row logging errors
                   }
@@ -353,7 +412,10 @@ const BetBetsScreen = () => {
         const tasks = source.map(async (ticket) => {
           try {
             const storedUrl =
-              ticket.betslipData?.betslip_url || ticket.betslip_url || (ticket.betslipData && ticket.betslipData.betslip_url) || null;
+              ticket.betslipData?.betslip_url ||
+              ticket.betslip_url ||
+              (ticket.betslipData && ticket.betslipData.betslip_url) ||
+              null;
             const url = storedUrl || buildBetslipUrlFromTicket(ticket);
             if (!url) return null;
             const res = await fetch(url);
@@ -826,10 +888,13 @@ const BetBetsScreen = () => {
       {typeof pick.currentValue === "number" &&
         typeof pick.line === "number" &&
         !isNaN(pick.line) &&
-        (function() {
+        (function () {
           try {
             if (typeof __DEV__ !== "undefined" && __DEV__ && pick.isTotal) {
-              console.log('[BetBetsScreen] renderTeamPick total before progress', { pick });
+              console.log(
+                "[BetBetsScreen] renderTeamPick total before progress",
+                { pick }
+              );
             }
           } catch (e) {}
           return renderProgressBar(pick);
@@ -1271,12 +1336,22 @@ const BetBetsScreen = () => {
                 pick.currentValue = Number(
                   playerData.milestones[statKey].current
                 );
-                pick.status = playerData.milestones[statKey].won === true ? "winning" : playerData.milestones[statKey].won === false ? "losing" : "pending";
+                pick.status =
+                  playerData.milestones[statKey].won === true
+                    ? "winning"
+                    : playerData.milestones[statKey].won === false
+                    ? "losing"
+                    : "pending";
               } else if (playerData.overUnder?.[statKey]) {
                 pick.currentValue = Number(
                   playerData.overUnder[statKey].current
                 );
-                pick.status = playerData.overUnder[statKey].won === true ? "winning" : playerData.overUnder[statKey].won === false ? "losing" : "pending";
+                pick.status =
+                  playerData.overUnder[statKey].won === true
+                    ? "winning"
+                    : playerData.overUnder[statKey].won === false
+                    ? "losing"
+                    : "pending";
               } else {
                 pick.status = "pending";
               }
@@ -1356,7 +1431,12 @@ const BetBetsScreen = () => {
               // to avoid rendering a progress bar for moneyline bets. Keep a scoreText for display if needed.
               pick.scoreText = eventData.bets.moneyline.current?.score;
               pick.currentValue = null;
-              pick.status = eventData.bets.moneyline.current?.won === true ? "winning" : eventData.bets.moneyline.current?.won === false ? "losing" : "pending";
+              pick.status =
+                eventData.bets.moneyline.current?.won === true
+                  ? "winning"
+                  : eventData.bets.moneyline.current?.won === false
+                  ? "losing"
+                  : "pending";
             } else if (bet.type === "Spread" && eventData.bets.spread) {
               // Compute current spread value using event scores so the slider bubble shows a meaningful numeric
               const spreadCurrent = eventData.bets.spread.current;
@@ -1388,7 +1468,12 @@ const BetBetsScreen = () => {
               const currentSpreadValue =
                 lineNum < 0 ? oppScore - teamScore : teamScore - oppScore;
               pick.currentValue = Number(currentSpreadValue);
-              pick.status = spreadCurrent?.won === true ? "winning" : spreadCurrent?.won === false ? "losing" : "pending";
+              pick.status =
+                spreadCurrent?.won === true
+                  ? "winning"
+                  : spreadCurrent?.won === false
+                  ? "losing"
+                  : "pending";
             } else if (bet.type === "Total" && eventData.bets.totalPoints) {
               // ensure we have a numeric line to compute progress; prefer original bet.line but fall back to event payload
               const payloadLine = eventData.bets.totalPoints.line;
@@ -1406,7 +1491,10 @@ const BetBetsScreen = () => {
                 parsedCurrent = totalCurrent;
               } else if (totalCurrent && typeof totalCurrent === "object") {
                 parsedCurrent = Number(
-                  totalCurrent.score ?? totalCurrent.current ?? totalCurrent.value ?? NaN
+                  totalCurrent.score ??
+                    totalCurrent.current ??
+                    totalCurrent.value ??
+                    NaN
                 );
               } else if (totalCurrent != null) {
                 const n = Number(totalCurrent);
@@ -1428,10 +1516,13 @@ const BetBetsScreen = () => {
               // Dev logging to debug missing progress bars for totals
               try {
                 if (typeof __DEV__ !== "undefined" && __DEV__) {
-                  console.log(
-                    '[BetBetsScreen] Total parse',
-                    { gameId: bet.gameId, bet, payload: eventData.bets.totalPoints, pickLine: pick.line, pickCurrent: pick.currentValue }
-                  );
+                  console.log("[BetBetsScreen] Total parse", {
+                    gameId: bet.gameId,
+                    bet,
+                    payload: eventData.bets.totalPoints,
+                    pickLine: pick.line,
+                    pickCurrent: pick.currentValue,
+                  });
                 }
               } catch (e) {
                 /* ignore logging errors */
@@ -1482,11 +1573,14 @@ const BetBetsScreen = () => {
     const odds = calculateOdds();
     const potentialPayout = calculatePayout();
     // For settled tickets, override displayed payout and add border color
-    const ticketStatus = betSlip.status ? String(betSlip.status).toLowerCase() : null; // 'won'|'lost'|'open'
+    const ticketStatus = betSlip.status
+      ? String(betSlip.status).toLowerCase()
+      : null; // 'won'|'lost'|'open'
     let displayedPayout = potentialPayout;
     if (ticketStatus === "won") {
       // prefer server-provided potential_payout if present
-      const serverPayout = betSlip.potential_payout || betSlip.potentialPayout || betSlip.payout;
+      const serverPayout =
+        betSlip.potential_payout || betSlip.potentialPayout || betSlip.payout;
       if (serverPayout != null) {
         const asNum = Number(serverPayout);
         displayedPayout = isNaN(asNum) ? potentialPayout : asNum.toFixed(2);
@@ -1510,8 +1604,11 @@ const BetBetsScreen = () => {
             style={[
               styles.betCard,
               { backgroundColor: theme.surface },
-              ticketStatus === "won" ? { borderWidth: 2, borderColor: "#22C55E" } :
-              ticketStatus === "lost" ? { borderWidth: 2, borderColor: "#EF4444" } : {}
+              ticketStatus === "won"
+                ? { borderWidth: 2, borderColor: "#22C55E" }
+                : ticketStatus === "lost"
+                ? { borderWidth: 2, borderColor: "#EF4444" }
+                : {},
             ]}
             onPress={() => toggleParlay(betSlip.id)}
           >
@@ -1552,7 +1649,12 @@ const BetBetsScreen = () => {
                 <Text
                   style={[styles.parlaySummaryLabel, { color: theme.text }]}
                 >
-                  ${ticketStatus === "won" ? displayedPayout : ticketStatus === "lost" ? "0.00" : potentialPayout}
+                  $
+                  {ticketStatus === "won"
+                    ? displayedPayout
+                    : ticketStatus === "lost"
+                    ? "0.00"
+                    : potentialPayout}
                 </Text>
                 <Text
                   style={[
@@ -1583,8 +1685,11 @@ const BetBetsScreen = () => {
           style={[
             styles.betCard,
             { backgroundColor: theme.surface },
-            ticketStatus === "won" ? { borderWidth: 2, borderColor: "#22C55E" } :
-            ticketStatus === "lost" ? { borderWidth: 2, borderColor: "#EF4444" } : {}
+            ticketStatus === "won"
+              ? { borderWidth: 2, borderColor: "#22C55E" }
+              : ticketStatus === "lost"
+              ? { borderWidth: 2, borderColor: "#EF4444" }
+              : {},
           ]}
         >
           <View style={styles.parlayExpandedHeader}>
@@ -1655,7 +1760,13 @@ const BetBetsScreen = () => {
             <View style={styles.parlaySummaryItem}>
               <Text
                 style={[styles.parlaySummaryLabel, { color: theme.text }]}
-              >{`$${ticketStatus === "won" ? displayedPayout : ticketStatus === "lost" ? "0.00" : potentialPayout}`}</Text>
+              >{`$${
+                ticketStatus === "won"
+                  ? displayedPayout
+                  : ticketStatus === "lost"
+                  ? "0.00"
+                  : potentialPayout
+              }`}</Text>
               <Text
                 style={[
                   styles.parlaySummarySubLabel,
@@ -1709,12 +1820,15 @@ const BetBetsScreen = () => {
         return (
           <TouchableOpacity
             key={betSlip.id}
-          style={[
-            styles.betCard,
-            { backgroundColor: theme.surface },
-            ticketStatus === "won" ? { borderWidth: 2, borderColor: "#22C55E" } :
-            ticketStatus === "lost" ? { borderWidth: 2, borderColor: "#EF4444" } : {}
-          ]}
+            style={[
+              styles.betCard,
+              { backgroundColor: theme.surface },
+              ticketStatus === "won"
+                ? { borderWidth: 2, borderColor: "#22C55E" }
+                : ticketStatus === "lost"
+                ? { borderWidth: 2, borderColor: "#EF4444" }
+                : {},
+            ]}
             onPress={() => toggleParlay(betSlip.id)}
           >
             <View style={styles.parlayCollapsedHeader}>
@@ -1797,7 +1911,13 @@ const BetBetsScreen = () => {
               <View style={styles.parlaySummaryItem}>
                 <Text
                   style={[styles.parlaySummaryLabel, { color: theme.text }]}
-                >{`$${ticketStatus === "won" ? displayedPayout : ticketStatus === "lost" ? "0.00" : potentialPayout}`}</Text>
+                >{`$${
+                  ticketStatus === "won"
+                    ? displayedPayout
+                    : ticketStatus === "lost"
+                    ? "0.00"
+                    : potentialPayout
+                }`}</Text>
                 <Text
                   style={[
                     styles.parlaySummarySubLabel,
@@ -1827,8 +1947,11 @@ const BetBetsScreen = () => {
           style={[
             styles.betCard,
             { backgroundColor: theme.surface },
-            ticketStatus === "won" ? { borderWidth: 2, borderColor: "#22C55E" } :
-            ticketStatus === "lost" ? { borderWidth: 2, borderColor: "#EF4444" } : {}
+            ticketStatus === "won"
+              ? { borderWidth: 2, borderColor: "#22C55E" }
+              : ticketStatus === "lost"
+              ? { borderWidth: 2, borderColor: "#EF4444" }
+              : {},
           ]}
         >
           <View style={styles.parlayExpandedHeader}>
@@ -1906,7 +2029,13 @@ const BetBetsScreen = () => {
             <View style={styles.parlaySummaryItem}>
               <Text
                 style={[styles.parlaySummaryLabel, { color: theme.text }]}
-              >{`$${ticketStatus === "won" ? displayedPayout : ticketStatus === "lost" ? "0.00" : potentialPayout}`}</Text>
+              >{`$${
+                ticketStatus === "won"
+                  ? displayedPayout
+                  : ticketStatus === "lost"
+                  ? "0.00"
+                  : potentialPayout
+              }`}</Text>
               <Text
                 style={[
                   styles.parlaySummarySubLabel,
@@ -1957,8 +2086,11 @@ const BetBetsScreen = () => {
           style={[
             styles.betCard,
             { backgroundColor: theme.surface },
-            ticketStatus === "won" ? { borderWidth: 2, borderColor: "#22C55E" } :
-            ticketStatus === "lost" ? { borderWidth: 2, borderColor: "#EF4444" } : {}
+            ticketStatus === "won"
+              ? { borderWidth: 2, borderColor: "#22C55E" }
+              : ticketStatus === "lost"
+              ? { borderWidth: 2, borderColor: "#EF4444" }
+              : {},
           ]}
           onPress={() => toggleParlay(betSlip.id)}
         >
@@ -1997,7 +2129,12 @@ const BetBetsScreen = () => {
             </View>
             <View style={styles.parlaySummaryItem}>
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
-                ${ticketStatus === "won" ? displayedPayout : ticketStatus === "lost" ? "0.00" : potentialPayout}
+                $
+                {ticketStatus === "won"
+                  ? displayedPayout
+                  : ticketStatus === "lost"
+                  ? "0.00"
+                  : potentialPayout}
               </Text>
               <Text
                 style={[
@@ -2045,12 +2182,15 @@ const BetBetsScreen = () => {
     return (
       <View
         key={betSlip.id}
-          style={[
-            styles.betCard,
-            { backgroundColor: theme.surface },
-            ticketStatus === "won" ? { borderWidth: 2, borderColor: "#22C55E" } :
-            ticketStatus === "lost" ? { borderWidth: 2, borderColor: "#EF4444" } : {}
-          ]}
+        style={[
+          styles.betCard,
+          { backgroundColor: theme.surface },
+          ticketStatus === "won"
+            ? { borderWidth: 2, borderColor: "#22C55E" }
+            : ticketStatus === "lost"
+            ? { borderWidth: 2, borderColor: "#EF4444" }
+            : {},
+        ]}
       >
         <View style={styles.parlayExpandedHeader}>
           <View style={[styles.parlayBadge, { backgroundColor: badgeColor }]}>
