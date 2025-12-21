@@ -3260,51 +3260,55 @@ function startWatcherInline(betslipId) {
         // If the stored bet object already contains resolved flags (e.g. from
         // a previous /api/betslip computation or external update), prefer
         // those markers so we can notify immediately.
-          try {
+        try {
           // Accept multiple shapes for resolved flags.
           // 1) Top-level `won` boolean
-            const topWon = bet.won;
+          const topWon = bet.won;
+          if (
+            topWon === true ||
+            (typeof topWon === "string" &&
+              String(topWon).toLowerCase() === "true")
+          ) {
+            newState = "won";
+            isCompleted = true;
+          } else if (
+            topWon === false ||
+            (typeof topWon === "string" &&
+              String(topWon).toLowerCase() === "false")
+          ) {
+            newState = "lost";
+            isCompleted = true;
+          }
+
+          // 2) Normalized shape from betslip_url: { current: { current, won } }
+          if (
+            newState === null &&
+            bet.current &&
+            typeof bet.current === "object"
+          ) {
+            const curWon = bet.current.won;
             if (
-              topWon === true ||
-              (typeof topWon === "string" && String(topWon).toLowerCase() === "true")
+              curWon === true ||
+              (typeof curWon === "string" &&
+                String(curWon).toLowerCase() === "true")
             ) {
               newState = "won";
               isCompleted = true;
             } else if (
-              topWon === false ||
-              (typeof topWon === "string" && String(topWon).toLowerCase() === "false")
+              curWon === false ||
+              (typeof curWon === "string" &&
+                String(curWon).toLowerCase() === "false")
             ) {
               newState = "lost";
               isCompleted = true;
-            }
-
-          // 2) Normalized shape from betslip_url: { current: { current, won } }
-            if (
-              newState === null &&
-              bet.current &&
-              typeof bet.current === "object"
+            } else if (
+              typeof curWon === "string" &&
+              String(curWon).toLowerCase() === "in progress"
             ) {
-              const curWon = bet.current.won;
-              if (
-                curWon === true ||
-                (typeof curWon === "string" && String(curWon).toLowerCase() === "true")
-              ) {
-                newState = "won";
-                isCompleted = true;
-              } else if (
-                curWon === false ||
-                (typeof curWon === "string" && String(curWon).toLowerCase() === "false")
-              ) {
-                newState = "lost";
-                isCompleted = true;
-              } else if (
-                typeof curWon === "string" &&
-                String(curWon).toLowerCase() === "in progress"
-              ) {
-                newState = "in progress";
-                isCompleted = false;
-              }
+              newState = "in progress";
+              isCompleted = false;
             }
+          }
 
           // 3) Original nested overUnder entries (per-player object)
           if (
@@ -3328,39 +3332,45 @@ function startWatcherInline(betslipId) {
           }
 
           // 4) Nested milestones entries
-            if (
-              newState === null &&
-              bet.milestones &&
-              typeof bet.milestones === "object"
-            ) {
-              for (const k of Object.keys(bet.milestones)) {
-                const entry = bet.milestones[k];
-                const wonVal = entry?.won;
-                if (
-                  entry &&
-                  (wonVal === true ||
-                    (typeof wonVal === "string" && String(wonVal).toLowerCase() === "true"))
-                ) {
-                  newState = "won";
-                  isCompleted = true;
-                  break;
-                }
-                if (
-                  entry &&
-                  (wonVal === false ||
-                    (typeof wonVal === "string" && String(wonVal).toLowerCase() === "false"))
-                ) {
-                  newState = "lost";
-                  isCompleted = true;
-                  break;
-                }
-                if (entry && typeof entry.won === "string" && String(entry.won).toLowerCase() === "in progress") {
-                  newState = "in progress";
-                  isCompleted = false;
-                  break;
-                }
+          if (
+            newState === null &&
+            bet.milestones &&
+            typeof bet.milestones === "object"
+          ) {
+            for (const k of Object.keys(bet.milestones)) {
+              const entry = bet.milestones[k];
+              const wonVal = entry?.won;
+              if (
+                entry &&
+                (wonVal === true ||
+                  (typeof wonVal === "string" &&
+                    String(wonVal).toLowerCase() === "true"))
+              ) {
+                newState = "won";
+                isCompleted = true;
+                break;
+              }
+              if (
+                entry &&
+                (wonVal === false ||
+                  (typeof wonVal === "string" &&
+                    String(wonVal).toLowerCase() === "false"))
+              ) {
+                newState = "lost";
+                isCompleted = true;
+                break;
+              }
+              if (
+                entry &&
+                typeof entry.won === "string" &&
+                String(entry.won).toLowerCase() === "in progress"
+              ) {
+                newState = "in progress";
+                isCompleted = false;
+                break;
               }
             }
+          }
         } catch (e) {
           console.warn(
             "watcher: error checking stored bet flags",
@@ -3385,8 +3395,14 @@ function startWatcherInline(betslipId) {
           const prevEvent = lastEventStatus[evId];
           const competitors =
             summary.header?.competitions?.[0]?.competitors || [];
-          const homeCompetitor = competitors.find((c) => c.homeAway === "home") || competitors[0] || {};
-          const awayCompetitor = competitors.find((c) => c.homeAway === "away") || competitors[1] || {};
+          const homeCompetitor =
+            competitors.find((c) => c.homeAway === "home") ||
+            competitors[0] ||
+            {};
+          const awayCompetitor =
+            competitors.find((c) => c.homeAway === "away") ||
+            competitors[1] ||
+            {};
           const homeAbbr = homeCompetitor.team?.abbreviation || "";
           const awayAbbr = awayCompetitor.team?.abbreviation || "";
           const homeScore = homeCompetitor.score || "";
@@ -3443,17 +3459,24 @@ function startWatcherInline(betslipId) {
               const oppScore = parseInt(opp.score) || 0;
               let isWinning = false;
               // If this is a spread bet, prefer adjustedScore if provided
-              if (bet.type === "spread" || String(bet.id || "").startsWith("spread:")) {
+              if (
+                bet.type === "spread" ||
+                String(bet.id || "").startsWith("spread:")
+              ) {
                 // Try adjustedScore first: format like "+6.5" or "-3.0"
-                const adjustedRaw = bet.current?.adjustedScore || bet.current?.adjusted || null;
+                const adjustedRaw =
+                  bet.current?.adjustedScore || bet.current?.adjusted || null;
                 if (adjustedRaw != null) {
-                  const adj = parseFloat(String(adjustedRaw).replace(/[^0-9\.-]/g, ""));
+                  const adj = parseFloat(
+                    String(adjustedRaw).replace(/[^0-9\.-]/g, "")
+                  );
                   if (!Number.isNaN(adj)) {
                     isWinning = adj >= 0;
                   }
                 } else if (bet.line != null) {
                   // fallback: compute adjusted = betScore + line - oppScore
-                  const lineNum = parseFloat(String(bet.line).replace(/[^0-9\.-]/g, "")) || 0;
+                  const lineNum =
+                    parseFloat(String(bet.line).replace(/[^0-9\.-]/g, "")) || 0;
                   const adjusted = betScore + lineNum - oppScore;
                   isWinning = adjusted >= 0;
                 } else {
@@ -3478,7 +3501,8 @@ function startWatcherInline(betslipId) {
               );
             }
           }
-          if (newState === null &&
+          if (
+            newState === null &&
             (bet.line || bet.betValue || bet.type === "total")
           ) {
             const competitors =
@@ -3512,10 +3536,21 @@ function startWatcherInline(betslipId) {
             try {
               const cur = Number(bet.current?.current);
               const lineNum = Number(bet.bet);
-              const isOverSide = String(bet.side || "").toLowerCase() === "over";
-              if (isOverSide && Number.isFinite(cur) && Number.isFinite(lineNum)) {
+              const isOverSide =
+                String(bet.side || "").toLowerCase() === "over";
+              if (
+                isOverSide &&
+                Number.isFinite(cur) &&
+                Number.isFinite(lineNum)
+              ) {
                 const isWinning = cur > lineNum;
-                newState = isCompleted ? (isWinning ? "won" : "lost") : (isWinning ? "in progress" : "pending");
+                newState = isCompleted
+                  ? isWinning
+                    ? "won"
+                    : "lost"
+                  : isWinning
+                  ? "in progress"
+                  : "pending";
               }
             } catch (e) {}
           }
