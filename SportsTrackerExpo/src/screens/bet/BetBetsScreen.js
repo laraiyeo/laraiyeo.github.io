@@ -1099,7 +1099,7 @@ const BetBetsScreen = () => {
             </View>
             <View style={styles.parlaySummaryItem}>
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
-                ${parlay.wager.toFixed(2)}
+                {parlay.wager.toFixed(2)} C
               </Text>
               <Text
                 style={[
@@ -1112,7 +1112,7 @@ const BetBetsScreen = () => {
             </View>
             <View style={styles.parlaySummaryItem}>
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
-                ${parlay.potentialPayout.toFixed(2)}
+                {parlay.potentialPayout.toFixed(2)} C
               </Text>
               <Text
                 style={[
@@ -1130,7 +1130,7 @@ const BetBetsScreen = () => {
               style={[styles.cashOutButton, { backgroundColor: "#22C55E" }]}
             >
               <Text style={styles.cashOutButtonText}>
-                Cash out ${parlay.cashOutValue.toFixed(2)}
+                Cash out {parlay.cashOutValue.toFixed(2)} C
               </Text>
               <Text style={styles.cashOutSubtext}>
                 BONUS BET STAKE NOT INCLUDED
@@ -1642,7 +1642,10 @@ const BetBetsScreen = () => {
                 <Text
                   style={[styles.parlaySummaryLabel, { color: theme.text }]}
                 >
-                  ${amount.toFixed(2)}
+                  {amount.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })} C
                 </Text>
                 <Text
                   style={[
@@ -1657,12 +1660,16 @@ const BetBetsScreen = () => {
                 <Text
                   style={[styles.parlaySummaryLabel, { color: theme.text }]}
                 >
-                  $
-                  {ticketStatus === "won"
+                  {Number(
+                  ticketStatus === "won"
                     ? displayedPayout
                     : ticketStatus === "lost"
-                    ? "0.00"
-                    : potentialPayout}
+                    ? 0
+                    : potentialPayout
+                ).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })} C
                 </Text>
                 <Text
                   style={[
@@ -1754,7 +1761,10 @@ const BetBetsScreen = () => {
           >
             <View style={styles.parlaySummaryItem}>
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
-                ${amount.toFixed(2)}
+                {amount.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })} C
               </Text>
               <Text
                 style={[
@@ -1768,13 +1778,17 @@ const BetBetsScreen = () => {
             <View style={styles.parlaySummaryItem}>
               <Text
                 style={[styles.parlaySummaryLabel, { color: theme.text }]}
-              >{`$${
-                ticketStatus === "won"
-                  ? displayedPayout
-                  : ticketStatus === "lost"
-                  ? "0.00"
-                  : potentialPayout
-              }`}</Text>
+              >{Number(
+                  ticketStatus === "won"
+                    ? displayedPayout
+                    : ticketStatus === "lost"
+                    ? 0
+                    : potentialPayout
+                ).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })} C
+                </Text>
               <Text
                 style={[
                   styles.parlaySummarySubLabel,
@@ -1867,7 +1881,10 @@ const BetBetsScreen = () => {
                 <Text
                   style={[styles.parlaySummaryLabel, { color: theme.text }]}
                 >
-                  ${amount.toFixed(2)}
+                  {amount.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })} C
                 </Text>
                 <Text
                   style={[
@@ -1881,13 +1898,17 @@ const BetBetsScreen = () => {
               <View style={styles.parlaySummaryItem}>
                 <Text
                   style={[styles.parlaySummaryLabel, { color: theme.text }]}
-                >{`$${
+                >{Number(
                   ticketStatus === "won"
                     ? displayedPayout
                     : ticketStatus === "lost"
-                    ? "0.00"
+                    ? 0
                     : potentialPayout
-                }`}</Text>
+                ).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })} C
+                </Text>
                 <Text
                   style={[
                     styles.parlaySummarySubLabel,
@@ -1985,7 +2006,10 @@ const BetBetsScreen = () => {
             </View>
             <View style={styles.parlaySummaryItem}>
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
-                ${amount.toFixed(2)}
+                {amount.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })} C
               </Text>
               <Text
                 style={[
@@ -1999,13 +2023,17 @@ const BetBetsScreen = () => {
             <View style={styles.parlaySummaryItem}>
               <Text
                 style={[styles.parlaySummaryLabel, { color: theme.text }]}
-              >{`$${
-                ticketStatus === "won"
-                  ? displayedPayout
-                  : ticketStatus === "lost"
-                  ? "0.00"
-                  : potentialPayout
-              }`}</Text>
+              >{Number(
+                  ticketStatus === "won"
+                    ? displayedPayout
+                    : ticketStatus === "lost"
+                    ? 0
+                    : potentialPayout
+                ).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })} C
+              </Text>
               <Text
                 style={[
                   styles.parlaySummarySubLabel,
@@ -2086,7 +2114,10 @@ const BetBetsScreen = () => {
             </View>
             <View style={styles.parlaySummaryItem}>
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
-                ${amount.toFixed(2)}
+                {amount.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })} C
               </Text>
               <Text
                 style={[
@@ -2099,12 +2130,16 @@ const BetBetsScreen = () => {
             </View>
             <View style={styles.parlaySummaryItem}>
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
-                $
-                {ticketStatus === "won"
-                  ? displayedPayout
-                  : ticketStatus === "lost"
-                  ? "0.00"
-                  : potentialPayout}
+                {Number(
+                  ticketStatus === "won"
+                    ? displayedPayout
+                    : ticketStatus === "lost"
+                    ? 0
+                    : potentialPayout
+                ).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })} C
               </Text>
               <Text
                 style={[
@@ -2245,7 +2280,10 @@ const BetBetsScreen = () => {
             </View>
             <View style={styles.parlaySummaryItem}>
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
-                ${amount.toFixed(2)}
+                {amount.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })} C
               </Text>
               <Text
                 style={[
@@ -2258,12 +2296,16 @@ const BetBetsScreen = () => {
             </View>
             <View style={styles.parlaySummaryItem}>
               <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
-                $
-                {ticketStatus === "won"
-                  ? displayedPayout
-                  : ticketStatus === "lost"
-                  ? "0.00"
-                  : potentialPayout}
+                {Number(
+                  ticketStatus === "won"
+                    ? displayedPayout
+                    : ticketStatus === "lost"
+                    ? 0
+                    : potentialPayout
+                ).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })} C
               </Text>
               <Text
                 style={[

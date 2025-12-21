@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   Modal,
+  Keyboard,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
@@ -29,12 +30,36 @@ const BetTopScreen = () => {
   const [selectedProp, setSelectedProp] = useState(null);
   const [selectedPropType, setSelectedPropType] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
-  const [oddsRange, setOddsRange] = useState([-2000, 900]);
-  const [tempOddsRange, setTempOddsRange] = useState([-2000, 900]);
+  const defaultMin = oddsDisplay === "decimal" ? 1.05 : -2000;
+  const defaultMax = oddsDisplay === "decimal" ? 10.00 : 900;
+  const [oddsRange, setOddsRange] = useState(() => [defaultMin, defaultMax]);
+  const [tempOddsRange, setTempOddsRange] = useState(() => [defaultMin, defaultMax]);
+  const [tempOddsTextMin, setTempOddsTextMin] = useState(oddsDisplay === "decimal" ? String(defaultMin) : "");
+  const [tempOddsTextMax, setTempOddsTextMax] = useState(oddsDisplay === "decimal" ? String(defaultMax) : "");
   const [sortBy, setSortBy] = useState("confidence");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   const ITEMS_PER_PAGE = 30;
+
+  // Helper: convert an odds string (american or decimal) to decimal numeric odds
+  const toDecimal = (oddsRaw) => {
+    if (oddsRaw == null) return null;
+    const s = String(oddsRaw).trim();
+    if (s === "") return null;
+    // If looks like decimal (contains a dot) parse as float
+    if (/^[+-]?\d+\.\d+$/.test(s)) return parseFloat(s);
+    // If looks like integer (american) convert
+    if (/^[+-]?\d+$/.test(s)) {
+      const n = parseInt(s.replace(/^\+/, ""), 10);
+      if (isNaN(n)) return null;
+      if (n > 0) return n / 100 + 1;
+      if (n <= -100) return 100 / Math.abs(n) + 1;
+      return n;
+    }
+    // fallback to float parse
+    const p = parseFloat(s);
+    return isNaN(p) ? null : p;
+  };
 
   // Generate props from roster data
   const allProps = [];
@@ -144,9 +169,9 @@ const BetTopScreen = () => {
     let matchesPropType =
       selectedPropType === "All" || prop.propType === selectedPropType;
 
-    // Parse odds (remove + sign and convert to number)
-    const oddsValue = parseInt(prop.odds.replace("+", ""));
-    const matchesOdds = oddsValue >= oddsRange[0] && oddsValue <= oddsRange[1];
+    // Parse odds and convert to numeric decimal when appropriate
+    const oddsValue = toDecimal(prop.odds);
+    const matchesOdds = (oddsValue || 0) >= oddsRange[0] && (oddsValue || 0) <= oddsRange[1];
 
     if (selectedConfidence !== "All") {
       if (selectedConfidence === "90%+") {
@@ -168,8 +193,8 @@ const BetTopScreen = () => {
     if (sortBy === "confidence") {
       return b.confidence - a.confidence;
     } else if (sortBy === "odds") {
-      const aOdds = parseInt(a.odds.replace("+", ""));
-      const bOdds = parseInt(b.odds.replace("+", ""));
+      const aOdds = toDecimal(a.odds) || 0;
+      const bOdds = toDecimal(b.odds) || 0;
       return bOdds - aOdds;
     } else if (sortBy === "last5") {
       return (b.stats.last5 || 0) - (a.stats.last5 || 0);
@@ -193,6 +218,12 @@ const BetTopScreen = () => {
   React.useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, selectedConfidence, selectedPropType, oddsRange, sortBy]);
+
+  // When the odds display preference changes, reset odds ranges to sensible defaults
+  React.useEffect(() => {
+    setOddsRange([defaultMin, defaultMax]);
+    setTempOddsRange([defaultMin, defaultMax]);
+  }, [oddsDisplay]);
 
   const handlePropPress = (prop) => {
     setSelectedProp(prop);
@@ -357,21 +388,36 @@ const BetTopScreen = () => {
                     styles.oddsInput,
                     { backgroundColor: theme.surface, color: theme.text },
                   ]}
-                  placeholder="-2000"
+                  placeholder={String(defaultMin)}
                   placeholderTextColor={theme.textSecondary}
+                  keyboardType={oddsDisplay === "decimal" ? "decimal-pad" : "numeric"}
                   value={
-                    tempOddsRange[0] === -2000 ? "" : String(tempOddsRange[0])
+                    oddsDisplay === "decimal"
+                      ? tempOddsTextMin
+                      : tempOddsRange[0] === defaultMin
+                      ? ""
+                      : String(tempOddsRange[0])
                   }
                   onChangeText={(text) => {
-                    if (text === "" || text === "-") {
-                      setTempOddsRange([
-                        text === "" ? -2000 : "-",
-                        tempOddsRange[1],
-                      ]);
+                    if (oddsDisplay === "decimal") {
+                      // Allow only one decimal point and up to 2 digits after decimal
+                      const sanitized = text.replace(/[^0-9+\-\.]/g, "");
+                      if (!/^[+-]?\d*(?:\.\d{0,2})?$/.test(sanitized)) return;
+                      setTempOddsTextMin(sanitized);
+                      if (sanitized === "" || sanitized === "+" || sanitized === "-" || sanitized === ".") {
+                        setTempOddsRange([defaultMin, tempOddsRange[1]]);
+                      } else {
+                        const parsed = parseFloat(sanitized);
+                        if (!isNaN(parsed)) setTempOddsRange([parsed, tempOddsRange[1]]);
+                      }
                     } else {
-                      const value = parseInt(text);
-                      if (!isNaN(value)) {
-                        setTempOddsRange([value, tempOddsRange[1]]);
+                      if (text === "") {
+                        setTempOddsRange([defaultMin, tempOddsRange[1]]);
+                      } else {
+                        const value = parseInt(text);
+                        if (!isNaN(value)) {
+                          setTempOddsRange([value, tempOddsRange[1]]);
+                        }
                       }
                     }
                   }}
@@ -387,14 +433,35 @@ const BetTopScreen = () => {
                     styles.oddsInput,
                     { backgroundColor: theme.surface, color: theme.text },
                   ]}
-                  placeholder="900"
+                  placeholder={String(defaultMax)}
                   placeholderTextColor={theme.textSecondary}
+                  keyboardType={oddsDisplay === "decimal" ? "decimal-pad" : "numeric"}
                   value={
-                    tempOddsRange[1] === 900 ? "" : String(tempOddsRange[1])
+                    oddsDisplay === "decimal"
+                      ? tempOddsTextMax
+                      : tempOddsRange[1] === defaultMax
+                      ? ""
+                      : String(tempOddsRange[1])
                   }
                   onChangeText={(text) => {
-                    const value = text === "" ? 900 : parseInt(text) || 900;
-                    setTempOddsRange([tempOddsRange[0], value]);
+                    if (oddsDisplay === "decimal") {
+                      const sanitized = text.replace(/[^0-9+\-\.]/g, "");
+                      if (!/^[+-]?\d*(?:\.\d{0,2})?$/.test(sanitized)) return;
+                      setTempOddsTextMax(sanitized);
+                      if (sanitized === "" || sanitized === "+" || sanitized === "-" || sanitized === ".") {
+                        setTempOddsRange([tempOddsRange[0], defaultMax]);
+                      } else {
+                        const parsed = parseFloat(sanitized);
+                        if (!isNaN(parsed)) setTempOddsRange([tempOddsRange[0], parsed]);
+                      }
+                    } else {
+                      if (text === "") {
+                        setTempOddsRange([tempOddsRange[0], defaultMax]);
+                      } else {
+                        const value = parseInt(text);
+                        setTempOddsRange([tempOddsRange[0], isNaN(value) ? tempOddsRange[1] : value]);
+                      }
+                    }
                   }}
                 />
               </View>
@@ -457,6 +524,7 @@ const BetTopScreen = () => {
           <TouchableOpacity
             style={[styles.applyButton, { backgroundColor: colors.primary }]}
             onPress={() => {
+              Keyboard.dismiss();
               setOddsRange(tempOddsRange);
               setShowConfidenceDropdown(false);
               setShowSortDropdown(false);

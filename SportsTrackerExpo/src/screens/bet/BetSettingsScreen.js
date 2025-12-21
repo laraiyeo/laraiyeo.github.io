@@ -459,7 +459,10 @@ const BetSettingsScreen = ({ navigation }) => {
                 </Text>
                 <Text style={{ color: theme.textSecondary, marginTop: 6 }}>
                   {profileMeta && profileMeta.credits != null
-                    ? `${profileMeta.credits.toFixed(2)} Credits`
+                    ? `${Number(profileMeta.credits).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })} Credits`
                     : ""}
                 </Text>
                 {/* Daily button moved to its own section below */}

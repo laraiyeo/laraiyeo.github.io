@@ -34,6 +34,11 @@ import LiveTrackerService from "../../services/liveTrackerService";
 
 const { width } = Dimensions.get("window");
 
+// Debug for play overlay markers: set to an object to render test play markers
+// Example: { home: { x:25, y:25 }, away: { x:25, y:25 } }
+// Set to null to disable.
+const BASKETBALL_PLAY_TEST_COORDS = null;
+
 // Memoized Team Logo Component to prevent re-fetching images
 const TeamLogo = React.memo(
   ({ uri, style, resizeMode = "contain" }) => {
@@ -1535,6 +1540,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           icon: "list",
           label: "Game Lines",
         },
+        {
+          id: "quick",
+          icon: "flash",
+          label: "Live Play",
+        },
       ];
     } else if (gameState === "in") {
       // In-game: Game Stats, Live Play
@@ -2511,109 +2521,145 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         marginTop: (-150 * courtScale) / 2,
                       }}
                     >
-                      {/* ESPN Play Coordinate Visualization */}
-                      {summaryData?.plays?.coordinate &&
-                        (() => {
-                          const { x: espnX, y: espnY } =
-                            summaryData.plays.coordinate;
-                          const period = summaryData.plays.period?.number || 1;
-                          const playTeam = summaryData.plays.team;
+                      {/* ESPN Play Coordinate Visualization (with test override support) */}
+                      {(() => {
+                        // Build array of plays to render. If a debug constant is set,
+                        // use those test coords (can include both home and away).
+                        const plays = [];
+                        if (BASKETBALL_PLAY_TEST_COORDS) {
+                          const t = BASKETBALL_PLAY_TEST_COORDS;
+                          // Allow per-team period/pointsAttempted/scoringPlay overrides
+                          // and apply a tiny X offset so identical test coords don't overlap.
+                          if (t.away) {
+                            const offsetX = typeof t.away.offsetX === "number" ? t.away.offsetX : (typeof t.offsetX === "number" ? t.offsetX : -0.5);
+                            plays.push({
+                              coordinate: {
+                                x: (t.away.x ?? t.x) + offsetX,
+                                y: t.away.y ?? t.y,
+                              },
+                              team: gameData.team1Abbr,
+                              period: t.away.period ?? t.period ?? 3,
+                              pointsAttempted: t.away.pointsAttempted ?? 0,
+                              scoringPlay: !!t.away.scoringPlay,
+                            });
+                          }
+                          if (t.home) {
+                            const offsetX = typeof t.home.offsetX === "number" ? t.home.offsetX : (typeof t.offsetX === "number" ? t.offsetX : 0.5);
+                            plays.push({
+                              coordinate: {
+                                x: (t.home.x ?? t.x) + offsetX,
+                                y: t.home.y ?? t.y,
+                              },
+                              team: gameData.team2Abbr,
+                              period: t.home.period ?? t.period ?? 3,
+                              pointsAttempted: t.home.pointsAttempted ?? 0,
+                              scoringPlay: !!t.home.scoringPlay,
+                            });
+                          }
+                        } else if (summaryData?.plays?.coordinate) {
+                          plays.push({
+                            coordinate: summaryData.plays.coordinate,
+                            team: summaryData.plays.team,
+                            period: summaryData.plays.period?.number || 1,
+                            pointsAttempted: summaryData.plays.pointsAttempted,
+                            scoringPlay: summaryData.plays.scoringPlay,
+                          });
+                        }
+
+                        if (plays.length === 0) return null;
+
+                        return plays.map((p, idx) => {
+                          const espnX = p.coordinate.x;
+                          const espnY = p.coordinate.y;
+                          const period = p.period || 1;
+                          const playTeam = p.team;
 
                           // Determine which side teams are on based on period
-                          // Periods 1 & 2: home on right, away on left
-                          // Periods 3 & 4: home on left, away on right
-                          // Overtime: home on right, away on left
-                          let isHomeOnRight = true;
-                          if (period === 3 || period === 4) {
-                            isHomeOnRight = false;
-                          }
+                          let isHomeOnRight = false;
+                          if (period === 3 || period === 4) isHomeOnRight = true;
 
-                          // Determine if this play's team is home or away
                           const isHomeTeam = playTeam === gameData.team2Abbr;
-
-                          // Determine if this team is shooting at the right basket
                           const isTeamOnRight =
                             (isHomeTeam && isHomeOnRight) ||
                             (!isHomeTeam && !isHomeOnRight);
+                          const teamSide = isTeamOnRight ? "home" : "away";
 
-                          // Check for special positioning cases
-                          const pointsAttempted =
-                            summaryData.plays.pointsAttempted;
-                          let ourYPercent, ourXPercent;
+                          const pointsAttempted = p.pointsAttempted;
 
-                          // Case 1: Free throw (pointsAttempted = 1)
+                          // Use the same coordinate math as `BasketballCourt` to determine
+                          // the percent placement, then map those percents into the
+                          // un-rotated overlay by swapping axes.
+                          let leftPercent, topPercent;
                           if (pointsAttempted === 1) {
-                            // Free throws: positioned at free throw line
-                            // Away team in periods 1&2 and home team in periods 3&4: X = 28%
-                            // Home team in periods 1&2 and away team in periods 3&4: X = 72%
-                            ourXPercent = isTeamOnRight ? 28 : 72;
-                            ourYPercent = 50; // Center of court width
-                          }
-                          // Case 2: No coordinates provided (both 0)
-                          else if (espnX === 0 && espnY === 0) {
-                            // Position at center
-                            ourXPercent = 50;
-                            ourYPercent = 50;
-                          }
-                          // Case 3: Normal field goal with coordinates
-                          else {
-                            // Convert ESPN coordinates to our coordinate system
-                            // ESPN: x (0-50) is court length, y (0-40) is court width
-                            // Our horizontal court: x is width (0-40), y is length (0-50)
-                            // So ESPN x → our y, ESPN y → our x
-
-                            // For teams on the right: ESPN x=0 is their basket (our y=100%), x=50 is opponent's basket (our y=0%)
-                            // For teams on the left: ESPN x=0 is their basket (our y=0%), x=50 is opponent's basket (our y=100%)
-                            if (isTeamOnRight) {
-                              // Right side: reverse the y-axis
-                              ourYPercent = 100 - (espnX / 50) * 100;
+                            // Short-hand for free throws / single point attempts
+                            leftPercent = isTeamOnRight ? 50 : 50;
+                            topPercent = isTeamOnRight ? 28 : 72;
+                          } else if (espnX === 0 && espnY === 0) {
+                            leftPercent = 50;
+                            topPercent = 50;
+                          } else {
+                            if (teamSide === "home") {
+                              topPercent = espnY * 2 - 6;
+                              leftPercent = espnX * 2;
                             } else {
-                              // Left side: direct mapping
-                              ourYPercent = (espnX / 50) * 100;
+                              topPercent = (52 - espnY) * 2;
+                              leftPercent = (50 - espnX) * 2;
                             }
-
-                            // X-axis (width) is always direct mapping
-                            ourXPercent = (espnY / 40) * 100;
                           }
 
-                          // Convert percentages to actual pixel positions
-                          const padding = 4 * courtScale;
+                          const finalLeftPercent = Math.max(2, Math.min(98, leftPercent));
+                          const finalTopPercent = Math.max(1.5, Math.min(98.5, topPercent));
+
+                          // Clamp to respective sides (home/right vs away/left)
+                          let clampedTop = finalTopPercent;
+                          if (teamSide === "home") {
+                            clampedTop = Math.min(clampedTop, 50.5);
+                          } else {
+                            clampedTop = Math.max(clampedTop, 49.5);
+                          }
+
+                          // Overlay is not rotated, so swap axes: BasketballCourt's
+                          // `left` percent maps to vertical (Y) here, and `top`
+                          // percent maps to horizontal (X).
+                          // Flip percents so markers map to the mirrored half
+                          // (fixes markers appearing on the opposite side).
+                          const ourXPercent = clampedTop;
+                          const ourYPercent = 100 - finalLeftPercent;
+
+                          const padding = 3 * courtScale;
                           const courtWidth = 200 * courtScale - padding * 2;
                           const courtHeight = 150 * courtScale - padding * 2;
 
-                          const actualX =
-                            padding + (ourXPercent / 100) * courtWidth;
-                          const actualY =
-                            padding + (ourYPercent / 100) * courtHeight;
+                          const actualX = padding + (ourXPercent / 100) * courtWidth;
+                          const actualY = padding + (ourYPercent / 100) * courtHeight;
 
-                          // Get team color using same pattern as other sections
                           const teamColor =
-                            playTeam === gameData.team1Abbr
-                              ? team1Color
-                              : team2Color;
+                            playTeam === gameData.team1Abbr ? team1Color : team2Color;
+                          const isScoring = !!p.scoringPlay;
 
-                          // Determine styling based on scoring vs non-scoring
-                          const isScoring = summaryData.plays.scoringPlay;
+                          // Debug log
+                          console.log("[PlayOverlay] render play", { idx, espnX, espnY, ourXPercent, ourYPercent, actualX, actualY });
 
                           return (
                             <View
+                              key={`play-${idx}`}
                               style={{
                                 position: "absolute",
                                 width: 7.5 * courtScale,
                                 height: 7.5 * courtScale,
                                 borderRadius: 3.75 * courtScale,
-                                backgroundColor: isScoring
-                                  ? teamColor
-                                  : "white",
-                                borderWidth: 2,
+                                backgroundColor: isScoring ? teamColor : "white",
+                                borderWidth: 1.25 * courtScale,
                                 borderColor: isScoring ? "white" : teamColor,
                                 left: actualX - 3.75 * courtScale,
                                 top: actualY - 3.75 * courtScale,
-                                zIndex: 50,
+                                zIndex: 400,
+                                elevation: 400,
                               }}
                             />
                           );
-                        })()}
+                        });
+                      })()}
                     </View>
                   </View>
                 </View>
@@ -3665,7 +3711,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     {gameData.statusDetail || "LIVE"}
                   </Text>
                 </View>
-
+                  {gameData.status !== "pre" && (
                 <Text style={[styles.gameDate, { color: theme.textSecondary }]}>
                   {new Date().toLocaleDateString("en-US", {
                     weekday: "long",
@@ -3674,6 +3720,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     day: "numeric",
                   })}
                 </Text>
+                  )}
               </View>
             </View>
           );

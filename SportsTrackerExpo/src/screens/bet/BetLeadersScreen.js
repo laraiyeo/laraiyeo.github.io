@@ -15,6 +15,9 @@ const BetLeadersScreen = () => {
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           Top bettors will be displayed here
         </Text>
+        <Text style={[styles.subtitle, { color: theme.textSecondary, fontSize: 14, marginTop: 8, fontStyle: 'italic' }]}>
+          Coming Soon!
+        </Text>
       </ScrollView>
       <BetSlip />
     </View>

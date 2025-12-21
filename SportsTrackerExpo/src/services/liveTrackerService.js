@@ -171,8 +171,6 @@ async function initDiary(
     if (diaryDataBySport[inferredSport]) {
       return diaryDataBySport[inferredSport];
     }
-
-    const res = await fetchImpl(url, { method: "GET" });
     if (!res.ok) {
       console.warn("liveTrackerService: diary fetch failed", res.status, url);
       diaryDataBySport[inferredSport] = null;

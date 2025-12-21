@@ -307,126 +307,80 @@ const BetLoginScreen = ({ navigation }) => {
       // Success - save credentials including the phone we looked up
       console.log("BetLogin: login successful");
       await saveCredentials(username, password, userPhone);
-      // Exchange Supabase session token with server to receive app JWT and store it
-      try {
-        // get current session access token
-        const { data: sessionData } = await supabase.auth.getSession();
-        console.log("BetLogin: supabase.auth.getSession result:", {
-          sessionData: !!sessionData,
-        });
-        const accessToken =
-          sessionData?.session?.access_token ||
-          sessionData?.access_token ||
-          null;
-        const headers = { "Content-Type": "application/json" };
-        if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-
-        // Extensive debug logging before calling server
-        const maskedToken = accessToken
-          ? `${accessToken.slice(0, 8)}...<masked>`
-          : null;
-        const requestBody = JSON.stringify({ username });
-        console.log("BetLogin: will POST to server /auth/login", {
-          url: `${API_URL}/auth/login`,
-          headers: {
-            // only show non-sensitive headers and masked auth
-            "Content-Type": headers["Content-Type"],
-            Authorization: maskedToken,
-          },
-          body: requestBody,
-        });
-
-        let res;
-        let text = null;
+      // Prefer token returned from signIn; fall back to getSession
+      let accessToken =
+        authData?.session?.access_token || authData?.access_token || null;
+      if (!accessToken) {
         try {
-          res = await fetch(`${API_URL}/auth/login`, {
+          const { data: sessionData } = await supabase.auth.getSession();
+          accessToken =
+            sessionData?.session?.access_token || sessionData?.access_token ||
+            null;
+          console.log("BetLogin: supabase.auth.getSession fallback used", !!accessToken);
+        } catch (e) {
+          console.warn("BetLogin: getSession fallback failed", e);
+        }
+      }
+
+      const headers = { "Content-Type": "application/json" };
+      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+      const maskedToken = accessToken ? `${accessToken.slice(0,8)}...<masked>` : null;
+      const requestBody = JSON.stringify({ username });
+
+      // Run server auth exchange in background (does not block navigation)
+      (async () => {
+        try {
+          const res = await fetch(`${API_URL}/auth/login`, {
             method: "POST",
             headers,
             body: requestBody,
           });
-        } catch (netErr) {
-          console.error(
-            "BetLogin: network error during server auth exchange:",
-            netErr
-          );
-          throw netErr;
-        }
-
-        console.log("BetLogin: server auth exchange status", res.status);
-        try {
-          text = await res.text();
-        } catch (readErr) {
-          console.error(
-            "BetLogin: error reading server response text:",
-            readErr
-          );
-        }
-
-        console.log(
-          "BetLogin: server response raw text length",
-          text ? text.length : 0
-        );
-        try {
-          const j = text ? JSON.parse(text) : null;
-          console.log("BetLogin: server response parsed JSON", j);
-          if (res.ok && j && j.token) {
-            await AsyncStorage.setItem("@bet_token", j.token);
-            console.log(
-              "BetLogin: stored server auth token (length)",
-              j.token.length || null
-            );
-            // Register for push notifications now that server token is available
-            try {
-              await registerForPushNotifications(j.token);
-            } catch (e) {
-              console.error("Push registration after login failed:", e);
-            }
+          let body = null;
+          try { body = await res.json().catch(() => null); } catch (e) { body = null; }
+          if (res.ok && body && body.token) {
+            await AsyncStorage.setItem("@bet_token", body.token);
+            console.log("BetLogin: stored server auth token", (body.token || '').length);
+            try { await registerForPushNotifications(body.token); } catch (e) { console.error("Push registration after login failed:", e); }
           } else {
-            console.warn("Login exchange returned no token or failed", {
-              status: res.status,
-              body: j || text,
-            });
+            console.log("BetLogin: server exchange returned no token", { status: res.status, body });
           }
-        } catch (parseErr) {
-          console.warn("BetLogin: server exchange non-JSON response", {
-            status: res.status,
-            raw: text,
-            parseError: parseErr && parseErr.message,
-          });
+        } catch (err) {
+          console.error("BetLogin: server auth exchange error", err);
         }
-      } catch (e) {
-        console.error("Server auth exchange error:", e);
-      }
-      // Trigger scoreboard + rosters fetch immediately from login
-      try {
-        console.log("BetLogin: login success - fetching scoreboard now");
-        await fetchScoreboard();
-        console.log("BetLogin: login - scoreboard fetch complete");
-      } catch (e) {
-        console.error("BetLogin: login - fetchScoreboard error", e);
-      }
+      })();
+
+      // Start scoreboard and rosters in background; do not await before navigation
+      (async () => {
+        try {
+          await fetchScoreboard();
+          console.log("BetLogin: background fetchScoreboard completed");
+        } catch (e) {
+          console.error("BetLogin: background fetchScoreboard error", e);
+        }
+      })();
+
       if (fetchRosters) {
         fetchRosters()
-          .then(() =>
-            console.log("BetLogin: login - rosters fetch started/completed")
-          )
-          .catch((e) =>
-            console.error("BetLogin: login - fetchRosters error", e)
-          );
+          .then(() => console.log("BetLogin: background fetchRosters completed"))
+          .catch((e) => console.error("BetLogin: background fetchRosters error", e));
       }
-      // Initialize odds display context from persisted storage (if present)
-      try {
-        const stored = await AsyncStorage.getItem("@odds_display");
-        console.log("BetLogin: persisted @odds_display =", stored);
-        if (stored === "decimal" || stored === "american") {
-          if (oddsContext && oddsContext.setOddsDisplay) {
-            oddsContext.setOddsDisplay(stored);
-            console.log("BetLogin: initialized OddsDisplayContext to", stored);
+
+      // Initialize odds display in background
+      (async () => {
+        try {
+          const stored = await AsyncStorage.getItem("@odds_display");
+          if (stored === "decimal" || stored === "american") {
+            if (oddsContext && oddsContext.setOddsDisplay) {
+              oddsContext.setOddsDisplay(stored);
+              console.log("BetLogin: initialized OddsDisplayContext to", stored);
+            }
           }
+        } catch (e) {
+          console.error("BetLogin: error initializing odds display context", e);
         }
-      } catch (e) {
-        console.error("BetLogin: error initializing odds display context", e);
-      }
+      })();
+
+      // Navigate immediately for faster perceived login
       navigation.navigate("BetMain");
     } catch (error) {
       console.error("Login error (catch):", error);

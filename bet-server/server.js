@@ -2046,9 +2046,6 @@ app.get("/api/summary/:eventId", async (req, res) => {
         if (oldState === "pre" && newState === "in" && lastBroadcast !== "in") {
           eventBroadcastState[eventId] = "in";
           // game started
-          broadcastToAll("Game Starts", `${home} vs ${away} has now started`, {
-            eventId,
-          });
         }
         if (
           oldState === "in" &&
@@ -2060,11 +2057,6 @@ app.get("/api/summary/:eventId", async (req, res) => {
             comp?.competitors?.find((c) => c.homeAway === "home")?.score || 0;
           const awayScore =
             comp?.competitors?.find((c) => c.homeAway === "away")?.score || 0;
-          broadcastToAll(
-            "Game Ended",
-            `${home} ${homeScore} vs ${away} ${awayScore} has ended!`,
-            { eventId }
-          );
         }
       }
     } catch (e) {
@@ -3097,6 +3089,25 @@ app.post("/api/profile/push-token", authMiddlewareInline, async (req, res) => {
 // --------------------------
 // Inlined betslips routes and watcher (uses Supabase HTTP)
 // --------------------------
+// Recent notification suppression to avoid spamming the same user
+// about the same event multiple times in a short window.
+const recentNotifications = {};
+// Returns true if the notification should be suppressed (recently sent).
+function shouldSuppressNotification(userId, eventId, type, windowMs = 30000) {
+  try {
+    if (!userId || !eventId || !type) return false;
+    const now = Date.now();
+    recentNotifications[userId] = recentNotifications[userId] || {};
+    const userMap = recentNotifications[userId];
+    userMap[eventId] = userMap[eventId] || {};
+    const last = userMap[eventId][type] || 0;
+    if (now - last < windowMs) return true;
+    userMap[eventId][type] = now;
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
 const betslipWatchers = {};
 const testNotifiers = {};
 
@@ -3437,15 +3448,23 @@ function startWatcherInline(betslipId) {
             isInProgress &&
             (prevEvent !== undefined || startedRecently)
           ) {
-            console.log(
-              `[watcher ${betslipId}] notify -> Game Started user:${fresh.user_id} event:${evId}`
-            );
-            await sendPushNotification(
-              fresh.user_id,
-              "Game Started 🏀",
-              `${homeAbbr} vs ${awayAbbr} has now started`,
-              { betslipId: fresh.id, eventId: evId }
-            );
+            // Avoid spamming the same user about the same event multiple
+            // times from different watchers or rapid ticks.
+            if (!shouldSuppressNotification(fresh.user_id, evId, "started")) {
+              console.log(
+                `[watcher ${betslipId}] notify -> Game Started user:${fresh.user_id} event:${evId}`
+              );
+              await sendPushNotification(
+                fresh.user_id,
+                "Game Started 🏀",
+                `${homeAbbr} vs ${awayAbbr} has now started`,
+                { betslipId: fresh.id, eventId: evId }
+              );
+            } else {
+              console.log(
+                `[watcher ${betslipId}] suppressed duplicate Game Started notify -> user:${fresh.user_id} event:${evId}`
+              );
+            }
           }
 
           // Notify Game Ended only on a real transition (prevEvent exists) or
@@ -3456,15 +3475,21 @@ function startWatcherInline(betslipId) {
             isCompleted &&
             (prevEvent !== undefined || startedWithinDay)
           ) {
-            console.log(
-              `[watcher ${betslipId}] notify -> Game Ended user:${fresh.user_id} event:${evId}`
-            );
-            await sendPushNotification(
-              fresh.user_id,
-              "Game Ended 🏀",
-              `${homeAbbr} ${homeScore} vs ${awayAbbr} ${awayScore} has ended`,
-              { betslipId: fresh.id, eventId: evId }
-            );
+            if (!shouldSuppressNotification(fresh.user_id, evId, "ended")) {
+              console.log(
+                `[watcher ${betslipId}] notify -> Game Ended user:${fresh.user_id} event:${evId}`
+              );
+              await sendPushNotification(
+                fresh.user_id,
+                "Game Ended 🏀",
+                `${homeAbbr} ${homeScore} vs ${awayAbbr} ${awayScore} has ended`,
+                { betslipId: fresh.id, eventId: evId }
+              );
+            } else {
+              console.log(
+                `[watcher ${betslipId}] suppressed duplicate Game Ended notify -> user:${fresh.user_id} event:${evId}`
+              );
+            }
           }
 
           lastEventStatus[evId] = isCompleted
@@ -3639,7 +3664,42 @@ function startWatcherInline(betslipId) {
 
       // New finalization rule: if any completed pick exists and any completed pick is not won -> mark whole bet lost
       // NOTE: avoid finalizing on the very first tick immediately after creation
-      if (!isFirstTick && anyCompleted && anyCompletedNotWon) {
+      // If the betslip payload included multiple events (games) but some
+      // of those events contain no picks (e.g. parlay with one player bet and
+      // another game with no player selections yet), we should not finalize
+      // the bet until those other events are no longer in 'pre' or otherwise
+      // incomplete. Check for any such events and, if found and still pre,
+      // defer finalization by treating the slip as not-final.
+      let hasPendingEmptyEvents = false;
+      try {
+        const payloadEvents = (fresh.betslip_data && fresh.betslip_data.events) || [];
+        if (Array.isArray(payloadEvents) && payloadEvents.length > 0) {
+          for (const ev of payloadEvents) {
+            const evId = ev.eventId || ev.id || ev.eventId || null;
+            const hasBets = ev.bets && (Object.keys(ev.bets).length > 0) || (Array.isArray(ev.bets?.players) && ev.bets.players.length > 0);
+            if (!hasBets && evId) {
+              // If we have a summary for this event and it's not completed,
+              // consider it pending and prevent premature finalization.
+              const s = summaries[evId];
+              if (!s) {
+                hasPendingEmptyEvents = true;
+                break;
+              }
+              const evStatus = s.header?.competitions?.[0]?.status?.type || {};
+              const evCompleted = !!evStatus.completed;
+              if (!evCompleted) {
+                hasPendingEmptyEvents = true;
+                break;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // ignore and be conservative
+        hasPendingEmptyEvents = true;
+      }
+
+      if (!isFirstTick && anyCompleted && anyCompletedNotWon && !hasPendingEmptyEvents) {
         if (fresh.status !== "lost") {
           try {
             // Use DB RPC to atomically settle and record ledger/history
@@ -3677,7 +3737,11 @@ function startWatcherInline(betslipId) {
         return;
       }
 
-      if (!isFirstTick && allFinal) {
+      // Also avoid finalizing the whole slip as won/lost if there are
+      // pending events that have no bets (parlay gaps) which are not yet
+      // completed. This prevents a single-leg completion from settling the
+      // entire multi-game bet when another game is still 'pre'.
+      if (!isFirstTick && allFinal && !hasPendingEmptyEvents) {
         const newStatus = anyLost ? "lost" : "won";
         if (fresh.status !== newStatus) {
           try {

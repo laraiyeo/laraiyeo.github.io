@@ -95,7 +95,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
   };
 
   const handleConfirmBet = async () => {
-    const amount = parseFloat(betAmount) || 20;
+    const amount = parseFloat(betAmount) || 200;
     console.log("handleConfirmBet invoked", {
       amount,
       betsCount: bets.length,
@@ -110,8 +110,11 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         const balance = Number(profileResp.profile.credits || 0);
         if (amount > balance) {
           Alert.alert(
-            "Insufficient credits",
-            `You only have ${balance.toFixed(2)} credits available.`
+            "Insufficient Credits",
+            `You only have ${Number(balance).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })} Credits available.`
           );
           return;
         }
@@ -361,11 +364,11 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
   };
 
   const parlayOdds = calculateParlayOdds();
-  const betAmountNum = parseFloat(betAmount) || 20; // Default to 20
+  const betAmountNum = parseFloat(betAmount) || 200; // Default to 200
 
   // Calculate To Win: (betAmount * totalDecimalOdds) - betAmount
   const calculateToWin = () => {
-    const amount = parseFloat(betAmount) || 20; // Default to 20
+    const amount = parseFloat(betAmount) || 200; // Default to 200
     if (bets.length === 0) return "0.00";
 
     const decimalOdds = bets.map((bet) => {
@@ -384,7 +387,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
 
   // Calculate Payout: betAmount + toWin
   const calculatePayoutTotal = () => {
-    const amount = parseFloat(betAmount) || 20; // Default to 20
+    const amount = parseFloat(betAmount) || 200; // Default to 200
     if (bets.length === 0) return "0.00";
     const toWin = parseFloat(calculateToWin());
     return (amount + toWin).toFixed(2);
@@ -513,7 +516,10 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
 
               <View style={styles.creditsContainer}>
                 <Text style={[styles.creditsText, { color: theme.text }]}>
-                  ${Number(credits || 0).toFixed(2)}
+                  {Number(credits || 0).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })} C
                 </Text>
               </View>
             </View>
@@ -808,7 +814,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
 
               {/* Quick Add Buttons + Amount Display */}
               <View style={styles.quickAddAndAmountRow}>
-                {[1, 5, 20].map((amount) => (
+                {[10, 50, 200].map((amount) => (
                   <TouchableOpacity
                     key={amount}
                     style={[
@@ -818,7 +824,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                     onPress={() => handleQuickAdd(amount)}
                   >
                     <Text style={[styles.quickAddText, { color: "#4CAF50" }]}>
-                      +${amount}
+                      +{amount} C
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -840,7 +846,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                       { color: betAmount ? theme.text : theme.textSecondary },
                     ]}
                   >
-                    ${betAmount || "20"}
+                    {betAmount || "200"} C
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1006,7 +1012,14 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                     <Text
                       style={[styles.mainBetButtonValue, { color: theme.text }]}
                     >
-                      ${betAmount || "20.00"} pays ${payout}
+                      {Number(betAmount || 200).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })} C pays{" "}
+                      {Number(payout).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })} C
                     </Text>
                   </>
                 ) : (
@@ -1019,7 +1032,10 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                     <Text
                       style={[styles.mainBetButtonValue, { color: "#FFF" }]}
                     >
-                      Total Payout: ${payout}
+                      Total Payout: {Number(payout).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })} C
                     </Text>
                   </>
                 )}

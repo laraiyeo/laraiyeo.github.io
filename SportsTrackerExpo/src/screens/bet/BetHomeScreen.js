@@ -1144,7 +1144,7 @@ const BetHomeScreen = ({ navigation }) => {
                       // Close modal after 3 seconds
                       setTimeout(() => {
                         setDailyVisible(false);
-                      }, 3000);
+                      }, 1000);
                     } else {
                       Alert.alert(
                         "Unable to claim",
