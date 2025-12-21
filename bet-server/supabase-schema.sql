@@ -263,10 +263,16 @@ BEGIN
           v_total_odds := v_total_odds * (
             CASE
               WHEN (p_bets->i->>'odds') IS NULL THEN 1
-              WHEN (p_bets->i->>'odds') ~ '^\\+?\\d+$' THEN -- american-like integer
-                CASE WHEN (p_bets->i->>'odds')::double precision >= 100 THEN ( (p_bets->i->>'odds')::double precision / 100.0 + 1 ) ELSE (p_bets->i->>'odds')::double precision END
+              WHEN (p_bets->i->>'odds') ~ '^[+-]?\\d+$' THEN -- american-like integer (accept +/-)
+                (
+                  CASE
+                    WHEN (p_bets->i->>'odds')::double precision >= 100 THEN ( (p_bets->i->>'odds')::double precision / 100.0 + 1 )
+                    WHEN (p_bets->i->>'odds')::double precision <= -100 THEN (100.0 / abs((p_bets->i->>'odds')::double precision) + 1)
+                    ELSE (p_bets->i->>'odds')::double precision
+                  END
+                )
               ELSE
-                -- try numeric interpretation
+                -- try numeric interpretation (assume already decimal)
                 (p_bets->i->>'odds')::double precision
             END
           );

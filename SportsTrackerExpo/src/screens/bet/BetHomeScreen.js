@@ -224,10 +224,10 @@ const parseGameData = (events, isDarkMode = false) => {
       team2Record: homeTeam.record || null,
       score1: awayTeam.score || 0,
       score2: homeTeam.score || 0,
-      shortDetail: status.type.shortDetail || null,
+      shortDetail: status.type.detail || null,
       time:
         status.type?.state === "in" && status.displayClock
-          ? status.displayClock
+          ? status.period
           : timeFormatted.time,
       // Keep original ISO start time for accurate sorting and comparisons
       startTime: event.date,
@@ -287,7 +287,7 @@ const LiveGameCard = React.memo(
         </Text>
 
         {/* Tournament Name with NBA Logo */}
-        <View style={styles.liveTournamentRow}>
+        <View style={[styles.liveTournamentRow, { marginLeft: -5 }]}>
           <Image
             source={NBA_LOGO}
             style={styles.nbaLogo}
@@ -519,6 +519,12 @@ const CompletedGameCard = React.memo(
     const team2Source = imageCache.get(game.team2Logo) || {
       uri: game.team2Logo,
     };
+    const estTime = new Date(game.startTime).toLocaleTimeString("en-US", {
+      timeZone: "America/New_York",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
 
     return (
       <TouchableOpacity
@@ -533,7 +539,7 @@ const CompletedGameCard = React.memo(
         <View style={styles.completedHeaderRow}>
           <Image
             source={NBA_LOGO}
-            style={styles.nbaLogoTiny}
+            style={[styles.nbaLogoTiny, { marginTop: -5 }]}
             contentFit="contain"
             cachePolicy="memory-disk"
           />
@@ -549,7 +555,7 @@ const CompletedGameCard = React.memo(
         </View>
 
         <Text style={[styles.completedStatus, { color: theme.textSecondary }]}>
-          Final
+          Final - {estTime} EST
         </Text>
 
         <View style={styles.completedTeamsContainer}>
@@ -1063,6 +1069,7 @@ const BetHomeScreen = ({ navigation }) => {
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.horizontalScroll}
+              contentContainerStyle={{ paddingRight: 20 }}
             >
               {liveGames.map((game) => (
                 <LiveGameCard
@@ -1103,8 +1110,9 @@ const BetHomeScreen = ({ navigation }) => {
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.horizontalScroll}
+              contentContainerStyle={{ paddingRight: 20 }}
             >
-              {completedGames.map((game) => (
+              {completedGames.reverse().map((game) => (
                 <CompletedGameCard
                   key={game.id}
                   game={game}

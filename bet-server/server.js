@@ -3408,7 +3408,32 @@ function startWatcherInline(betslipId) {
           const homeScore = homeCompetitor.score || "";
           const awayScore = awayCompetitor.score || "";
 
-          if (!isFirstTick && prevEvent !== "in progress" && isInProgress) {
+          // determine event start time and windows to avoid notifying long-past events
+          const startTimeRaw = summary.header?.competitions?.[0]?.date || null;
+          let startedRecently = false;
+          let startedWithinDay = false;
+          try {
+            if (startTimeRaw) {
+              const startDate = new Date(startTimeRaw);
+              const minutesSinceStart = (Date.now() - startDate.getTime()) / 60000;
+              // within +/-30 minutes
+              startedRecently = minutesSinceStart >= -30 && minutesSinceStart <= 30;
+              // started within last day (useful for end notifications fallback)
+              startedWithinDay = minutesSinceStart >= 0 && minutesSinceStart <= 24 * 60;
+            }
+          } catch (e) {
+            startedRecently = false;
+            startedWithinDay = false;
+          }
+
+          // Notify Game Started only on a real transition (prevEvent exists) or
+          // when the event start time is within a recent 30-minute window.
+          if (
+            !isFirstTick &&
+            prevEvent !== "in progress" &&
+            isInProgress &&
+            (prevEvent !== undefined || startedRecently)
+          ) {
             console.log(
               `[watcher ${betslipId}] notify -> Game Started user:${fresh.user_id} event:${evId}`
             );
@@ -3420,7 +3445,14 @@ function startWatcherInline(betslipId) {
             );
           }
 
-          if (!isFirstTick && prevEvent !== "completed" && isCompleted) {
+          // Notify Game Ended only on a real transition (prevEvent exists) or
+          // when the event start time was within the last day (safety window).
+          if (
+            !isFirstTick &&
+            prevEvent !== "completed" &&
+            isCompleted &&
+            (prevEvent !== undefined || startedWithinDay)
+          ) {
             console.log(
               `[watcher ${betslipId}] notify -> Game Ended user:${fresh.user_id} event:${evId}`
             );
@@ -4027,13 +4059,39 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
       .update({ credits: newCredits })
       .eq("id", req.userId);
     if (updErr) throw updErr;
+    // If client didn't provide a potentialPayout, compute it server-side
+    let computedPotential = null;
+    try {
+      if (potentialPayout == null && betslipData && Array.isArray(betslipData.bets)) {
+        const decimalOdds = betslipData.bets.map((b) => {
+          const s = b.odds == null ? null : String(b.odds).trim();
+          if (s == null || s === "") return 1;
+          // signed American integer like +150 / -2000
+          if (/^[+-]?\d+$/.test(s)) {
+            const n = parseFloat(s.replace(/^\+/, ""));
+            if (n > 0) return n / 100 + 1;
+            if (n <= -100) return 100 / Math.abs(n) + 1;
+            return n; // fallback
+          }
+          // numeric/decimal odds
+          const parsed = parseFloat(s);
+          return isNaN(parsed) ? 1 : parsed;
+        });
+        const totalDecimal = decimalOdds.reduce((acc, v) => acc * v, 1);
+        computedPotential = Number(((totalStake || 0) * totalDecimal).toFixed(2));
+      }
+    } catch (e) {
+      console.warn("[betslips] failed to compute potentialPayout server-side", e?.message || e);
+      computedPotential = null;
+    }
+
     const { data: inserted } = await supabaseAdmin
       .from("betslips")
       .insert({
         user_id: req.userId,
         betslip_data: betslipData,
         total_stake: totalStake,
-        potential_payout: potentialPayout,
+        potential_payout: potentialPayout != null ? potentialPayout : computedPotential,
       })
       .select()
       .maybeSingle();

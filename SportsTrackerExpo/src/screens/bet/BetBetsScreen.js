@@ -2233,7 +2233,48 @@ const BetBetsScreen = () => {
             </View>
           );
         })}
+        
 
+          <View
+            style={[styles.parlaySummary, { borderTopColor: theme.border }]}
+          >
+            <View style={styles.parlaySummaryItem}>
+              <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
+                {allPicks.length} Picks
+              </Text>
+            </View>
+            <View style={styles.parlaySummaryItem}>
+              <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
+                ${amount.toFixed(2)}
+              </Text>
+              <Text
+                style={[
+                  styles.parlaySummarySubLabel,
+                  { color: theme.textTertiary },
+                ]}
+              >
+                WAGER
+              </Text>
+            </View>
+            <View style={styles.parlaySummaryItem}>
+              <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
+                $
+                {ticketStatus === "won"
+                  ? displayedPayout
+                  : ticketStatus === "lost"
+                  ? "0.00"
+                  : potentialPayout}
+              </Text>
+              <Text
+                style={[
+                  styles.parlaySummarySubLabel,
+                  { color: theme.textTertiary },
+                ]}
+              >
+                PAYOUT
+              </Text>
+            </View>
+          </View>
         <TouchableOpacity
           style={[
             styles.collapseButton,
