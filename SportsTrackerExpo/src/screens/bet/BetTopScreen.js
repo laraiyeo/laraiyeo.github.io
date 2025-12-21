@@ -31,11 +31,18 @@ const BetTopScreen = () => {
   const [selectedPropType, setSelectedPropType] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
   const defaultMin = oddsDisplay === "decimal" ? 1.05 : -2000;
-  const defaultMax = oddsDisplay === "decimal" ? 10.00 : 900;
+  const defaultMax = oddsDisplay === "decimal" ? 10.0 : 900;
   const [oddsRange, setOddsRange] = useState(() => [defaultMin, defaultMax]);
-  const [tempOddsRange, setTempOddsRange] = useState(() => [defaultMin, defaultMax]);
-  const [tempOddsTextMin, setTempOddsTextMin] = useState(oddsDisplay === "decimal" ? String(defaultMin) : "");
-  const [tempOddsTextMax, setTempOddsTextMax] = useState(oddsDisplay === "decimal" ? String(defaultMax) : "");
+  const [tempOddsRange, setTempOddsRange] = useState(() => [
+    defaultMin,
+    defaultMax,
+  ]);
+  const [tempOddsTextMin, setTempOddsTextMin] = useState(
+    oddsDisplay === "decimal" ? String(defaultMin) : ""
+  );
+  const [tempOddsTextMax, setTempOddsTextMax] = useState(
+    oddsDisplay === "decimal" ? String(defaultMax) : ""
+  );
   const [sortBy, setSortBy] = useState("confidence");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
@@ -171,7 +178,8 @@ const BetTopScreen = () => {
 
     // Parse odds and convert to numeric decimal when appropriate
     const oddsValue = toDecimal(prop.odds);
-    const matchesOdds = (oddsValue || 0) >= oddsRange[0] && (oddsValue || 0) <= oddsRange[1];
+    const matchesOdds =
+      (oddsValue || 0) >= oddsRange[0] && (oddsValue || 0) <= oddsRange[1];
 
     if (selectedConfidence !== "All") {
       if (selectedConfidence === "90%+") {
@@ -390,7 +398,9 @@ const BetTopScreen = () => {
                   ]}
                   placeholder={String(defaultMin)}
                   placeholderTextColor={theme.textSecondary}
-                  keyboardType={oddsDisplay === "decimal" ? "decimal-pad" : "numeric"}
+                  keyboardType={
+                    oddsDisplay === "decimal" ? "decimal-pad" : "numeric"
+                  }
                   value={
                     oddsDisplay === "decimal"
                       ? tempOddsTextMin
@@ -404,11 +414,17 @@ const BetTopScreen = () => {
                       const sanitized = text.replace(/[^0-9+\-\.]/g, "");
                       if (!/^[+-]?\d*(?:\.\d{0,2})?$/.test(sanitized)) return;
                       setTempOddsTextMin(sanitized);
-                      if (sanitized === "" || sanitized === "+" || sanitized === "-" || sanitized === ".") {
+                      if (
+                        sanitized === "" ||
+                        sanitized === "+" ||
+                        sanitized === "-" ||
+                        sanitized === "."
+                      ) {
                         setTempOddsRange([defaultMin, tempOddsRange[1]]);
                       } else {
                         const parsed = parseFloat(sanitized);
-                        if (!isNaN(parsed)) setTempOddsRange([parsed, tempOddsRange[1]]);
+                        if (!isNaN(parsed))
+                          setTempOddsRange([parsed, tempOddsRange[1]]);
                       }
                     } else {
                       if (text === "") {
@@ -435,7 +451,9 @@ const BetTopScreen = () => {
                   ]}
                   placeholder={String(defaultMax)}
                   placeholderTextColor={theme.textSecondary}
-                  keyboardType={oddsDisplay === "decimal" ? "decimal-pad" : "numeric"}
+                  keyboardType={
+                    oddsDisplay === "decimal" ? "decimal-pad" : "numeric"
+                  }
                   value={
                     oddsDisplay === "decimal"
                       ? tempOddsTextMax
@@ -448,18 +466,27 @@ const BetTopScreen = () => {
                       const sanitized = text.replace(/[^0-9+\-\.]/g, "");
                       if (!/^[+-]?\d*(?:\.\d{0,2})?$/.test(sanitized)) return;
                       setTempOddsTextMax(sanitized);
-                      if (sanitized === "" || sanitized === "+" || sanitized === "-" || sanitized === ".") {
+                      if (
+                        sanitized === "" ||
+                        sanitized === "+" ||
+                        sanitized === "-" ||
+                        sanitized === "."
+                      ) {
                         setTempOddsRange([tempOddsRange[0], defaultMax]);
                       } else {
                         const parsed = parseFloat(sanitized);
-                        if (!isNaN(parsed)) setTempOddsRange([tempOddsRange[0], parsed]);
+                        if (!isNaN(parsed))
+                          setTempOddsRange([tempOddsRange[0], parsed]);
                       }
                     } else {
                       if (text === "") {
                         setTempOddsRange([tempOddsRange[0], defaultMax]);
                       } else {
                         const value = parseInt(text);
-                        setTempOddsRange([tempOddsRange[0], isNaN(value) ? tempOddsRange[1] : value]);
+                        setTempOddsRange([
+                          tempOddsRange[0],
+                          isNaN(value) ? tempOddsRange[1] : value,
+                        ]);
                       }
                     }
                   }}

@@ -2531,7 +2531,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           // Allow per-team period/pointsAttempted/scoringPlay overrides
                           // and apply a tiny X offset so identical test coords don't overlap.
                           if (t.away) {
-                            const offsetX = typeof t.away.offsetX === "number" ? t.away.offsetX : (typeof t.offsetX === "number" ? t.offsetX : -0.5);
+                            const offsetX =
+                              typeof t.away.offsetX === "number"
+                                ? t.away.offsetX
+                                : typeof t.offsetX === "number"
+                                ? t.offsetX
+                                : -0.5;
                             plays.push({
                               coordinate: {
                                 x: (t.away.x ?? t.x) + offsetX,
@@ -2544,7 +2549,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             });
                           }
                           if (t.home) {
-                            const offsetX = typeof t.home.offsetX === "number" ? t.home.offsetX : (typeof t.offsetX === "number" ? t.offsetX : 0.5);
+                            const offsetX =
+                              typeof t.home.offsetX === "number"
+                                ? t.home.offsetX
+                                : typeof t.offsetX === "number"
+                                ? t.offsetX
+                                : 0.5;
                             plays.push({
                               coordinate: {
                                 x: (t.home.x ?? t.x) + offsetX,
@@ -2576,7 +2586,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
                           // Determine which side teams are on based on period
                           let isHomeOnRight = false;
-                          if (period === 3 || period === 4) isHomeOnRight = true;
+                          if (period === 3 || period === 4)
+                            isHomeOnRight = true;
 
                           const isHomeTeam = playTeam === gameData.team2Abbr;
                           const isTeamOnRight =
@@ -2607,8 +2618,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             }
                           }
 
-                          const finalLeftPercent = Math.max(2, Math.min(98, leftPercent));
-                          const finalTopPercent = Math.max(1.5, Math.min(98.5, topPercent));
+                          const finalLeftPercent = Math.max(
+                            2,
+                            Math.min(98, leftPercent)
+                          );
+                          const finalTopPercent = Math.max(
+                            1.5,
+                            Math.min(98.5, topPercent)
+                          );
 
                           // Clamp to respective sides (home/right vs away/left)
                           let clampedTop = finalTopPercent;
@@ -2630,15 +2647,27 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           const courtWidth = 200 * courtScale - padding * 2;
                           const courtHeight = 150 * courtScale - padding * 2;
 
-                          const actualX = padding + (ourXPercent / 100) * courtWidth;
-                          const actualY = padding + (ourYPercent / 100) * courtHeight;
+                          const actualX =
+                            padding + (ourXPercent / 100) * courtWidth;
+                          const actualY =
+                            padding + (ourYPercent / 100) * courtHeight;
 
                           const teamColor =
-                            playTeam === gameData.team1Abbr ? team1Color : team2Color;
+                            playTeam === gameData.team1Abbr
+                              ? team1Color
+                              : team2Color;
                           const isScoring = !!p.scoringPlay;
 
                           // Debug log
-                          console.log("[PlayOverlay] render play", { idx, espnX, espnY, ourXPercent, ourYPercent, actualX, actualY });
+                          console.log("[PlayOverlay] render play", {
+                            idx,
+                            espnX,
+                            espnY,
+                            ourXPercent,
+                            ourYPercent,
+                            actualX,
+                            actualY,
+                          });
 
                           return (
                             <View
@@ -2648,7 +2677,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 width: 7.5 * courtScale,
                                 height: 7.5 * courtScale,
                                 borderRadius: 3.75 * courtScale,
-                                backgroundColor: isScoring ? teamColor : "white",
+                                backgroundColor: isScoring
+                                  ? teamColor
+                                  : "white",
                                 borderWidth: 1.25 * courtScale,
                                 borderColor: isScoring ? "white" : teamColor,
                                 left: actualX - 3.75 * courtScale,
@@ -3711,16 +3742,18 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     {gameData.statusDetail || "LIVE"}
                   </Text>
                 </View>
-                  {gameData.status !== "pre" && (
-                <Text style={[styles.gameDate, { color: theme.textSecondary }]}>
-                  {new Date().toLocaleDateString("en-US", {
-                    weekday: "long",
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </Text>
-                  )}
+                {gameData.status !== "pre" && (
+                  <Text
+                    style={[styles.gameDate, { color: theme.textSecondary }]}
+                  >
+                    {new Date().toLocaleDateString("en-US", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </Text>
+                )}
               </View>
             </View>
           );

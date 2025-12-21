@@ -3672,11 +3672,14 @@ function startWatcherInline(betslipId) {
       // defer finalization by treating the slip as not-final.
       let hasPendingEmptyEvents = false;
       try {
-        const payloadEvents = (fresh.betslip_data && fresh.betslip_data.events) || [];
+        const payloadEvents =
+          (fresh.betslip_data && fresh.betslip_data.events) || [];
         if (Array.isArray(payloadEvents) && payloadEvents.length > 0) {
           for (const ev of payloadEvents) {
             const evId = ev.eventId || ev.id || ev.eventId || null;
-            const hasBets = ev.bets && (Object.keys(ev.bets).length > 0) || (Array.isArray(ev.bets?.players) && ev.bets.players.length > 0);
+            const hasBets =
+              (ev.bets && Object.keys(ev.bets).length > 0) ||
+              (Array.isArray(ev.bets?.players) && ev.bets.players.length > 0);
             if (!hasBets && evId) {
               // If we have a summary for this event and it's not completed,
               // consider it pending and prevent premature finalization.
@@ -3699,7 +3702,12 @@ function startWatcherInline(betslipId) {
         hasPendingEmptyEvents = true;
       }
 
-      if (!isFirstTick && anyCompleted && anyCompletedNotWon && !hasPendingEmptyEvents) {
+      if (
+        !isFirstTick &&
+        anyCompleted &&
+        anyCompletedNotWon &&
+        !hasPendingEmptyEvents
+      ) {
         if (fresh.status !== "lost") {
           try {
             // Use DB RPC to atomically settle and record ledger/history

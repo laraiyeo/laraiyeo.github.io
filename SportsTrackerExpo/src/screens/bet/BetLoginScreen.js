@@ -314,9 +314,13 @@ const BetLoginScreen = ({ navigation }) => {
         try {
           const { data: sessionData } = await supabase.auth.getSession();
           accessToken =
-            sessionData?.session?.access_token || sessionData?.access_token ||
+            sessionData?.session?.access_token ||
+            sessionData?.access_token ||
             null;
-          console.log("BetLogin: supabase.auth.getSession fallback used", !!accessToken);
+          console.log(
+            "BetLogin: supabase.auth.getSession fallback used",
+            !!accessToken
+          );
         } catch (e) {
           console.warn("BetLogin: getSession fallback failed", e);
         }
@@ -324,7 +328,9 @@ const BetLoginScreen = ({ navigation }) => {
 
       const headers = { "Content-Type": "application/json" };
       if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-      const maskedToken = accessToken ? `${accessToken.slice(0,8)}...<masked>` : null;
+      const maskedToken = accessToken
+        ? `${accessToken.slice(0, 8)}...<masked>`
+        : null;
       const requestBody = JSON.stringify({ username });
 
       // Run server auth exchange in background (does not block navigation)
@@ -336,13 +342,27 @@ const BetLoginScreen = ({ navigation }) => {
             body: requestBody,
           });
           let body = null;
-          try { body = await res.json().catch(() => null); } catch (e) { body = null; }
+          try {
+            body = await res.json().catch(() => null);
+          } catch (e) {
+            body = null;
+          }
           if (res.ok && body && body.token) {
             await AsyncStorage.setItem("@bet_token", body.token);
-            console.log("BetLogin: stored server auth token", (body.token || '').length);
-            try { await registerForPushNotifications(body.token); } catch (e) { console.error("Push registration after login failed:", e); }
+            console.log(
+              "BetLogin: stored server auth token",
+              (body.token || "").length
+            );
+            try {
+              await registerForPushNotifications(body.token);
+            } catch (e) {
+              console.error("Push registration after login failed:", e);
+            }
           } else {
-            console.log("BetLogin: server exchange returned no token", { status: res.status, body });
+            console.log("BetLogin: server exchange returned no token", {
+              status: res.status,
+              body,
+            });
           }
         } catch (err) {
           console.error("BetLogin: server auth exchange error", err);
@@ -361,8 +381,12 @@ const BetLoginScreen = ({ navigation }) => {
 
       if (fetchRosters) {
         fetchRosters()
-          .then(() => console.log("BetLogin: background fetchRosters completed"))
-          .catch((e) => console.error("BetLogin: background fetchRosters error", e));
+          .then(() =>
+            console.log("BetLogin: background fetchRosters completed")
+          )
+          .catch((e) =>
+            console.error("BetLogin: background fetchRosters error", e)
+          );
       }
 
       // Initialize odds display in background
@@ -372,7 +396,10 @@ const BetLoginScreen = ({ navigation }) => {
           if (stored === "decimal" || stored === "american") {
             if (oddsContext && oddsContext.setOddsDisplay) {
               oddsContext.setOddsDisplay(stored);
-              console.log("BetLogin: initialized OddsDisplayContext to", stored);
+              console.log(
+                "BetLogin: initialized OddsDisplayContext to",
+                stored
+              );
             }
           }
         } catch (e) {
