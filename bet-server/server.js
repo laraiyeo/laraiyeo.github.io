@@ -3415,11 +3415,14 @@ function startWatcherInline(betslipId) {
           try {
             if (startTimeRaw) {
               const startDate = new Date(startTimeRaw);
-              const minutesSinceStart = (Date.now() - startDate.getTime()) / 60000;
+              const minutesSinceStart =
+                (Date.now() - startDate.getTime()) / 60000;
               // within +/-30 minutes
-              startedRecently = minutesSinceStart >= -30 && minutesSinceStart <= 30;
+              startedRecently =
+                minutesSinceStart >= -30 && minutesSinceStart <= 30;
               // started within last day (useful for end notifications fallback)
-              startedWithinDay = minutesSinceStart >= 0 && minutesSinceStart <= 24 * 60;
+              startedWithinDay =
+                minutesSinceStart >= 0 && minutesSinceStart <= 24 * 60;
             }
           } catch (e) {
             startedRecently = false;
@@ -4062,7 +4065,11 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
     // If client didn't provide a potentialPayout, compute it server-side
     let computedPotential = null;
     try {
-      if (potentialPayout == null && betslipData && Array.isArray(betslipData.bets)) {
+      if (
+        potentialPayout == null &&
+        betslipData &&
+        Array.isArray(betslipData.bets)
+      ) {
         const decimalOdds = betslipData.bets.map((b) => {
           const s = b.odds == null ? null : String(b.odds).trim();
           if (s == null || s === "") return 1;
@@ -4078,10 +4085,15 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
           return isNaN(parsed) ? 1 : parsed;
         });
         const totalDecimal = decimalOdds.reduce((acc, v) => acc * v, 1);
-        computedPotential = Number(((totalStake || 0) * totalDecimal).toFixed(2));
+        computedPotential = Number(
+          ((totalStake || 0) * totalDecimal).toFixed(2)
+        );
       }
     } catch (e) {
-      console.warn("[betslips] failed to compute potentialPayout server-side", e?.message || e);
+      console.warn(
+        "[betslips] failed to compute potentialPayout server-side",
+        e?.message || e
+      );
       computedPotential = null;
     }
 
@@ -4091,7 +4103,8 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
         user_id: req.userId,
         betslip_data: betslipData,
         total_stake: totalStake,
-        potential_payout: potentialPayout != null ? potentialPayout : computedPotential,
+        potential_payout:
+          potentialPayout != null ? potentialPayout : computedPotential,
       })
       .select()
       .maybeSingle();
