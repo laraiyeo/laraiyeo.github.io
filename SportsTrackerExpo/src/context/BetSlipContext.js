@@ -137,6 +137,36 @@ export const BetSlipProvider = ({ children }) => {
               ) {
                 betsToRemove.push(existingBet.id);
               }
+
+              // NEW RULE: Can't select a negative spread for one team and the
+              // moneyline for the opposing team. For example, you shouldn't be
+              // able to back LAL -3.5 and also take LAC moneyline.
+              try {
+                const newIsSpreadFav =
+                  bet.type === "Spread" && Number(bet.line) < 0;
+                const existingIsSpreadFav =
+                  existingBet.type === "Spread" && Number(existingBet.line) < 0;
+
+                // If adding a negative spread, remove opposing moneyline
+                if (
+                  newIsSpreadFav &&
+                  existingBet.type === "Moneyline" &&
+                  existingBet.team !== bet.team
+                ) {
+                  betsToRemove.push(existingBet.id);
+                }
+
+                // If adding a moneyline, remove any negative spread on the opponent
+                if (
+                  bet.type === "Moneyline" &&
+                  existingIsSpreadFav &&
+                  existingBet.team !== bet.team
+                ) {
+                  betsToRemove.push(existingBet.id);
+                }
+              } catch (e) {
+                // ignore parse errors
+              }
             }
           });
         }

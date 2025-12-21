@@ -3190,6 +3190,7 @@ function startWatcherInline(betslipId) {
                       playerId: pid,
                       stat: k,
                       bet: entry?.bet,
+                      side: entry?.type || entry?.side || null,
                       current: { current: entry?.current, won: entry?.won },
                     });
                   }
@@ -3259,31 +3260,51 @@ function startWatcherInline(betslipId) {
         // If the stored bet object already contains resolved flags (e.g. from
         // a previous /api/betslip computation or external update), prefer
         // those markers so we can notify immediately.
-        try {
+          try {
           // Accept multiple shapes for resolved flags.
           // 1) Top-level `won` boolean
-          if (bet.won === true) {
-            newState = "won";
-            isCompleted = true;
-          } else if (bet.won === false) {
-            newState = "lost";
-            isCompleted = true;
-          }
-
-          // 2) Normalized shape from betslip_url: { current: { current, won } }
-          if (
-            newState === null &&
-            bet.current &&
-            typeof bet.current === "object"
-          ) {
-            if (bet.current.won === true) {
+            const topWon = bet.won;
+            if (
+              topWon === true ||
+              (typeof topWon === "string" && String(topWon).toLowerCase() === "true")
+            ) {
               newState = "won";
               isCompleted = true;
-            } else if (bet.current.won === false) {
+            } else if (
+              topWon === false ||
+              (typeof topWon === "string" && String(topWon).toLowerCase() === "false")
+            ) {
               newState = "lost";
               isCompleted = true;
             }
-          }
+
+          // 2) Normalized shape from betslip_url: { current: { current, won } }
+            if (
+              newState === null &&
+              bet.current &&
+              typeof bet.current === "object"
+            ) {
+              const curWon = bet.current.won;
+              if (
+                curWon === true ||
+                (typeof curWon === "string" && String(curWon).toLowerCase() === "true")
+              ) {
+                newState = "won";
+                isCompleted = true;
+              } else if (
+                curWon === false ||
+                (typeof curWon === "string" && String(curWon).toLowerCase() === "false")
+              ) {
+                newState = "lost";
+                isCompleted = true;
+              } else if (
+                typeof curWon === "string" &&
+                String(curWon).toLowerCase() === "in progress"
+              ) {
+                newState = "in progress";
+                isCompleted = false;
+              }
+            }
 
           // 3) Original nested overUnder entries (per-player object)
           if (
@@ -3307,25 +3328,39 @@ function startWatcherInline(betslipId) {
           }
 
           // 4) Nested milestones entries
-          if (
-            newState === null &&
-            bet.milestones &&
-            typeof bet.milestones === "object"
-          ) {
-            for (const k of Object.keys(bet.milestones)) {
-              const entry = bet.milestones[k];
-              if (entry && entry.won === true) {
-                newState = "won";
-                isCompleted = true;
-                break;
-              }
-              if (entry && entry.won === false) {
-                newState = "lost";
-                isCompleted = true;
-                break;
+            if (
+              newState === null &&
+              bet.milestones &&
+              typeof bet.milestones === "object"
+            ) {
+              for (const k of Object.keys(bet.milestones)) {
+                const entry = bet.milestones[k];
+                const wonVal = entry?.won;
+                if (
+                  entry &&
+                  (wonVal === true ||
+                    (typeof wonVal === "string" && String(wonVal).toLowerCase() === "true"))
+                ) {
+                  newState = "won";
+                  isCompleted = true;
+                  break;
+                }
+                if (
+                  entry &&
+                  (wonVal === false ||
+                    (typeof wonVal === "string" && String(wonVal).toLowerCase() === "false"))
+                ) {
+                  newState = "lost";
+                  isCompleted = true;
+                  break;
+                }
+                if (entry && typeof entry.won === "string" && String(entry.won).toLowerCase() === "in progress") {
+                  newState = "in progress";
+                  isCompleted = false;
+                  break;
+                }
               }
             }
-          }
         } catch (e) {
           console.warn(
             "watcher: error checking stored bet flags",
@@ -3346,13 +3381,41 @@ function startWatcherInline(betslipId) {
             /in/i.test(String(statusName)) && !gameStatus?.completed;
           isCompleted = gameStatus?.completed || false;
 
-          // detect game started and emit once per event (skip on first tick)
+          // detect game started and ended and emit once per event (skip on first tick)
           const prevEvent = lastEventStatus[evId];
+          const competitors =
+            summary.header?.competitions?.[0]?.competitors || [];
+          const homeCompetitor = competitors.find((c) => c.homeAway === "home") || competitors[0] || {};
+          const awayCompetitor = competitors.find((c) => c.homeAway === "away") || competitors[1] || {};
+          const homeAbbr = homeCompetitor.team?.abbreviation || "";
+          const awayAbbr = awayCompetitor.team?.abbreviation || "";
+          const homeScore = homeCompetitor.score || "";
+          const awayScore = awayCompetitor.score || "";
+
           if (!isFirstTick && prevEvent !== "in progress" && isInProgress) {
             console.log(
               `[watcher ${betslipId}] notify -> Game Started user:${fresh.user_id} event:${evId}`
             );
+            await sendPushNotification(
+              fresh.user_id,
+              "Game Started 🏀",
+              `${homeAbbr} vs ${awayAbbr} has now started`,
+              { betslipId: fresh.id, eventId: evId }
+            );
           }
+
+          if (!isFirstTick && prevEvent !== "completed" && isCompleted) {
+            console.log(
+              `[watcher ${betslipId}] notify -> Game Ended user:${fresh.user_id} event:${evId}`
+            );
+            await sendPushNotification(
+              fresh.user_id,
+              "Game Ended 🏀",
+              `${homeAbbr} ${homeScore} vs ${awayAbbr} ${awayScore} has ended`,
+              { betslipId: fresh.id, eventId: evId }
+            );
+          }
+
           lastEventStatus[evId] = isCompleted
             ? "completed"
             : isInProgress
@@ -3360,7 +3423,9 @@ function startWatcherInline(betslipId) {
             : "scheduled";
 
           // simplified heuristics (moneyline/total/spread/player)
-          if (!bet.playerId && !bet.player && !bet.prop) {
+          // Only compute type-specific heuristics when we don't already
+          // have a resolved `newState` from the incoming payload (authoritative).
+          if (newState === null && !bet.playerId && !bet.player && !bet.prop) {
             const competitors =
               summary.header?.competitions?.[0]?.competitors || [];
             const betTeam = competitors.find(
@@ -3376,22 +3441,44 @@ function startWatcherInline(betslipId) {
             if (betTeam && opp) {
               const betScore = parseInt(betTeam.score) || 0;
               const oppScore = parseInt(opp.score) || 0;
-              const isWinning = betScore > oppScore;
+              let isWinning = false;
+              // If this is a spread bet, prefer adjustedScore if provided
+              if (bet.type === "spread" || String(bet.id || "").startsWith("spread:")) {
+                // Try adjustedScore first: format like "+6.5" or "-3.0"
+                const adjustedRaw = bet.current?.adjustedScore || bet.current?.adjusted || null;
+                if (adjustedRaw != null) {
+                  const adj = parseFloat(String(adjustedRaw).replace(/[^0-9\.-]/g, ""));
+                  if (!Number.isNaN(adj)) {
+                    isWinning = adj >= 0;
+                  }
+                } else if (bet.line != null) {
+                  // fallback: compute adjusted = betScore + line - oppScore
+                  const lineNum = parseFloat(String(bet.line).replace(/[^0-9\.-]/g, "")) || 0;
+                  const adjusted = betScore + lineNum - oppScore;
+                  isWinning = adjusted >= 0;
+                } else {
+                  // as a last resort, compare raw scores
+                  isWinning = betScore > oppScore;
+                }
+              } else {
+                // moneyline / generic comparison
+                isWinning = betScore > oppScore;
+              }
               // Determine state carefully and log details for diagnostics
               if (isCompleted) {
                 newState = isWinning ? "won" : "lost";
               } else {
                 newState = isWinning ? "in progress" : "pending";
               }
+              const labelType = bet.type || "moneyline";
               console.log(
-                `[watcher ${betslipId}] pick:${pickKey} moneyline check -> team:${
+                `[watcher ${betslipId}] pick:${pickKey} ${labelType} check -> team:${
                   bet.team || bet.selection || bet.description
                 } score:${betScore}-${oppScore} isWinning:${isWinning} isInProgress:${isInProgress} isCompleted:${isCompleted} -> newState:${newState}`
               );
             }
           }
-          if (
-            newState === null &&
+          if (newState === null &&
             (bet.line || bet.betValue || bet.type === "total")
           ) {
             const competitors =
@@ -3418,6 +3505,21 @@ function startWatcherInline(betslipId) {
               ? "in progress"
               : "pending";
           }
+          // Player-specific over/under numeric heuristics: if we have a
+          // `player_overunder` and it's an 'over' bet, treat current > bet
+          // as an in-progress win even before the game completes.
+          if (newState === null && bet.type === "player_overunder") {
+            try {
+              const cur = Number(bet.current?.current);
+              const lineNum = Number(bet.bet);
+              const isOverSide = String(bet.side || "").toLowerCase() === "over";
+              if (isOverSide && Number.isFinite(cur) && Number.isFinite(lineNum)) {
+                const isWinning = cur > lineNum;
+                newState = isCompleted ? (isWinning ? "won" : "lost") : (isWinning ? "in progress" : "pending");
+              }
+            } catch (e) {}
+          }
+
           if (newState === null) newState = "in progress";
         }
 

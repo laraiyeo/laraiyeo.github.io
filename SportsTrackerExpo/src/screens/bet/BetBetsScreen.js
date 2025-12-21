@@ -748,21 +748,19 @@ const BetBetsScreen = () => {
       safeLine !== null
     ) {
       // Special handling for spreads: visualize relative to the spread line.
-      // For +spread (underdog), `pick.currentValue` is set to (oppScore - teamScore).
-      // For -spread (favorite), it's (teamScore - oppScore).
+      // Use diff = opponent - team (positive => opponent leads).
       if (pick.isSpread) {
         const line = Number(safeLine);
-        const delta = Number(pick.currentValue);
+        const diff = Number(pick.currentValue);
         const maxRange = Math.max(30, Math.abs(line) * 4);
-        let relative = 0;
-        if (line > 0) {
-          // +spread: relative = line - delta -> more negative delta (team leading) -> larger relative
-          relative = line - delta;
-          progress = 50 + (relative / (line + maxRange)) * 50;
+
+        // Any diff <= line should push the indicator to the right end (100%).
+        if (diff <= line) {
+          progress = 100;
         } else {
-          // -spread: delta is team - opp; relative = abs(line) - delta
-          relative = Math.abs(line) - delta;
-          progress = 50 + (relative / (Math.abs(line) + maxRange)) * 50;
+          // Map values greater than line toward 0 across maxRange
+          const frac = Math.max(0, Math.min(1, (diff - line) / maxRange));
+          progress = Math.max(0, 100 - frac * 100);
         }
         progress = Math.max(0, Math.min(progress, 100));
       } else {
@@ -1472,8 +1470,8 @@ const BetBetsScreen = () => {
               // - If line is positive (team is the underdog, e.g. +6.5), compute opponent - team
               //   so that more negative values move the indicator to the right (team trailing).
               // - If line is negative (team is favorite, e.g. -6.5), compute team - opponent.
-              const currentSpreadValue =
-                lineNum > 0 ? oppScore - teamScore : teamScore - oppScore;
+              // Always compute diff as opponent - team for consistent visualization
+              const currentSpreadValue = oppScore - teamScore;
               pick.currentValue = Number(currentSpreadValue);
               // mark as spread for special visualization handling
               pick.isSpread = true;
