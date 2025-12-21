@@ -554,12 +554,14 @@ async function manualSettleBetslip(betslipId, result) {
         );
     }
 
-    // Update betslip status to the final result (won/lost/push/void)
+    // Update betslip status to the final result (won/lost/push/void).
+    // The DB schema may not include a `payout` column (some deployments use
+    // `potential_payout` only). Avoid writing `payout` to prevent schema cache
+    // errors; only set `status` and `settled_at` here.
     const { data: updBetslip, error: updBetslipErr } = await supabaseAdmin
       .from("betslips")
       .update({
         status: result,
-        payout: payout,
         settled_at: new Date().toISOString(),
       })
       .eq("id", betslipId);
