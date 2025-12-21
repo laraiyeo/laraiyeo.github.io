@@ -747,8 +747,28 @@ const BetBetsScreen = () => {
       pick.currentValue !== undefined &&
       safeLine !== null
     ) {
-      progress = (pick.currentValue / safeLine) * 100;
-      progress = Math.max(0, Math.min(progress, 100));
+      // Special handling for spreads: visualize relative to the spread line.
+      // For +spread (underdog), `pick.currentValue` is set to (oppScore - teamScore).
+      // For -spread (favorite), it's (teamScore - oppScore).
+      if (pick.isSpread) {
+        const line = Number(safeLine);
+        const delta = Number(pick.currentValue);
+        const maxRange = Math.max(30, Math.abs(line) * 4);
+        let relative = 0;
+        if (line > 0) {
+          // +spread: relative = line - delta -> more negative delta (team leading) -> larger relative
+          relative = line - delta;
+          progress = 50 + (relative / (line + maxRange)) * 50;
+        } else {
+          // -spread: delta is team - opp; relative = abs(line) - delta
+          relative = Math.abs(line) - delta;
+          progress = 50 + (relative / (Math.abs(line) + maxRange)) * 50;
+        }
+        progress = Math.max(0, Math.min(progress, 100));
+      } else {
+        progress = (pick.currentValue / safeLine) * 100;
+        progress = Math.max(0, Math.min(progress, 100));
+      }
     }
 
     // Determine color based on pick.status (winning/losing) rather than comparing values
@@ -1312,6 +1332,14 @@ const BetBetsScreen = () => {
                 pick.currentValue = Number(
                   playerData.milestones[statKey].current
                 );
+                // Ensure a numeric `line` is present so progress bar can render
+                pick.line = Number(
+                  playerData.milestones[statKey].threshold ??
+                    playerData.milestones[statKey].bet ??
+                    bet.betValue ??
+                    bet.threshold ??
+                    bet.line
+                );
                 pick.status =
                   playerData.milestones[statKey].won === true
                     ? "winning"
@@ -1440,10 +1468,16 @@ const BetBetsScreen = () => {
               }
 
               const lineNum = Number(bet.line) || 0;
-              // If the original line is negative, compute opponent - team so more negative is better.
+              // For spread visualization:
+              // - If line is positive (team is the underdog, e.g. +6.5), compute opponent - team
+              //   so that more negative values move the indicator to the right (team trailing).
+              // - If line is negative (team is favorite, e.g. -6.5), compute team - opponent.
               const currentSpreadValue =
-                lineNum < 0 ? oppScore - teamScore : teamScore - oppScore;
+                lineNum > 0 ? oppScore - teamScore : teamScore - oppScore;
               pick.currentValue = Number(currentSpreadValue);
+              // mark as spread for special visualization handling
+              pick.isSpread = true;
+              pick.spreadLine = lineNum;
               pick.status =
                 spreadCurrent?.won === true
                   ? "winning"

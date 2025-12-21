@@ -457,6 +457,10 @@ async function manualSettleBetslip(betslipId, result) {
       .select("*")
       .eq("id", betslipId)
       .limit(1);
+    if (bsErr) {
+      console.error(`[manualSettleBetslip] failed to fetch betslip ${betslipId}`, bsErr);
+      return;
+    }
     const fresh = (bsRows && bsRows[0]) || null;
     if (!fresh) {
       console.warn(`[manualSettleBetslip] betslip not found ${betslipId}`);
@@ -479,6 +483,9 @@ async function manualSettleBetslip(betslipId, result) {
         .select("credits")
         .eq("id", fresh.user_id)
         .limit(1);
+      if (profErr) {
+        console.error(`[manualSettleBetslip] failed to read profile ${fresh.user_id}`, profErr);
+      }
       const profile = (profRows && profRows[0]) || null;
       const currentCredits = Number(profile?.credits || 0);
       let newCredits = currentCredits + payout;
@@ -486,35 +493,45 @@ async function manualSettleBetslip(betslipId, result) {
       newCredits = Number(
         (Math.round((newCredits + Number.EPSILON) * 100) / 100).toFixed(2)
       );
-      await supabaseAdmin
+      const { data: updProf, error: updProfErr } = await supabaseAdmin
         .from("profiles")
         .update({ credits: newCredits })
         .eq("id", fresh.user_id);
+      if (updProfErr) {
+        console.error(`[manualSettleBetslip] failed to update profile ${fresh.user_id}`, updProfErr);
+      } else {
+        console.log(`[manualSettleBetslip] profile ${fresh.user_id} credited -> ${newCredits}`);
+      }
 
-      await supabaseAdmin.from("credit_ledger").insert({
-        user_id: fresh.user_id,
-        betslip_id: betslipId,
-        change: payout,
-        reason: "Bet won",
-      });
+      const { data: ledgerRes, error: ledgerErr } = await supabaseAdmin
+        .from("credit_ledger")
+        .insert({
+          user_id: fresh.user_id,
+          betslip_id: betslipId,
+          change: payout,
+          reason: "Bet won",
+        });
+      if (ledgerErr) console.error(`[manualSettleBetslip] credit_ledger insert failed`, ledgerErr);
 
-      await supabaseAdmin.from("bet_history").insert({
+      const { data: bhRes, error: bhErr } = await supabaseAdmin.from("bet_history").insert({
         user_id: fresh.user_id,
         betslip_id: betslipId,
         change_amount: payout,
         reason: "Bet settled - payout",
       });
+      if (bhErr) console.error(`[manualSettleBetslip] bet_history insert failed`, bhErr);
     } else {
-      await supabaseAdmin.from("bet_history").insert({
+      const { data: bhRes, error: bhErr } = await supabaseAdmin.from("bet_history").insert({
         user_id: fresh.user_id,
         betslip_id: betslipId,
         change_amount: 0,
         reason: "Bet settled - no payout",
       });
+      if (bhErr) console.error(`[manualSettleBetslip] bet_history (no payout) insert failed`, bhErr);
     }
 
     // Update betslip status to the final result (won/lost/push/void)
-    await supabaseAdmin
+    const { data: updBetslip, error: updBetslipErr } = await supabaseAdmin
       .from("betslips")
       .update({
         status: result,
@@ -522,6 +539,11 @@ async function manualSettleBetslip(betslipId, result) {
         settled_at: new Date().toISOString(),
       })
       .eq("id", betslipId);
+    if (updBetslipErr) {
+      console.error(`[manualSettleBetslip] failed to update betslip ${betslipId}`, updBetslipErr);
+    } else {
+      console.log(`[manualSettleBetslip] updated betslip ${betslipId}`, updBetslip && updBetslip[0] ? updBetslip[0] : updBetslip);
+    }
 
     console.log(
       `[manualSettleBetslip] settled ${betslipId} -> ${result} payout=${payout}`

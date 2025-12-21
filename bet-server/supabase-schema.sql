@@ -368,8 +368,11 @@ BEGIN
   END IF;
 
   -- Mark betslip settled
+  -- Mark betslip settled. Some DBs may not have a dedicated `result` column;
+  -- set `status` to the final result (won/lost/push/void) so application
+  -- logic (which expects status like 'won'/'lost') behaves consistently.
   UPDATE betslips
-  SET status = 'settled', result = p_result, payout = v_payout, settled_at = now()
+  SET status = p_result, payout = v_payout, settled_at = now()
   WHERE id = p_betslip_id;
 END;
 $$;
