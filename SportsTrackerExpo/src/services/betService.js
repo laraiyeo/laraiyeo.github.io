@@ -928,9 +928,50 @@ export const claimDailyReward = async (profileId) => {
       profile && profile.credits != null ? Number(profile.credits) : 0;
     const newCredits = Math.round((currentCredits + reward) * 100) / 100;
 
-    // Prefer calling server endpoint which uses service-role to update credits
+    // Prefer calling DB RPC `claim_daily_reward` (SECURITY DEFINER) first.
+    // If that fails, fall back to the server endpoint, then to the client update.
     let serverUpdated = false;
     try {
+      try {
+        const { data: rpcData, error: rpcError } = await supabase.rpc(
+          "claim_daily_reward",
+          {
+            p_amount: reward,
+            p_reason: `Daily login day ${dayNum}`,
+          }
+        );
+        if (!rpcError && rpcData) {
+          serverUpdated = true;
+          // Mark claimed state locally before returning
+          state.claimedDays[idx] = true;
+          const nextAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+          state.nextAvailableAt = nextAt.toISOString();
+          try {
+            await AsyncStorage.setItem(key, JSON.stringify(state));
+          } catch (e) {
+            console.warn("claimDailyReward: failed to persist daily state", e);
+          }
+
+          // rpcData may be an object or an array containing the returned row
+          let svcCredits = null;
+          if (Array.isArray(rpcData)) svcCredits = rpcData[0]?.credits ?? null;
+          else svcCredits = rpcData?.credits ?? null;
+
+          const returnedCredits =
+            svcCredits != null ? Number(svcCredits) : newCredits;
+
+          return {
+            success: true,
+            day: dayNum,
+            reward,
+            newCredits: returnedCredits,
+          };
+        }
+      } catch (e) {
+        console.warn("claimDailyReward: rpc claim_daily_reward failed", e?.message || e);
+      }
+
+      // RPC failed or didn't return credits — fallback to server endpoint
       // Try to get server token first, otherwise use Supabase session token
       let authToken = null;
       try {
@@ -963,11 +1004,18 @@ export const claimDailyReward = async (profileId) => {
             const json = await resp.json();
             if (json && json.user && json.user.credits != null) {
               serverUpdated = true;
-              // Use the server-returned credits as authoritative
+
+              // Persist claimed state BEFORE returning
+              state.claimedDays[idx] = true;
+              const nextAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+              state.nextAvailableAt = nextAt.toISOString();
+              try {
+                await AsyncStorage.setItem(key, JSON.stringify(state));
+              } catch (e) {
+                console.warn("claimDailyReward: failed to persist daily state", e);
+              }
+
               const svcCredits = Number(json.user.credits);
-              // Update local newCredits to reflect authoritative value
-              // (so the caller sees the right value)
-              // NOTE: we still write AsyncStorage state below.
               return {
                 success: true,
                 day: dayNum,
@@ -984,7 +1032,7 @@ export const claimDailyReward = async (profileId) => {
       }
     } catch (e) {
       console.warn(
-        "claimDailyReward: server endpoint call failed",
+        "claimDailyReward: server/RPC attempt failed",
         e?.message || e
       );
     }
@@ -1060,27 +1108,5 @@ export const dismissDailyReward = async (profileId) => {
   }
 };
 
-/**
- * DEBUG helper: reset daily reward timer/state for testing.
- * Sets `nextAvailableAt` to null and clears `claimedDays` so the reward is immediately claimable.
- */
-export const resetDailyRewardForTesting = async (profileId) => {
-  if (!profileId) return { success: false, error: "No profileId" };
-  const key = DAILY_KEY_FOR(profileId);
-  try {
-    const raw = await AsyncStorage.getItem(key);
-    let state = raw
-      ? JSON.parse(raw)
-      : {
-          claimedDays: [false, false, false, false, false, false, false],
-          nextAvailableAt: null,
-        };
-    state.claimedDays = [false, false, false, false, false, false, false];
-    state.nextAvailableAt = null;
-    await AsyncStorage.setItem(key, JSON.stringify(state));
-    return { success: true, ...state };
-  } catch (e) {
-    console.error("resetDailyRewardForTesting error", e);
-    return { success: false, error: e?.message || String(e) };
-  }
-};
+/* resetDailyRewardForTesting removed */
+

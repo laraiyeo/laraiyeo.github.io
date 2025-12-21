@@ -341,7 +341,6 @@ const HomeTabNavigator = () => {
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      {isUnlocked && (
         <Tab.Screen
           name="Bet"
           component={BetLoginScreen}
@@ -355,7 +354,6 @@ const HomeTabNavigator = () => {
             headerTitle: (props) => <HeaderTitle {...props} />,
           }}
         />
-      )}
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}

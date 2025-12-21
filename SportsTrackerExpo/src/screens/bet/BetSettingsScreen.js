@@ -18,7 +18,6 @@ import {
   getUserProfile,
   getDailyRewardState,
   claimDailyReward,
-  resetDailyRewardForTesting,
 } from "../../services/betService";
 
 const BetSettingsScreen = ({ navigation }) => {
@@ -920,32 +919,7 @@ const BetSettingsScreen = ({ navigation }) => {
                   )}
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  onPress={async () => {
-                    try {
-                      setDailyLoading(true);
-                      const profileId =
-                        profileMeta?.id ||
-                        (await getUserProfile())?.profile?.id;
-                      if (!profileId) return;
-                      console.log(
-                        "resetNextAvailable: resetting daily state for",
-                        profileId
-                      );
-                      const res = await resetDailyRewardForTesting(profileId);
-                      console.log("resetNextAvailable: result", res);
-                      const state = await getDailyRewardState(profileId);
-                      setDailyState(state);
-                    } catch (e) {
-                      console.warn("resetNextAvailable failed", e);
-                    } finally {
-                      setDailyLoading(false);
-                    }
-                  }}
-                  style={[styles.dailySecondaryButton, { marginRight: 12 }]}
-                >
-                  <Text style={styles.dailySecondaryText}>Reset</Text>
-                </TouchableOpacity>
+                {/* Reset removed */}
 
                 <TouchableOpacity
                   onPress={() => setDailyVisible(false)}

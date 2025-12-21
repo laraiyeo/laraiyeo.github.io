@@ -1071,37 +1071,6 @@ const BetBetsScreen = () => {
             </Text>
           </View>
 
-          <View style={styles.parlayGameInfo}>
-            <View style={styles.parlayGameScore}>
-              <Text
-                style={[styles.parlayGameText, { color: theme.textSecondary }]}
-              >
-                {parlay.gameInfo}
-              </Text>
-              <Text style={[styles.scoreText, { color: theme.text }]}>
-                {parlay.scores.team1} - {parlay.scores.team2}
-              </Text>
-            </View>
-            <View style={styles.parlayGameStatusRow}>
-              <View
-                style={[
-                  styles.liveIndicator,
-                  { backgroundColor: theme.error, marginRight: 8 },
-                ]}
-              >
-                <Text style={styles.liveText}>LIVE</Text>
-              </View>
-              <Text
-                style={[
-                  styles.parlayGameStatus,
-                  { color: theme.textTertiary, marginLeft: 8 },
-                ]}
-              >
-                {parlay.gameStatus}
-              </Text>
-            </View>
-          </View>
-
           <View
             style={[styles.parlaySummary, { borderTopColor: theme.border }]}
           >
@@ -1850,44 +1819,6 @@ const BetBetsScreen = () => {
               <Text style={[styles.parlayOdds, { color: theme.text }]}>
                 {formatOddsForDisplay(odds, oddsDisplay)}
               </Text>
-            </View>
-
-            <View style={styles.parlayGameInfo}>
-              <View style={styles.parlayGameScore}>
-                <Text
-                  style={[
-                    styles.parlayGameText,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  {liveGame?.shortName || firstPick.gameInfo}
-                </Text>
-                {scores && liveGame?.status?.type?.state === "in" && (
-                  <Text style={[styles.scoreText, { color: theme.text }]}>
-                    {scores[1]?.score || 0} - {scores[0]?.score || 0}
-                  </Text>
-                )}
-              </View>
-              <View style={styles.parlayGameStatusRow}>
-                {liveGame?.status?.type?.state === "in" && (
-                  <View
-                    style={[
-                      styles.liveIndicator,
-                      { backgroundColor: theme.error, marginRight: 8 },
-                    ]}
-                  >
-                    <Text style={styles.liveText}>LIVE</Text>
-                  </View>
-                )}
-                <Text
-                  style={[
-                    styles.parlayGameStatus,
-                    { color: theme.textTertiary, marginLeft: 0 },
-                  ]}
-                >
-                  {liveGame?.status?.type?.shortDetail || firstPick.gameStatus}
-                </Text>
-              </View>
             </View>
 
             <View

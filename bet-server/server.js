@@ -2651,6 +2651,11 @@ async function initialize() {
   // Start realtime listener so server reacts to external inserts into Supabase
   try {
     setupBetslipRealtimeListener();
+    try {
+      await seedPendingWatchers();
+    } catch (e) {
+      console.warn("[watcher] seedPendingWatchers failed", e?.message || e);
+    }
   } catch (e) {
     console.warn(
       "Failed to initialize betslips realtime listener:",
@@ -3759,6 +3764,42 @@ function setupBetslipRealtimeListener() {
     });
   } catch (e) {
     console.error("[realtime] failed to setup listener", e?.message || e);
+  }
+}
+
+// On startup, seed watchers for recent pending betslips so we don't miss
+// settlement for bets created while the server was down or missed by realtime.
+async function seedPendingWatchers() {
+  try {
+    console.log("[watcher] seeding pending betslip watchers (7d lookback)");
+    const lookbackDays = 7;
+    const since = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString();
+    const { data: rows, error } = await supabaseAdmin
+      .from("betslips")
+      .select("id,created_at,status")
+      .in("status", ["pending"])
+      .gt("created_at", since)
+      .order("created_at", { ascending: true })
+      .limit(500);
+    if (error) {
+      return console.error("[watcher] seed query failed", error);
+    }
+    if (!rows || rows.length === 0) {
+      return console.log("[watcher] no pending betslips found to seed");
+    }
+    for (const r of rows) {
+      try {
+        if (!betslipWatchers[r.id]) startWatcherInline(r.id);
+        if (betslipWatchers[r.id])
+          console.log(`[watcher] seeded watcher for ${r.id} created_at:${r.created_at}`);
+        else
+          console.warn(`[watcher] failed to seed watcher for ${r.id}`);
+      } catch (e) {
+        console.error(`[watcher] error seeding watcher for ${r.id}`, e?.message || e);
+      }
+    }
+  } catch (e) {
+    console.error("[watcher] seedPendingWatchers error", e?.message || e);
   }
 }
 

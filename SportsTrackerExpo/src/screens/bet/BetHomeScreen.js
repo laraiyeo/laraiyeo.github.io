@@ -831,7 +831,11 @@ const BetHomeScreen = ({ navigation }) => {
             const dr = await getDailyRewardState(pid);
             if (mounted && dr && dr.success) {
               const hasProgress = Array.isArray(dr.claimedDays) && dr.claimedDays.some(Boolean);
-              if (dr.canClaim || hasProgress) {
+              // Only show modal if user can claim now, or if there is progress AND the nextAvailableAt has passed (so they can continue the cycle)
+              const now = new Date();
+              const nextAvailable = dr.nextAvailableAt ? new Date(dr.nextAvailableAt) : null;
+              const showBecauseProgress = hasProgress && (!nextAvailable || now >= nextAvailable);
+              if (dr.canClaim || showBecauseProgress) {
                 setDailyState(dr);
                 setDailyVisible(true);
               }
@@ -1006,18 +1010,22 @@ const BetHomeScreen = ({ navigation }) => {
                 <TouchableOpacity
                   disabled={!(dailyState && dailyState.canClaim) || dailyLoading}
                   onPress={async () => {
-                    if (!profileIdForDaily) return;
-                    setDailyLoading(true);
-                    const res = await claimDailyReward(profileIdForDaily);
-                    setDailyLoading(false);
-                    if (res && res.success) {
-                      const dr = await getDailyRewardState(profileIdForDaily);
-                      setDailyState(dr);
-                      Alert.alert('Success', `You've received ${res.reward} credits.`);
-                    } else {
-                      Alert.alert('Unable to claim', res?.error || 'Claim failed');
-                    }
-                  }}
+                      if (!profileIdForDaily) return;
+                      setDailyLoading(true);
+                      const res = await claimDailyReward(profileIdForDaily);
+                      setDailyLoading(false);
+                      if (res && res.success) {
+                        const dr = await getDailyRewardState(profileIdForDaily);
+                        setDailyState(dr);
+                        Alert.alert('Success', `You've received ${res.reward} credits.`);
+                        // Close modal after 3 seconds
+                        setTimeout(() => {
+                          setDailyVisible(false);
+                        }, 3000);
+                      } else {
+                        Alert.alert('Unable to claim', res?.error || 'Claim failed');
+                      }
+                    }}
                   style={[styles.dailyPrimaryButton, { marginRight: 12, opacity: (dailyState && dailyState.canClaim) ? 1 : 0.6 }]}
                 >
                   {dailyLoading ? <ActivityIndicator color="#fff"/> : <Text style={styles.dailyPrimaryText}>{ (dailyState && dailyState.canClaim) ? 'Claim' : 'Unavailable' }</Text>}

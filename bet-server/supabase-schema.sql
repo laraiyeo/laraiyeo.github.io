@@ -374,6 +374,45 @@ BEGIN
 END;
 $$;
 
+-- RPC: Claim daily reward (atomic update + ledger insert)
+-- Call this from clients using their Supabase access token: it runs as SECURITY DEFINER
+CREATE OR REPLACE FUNCTION claim_daily_reward(
+  p_amount numeric,
+  p_reason text DEFAULT 'Daily reward'
+)
+RETURNS TABLE(id uuid, credits numeric)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_current numeric;
+  v_amount numeric := ROUND(COALESCE(p_amount,0)::numeric, 2);
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  SELECT profiles.credits INTO v_current
+  FROM profiles
+  WHERE profiles.id = v_user_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Profile not found';
+  END IF;
+
+  UPDATE profiles
+  SET credits = ROUND(COALESCE(profiles.credits,0) + v_amount, 2)
+  WHERE profiles.id = v_user_id;
+
+  INSERT INTO credit_ledger (user_id, change, reason)
+  VALUES (v_user_id, v_amount, COALESCE(p_reason, 'Daily reward'));
+
+  RETURN QUERY SELECT profiles.id, profiles.credits FROM profiles WHERE profiles.id = v_user_id;
+END;
+$$;
+
 -- 6) Row Level Security
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.betslips ENABLE ROW LEVEL SECURITY;
