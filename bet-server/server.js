@@ -372,8 +372,13 @@ async function broadcastToAll(title, bodyText, data = {}) {
     const { data: tokens, error: tokensErr } = await supabaseAdmin
       .from("push_tokens")
       .select("expo_push_token");
-    if (tokensErr) console.error("broadcastToAll: failed to read push_tokens", tokensErr);
-    console.log(`[broadcastToAll] sending to ${Array.isArray(tokens) ? tokens.length : 0} token(s)`);
+    if (tokensErr)
+      console.error("broadcastToAll: failed to read push_tokens", tokensErr);
+    console.log(
+      `[broadcastToAll] sending to ${
+        Array.isArray(tokens) ? tokens.length : 0
+      } token(s)`
+    );
     const messages = (tokens || []).map((t) => ({
       to: t.expo_push_token,
       sound: "default",
