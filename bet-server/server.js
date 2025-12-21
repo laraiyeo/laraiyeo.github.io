@@ -369,9 +369,11 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
 
 async function broadcastToAll(title, bodyText, data = {}) {
   try {
-    const { data: tokens } = await supabaseAdmin
+    const { data: tokens, error: tokensErr } = await supabaseAdmin
       .from("push_tokens")
       .select("expo_push_token");
+    if (tokensErr) console.error("broadcastToAll: failed to read push_tokens", tokensErr);
+    console.log(`[broadcastToAll] sending to ${Array.isArray(tokens) ? tokens.length : 0} token(s)`);
     const messages = (tokens || []).map((t) => ({
       to: t.expo_push_token,
       sound: "default",
@@ -555,14 +557,13 @@ async function manualSettleBetslip(betslipId, result) {
     }
 
     // Update betslip status to the final result (won/lost/push/void).
-    // The DB schema may not include a `payout` column (some deployments use
-    // `potential_payout` only). Avoid writing `payout` to prevent schema cache
-    // errors; only set `status` and `settled_at` here.
+    // Some deployments don't include `settled_at` or `payout` columns in the
+    // table schema. To be compatible, only update `status` here. The trigger
+    // `update_updated_at_column` will set `updated_at` if configured.
     const { data: updBetslip, error: updBetslipErr } = await supabaseAdmin
       .from("betslips")
       .update({
         status: result,
-        settled_at: new Date().toISOString(),
       })
       .eq("id", betslipId);
     if (updBetslipErr) {
@@ -3345,12 +3346,6 @@ function startWatcherInline(betslipId) {
           if (!isFirstTick && prevEvent !== "in progress" && isInProgress) {
             console.log(
               `[watcher ${betslipId}] notify -> Game Started user:${fresh.user_id} event:${evId}`
-            );
-            await sendPushNotification(
-              fresh.user_id,
-              "Game Started",
-              `A game has started: ${evId}`,
-              { betslipId: fresh.id, eventId: evId }
             );
           }
           lastEventStatus[evId] = isCompleted
