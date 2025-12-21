@@ -968,7 +968,10 @@ export const claimDailyReward = async (profileId) => {
           };
         }
       } catch (e) {
-        console.warn("claimDailyReward: rpc claim_daily_reward failed", e?.message || e);
+        console.warn(
+          "claimDailyReward: rpc claim_daily_reward failed",
+          e?.message || e
+        );
       }
 
       // RPC failed or didn't return credits — fallback to server endpoint
@@ -1012,7 +1015,10 @@ export const claimDailyReward = async (profileId) => {
               try {
                 await AsyncStorage.setItem(key, JSON.stringify(state));
               } catch (e) {
-                console.warn("claimDailyReward: failed to persist daily state", e);
+                console.warn(
+                  "claimDailyReward: failed to persist daily state",
+                  e
+                );
               }
 
               const svcCredits = Number(json.user.credits);
@@ -1109,4 +1115,3 @@ export const dismissDailyReward = async (profileId) => {
 };
 
 /* resetDailyRewardForTesting removed */
-

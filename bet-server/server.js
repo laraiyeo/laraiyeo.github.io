@@ -3773,7 +3773,9 @@ async function seedPendingWatchers() {
   try {
     console.log("[watcher] seeding pending betslip watchers (7d lookback)");
     const lookbackDays = 7;
-    const since = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString();
+    const since = new Date(
+      Date.now() - lookbackDays * 24 * 60 * 60 * 1000
+    ).toISOString();
     const { data: rows, error } = await supabaseAdmin
       .from("betslips")
       .select("id,created_at,status")
@@ -3791,11 +3793,15 @@ async function seedPendingWatchers() {
       try {
         if (!betslipWatchers[r.id]) startWatcherInline(r.id);
         if (betslipWatchers[r.id])
-          console.log(`[watcher] seeded watcher for ${r.id} created_at:${r.created_at}`);
-        else
-          console.warn(`[watcher] failed to seed watcher for ${r.id}`);
+          console.log(
+            `[watcher] seeded watcher for ${r.id} created_at:${r.created_at}`
+          );
+        else console.warn(`[watcher] failed to seed watcher for ${r.id}`);
       } catch (e) {
-        console.error(`[watcher] error seeding watcher for ${r.id}`, e?.message || e);
+        console.error(
+          `[watcher] error seeding watcher for ${r.id}`,
+          e?.message || e
+        );
       }
     }
   } catch (e) {
