@@ -1638,7 +1638,18 @@ const BetSettingsScreen = ({ navigation }) => {
                   disabled={
                     !(dailyState && dailyState.canClaim) || dailyLoading
                   }
-                  onPress={handleClaimDaily}
+                  onPress={async () => {
+                    console.log("BetSettings: Claim button pressed", {
+                      time: new Date().toISOString(),
+                      profileId: profileMeta?.id,
+                      dailyState,
+                    });
+                    try {
+                      await handleClaimDaily();
+                    } catch (e) {
+                      console.warn("BetSettings: handleClaimDaily threw", e);
+                    }
+                  }}
                   style={[
                     styles.dailyPrimaryButton,
                     {

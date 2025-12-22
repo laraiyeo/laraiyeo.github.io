@@ -1,12 +1,27 @@
 import React from "react";
-import { View } from "react-native";
-import mobileAds, {
-  BannerAd,
-  BannerAdSize,
-  InterstitialAd,
-  AdEventType,
-  TestIds,
-} from "react-native-google-mobile-ads";
+import { View, Platform } from "react-native";
+import Constants from "expo-constants";
+
+// Do not import `react-native-google-mobile-ads` at the top-level because
+// that causes failures on web and in Expo Go where the native module is not
+// available. We'll `require` it dynamically at runtime and fall back to
+// no-op behaviour when unavailable.
+let _adsModule = null;
+function ensureAdsModule() {
+  if (_adsModule !== null) return _adsModule;
+  try {
+    // require at runtime so bundlers won't eagerly include native-only code
+    // on web/expo-go.
+    // eslint-disable-next-line global-require, import/no-extraneous-dependencies
+    const mod = require("react-native-google-mobile-ads");
+    _adsModule = mod && mod.__esModule ? mod.default || mod : mod;
+    _adsModule.named = mod; // keep named exports accessible (BannerAd, BannerAdSize, etc)
+    return _adsModule;
+  } catch (e) {
+    _adsModule = null;
+    return null;
+  }
+}
 
 /**
  * ============================
@@ -33,8 +48,14 @@ export const PROD_BANNER_ID = "ca-app-pub-5256386471137141/1278337275";
  * Call ONCE (usually in App.js)
  */
 export async function initAds() {
+  const mod = ensureAdsModule();
+  if (!mod) {
+    console.warn("Ads not available in this runtime (web/Expo Go). Skipping init.");
+    return false;
+  }
+
   try {
-    await mobileAds().initialize();
+    await (mod && mod() && mod().initialize ? mod().initialize() : Promise.resolve());
     return true;
   } catch (e) {
     console.warn("Ads initialization failed", e);
@@ -49,14 +70,31 @@ export async function initAds() {
  */
 export function BannerAdWrapper({
   unitId = PROD_BANNER_ID,
-  size = BannerAdSize.ANCHORED_ADAPTIVE_BANNER,
+  size = "ANCHORED_ADAPTIVE_BANNER",
   requestOptions = { requestNonPersonalizedAdsOnly: true },
 }) {
+  // Do not attempt to render native ads on web or when module is unavailable
+  if (Platform.OS === "web") return null;
+  const mod = ensureAdsModule();
+  if (!mod) return null;
+
+  const named = mod.named || {};
+  const BannerAd = named.BannerAd;
+  const BannerAdSize = named.BannerAdSize || {};
+
   const adUnitId = __DEV__ ? DEV_BANNER_ID : unitId;
+
+  // Resolve size: allow callers to pass a string key or a numeric size value
+  let resolvedSize = size;
+  if (typeof size === "string" && BannerAdSize[size]) resolvedSize = BannerAdSize[size];
+  if (!resolvedSize && BannerAdSize.ANCHORED_ADAPTIVE_BANNER)
+    resolvedSize = BannerAdSize.ANCHORED_ADAPTIVE_BANNER;
+
+  if (!BannerAd) return null;
 
   return (
     <View>
-      <BannerAd unitId={adUnitId} size={size} requestOptions={requestOptions} />
+      <BannerAd unitId={adUnitId} size={resolvedSize} requestOptions={requestOptions} />
     </View>
   );
 }
@@ -67,7 +105,24 @@ export function BannerAdWrapper({
  * ============================
  */
 export function createInterstitial(unitId) {
+  const mod = ensureAdsModule();
+  const named = mod ? mod.named || {} : {};
+  const InterstitialAd = named.InterstitialAd;
+  const AdEventType = named.AdEventType || {};
+
   const adUnitId = __DEV__ ? DEV_INTERSTITIAL_ID : unitId;
+
+  if (!InterstitialAd) {
+    // no-op fallback so callers don't crash in Expo Go / web
+    console.warn("createInterstitial: InterstitialAd not available in this runtime");
+    return {
+      load: () => Promise.resolve(false),
+      show: () => Promise.resolve(false),
+      onLoaded: () => () => {},
+      onClosed: () => () => {},
+      _raw: null,
+    };
+  }
 
   const interstitial = InterstitialAd.createForAdRequest(adUnitId);
 

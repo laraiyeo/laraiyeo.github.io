@@ -1139,12 +1139,19 @@ const BetHomeScreen = ({ navigation }) => {
                     !(dailyState && dailyState.canClaim) || dailyLoading
                   }
                   onPress={async () => {
+                    console.log("BetHome: Claim button pressed", {
+                      time: new Date().toISOString(),
+                      profileIdForDaily,
+                      dailyState,
+                    });
                     if (!profileIdForDaily) return;
                     setDailyLoading(true);
                     const res = await claimDailyReward(profileIdForDaily);
+                    console.log("BetHome: claimDailyReward response", res);
                     setDailyLoading(false);
                     if (res && res.success) {
                       const dr = await getDailyRewardState(profileIdForDaily);
+                      console.log("BetHome: refreshed daily state after claim", dr);
                       setDailyState(dr);
                       Alert.alert(
                         "Success",
@@ -1155,6 +1162,7 @@ const BetHomeScreen = ({ navigation }) => {
                         setDailyVisible(false);
                       }, 1000);
                     } else {
+                      console.log("BetHome: claim failed", res);
                       Alert.alert(
                         "Unable to claim",
                         res?.error || "Claim failed"
