@@ -1644,9 +1644,10 @@ const BetBetsScreen = () => {
                   style={[styles.parlaySummaryLabel, { color: theme.text }]}
                 >
                   {amount.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })} C
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  C
                 </Text>
                 <Text
                   style={[
@@ -1662,15 +1663,16 @@ const BetBetsScreen = () => {
                   style={[styles.parlaySummaryLabel, { color: theme.text }]}
                 >
                   {Number(
-                  ticketStatus === "won"
-                    ? displayedPayout
-                    : ticketStatus === "lost"
-                    ? 0
-                    : potentialPayout
-                ).toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })} C
+                    ticketStatus === "won"
+                      ? displayedPayout
+                      : ticketStatus === "lost"
+                      ? 0
+                      : potentialPayout
+                  ).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  C
                 </Text>
                 <Text
                   style={[
@@ -1765,7 +1767,8 @@ const BetBetsScreen = () => {
                 {amount.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
-                })} C
+                })}{" "}
+                C
               </Text>
               <Text
                 style={[
@@ -1777,9 +1780,8 @@ const BetBetsScreen = () => {
               </Text>
             </View>
             <View style={styles.parlaySummaryItem}>
-              <Text
-                style={[styles.parlaySummaryLabel, { color: theme.text }]}
-              >{Number(
+              <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
+                {Number(
                   ticketStatus === "won"
                     ? displayedPayout
                     : ticketStatus === "lost"
@@ -1788,8 +1790,9 @@ const BetBetsScreen = () => {
                 ).toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
-                })} C
-                </Text>
+                })}{" "}
+                C
+              </Text>
               <Text
                 style={[
                   styles.parlaySummarySubLabel,
@@ -1883,9 +1886,10 @@ const BetBetsScreen = () => {
                   style={[styles.parlaySummaryLabel, { color: theme.text }]}
                 >
                   {amount.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })} C
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  C
                 </Text>
                 <Text
                   style={[
@@ -1899,16 +1903,18 @@ const BetBetsScreen = () => {
               <View style={styles.parlaySummaryItem}>
                 <Text
                   style={[styles.parlaySummaryLabel, { color: theme.text }]}
-                >{Number(
-                  ticketStatus === "won"
-                    ? displayedPayout
-                    : ticketStatus === "lost"
-                    ? 0
-                    : potentialPayout
-                ).toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })} C
+                >
+                  {Number(
+                    ticketStatus === "won"
+                      ? displayedPayout
+                      : ticketStatus === "lost"
+                      ? 0
+                      : potentialPayout
+                  ).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  C
                 </Text>
                 <Text
                   style={[
@@ -2010,7 +2016,8 @@ const BetBetsScreen = () => {
                 {amount.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
-                })} C
+                })}{" "}
+                C
               </Text>
               <Text
                 style={[
@@ -2022,9 +2029,8 @@ const BetBetsScreen = () => {
               </Text>
             </View>
             <View style={styles.parlaySummaryItem}>
-              <Text
-                style={[styles.parlaySummaryLabel, { color: theme.text }]}
-              >{Number(
+              <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
+                {Number(
                   ticketStatus === "won"
                     ? displayedPayout
                     : ticketStatus === "lost"
@@ -2033,7 +2039,8 @@ const BetBetsScreen = () => {
                 ).toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
-                })} C
+                })}{" "}
+                C
               </Text>
               <Text
                 style={[
@@ -2118,7 +2125,8 @@ const BetBetsScreen = () => {
                 {amount.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
-                })} C
+                })}{" "}
+                C
               </Text>
               <Text
                 style={[
@@ -2140,7 +2148,8 @@ const BetBetsScreen = () => {
                 ).toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
-                })} C
+                })}{" "}
+                C
               </Text>
               <Text
                 style={[
@@ -2269,55 +2278,54 @@ const BetBetsScreen = () => {
             </View>
           );
         })}
-        
 
-          <View
-            style={[styles.parlaySummary, { borderTopColor: theme.border }]}
-          >
-            <View style={styles.parlaySummaryItem}>
-              <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
-                {allPicks.length} Picks
-              </Text>
-            </View>
-            <View style={styles.parlaySummaryItem}>
-              <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
-                {amount.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })} C
-              </Text>
-              <Text
-                style={[
-                  styles.parlaySummarySubLabel,
-                  { color: theme.textTertiary },
-                ]}
-              >
-                WAGER
-              </Text>
-            </View>
-            <View style={styles.parlaySummaryItem}>
-              <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
-                {Number(
-                  ticketStatus === "won"
-                    ? displayedPayout
-                    : ticketStatus === "lost"
-                    ? 0
-                    : potentialPayout
-                ).toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })} C
-              </Text>
-              <Text
-                style={[
-                  styles.parlaySummarySubLabel,
-                  { color: theme.textTertiary },
-                ]}
-              >
-                PAYOUT
-              </Text>
-            </View>
+        <View style={[styles.parlaySummary, { borderTopColor: theme.border }]}>
+          <View style={styles.parlaySummaryItem}>
+            <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
+              {allPicks.length} Picks
+            </Text>
           </View>
+          <View style={styles.parlaySummaryItem}>
+            <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
+              {amount.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}{" "}
+              C
+            </Text>
+            <Text
+              style={[
+                styles.parlaySummarySubLabel,
+                { color: theme.textTertiary },
+              ]}
+            >
+              WAGER
+            </Text>
+          </View>
+          <View style={styles.parlaySummaryItem}>
+            <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
+              {Number(
+                ticketStatus === "won"
+                  ? displayedPayout
+                  : ticketStatus === "lost"
+                  ? 0
+                  : potentialPayout
+              ).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}{" "}
+              C
+            </Text>
+            <Text
+              style={[
+                styles.parlaySummarySubLabel,
+                { color: theme.textTertiary },
+              ]}
+            >
+              PAYOUT
+            </Text>
+          </View>
+        </View>
         <TouchableOpacity
           style={[
             styles.collapseButton,

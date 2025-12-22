@@ -355,257 +355,265 @@ const BetTopScreen = () => {
             { backgroundColor: theme.cardBackground },
           ]}
         >
-        {/* Search and Confidence Row */}
-        <View style={styles.searchRow}>
-          <TextInput
-            style={[
-              styles.searchInput,
-              { backgroundColor: theme.surface, color: theme.text },
-            ]}
-            placeholder="Search player name..."
-            placeholderTextColor={theme.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-
-          {/* Confidence Dropdown */}
-          <TouchableOpacity
-            style={[styles.dropdownButton, { backgroundColor: theme.surface }]}
-            onPress={() => setShowConfidenceDropdown(!showConfidenceDropdown)}
-          >
-            <Text style={[styles.dropdownButtonText, { color: theme.text }]}>
-              {selectedConfidence}
-            </Text>
-            <Ionicons
-              name={showConfidenceDropdown ? "chevron-up" : "chevron-down"}
-              size={20}
-              color={theme.textSecondary}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {showConfidenceDropdown && (
-          <View
-            style={[styles.dropdownMenu, { backgroundColor: theme.surface }]}
-          >
-            {confidenceOptions.map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={[
-                  styles.dropdownItem,
-                  { borderBottomColor: theme.border },
-                  option === selectedConfidence && {
-                    backgroundColor: theme.surfaceSecondary,
-                  },
-                ]}
-                onPress={() => {
-                  setSelectedConfidence(option);
-                  setShowConfidenceDropdown(false);
-                }}
-              >
-                <Text style={[styles.dropdownItemText, { color: theme.text }]}>
-                  {option}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* Odds Range Inputs */}
-        <View style={styles.sliderContainer}>
-          <View style={styles.oddsAndSortRow}>
-            <View style={styles.oddsSection}>
-              <Text style={[styles.sliderLabel, { color: theme.text }]}>
-                Odds Range
-              </Text>
-              <View style={styles.sliderRow}>
-                <TextInput
-                  style={[
-                    styles.oddsInput,
-                    { backgroundColor: theme.surface, color: theme.text },
-                  ]}
-                  placeholder={String(defaultMin)}
-                  placeholderTextColor={theme.textSecondary}
-                  keyboardType={
-                    oddsDisplay === "decimal" ? "decimal-pad" : "numeric"
-                  }
-                  value={
-                    oddsDisplay === "decimal"
-                      ? tempOddsTextMin
-                      : tempOddsRange[0] === defaultMin
-                      ? ""
-                      : String(tempOddsRange[0])
-                  }
-                  onChangeText={(text) => {
-                    if (oddsDisplay === "decimal") {
-                      // Allow only one decimal point and up to 2 digits after decimal
-                      const sanitized = text.replace(/[^0-9+\-\.]/g, "");
-                      if (!/^[+-]?\d*(?:\.\d{0,2})?$/.test(sanitized)) return;
-                      setTempOddsTextMin(sanitized);
-                      if (
-                        sanitized === "" ||
-                        sanitized === "+" ||
-                        sanitized === "-" ||
-                        sanitized === "."
-                      ) {
-                        setTempOddsRange([defaultMin, tempOddsRange[1]]);
-                      } else {
-                        const parsed = parseFloat(sanitized);
-                        if (!isNaN(parsed))
-                          setTempOddsRange([parsed, tempOddsRange[1]]);
-                      }
-                    } else {
-                      if (text === "") {
-                        setTempOddsRange([defaultMin, tempOddsRange[1]]);
-                      } else {
-                        const value = parseInt(text);
-                        if (!isNaN(value)) {
-                          setTempOddsRange([value, tempOddsRange[1]]);
-                        }
-                      }
-                    }
-                  }}
-                  allowFontScaling={false}
-                />
-                <Text
-                  style={[styles.oddsToText, { color: theme.textSecondary }]}
-                >
-                  to
-                </Text>
-                <TextInput
-                  style={[
-                    styles.oddsInput,
-                    { backgroundColor: theme.surface, color: theme.text },
-                  ]}
-                  placeholder={String(defaultMax)}
-                  placeholderTextColor={theme.textSecondary}
-                  keyboardType={
-                    oddsDisplay === "decimal" ? "decimal-pad" : "numeric"
-                  }
-                  value={
-                    oddsDisplay === "decimal"
-                      ? tempOddsTextMax
-                      : tempOddsRange[1] === defaultMax
-                      ? ""
-                      : String(tempOddsRange[1])
-                  }
-                  onChangeText={(text) => {
-                    if (oddsDisplay === "decimal") {
-                      const sanitized = text.replace(/[^0-9+\-\.]/g, "");
-                      if (!/^[+-]?\d*(?:\.\d{0,2})?$/.test(sanitized)) return;
-                      setTempOddsTextMax(sanitized);
-                      if (
-                        sanitized === "" ||
-                        sanitized === "+" ||
-                        sanitized === "-" ||
-                        sanitized === "."
-                      ) {
-                        setTempOddsRange([tempOddsRange[0], defaultMax]);
-                      } else {
-                        const parsed = parseFloat(sanitized);
-                        if (!isNaN(parsed))
-                          setTempOddsRange([tempOddsRange[0], parsed]);
-                      }
-                    } else {
-                      if (text === "") {
-                        setTempOddsRange([tempOddsRange[0], defaultMax]);
-                      } else {
-                        const value = parseInt(text);
-                        setTempOddsRange([
-                          tempOddsRange[0],
-                          isNaN(value) ? tempOddsRange[1] : value,
-                        ]);
-                      }
-                    }
-                  }}
-                />
-              </View>
-            </View>
-
-            <View style={styles.sortSection}>
-              <Text style={[styles.sliderLabel, { color: theme.text }]}>
-                Sort By
-              </Text>
-              <TouchableOpacity
-                style={[styles.sortButton, { backgroundColor: theme.surface }]}
-                onPress={() => setShowSortDropdown(!showSortDropdown)}
-              >
-                <Text style={[styles.sortButtonText, { color: theme.text }]}>
-                  {sortOptions.find((opt) => opt.value === sortBy)?.label}
-                </Text>
-                <Ionicons
-                  name={showSortDropdown ? "chevron-up" : "chevron-down"}
-                  size={18}
-                  color={theme.textSecondary}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {showSortDropdown && (
-            <View
+          {/* Search and Confidence Row */}
+          <View style={styles.searchRow}>
+            <TextInput
               style={[
-                styles.sortDropdownMenu,
+                styles.searchInput,
+                { backgroundColor: theme.surface, color: theme.text },
+              ]}
+              placeholder="Search player name..."
+              placeholderTextColor={theme.textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+
+            {/* Confidence Dropdown */}
+            <TouchableOpacity
+              style={[
+                styles.dropdownButton,
                 { backgroundColor: theme.surface },
               ]}
+              onPress={() => setShowConfidenceDropdown(!showConfidenceDropdown)}
             >
-              {sortOptions.map((option) => (
+              <Text style={[styles.dropdownButtonText, { color: theme.text }]}>
+                {selectedConfidence}
+              </Text>
+              <Ionicons
+                name={showConfidenceDropdown ? "chevron-up" : "chevron-down"}
+                size={20}
+                color={theme.textSecondary}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {showConfidenceDropdown && (
+            <View
+              style={[styles.dropdownMenu, { backgroundColor: theme.surface }]}
+            >
+              {confidenceOptions.map((option) => (
                 <TouchableOpacity
-                  key={option.value}
+                  key={option}
                   style={[
                     styles.dropdownItem,
                     { borderBottomColor: theme.border },
-                    option.value === sortBy && {
+                    option === selectedConfidence && {
                       backgroundColor: theme.surfaceSecondary,
                     },
                   ]}
                   onPress={() => {
-                    setSortBy(option.value);
-                    setShowSortDropdown(false);
+                    setSelectedConfidence(option);
+                    setShowConfidenceDropdown(false);
                   }}
                 >
                   <Text
                     style={[styles.dropdownItemText, { color: theme.text }]}
                   >
-                    {option.label}
+                    {option}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
           )}
-        </View>
 
-        <View style={styles.filterButtons}>
-          <TouchableOpacity
-            style={[styles.applyButton, { backgroundColor: colors.primary }]}
-            onPress={() => {
-              Keyboard.dismiss();
-              setOddsRange(tempOddsRange);
-              setShowConfidenceDropdown(false);
-              setShowSortDropdown(false);
-            }}
-          >
-            <Text style={[styles.applyButtonText, { color: "#FFF" }]}>
-              Apply Filters
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.resetButton, { backgroundColor: theme.surface }]}
-            onPress={() => {
-              setSearchQuery("");
-              setSelectedConfidence("All");
-              setShowConfidenceDropdown(false);
-              setShowSortDropdown(false);
-              setOddsRange([-2000, 900]);
-              setTempOddsRange([-2000, 900]);
-              setSortBy("confidence");
-            }}
-          >
-            <Text style={[styles.resetButtonText, { color: theme.text }]}>
-              Reset
-            </Text>
-          </TouchableOpacity>
-        </View>
+          {/* Odds Range Inputs */}
+          <View style={styles.sliderContainer}>
+            <View style={styles.oddsAndSortRow}>
+              <View style={styles.oddsSection}>
+                <Text style={[styles.sliderLabel, { color: theme.text }]}>
+                  Odds Range
+                </Text>
+                <View style={styles.sliderRow}>
+                  <TextInput
+                    style={[
+                      styles.oddsInput,
+                      { backgroundColor: theme.surface, color: theme.text },
+                    ]}
+                    placeholder={String(defaultMin)}
+                    placeholderTextColor={theme.textSecondary}
+                    keyboardType={
+                      oddsDisplay === "decimal" ? "decimal-pad" : "numeric"
+                    }
+                    value={
+                      oddsDisplay === "decimal"
+                        ? tempOddsTextMin
+                        : tempOddsRange[0] === defaultMin
+                        ? ""
+                        : String(tempOddsRange[0])
+                    }
+                    onChangeText={(text) => {
+                      if (oddsDisplay === "decimal") {
+                        // Allow only one decimal point and up to 2 digits after decimal
+                        const sanitized = text.replace(/[^0-9+\-\.]/g, "");
+                        if (!/^[+-]?\d*(?:\.\d{0,2})?$/.test(sanitized)) return;
+                        setTempOddsTextMin(sanitized);
+                        if (
+                          sanitized === "" ||
+                          sanitized === "+" ||
+                          sanitized === "-" ||
+                          sanitized === "."
+                        ) {
+                          setTempOddsRange([defaultMin, tempOddsRange[1]]);
+                        } else {
+                          const parsed = parseFloat(sanitized);
+                          if (!isNaN(parsed))
+                            setTempOddsRange([parsed, tempOddsRange[1]]);
+                        }
+                      } else {
+                        if (text === "") {
+                          setTempOddsRange([defaultMin, tempOddsRange[1]]);
+                        } else {
+                          const value = parseInt(text);
+                          if (!isNaN(value)) {
+                            setTempOddsRange([value, tempOddsRange[1]]);
+                          }
+                        }
+                      }
+                    }}
+                    allowFontScaling={false}
+                  />
+                  <Text
+                    style={[styles.oddsToText, { color: theme.textSecondary }]}
+                  >
+                    to
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.oddsInput,
+                      { backgroundColor: theme.surface, color: theme.text },
+                    ]}
+                    placeholder={String(defaultMax)}
+                    placeholderTextColor={theme.textSecondary}
+                    keyboardType={
+                      oddsDisplay === "decimal" ? "decimal-pad" : "numeric"
+                    }
+                    value={
+                      oddsDisplay === "decimal"
+                        ? tempOddsTextMax
+                        : tempOddsRange[1] === defaultMax
+                        ? ""
+                        : String(tempOddsRange[1])
+                    }
+                    onChangeText={(text) => {
+                      if (oddsDisplay === "decimal") {
+                        const sanitized = text.replace(/[^0-9+\-\.]/g, "");
+                        if (!/^[+-]?\d*(?:\.\d{0,2})?$/.test(sanitized)) return;
+                        setTempOddsTextMax(sanitized);
+                        if (
+                          sanitized === "" ||
+                          sanitized === "+" ||
+                          sanitized === "-" ||
+                          sanitized === "."
+                        ) {
+                          setTempOddsRange([tempOddsRange[0], defaultMax]);
+                        } else {
+                          const parsed = parseFloat(sanitized);
+                          if (!isNaN(parsed))
+                            setTempOddsRange([tempOddsRange[0], parsed]);
+                        }
+                      } else {
+                        if (text === "") {
+                          setTempOddsRange([tempOddsRange[0], defaultMax]);
+                        } else {
+                          const value = parseInt(text);
+                          setTempOddsRange([
+                            tempOddsRange[0],
+                            isNaN(value) ? tempOddsRange[1] : value,
+                          ]);
+                        }
+                      }
+                    }}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.sortSection}>
+                <Text style={[styles.sliderLabel, { color: theme.text }]}>
+                  Sort By
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.sortButton,
+                    { backgroundColor: theme.surface },
+                  ]}
+                  onPress={() => setShowSortDropdown(!showSortDropdown)}
+                >
+                  <Text style={[styles.sortButtonText, { color: theme.text }]}>
+                    {sortOptions.find((opt) => opt.value === sortBy)?.label}
+                  </Text>
+                  <Ionicons
+                    name={showSortDropdown ? "chevron-up" : "chevron-down"}
+                    size={18}
+                    color={theme.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {showSortDropdown && (
+              <View
+                style={[
+                  styles.sortDropdownMenu,
+                  { backgroundColor: theme.surface },
+                ]}
+              >
+                {sortOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.dropdownItem,
+                      { borderBottomColor: theme.border },
+                      option.value === sortBy && {
+                        backgroundColor: theme.surfaceSecondary,
+                      },
+                    ]}
+                    onPress={() => {
+                      setSortBy(option.value);
+                      setShowSortDropdown(false);
+                    }}
+                  >
+                    <Text
+                      style={[styles.dropdownItemText, { color: theme.text }]}
+                    >
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
+          <View style={styles.filterButtons}>
+            <TouchableOpacity
+              style={[styles.applyButton, { backgroundColor: colors.primary }]}
+              onPress={() => {
+                Keyboard.dismiss();
+                setOddsRange(tempOddsRange);
+                setShowConfidenceDropdown(false);
+                setShowSortDropdown(false);
+              }}
+            >
+              <Text style={[styles.applyButtonText, { color: "#FFF" }]}>
+                Apply Filters
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.resetButton, { backgroundColor: theme.surface }]}
+              onPress={() => {
+                setSearchQuery("");
+                setSelectedConfidence("All");
+                setShowConfidenceDropdown(false);
+                setShowSortDropdown(false);
+                setOddsRange([-2000, 900]);
+                setTempOddsRange([-2000, 900]);
+                setSortBy("confidence");
+              }}
+            >
+              <Text style={[styles.resetButtonText, { color: theme.text }]}>
+                Reset
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
         <View
@@ -653,115 +661,136 @@ const BetTopScreen = () => {
           </View>
 
           {/* Props Rows */}
-          {isPro ? (
-            paginatedProps.map((prop) => (
-              <View
-                key={prop.id}
-                style={[
-                  styles.propRow,
-                  { backgroundColor: theme.cardBackground },
-                ]}
-              >
-                <TouchableOpacity
-                  style={styles.propColumn}
-                  onPress={() => handlePropPress(prop)}
-                >
-                  <Text style={[styles.playerName, { color: theme.text }]}>
-                    {prop.playerName}
-                  </Text>
-                  <Text style={[styles.propInfo, { color: theme.textSecondary }]}>
-                    {prop.team}
-                  </Text>
-                  <Text style={[styles.propInfo, { color: theme.textSecondary }]}>
-                    {prop.type.charAt(0).toUpperCase() + prop.type.slice(1)}{" "}
-                    {prop.line} {prop.propType}
-                  </Text>
-                  <Text style={[styles.propOdds, { color: colors.primary }]}> 
-                    {formatOddsForDisplay(prop.odds, oddsDisplay)}
-                  </Text>
-                  <Text style={[styles.propConfidence, { color: theme.text }]}> 
-                    {prop.confidence.toFixed(1)}% Confidence
-                  </Text>
-                </TouchableOpacity>
-
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.statsScroll}
-                >
-                  {(() => {
-                    const labelMap = {
-                      last5: "Last 5",
-                      last10: "Last 10",
-                      h2h: "H2H",
-                      season: "Season",
-                    };
-
-                    const statOrder = ["last5", "last10", "h2h", "season"];
-
-                    return statOrder.map((key) => {
-                      const value = prop.stats?.[key];
-                      if (value == null) return null;
-
-                      return (
-                        <View
-                          key={key}
-                          style={[
-                            styles.statCell,
-                            { backgroundColor: getStatColor(value) },
-                          ]}
-                        >
-                          <Text style={styles.statValue}>
-                            {value.toFixed(1)}%
-                          </Text>
-                          <Text style={styles.statLabel}>{labelMap[key]}</Text>
-                        </View>
-                      );
-                    });
-                  })()}
-                </ScrollView>
-              </View>
-            ))
-          ) : (
-            // Non-Pro: show 5 random players from roster
-            (randomPlayers.length > 0 &&
-              randomPlayers.map((p) => (
+          {isPro
+            ? paginatedProps.map((prop) => (
                 <View
-                  key={p.id}
+                  key={prop.id}
                   style={[
                     styles.propRow,
                     { backgroundColor: theme.cardBackground },
                   ]}
                 >
-                  <View style={styles.propColumn}>
+                  <TouchableOpacity
+                    style={styles.propColumn}
+                    onPress={() => handlePropPress(prop)}
+                  >
                     <Text style={[styles.playerName, { color: theme.text }]}>
-                      {p.name}
+                      {prop.playerName}
                     </Text>
-                    <Text style={[styles.propInfo, { color: theme.textSecondary }]}> 
-                      {p.team}
-                    </Text>
-                  </View>
-                  <View style={[styles.statsHeaderContainer, { justifyContent: "center" }]}>
-                    <TouchableOpacity
-                      style={[styles.proCtaButton, { backgroundColor: colors.primary }]}
-                      onPress={() =>
-                        Alert.alert(
-                          "Pro Required",
-                          "Unlock full player lists and filters by purchasing Pro in Settings.",
-                          [{ text: "OK" }]
-                        )
-                      }
+                    <Text
+                      style={[styles.propInfo, { color: theme.textSecondary }]}
                     >
-                      <Text style={styles.proCtaText}>Get Pro</Text>
-                    </TouchableOpacity>
-                  </View>
+                      {prop.team}
+                    </Text>
+                    <Text
+                      style={[styles.propInfo, { color: theme.textSecondary }]}
+                    >
+                      {prop.type.charAt(0).toUpperCase() + prop.type.slice(1)}{" "}
+                      {prop.line} {prop.propType}
+                    </Text>
+                    <Text style={[styles.propOdds, { color: colors.primary }]}>
+                      {formatOddsForDisplay(prop.odds, oddsDisplay)}
+                    </Text>
+                    <Text
+                      style={[styles.propConfidence, { color: theme.text }]}
+                    >
+                      {prop.confidence.toFixed(1)}% Confidence
+                    </Text>
+                  </TouchableOpacity>
+
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.statsScroll}
+                  >
+                    {(() => {
+                      const labelMap = {
+                        last5: "Last 5",
+                        last10: "Last 10",
+                        h2h: "H2H",
+                        season: "Season",
+                      };
+
+                      const statOrder = ["last5", "last10", "h2h", "season"];
+
+                      return statOrder.map((key) => {
+                        const value = prop.stats?.[key];
+                        if (value == null) return null;
+
+                        return (
+                          <View
+                            key={key}
+                            style={[
+                              styles.statCell,
+                              { backgroundColor: getStatColor(value) },
+                            ]}
+                          >
+                            <Text style={styles.statValue}>
+                              {value.toFixed(1)}%
+                            </Text>
+                            <Text style={styles.statLabel}>
+                              {labelMap[key]}
+                            </Text>
+                          </View>
+                        );
+                      });
+                    })()}
+                  </ScrollView>
                 </View>
-              ))) || (
-              <View style={{ padding: 16 }}>
-                <Text style={{ color: theme.textSecondary }}>No roster data available.</Text>
-              </View>
-            )
-          )}
+              ))
+            : // Non-Pro: show 5 random players from roster
+              (randomPlayers.length > 0 &&
+                randomPlayers.map((p) => (
+                  <View
+                    key={p.id}
+                    style={[
+                      styles.propRow,
+                      { backgroundColor: theme.cardBackground },
+                    ]}
+                  >
+                    <View style={styles.propColumn}>
+                      <Text style={[styles.playerName, { color: theme.text }]}>
+                        {p.name}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.propInfo,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {p.team}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.statsHeaderContainer,
+                        { justifyContent: "center" },
+                      ]}
+                    >
+                      <TouchableOpacity
+                        style={[
+                          styles.proCtaButton,
+                          { backgroundColor: colors.primary },
+                        ]}
+                        onPress={() =>
+                          Alert.alert(
+                            "Pro Required",
+                            "Unlock full player lists and filters by purchasing Pro in Settings.",
+                            [{ text: "OK" }]
+                          )
+                        }
+                      >
+                        <Text style={styles.proCtaText}>Get Pro</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))) || (
+                <View style={{ padding: 16 }}>
+                  <Text style={{ color: theme.textSecondary }}>
+                    No roster data available.
+                  </Text>
+                </View>
+              )}
         </View>
 
         {/* Pagination */}

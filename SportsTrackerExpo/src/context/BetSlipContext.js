@@ -410,7 +410,9 @@ export const BetSlipProvider = ({ children }) => {
         }
         Alert.alert(
           "Bet placed",
-          `Bet placed. Credits remaining: ${Number(res.creditsRemaining).toLocaleString(undefined, {
+          `Bet placed. Credits remaining: ${Number(
+            res.creditsRemaining
+          ).toLocaleString(undefined, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           })}`
