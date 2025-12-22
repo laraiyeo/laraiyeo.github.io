@@ -788,6 +788,11 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
 
     // Log updated profile for diagnostics (helps verify persisted fields)
     console.log("/api/daily/claim: updated profile:", updatedProfile);
+    if (!updatedProfile) {
+      console.warn(
+        "/api/daily/claim: update completed but returned no row (0 rows affected)"
+      );
+    }
 
     // Insert ledger row for audit (best-effort: do not fail the route if ledger insert fails)
     try {
@@ -808,8 +813,9 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
     }
 
     // Read back the profile to verify persistence and log detailed diagnostics
+    let verifyRow = null;
     try {
-      const { data: verifyRow, error: verifyErr } = await supabaseAdmin
+      const { data, error: verifyErr } = await supabaseAdmin
         .from("profiles")
         .select(
           "id, credits, daily_available_day, daily_claimed, daily_claimed_at, daily_next_available_at, updated_at"
@@ -819,10 +825,8 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
       if (verifyErr) {
         console.warn("/api/daily/claim: verify read failed", verifyErr);
       } else {
-        console.log(
-          "/api/daily/claim: verify profile after update:",
-          verifyRow
-        );
+        verifyRow = data;
+        console.log("/api/daily/claim: verify profile after update:", verifyRow);
         if (
           typeof verifyRow.credits !== "undefined" &&
           Number(verifyRow.credits) !== Number(newCredits)
