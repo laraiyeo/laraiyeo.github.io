@@ -801,7 +801,10 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
         });
       if (ledgerErr) console.warn("credit_ledger insert failed", ledgerErr);
     } catch (ledgerEx) {
-      console.warn("credit_ledger insert exception", ledgerEx?.message || ledgerEx);
+      console.warn(
+        "credit_ledger insert exception",
+        ledgerEx?.message || ledgerEx
+      );
     }
 
     return res.json({ success: true, user: updatedProfile, day, reward });

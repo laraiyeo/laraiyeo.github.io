@@ -855,7 +855,9 @@ export const getDailyRewardState = async (profileId) => {
 
           if (Array.isArray(json.claimedDays)) {
             // ensure booleans and length 7
-            claimedDays = new Array(7).fill(false).map((v, i) => !!json.claimedDays[i]);
+            claimedDays = new Array(7)
+              .fill(false)
+              .map((v, i) => !!json.claimedDays[i]);
           } else {
             // prefer explicit daily_* fields
             const availRaw =
@@ -884,7 +886,8 @@ export const getDailyRewardState = async (profileId) => {
               canClaim: !claimedFlag,
               claimed: !!claimedFlag,
               claimedAt: json.claimedAt || json.daily_claimed_at || null,
-              nextAvailableAt: json.nextAvailableAt || json.daily_next_available_at || null,
+              nextAvailableAt:
+                json.nextAvailableAt || json.daily_next_available_at || null,
               claimedDays,
             };
           }
