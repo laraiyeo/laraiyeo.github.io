@@ -18,6 +18,12 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   phone text NOT NULL,
+  -- Daily reward tracking: which day is currently available (1-7), whether claimed,
+  -- timestamp when claimed, and when the next day becomes available.
+  daily_available_day integer NOT NULL DEFAULT 1,
+  daily_claimed boolean NOT NULL DEFAULT false,
+  daily_claimed_at timestamptz NULL,
+  daily_next_available_at timestamptz NULL,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_phone_key UNIQUE (phone),
   CONSTRAINT profiles_username_key UNIQUE (username),

@@ -671,51 +671,149 @@ app.post("/api/betslip", async (req, res) => {
   }
 });
 
-// Endpoint: claim daily reward (server-side, uses service-role client)
+// Daily reward endpoints (state, claim, dismiss)
+// GET state: returns { day, claimed, claimedAt, nextAvailableAt }
+app.get("/api/daily/state", authMiddlewareInline, async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const { data: profileRow, error: selectErr } = await supabaseAdmin
+      .from("profiles")
+      .select(
+        "daily_available_day, daily_claimed, daily_claimed_at, daily_next_available_at"
+      )
+      .eq("id", userId)
+      .maybeSingle();
+    if (selectErr) throw selectErr;
+
+    let day = profileRow?.daily_available_day || 1;
+    let claimed = !!profileRow?.daily_claimed;
+    let claimedAt = profileRow?.daily_claimed_at || null;
+    let nextAvailableAt = profileRow?.daily_next_available_at || null;
+
+    // Lazy roll-forward: if nextAvailableAt has passed and the current day was claimed,
+    // advance to next day and clear claimed flags.
+    if (nextAvailableAt) {
+      const now = new Date();
+      const nextDate = new Date(nextAvailableAt);
+      if (now >= nextDate && claimed) {
+        const newDay = (day || 1) + 1 > 7 ? 1 : (day || 1) + 1;
+        const { error: updErr } = await supabaseAdmin
+          .from("profiles")
+          .update({
+            daily_available_day: newDay,
+            daily_claimed: false,
+            daily_claimed_at: null,
+            daily_next_available_at: null,
+          })
+          .eq("id", userId);
+        if (updErr) throw updErr;
+        day = newDay;
+        claimed = false;
+        claimedAt = null;
+        nextAvailableAt = null;
+      }
+    }
+
+    return res.json({
+      success: true,
+      day,
+      claimed,
+      claimedAt,
+      nextAvailableAt,
+    });
+  } catch (e) {
+    console.error("/api/daily/state error", e?.message || e);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// POST claim: claims current available day if eligible, updates credits and claim state
 app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
   try {
     const userId = req.userId;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const { amount, reason } = req.body || {};
-    const change = Number(amount || 0);
-    if (!change || isNaN(change))
-      return res.status(400).json({ message: "Invalid change amount" });
-
-    // Read current credits using service-role client (bypass RLS)
+    // Read profile fields with admin client
     const { data: profileRow, error: selectErr } = await supabaseAdmin
       .from("profiles")
-      .select("credits")
+      .select(
+        "credits, is_pro, daily_available_day, daily_claimed, daily_next_available_at"
+      )
       .eq("id", userId)
       .maybeSingle();
     if (selectErr) throw selectErr;
 
-    const currentCredits = Number(profileRow?.credits || 0);
-    const newCredits = Math.round((currentCredits + change) * 100) / 100;
+    const now = new Date();
+    let day = profileRow?.daily_available_day || 1;
+    let claimed = !!profileRow?.daily_claimed;
+    const nextAvailableAt = profileRow?.daily_next_available_at
+      ? new Date(profileRow.daily_next_available_at)
+      : null;
 
-    // Update profile credits (service role — atomicity caveat: sequential update)
+    // If a nextAvailableAt exists and is in the future, not available yet
+    if (nextAvailableAt && now < nextAvailableAt) {
+      return res.status(400).json({ message: "Not available yet" });
+    }
+
+    // If already claimed for this day, reject
+    if (claimed) return res.status(400).json({ message: "Already claimed" });
+
+    // Determine reward
+    const baseReward = day < 7 ? 250 : 1000;
+    const reward = profileRow && profileRow.is_pro ? baseReward + 500 : baseReward;
+
+    const currentCredits = Number(profileRow?.credits || 0);
+    const newCredits = Math.round((currentCredits + reward) * 100) / 100;
+
+    // Update credits and daily claim state atomically
     const { data: updatedProfile, error: updateErr } = await supabaseAdmin
       .from("profiles")
-      .update({ credits: newCredits })
+      .update({
+        credits: newCredits,
+        daily_claimed: true,
+        daily_claimed_at: now.toISOString(),
+        daily_next_available_at: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      })
       .eq("id", userId)
-      .select("id, credits")
+      .select("id, credits, daily_available_day, daily_claimed, daily_claimed_at, daily_next_available_at")
       .maybeSingle();
     if (updateErr) throw updateErr;
 
     // Insert ledger row for audit
-    const { error: ledgerErr } = await supabaseAdmin
-      .from("credit_ledger")
-      .insert({
-        user_id: userId,
-        betslip_id: null,
-        change: change,
-        reason: reason || "Daily login",
-      });
+    const { error: ledgerErr } = await supabaseAdmin.from("credit_ledger").insert({
+      user_id: userId,
+      betslip_id: null,
+      change: reward,
+      reason: `Daily login day ${day}`,
+    });
     if (ledgerErr) throw ledgerErr;
 
-    return res.json({ user: updatedProfile });
+    return res.json({ success: true, user: updatedProfile, day, reward });
   } catch (e) {
     console.error("/api/daily/claim error", e?.message || e);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// POST dismiss: set nextAvailableAt = now + 24h to suppress modal without claiming
+app.post("/api/daily/dismiss", authMiddlewareInline, async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    const now = new Date();
+    const nextAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+    const { data: updated, error: updErr } = await supabaseAdmin
+      .from("profiles")
+      .update({ daily_next_available_at: nextAt })
+      .eq("id", userId)
+      .select("daily_next_available_at")
+      .maybeSingle();
+    if (updErr) throw updErr;
+    return res.json({ success: true, nextAvailableAt: updated.daily_next_available_at });
+  } catch (e) {
+    console.error("/api/daily/dismiss error", e?.message || e);
     return res.status(500).json({ message: "Server error" });
   }
 });

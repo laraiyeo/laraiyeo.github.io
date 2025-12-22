@@ -190,6 +190,12 @@ const BetLoginScreen = ({ navigation }) => {
         throw profileError;
       }
 
+      // New users are not Pro by default — persist local flag and update context
+      try {
+        await AsyncStorage.setItem("@is_pro", "0");
+        if (setIsPro) setIsPro(false);
+      } catch (e) {}
+
       Alert.alert(
         "Success",
         "Account created! You've been given 2500 credits to start.",
@@ -232,6 +238,7 @@ const BetLoginScreen = ({ navigation }) => {
       setLoading(false);
     }
   };
+
 
   const handleLogin = async () => {
     if (!username || !password) {
@@ -454,6 +461,30 @@ const BetLoginScreen = ({ navigation }) => {
           console.error("BetLogin: error initializing odds display context", e);
         }
       })();
+
+      // Refresh profile `is_pro` from Supabase so app immediately knows Pro status
+      try {
+        const userId =
+          authData?.user?.id || (await supabase.auth.getUser()).data?.user?.id;
+        if (userId) {
+          const { data: profileRow, error: pErr } = await supabase
+            .from("profiles")
+            .select("is_pro")
+            .eq("id", userId)
+            .maybeSingle();
+          if (!pErr && profileRow) {
+            try {
+              await AsyncStorage.setItem(
+                "@is_pro",
+                profileRow.is_pro ? "1" : "0"
+              );
+              if (setIsPro) setIsPro(!!profileRow.is_pro);
+            } catch (e) {}
+          }
+        }
+      } catch (e) {
+        console.warn("BetLogin: failed to refresh is_pro", e);
+      }
 
       // Navigate immediately for faster perceived login
       navigation.navigate("BetMain");

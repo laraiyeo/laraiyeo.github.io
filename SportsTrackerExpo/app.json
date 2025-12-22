@@ -142,5 +142,9 @@
       "checkAutomatically": "ON_LOAD"
     },
     "owner": "laraiyeo"
+  },
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-5256386471137141~8370359232",
+    "ios_app_id": "ca-app-pub-5256386471137141~8370359232"
   }
 }

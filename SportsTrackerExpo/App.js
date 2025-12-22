@@ -20,6 +20,7 @@ import { ChatProvider } from "./src/context/ChatContext";
 import { EmoteProvider } from "./src/context/EmoteContext";
 import { MutedUsersProvider } from "./src/context/MutedUsersContext";
 import { BetSlipProvider } from "./src/context/BetSlipContext";
+import { AppSettingsProvider, useAppSettings } from "./src/context/AppSettingsContext";
 import { BetDataProvider } from "./src/context/BetDataContext";
 import { OddsDisplayProvider } from "./src/context/OddsDisplayContext";
 
@@ -45,6 +46,7 @@ import {
 } from "./src/services/revenuecat";
 import { useBetSlip } from "./src/context/BetSlipContext";
 import { supabase } from "./src/config/supabase";
+import { initAds } from "./src/services/ads";
 
 // Custom header title component that disables font scaling
 const HeaderTitle = ({ children, style }) => {
@@ -287,6 +289,8 @@ const Stack = createStackNavigator();
 const HomeTabNavigator = () => {
   const { theme, colors } = useTheme();
   const { isUnlocked, checkStatus } = useStreamingAccess();
+  const { showBetTab } = useAppSettings();
+  const { isPro } = useBetSlip();
 
   // Refresh streaming status when this navigator comes into focus
   useFocusEffect(
@@ -349,19 +353,21 @@ const HomeTabNavigator = () => {
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      <Tab.Screen
-        name="Bet"
-        component={BetLoginScreen}
-        options={{
-          title: "Bet",
-          headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.primary,
-          },
-          headerTintColor: "#fff",
-          headerTitle: (props) => <HeaderTitle {...props} />,
-        }}
-      />
+      {(isPro || showBetTab) && (
+        <Tab.Screen
+          name="Bet"
+          component={BetLoginScreen}
+          options={{
+            title: "Bet",
+            headerShown: true,
+            headerStyle: {
+              backgroundColor: colors.primary,
+            },
+            headerTintColor: "#fff",
+            headerTitle: (props) => <HeaderTitle {...props} />,
+          }}
+        />
+      )}
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}
@@ -1947,6 +1953,7 @@ ExpoSplashScreen.preventAutoHideAsync();
 
 const AppContent = () => {
   const { setIsPro } = useBetSlip();
+  const { currentColorPalette, changeColorPalette, isDarkMode } = useTheme();
   const [showSplash, setShowSplash] = useState(true);
 
   // Initialize Firebase Analytics
@@ -2073,6 +2080,12 @@ const AppContent = () => {
             e?.message || e
           );
         }
+        // Initialize mobile ads (best-effort)
+        try {
+          await initAds();
+        } catch (e) {
+          console.warn("Ads: init error", e?.message || e);
+        }
       } catch (e) {
         console.warn("RevenueCat initialization failed", e?.message || e);
       }
@@ -2081,6 +2094,62 @@ const AppContent = () => {
       mounted = false;
     };
   }, []);
+
+  // On app load, fetch canonical `is_pro` from profiles and enforce theme rules
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        // attempt to get current supabase user id
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const userId = user?.id;
+        if (!userId) return;
+
+        // fetch profile row to read `is_pro`
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("id,is_pro")
+          .eq("id", userId)
+          .maybeSingle();
+        if (error) {
+          console.warn("App init: failed to read profile", error.message || error);
+          return;
+        }
+
+        const isPro = !!(profile && profile.is_pro);
+        try {
+          if (isPro) await AsyncStorage.setItem("@is_pro", "1");
+          else await AsyncStorage.removeItem("@is_pro");
+        } catch (e) {
+          console.warn("App init: AsyncStorage set/remove @is_pro failed", e?.message || e);
+        }
+
+        try {
+          if (setIsPro) setIsPro(isPro);
+        } catch (e) {
+          console.warn("App init: setIsPro failed", e?.message || e);
+        }
+
+        // If user lost Pro access while the app was closed and they had a custom palette,
+        // reset to `red` and update the app icon accordingly.
+        if (!isPro && currentColorPalette === "custom") {
+          try {
+            await changeColorPalette("red");
+            console.log("App init: reverted custom palette to red due to lost Pro");
+          } catch (e) {
+            console.warn("App init: failed to revert palette", e?.message || e);
+          }
+        }
+      } catch (e) {
+        console.warn("App init: error fetching profile is_pro", e?.message || e);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [currentColorPalette, changeColorPalette, setIsPro]);
 
   // Check for app updates on startup
   useEffect(() => {
@@ -2167,13 +2236,15 @@ export default function App() {
         <ChatProvider>
           <EmoteProvider>
             <MutedUsersProvider>
-              <BetSlipProvider>
-                <OddsDisplayProvider>
-                  <BetDataProvider>
-                    <AppContent />
-                  </BetDataProvider>
-                </OddsDisplayProvider>
-              </BetSlipProvider>
+                  <BetSlipProvider>
+                    <AppSettingsProvider>
+                      <OddsDisplayProvider>
+                        <BetDataProvider>
+                          <AppContent />
+                        </BetDataProvider>
+                      </OddsDisplayProvider>
+                    </AppSettingsProvider>
+                  </BetSlipProvider>
             </MutedUsersProvider>
           </EmoteProvider>
         </ChatProvider>

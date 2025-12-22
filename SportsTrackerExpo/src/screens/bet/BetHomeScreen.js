@@ -24,6 +24,7 @@ import {
   getUserProfile,
 } from "../../services/betService";
 import { useBetSlip } from "../../context/BetSlipContext";
+import { BannerAdWrapper, DEV_BANNER_ID } from "../../services/ads";
 
 // Global image cache - keeps image sources stable across re-renders
 const imageCache = new Map();
@@ -1296,6 +1297,7 @@ const BetHomeScreen = ({ navigation }) => {
 
         <View style={styles.bottomPadding} />
       </ScrollView>
+      {!isPro && <BannerAdWrapper />}
       <BetSlip
         scoreboardGames={[...liveGames, ...scheduledGames, ...completedGames]}
       />

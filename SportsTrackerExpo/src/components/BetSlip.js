@@ -35,6 +35,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
     isSlipOpen,
     setIsSlipOpen,
     submitBetSlip,
+    isPro,
   } = useBetSlip();
 
   const oddsContext = useContext(OddsDisplayContext);
@@ -409,13 +410,13 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         style={[
           styles.bottomBar,
           { backgroundColor: colors.primary },
-          isGameDetail && { height: 90 },
+          !isPro ? {bottom: 65, height: 60} : isGameDetail && { height: 90 },
         ]}
         onPress={openSlip}
         activeOpacity={0.9}
       >
         <View
-          style={[styles.bottomBarLeft, isGameDetail && { marginBottom: 30 }]}
+          style={[styles.bottomBarLeft, !isPro ? { marginBottom: 0 } : isGameDetail && { marginBottom: 30 }]}
         >
           <View style={styles.betCountBadge}>
             <Text style={styles.betCountText}>{bets.length}</Text>
@@ -423,7 +424,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
           <Text style={styles.bottomBarText}>Betslip</Text>
         </View>
         <View
-          style={[styles.bottomBarRight, isGameDetail && { marginBottom: 30 }]}
+          style={[styles.bottomBarRight, !isPro ? { marginBottom: 0 } : isGameDetail && { marginBottom: 30 }]}
         >
           {bets.length > 1 && (
             <View style={styles.parlayBadge}>

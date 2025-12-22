@@ -17,6 +17,7 @@ import { useBetSlip } from "../../context/BetSlipContext";
 import BetSlip from "../../components/BetSlip";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { registerForPushNotifications } from "../../services/notificationService";
+import { BannerAdWrapper, DEV_BANNER_ID } from "../../services/ads";
 
 const BetBetsScreen = () => {
   const { colors, theme, isDarkMode } = useTheme();
@@ -2451,6 +2452,7 @@ const BetBetsScreen = () => {
         <View style={styles.bottomPadding} />
       </ScrollView>
 
+      {!isPro && <BannerAdWrapper />}
       <BetSlip />
     </View>
   );

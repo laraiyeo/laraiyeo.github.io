@@ -59,6 +59,9 @@ try {
   ReanimatedColorPicker = null;
 }
 
+import { useBetSlip } from "../context/BetSlipContext";
+import { useAppSettings } from "../context/AppSettingsContext";
+
 const SettingsScreen = ({ navigation }) => {
   const {
     isDarkMode,
@@ -71,6 +74,8 @@ const SettingsScreen = ({ navigation }) => {
     updateCustomPalette,
     getCurrentAppIcon,
   } = useTheme();
+  const { isPro } = useBetSlip();
+  const { showBetTab, setShowBetTab } = useAppSettings();
   const { favorites, removeFavorite, getFavoriteTeams, clearAllFavorites } =
     useFavorites();
   const { userName, userColor, updateUserName, updateUserColor, nameColors } =
@@ -422,6 +427,7 @@ const SettingsScreen = ({ navigation }) => {
   };
 
   const renderColorOption = (paletteKey, palette) => {
+    if (paletteKey === "custom" && !isPro) return null;
     const isSelected = currentColorPalette === paletteKey;
 
     return (
@@ -704,36 +710,57 @@ const SettingsScreen = ({ navigation }) => {
                 marginBottom: 6,
               }}
             >
-              <TouchableOpacity
-                onPress={() => {
-                  // initialize temp colors from current custom palette
-                  const base = colorPalettes?.custom || {
-                    primary: "#dc2626",
-                    secondary: "#ef4444",
-                    accent: "#f87171",
-                  };
-                  setCustomTempColors({
-                    primary: base.primary,
-                    secondary: base.secondary,
-                    accent: base.accent,
-                  });
-                  setCustomSelectedTarget("primary");
-                  setCustomModalVisible(true);
-                }}
-                style={[
-                  styles.openSettingsButton,
-                  { backgroundColor: colors.secondary, marginTop: 8 },
-                ]}
-              >
-                <Text
-                  style={styles.openSettingsButtonText}
-                  allowFontScaling={false}
+              {isPro ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    // initialize temp colors from current custom palette
+                    const base = colorPalettes?.custom || {
+                      primary: "#dc2626",
+                      secondary: "#ef4444",
+                      accent: "#f87171",
+                    };
+                    setCustomTempColors({
+                      primary: base.primary,
+                      secondary: base.secondary,
+                      accent: base.accent,
+                    });
+                    setCustomSelectedTarget("primary");
+                    setCustomModalVisible(true);
+                  }}
+                  style={[
+                    styles.openSettingsButton,
+                    { backgroundColor: colors.secondary, marginTop: 8 },
+                  ]}
                 >
-                  {currentColorPalette === "custom"
-                    ? "Change custom colour"
-                    : "Add custom colour"}
-                </Text>
-              </TouchableOpacity>
+                  <Text
+                    style={styles.openSettingsButtonText}
+                    allowFontScaling={false}
+                  >
+                    {currentColorPalette === "custom"
+                      ? "Change custom colour"
+                      : "Add custom colour"}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  disabled
+                  style={[
+                    styles.openSettingsButton,
+                    {
+                      backgroundColor: theme.border,
+                      marginTop: 8,
+                      opacity: 0.6,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.openSettingsButtonText, { color: theme.text }]}
+                    allowFontScaling={false}
+                  >
+                    Custom colours — Pro only
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Custom Color Modal */}
@@ -1049,7 +1076,79 @@ const SettingsScreen = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Streaming Code Section */}
+            {/* Bet Tab visibility setting */}
+            <View
+              style={[
+                styles.section,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <View style={[styles.sectionHeader, { borderBottomColor: theme.border }]}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.sectionTitle, { color: theme.text }]}
+                >
+                  Bet Tab
+                </Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.sectionSubtitle, { color: theme.textSecondary }]}
+                >
+                  Control visibility of the Bet tab
+                </Text>
+              </View>
+
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.settingLabel, { color: theme.text }]}
+                  >
+                    Show Bet Tab
+                  </Text>
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.settingDescription, { color: theme.textSecondary }]}
+                  >
+                    {isPro
+                      ? "Bet screen must always show for pro members."
+                      : "Toggle to show or hide the Bet tab in the main navigation."}
+                  </Text>
+                </View>
+
+                {/* Toggle */}
+                <View style={{ justifyContent: "center" }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (isPro) return;
+                      try {
+                        setShowBetTab(!showBetTab);
+                      } catch (e) {
+                        console.warn("toggle showBetTab error", e);
+                      }
+                    }}
+                    activeOpacity={0.8}
+                    disabled={isPro}
+                    style={[
+                      styles.toggleButton,
+                      { backgroundColor: isPro ? colors.primary : showBetTab ? colors.primary : theme.border },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.toggleThumb,
+                        {
+                          backgroundColor: isPro ? colors.accent : showBetTab ? colors.accent : "#f4f3f4",
+                          transform: [{ translateX: isPro || showBetTab ? 22 : 2 }],
+                        },
+                      ]}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
+            {/* Streaming Code Section */}
           <View
             style={[
               styles.section,

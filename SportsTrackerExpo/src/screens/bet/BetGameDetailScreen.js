@@ -32,6 +32,7 @@ import PlayerStatsPopup from "../../components/PlayerStatsPopup";
 import { useGamePresence } from "../../hooks/useGamePresence";
 import LiveTrackerEmbed from "../../components/LiveTrackerEmbed";
 import LiveTrackerService from "../../services/liveTrackerService";
+import { BannerAdWrapper, DEV_BANNER_ID } from "../../services/ads";
 
 const { width } = Dimensions.get("window");
 
@@ -1103,7 +1104,7 @@ const AlternateSpreadSection = ({ gameData, theme, colors }) => {
 
 const BetGameDetailScreen = ({ navigation, route }) => {
   const { colors, theme, isDarkMode } = useTheme();
-  const { toggleBet, isBetSelected } = useBetSlip();
+  const { toggleBet, isBetSelected, isPro } = useBetSlip();
   const { scoreboardData } = useBetData();
   const oddsContext = useContext(OddsDisplayContext);
   const oddsDisplay = oddsContext ? oddsContext.oddsDisplay : "american";
@@ -3828,6 +3829,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       </ScrollView>
 
       {/* Bet Slip Bottom Bar */}
+      {!isPro && <BannerAdWrapper />}
       <BetSlip
         isGameDetail={true}
         scoreboardGames={scoreboardData?.events || []}

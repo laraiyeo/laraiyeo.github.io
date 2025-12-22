@@ -18,6 +18,7 @@ import { formatOddsForDisplay } from "../../utils/odds";
 import BetSlip from "../../components/BetSlip";
 import { useBetSlip } from "../../context/BetSlipContext";
 import { useBetData } from "../../context/BetDataContext";
+import { BannerAdWrapper, DEV_BANNER_ID } from "../../services/ads";
 
 const BetTopScreen = () => {
   const { colors, theme } = useTheme();
@@ -739,52 +740,128 @@ const BetTopScreen = () => {
                 </View>
               ))
             : // Non-Pro: show 5 random players from roster
-              (randomPlayers.length > 0 &&
-                randomPlayers.map((p) => (
-                  <View
-                    key={p.id}
-                    style={[
-                      styles.propRow,
-                      { backgroundColor: theme.cardBackground },
-                    ]}
-                  >
-                    <View style={styles.propColumn}>
-                      <Text style={[styles.playerName, { color: theme.text }]}>
-                        {p.name}
-                      </Text>
-                      <Text
+               (randomPlayers.length > 0 &&
+                randomPlayers.map((p) => {
+                  // Try to find a matching prop/stats for this player
+                  const matchingProp = allProps.find((prop) => prop.playerId === p.id);
+                  if (matchingProp) {
+                    return (
+                      <View
+                        key={p.id}
                         style={[
-                          styles.propInfo,
-                          { color: theme.textSecondary },
+                          styles.propRow,
+                          { backgroundColor: theme.cardBackground },
                         ]}
                       >
-                        {p.team}
-                      </Text>
-                    </View>
+                        <TouchableOpacity
+                          style={styles.propColumn}
+                          onPress={() => handlePropPress(matchingProp)}
+                        >
+                          <Text style={[styles.playerName, { color: theme.text }]}>
+                            {matchingProp.playerName}
+                          </Text>
+                          <Text
+                            style={[styles.propInfo, { color: theme.textSecondary }]}
+                          >
+                            {matchingProp.team}
+                          </Text>
+                          <Text
+                            style={[styles.propInfo, { color: theme.textSecondary }]}
+                          >
+                            {matchingProp.type.charAt(0).toUpperCase() + matchingProp.type.slice(1)} {matchingProp.line} {matchingProp.propType}
+                          </Text>
+                          <Text style={[styles.propOdds, { color: colors.primary }]}> 
+                            {formatOddsForDisplay(matchingProp.odds, oddsDisplay)}
+                          </Text>
+                          <Text style={[styles.propConfidence, { color: theme.text }]}> 
+                            {matchingProp.confidence.toFixed(1)}% Confidence
+                          </Text>
+                        </TouchableOpacity>
+
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          style={styles.statsScroll}
+                        >
+                          {(() => {
+                            const labelMap = {
+                              last5: "Last 5",
+                              last10: "Last 10",
+                              h2h: "H2H",
+                              season: "Season",
+                            };
+
+                            const statOrder = ["last5", "last10", "h2h", "season"];
+
+                            return statOrder.map((key) => {
+                              const value = matchingProp.stats?.[key];
+                              if (value == null) return null;
+
+                              return (
+                                <View
+                                  key={key}
+                                  style={[
+                                    styles.statCell,
+                                    { backgroundColor: getStatColor(value) },
+                                  ]}
+                                >
+                                  <Text style={styles.statValue}>
+                                    {value.toFixed(1)}%
+                                  </Text>
+                                  <Text style={styles.statLabel}>{labelMap[key]}</Text>
+                                </View>
+                              );
+                            });
+                          })()}
+                        </ScrollView>
+                      </View>
+                    );
+                  }
+
+                  // No matching prop/stats found: show player basic info plus CTA
+                  return (
                     <View
+                      key={p.id}
                       style={[
-                        styles.statsHeaderContainer,
-                        { justifyContent: "center" },
+                        styles.propRow,
+                        { backgroundColor: theme.cardBackground },
                       ]}
                     >
-                      <TouchableOpacity
+                      <View style={styles.propColumn}>
+                        <Text style={[styles.playerName, { color: theme.text }]}>
+                          {p.name}
+                        </Text>
+                        <Text
+                          style={[styles.propInfo, { color: theme.textSecondary }]}
+                        >
+                          {p.team}
+                        </Text>
+                      </View>
+                      <View
                         style={[
-                          styles.proCtaButton,
-                          { backgroundColor: colors.primary },
+                          styles.statsHeaderContainer,
+                          { justifyContent: "center" },
                         ]}
-                        onPress={() =>
-                          Alert.alert(
-                            "Pro Required",
-                            "Unlock full player lists and filters by purchasing Pro in Settings.",
-                            [{ text: "OK" }]
-                          )
-                        }
                       >
-                        <Text style={styles.proCtaText}>Get Pro</Text>
-                      </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[
+                            styles.proCtaButton,
+                            { backgroundColor: colors.primary },
+                          ]}
+                          onPress={() =>
+                            Alert.alert(
+                              "Pro Required",
+                              "Unlock full player lists and filters by purchasing Pro in Settings.",
+                              [{ text: "OK" }]
+                            )
+                          }
+                        >
+                          <Text style={styles.proCtaText}>Get Pro</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                  </View>
-                ))) || (
+                  );
+                })) || (
                 <View style={{ padding: 16 }}>
                   <Text style={{ color: theme.textSecondary }}>
                     No roster data available.
@@ -794,7 +871,7 @@ const BetTopScreen = () => {
         </View>
 
         {/* Pagination */}
-        {totalPages > 1 && (
+        {totalPages > 1 && isPro && (
           <View style={styles.paginationContainer}>
             <TouchableOpacity
               style={[
@@ -928,6 +1005,7 @@ const BetTopScreen = () => {
         </View>
       </Modal>
 
+      {!isPro && <BannerAdWrapper />}
       <BetSlip />
     </View>
   );

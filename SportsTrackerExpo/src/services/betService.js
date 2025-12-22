@@ -819,6 +819,48 @@ const DAILY_KEY_FOR = (profileId) => `@daily_reward_${profileId}`;
  */
 export const getDailyRewardState = async (profileId) => {
   if (!profileId) return { success: false, error: "No profileId" };
+  // Try server-first to get canonical state
+  try {
+    let authToken = null;
+    try {
+      authToken = await AsyncStorage.getItem("@bet_token");
+    } catch (e) {}
+    if (!authToken) {
+      try {
+        const { data: { session } = {} } = await supabase.auth.getSession();
+        if (session && session.access_token) authToken = session.access_token;
+      } catch (e) {}
+    }
+
+    if (authToken) {
+      const SERVER_BASE =
+        "https://laraiyeogithubio-production-f5af.up.railway.app";
+      const resp = await fetch(`${SERVER_BASE}/api/daily/state`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      if (resp.ok) {
+        const json = await resp.json();
+        if (json && json.success) {
+          return {
+            success: true,
+            availableDay: json.day || 1,
+            canClaim: !json.claimed,
+            claimed: !!json.claimed,
+            claimedAt: json.claimedAt || null,
+            nextAvailableAt: json.nextAvailableAt || null,
+          };
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("getDailyRewardState: server request failed", e?.message || e);
+  }
+
+  // Fallback to local AsyncStorage behavior
   try {
     const key = DAILY_KEY_FOR(profileId);
     const raw = await AsyncStorage.getItem(key);
@@ -846,7 +888,6 @@ export const getDailyRewardState = async (profileId) => {
       }
     }
 
-    // compute available index (first false)
     const availableIdx = state.claimedDays.findIndex((v) => !v);
     const nextAvailableAt = state.nextAvailableAt
       ? new Date(state.nextAvailableAt)
@@ -874,117 +915,11 @@ export const claimDailyReward = async (profileId) => {
   if (!profileId) return { success: false, error: "No profileId" };
   const key = DAILY_KEY_FOR(profileId);
   try {
-    const raw = await AsyncStorage.getItem(key);
-    let state = raw
-      ? JSON.parse(raw)
-      : {
-          claimedDays: [false, false, false, false, false, false, false],
-          nextAvailableAt: null,
-        };
-
-    const now = new Date();
-
-    // Reset if cycle finished and nextAvailableAt passed
-    const allClaimed = state.claimedDays.every(Boolean);
-    if (allClaimed && state.nextAvailableAt) {
-      const next = new Date(state.nextAvailableAt);
-      if (now >= next) {
-        state = {
-          claimedDays: [false, false, false, false, false, false, false],
-          nextAvailableAt: null,
-        };
-      }
-    }
-
-    const idx = state.claimedDays.findIndex((v) => !v);
-    if (idx === -1) return { success: false, error: "Cycle already completed" };
-
-    const nextAvailableAt = state.nextAvailableAt
-      ? new Date(state.nextAvailableAt)
-      : null;
-    if (nextAvailableAt && now < nextAvailableAt)
-      return { success: false, error: "Not available yet" };
-
-    const dayNum = idx + 1;
-    // Base rewards: 250/day for days 1-6, 1000 for day 7
-    // Pro users receive +500 bonus (so 750 / 1500)
-    const baseReward = dayNum < 7 ? 250 : 1000;
-
-    // Fetch current profile credits
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    let uid = user?.id || profileId;
-    // Try to fetch profile row (include is_pro so we can adjust rewards)
-    let profile = null;
+    // Try calling server endpoint to claim canonical state first
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id,credits,is_pro")
-        .eq("id", uid)
-        .maybeSingle();
-      if (!error && data) profile = data;
-    } catch (e) {}
-
-    const isProUser = !!(profile && profile.is_pro);
-    const reward = isProUser ? baseReward + 500 : baseReward;
-
-    const currentCredits =
-      profile && profile.credits != null ? Number(profile.credits) : 0;
-    const newCredits = Math.round((currentCredits + reward) * 100) / 100;
-
-    // Prefer calling DB RPC `claim_daily_reward` (SECURITY DEFINER) first.
-    // If that fails, fall back to the server endpoint, then to the client update.
-    let serverUpdated = false;
-    try {
-      try {
-        const { data: rpcData, error: rpcError } = await supabase.rpc(
-          "claim_daily_reward",
-          {
-            p_amount: reward,
-            p_reason: `Daily login day ${dayNum}`,
-          }
-        );
-        if (!rpcError && rpcData) {
-          serverUpdated = true;
-          // Mark claimed state locally before returning
-          state.claimedDays[idx] = true;
-          const nextAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-          state.nextAvailableAt = nextAt.toISOString();
-          try {
-            await AsyncStorage.setItem(key, JSON.stringify(state));
-          } catch (e) {
-            console.warn("claimDailyReward: failed to persist daily state", e);
-          }
-
-          // rpcData may be an object or an array containing the returned row
-          let svcCredits = null;
-          if (Array.isArray(rpcData)) svcCredits = rpcData[0]?.credits ?? null;
-          else svcCredits = rpcData?.credits ?? null;
-
-          const returnedCredits =
-            svcCredits != null ? Number(svcCredits) : newCredits;
-
-          return {
-            success: true,
-            day: dayNum,
-            reward,
-            newCredits: returnedCredits,
-          };
-        }
-      } catch (e) {
-        console.warn(
-          "claimDailyReward: rpc claim_daily_reward failed",
-          e?.message || e
-        );
-      }
-
-      // RPC failed or didn't return credits — fallback to server endpoint
-      // Try to get server token first, otherwise use Supabase session token
       let authToken = null;
       try {
-        const serverToken = await AsyncStorage.getItem("@bet_token");
-        if (serverToken) authToken = serverToken;
+        authToken = await AsyncStorage.getItem("@bet_token");
       } catch (e) {}
       if (!authToken) {
         try {
@@ -1002,70 +937,96 @@ export const claimDailyReward = async (profileId) => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${authToken}`,
           },
-          body: JSON.stringify({
-            amount: reward,
-            reason: `Daily login day ${dayNum}`,
-          }),
         });
         if (resp.ok) {
-          try {
-            const json = await resp.json();
-            if (json && json.user && json.user.credits != null) {
-              serverUpdated = true;
-
-              // Persist claimed state BEFORE returning
-              state.claimedDays[idx] = true;
-              const nextAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-              state.nextAvailableAt = nextAt.toISOString();
-              try {
-                await AsyncStorage.setItem(key, JSON.stringify(state));
-              } catch (e) {
-                console.warn(
-                  "claimDailyReward: failed to persist daily state",
-                  e
-                );
-              }
-
-              const svcCredits = Number(json.user.credits);
-              return {
-                success: true,
-                day: dayNum,
-                reward,
-                newCredits: svcCredits,
+          const json = await resp.json().catch(() => null);
+          if (json && json.success) {
+            // Best-effort: update local storage to reflect canonical claim
+            try {
+              const key = DAILY_KEY_FOR(profileId);
+              const now = new Date();
+              const state = {
+                claimedDays: [false, false, false, false, false, false, false],
+                nextAvailableAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
               };
-            }
-          } catch (e) {
-            // fall through to client update
+              // mark the appropriate day as claimed
+              const dayNum = json.day || 1;
+              state.claimedDays[dayNum - 1] = true;
+              await AsyncStorage.setItem(key, JSON.stringify(state));
+            } catch (e) {}
+            return { success: true, day: json.day, reward: json.reward, newCredits: json.user?.credits };
           }
-        } else {
-          // server rejected request; fall back to client update
         }
       }
     } catch (e) {
-      console.warn(
-        "claimDailyReward: server/RPC attempt failed",
-        e?.message || e
-      );
+      console.warn("claimDailyReward: server attempt failed", e?.message || e);
     }
 
-    if (!serverUpdated) {
-      // Update profile credits locally via Supabase client (may be blocked by RLS)
-      try {
-        const { error } = await supabase
-          .from("profiles")
-          .update({ credits: newCredits })
-          .eq("id", uid);
-        if (error)
-          console.warn(
-            "claimDailyReward: failed to update credits",
-            error.message || error
-          );
-      } catch (e) {
-        console.error("claimDailyReward: update credits error", e);
+    // Fallback: preserve original local-only behavior
+    const raw = await AsyncStorage.getItem(key);
+    let state = raw
+      ? JSON.parse(raw)
+      : {
+          claimedDays: [false, false, false, false, false, false, false],
+          nextAvailableAt: null,
+        };
+
+    const now = new Date();
+    const allClaimed = state.claimedDays.every(Boolean);
+    if (allClaimed && state.nextAvailableAt) {
+      const next = new Date(state.nextAvailableAt);
+      if (now >= next) {
+        state = {
+          claimedDays: [false, false, false, false, false, false, false],
+          nextAvailableAt: null,
+        };
       }
     }
 
-    // Insert credit_ledger entry (best-effort) - match DB schema: (change, reason)
+    const idx = state.claimedDays.findIndex((v) => !v);
+    if (idx === -1) return { success: false, error: "Cycle already completed" };
+
+    const dayNum = idx + 1;
+    const baseReward = dayNum < 7 ? 250 : 1000;
+
+    // Fetch current profile credits
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    let uid = user?.id || profileId;
+    let profile = null;
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id,credits,is_pro")
+        .eq("id", uid)
+        .maybeSingle();
+      if (!error && data) profile = data;
+    } catch (e) {}
+
+    const isProUser = !!(profile && profile.is_pro);
+    const reward = isProUser ? baseReward + 500 : baseReward;
+
+    const currentCredits =
+      profile && profile.credits != null ? Number(profile.credits) : 0;
+    const newCredits = Math.round((currentCredits + reward) * 100) / 100;
+
+    // Update profile credits locally via Supabase client (may be blocked by RLS)
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ credits: newCredits })
+        .eq("id", uid);
+      if (error)
+        console.warn(
+          "claimDailyReward: failed to update credits",
+          error.message || error
+        );
+    } catch (e) {
+      console.error("claimDailyReward: update credits error", e);
+    }
+
+    // Insert credit_ledger entry (best-effort)
     try {
       await supabase.from("credit_ledger").insert({
         user_id: uid,
@@ -1074,10 +1035,7 @@ export const claimDailyReward = async (profileId) => {
         created_at: new Date().toISOString(),
       });
     } catch (e) {
-      console.warn(
-        "claimDailyReward: failed to write credit_ledger",
-        e?.message || e
-      );
+      console.warn("claimDailyReward: failed to write credit_ledger", e?.message || e);
     }
 
     // Mark claimed and set nextAvailableAt = now + 24h
@@ -1099,6 +1057,39 @@ export const claimDailyReward = async (profileId) => {
  */
 export const dismissDailyReward = async (profileId) => {
   if (!profileId) return { success: false, error: "No profileId" };
+  // Try server dismiss first
+  try {
+    let authToken = null;
+    try {
+      authToken = await AsyncStorage.getItem("@bet_token");
+    } catch (e) {}
+    if (!authToken) {
+      try {
+        const { data: { session } = {} } = await supabase.auth.getSession();
+        if (session && session.access_token) authToken = session.access_token;
+      } catch (e) {}
+    }
+
+    if (authToken) {
+      const SERVER_BASE =
+        "https://laraiyeogithubio-production-f5af.up.railway.app";
+      const resp = await fetch(`${SERVER_BASE}/api/daily/dismiss`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      if (resp.ok) {
+        const json = await resp.json().catch(() => null);
+        if (json && json.success) return { success: true, nextAvailableAt: json.nextAvailableAt };
+      }
+    }
+  } catch (e) {
+    console.warn("dismissDailyReward: server attempt failed", e?.message || e);
+  }
+
+  // Fallback to local behavior
   const key = DAILY_KEY_FOR(profileId);
   try {
     const raw = await AsyncStorage.getItem(key);
