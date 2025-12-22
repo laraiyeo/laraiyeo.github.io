@@ -20,7 +20,10 @@ import { ChatProvider } from "./src/context/ChatContext";
 import { EmoteProvider } from "./src/context/EmoteContext";
 import { MutedUsersProvider } from "./src/context/MutedUsersContext";
 import { BetSlipProvider } from "./src/context/BetSlipContext";
-import { AppSettingsProvider, useAppSettings } from "./src/context/AppSettingsContext";
+import {
+  AppSettingsProvider,
+  useAppSettings,
+} from "./src/context/AppSettingsContext";
 import { BetDataProvider } from "./src/context/BetDataContext";
 import { OddsDisplayProvider } from "./src/context/OddsDisplayContext";
 
@@ -2114,7 +2117,10 @@ const AppContent = () => {
           .eq("id", userId)
           .maybeSingle();
         if (error) {
-          console.warn("App init: failed to read profile", error.message || error);
+          console.warn(
+            "App init: failed to read profile",
+            error.message || error
+          );
           return;
         }
 
@@ -2123,7 +2129,10 @@ const AppContent = () => {
           if (isPro) await AsyncStorage.setItem("@is_pro", "1");
           else await AsyncStorage.removeItem("@is_pro");
         } catch (e) {
-          console.warn("App init: AsyncStorage set/remove @is_pro failed", e?.message || e);
+          console.warn(
+            "App init: AsyncStorage set/remove @is_pro failed",
+            e?.message || e
+          );
         }
 
         try {
@@ -2137,13 +2146,18 @@ const AppContent = () => {
         if (!isPro && currentColorPalette === "custom") {
           try {
             await changeColorPalette("red");
-            console.log("App init: reverted custom palette to red due to lost Pro");
+            console.log(
+              "App init: reverted custom palette to red due to lost Pro"
+            );
           } catch (e) {
             console.warn("App init: failed to revert palette", e?.message || e);
           }
         }
       } catch (e) {
-        console.warn("App init: error fetching profile is_pro", e?.message || e);
+        console.warn(
+          "App init: error fetching profile is_pro",
+          e?.message || e
+        );
       }
     })();
     return () => {
@@ -2236,15 +2250,15 @@ export default function App() {
         <ChatProvider>
           <EmoteProvider>
             <MutedUsersProvider>
-                  <BetSlipProvider>
-                    <AppSettingsProvider>
-                      <OddsDisplayProvider>
-                        <BetDataProvider>
-                          <AppContent />
-                        </BetDataProvider>
-                      </OddsDisplayProvider>
-                    </AppSettingsProvider>
-                  </BetSlipProvider>
+              <BetSlipProvider>
+                <AppSettingsProvider>
+                  <OddsDisplayProvider>
+                    <BetDataProvider>
+                      <AppContent />
+                    </BetDataProvider>
+                  </OddsDisplayProvider>
+                </AppSettingsProvider>
+              </BetSlipProvider>
             </MutedUsersProvider>
           </EmoteProvider>
         </ChatProvider>

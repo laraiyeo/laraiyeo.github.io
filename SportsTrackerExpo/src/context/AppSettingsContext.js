@@ -33,7 +33,10 @@ export const AppSettingsProvider = ({ children }) => {
     try {
       await AsyncStorage.setItem(KEY, v ? "1" : "0");
     } catch (e) {
-      console.warn("AppSettings: failed to persist showBetTab", e?.message || e);
+      console.warn(
+        "AppSettings: failed to persist showBetTab",
+        e?.message || e
+      );
     }
     setShowBetTabState(!!v);
   };
@@ -47,7 +50,8 @@ export const AppSettingsProvider = ({ children }) => {
 
 export const useAppSettings = () => {
   const ctx = useContext(AppSettingsContext);
-  if (!ctx) throw new Error("useAppSettings must be used within AppSettingsProvider");
+  if (!ctx)
+    throw new Error("useAppSettings must be used within AppSettingsProvider");
   return ctx;
 };
 

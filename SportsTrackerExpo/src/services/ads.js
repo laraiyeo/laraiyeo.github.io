@@ -1,12 +1,12 @@
-import React from 'react';
-import { View } from 'react-native';
+import React from "react";
+import { View } from "react-native";
 import mobileAds, {
   BannerAd,
   BannerAdSize,
   InterstitialAd,
   AdEventType,
   TestIds,
-} from 'react-native-google-mobile-ads';
+} from "react-native-google-mobile-ads";
 
 /**
  * ============================
@@ -15,14 +15,14 @@ import mobileAds, {
  */
 
 // Google-provided TEST ad unit IDs (safe for development)
-export const DEV_BANNER_ID = 'ca-app-pub-3940256099942544/6300978111';
-export const DEV_INTERSTITIAL_ID = 'ca-app-pub-3940256099942544/1033173712';
+export const DEV_BANNER_ID = "ca-app-pub-3940256099942544/6300978111";
+export const DEV_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/1033173712";
 
 // Your AdMob APP ID (⚠️ not used in JS — keep exported if you need it elsewhere)
-export const PROD_APP_ID = 'ca-app-pub-5256386471137141~8370359232';
+export const PROD_APP_ID = "ca-app-pub-5256386471137141~8370359232";
 
 // Your REAL production ad unit IDs
-export const PROD_BANNER_ID = 'ca-app-pub-5256386471137141/1278337275';
+export const PROD_BANNER_ID = "ca-app-pub-5256386471137141/1278337275";
 // (add when ready)
 // export const PROD_INTERSTITIAL_ID = 'ca-app-pub-XXXX/YYYY';
 
@@ -37,7 +37,7 @@ export async function initAds() {
     await mobileAds().initialize();
     return true;
   } catch (e) {
-    console.warn('Ads initialization failed', e);
+    console.warn("Ads initialization failed", e);
     return false;
   }
 }
@@ -56,11 +56,7 @@ export function BannerAdWrapper({
 
   return (
     <View>
-      <BannerAd
-        unitId={adUnitId}
-        size={size}
-        requestOptions={requestOptions}
-      />
+      <BannerAd unitId={adUnitId} size={size} requestOptions={requestOptions} />
     </View>
   );
 }
@@ -78,10 +74,8 @@ export function createInterstitial(unitId) {
   return {
     load: () => interstitial.load(),
     show: () => interstitial.show(),
-    onLoaded: (cb) =>
-      interstitial.addAdEventListener(AdEventType.LOADED, cb),
-    onClosed: (cb) =>
-      interstitial.addAdEventListener(AdEventType.CLOSED, cb),
+    onLoaded: (cb) => interstitial.addAdEventListener(AdEventType.LOADED, cb),
+    onClosed: (cb) => interstitial.addAdEventListener(AdEventType.CLOSED, cb),
     _raw: interstitial,
   };
 }

@@ -740,10 +740,12 @@ const BetTopScreen = () => {
                 </View>
               ))
             : // Non-Pro: show 5 random players from roster
-               (randomPlayers.length > 0 &&
+              (randomPlayers.length > 0 &&
                 randomPlayers.map((p) => {
                   // Try to find a matching prop/stats for this player
-                  const matchingProp = allProps.find((prop) => prop.playerId === p.id);
+                  const matchingProp = allProps.find(
+                    (prop) => prop.playerId === p.id
+                  );
                   if (matchingProp) {
                     return (
                       <View
@@ -757,23 +759,43 @@ const BetTopScreen = () => {
                           style={styles.propColumn}
                           onPress={() => handlePropPress(matchingProp)}
                         >
-                          <Text style={[styles.playerName, { color: theme.text }]}>
+                          <Text
+                            style={[styles.playerName, { color: theme.text }]}
+                          >
                             {matchingProp.playerName}
                           </Text>
                           <Text
-                            style={[styles.propInfo, { color: theme.textSecondary }]}
+                            style={[
+                              styles.propInfo,
+                              { color: theme.textSecondary },
+                            ]}
                           >
                             {matchingProp.team}
                           </Text>
                           <Text
-                            style={[styles.propInfo, { color: theme.textSecondary }]}
+                            style={[
+                              styles.propInfo,
+                              { color: theme.textSecondary },
+                            ]}
                           >
-                            {matchingProp.type.charAt(0).toUpperCase() + matchingProp.type.slice(1)} {matchingProp.line} {matchingProp.propType}
+                            {matchingProp.type.charAt(0).toUpperCase() +
+                              matchingProp.type.slice(1)}{" "}
+                            {matchingProp.line} {matchingProp.propType}
                           </Text>
-                          <Text style={[styles.propOdds, { color: colors.primary }]}> 
-                            {formatOddsForDisplay(matchingProp.odds, oddsDisplay)}
+                          <Text
+                            style={[styles.propOdds, { color: colors.primary }]}
+                          >
+                            {formatOddsForDisplay(
+                              matchingProp.odds,
+                              oddsDisplay
+                            )}
                           </Text>
-                          <Text style={[styles.propConfidence, { color: theme.text }]}> 
+                          <Text
+                            style={[
+                              styles.propConfidence,
+                              { color: theme.text },
+                            ]}
+                          >
                             {matchingProp.confidence.toFixed(1)}% Confidence
                           </Text>
                         </TouchableOpacity>
@@ -791,7 +813,12 @@ const BetTopScreen = () => {
                               season: "Season",
                             };
 
-                            const statOrder = ["last5", "last10", "h2h", "season"];
+                            const statOrder = [
+                              "last5",
+                              "last10",
+                              "h2h",
+                              "season",
+                            ];
 
                             return statOrder.map((key) => {
                               const value = matchingProp.stats?.[key];
@@ -808,7 +835,9 @@ const BetTopScreen = () => {
                                   <Text style={styles.statValue}>
                                     {value.toFixed(1)}%
                                   </Text>
-                                  <Text style={styles.statLabel}>{labelMap[key]}</Text>
+                                  <Text style={styles.statLabel}>
+                                    {labelMap[key]}
+                                  </Text>
                                 </View>
                               );
                             });
@@ -828,11 +857,16 @@ const BetTopScreen = () => {
                       ]}
                     >
                       <View style={styles.propColumn}>
-                        <Text style={[styles.playerName, { color: theme.text }]}>
+                        <Text
+                          style={[styles.playerName, { color: theme.text }]}
+                        >
                           {p.name}
                         </Text>
                         <Text
-                          style={[styles.propInfo, { color: theme.textSecondary }]}
+                          style={[
+                            styles.propInfo,
+                            { color: theme.textSecondary },
+                          ]}
                         >
                           {p.team}
                         </Text>

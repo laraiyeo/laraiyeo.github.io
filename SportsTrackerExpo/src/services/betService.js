@@ -947,14 +947,21 @@ export const claimDailyReward = async (profileId) => {
               const now = new Date();
               const state = {
                 claimedDays: [false, false, false, false, false, false, false],
-                nextAvailableAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+                nextAvailableAt: new Date(
+                  now.getTime() + 24 * 60 * 60 * 1000
+                ).toISOString(),
               };
               // mark the appropriate day as claimed
               const dayNum = json.day || 1;
               state.claimedDays[dayNum - 1] = true;
               await AsyncStorage.setItem(key, JSON.stringify(state));
             } catch (e) {}
-            return { success: true, day: json.day, reward: json.reward, newCredits: json.user?.credits };
+            return {
+              success: true,
+              day: json.day,
+              reward: json.reward,
+              newCredits: json.user?.credits,
+            };
           }
         }
       }
@@ -1035,7 +1042,10 @@ export const claimDailyReward = async (profileId) => {
         created_at: new Date().toISOString(),
       });
     } catch (e) {
-      console.warn("claimDailyReward: failed to write credit_ledger", e?.message || e);
+      console.warn(
+        "claimDailyReward: failed to write credit_ledger",
+        e?.message || e
+      );
     }
 
     // Mark claimed and set nextAvailableAt = now + 24h
@@ -1082,7 +1092,8 @@ export const dismissDailyReward = async (profileId) => {
       });
       if (resp.ok) {
         const json = await resp.json().catch(() => null);
-        if (json && json.success) return { success: true, nextAvailableAt: json.nextAvailableAt };
+        if (json && json.success)
+          return { success: true, nextAvailableAt: json.nextAvailableAt };
       }
     }
   } catch (e) {

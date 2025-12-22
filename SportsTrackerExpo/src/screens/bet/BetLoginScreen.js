@@ -239,7 +239,6 @@ const BetLoginScreen = ({ navigation }) => {
     }
   };
 
-
   const handleLogin = async () => {
     if (!username || !password) {
       Alert.alert("Error", "Please enter both username and password");

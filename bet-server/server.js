@@ -762,7 +762,8 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
 
     // Determine reward
     const baseReward = day < 7 ? 250 : 1000;
-    const reward = profileRow && profileRow.is_pro ? baseReward + 500 : baseReward;
+    const reward =
+      profileRow && profileRow.is_pro ? baseReward + 500 : baseReward;
 
     const currentCredits = Number(profileRow?.credits || 0);
     const newCredits = Math.round((currentCredits + reward) * 100) / 100;
@@ -774,20 +775,26 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
         credits: newCredits,
         daily_claimed: true,
         daily_claimed_at: now.toISOString(),
-        daily_next_available_at: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+        daily_next_available_at: new Date(
+          now.getTime() + 24 * 60 * 60 * 1000
+        ).toISOString(),
       })
       .eq("id", userId)
-      .select("id, credits, daily_available_day, daily_claimed, daily_claimed_at, daily_next_available_at")
+      .select(
+        "id, credits, daily_available_day, daily_claimed, daily_claimed_at, daily_next_available_at"
+      )
       .maybeSingle();
     if (updateErr) throw updateErr;
 
     // Insert ledger row for audit
-    const { error: ledgerErr } = await supabaseAdmin.from("credit_ledger").insert({
-      user_id: userId,
-      betslip_id: null,
-      change: reward,
-      reason: `Daily login day ${day}`,
-    });
+    const { error: ledgerErr } = await supabaseAdmin
+      .from("credit_ledger")
+      .insert({
+        user_id: userId,
+        betslip_id: null,
+        change: reward,
+        reason: `Daily login day ${day}`,
+      });
     if (ledgerErr) throw ledgerErr;
 
     return res.json({ success: true, user: updatedProfile, day, reward });
@@ -811,7 +818,10 @@ app.post("/api/daily/dismiss", authMiddlewareInline, async (req, res) => {
       .select("daily_next_available_at")
       .maybeSingle();
     if (updErr) throw updErr;
-    return res.json({ success: true, nextAvailableAt: updated.daily_next_available_at });
+    return res.json({
+      success: true,
+      nextAvailableAt: updated.daily_next_available_at,
+    });
   } catch (e) {
     console.error("/api/daily/dismiss error", e?.message || e);
     return res.status(500).json({ message: "Server error" });
