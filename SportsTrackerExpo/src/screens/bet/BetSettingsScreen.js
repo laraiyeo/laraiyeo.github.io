@@ -528,7 +528,17 @@ const BetSettingsScreen = ({ navigation }) => {
       const code = (promoCodeInput || "").trim();
       if (!code) return setRedeemMessage("Enter a promo code");
       setRedeemLoading(true);
-      const token = await AsyncStorage.getItem("@bet_token");
+      let token = await AsyncStorage.getItem("@bet_token");
+      // Fallback to Supabase session access token if no server token stored
+      if (!token) {
+        try {
+          const { data } = await supabase.auth.getSession();
+          token = data?.session?.access_token || null;
+        } catch (e) {
+          // ignore
+        }
+      }
+
       const base =
         process.env.PUBLIC_API_URL ||
         "https://laraiyeogithubio-production-f5af.up.railway.app";
@@ -538,12 +548,12 @@ const BetSettingsScreen = ({ navigation }) => {
         return;
       }
       const url = base.replace(/\/$/, "") + "/api/promo/redeem";
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
       const resp = await fetch(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: token ? `Bearer ${token}` : "",
-        },
+        headers,
         body: JSON.stringify({ code }),
       });
       const json = await resp.json();

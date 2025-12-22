@@ -2975,8 +2975,15 @@ async function authMiddlewareInline(req, res, next) {
   // Try server JWT first
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.userId;
-    req.username = decoded.username || null;
+    // Accept multiple possible id fields: userId, profileId, supabaseUserId, user_id
+    req.userId =
+      decoded.userId || decoded.profileId || decoded.supabaseUserId || decoded.user_id || null;
+    req.username = decoded.username || decoded.email || null;
+    if (!req.userId) {
+      // Token was valid but didn't contain a user id we recognize; allow middleware to proceed
+      // so downstream handlers can decide (they may still require a profile id and reject).
+      console.warn("Auth: JWT had no userId/profileId; proceeding with null userId");
+    }
     return next();
   } catch (e) {
     // Not a server JWT — try Supabase access token
