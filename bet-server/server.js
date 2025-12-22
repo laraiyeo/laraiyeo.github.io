@@ -826,7 +826,10 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
         console.warn("/api/daily/claim: verify read failed", verifyErr);
       } else {
         verifyRow = data;
-        console.log("/api/daily/claim: verify profile after update:", verifyRow);
+        console.log(
+          "/api/daily/claim: verify profile after update:",
+          verifyRow
+        );
         if (
           typeof verifyRow.credits !== "undefined" &&
           Number(verifyRow.credits) !== Number(newCredits)
