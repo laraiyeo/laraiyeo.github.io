@@ -311,18 +311,25 @@ const BetLoginScreen = ({ navigation }) => {
       // Identify RevenueCat with Supabase user id so entitlements map to profile
       (async () => {
         try {
-          const userId = authData?.user?.id ||
+          const userId =
+            authData?.user?.id ||
             (await supabase.auth.getUser()).data?.user?.id;
           if (userId) {
             try {
               await initPurchases(undefined, userId);
               console.log("BetLogin: RevenueCat identify called", userId);
             } catch (e) {
-              console.warn("BetLogin: RevenueCat identify failed", e?.message || e);
+              console.warn(
+                "BetLogin: RevenueCat identify failed",
+                e?.message || e
+              );
             }
           }
         } catch (e) {
-          console.warn("BetLogin: initPurchases identify error", e?.message || e);
+          console.warn(
+            "BetLogin: initPurchases identify error",
+            e?.message || e
+          );
         }
       })();
       // Prefer token returned from signIn; fall back to getSession

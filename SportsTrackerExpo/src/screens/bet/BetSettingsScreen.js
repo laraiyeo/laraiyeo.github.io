@@ -447,7 +447,9 @@ const BetSettingsScreen = ({ navigation }) => {
             pkgs[1] ||
             null;
           const lifetime =
-            pkgs.find((p) => /life|lifetime|forever|permanent/i.test(p.product.identifier)) ||
+            pkgs.find((p) =>
+              /life|lifetime|forever|permanent/i.test(p.product.identifier)
+            ) ||
             pkgs.find((p) => /non.?renew/i.test(p.product.identifier)) ||
             pkgs.find((p) => p.packageType === "LIFETIME") ||
             null;
@@ -624,36 +626,53 @@ const BetSettingsScreen = ({ navigation }) => {
           setRedeemMessage("Promo applied — enjoy Pro!");
           // clear input
           setPromoCodeInput("");
-        // refresh profile state: fetch full profile from Supabase to preserve username/is_pro
-        try {
-          const { data: userData } = await supabase.auth.getUser();
-          const userId = userData?.user?.id || null;
-          if (userId) {
-            const { data: profileRow, error: pErr } = await supabase
-              .from("profiles")
-              .select("id, username, is_pro, credits, created_at")
-              .eq("id", userId)
-              .maybeSingle();
-            if (profileRow) {
-              setProfile(profileRow);
-              setProfileMeta(profileRow);
+          // refresh profile state: fetch full profile from Supabase to preserve username/is_pro
+          try {
+            const { data: userData } = await supabase.auth.getUser();
+            const userId = userData?.user?.id || null;
+            if (userId) {
+              const { data: profileRow, error: pErr } = await supabase
+                .from("profiles")
+                .select("id, username, is_pro, credits, created_at")
+                .eq("id", userId)
+                .maybeSingle();
+              if (profileRow) {
+                setProfile(profileRow);
+                setProfileMeta(profileRow);
+              } else if (json && json.profile) {
+                // fallback: merge returned profile fields with existing
+                setProfile((prev) => ({
+                  ...(prev || {}),
+                  ...(json.profile || {}),
+                }));
+                setProfileMeta((prev) => ({
+                  ...(prev || {}),
+                  ...(json.profile || {}),
+                }));
+              } else {
+                console.warn(
+                  "promo redeem: could not refresh profile (no user id and no server profile)"
+                );
+              }
             } else if (json && json.profile) {
-              // fallback: merge returned profile fields with existing
-              setProfile((prev) => ({ ...(prev || {}), ...(json.profile || {}) }));
-              setProfileMeta((prev) => ({ ...(prev || {}), ...(json.profile || {}) }));
+              setProfile((prev) => ({
+                ...(prev || {}),
+                ...(json.profile || {}),
+              }));
+              setProfileMeta((prev) => ({
+                ...(prev || {}),
+                ...(json.profile || {}),
+              }));
             } else {
-              console.warn("promo redeem: could not refresh profile (no user id and no server profile)");
+              console.warn(
+                "promo redeem: could not determine current user id to refresh profile"
+              );
             }
-          } else if (json && json.profile) {
-            setProfile((prev) => ({ ...(prev || {}), ...(json.profile || {}) }));
-            setProfileMeta((prev) => ({ ...(prev || {}), ...(json.profile || {}) }));
-          } else {
-            console.warn("promo redeem: could not determine current user id to refresh profile");
+          } catch (e) {
+            console.warn("promo refresh profile error", e?.message || e);
           }
-        } catch (e) {
-          console.warn("promo refresh profile error", e?.message || e);
         }
-      }}
+      }
     } catch (e) {
       console.warn("promo redeem error", e?.message || e);
       setRedeemMessage("Redeem failed");
@@ -989,7 +1008,9 @@ const BetSettingsScreen = ({ navigation }) => {
             }}
           >
             {profile && profile.is_pro ? (
-              <Text style={[styles.settingLabel, { color: theme.text }]}>You have Pro access</Text>
+              <Text style={[styles.settingLabel, { color: theme.text }]}>
+                You have Pro access
+              </Text>
             ) : (
               <>
                 <Text

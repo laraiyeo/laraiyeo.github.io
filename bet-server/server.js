@@ -4532,7 +4532,9 @@ app.post("/revenuecat/webhook", async (req, res) => {
     try {
       // Determine entitlements from payload (defensive parsing)
       let entitlements =
-        payload?.subscriber?.entitlements || payload?.data?.entitlements || null;
+        payload?.subscriber?.entitlements ||
+        payload?.data?.entitlements ||
+        null;
 
       // Helper: decide if user currently has an active pro entitlement
       let hasActive = false;
@@ -4542,14 +4544,21 @@ app.post("/revenuecat/webhook", async (req, res) => {
           const ent = entitlements[k] || {};
           // common expiry fields
           const expiryStr =
-            ent.expires_date || ent.expiration_date || ent.expires_at || ent.expire_date || null;
+            ent.expires_date ||
+            ent.expiration_date ||
+            ent.expires_at ||
+            ent.expire_date ||
+            null;
           const isActiveFlag = ent.is_active || ent.active || null;
           if (expiryStr) {
             const ex = new Date(expiryStr);
             if (!isNaN(ex.getTime())) {
               if (ex.getTime() > Date.now()) {
                 hasActive = true;
-                if (!latestExpiry || ex.getTime() > new Date(latestExpiry).getTime()) {
+                if (
+                  !latestExpiry ||
+                  ex.getTime() > new Date(latestExpiry).getTime()
+                ) {
                   latestExpiry = ex.toISOString();
                 }
               }
@@ -4614,9 +4623,15 @@ app.post("/revenuecat/webhook", async (req, res) => {
             pro_product_id: productId || null,
             pro_source: "revenuecat",
           };
-          await supabaseAdmin.from("profiles").update(updateObj).eq("id", prof.id);
+          await supabaseAdmin
+            .from("profiles")
+            .update(updateObj)
+            .eq("id", prof.id);
         } catch (e) {
-          console.warn("Failed to update profile pro metadata", e?.message || e);
+          console.warn(
+            "Failed to update profile pro metadata",
+            e?.message || e
+          );
         }
       }
     } catch (e) {
@@ -4712,7 +4727,11 @@ app.post("/api/promo/redeem", authMiddlewareInline, async (req, res) => {
     }
 
     const updates = {};
-    const promoType = (promo.type || (promo.metadata && promo.metadata.type) || "lifetime").toString();
+    const promoType = (
+      promo.type ||
+      (promo.metadata && promo.metadata.type) ||
+      "lifetime"
+    ).toString();
     // Determine expiry based on promo type (monthly/yearly/lifetime)
     let expiresAt = null;
     try {
