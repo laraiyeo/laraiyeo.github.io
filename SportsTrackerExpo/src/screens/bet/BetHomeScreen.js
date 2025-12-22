@@ -23,6 +23,7 @@ import {
   dismissDailyReward,
   getUserProfile,
 } from "../../services/betService";
+import { useBetSlip } from "../../context/BetSlipContext";
 
 // Global image cache - keeps image sources stable across re-renders
 const imageCache = new Map();
@@ -663,6 +664,7 @@ const CompletedGameCard = React.memo(
 const BetHomeScreen = ({ navigation }) => {
   const { colors, theme, isDarkMode } = useTheme();
   const { scoreboardData, fetchScoreboard } = useBetData();
+  const { isPro } = useBetSlip();
   const focusPollRef = useRef(null);
   const [refreshing, setRefreshing] = useState(false);
   const [liveGames, setLiveGames] = useState([]);
@@ -1088,7 +1090,13 @@ const BetHomeScreen = ({ navigation }) => {
                         marginTop: 6,
                       }}
                     >
-                      {i < 6 ? "$250.00" : "$1000.00"}
+                      {i < 6
+                        ? isPro
+                          ? "750.00 C"
+                          : "250.00 C"
+                        : isPro
+                        ? "1,500.00 C"
+                        : "1,000.00 C"}
                     </Text>
                     {claimed ? (
                       <View

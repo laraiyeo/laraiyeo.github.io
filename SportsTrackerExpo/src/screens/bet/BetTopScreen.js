@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Modal,
   Keyboard,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
@@ -20,7 +21,7 @@ import { useBetData } from "../../context/BetDataContext";
 
 const BetTopScreen = () => {
   const { colors, theme } = useTheme();
-  const { toggleBet } = useBetSlip();
+  const { toggleBet, isPro } = useBetSlip();
   const oddsContext = useContext(OddsDisplayContext);
   const oddsDisplay = oddsContext ? oddsContext.oddsDisplay : "american";
   const { rostersData, scoreboardData } = useBetData();
@@ -227,6 +228,32 @@ const BetTopScreen = () => {
     setCurrentPage(1);
   }, [searchQuery, selectedConfidence, selectedPropType, oddsRange, sortBy]);
 
+  // Helper to pick up to `count` random players from rostersData
+  const getRandomPlayers = (count = 5) => {
+    const players = [];
+    if (!rostersData?.teams) return players;
+    rostersData.teams.forEach((team) => {
+      team.athletes?.forEach((ath) => {
+        players.push({
+          id: ath.id,
+          name: ath.shortName || ath.name,
+          fullName: ath.name,
+          team: team.abbreviation,
+        });
+      });
+    });
+
+    // Shuffle
+    for (let i = players.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [players[i], players[j]] = [players[j], players[i]];
+    }
+
+    return players.slice(0, count);
+  };
+
+  const randomPlayers = React.useMemo(() => getRandomPlayers(5), [rostersData]);
+
   // When the odds display preference changes, reset odds ranges to sensible defaults
   React.useEffect(() => {
     setOddsRange([defaultMin, defaultMax]);
@@ -321,12 +348,13 @@ const BetTopScreen = () => {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Filters Section */}
-      <View
-        style={[
-          styles.filtersContainer,
-          { backgroundColor: theme.cardBackground },
-        ]}
-      >
+      {isPro ? (
+        <View
+          style={[
+            styles.filtersContainer,
+            { backgroundColor: theme.cardBackground },
+          ]}
+        >
         {/* Search and Confidence Row */}
         <View style={styles.searchRow}>
           <TextInput
@@ -578,7 +606,31 @@ const BetTopScreen = () => {
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
+        </View>
+      ) : (
+        <View
+          style={[
+            styles.filtersContainer,
+            { backgroundColor: theme.cardBackground, alignItems: "center" },
+          ]}
+        >
+          <Text style={{ color: theme.text, marginBottom: 8 }}>
+            Filters are available for Pro members only.
+          </Text>
+          <TouchableOpacity
+            style={[styles.proCtaButton, { backgroundColor: colors.primary }]}
+            onPress={() =>
+              Alert.alert(
+                "Pro Required",
+                "Unlock filters and full rosters by upgrading to Pro in Settings.",
+                [{ text: "OK" }]
+              )
+            }
+          >
+            <Text style={styles.proCtaText}>Get Pro</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Props List */}
       <ScrollView
@@ -601,74 +653,115 @@ const BetTopScreen = () => {
           </View>
 
           {/* Props Rows */}
-          {paginatedProps.map((prop) => (
-            <View
-              key={prop.id}
-              style={[
-                styles.propRow,
-                { backgroundColor: theme.cardBackground },
-              ]}
-            >
-              <TouchableOpacity
-                style={styles.propColumn}
-                onPress={() => handlePropPress(prop)}
+          {isPro ? (
+            paginatedProps.map((prop) => (
+              <View
+                key={prop.id}
+                style={[
+                  styles.propRow,
+                  { backgroundColor: theme.cardBackground },
+                ]}
               >
-                <Text style={[styles.playerName, { color: theme.text }]}>
-                  {prop.playerName}
-                </Text>
-                <Text style={[styles.propInfo, { color: theme.textSecondary }]}>
-                  {prop.team}
-                </Text>
-                <Text style={[styles.propInfo, { color: theme.textSecondary }]}>
-                  {prop.type.charAt(0).toUpperCase() + prop.type.slice(1)}{" "}
-                  {prop.line} {prop.propType}
-                </Text>
-                <Text style={[styles.propOdds, { color: colors.primary }]}>
-                  {formatOddsForDisplay(prop.odds, oddsDisplay)}
-                </Text>
-                <Text style={[styles.propConfidence, { color: theme.text }]}>
-                  {prop.confidence.toFixed(1)}% Confidence
-                </Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.propColumn}
+                  onPress={() => handlePropPress(prop)}
+                >
+                  <Text style={[styles.playerName, { color: theme.text }]}>
+                    {prop.playerName}
+                  </Text>
+                  <Text style={[styles.propInfo, { color: theme.textSecondary }]}>
+                    {prop.team}
+                  </Text>
+                  <Text style={[styles.propInfo, { color: theme.textSecondary }]}>
+                    {prop.type.charAt(0).toUpperCase() + prop.type.slice(1)}{" "}
+                    {prop.line} {prop.propType}
+                  </Text>
+                  <Text style={[styles.propOdds, { color: colors.primary }]}> 
+                    {formatOddsForDisplay(prop.odds, oddsDisplay)}
+                  </Text>
+                  <Text style={[styles.propConfidence, { color: theme.text }]}> 
+                    {prop.confidence.toFixed(1)}% Confidence
+                  </Text>
+                </TouchableOpacity>
 
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.statsScroll}
-              >
-                {(() => {
-                  const labelMap = {
-                    last5: "Last 5",
-                    last10: "Last 10",
-                    h2h: "H2H",
-                    season: "Season",
-                  };
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.statsScroll}
+                >
+                  {(() => {
+                    const labelMap = {
+                      last5: "Last 5",
+                      last10: "Last 10",
+                      h2h: "H2H",
+                      season: "Season",
+                    };
 
-                  const statOrder = ["last5", "last10", "h2h", "season"];
+                    const statOrder = ["last5", "last10", "h2h", "season"];
 
-                  return statOrder.map((key) => {
-                    const value = prop.stats?.[key];
-                    if (value == null) return null;
+                    return statOrder.map((key) => {
+                      const value = prop.stats?.[key];
+                      if (value == null) return null;
 
-                    return (
-                      <View
-                        key={key}
-                        style={[
-                          styles.statCell,
-                          { backgroundColor: getStatColor(value) },
-                        ]}
-                      >
-                        <Text style={styles.statValue}>
-                          {value.toFixed(1)}%
-                        </Text>
-                        <Text style={styles.statLabel}>{labelMap[key]}</Text>
-                      </View>
-                    );
-                  });
-                })()}
-              </ScrollView>
-            </View>
-          ))}
+                      return (
+                        <View
+                          key={key}
+                          style={[
+                            styles.statCell,
+                            { backgroundColor: getStatColor(value) },
+                          ]}
+                        >
+                          <Text style={styles.statValue}>
+                            {value.toFixed(1)}%
+                          </Text>
+                          <Text style={styles.statLabel}>{labelMap[key]}</Text>
+                        </View>
+                      );
+                    });
+                  })()}
+                </ScrollView>
+              </View>
+            ))
+          ) : (
+            // Non-Pro: show 5 random players from roster
+            (randomPlayers.length > 0 &&
+              randomPlayers.map((p) => (
+                <View
+                  key={p.id}
+                  style={[
+                    styles.propRow,
+                    { backgroundColor: theme.cardBackground },
+                  ]}
+                >
+                  <View style={styles.propColumn}>
+                    <Text style={[styles.playerName, { color: theme.text }]}>
+                      {p.name}
+                    </Text>
+                    <Text style={[styles.propInfo, { color: theme.textSecondary }]}> 
+                      {p.team}
+                    </Text>
+                  </View>
+                  <View style={[styles.statsHeaderContainer, { justifyContent: "center" }]}>
+                    <TouchableOpacity
+                      style={[styles.proCtaButton, { backgroundColor: colors.primary }]}
+                      onPress={() =>
+                        Alert.alert(
+                          "Pro Required",
+                          "Unlock full player lists and filters by purchasing Pro in Settings.",
+                          [{ text: "OK" }]
+                        )
+                      }
+                    >
+                      <Text style={styles.proCtaText}>Get Pro</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))) || (
+              <View style={{ padding: 16 }}>
+                <Text style={{ color: theme.textSecondary }}>No roster data available.</Text>
+              </View>
+            )
+          )}
         </View>
 
         {/* Pagination */}
@@ -1124,6 +1217,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#FFF",
+  },
+  proCtaButton: {
+    alignSelf: "center",
+    paddingHorizontal: 18,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    marginVertical: 6,
+  },
+  proCtaText: {
+    color: "#FFF",
+    fontSize: 14,
+    fontWeight: "700",
   },
 });
 

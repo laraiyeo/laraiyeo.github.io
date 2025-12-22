@@ -20,7 +20,7 @@ import { registerForPushNotifications } from "../../services/notificationService
 
 const BetBetsScreen = () => {
   const { colors, theme, isDarkMode } = useTheme();
-  const { submittedBets, loadSubmittedBets } = useBetSlip();
+  const { submittedBets, loadSubmittedBets, isPro } = useBetSlip();
   const oddsContext = useContext(OddsDisplayContext);
   const oddsDisplay = oddsContext ? oddsContext.oddsDisplay : "american";
   const [selectedTab, setSelectedTab] = useState("open"); // open, settled
@@ -1575,7 +1575,8 @@ const BetBetsScreen = () => {
         }
       });
       const totalDecimal = decimalOdds.reduce((acc, odd) => acc * odd, 1);
-      return (amount * totalDecimal).toFixed(2);
+      const mult = isPro ? 2 : 1;
+      return (amount * totalDecimal * mult).toFixed(2);
     };
 
     const odds = calculateOdds();

@@ -316,7 +316,7 @@ const BetLoginScreen = ({ navigation }) => {
             (await supabase.auth.getUser()).data?.user?.id;
           if (userId) {
             try {
-              await initPurchases(undefined, userId);
+              await initPurchases("appl_mdoICWLxVPeKJjUzLbFUKhMrXAT", userId);
               console.log("BetLogin: RevenueCat identify called", userId);
             } catch (e) {
               console.warn(

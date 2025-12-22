@@ -2046,7 +2046,10 @@ const AppContent = () => {
           );
         }
 
-        const initRes = await initPurchases(undefined, userId);
+        const initRes = await initPurchases(
+          "appl_mdoICWLxVPeKJjUzLbFUKhMrXAT",
+          userId
+        );
         console.log("RevenueCat init result", initRes && initRes.ok);
         // fetch customer info and persist entitlement quick-lookup
         try {

@@ -3121,6 +3121,13 @@ const recentNotifications = {};
 function shouldSuppressNotification(userId, eventId, type, windowMs = 30000) {
   try {
     if (!userId || !eventId || !type) return false;
+    // For critical lifecycle events (started/ended), use a much longer
+    // suppression window by default to avoid notifying the same user
+    // multiple times from different watchers or rapid reconnects.
+    const LONG_WINDOW = 24 * 60 * 60 * 1000; // 24 hours
+    if ((type === "started" || type === "ended") && windowMs === 30000) {
+      windowMs = LONG_WINDOW;
+    }
     const now = Date.now();
     recentNotifications[userId] = recentNotifications[userId] || {};
     const userMap = recentNotifications[userId];
@@ -3425,7 +3432,13 @@ function startWatcherInline(betslipId) {
             "";
           const isInProgress =
             /in/i.test(String(statusName)) && !gameStatus?.completed;
-          isCompleted = gameStatus?.completed || false;
+          // Preserve any completion state derived from the bet payload itself
+          // (e.g., `bet.current.won=true`) rather than overwriting it with
+          // the game's completed flag. Use logical OR so a pick marked
+          // completed by the payload remains completed even if the game
+          // summary hasn't flipped `completed: true` yet.
+          const gameCompleted = !!gameStatus?.completed;
+          isCompleted = Boolean(isCompleted) || gameCompleted;
 
           // detect game started and ended and emit once per event (skip on first tick)
           const prevEvent = lastEventStatus[evId];
@@ -4744,7 +4757,11 @@ app.post("/api/promo/redeem", authMiddlewareInline, async (req, res) => {
     }
 
     const updates = {};
-    const promoType = (promo.type || (promoMeta && promoMeta.type) || "lifetime").toString();
+    const promoType = (
+      promo.type ||
+      (promoMeta && promoMeta.type) ||
+      "lifetime"
+    ).toString();
     // Determine expiry based on promo type (monthly/yearly/lifetime)
     let expiresAt = null;
     try {

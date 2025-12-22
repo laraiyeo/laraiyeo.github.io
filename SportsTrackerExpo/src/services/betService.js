@@ -906,23 +906,28 @@ export const claimDailyReward = async (profileId) => {
       return { success: false, error: "Not available yet" };
 
     const dayNum = idx + 1;
-    const reward = dayNum < 7 ? 250 : 1000;
+    // Base rewards: 250/day for days 1-6, 1000 for day 7
+    // Pro users receive +500 bonus (so 750 / 1500)
+    const baseReward = dayNum < 7 ? 250 : 1000;
 
     // Fetch current profile credits
     const {
       data: { user },
     } = await supabase.auth.getUser();
     let uid = user?.id || profileId;
-    // Try to fetch profile row
+    // Try to fetch profile row (include is_pro so we can adjust rewards)
     let profile = null;
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id,credits")
+        .select("id,credits,is_pro")
         .eq("id", uid)
         .maybeSingle();
       if (!error && data) profile = data;
     } catch (e) {}
+
+    const isProUser = !!(profile && profile.is_pro);
+    const reward = isProUser ? baseReward + 500 : baseReward;
 
     const currentCredits =
       profile && profile.credits != null ? Number(profile.credits) : 0;

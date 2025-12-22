@@ -10,6 +10,7 @@ import {
   Dimensions,
   Alert,
   TextInput,
+  Image,
 } from "react-native";
 import { useTheme } from "../../context/ThemeContext";
 import { supabase } from "../../config/supabase";
@@ -21,14 +22,17 @@ import {
   getDailyRewardState,
   claimDailyReward,
 } from "../../services/betService";
+import { useBetSlip } from "../../context/BetSlipContext";
 import {
   initPurchases,
   getOfferings,
   getCustomerInfo,
+  restorePurchases,
 } from "../../services/revenuecat";
 
 const BetSettingsScreen = ({ navigation }) => {
   const { theme, colors } = useTheme();
+  const { isPro } = useBetSlip();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [profileMeta, setProfileMeta] = useState(null);
@@ -414,8 +418,11 @@ const BetSettingsScreen = ({ navigation }) => {
     let mounted = true;
     (async () => {
       try {
-        // Use our helper which provides a default test key
-        const initRes = await initPurchases(undefined, supabaseUserId);
+        // Use our helper with the iOS SDK key (provided)
+        const initRes = await initPurchases(
+          "appl_mdoICWLxVPeKJjUzLbFUKhMrXAT",
+          supabaseUserId
+        );
         if (!initRes || !initRes.ok) {
           console.warn(
             "RevenueCat init failed or skipped",
@@ -495,6 +502,7 @@ const BetSettingsScreen = ({ navigation }) => {
         Alert.alert("Unavailable", "Selected package not available.");
         return;
       }
+      // proceed to purchase
       const purchaseResult = await Purchases.purchasePackage(targetPackage);
       console.log("Purchase result", purchaseResult);
       Alert.alert(
@@ -527,17 +535,7 @@ const BetSettingsScreen = ({ navigation }) => {
 
   const handleRestore = async () => {
     try {
-      let Purchases;
-      try {
-        Purchases = require("react-native-purchases").default;
-      } catch (e) {
-        Alert.alert(
-          "Restore not available",
-          "Native Purchases SDK is not installed. See setup instructions."
-        );
-        return;
-      }
-      const restored = await Purchases.restoreTransactions();
+      const restored = await restorePurchases();
       console.log("Restore result", restored);
       Alert.alert(
         "Restore complete",
@@ -710,7 +708,7 @@ const BetSettingsScreen = ({ navigation }) => {
 
           <View style={{ paddingHorizontal: 12, paddingVertical: 10 }}>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <View style={{ alignItems: "center" }}>
+              <View style={{ alignItems: "center", position: "relative" }}>
                 <View
                   style={[
                     styles.customBlockInner,
@@ -733,6 +731,32 @@ const BetSettingsScreen = ({ navigation }) => {
                       : "?"}
                   </Text>
                 </View>
+                {profile && profile.is_pro ? (
+                  <View
+                    style={{
+                      position: "absolute",
+                      right: -6,
+                      bottom: -6,
+                    }}
+                  >
+                    <View
+                      style={[
+                        {
+                          backgroundColor: "#FFD700",
+                          paddingHorizontal: 6,
+                          paddingVertical: 2,
+                          borderRadius: 6,
+                          borderWidth: 1,
+                          borderColor: "rgba(0,0,0,0.08)",
+                        },
+                      ]}
+                    >
+                      <Text style={{ fontWeight: "700", fontSize: 10 }}>
+                        PRO
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
                 <View
                   style={{ marginTop: 8, alignItems: "center", marginLeft: -5 }}
                 >
@@ -975,44 +999,57 @@ const BetSettingsScreen = ({ navigation }) => {
               Get Pro
             </Text>
           </View>
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Text style={[styles.settingLabel, { color: theme.text }]}>
-                SportsHeart Pro
-              </Text>
-              <Text
-                style={[
-                  styles.settingDescription,
-                  { color: theme.textSecondary },
-                ]}
-              >
-                Unlock premium features: no ads, advanced analytics, and more.
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => setProModalVisible(true)}
-              style={[
-                styles.openSettingsButton,
-                { backgroundColor: colors.primary, minWidth: 100 },
-              ]}
+          {profile && profile.is_pro ? (
+            <View
+              style={{
+                padding: 12,
+                borderTopWidth: 1,
+                borderTopColor: theme.border,
+              }}
             >
-              <Text style={styles.openSettingsButtonText}>Get Pro</Text>
-            </TouchableOpacity>
-          </View>
-          {/* Promo code redeem UI */}
-          <View
-            style={{
-              padding: 12,
-              borderTopWidth: 1,
-              borderTopColor: theme.border,
-            }}
-          >
-            {profile && profile.is_pro ? (
               <Text style={[styles.settingLabel, { color: theme.text }]}>
                 You have Pro access
               </Text>
-            ) : (
-              <>
+              <Text style={{ color: theme.textSecondary, marginTop: 8 }}>
+                No ads, 350 extra credits every day, double payouts on credits,
+                player insights for bets, and much more coming soon.
+              </Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text style={[styles.settingLabel, { color: theme.text }]}>
+                    SportsHeart Pro
+                  </Text>
+                  <Text
+                    style={[
+                      styles.settingDescription,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    Unlock premium features: no ads, advanced analytics, and
+                    more.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setProModalVisible(true)}
+                  style={[
+                    styles.openSettingsButton,
+                    { backgroundColor: colors.primary, minWidth: 100 },
+                  ]}
+                >
+                  <Text style={styles.openSettingsButtonText}>Get Pro</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View
+                style={{
+                  padding: 12,
+                  borderTopWidth: 1,
+                  borderTopColor: theme.border,
+                }}
+              >
                 <Text
                   style={[
                     styles.settingLabel,
@@ -1056,9 +1093,9 @@ const BetSettingsScreen = ({ navigation }) => {
                     {redeemMessage}
                   </Text>
                 ) : null}
-              </>
-            )}
-          </View>
+              </View>
+            </>
+          )}
         </View>
       </View>
 
@@ -1261,62 +1298,136 @@ const BetSettingsScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            <View style={{ padding: 18 }}>
-              <Text
-                style={{
-                  color: theme.text,
-                  fontWeight: "700",
-                  fontSize: 16,
-                  marginBottom: 6,
-                }}
-              >
-                Upgrade to SportsHeart Pro
-              </Text>
-              <Text style={{ color: theme.textSecondary, marginBottom: 18 }}>
-                Monthly, Yearly, or Lifetime options. Subscriptions auto-renew.
-              </Text>
+            <View style={{ padding: 18, alignItems: "center" }}>
+              <View style={{ alignItems: "center", marginBottom: 12 }}>
+                <View
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 32,
+                    backgroundColor: colors.primary,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 8,
+                  }}
+                >
+                  <Image
+                    source={require("../../../assets/33115791.png")}
+                    style={{
+                      width: 50,
+                      height: 50,
+                      resizeMode: "contain",
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 1,
+                      shadowRadius: 5,
+                    }}
+                  />
+                </View>
+                <Text
+                  style={{ color: theme.text, fontWeight: "700", fontSize: 18 }}
+                >
+                  SportsHeart Pro
+                </Text>
+              </View>
 
-              <View style={{ marginBottom: 12 }}>
+              <View style={{ width: "100%", paddingHorizontal: 6 }}>
+                {[
+                  { title: "No ads", desc: "" },
+                  { title: "350 extra credits every day", desc: "" },
+                  { title: "Double payouts on credits", desc: "" },
+                  { title: "Player insights for bets", desc: "" },
+                  { title: "Much more coming soon", desc: "" },
+                ].map((f, i) => (
+                  <View
+                    key={i}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      paddingVertical: 8,
+                    }}
+                  >
+                    <Image
+                      source={require("../../../assets/33115791.png")}
+                      style={{
+                        width: 28,
+                        height: 28,
+                        marginRight: 12,
+                        resizeMode: "contain",
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 1,
+                        shadowRadius: 5,
+                      }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: theme.text, fontWeight: "700" }}>
+                        {f.title}
+                      </Text>
+                      {f.desc ? (
+                        <Text
+                          style={{ color: theme.textSecondary, fontSize: 12 }}
+                        >
+                          {f.desc}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              <View
+                style={[styles.packageRow, { marginTop: 18, marginBottom: 12 }]}
+              >
                 <TouchableOpacity
                   onPress={() => handleBuy("monthly")}
+                  disabled={!monthlyPackage || isPurchasing}
                   style={[
-                    styles.dailyPrimaryButton,
-                    { backgroundColor: colors.primary, marginBottom: 8 },
+                    styles.packageButton,
+                    {
+                      backgroundColor: colors.primary,
+                      opacity: !monthlyPackage || isPurchasing ? 0.6 : 1,
+                    },
                   ]}
                 >
-                  {isPurchasing ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={[styles.dailyPrimaryText]}>Buy Monthly</Text>
-                  )}
+                  <Text style={styles.packagePrice}>
+                    {monthlyPackage?.product?.priceString || "$0.00"}
+                  </Text>
+                  <Text style={styles.packageLabel}>Monthly</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={() => handleBuy("yearly")}
+                  disabled={!yearlyPackage || isPurchasing}
                   style={[
-                    styles.dailyPrimaryButton,
-                    { backgroundColor: colors.primary, marginBottom: 8 },
+                    styles.packageButton,
+                    {
+                      backgroundColor: colors.primary,
+                      opacity: !yearlyPackage || isPurchasing ? 0.6 : 1,
+                    },
                   ]}
                 >
-                  <Text style={[styles.dailyPrimaryText]}>Buy Yearly</Text>
+                  <Text style={styles.packagePrice}>
+                    {yearlyPackage?.product?.priceString || "$0.00"}
+                  </Text>
+                  <Text style={styles.packageLabel}>Yearly</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  onPress={() => {
-                    // Lifetime may be configured as a non-renewing entitlement in RevenueCat
-                    handleBuy("lifetime");
-                  }}
+                  onPress={() => handleBuy("lifetime")}
                   disabled={!lifetimePackage || isPurchasing}
                   style={[
-                    styles.dailyPrimaryButton,
+                    styles.packageButton,
                     {
                       backgroundColor: colors.primary,
-                      marginBottom: 8,
                       opacity: !lifetimePackage || isPurchasing ? 0.6 : 1,
                     },
                   ]}
                 >
-                  <Text style={[styles.dailyPrimaryText]}>Buy Lifetime</Text>
+                  <Text style={styles.packagePrice}>
+                    {lifetimePackage?.product?.priceString || "$0.00"}
+                  </Text>
+                  <Text style={styles.packageLabel}>Lifetime</Text>
                 </TouchableOpacity>
               </View>
 
@@ -1325,34 +1436,6 @@ const BetSettingsScreen = ({ navigation }) => {
                 style={styles.dailySecondaryButton}
               >
                 <Text style={styles.dailySecondaryText}>Restore Purchases</Text>
-              </TouchableOpacity>
-
-              <View style={{ height: 12 }} />
-              <TouchableOpacity
-                onPress={async () => {
-                  setDebugLoading(true);
-                  setDebugResult(null);
-                  try {
-                    const initRes = await initPurchases(
-                      undefined,
-                      supabaseUserId
-                    );
-                    const offerings = await getOfferings();
-                    const info = await getCustomerInfo();
-                    setDebugResult({ initRes, offerings, customerInfo: info });
-                    setDebugVisible(true);
-                  } catch (e) {
-                    setDebugResult({ error: e?.message || String(e) });
-                    setDebugVisible(true);
-                  } finally {
-                    setDebugLoading(false);
-                  }
-                }}
-                style={[styles.dailySecondaryButton, { marginTop: 8 }]}
-              >
-                <Text style={styles.dailySecondaryText}>
-                  {debugLoading ? "Running debug..." : "Run RevenueCat Debug"}
-                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1448,7 +1531,13 @@ const BetSettingsScreen = ({ navigation }) => {
                         marginTop: 6,
                       }}
                     >
-                      {i < 6 ? "$250.00" : "$1000.00"}
+                      {i < 6
+                        ? isPro
+                          ? "750.00 C"
+                          : "250.00 C"
+                        : isPro
+                        ? "1,500.00 C"
+                        : "1,000.00 C"}
                     </Text>
                     {claimed ? (
                       <View
@@ -1665,6 +1754,36 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     backgroundColor: "#fff",
+  },
+  packageRow: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  packageButton: {
+    flex: 1,
+    marginHorizontal: 6,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  packagePrice: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#fff",
+  },
+  packageLabel: {
+    marginTop: 6,
+    fontSize: 12,
+    color: "#fff",
+    fontWeight: "700",
+  },
+  featureRowIcon: {
+    width: 28,
+    height: 28,
+    marginRight: 12,
+    resizeMode: "contain",
   },
   dailyPrimaryButton: {
     paddingVertical: 12,

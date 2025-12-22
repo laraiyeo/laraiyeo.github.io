@@ -6,6 +6,7 @@ import React, {
   useEffect,
 } from "react";
 import { Alert } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   createBetslip,
   getUserBetslips,
@@ -27,6 +28,32 @@ export const BetSlipProvider = ({ children }) => {
   const [bets, setBets] = useState([]);
   const [isSlipOpen, setIsSlipOpen] = useState(false);
   const [submittedBets, setSubmittedBets] = useState([]); // Store submitted bets
+  const [isPro, setIsPro] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const v = await AsyncStorage.getItem("@is_pro");
+        if (v === "1") {
+          if (mounted) setIsPro(true);
+          return;
+        }
+      } catch (e) {}
+
+      try {
+        const prof = await getUserProfile();
+        if (prof && prof.success && prof.profile && prof.profile.is_pro) {
+          if (mounted) setIsPro(true);
+        } else {
+          if (mounted) setIsPro(false);
+        }
+      } catch (e) {
+        if (mounted) setIsPro(false);
+      }
+    })();
+    return () => (mounted = false);
+  }, []);
 
   // Add or remove bet from slip
   const toggleBet = useCallback((bet) => {
@@ -246,9 +273,10 @@ export const BetSlipProvider = ({ children }) => {
       });
 
       const totalDecimal = decimalOdds.reduce((acc, odd) => acc * odd, 1);
-      return (stake * totalDecimal).toFixed(2);
+      const mult = isPro ? 2 : 1;
+      return (stake * totalDecimal * mult).toFixed(2);
     },
-    [bets]
+    [bets, isPro]
   );
 
   // Group bets by game
@@ -284,13 +312,17 @@ export const BetSlipProvider = ({ children }) => {
 
       // Persist to backend (prefer server endpoint which enforces credits)
       const totalStake = betSlip.amount || 0;
-      const potentialPayout = betSlip.bets
+      let potentialPayout = betSlip.bets
         ? betSlip.bets.reduce((acc, b) => {
             const o = parseInt(b.odds) || 0;
             const dec = o > 0 ? o / 100 + 1 : 100 / Math.abs(o) + 1;
             return acc + dec * (betSlip.amount || 0);
           }, 0)
         : 0;
+      // If user is Pro, double the potential payout
+      if (isPro) {
+        potentialPayout = potentialPayout * 2;
+      }
 
       // If this is a single-leg bet, prefer the DB RPC `place_bet` which
       // atomically deducts credits and creates the betslip server-side.
@@ -644,6 +676,7 @@ export const BetSlipProvider = ({ children }) => {
     submittedBets,
     loadSubmittedBets,
     submitBetSlip,
+    isPro,
   };
 
   return (

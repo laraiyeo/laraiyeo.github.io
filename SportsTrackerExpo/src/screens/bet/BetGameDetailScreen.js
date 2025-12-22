@@ -9,6 +9,7 @@ import {
   Image,
   ActivityIndicator,
   PanResponder,
+  Alert,
 } from "react-native";
 import { Ionicons, FontAwesome6 } from "@expo/vector-icons";
 import Svg, {
@@ -376,7 +377,7 @@ const BasketballCourt = React.memo(
 
 // Player Props Tab Component - DraftKings Style
 const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
-  const { toggleBet, isBetSelected, removeBet } = useBetSlip();
+  const { toggleBet, isBetSelected, removeBet, isPro } = useBetSlip();
   const { rostersData } = useBetData();
   const oddsContext = useContext(OddsDisplayContext);
   const oddsDisplay = oddsContext ? oddsContext.oddsDisplay : "american";
@@ -459,7 +460,14 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
     return allPlayers.sort((a, b) => b.statValue - a.statValue);
   }, [rostersData, gameData, selectedPropType]);
 
-  const openPlayerStats = (player, line, playerTeamColor) => {
+  const openPlayerStats = async (player, line, playerTeamColor) => {
+    if (!isPro) {
+      Alert.alert(
+        "Pro Required",
+        "Player insights are available for Pro members. Purchase Pro in Settings to unlock."
+      );
+      return;
+    }
     setSelectedPlayerForStats(player);
     setCurrentLine(line);
     setSelectedPlayerTeamColor(playerTeamColor);

@@ -120,10 +120,20 @@ async function restorePurchases() {
   try {
     const mod = require("react-native-purchases");
     const Purchases = mod && (mod.default || mod);
-    if (!Purchases || typeof Purchases.restoreTransactions !== "function") {
+    if (!Purchases) {
       throw new Error("restorePurchases: Purchases SDK not available");
     }
-    const res = await Purchases.restoreTransactions();
+    // Support older/newer SDK names
+    const restoreFn =
+      typeof Purchases.restoreTransactions === "function"
+        ? Purchases.restoreTransactions
+        : typeof Purchases.restorePurchases === "function"
+        ? Purchases.restorePurchases
+        : null;
+    if (!restoreFn) {
+      throw new Error("restorePurchases: Purchases SDK missing restore method");
+    }
+    const res = await restoreFn.call(Purchases);
     return res;
   } catch (e) {
     console.warn("restorePurchases failed", e?.message || e);
