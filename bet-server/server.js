@@ -3179,7 +3179,10 @@ app.post("/api/profile/push-token", authMiddlewareInline, async (req, res) => {
             .neq("user_id", profileId)
             .eq("expo_push_token", pushToken);
         } catch (e) {
-          console.warn("push-token cleanup before upsert failed", e?.message || e);
+          console.warn(
+            "push-token cleanup before upsert failed",
+            e?.message || e
+          );
         }
         const { error } = await supabaseAdmin
           .from("push_tokens")

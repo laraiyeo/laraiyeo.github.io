@@ -205,14 +205,17 @@ const BetLoginScreen = ({ navigation }) => {
             onPress: async () => {
               // Persist credentials locally so inputs stay filled
               await saveCredentials(signupUsername, signupPassword, phone);
-                // Prompt for push notifications during signup onboarding
-                try {
-                  registerForPushNotifications().catch((e) =>
-                    console.warn("registerForPushNotifications (signup) failed", e)
-                  );
-                } catch (e) {
-                  console.warn("registerForPushNotifications (signup) error", e);
-                }
+              // Prompt for push notifications during signup onboarding
+              try {
+                registerForPushNotifications().catch((e) =>
+                  console.warn(
+                    "registerForPushNotifications (signup) failed",
+                    e
+                  )
+                );
+              } catch (e) {
+                console.warn("registerForPushNotifications (signup) error", e);
+              }
               try {
                 console.log(
                   "BetLogin: signup success - fetching scoreboard now"
