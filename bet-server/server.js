@@ -786,16 +786,23 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
       .maybeSingle();
     if (updateErr) throw updateErr;
 
-    // Insert ledger row for audit
-    const { error: ledgerErr } = await supabaseAdmin
-      .from("credit_ledger")
-      .insert({
-        user_id: userId,
-        betslip_id: null,
-        change: reward,
-        reason: `Daily login day ${day}`,
-      });
-    if (ledgerErr) throw ledgerErr;
+    // Log updated profile for diagnostics (helps verify persisted fields)
+    console.log("/api/daily/claim: updated profile:", updatedProfile);
+
+    // Insert ledger row for audit (best-effort: do not fail the route if ledger insert fails)
+    try {
+      const { error: ledgerErr } = await supabaseAdmin
+        .from("credit_ledger")
+        .insert({
+          user_id: userId,
+          betslip_id: null,
+          change: reward,
+          reason: `Daily login day ${day}`,
+        });
+      if (ledgerErr) console.warn("credit_ledger insert failed", ledgerErr);
+    } catch (ledgerEx) {
+      console.warn("credit_ledger insert exception", ledgerEx?.message || ledgerEx);
+    }
 
     return res.json({ success: true, user: updatedProfile, day, reward });
   } catch (e) {

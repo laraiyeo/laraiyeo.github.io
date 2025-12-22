@@ -845,17 +845,48 @@ export const getDailyRewardState = async (profileId) => {
       if (resp.ok) {
         const json = await resp.json();
         if (json && json.success) {
-          // Normalize claimedDays: server may return a single `claimed` boolean
-          // and a `day` number rather than a full claimedDays array. Construct
+          // Normalize claimedDays: accept several server shapes and construct
           // a 7-element boolean array so the UI can render checkmarks reliably.
+          // Supported server shapes:
+          // - { claimedDays: [bool,...] }
+          // - { day: number, claimed: bool }
+          // - { daily_available_day: number|string, daily_claimed: bool }
           let claimedDays = new Array(7).fill(false);
+
           if (Array.isArray(json.claimedDays)) {
             // ensure booleans and length 7
-            claimedDays = new Array(7)
-              .fill(false)
-              .map((v, i) => !!json.claimedDays[i]);
-          } else if (typeof json.claimed !== "undefined" && json.day) {
-            if (json.claimed) claimedDays[(json.day || 1) - 1] = true;
+            claimedDays = new Array(7).fill(false).map((v, i) => !!json.claimedDays[i]);
+          } else {
+            // prefer explicit daily_* fields
+            const availRaw =
+              typeof json.daily_available_day !== "undefined"
+                ? json.daily_available_day
+                : json.day;
+            const claimedFlag =
+              typeof json.daily_claimed !== "undefined"
+                ? json.daily_claimed
+                : json.claimed;
+
+            const availableDay = availRaw == null ? 1 : Number(availRaw) || 1;
+            // mark all previous days as claimed (1..availableDay-1)
+            for (let i = 0; i < Math.max(0, availableDay - 1) && i < 7; i++) {
+              claimedDays[i] = true;
+            }
+            // mark current available day only if server says it's claimed
+            if (claimedFlag) {
+              const idx = Math.min(Math.max(availableDay - 1, 0), 6);
+              claimedDays[idx] = true;
+            }
+
+            return {
+              success: true,
+              availableDay: availableDay,
+              canClaim: !claimedFlag,
+              claimed: !!claimedFlag,
+              claimedAt: json.claimedAt || json.daily_claimed_at || null,
+              nextAvailableAt: json.nextAvailableAt || json.daily_next_available_at || null,
+              claimedDays,
+            };
           }
 
           return {
