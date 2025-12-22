@@ -1264,7 +1264,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   bottomPadding: {
-    height: 100,
+    height: 25,
   },
   paginationContainer: {
     flexDirection: "row",

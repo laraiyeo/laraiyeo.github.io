@@ -183,10 +183,12 @@ const BetBetsScreen = () => {
   }
 
   const filteredBets = displayedBets.filter((bet) => {
+    const status = (bet && bet.status && String(bet.status).toLowerCase()) || "";
     if (selectedTab === "open") {
-      return bet.status === "open";
+      // Treat server-side 'pending' as open so newly-created slips remain visible
+      return status === "open" || status === "pending";
     } else if (selectedTab === "settled") {
-      return bet.status === "won" || bet.status === "lost";
+      return status === "won" || status === "lost";
     }
     return false;
   });
@@ -1728,7 +1730,7 @@ const BetBetsScreen = () => {
               <Text
                 style={[styles.parlayGameText, { color: theme.textSecondary }]}
               >
-                {liveGame?.shortName || pick.gameInfo}
+                {liveGame?.shortName || pick.gameInfo} {liveGame?.status?.type?.state === "post" ? `- ${scores[1]?.score || 0} : ${scores[0]?.score || 0}` : ""}
               </Text>
               {scores && liveGame?.status?.type?.state === "in" && (
                 <Text style={[styles.scoreText, { color: theme.text }]}>
@@ -1970,7 +1972,7 @@ const BetBetsScreen = () => {
               <Text
                 style={[styles.parlayGameText, { color: theme.textSecondary }]}
               >
-                {liveGame?.shortName || firstPick.gameInfo}
+                {liveGame?.shortName || firstPick.gameInfo} {liveGame?.status?.type?.state === "post" ? `- ${scores[1]?.score || 0} : ${scores[0]?.score || 0}` : ""}
               </Text>
               {scores && liveGame?.status?.type?.state === "in" && (
                 <Text style={[styles.scoreText, { color: theme.text }]}>
@@ -2243,7 +2245,7 @@ const BetBetsScreen = () => {
                       { color: theme.textSecondary },
                     ]}
                   >
-                    {liveGame?.shortName || picks[0].gameInfo}
+                    {liveGame?.shortName || picks[0].gameInfo} {liveGame?.status?.type?.state === "post" ? `- ${scores[1]?.score || 0} : ${scores[0]?.score || 0}` : ""}
                   </Text>
                   {scores && liveGame?.status?.type?.state === "in" && (
                     <Text style={[styles.scoreText, { color: theme.text }]}>

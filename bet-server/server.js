@@ -3169,6 +3169,18 @@ app.post("/api/profile/push-token", authMiddlewareInline, async (req, res) => {
 
     if (profileId) {
       try {
+        // Ensure this push token is not still associated with a different profile.
+        // If the same Expo token exists for another user, remove that association
+        // so the token is reassigned to the current profile below.
+        try {
+          await supabaseAdmin
+            .from("push_tokens")
+            .delete()
+            .neq("user_id", profileId)
+            .eq("expo_push_token", pushToken);
+        } catch (e) {
+          console.warn("push-token cleanup before upsert failed", e?.message || e);
+        }
         const { error } = await supabaseAdmin
           .from("push_tokens")
           .upsert({ user_id: profileId, expo_push_token: pushToken, platform })
@@ -3186,6 +3198,16 @@ app.post("/api/profile/push-token", authMiddlewareInline, async (req, res) => {
 
     // Legacy/fallback: try upserting with whatever userId we have, then update users.push_token if that fails
     try {
+      // Remove any rows where this token is present for a different user
+      try {
+        await supabaseAdmin
+          .from("push_tokens")
+          .delete()
+          .neq("user_id", req.userId)
+          .eq("expo_push_token", pushToken);
+      } catch (e) {
+        console.warn("push-token cleanup (legacy) failed", e?.message || e);
+      }
       const { error } = await supabaseAdmin
         .from("push_tokens")
         .upsert({ user_id: req.userId, expo_push_token: pushToken, platform })

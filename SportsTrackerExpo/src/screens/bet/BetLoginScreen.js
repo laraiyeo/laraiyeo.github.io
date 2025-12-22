@@ -205,6 +205,14 @@ const BetLoginScreen = ({ navigation }) => {
             onPress: async () => {
               // Persist credentials locally so inputs stay filled
               await saveCredentials(signupUsername, signupPassword, phone);
+                // Prompt for push notifications during signup onboarding
+                try {
+                  registerForPushNotifications().catch((e) =>
+                    console.warn("registerForPushNotifications (signup) failed", e)
+                  );
+                } catch (e) {
+                  console.warn("registerForPushNotifications (signup) error", e);
+                }
               try {
                 console.log(
                   "BetLogin: signup success - fetching scoreboard now"
@@ -320,6 +328,14 @@ const BetLoginScreen = ({ navigation }) => {
       // Success - save credentials including the phone we looked up
       console.log("BetLogin: login successful");
       await saveCredentials(username, password, userPhone);
+      // Prompt for push notifications immediately (best-effort).
+      try {
+        registerForPushNotifications().catch((e) =>
+          console.warn("registerForPushNotifications (login) failed", e)
+        );
+      } catch (e) {
+        console.warn("registerForPushNotifications (login) error", e);
+      }
       // Identify RevenueCat with Supabase user id so entitlements map to profile
       (async () => {
         try {

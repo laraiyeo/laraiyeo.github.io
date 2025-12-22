@@ -1549,11 +1549,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           icon: "list",
           label: "Game Lines",
         },
-        {
-          id: "quick",
-          icon: "flash",
-          label: "Live Play",
-        },
       ];
     } else if (gameState === "in") {
       // In-game: Game Stats, Live Play

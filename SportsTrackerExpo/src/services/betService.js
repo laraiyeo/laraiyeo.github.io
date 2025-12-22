@@ -845,6 +845,19 @@ export const getDailyRewardState = async (profileId) => {
       if (resp.ok) {
         const json = await resp.json();
         if (json && json.success) {
+          // Normalize claimedDays: server may return a single `claimed` boolean
+          // and a `day` number rather than a full claimedDays array. Construct
+          // a 7-element boolean array so the UI can render checkmarks reliably.
+          let claimedDays = new Array(7).fill(false);
+          if (Array.isArray(json.claimedDays)) {
+            // ensure booleans and length 7
+            claimedDays = new Array(7)
+              .fill(false)
+              .map((v, i) => !!json.claimedDays[i]);
+          } else if (typeof json.claimed !== "undefined" && json.day) {
+            if (json.claimed) claimedDays[(json.day || 1) - 1] = true;
+          }
+
           return {
             success: true,
             availableDay: json.day || 1,
@@ -852,6 +865,7 @@ export const getDailyRewardState = async (profileId) => {
             claimed: !!json.claimed,
             claimedAt: json.claimedAt || null,
             nextAvailableAt: json.nextAvailableAt || null,
+            claimedDays,
           };
         }
       }

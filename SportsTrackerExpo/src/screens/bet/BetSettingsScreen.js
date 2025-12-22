@@ -1042,8 +1042,7 @@ const BetSettingsScreen = ({ navigation }) => {
                 You have Pro access
               </Text>
               <Text style={{ color: theme.textSecondary, marginTop: 8 }}>
-                No ads, 500 extra credits every day, double payouts on credits,
-                player insights for bets, and much more coming soon.
+                Thank you for supporting SportsHeart ❤
               </Text>
             </View>
           ) : (
@@ -1377,13 +1376,13 @@ const BetSettingsScreen = ({ navigation }) => {
           },
           {
             title: "500 extra credits daily",
-            desc: "Receive bonus credits added every day.",
+            desc: "Receive extra bonus credits added every day.",
             icon: "flash",
             color: "#FFC107",
           },
           {
             title: "Double credit payouts",
-            desc: "Earn twice the credits on predictions.",
+            desc: "Earn twice the credits on bets.",
             icon: "trending-up",
             color: "#4CAF50",
           },
