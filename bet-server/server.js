@@ -807,6 +807,36 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
       );
     }
 
+    // Read back the profile to verify persistence and log detailed diagnostics
+    try {
+      const { data: verifyRow, error: verifyErr } = await supabaseAdmin
+        .from("profiles")
+        .select(
+          "id, credits, daily_available_day, daily_claimed, daily_claimed_at, daily_next_available_at, updated_at"
+        )
+        .eq("id", userId)
+        .maybeSingle();
+      if (verifyErr) {
+        console.warn("/api/daily/claim: verify read failed", verifyErr);
+      } else {
+        console.log("/api/daily/claim: verify profile after update:", verifyRow);
+        if (typeof verifyRow.credits !== "undefined" && Number(verifyRow.credits) !== Number(newCredits)) {
+          console.warn(
+            "/api/daily/claim: credits mismatch after update",
+            { expected: newCredits, actual: verifyRow.credits }
+          );
+        }
+        if (verifyRow.daily_claimed !== true) {
+          console.warn(
+            "/api/daily/claim: daily_claimed not true after update",
+            { daily_claimed: verifyRow.daily_claimed }
+          );
+        }
+      }
+    } catch (verifyEx) {
+      console.warn("/api/daily/claim: verify read exception", verifyEx?.message || verifyEx);
+    }
+
     return res.json({ success: true, user: updatedProfile, day, reward });
   } catch (e) {
     console.error("/api/daily/claim error", e?.message || e);
