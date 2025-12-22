@@ -336,7 +336,10 @@ const BetLoginScreen = ({ navigation }) => {
                   if (setIsPro) setIsPro(!!entitled);
                 } catch (e) {}
               } catch (e) {
-                console.warn("BetLogin: getCustomerInfo failed", e?.message || e);
+                console.warn(
+                  "BetLogin: getCustomerInfo failed",
+                  e?.message || e
+                );
               }
             } catch (e) {
               console.warn(

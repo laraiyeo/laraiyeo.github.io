@@ -615,7 +615,7 @@ const BetSettingsScreen = ({ navigation }) => {
         setRedeemMessage(json?.message || "Redeem failed");
       } else {
         // If server returned already_pro, respect that
-                if (json?.message === "already_pro") {
+        if (json?.message === "already_pro") {
           setRedeemMessage("You already have Pro");
           // refresh profile
           const { data: userData } = await supabase.auth.getUser();
@@ -648,30 +648,30 @@ const BetSettingsScreen = ({ navigation }) => {
                 .eq("id", userId)
                 .maybeSingle();
               if (profileRow) {
-                  setProfile(profileRow);
-                  setProfileMeta(profileRow);
-                  try {
-                    await AsyncStorage.setItem(
-                      "@is_pro",
-                      profileRow.is_pro ? "1" : "0"
-                    );
-                    if (setIsPro) setIsPro(!!profileRow.is_pro);
-                  } catch (e) {}
-                } else if (json && json.profile) {
-                  // fallback: merge returned profile fields with existing
-                  setProfile((prev) => ({
-                    ...(prev || {}),
-                    ...(json.profile || {}),
-                  }));
-                  setProfileMeta((prev) => ({
-                    ...(prev || {}),
-                    ...(json.profile || {}),
-                  }));
-                  try {
-                    const proFlag = json.profile.is_pro;
-                    await AsyncStorage.setItem("@is_pro", proFlag ? "1" : "0");
-                    if (setIsPro) setIsPro(!!proFlag);
-                  } catch (e) {}
+                setProfile(profileRow);
+                setProfileMeta(profileRow);
+                try {
+                  await AsyncStorage.setItem(
+                    "@is_pro",
+                    profileRow.is_pro ? "1" : "0"
+                  );
+                  if (setIsPro) setIsPro(!!profileRow.is_pro);
+                } catch (e) {}
+              } else if (json && json.profile) {
+                // fallback: merge returned profile fields with existing
+                setProfile((prev) => ({
+                  ...(prev || {}),
+                  ...(json.profile || {}),
+                }));
+                setProfileMeta((prev) => ({
+                  ...(prev || {}),
+                  ...(json.profile || {}),
+                }));
+                try {
+                  const proFlag = json.profile.is_pro;
+                  await AsyncStorage.setItem("@is_pro", proFlag ? "1" : "0");
+                  if (setIsPro) setIsPro(!!proFlag);
+                } catch (e) {}
               } else {
                 console.warn(
                   "promo redeem: could not refresh profile (no user id and no server profile)"
@@ -776,7 +776,13 @@ const BetSettingsScreen = ({ navigation }) => {
                         },
                       ]}
                     >
-                      <Text style={{ fontWeight: "700", fontSize: 10, color: theme.text }}>
+                      <Text
+                        style={{
+                          fontWeight: "700",
+                          fontSize: 10,
+                          color: theme.text,
+                        }}
+                      >
                         PRO
                       </Text>
                     </View>
