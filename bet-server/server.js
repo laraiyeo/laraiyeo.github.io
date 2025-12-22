@@ -4463,25 +4463,42 @@ app.post("/revenuecat/webhook", async (req, res) => {
     const payload = raw ? JSON.parse(raw) : req.body;
 
     const signatureHeader =
-      (req.headers["x-revenuecat-signature"] || req.headers["revenuecat-signature"] || "") + "";
+      (req.headers["x-revenuecat-signature"] ||
+        req.headers["revenuecat-signature"] ||
+        "") + "";
     const secret = process.env.REVENUECAT_WEBHOOK_SECRET || null;
 
     if (secret && raw) {
-      const expected = crypto.createHmac("sha256", secret).update(raw).digest("hex");
+      const expected = crypto
+        .createHmac("sha256", secret)
+        .update(raw)
+        .digest("hex");
       if (!signatureHeader || signatureHeader !== expected) {
         console.warn("RevenueCat webhook signature mismatch", {
           got: signatureHeader,
           expected: expected,
         });
-        return res.status(401).json({ ok: false, message: "invalid signature" });
+        return res
+          .status(401)
+          .json({ ok: false, message: "invalid signature" });
       }
     } else if (!secret) {
-      console.warn("REVENUECAT_WEBHOOK_SECRET not set; skipping signature verification");
+      console.warn(
+        "REVENUECAT_WEBHOOK_SECRET not set; skipping signature verification"
+      );
     }
 
-    const appUserId = payload?.app_user_id || payload?.data?.app_user_id || payload?.subscriber?.app_user_id || null;
+    const appUserId =
+      payload?.app_user_id ||
+      payload?.data?.app_user_id ||
+      payload?.subscriber?.app_user_id ||
+      null;
     const eventType = payload?.type || payload?.event || "revenuecat.event";
-    const productId = payload?.data?.product_id || payload?.data?.product_identifier || payload?.data?.store_product_id || null;
+    const productId =
+      payload?.data?.product_id ||
+      payload?.data?.product_identifier ||
+      payload?.data?.store_product_id ||
+      null;
 
     // Persist raw event into a revenue_events table for later inspection (if table exists)
     try {
@@ -4492,12 +4509,19 @@ app.post("/revenuecat/webhook", async (req, res) => {
         payload: payload,
       });
     } catch (e) {
-      console.warn("revenue_events insert failed (table may not exist)", e?.message || e);
+      console.warn(
+        "revenue_events insert failed (table may not exist)",
+        e?.message || e
+      );
     }
 
     // If appUserId looks like a UUID, attempt to link to profiles table and mark pro status
     try {
-      if (appUserId && typeof appUserId === "string" && appUserId.includes("-")) {
+      if (
+        appUserId &&
+        typeof appUserId === "string" &&
+        appUserId.includes("-")
+      ) {
         // Try to update a profile matching this UUID
         const { data: prof, error: profErr } = await supabaseAdmin
           .from("profiles")
@@ -4517,7 +4541,8 @@ app.post("/revenuecat/webhook", async (req, res) => {
           }
 
           // If product indicates a pro package, try to set an 'is_pro' flag if column exists
-          const isProProduct = productId && productId.includes("sportsheart.pro");
+          const isProProduct =
+            productId && productId.includes("sportsheart.pro");
           if (isProProduct) {
             try {
               await supabaseAdmin
@@ -4531,7 +4556,10 @@ app.post("/revenuecat/webhook", async (req, res) => {
         }
       }
     } catch (e) {
-      console.warn("RevenueCat webhook profile link attempt failed", e?.message || e);
+      console.warn(
+        "RevenueCat webhook profile link attempt failed",
+        e?.message || e
+      );
     }
 
     return res.json({ ok: true });
@@ -4545,7 +4573,8 @@ app.post("/revenuecat/webhook", async (req, res) => {
 app.post("/api/admin/pro", authMiddlewareInline, async (req, res) => {
   try {
     const { profile_id, is_pro } = req.body || {};
-    if (!profile_id) return res.status(400).json({ message: "profile_id required" });
+    if (!profile_id)
+      return res.status(400).json({ message: "profile_id required" });
     const val = !!is_pro;
     const { data, error } = await supabaseAdmin
       .from("profiles")
@@ -4590,7 +4619,8 @@ app.post("/api/promo/redeem", authMiddlewareInline, async (req, res) => {
 
     // Check uses (we track remaining uses in `uses`)
     const remaining = Number(promo.uses || 0);
-    if (remaining <= 0) return res.status(400).json({ message: "code exhausted" });
+    if (remaining <= 0)
+      return res.status(400).json({ message: "code exhausted" });
 
     // Mark profile as pro (type-aware)
     const profileId = req.userId;
@@ -4599,7 +4629,11 @@ app.post("/api/promo/redeem", authMiddlewareInline, async (req, res) => {
     const updates = {};
     const promoType = promo.type || promo.metadata?.type || "lifetime";
     // For now, any promo type grants is_pro = true; future: handle expirations
-    if (promoType === "lifetime" || promoType === "pro" || promoType === "free") {
+    if (
+      promoType === "lifetime" ||
+      promoType === "pro" ||
+      promoType === "free"
+    ) {
       updates.is_pro = true;
     } else {
       // default conservative behavior

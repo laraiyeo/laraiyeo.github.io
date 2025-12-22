@@ -21,7 +21,11 @@ import {
   getDailyRewardState,
   claimDailyReward,
 } from "../../services/betService";
-import { initPurchases, getOfferings, getCustomerInfo } from "../../services/revenuecat";
+import {
+  initPurchases,
+  getOfferings,
+  getCustomerInfo,
+} from "../../services/revenuecat";
 
 const BetSettingsScreen = ({ navigation }) => {
   const { theme, colors } = useTheme();
@@ -412,7 +416,10 @@ const BetSettingsScreen = ({ navigation }) => {
         // Use our helper which provides a default test key
         const initRes = await initPurchases(undefined, supabaseUserId);
         if (!initRes || !initRes.ok) {
-          console.warn("RevenueCat init failed or skipped", initRes && initRes.error);
+          console.warn(
+            "RevenueCat init failed or skipped",
+            initRes && initRes.error
+          );
           if (mounted) setPurchasesAvailable(false);
           return;
         }
@@ -422,11 +429,22 @@ const BetSettingsScreen = ({ navigation }) => {
         if (offerings) {
           // Prefer the project offering named `com.sportsheart.pro` if present
           const preferredOffering =
-            (offerings.all && offerings.all["com.sportsheart.pro"]) || offerings.current || null;
-          const pkgs = (preferredOffering && preferredOffering.availablePackages) || [];
+            (offerings.all && offerings.all["com.sportsheart.pro"]) ||
+            offerings.current ||
+            null;
+          const pkgs =
+            (preferredOffering && preferredOffering.availablePackages) || [];
           // try to find by packageType or product identifier patterns
-          const monthly = pkgs.find((p) => /month|monthly/i.test(p.product.identifier)) || pkgs.find((p) => p.packageType === "MONTHLY") || pkgs[0] || null;
-          const yearly = pkgs.find((p) => /year|annual/i.test(p.product.identifier)) || pkgs.find((p) => p.packageType === "ANNUAL") || pkgs[1] || null;
+          const monthly =
+            pkgs.find((p) => /month|monthly/i.test(p.product.identifier)) ||
+            pkgs.find((p) => p.packageType === "MONTHLY") ||
+            pkgs[0] ||
+            null;
+          const yearly =
+            pkgs.find((p) => /year|annual/i.test(p.product.identifier)) ||
+            pkgs.find((p) => p.packageType === "ANNUAL") ||
+            pkgs[1] ||
+            null;
           if (mounted) {
             setMonthlyPackage(monthly);
             setYearlyPackage(yearly);
@@ -453,17 +471,24 @@ const BetSettingsScreen = ({ navigation }) => {
       try {
         Purchases = require("react-native-purchases").default;
       } catch (e) {
-        Alert.alert("Purchases not available", "Native Purchases SDK is not installed. See setup instructions.");
+        Alert.alert(
+          "Purchases not available",
+          "Native Purchases SDK is not installed. See setup instructions."
+        );
         return;
       }
-      const targetPackage = which === "monthly" ? monthlyPackage : yearlyPackage;
+      const targetPackage =
+        which === "monthly" ? monthlyPackage : yearlyPackage;
       if (!targetPackage) {
         Alert.alert("Unavailable", "Subscription package not available.");
         return;
       }
       const purchaseResult = await Purchases.purchasePackage(targetPackage);
       console.log("Purchase result", purchaseResult);
-      Alert.alert("Purchase successful", "Thank you — your subscription is active.");
+      Alert.alert(
+        "Purchase successful",
+        "Thank you — your subscription is active."
+      );
     } catch (e) {
       console.warn("Purchase failed", e?.message || e);
       Alert.alert("Purchase failed", e?.message || "Unknown error");
@@ -478,12 +503,18 @@ const BetSettingsScreen = ({ navigation }) => {
       try {
         Purchases = require("react-native-purchases").default;
       } catch (e) {
-        Alert.alert("Restore not available", "Native Purchases SDK is not installed. See setup instructions.");
+        Alert.alert(
+          "Restore not available",
+          "Native Purchases SDK is not installed. See setup instructions."
+        );
         return;
       }
       const restored = await Purchases.restoreTransactions();
       console.log("Restore result", restored);
-      Alert.alert("Restore complete", "Restore completed; entitlements refreshed.");
+      Alert.alert(
+        "Restore complete",
+        "Restore completed; entitlements refreshed."
+      );
     } catch (e) {
       console.warn("Restore failed", e?.message || e);
       Alert.alert("Restore failed", e?.message || "Unknown error");
@@ -632,9 +663,9 @@ const BetSettingsScreen = ({ navigation }) => {
                 <Text style={{ color: theme.textSecondary, marginTop: 6 }}>
                   {profileMeta && profileMeta.credits != null
                     ? `${Number(profileMeta.credits).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })} Credits`
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })} Credits`
                     : ""}
                 </Text>
                 {/* Daily button moved to its own section below */}
@@ -821,7 +852,7 @@ const BetSettingsScreen = ({ navigation }) => {
           </View>
         </View>
 
-                <View
+        <View
           style={[
             styles.section,
             { backgroundColor: theme.surface, borderColor: theme.border },
@@ -831,63 +862,85 @@ const BetSettingsScreen = ({ navigation }) => {
             style={[styles.sectionHeader, { borderBottomColor: theme.border }]}
           >
             <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                Get Pro
+              Get Pro
             </Text>
           </View>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={[styles.settingLabel, { color: theme.text }]}>
-                  SportsHeart Pro
-                </Text>
-                <Text
-                  style={[
-                    styles.settingDescription,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  Unlock premium features: no ads, advanced analytics, and more.
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setProModalVisible(true)}
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingLabel, { color: theme.text }]}>
+                SportsHeart Pro
+              </Text>
+              <Text
                 style={[
-                  styles.openSettingsButton,
-                  { backgroundColor: colors.primary, minWidth: 100 },
+                  styles.settingDescription,
+                  { color: theme.textSecondary },
                 ]}
               >
-                <Text style={styles.openSettingsButtonText}>Get Pro</Text>
+                Unlock premium features: no ads, advanced analytics, and more.
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setProModalVisible(true)}
+              style={[
+                styles.openSettingsButton,
+                { backgroundColor: colors.primary, minWidth: 100 },
+              ]}
+            >
+              <Text style={styles.openSettingsButtonText}>Get Pro</Text>
+            </TouchableOpacity>
+          </View>
+          {/* Promo code redeem UI */}
+          <View
+            style={{
+              padding: 12,
+              borderTopWidth: 1,
+              borderTopColor: theme.border,
+            }}
+          >
+            <Text
+              style={[
+                styles.settingLabel,
+                { color: theme.text, marginBottom: 8 },
+              ]}
+            >
+              Have a promo code?
+            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <TextInput
+                value={promoCodeInput}
+                onChangeText={setPromoCodeInput}
+                placeholder="Enter promo code"
+                placeholderTextColor={theme.textSecondary}
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  color: theme.text,
+                  marginRight: 8,
+                }}
+              />
+              <TouchableOpacity
+                onPress={handleRedeemPromo}
+                style={[
+                  styles.openSettingsButton,
+                  { backgroundColor: colors.primary, paddingVertical: 10 },
+                ]}
+                disabled={redeemLoading}
+              >
+                <Text style={styles.openSettingsButtonText}>
+                  {redeemLoading ? "Redeeming..." : "Redeem"}
+                </Text>
               </TouchableOpacity>
             </View>
-            {/* Promo code redeem UI */}
-            <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: theme.border }}>
-              <Text style={[styles.settingLabel, { color: theme.text, marginBottom: 8 }]}>Have a promo code?</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <TextInput
-                  value={promoCodeInput}
-                  onChangeText={setPromoCodeInput}
-                  placeholder="Enter promo code"
-                  placeholderTextColor={theme.textSecondary}
-                  style={{
-                    flex: 1,
-                    paddingVertical: 10,
-                    paddingHorizontal: 12,
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: theme.border,
-                    color: theme.text,
-                    marginRight: 8,
-                  }}
-                />
-                <TouchableOpacity
-                  onPress={handleRedeemPromo}
-                  style={[styles.openSettingsButton, { backgroundColor: colors.primary, paddingVertical: 10 }]}
-                  disabled={redeemLoading}
-                >
-                  <Text style={styles.openSettingsButtonText}>{redeemLoading ? 'Redeeming...' : 'Redeem'}</Text>
-                </TouchableOpacity>
-              </View>
-              {redeemMessage ? <Text style={{ color: theme.textSecondary, marginTop: 8 }}>{redeemMessage}</Text> : null}
-            </View>
+            {redeemMessage ? (
+              <Text style={{ color: theme.textSecondary, marginTop: 8 }}>
+                {redeemMessage}
+              </Text>
+            ) : null}
+          </View>
         </View>
       </View>
 
@@ -1035,7 +1088,9 @@ const BetSettingsScreen = ({ navigation }) => {
                 borderBottomColor: theme.border,
               }}
             >
-              <Text style={{ color: theme.text, fontWeight: "700" }}>RevenueCat Debug</Text>
+              <Text style={{ color: theme.text, fontWeight: "700" }}>
+                RevenueCat Debug
+              </Text>
               <TouchableOpacity onPress={() => setDebugVisible(false)}>
                 <Text style={{ color: colors.primary, fontWeight: "700" }}>
                   Close
@@ -1046,7 +1101,9 @@ const BetSettingsScreen = ({ navigation }) => {
             <View style={{ padding: 12, maxHeight: 440 }}>
               <ScrollView>
                 <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
-                  {debugResult ? JSON.stringify(debugResult, null, 2) : "No debug data yet."}
+                  {debugResult
+                    ? JSON.stringify(debugResult, null, 2)
+                    : "No debug data yet."}
                 </Text>
               </ScrollView>
             </View>
@@ -1076,7 +1133,9 @@ const BetSettingsScreen = ({ navigation }) => {
                 borderBottomColor: theme.border,
               }}
             >
-              <Text style={{ color: theme.text, fontWeight: "700" }}>Get Pro</Text>
+              <Text style={{ color: theme.text, fontWeight: "700" }}>
+                Get Pro
+              </Text>
               <TouchableOpacity onPress={() => setProModalVisible(false)}>
                 <Text style={{ color: colors.primary, fontWeight: "700" }}>
                   Close
@@ -1085,7 +1144,14 @@ const BetSettingsScreen = ({ navigation }) => {
             </View>
 
             <View style={{ padding: 18 }}>
-              <Text style={{ color: theme.text, fontWeight: "700", fontSize: 16, marginBottom: 6 }}>
+              <Text
+                style={{
+                  color: theme.text,
+                  fontWeight: "700",
+                  fontSize: 16,
+                  marginBottom: 6,
+                }}
+              >
                 Upgrade to SportsHeart Pro
               </Text>
               <Text style={{ color: theme.textSecondary, marginBottom: 18 }}>
@@ -1131,7 +1197,10 @@ const BetSettingsScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity onPress={handleRestore} style={styles.dailySecondaryButton}>
+              <TouchableOpacity
+                onPress={handleRestore}
+                style={styles.dailySecondaryButton}
+              >
                 <Text style={styles.dailySecondaryText}>Restore Purchases</Text>
               </TouchableOpacity>
 
@@ -1141,7 +1210,10 @@ const BetSettingsScreen = ({ navigation }) => {
                   setDebugLoading(true);
                   setDebugResult(null);
                   try {
-                    const initRes = await initPurchases(undefined, supabaseUserId);
+                    const initRes = await initPurchases(
+                      undefined,
+                      supabaseUserId
+                    );
                     const offerings = await getOfferings();
                     const info = await getCustomerInfo();
                     setDebugResult({ initRes, offerings, customerInfo: info });

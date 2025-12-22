@@ -7,7 +7,9 @@ async function initPurchases(apiKey = DEFAULT_RC_KEY, appUserID = null) {
     const mod = require("react-native-purchases");
     const Purchases = mod && (mod.default || mod);
     if (!Purchases) {
-      console.warn("RevenueCat Purchases native module not found (Expo Go). Use dev-client / EAS build.");
+      console.warn(
+        "RevenueCat Purchases native module not found (Expo Go). Use dev-client / EAS build."
+      );
       return { ok: false, nativeMissing: true };
     }
 
@@ -19,7 +21,9 @@ async function initPurchases(apiKey = DEFAULT_RC_KEY, appUserID = null) {
     } else if (typeof Purchases.configure === "function") {
       await Purchases.configure({ apiKey });
     } else {
-      console.warn("RevenueCat Purchases SDK loaded but missing setup/configure method");
+      console.warn(
+        "RevenueCat Purchases SDK loaded but missing setup/configure method"
+      );
       return { ok: false, missingSetup: true };
     }
 
@@ -43,7 +47,10 @@ async function initPurchases(apiKey = DEFAULT_RC_KEY, appUserID = null) {
 
     return { ok: true };
   } catch (e) {
-    console.warn("RevenueCat Purchases init skipped or failed", e?.message || e);
+    console.warn(
+      "RevenueCat Purchases init skipped or failed",
+      e?.message || e
+    );
     return { ok: false, error: e };
   }
 }
@@ -53,7 +60,9 @@ async function getOfferings() {
     const mod = require("react-native-purchases");
     const Purchases = mod && (mod.default || mod);
     if (!Purchases || typeof Purchases.getOfferings !== "function") {
-      console.warn("getOfferings: Purchases SDK not available or missing getOfferings");
+      console.warn(
+        "getOfferings: Purchases SDK not available or missing getOfferings"
+      );
       return null;
     }
     const offerings = await Purchases.getOfferings();
@@ -69,7 +78,9 @@ async function getCustomerInfo() {
     const mod = require("react-native-purchases");
     const Purchases = mod && (mod.default || mod);
     if (!Purchases || typeof Purchases.getCustomerInfo !== "function") {
-      console.warn("getCustomerInfo: Purchases SDK not available or missing getCustomerInfo");
+      console.warn(
+        "getCustomerInfo: Purchases SDK not available or missing getCustomerInfo"
+      );
       return null;
     }
     const info = await Purchases.getCustomerInfo();

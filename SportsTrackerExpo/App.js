@@ -38,7 +38,11 @@ import { PresenceService } from "./src/services/PresenceService";
 // Import streaming utils
 import { useStreamingAccess } from "./src/utils/streamingUtils";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { initPurchases, getCustomerInfo, isEntitled } from "./src/services/revenuecat";
+import {
+  initPurchases,
+  getCustomerInfo,
+  isEntitled,
+} from "./src/services/revenuecat";
 import { supabase } from "./src/config/supabase";
 
 // Custom header title component that disables font scaling
@@ -344,19 +348,19 @@ const HomeTabNavigator = () => {
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-        <Tab.Screen
-          name="Bet"
-          component={BetLoginScreen}
-          options={{
-            title: "Bet",
-            headerShown: true,
-            headerStyle: {
-              backgroundColor: colors.primary,
-            },
-            headerTintColor: "#fff",
-            headerTitle: (props) => <HeaderTitle {...props} />,
-          }}
-        />
+      <Tab.Screen
+        name="Bet"
+        component={BetLoginScreen}
+        options={{
+          title: "Bet",
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: "#fff",
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}
@@ -2036,7 +2040,10 @@ const AppContent = () => {
           } = await supabase.auth.getUser();
           if (user && user.id) userId = user.id;
         } catch (e) {
-          console.warn("RevenueCat: failed to read supabase user", e?.message || e);
+          console.warn(
+            "RevenueCat: failed to read supabase user",
+            e?.message || e
+          );
         }
 
         const initRes = await initPurchases(undefined, userId);
@@ -2053,7 +2060,10 @@ const AppContent = () => {
             }
           }
         } catch (e) {
-          console.warn("RevenueCat: failed to get customer info", e?.message || e);
+          console.warn(
+            "RevenueCat: failed to get customer info",
+            e?.message || e
+          );
         }
       } catch (e) {
         console.warn("RevenueCat initialization failed", e?.message || e);
