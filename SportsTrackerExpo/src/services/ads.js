@@ -50,12 +50,16 @@ export const PROD_BANNER_ID = "ca-app-pub-5256386471137141/1278337275";
 export async function initAds() {
   const mod = ensureAdsModule();
   if (!mod) {
-    console.warn("Ads not available in this runtime (web/Expo Go). Skipping init.");
+    console.warn(
+      "Ads not available in this runtime (web/Expo Go). Skipping init."
+    );
     return false;
   }
 
   try {
-    await (mod && mod() && mod().initialize ? mod().initialize() : Promise.resolve());
+    await (mod && mod() && mod().initialize
+      ? mod().initialize()
+      : Promise.resolve());
     return true;
   } catch (e) {
     console.warn("Ads initialization failed", e);
@@ -86,7 +90,8 @@ export function BannerAdWrapper({
 
   // Resolve size: allow callers to pass a string key or a numeric size value
   let resolvedSize = size;
-  if (typeof size === "string" && BannerAdSize[size]) resolvedSize = BannerAdSize[size];
+  if (typeof size === "string" && BannerAdSize[size])
+    resolvedSize = BannerAdSize[size];
   if (!resolvedSize && BannerAdSize.ANCHORED_ADAPTIVE_BANNER)
     resolvedSize = BannerAdSize.ANCHORED_ADAPTIVE_BANNER;
 
@@ -94,7 +99,11 @@ export function BannerAdWrapper({
 
   return (
     <View>
-      <BannerAd unitId={adUnitId} size={resolvedSize} requestOptions={requestOptions} />
+      <BannerAd
+        unitId={adUnitId}
+        size={resolvedSize}
+        requestOptions={requestOptions}
+      />
     </View>
   );
 }
@@ -114,7 +123,9 @@ export function createInterstitial(unitId) {
 
   if (!InterstitialAd) {
     // no-op fallback so callers don't crash in Expo Go / web
-    console.warn("createInterstitial: InterstitialAd not available in this runtime");
+    console.warn(
+      "createInterstitial: InterstitialAd not available in this runtime"
+    );
     return {
       load: () => Promise.resolve(false),
       show: () => Promise.resolve(false),

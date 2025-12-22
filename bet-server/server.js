@@ -846,7 +846,13 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
       );
     }
 
-    return res.json({ success: true, user: updatedProfile, verify: verifyRow || null, day, reward });
+    return res.json({
+      success: true,
+      user: updatedProfile,
+      verify: verifyRow || null,
+      day,
+      reward,
+    });
   } catch (e) {
     console.error("/api/daily/claim error", e?.message || e);
     return res.status(500).json({ message: "Server error" });

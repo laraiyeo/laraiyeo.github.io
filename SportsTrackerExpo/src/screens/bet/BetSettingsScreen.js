@@ -1295,211 +1295,217 @@ const BetSettingsScreen = ({ navigation }) => {
           </View>
         </View>
       </Modal>
-<Modal
-  visible={proModalVisible}
-  animationType="slide"
-  transparent
-  onRequestClose={() => setProModalVisible(false)}
->
-  <View style={styles.modalOverlay}>
-    <View
-      style={[
-        styles.modalContent,
-        { backgroundColor: theme.surface, borderColor: theme.border },
-      ]}
-    >
-      {/* Header */}
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.border,
-        }}
+      <Modal
+        visible={proModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setProModalVisible(false)}
       >
-        <Text style={{ color: theme.text, fontWeight: "700" }}>
-          Get Pro
-        </Text>
-        <TouchableOpacity onPress={() => setProModalVisible(false)}>
-          <Text style={{ color: colors.primary, fontWeight: "700" }}>
-            Close
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Scrollable Body */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 18 }}
-      >
-        {/* Logo + Title */}
-        <View style={{ alignItems: "center", marginBottom: 12 }}>
+        <View style={styles.modalOverlay}>
           <View
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 32,
-              backgroundColor: colors.primary,
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 8,
-            }}
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
           >
-            <Image
-              source={require("../../../assets/33115791.png")}
-              style={{ width: 50, height: 50, resizeMode: "contain", shadowColor: "#000", shadowOpacity: 1, shadowRadius: 5, shadowOffset: { width: 0, height: 2 } }}
-            />
-          </View>
-
-          <Text
-            style={{ color: theme.text, fontWeight: "700", fontSize: 18 }}
-          >
-            SportsHeart Pro
-          </Text>
-        </View>
-
-        {/* Features */}
-        {[
-          {
-            title: "No ads",
-            desc: "Enjoy a clean, distraction-free experience.",
-            icon: "close-circle",
-            color: "#FF5252",
-          },
-          {
-            title: "Custom Color Themes",
-            desc: "Access exclusive color themes for the app.",
-            icon: "color-palette",
-            color: "#FF5722",
-          },
-          {
-            title: "500 extra credits daily",
-            desc: "Receive extra bonus credits added every day.",
-            icon: "flash",
-            color: "#FFC107",
-          },
-          {
-            title: "Double credit payouts",
-            desc: "Earn twice the credits on bets.",
-            icon: "trending-up",
-            color: "#4CAF50",
-          },
-          {
-            title: "Player insights",
-            desc: "Unlock advanced stats to make smarter bets.",
-            icon: "analytics",
-            color: "#2196F3",
-          },
-          {
-            title: "More coming soon",
-            desc: "New Pro-only features added regularly.",
-            icon: "rocket",
-            color: "#9C27B0",
-          },
-        ].map((f, i) => (
-          <View
-            key={i}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              paddingVertical: 10,
-            }}
-          >
-            <Ionicons
-              name={f.icon}
-              size={26}
-              color={f.color}
-              style={{ marginRight: 12 }}
-            />
-            <View style={{ flex: 1 }}>
+            {/* Header */}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: 12,
+                borderBottomWidth: 1,
+                borderBottomColor: theme.border,
+              }}
+            >
               <Text style={{ color: theme.text, fontWeight: "700" }}>
-                {f.title}
+                Get Pro
               </Text>
-              <Text
-                style={{
-                  color: theme.textSecondary,
-                  fontSize: 12,
-                  marginTop: 2,
-                }}
+              <TouchableOpacity onPress={() => setProModalVisible(false)}>
+                <Text style={{ color: colors.primary, fontWeight: "700" }}>
+                  Close
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Scrollable Body */}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ padding: 18 }}
+            >
+              {/* Logo + Title */}
+              <View style={{ alignItems: "center", marginBottom: 12 }}>
+                <View
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 32,
+                    backgroundColor: colors.primary,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 8,
+                  }}
+                >
+                  <Image
+                    source={require("../../../assets/33115791.png")}
+                    style={{
+                      width: 50,
+                      height: 50,
+                      resizeMode: "contain",
+                      shadowColor: "#000",
+                      shadowOpacity: 1,
+                      shadowRadius: 5,
+                      shadowOffset: { width: 0, height: 2 },
+                    }}
+                  />
+                </View>
+
+                <Text
+                  style={{ color: theme.text, fontWeight: "700", fontSize: 18 }}
+                >
+                  SportsHeart Pro
+                </Text>
+              </View>
+
+              {/* Features */}
+              {[
+                {
+                  title: "No ads",
+                  desc: "Enjoy a clean, distraction-free experience.",
+                  icon: "close-circle",
+                  color: "#FF5252",
+                },
+                {
+                  title: "Custom Color Themes",
+                  desc: "Access exclusive color themes for the app.",
+                  icon: "color-palette",
+                  color: "#FF5722",
+                },
+                {
+                  title: "500 extra credits daily",
+                  desc: "Receive extra bonus credits added every day.",
+                  icon: "flash",
+                  color: "#FFC107",
+                },
+                {
+                  title: "Double credit payouts",
+                  desc: "Earn twice the credits on bets.",
+                  icon: "trending-up",
+                  color: "#4CAF50",
+                },
+                {
+                  title: "Player insights",
+                  desc: "Unlock advanced stats to make smarter bets.",
+                  icon: "analytics",
+                  color: "#2196F3",
+                },
+                {
+                  title: "More coming soon",
+                  desc: "New Pro-only features added regularly.",
+                  icon: "rocket",
+                  color: "#9C27B0",
+                },
+              ].map((f, i) => (
+                <View
+                  key={i}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingVertical: 10,
+                  }}
+                >
+                  <Ionicons
+                    name={f.icon}
+                    size={26}
+                    color={f.color}
+                    style={{ marginRight: 12 }}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: theme.text, fontWeight: "700" }}>
+                      {f.title}
+                    </Text>
+                    <Text
+                      style={{
+                        color: theme.textSecondary,
+                        fontSize: 12,
+                        marginTop: 2,
+                      }}
+                    >
+                      {f.desc}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+
+            {/* Fixed Bottom Actions */}
+            <View style={{ paddingHorizontal: 18, paddingBottom: 12 }}>
+              <View
+                style={[styles.packageRow, { marginTop: 12, marginBottom: 12 }]}
               >
-                {f.desc}
-              </Text>
+                <TouchableOpacity
+                  onPress={() => handleBuy("monthly")}
+                  disabled={!monthlyPackage || isPurchasing}
+                  style={[
+                    styles.packageButton,
+                    {
+                      backgroundColor: colors.primary,
+                      opacity: !monthlyPackage || isPurchasing ? 0.6 : 1,
+                    },
+                  ]}
+                >
+                  <Text style={styles.packagePrice}>
+                    {monthlyPackage?.product?.priceString || "$0.00"}
+                  </Text>
+                  <Text style={styles.packageLabel}>Monthly</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => handleBuy("yearly")}
+                  disabled={!yearlyPackage || isPurchasing}
+                  style={[
+                    styles.packageButton,
+                    {
+                      backgroundColor: colors.primary,
+                      opacity: !yearlyPackage || isPurchasing ? 0.6 : 1,
+                    },
+                  ]}
+                >
+                  <Text style={styles.packagePrice}>
+                    {yearlyPackage?.product?.priceString || "$0.00"}
+                  </Text>
+                  <Text style={styles.packageLabel}>Yearly</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => handleBuy("lifetime")}
+                  disabled={!lifetimePackage || isPurchasing}
+                  style={[
+                    styles.packageButton,
+                    {
+                      backgroundColor: colors.primary,
+                      opacity: !lifetimePackage || isPurchasing ? 0.6 : 1,
+                    },
+                  ]}
+                >
+                  <Text style={styles.packagePrice}>
+                    {lifetimePackage?.product?.priceString || "$0.00"}
+                  </Text>
+                  <Text style={styles.packageLabel}>Lifetime</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                onPress={handleRestore}
+                style={styles.dailySecondaryButton}
+              >
+                <Text style={styles.dailySecondaryText}>Restore Purchases</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        ))}
-      </ScrollView>
-
-      {/* Fixed Bottom Actions */}
-      <View style={{ paddingHorizontal: 18, paddingBottom: 12 }}>
-        <View
-          style={[styles.packageRow, { marginTop: 12, marginBottom: 12 }]}
-        >
-          <TouchableOpacity
-            onPress={() => handleBuy("monthly")}
-            disabled={!monthlyPackage || isPurchasing}
-            style={[
-              styles.packageButton,
-              {
-                backgroundColor: colors.primary,
-                opacity: !monthlyPackage || isPurchasing ? 0.6 : 1,
-              },
-            ]}
-          >
-            <Text style={styles.packagePrice}>
-              {monthlyPackage?.product?.priceString || "$0.00"}
-            </Text>
-            <Text style={styles.packageLabel}>Monthly</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => handleBuy("yearly")}
-            disabled={!yearlyPackage || isPurchasing}
-            style={[
-              styles.packageButton,
-              {
-                backgroundColor: colors.primary,
-                opacity: !yearlyPackage || isPurchasing ? 0.6 : 1,
-              },
-            ]}
-          >
-            <Text style={styles.packagePrice}>
-              {yearlyPackage?.product?.priceString || "$0.00"}
-            </Text>
-            <Text style={styles.packageLabel}>Yearly</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => handleBuy("lifetime")}
-            disabled={!lifetimePackage || isPurchasing}
-            style={[
-              styles.packageButton,
-              {
-                backgroundColor: colors.primary,
-                opacity: !lifetimePackage || isPurchasing ? 0.6 : 1,
-              },
-            ]}
-          >
-            <Text style={styles.packagePrice}>
-              {lifetimePackage?.product?.priceString || "$0.00"}
-            </Text>
-            <Text style={styles.packageLabel}>Lifetime</Text>
-          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          onPress={handleRestore}
-          style={styles.dailySecondaryButton}
-        >
-          <Text style={styles.dailySecondaryText}>
-            Restore Purchases
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  </View>
-</Modal>
+      </Modal>
 
       <Modal
         visible={dailyVisible}

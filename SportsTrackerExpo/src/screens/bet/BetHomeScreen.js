@@ -1151,7 +1151,10 @@ const BetHomeScreen = ({ navigation }) => {
                     setDailyLoading(false);
                     if (res && res.success) {
                       const dr = await getDailyRewardState(profileIdForDaily);
-                      console.log("BetHome: refreshed daily state after claim", dr);
+                      console.log(
+                        "BetHome: refreshed daily state after claim",
+                        dr
+                      );
                       setDailyState(dr);
                       Alert.alert(
                         "Success",
