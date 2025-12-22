@@ -4678,10 +4678,10 @@ app.post("/api/promo/redeem", authMiddlewareInline, async (req, res) => {
     const { code } = req.body || {};
     if (!code) return res.status(400).json({ message: "code required" });
 
-    // Look up code
+    // Look up code (include type and metadata so we can honor duration)
     const { data: promoRows, error: promoErr } = await supabaseAdmin
       .from("promo_codes")
-      .select("code, uses, max_uses, expires_at")
+      .select("code, uses, max_uses, expires_at, type, metadata")
       .eq("code", code)
       .limit(1)
       .maybeSingle();
@@ -4690,6 +4690,23 @@ app.post("/api/promo/redeem", authMiddlewareInline, async (req, res) => {
       return res.status(500).json({ message: "lookup failed" });
     }
     const promo = promoRows;
+    // Parse metadata if present (may be stored as JSON string)
+    let promoMeta = null;
+    try {
+      if (promo && promo.metadata) {
+        if (typeof promo.metadata === "string") {
+          try {
+            promoMeta = JSON.parse(promo.metadata);
+          } catch (e) {
+            promoMeta = null;
+          }
+        } else if (typeof promo.metadata === "object") {
+          promoMeta = promo.metadata;
+        }
+      }
+    } catch (e) {
+      promoMeta = null;
+    }
     if (!promo) return res.status(404).json({ message: "code not found" });
 
     // Check expiry
@@ -4727,11 +4744,7 @@ app.post("/api/promo/redeem", authMiddlewareInline, async (req, res) => {
     }
 
     const updates = {};
-    const promoType = (
-      promo.type ||
-      (promo.metadata && promo.metadata.type) ||
-      "lifetime"
-    ).toString();
+    const promoType = (promo.type || (promoMeta && promoMeta.type) || "lifetime").toString();
     // Determine expiry based on promo type (monthly/yearly/lifetime)
     let expiresAt = null;
     try {
