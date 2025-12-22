@@ -17,6 +17,7 @@ import { useBetData } from "../../context/BetDataContext";
 import { supabase } from "../../config/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import OddsDisplayContext from "../../context/OddsDisplayContext";
+import { initPurchases } from "../../services/revenuecat";
 import {
   registerForPushNotifications,
   API_URL,
@@ -307,6 +308,23 @@ const BetLoginScreen = ({ navigation }) => {
       // Success - save credentials including the phone we looked up
       console.log("BetLogin: login successful");
       await saveCredentials(username, password, userPhone);
+      // Identify RevenueCat with Supabase user id so entitlements map to profile
+      (async () => {
+        try {
+          const userId = authData?.user?.id ||
+            (await supabase.auth.getUser()).data?.user?.id;
+          if (userId) {
+            try {
+              await initPurchases(undefined, userId);
+              console.log("BetLogin: RevenueCat identify called", userId);
+            } catch (e) {
+              console.warn("BetLogin: RevenueCat identify failed", e?.message || e);
+            }
+          }
+        } catch (e) {
+          console.warn("BetLogin: initPurchases identify error", e?.message || e);
+        }
+      })();
       // Prefer token returned from signIn; fall back to getSession
       let accessToken =
         authData?.session?.access_token || authData?.access_token || null;

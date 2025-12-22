@@ -91,7 +91,7 @@ const BetSettingsScreen = ({ navigation }) => {
           } else {
             const { data, error } = await supabase
               .from("profiles")
-              .select("username, credits, created_at")
+              .select("username, credits, created_at, is_pro")
               .eq("id", user.id)
               .maybeSingle();
             if (!error && mounted) {
@@ -185,6 +185,7 @@ const BetSettingsScreen = ({ navigation }) => {
   const [proModalVisible, setProModalVisible] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [monthlyPackage, setMonthlyPackage] = useState(null);
+  const [lifetimePackage, setLifetimePackage] = useState(null);
   const [yearlyPackage, setYearlyPackage] = useState(null);
   const [purchasesAvailable, setPurchasesAvailable] = useState(false);
   const [supabaseUserId, setSupabaseUserId] = useState(null);
@@ -445,9 +446,15 @@ const BetSettingsScreen = ({ navigation }) => {
             pkgs.find((p) => p.packageType === "ANNUAL") ||
             pkgs[1] ||
             null;
+          const lifetime =
+            pkgs.find((p) => /life|lifetime|forever|permanent/i.test(p.product.identifier)) ||
+            pkgs.find((p) => /non.?renew/i.test(p.product.identifier)) ||
+            pkgs.find((p) => p.packageType === "LIFETIME") ||
+            null;
           if (mounted) {
             setMonthlyPackage(monthly);
             setYearlyPackage(yearly);
+            setLifetimePackage(lifetime);
             setPurchasesAvailable(true);
           }
         } else {
@@ -477,10 +484,13 @@ const BetSettingsScreen = ({ navigation }) => {
         );
         return;
       }
-      const targetPackage =
-        which === "monthly" ? monthlyPackage : yearlyPackage;
+      let targetPackage = null;
+      if (which === "monthly") targetPackage = monthlyPackage;
+      else if (which === "yearly") targetPackage = yearlyPackage;
+      else if (which === "lifetime") targetPackage = lifetimePackage;
+
       if (!targetPackage) {
-        Alert.alert("Unavailable", "Subscription package not available.");
+        Alert.alert("Unavailable", "Selected package not available.");
         return;
       }
       const purchaseResult = await Purchases.purchasePackage(targetPackage);
@@ -489,6 +499,22 @@ const BetSettingsScreen = ({ navigation }) => {
         "Purchase successful",
         "Thank you — your subscription is active."
       );
+      // Refresh profile from server to pick up pro status
+      try {
+        const refreshed = await getUserProfile();
+        if (refreshed && refreshed.success && refreshed.profile) {
+          setProfile(refreshed.profile);
+          setProfileMeta(refreshed.profile);
+          try {
+            await AsyncStorage.setItem(
+              "@is_pro",
+              refreshed.profile.is_pro ? "1" : "0"
+            );
+          } catch (e) {}
+        }
+      } catch (e) {
+        console.warn("purchase: failed to refresh profile", e?.message || e);
+      }
     } catch (e) {
       console.warn("Purchase failed", e?.message || e);
       Alert.alert("Purchase failed", e?.message || "Unknown error");
@@ -515,6 +541,22 @@ const BetSettingsScreen = ({ navigation }) => {
         "Restore complete",
         "Restore completed; entitlements refreshed."
       );
+      // Refresh profile after restore
+      try {
+        const refreshed = await getUserProfile();
+        if (refreshed && refreshed.success && refreshed.profile) {
+          setProfile(refreshed.profile);
+          setProfileMeta(refreshed.profile);
+          try {
+            await AsyncStorage.setItem(
+              "@is_pro",
+              refreshed.profile.is_pro ? "1" : "0"
+            );
+          } catch (e) {}
+        }
+      } catch (e) {
+        console.warn("restore: failed to refresh profile", e?.message || e);
+      }
     } catch (e) {
       console.warn("Restore failed", e?.message || e);
       Alert.alert("Restore failed", e?.message || "Unknown error");
@@ -523,6 +565,10 @@ const BetSettingsScreen = ({ navigation }) => {
 
   // Redeem promo code (calls server /api/promo/redeem)
   const handleRedeemPromo = async () => {
+    if (profile && profile.is_pro) {
+      setRedeemMessage("You already have Pro");
+      return;
+    }
     try {
       setRedeemMessage(null);
       const code = (promoCodeInput || "").trim();
@@ -560,19 +606,54 @@ const BetSettingsScreen = ({ navigation }) => {
       if (!resp.ok) {
         setRedeemMessage(json?.message || "Redeem failed");
       } else {
-        setRedeemMessage("Promo applied — enjoy Pro!");
-        // refresh profile state
+        // If server returned already_pro, respect that
+        if (json?.message === "already_pro") {
+          setRedeemMessage("You already have Pro");
+          // refresh profile
+          const { data: userData } = await supabase.auth.getUser();
+          const userId = userData?.user?.id || null;
+          if (userId) {
+            const { data: profileRow } = await supabase
+              .from("profiles")
+              .select("id, is_pro, credits")
+              .eq("id", userId)
+              .maybeSingle();
+            if (profileRow) setProfile(profileRow);
+          }
+        } else {
+          setRedeemMessage("Promo applied — enjoy Pro!");
+          // clear input
+          setPromoCodeInput("");
+        // refresh profile state: fetch full profile from Supabase to preserve username/is_pro
         try {
-          const { data: profileRow } = await supabase
-            .from("profiles")
-            .select("id, is_pro, credits")
-            .eq("id", profile?.id || profile?.user_id)
-            .maybeSingle();
-          if (profileRow) setProfile(profileRow);
+          const { data: userData } = await supabase.auth.getUser();
+          const userId = userData?.user?.id || null;
+          if (userId) {
+            const { data: profileRow, error: pErr } = await supabase
+              .from("profiles")
+              .select("id, username, is_pro, credits, created_at")
+              .eq("id", userId)
+              .maybeSingle();
+            if (profileRow) {
+              setProfile(profileRow);
+              setProfileMeta(profileRow);
+            } else if (json && json.profile) {
+              // fallback: merge returned profile fields with existing
+              setProfile((prev) => ({ ...(prev || {}), ...(json.profile || {}) }));
+              setProfileMeta((prev) => ({ ...(prev || {}), ...(json.profile || {}) }));
+            } else {
+              console.warn("promo redeem: could not refresh profile (no user id and no server profile)");
+            }
+          } else if (json && json.profile) {
+            setProfile((prev) => ({ ...(prev || {}), ...(json.profile || {}) }));
+            setProfileMeta((prev) => ({ ...(prev || {}), ...(json.profile || {}) }));
+          } else {
+            console.warn("promo redeem: could not determine current user id to refresh profile");
+          }
         } catch (e) {
-          /* ignore */
+          console.warn("promo refresh profile error", e?.message || e);
         }
-      }
+      }}
     } catch (e) {
       console.warn("promo redeem error", e?.message || e);
       setRedeemMessage("Redeem failed");
@@ -907,49 +988,55 @@ const BetSettingsScreen = ({ navigation }) => {
               borderTopColor: theme.border,
             }}
           >
-            <Text
-              style={[
-                styles.settingLabel,
-                { color: theme.text, marginBottom: 8 },
-              ]}
-            >
-              Have a promo code?
-            </Text>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <TextInput
-                value={promoCodeInput}
-                onChangeText={setPromoCodeInput}
-                placeholder="Enter promo code"
-                placeholderTextColor={theme.textSecondary}
-                style={{
-                  flex: 1,
-                  paddingVertical: 10,
-                  paddingHorizontal: 12,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: theme.border,
-                  color: theme.text,
-                  marginRight: 8,
-                }}
-              />
-              <TouchableOpacity
-                onPress={handleRedeemPromo}
-                style={[
-                  styles.openSettingsButton,
-                  { backgroundColor: colors.primary, paddingVertical: 10 },
-                ]}
-                disabled={redeemLoading}
-              >
-                <Text style={styles.openSettingsButtonText}>
-                  {redeemLoading ? "Redeeming..." : "Redeem"}
+            {profile && profile.is_pro ? (
+              <Text style={[styles.settingLabel, { color: theme.text }]}>You have Pro access</Text>
+            ) : (
+              <>
+                <Text
+                  style={[
+                    styles.settingLabel,
+                    { color: theme.text, marginBottom: 8 },
+                  ]}
+                >
+                  Have a promo code?
                 </Text>
-              </TouchableOpacity>
-            </View>
-            {redeemMessage ? (
-              <Text style={{ color: theme.textSecondary, marginTop: 8 }}>
-                {redeemMessage}
-              </Text>
-            ) : null}
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <TextInput
+                    value={promoCodeInput}
+                    onChangeText={setPromoCodeInput}
+                    placeholder="Enter promo code"
+                    placeholderTextColor={theme.textSecondary}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 10,
+                      paddingHorizontal: 12,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: theme.border,
+                      color: theme.text,
+                      marginRight: 8,
+                    }}
+                  />
+                  <TouchableOpacity
+                    onPress={handleRedeemPromo}
+                    style={[
+                      styles.openSettingsButton,
+                      { backgroundColor: colors.primary, paddingVertical: 10 },
+                    ]}
+                    disabled={redeemLoading}
+                  >
+                    <Text style={styles.openSettingsButtonText}>
+                      {redeemLoading ? "Redeeming..." : "Redeem"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {redeemMessage ? (
+                  <Text style={{ color: theme.textSecondary, marginTop: 8 }}>
+                    {redeemMessage}
+                  </Text>
+                ) : null}
+              </>
+            )}
           </View>
         </View>
       </View>
@@ -1198,9 +1285,14 @@ const BetSettingsScreen = ({ navigation }) => {
                     // Lifetime may be configured as a non-renewing entitlement in RevenueCat
                     handleBuy("lifetime");
                   }}
+                  disabled={!lifetimePackage || isPurchasing}
                   style={[
                     styles.dailyPrimaryButton,
-                    { backgroundColor: colors.primary, marginBottom: 8 },
+                    {
+                      backgroundColor: colors.primary,
+                      marginBottom: 8,
+                      opacity: !lifetimePackage || isPurchasing ? 0.6 : 1,
+                    },
                   ]}
                 >
                   <Text style={[styles.dailyPrimaryText]}>Buy Lifetime</Text>

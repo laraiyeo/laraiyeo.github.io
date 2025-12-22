@@ -4530,42 +4530,93 @@ app.post("/revenuecat/webhook", async (req, res) => {
 
     // If appUserId looks like a UUID, attempt to link to profiles table and mark pro status
     try {
-      if (
-        appUserId &&
-        typeof appUserId === "string" &&
-        appUserId.includes("-")
-      ) {
-        // Try to update a profile matching this UUID
-        const { data: prof, error: profErr } = await supabaseAdmin
+      // Determine entitlements from payload (defensive parsing)
+      let entitlements =
+        payload?.subscriber?.entitlements || payload?.data?.entitlements || null;
+
+      // Helper: decide if user currently has an active pro entitlement
+      let hasActive = false;
+      let latestExpiry = null;
+      if (entitlements && typeof entitlements === "object") {
+        for (const k of Object.keys(entitlements)) {
+          const ent = entitlements[k] || {};
+          // common expiry fields
+          const expiryStr =
+            ent.expires_date || ent.expiration_date || ent.expires_at || ent.expire_date || null;
+          const isActiveFlag = ent.is_active || ent.active || null;
+          if (expiryStr) {
+            const ex = new Date(expiryStr);
+            if (!isNaN(ex.getTime())) {
+              if (ex.getTime() > Date.now()) {
+                hasActive = true;
+                if (!latestExpiry || ex.getTime() > new Date(latestExpiry).getTime()) {
+                  latestExpiry = ex.toISOString();
+                }
+              }
+            }
+          } else if (isActiveFlag) {
+            if (isActiveFlag === true) hasActive = true;
+          }
+        }
+      } else {
+        // Fallback heuristics: purchase events imply active
+        if (/(purchase|initial_purchase|INITIAL_PURCHASE)/i.test(eventType)) {
+          hasActive = true;
+        }
+      }
+
+      // locate profile either by id (uuid) or by revenuecat_id mapping
+      let profileLookupId = null;
+      let prof = null;
+      if (appUserId && typeof appUserId === "string") {
+        // If appUserId looks like a UUID, prefer direct id lookup
+        if (appUserId.includes("-")) {
+          profileLookupId = appUserId;
+        } else {
+          // try to find profile by stored revenuecat_id
+          try {
+            const { data: found, error: foundErr } = await supabaseAdmin
+              .from("profiles")
+              .select("id")
+              .eq("revenuecat_id", appUserId)
+              .maybeSingle();
+            if (!foundErr && found) profileLookupId = found.id;
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+
+      if (profileLookupId) {
+        const { data: profRow, error: profErr } = await supabaseAdmin
           .from("profiles")
           .select("id")
-          .eq("id", appUserId)
+          .eq("id", profileLookupId)
           .maybeSingle();
+        if (!profErr && profRow) prof = profRow;
+      }
 
-        if (!profErr && prof) {
-          // Attempt to set a conservative mapping column if present
-          try {
-            await supabaseAdmin
-              .from("profiles")
-              .update({ revenuecat_id: appUserId })
-              .eq("id", appUserId);
-          } catch (e) {
-            // ignore if column missing
-          }
+      if (prof) {
+        // Attempt to update mapping and pro metadata
+        try {
+          await supabaseAdmin
+            .from("profiles")
+            .update({ revenuecat_id: appUserId })
+            .eq("id", prof.id);
+        } catch (e) {
+          // ignore if column missing
+        }
 
-          // If product indicates a pro package, try to set an 'is_pro' flag if column exists
-          const isProProduct =
-            productId && productId.includes("sportsheart.pro");
-          if (isProProduct) {
-            try {
-              await supabaseAdmin
-                .from("profiles")
-                .update({ is_pro: true })
-                .eq("id", appUserId);
-            } catch (e) {
-              // ignore if column missing
-            }
-          }
+        try {
+          const updateObj = {
+            is_pro: !!hasActive,
+            pro_expires_at: latestExpiry || null,
+            pro_product_id: productId || null,
+            pro_source: "revenuecat",
+          };
+          await supabaseAdmin.from("profiles").update(updateObj).eq("id", prof.id);
+        } catch (e) {
+          console.warn("Failed to update profile pro metadata", e?.message || e);
         }
       }
     } catch (e) {
@@ -4639,25 +4690,59 @@ app.post("/api/promo/redeem", authMiddlewareInline, async (req, res) => {
     const profileId = req.userId;
     if (!profileId) return res.status(401).json({ message: "Unauthorized" });
 
-    const updates = {};
-    const promoType = promo.type || promo.metadata?.type || "lifetime";
-    // For now, any promo type grants is_pro = true; future: handle expirations
-    if (
-      promoType === "lifetime" ||
-      promoType === "pro" ||
-      promoType === "free"
-    ) {
-      updates.is_pro = true;
-    } else {
-      // default conservative behavior
-      updates.is_pro = true;
+    // Fetch current profile to check existing pro status
+    let profileRow = null;
+    try {
+      const { data: p, error: pErr } = await supabaseAdmin
+        .from("profiles")
+        .select("id, is_pro")
+        .eq("id", profileId)
+        .maybeSingle();
+      if (pErr) {
+        console.warn("promo redeem: profile lookup failed", pErr);
+      } else {
+        profileRow = p;
+      }
+    } catch (e) {
+      console.warn("promo redeem: profile lookup exception", e?.message || e);
     }
+
+    if (profileRow && profileRow.is_pro) {
+      return res.status(400).json({ message: "already_pro" });
+    }
+
+    const updates = {};
+    const promoType = (promo.type || (promo.metadata && promo.metadata.type) || "lifetime").toString();
+    // Determine expiry based on promo type (monthly/yearly/lifetime)
+    let expiresAt = null;
+    try {
+      const now = new Date();
+      if (/month/i.test(promoType)) {
+        const d = new Date(now);
+        d.setMonth(d.getMonth() + 1);
+        expiresAt = d.toISOString();
+      } else if (/year|annual/i.test(promoType)) {
+        const d = new Date(now);
+        d.setFullYear(d.getFullYear() + 1);
+        expiresAt = d.toISOString();
+      } else {
+        // lifetime or unknown types -> no expiry
+        expiresAt = null;
+      }
+    } catch (e) {
+      expiresAt = null;
+    }
+
+    updates.is_pro = true;
+    updates.pro_source = "promo";
+    updates.pro_expires_at = expiresAt;
+    updates.pro_product_id = promoType || null;
 
     const { data: upd, error: updErr } = await supabaseAdmin
       .from("profiles")
       .update(updates)
       .eq("id", profileId)
-      .select("id, is_pro")
+      .select("id, is_pro, pro_expires_at, pro_product_id, pro_source")
       .maybeSingle();
     if (updErr) {
       console.error("promo redeem: profile update failed", updErr);
@@ -4674,6 +4759,19 @@ app.post("/api/promo/redeem", authMiddlewareInline, async (req, res) => {
       console.warn("promo decrement failed", e?.message || e);
     }
 
+    // Fetch updated promo row for response
+    let updatedPromo = null;
+    try {
+      const { data: pr, error: prErr } = await supabaseAdmin
+        .from("promo_codes")
+        .select("code, uses, type, expires_at")
+        .eq("code", code)
+        .maybeSingle();
+      if (!prErr) updatedPromo = pr;
+    } catch (e) {
+      /* ignore */
+    }
+
     // Insert audit row
     try {
       await supabaseAdmin.from("revenue_events").insert({
@@ -4686,7 +4784,7 @@ app.post("/api/promo/redeem", authMiddlewareInline, async (req, res) => {
       /* ignore */
     }
 
-    return res.json({ ok: true, profile: upd });
+    return res.json({ ok: true, profile: upd, promo: updatedPromo });
   } catch (e) {
     console.error("/api/promo/redeem error", e?.message || e);
     return res.status(500).json({ message: "server error" });
