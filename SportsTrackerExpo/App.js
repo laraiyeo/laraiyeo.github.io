@@ -37,6 +37,9 @@ import { PresenceService } from "./src/services/PresenceService";
 
 // Import streaming utils
 import { useStreamingAccess } from "./src/utils/streamingUtils";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { initPurchases, getCustomerInfo, isEntitled } from "./src/services/revenuecat";
+import { supabase } from "./src/config/supabase";
 
 // Custom header title component that disables font scaling
 const HeaderTitle = ({ children, style }) => {
@@ -2018,6 +2021,47 @@ const AppContent = () => {
     };
 
     initializePresence();
+  }, []);
+
+  // Initialize RevenueCat Purchases and sync entitlement state
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        // attempt to get current supabase user id
+        let userId = null;
+        try {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (user && user.id) userId = user.id;
+        } catch (e) {
+          console.warn("RevenueCat: failed to read supabase user", e?.message || e);
+        }
+
+        const initRes = await initPurchases(undefined, userId);
+        console.log("RevenueCat init result", initRes && initRes.ok);
+        // fetch customer info and persist entitlement quick-lookup
+        try {
+          const info = await getCustomerInfo();
+          const entitled = isEntitled(info, "SportsHeart Pro");
+          if (mounted) {
+            if (entitled) {
+              await AsyncStorage.setItem("@is_pro", "1");
+            } else {
+              await AsyncStorage.removeItem("@is_pro");
+            }
+          }
+        } catch (e) {
+          console.warn("RevenueCat: failed to get customer info", e?.message || e);
+        }
+      } catch (e) {
+        console.warn("RevenueCat initialization failed", e?.message || e);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Check for app updates on startup

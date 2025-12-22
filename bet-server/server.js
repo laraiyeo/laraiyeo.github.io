@@ -3,6 +3,7 @@ const cors = require("cors");
 const axios = require("axios");
 const cron = require("node-cron");
 require("dotenv").config();
+const crypto = require("crypto");
 
 // Supabase admin client and inlined services
 const { createClient } = require("@supabase/supabase-js");
@@ -599,7 +600,18 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+// Capture raw request body for webhook signature verification
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      try {
+        req.rawBody = buf;
+      } catch (e) {
+        req.rawBody = null;
+      }
+    },
+  })
+);
 
 // Backwards-compatibility aliases: map singular /api/betslip (used by client)
 // to the plural /api/betslips routes implemented in this server. We only
@@ -4443,6 +4455,196 @@ app.post("/internal/debug/send-push-to-profile", async (req, res) => {
 });
 
 // NOTE: debug minute-notifier endpoints removed; notifier starts automatically on bet placement for short testing.
+
+// RevenueCat webhook endpoint: verify signature and persist event + attempt to link to profiles
+app.post("/revenuecat/webhook", async (req, res) => {
+  try {
+    const raw = req.rawBody ? req.rawBody.toString() : null;
+    const payload = raw ? JSON.parse(raw) : req.body;
+
+    const signatureHeader =
+      (req.headers["x-revenuecat-signature"] || req.headers["revenuecat-signature"] || "") + "";
+    const secret = process.env.REVENUECAT_WEBHOOK_SECRET || null;
+
+    if (secret && raw) {
+      const expected = crypto.createHmac("sha256", secret).update(raw).digest("hex");
+      if (!signatureHeader || signatureHeader !== expected) {
+        console.warn("RevenueCat webhook signature mismatch", {
+          got: signatureHeader,
+          expected: expected,
+        });
+        return res.status(401).json({ ok: false, message: "invalid signature" });
+      }
+    } else if (!secret) {
+      console.warn("REVENUECAT_WEBHOOK_SECRET not set; skipping signature verification");
+    }
+
+    const appUserId = payload?.app_user_id || payload?.data?.app_user_id || payload?.subscriber?.app_user_id || null;
+    const eventType = payload?.type || payload?.event || "revenuecat.event";
+    const productId = payload?.data?.product_id || payload?.data?.product_identifier || payload?.data?.store_product_id || null;
+
+    // Persist raw event into a revenue_events table for later inspection (if table exists)
+    try {
+      await supabaseAdmin.from("revenue_events").insert({
+        revenuecat_id: appUserId,
+        event_type: eventType,
+        product_id: productId,
+        payload: payload,
+      });
+    } catch (e) {
+      console.warn("revenue_events insert failed (table may not exist)", e?.message || e);
+    }
+
+    // If appUserId looks like a UUID, attempt to link to profiles table and mark pro status
+    try {
+      if (appUserId && typeof appUserId === "string" && appUserId.includes("-")) {
+        // Try to update a profile matching this UUID
+        const { data: prof, error: profErr } = await supabaseAdmin
+          .from("profiles")
+          .select("id")
+          .eq("id", appUserId)
+          .maybeSingle();
+
+        if (!profErr && prof) {
+          // Attempt to set a conservative mapping column if present
+          try {
+            await supabaseAdmin
+              .from("profiles")
+              .update({ revenuecat_id: appUserId })
+              .eq("id", appUserId);
+          } catch (e) {
+            // ignore if column missing
+          }
+
+          // If product indicates a pro package, try to set an 'is_pro' flag if column exists
+          const isProProduct = productId && productId.includes("sportsheart.pro");
+          if (isProProduct) {
+            try {
+              await supabaseAdmin
+                .from("profiles")
+                .update({ is_pro: true })
+                .eq("id", appUserId);
+            } catch (e) {
+              // ignore if column missing
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("RevenueCat webhook profile link attempt failed", e?.message || e);
+    }
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("/revenuecat/webhook error", e?.message || e);
+    return res.status(500).json({ ok: false });
+  }
+});
+
+// Admin: grant or revoke `is_pro` for a profile (requires auth)
+app.post("/api/admin/pro", authMiddlewareInline, async (req, res) => {
+  try {
+    const { profile_id, is_pro } = req.body || {};
+    if (!profile_id) return res.status(400).json({ message: "profile_id required" });
+    const val = !!is_pro;
+    const { data, error } = await supabaseAdmin
+      .from("profiles")
+      .update({ is_pro: val })
+      .eq("id", profile_id)
+      .select("id, is_pro")
+      .maybeSingle();
+    if (error) {
+      console.error("/api/admin/pro update error", error);
+      return res.status(500).json({ message: "update failed" });
+    }
+    return res.json({ ok: true, profile: data });
+  } catch (e) {
+    console.error("/api/admin/pro error", e?.message || e);
+    return res.status(500).json({ message: "server error" });
+  }
+});
+
+// Promo code redeem endpoint: authenticated users can redeem a code to get pro
+app.post("/api/promo/redeem", authMiddlewareInline, async (req, res) => {
+  try {
+    const { code } = req.body || {};
+    if (!code) return res.status(400).json({ message: "code required" });
+
+    // Look up code
+    const { data: promoRows, error: promoErr } = await supabaseAdmin
+      .from("promo_codes")
+      .select("code, uses, max_uses, expires_at")
+      .eq("code", code)
+      .limit(1)
+      .maybeSingle();
+    if (promoErr) {
+      console.error("promo lookup failed", promoErr);
+      return res.status(500).json({ message: "lookup failed" });
+    }
+    const promo = promoRows;
+    if (!promo) return res.status(404).json({ message: "code not found" });
+
+    // Check expiry
+    if (promo.expires_at && new Date(promo.expires_at) < new Date())
+      return res.status(400).json({ message: "code expired" });
+
+    // Check uses (we track remaining uses in `uses`)
+    const remaining = Number(promo.uses || 0);
+    if (remaining <= 0) return res.status(400).json({ message: "code exhausted" });
+
+    // Mark profile as pro (type-aware)
+    const profileId = req.userId;
+    if (!profileId) return res.status(401).json({ message: "Unauthorized" });
+
+    const updates = {};
+    const promoType = promo.type || promo.metadata?.type || "lifetime";
+    // For now, any promo type grants is_pro = true; future: handle expirations
+    if (promoType === "lifetime" || promoType === "pro" || promoType === "free") {
+      updates.is_pro = true;
+    } else {
+      // default conservative behavior
+      updates.is_pro = true;
+    }
+
+    const { data: upd, error: updErr } = await supabaseAdmin
+      .from("profiles")
+      .update(updates)
+      .eq("id", profileId)
+      .select("id, is_pro")
+      .maybeSingle();
+    if (updErr) {
+      console.error("promo redeem: profile update failed", updErr);
+      return res.status(500).json({ message: "failed to set pro" });
+    }
+
+    // Decrement remaining uses (best-effort, not strictly transactional)
+    try {
+      await supabaseAdmin
+        .from("promo_codes")
+        .update({ uses: Math.max(0, remaining - 1) })
+        .eq("code", code);
+    } catch (e) {
+      console.warn("promo decrement failed", e?.message || e);
+    }
+
+    // Insert audit row
+    try {
+      await supabaseAdmin.from("revenue_events").insert({
+        revenuecat_id: profileId,
+        event_type: "promo.redeemed",
+        product_id: code,
+        payload: { profile: profileId, code },
+      });
+    } catch (e) {
+      /* ignore */
+    }
+
+    return res.json({ ok: true, profile: upd });
+  } catch (e) {
+    console.error("/api/promo/redeem error", e?.message || e);
+    return res.status(500).json({ message: "server error" });
+  }
+});
 
 app.delete(
   "/api/betslips/:id/watch",

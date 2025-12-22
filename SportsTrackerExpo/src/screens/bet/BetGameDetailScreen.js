@@ -2658,17 +2658,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               : team2Color;
                           const isScoring = !!p.scoringPlay;
 
-                          // Debug log
-                          console.log("[PlayOverlay] render play", {
-                            idx,
-                            espnX,
-                            espnY,
-                            ourXPercent,
-                            ourYPercent,
-                            actualX,
-                            actualY,
-                          });
-
                           return (
                             <View
                               key={`play-${idx}`}

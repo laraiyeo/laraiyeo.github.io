@@ -8,6 +8,8 @@ import {
   ScrollView,
   Modal,
   Dimensions,
+  Alert,
+  TextInput,
 } from "react-native";
 import { useTheme } from "../../context/ThemeContext";
 import { supabase } from "../../config/supabase";
@@ -19,6 +21,7 @@ import {
   getDailyRewardState,
   claimDailyReward,
 } from "../../services/betService";
+import { initPurchases, getOfferings, getCustomerInfo } from "../../services/revenuecat";
 
 const BetSettingsScreen = ({ navigation }) => {
   const { theme, colors } = useTheme();
@@ -173,6 +176,21 @@ const BetSettingsScreen = ({ navigation }) => {
   const screenWidth = Dimensions.get("window").width;
   const width = screenWidth - 64; // modal padding
   const sidePadding = Math.max(12, Math.round((screenWidth - width) / 2));
+
+  // Purchases / RevenueCat UI state
+  const [proModalVisible, setProModalVisible] = useState(false);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [monthlyPackage, setMonthlyPackage] = useState(null);
+  const [yearlyPackage, setYearlyPackage] = useState(null);
+  const [purchasesAvailable, setPurchasesAvailable] = useState(false);
+  const [supabaseUserId, setSupabaseUserId] = useState(null);
+  const [debugVisible, setDebugVisible] = useState(false);
+  const [debugLoading, setDebugLoading] = useState(false);
+  const [debugResult, setDebugResult] = useState(null);
+  // Promo code redeem state
+  const [promoCodeInput, setPromoCodeInput] = useState("");
+  const [redeemLoading, setRedeemLoading] = useState(false);
+  const [redeemMessage, setRedeemMessage] = useState(null);
 
   const infoPages = [
     {
@@ -367,6 +385,160 @@ const BetSettingsScreen = ({ navigation }) => {
       if (timer) clearInterval(timer);
     };
   }, [dailyVisible, dailyState]);
+
+  // capture supabase user id for RevenueCat mapping
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (mounted && user && user.id) setSupabaseUserId(user.id);
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Initialize RevenueCat Purchases SDK if available (graceful fallback)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        // Use our helper which provides a default test key
+        const initRes = await initPurchases(undefined, supabaseUserId);
+        if (!initRes || !initRes.ok) {
+          console.warn("RevenueCat init failed or skipped", initRes && initRes.error);
+          if (mounted) setPurchasesAvailable(false);
+          return;
+        }
+
+        // fetch offerings via helper
+        const offerings = await getOfferings();
+        if (offerings) {
+          // Prefer the project offering named `com.sportsheart.pro` if present
+          const preferredOffering =
+            (offerings.all && offerings.all["com.sportsheart.pro"]) || offerings.current || null;
+          const pkgs = (preferredOffering && preferredOffering.availablePackages) || [];
+          // try to find by packageType or product identifier patterns
+          const monthly = pkgs.find((p) => /month|monthly/i.test(p.product.identifier)) || pkgs.find((p) => p.packageType === "MONTHLY") || pkgs[0] || null;
+          const yearly = pkgs.find((p) => /year|annual/i.test(p.product.identifier)) || pkgs.find((p) => p.packageType === "ANNUAL") || pkgs[1] || null;
+          if (mounted) {
+            setMonthlyPackage(monthly);
+            setYearlyPackage(yearly);
+            setPurchasesAvailable(true);
+          }
+        } else {
+          if (mounted) setPurchasesAvailable(false);
+        }
+      } catch (e) {
+        console.warn("RevenueCat init error", e?.message || e);
+        if (mounted) setPurchasesAvailable(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [supabaseUserId]);
+
+  // Purchase handlers (use Purchases SDK where available)
+  const handleBuy = async (which) => {
+    try {
+      setIsPurchasing(true);
+      let Purchases;
+      try {
+        Purchases = require("react-native-purchases").default;
+      } catch (e) {
+        Alert.alert("Purchases not available", "Native Purchases SDK is not installed. See setup instructions.");
+        return;
+      }
+      const targetPackage = which === "monthly" ? monthlyPackage : yearlyPackage;
+      if (!targetPackage) {
+        Alert.alert("Unavailable", "Subscription package not available.");
+        return;
+      }
+      const purchaseResult = await Purchases.purchasePackage(targetPackage);
+      console.log("Purchase result", purchaseResult);
+      Alert.alert("Purchase successful", "Thank you — your subscription is active.");
+    } catch (e) {
+      console.warn("Purchase failed", e?.message || e);
+      Alert.alert("Purchase failed", e?.message || "Unknown error");
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    try {
+      let Purchases;
+      try {
+        Purchases = require("react-native-purchases").default;
+      } catch (e) {
+        Alert.alert("Restore not available", "Native Purchases SDK is not installed. See setup instructions.");
+        return;
+      }
+      const restored = await Purchases.restoreTransactions();
+      console.log("Restore result", restored);
+      Alert.alert("Restore complete", "Restore completed; entitlements refreshed.");
+    } catch (e) {
+      console.warn("Restore failed", e?.message || e);
+      Alert.alert("Restore failed", e?.message || "Unknown error");
+    }
+  };
+
+  // Redeem promo code (calls server /api/promo/redeem)
+  const handleRedeemPromo = async () => {
+    try {
+      setRedeemMessage(null);
+      const code = (promoCodeInput || "").trim();
+      if (!code) return setRedeemMessage("Enter a promo code");
+      setRedeemLoading(true);
+      const token = await AsyncStorage.getItem("@bet_token");
+      const base =
+        process.env.PUBLIC_API_URL ||
+        "https://laraiyeogithubio-production-f5af.up.railway.app";
+      if (!base) {
+        setRedeemMessage("Server not configured");
+        setRedeemLoading(false);
+        return;
+      }
+      const url = base.replace(/\/$/, "") + "/api/promo/redeem";
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+        body: JSON.stringify({ code }),
+      });
+      const json = await resp.json();
+      if (!resp.ok) {
+        setRedeemMessage(json?.message || "Redeem failed");
+      } else {
+        setRedeemMessage("Promo applied — enjoy Pro!");
+        // refresh profile state
+        try {
+          const { data: profileRow } = await supabase
+            .from("profiles")
+            .select("id, is_pro, credits")
+            .eq("id", profile?.id || profile?.user_id)
+            .maybeSingle();
+          if (profileRow) setProfile(profileRow);
+        } catch (e) {
+          /* ignore */
+        }
+      }
+    } catch (e) {
+      console.warn("promo redeem error", e?.message || e);
+      setRedeemMessage("Redeem failed");
+    } finally {
+      setRedeemLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -648,6 +820,75 @@ const BetSettingsScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         </View>
+
+                <View
+          style={[
+            styles.section,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
+        >
+          <View
+            style={[styles.sectionHeader, { borderBottomColor: theme.border }]}
+          >
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                Get Pro
+            </Text>
+          </View>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>
+                  SportsHeart Pro
+                </Text>
+                <Text
+                  style={[
+                    styles.settingDescription,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  Unlock premium features: no ads, advanced analytics, and more.
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setProModalVisible(true)}
+                style={[
+                  styles.openSettingsButton,
+                  { backgroundColor: colors.primary, minWidth: 100 },
+                ]}
+              >
+                <Text style={styles.openSettingsButtonText}>Get Pro</Text>
+              </TouchableOpacity>
+            </View>
+            {/* Promo code redeem UI */}
+            <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: theme.border }}>
+              <Text style={[styles.settingLabel, { color: theme.text, marginBottom: 8 }]}>Have a promo code?</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TextInput
+                  value={promoCodeInput}
+                  onChangeText={setPromoCodeInput}
+                  placeholder="Enter promo code"
+                  placeholderTextColor={theme.textSecondary}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: theme.border,
+                    color: theme.text,
+                    marginRight: 8,
+                  }}
+                />
+                <TouchableOpacity
+                  onPress={handleRedeemPromo}
+                  style={[styles.openSettingsButton, { backgroundColor: colors.primary, paddingVertical: 10 }]}
+                  disabled={redeemLoading}
+                >
+                  <Text style={styles.openSettingsButtonText}>{redeemLoading ? 'Redeeming...' : 'Redeem'}</Text>
+                </TouchableOpacity>
+              </View>
+              {redeemMessage ? <Text style={{ color: theme.textSecondary, marginTop: 8 }}>{redeemMessage}</Text> : null}
+            </View>
+        </View>
       </View>
 
       <Modal
@@ -767,6 +1008,157 @@ const BetSettingsScreen = ({ navigation }) => {
                   </Text>
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        visible={debugVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setDebugVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: 12,
+                borderBottomWidth: 1,
+                borderBottomColor: theme.border,
+              }}
+            >
+              <Text style={{ color: theme.text, fontWeight: "700" }}>RevenueCat Debug</Text>
+              <TouchableOpacity onPress={() => setDebugVisible(false)}>
+                <Text style={{ color: colors.primary, fontWeight: "700" }}>
+                  Close
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ padding: 12, maxHeight: 440 }}>
+              <ScrollView>
+                <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
+                  {debugResult ? JSON.stringify(debugResult, null, 2) : "No debug data yet."}
+                </Text>
+              </ScrollView>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        visible={proModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setProModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: 12,
+                borderBottomWidth: 1,
+                borderBottomColor: theme.border,
+              }}
+            >
+              <Text style={{ color: theme.text, fontWeight: "700" }}>Get Pro</Text>
+              <TouchableOpacity onPress={() => setProModalVisible(false)}>
+                <Text style={{ color: colors.primary, fontWeight: "700" }}>
+                  Close
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ padding: 18 }}>
+              <Text style={{ color: theme.text, fontWeight: "700", fontSize: 16, marginBottom: 6 }}>
+                Upgrade to SportsHeart Pro
+              </Text>
+              <Text style={{ color: theme.textSecondary, marginBottom: 18 }}>
+                Monthly, Yearly, or Lifetime options. Subscriptions auto-renew.
+              </Text>
+
+              <View style={{ marginBottom: 12 }}>
+                <TouchableOpacity
+                  onPress={() => handleBuy("monthly")}
+                  style={[
+                    styles.dailyPrimaryButton,
+                    { backgroundColor: colors.primary, marginBottom: 8 },
+                  ]}
+                >
+                  {isPurchasing ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={[styles.dailyPrimaryText]}>Buy Monthly</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => handleBuy("yearly")}
+                  style={[
+                    styles.dailyPrimaryButton,
+                    { backgroundColor: colors.primary, marginBottom: 8 },
+                  ]}
+                >
+                  <Text style={[styles.dailyPrimaryText]}>Buy Yearly</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    // Lifetime may be configured as a non-renewing entitlement in RevenueCat
+                    handleBuy("lifetime");
+                  }}
+                  style={[
+                    styles.dailyPrimaryButton,
+                    { backgroundColor: colors.primary, marginBottom: 8 },
+                  ]}
+                >
+                  <Text style={[styles.dailyPrimaryText]}>Buy Lifetime</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity onPress={handleRestore} style={styles.dailySecondaryButton}>
+                <Text style={styles.dailySecondaryText}>Restore Purchases</Text>
+              </TouchableOpacity>
+
+              <View style={{ height: 12 }} />
+              <TouchableOpacity
+                onPress={async () => {
+                  setDebugLoading(true);
+                  setDebugResult(null);
+                  try {
+                    const initRes = await initPurchases(undefined, supabaseUserId);
+                    const offerings = await getOfferings();
+                    const info = await getCustomerInfo();
+                    setDebugResult({ initRes, offerings, customerInfo: info });
+                    setDebugVisible(true);
+                  } catch (e) {
+                    setDebugResult({ error: e?.message || String(e) });
+                    setDebugVisible(true);
+                  } finally {
+                    setDebugLoading(false);
+                  }
+                }}
+                style={[styles.dailySecondaryButton, { marginTop: 8 }]}
+              >
+                <Text style={styles.dailySecondaryText}>
+                  {debugLoading ? "Running debug..." : "Run RevenueCat Debug"}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
