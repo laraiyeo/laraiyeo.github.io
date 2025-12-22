@@ -819,12 +819,18 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
       if (verifyErr) {
         console.warn("/api/daily/claim: verify read failed", verifyErr);
       } else {
-        console.log("/api/daily/claim: verify profile after update:", verifyRow);
-        if (typeof verifyRow.credits !== "undefined" && Number(verifyRow.credits) !== Number(newCredits)) {
-          console.warn(
-            "/api/daily/claim: credits mismatch after update",
-            { expected: newCredits, actual: verifyRow.credits }
-          );
+        console.log(
+          "/api/daily/claim: verify profile after update:",
+          verifyRow
+        );
+        if (
+          typeof verifyRow.credits !== "undefined" &&
+          Number(verifyRow.credits) !== Number(newCredits)
+        ) {
+          console.warn("/api/daily/claim: credits mismatch after update", {
+            expected: newCredits,
+            actual: verifyRow.credits,
+          });
         }
         if (verifyRow.daily_claimed !== true) {
           console.warn(
@@ -834,7 +840,10 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
         }
       }
     } catch (verifyEx) {
-      console.warn("/api/daily/claim: verify read exception", verifyEx?.message || verifyEx);
+      console.warn(
+        "/api/daily/claim: verify read exception",
+        verifyEx?.message || verifyEx
+      );
     }
 
     return res.json({ success: true, user: updatedProfile, day, reward });
