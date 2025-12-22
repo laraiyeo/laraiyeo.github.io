@@ -32,7 +32,7 @@ import {
 
 const BetSettingsScreen = ({ navigation }) => {
   const { theme, colors } = useTheme();
-  const { isPro } = useBetSlip();
+  const { isPro, setIsPro } = useBetSlip();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [profileMeta, setProfileMeta] = useState(null);
@@ -520,6 +520,10 @@ const BetSettingsScreen = ({ navigation }) => {
               "@is_pro",
               refreshed.profile.is_pro ? "1" : "0"
             );
+            // update context quickly so UI updates immediately
+            try {
+              if (setIsPro) setIsPro(!!refreshed.profile.is_pro);
+            } catch (e) {}
           } catch (e) {}
         }
       } catch (e) {
@@ -552,6 +556,10 @@ const BetSettingsScreen = ({ navigation }) => {
               "@is_pro",
               refreshed.profile.is_pro ? "1" : "0"
             );
+            // update context quickly so UI updates immediately
+            try {
+              if (setIsPro) setIsPro(!!refreshed.profile.is_pro);
+            } catch (e) {}
           } catch (e) {}
         }
       } catch (e) {
@@ -607,7 +615,7 @@ const BetSettingsScreen = ({ navigation }) => {
         setRedeemMessage(json?.message || "Redeem failed");
       } else {
         // If server returned already_pro, respect that
-        if (json?.message === "already_pro") {
+                if (json?.message === "already_pro") {
           setRedeemMessage("You already have Pro");
           // refresh profile
           const { data: userData } = await supabase.auth.getUser();
@@ -620,6 +628,11 @@ const BetSettingsScreen = ({ navigation }) => {
               .maybeSingle();
             if (profileRow) setProfile(profileRow);
           }
+          // ensure local pro flag set
+          try {
+            await AsyncStorage.setItem("@is_pro", "1");
+            if (setIsPro) setIsPro(true);
+          } catch (e) {}
         } else {
           setRedeemMessage("Promo applied — enjoy Pro!");
           // clear input
@@ -635,18 +648,30 @@ const BetSettingsScreen = ({ navigation }) => {
                 .eq("id", userId)
                 .maybeSingle();
               if (profileRow) {
-                setProfile(profileRow);
-                setProfileMeta(profileRow);
-              } else if (json && json.profile) {
-                // fallback: merge returned profile fields with existing
-                setProfile((prev) => ({
-                  ...(prev || {}),
-                  ...(json.profile || {}),
-                }));
-                setProfileMeta((prev) => ({
-                  ...(prev || {}),
-                  ...(json.profile || {}),
-                }));
+                  setProfile(profileRow);
+                  setProfileMeta(profileRow);
+                  try {
+                    await AsyncStorage.setItem(
+                      "@is_pro",
+                      profileRow.is_pro ? "1" : "0"
+                    );
+                    if (setIsPro) setIsPro(!!profileRow.is_pro);
+                  } catch (e) {}
+                } else if (json && json.profile) {
+                  // fallback: merge returned profile fields with existing
+                  setProfile((prev) => ({
+                    ...(prev || {}),
+                    ...(json.profile || {}),
+                  }));
+                  setProfileMeta((prev) => ({
+                    ...(prev || {}),
+                    ...(json.profile || {}),
+                  }));
+                  try {
+                    const proFlag = json.profile.is_pro;
+                    await AsyncStorage.setItem("@is_pro", proFlag ? "1" : "0");
+                    if (setIsPro) setIsPro(!!proFlag);
+                  } catch (e) {}
               } else {
                 console.warn(
                   "promo redeem: could not refresh profile (no user id and no server profile)"
@@ -735,23 +760,23 @@ const BetSettingsScreen = ({ navigation }) => {
                   <View
                     style={{
                       position: "absolute",
-                      right: -6,
-                      bottom: -6,
+                      right: 0,
+                      bottom: 30,
                     }}
                   >
                     <View
                       style={[
                         {
-                          backgroundColor: "#FFD700",
+                          backgroundColor: theme.background,
                           paddingHorizontal: 6,
                           paddingVertical: 2,
                           borderRadius: 6,
                           borderWidth: 1,
-                          borderColor: "rgba(0,0,0,0.08)",
+                          borderColor: theme.border,
                         },
                       ]}
                     >
-                      <Text style={{ fontWeight: "700", fontSize: 10 }}>
+                      <Text style={{ fontWeight: "700", fontSize: 10, color: theme.text }}>
                         PRO
                       </Text>
                     </View>

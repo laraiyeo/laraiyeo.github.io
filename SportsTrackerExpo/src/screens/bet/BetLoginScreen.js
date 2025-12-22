@@ -17,7 +17,12 @@ import { useBetData } from "../../context/BetDataContext";
 import { supabase } from "../../config/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import OddsDisplayContext from "../../context/OddsDisplayContext";
-import { initPurchases } from "../../services/revenuecat";
+import {
+  initPurchases,
+  getCustomerInfo,
+  isEntitled,
+} from "../../services/revenuecat";
+import { useBetSlip } from "../../context/BetSlipContext";
 import {
   registerForPushNotifications,
   API_URL,
@@ -28,6 +33,7 @@ import { useFocusEffect } from "@react-navigation/native";
 const BetLoginScreen = ({ navigation }) => {
   const { colors, theme } = useTheme();
   const { fetchScoreboard, fetchRosters, isLoading } = useBetData();
+  const { setIsPro } = useBetSlip();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -318,6 +324,20 @@ const BetLoginScreen = ({ navigation }) => {
             try {
               await initPurchases("appl_mdoICWLxVPeKJjUzLbFUKhMrXAT", userId);
               console.log("BetLogin: RevenueCat identify called", userId);
+              try {
+                const info = await getCustomerInfo();
+                const entitled = isEntitled(info, "SportsHeart Pro");
+                if (entitled) {
+                  await AsyncStorage.setItem("@is_pro", "1");
+                } else {
+                  await AsyncStorage.removeItem("@is_pro");
+                }
+                try {
+                  if (setIsPro) setIsPro(!!entitled);
+                } catch (e) {}
+              } catch (e) {
+                console.warn("BetLogin: getCustomerInfo failed", e?.message || e);
+              }
             } catch (e) {
               console.warn(
                 "BetLogin: RevenueCat identify failed",

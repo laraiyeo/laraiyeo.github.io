@@ -679,6 +679,7 @@ export const BetSlipProvider = ({ children }) => {
     loadSubmittedBets,
     submitBetSlip,
     isPro,
+    setIsPro,
   };
 
   return (

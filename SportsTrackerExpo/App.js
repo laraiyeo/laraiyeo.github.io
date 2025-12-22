@@ -43,6 +43,7 @@ import {
   getCustomerInfo,
   isEntitled,
 } from "./src/services/revenuecat";
+import { useBetSlip } from "./src/context/BetSlipContext";
 import { supabase } from "./src/config/supabase";
 
 // Custom header title component that disables font scaling
@@ -1945,6 +1946,7 @@ const MainStackNavigator = () => {
 ExpoSplashScreen.preventAutoHideAsync();
 
 const AppContent = () => {
+  const { setIsPro } = useBetSlip();
   const [showSplash, setShowSplash] = useState(true);
 
   // Initialize Firebase Analytics
@@ -2061,6 +2063,9 @@ const AppContent = () => {
             } else {
               await AsyncStorage.removeItem("@is_pro");
             }
+            try {
+              if (setIsPro) setIsPro(!!entitled);
+            } catch (e) {}
           }
         } catch (e) {
           console.warn(
