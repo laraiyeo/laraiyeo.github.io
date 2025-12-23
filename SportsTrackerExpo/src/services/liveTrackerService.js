@@ -26,7 +26,6 @@ const AUTO_REFRESH_MS = 30 * 60 * 1000; // 30 minutes
 async function updateDiaryForSport(sport = "football") {
   try {
     const url = buildDiaryUrl(sport);
-    const res = await fetch(url, { method: "GET" });
     if (!res.ok) {
       console.warn(
         `liveTrackerService: updateDiaryForSport ${sport} fetch failed`,
@@ -35,7 +34,6 @@ async function updateDiaryForSport(sport = "football") {
       );
       return null;
     }
-    const json = await res.json();
     diaryDataBySport[sport] = json;
     return json;
   } catch (err) {
@@ -49,10 +47,6 @@ function startAutoRefresh() {
   if (autoRefreshIntervalId) return;
   // Immediately fetch both diaries and then schedule periodic refreshes
   (async () => {
-    await Promise.all([
-      updateDiaryForSport("football"),
-      updateDiaryForSport("basketball"),
-    ]);
   })();
   autoRefreshIntervalId = setInterval(() => {
     updateDiaryForSport("football");
@@ -176,7 +170,6 @@ async function initDiary(
       diaryDataBySport[inferredSport] = null;
       return null;
     }
-    const json = await res.json();
     diaryDataBySport[inferredSport] = json;
     return diaryDataBySport[inferredSport];
   } catch (err) {
@@ -191,10 +184,6 @@ async function prefetchDefaultDiaries(fetchImpl = fetch) {
   try {
     const footballUrl = DEFAULT_DIARY_URL;
     const basketballUrl = buildDiaryUrl("basketball");
-    await Promise.all([
-      initDiary(footballUrl, fetchImpl, "football"),
-      initDiary(basketballUrl, fetchImpl, "basketball"),
-    ]);
   } catch (e) {
     // ignore individual errors; initDiary logs them
   }

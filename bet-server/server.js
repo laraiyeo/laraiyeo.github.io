@@ -1430,6 +1430,24 @@ function transformSummaryData(data) {
     }
   }
 
+  // Build a quick lookup map athleteId -> displayName from the transformed boxscore
+  const athleteNameById = {};
+  try {
+    if (transformed.boxscore && Array.isArray(transformed.boxscore.players)) {
+      for (const teamBlock of transformed.boxscore.players) {
+        const athletes = teamBlock.statistics?.athletes || [];
+        for (const a of athletes) {
+          const id = a?.athlete?.id;
+          const name = a?.athlete?.displayName || a?.athlete?.shortName || null;
+          if (id) athleteNameById[String(id)] = name;
+        }
+      }
+    }
+  } catch (e) {
+    // Non-fatal - lookup map is best-effort
+    console.warn("transformSummaryData: failed to build athleteNameById map", e?.message || e);
+  }
+
   // GameInfo - venue only
   if (data.gameInfo?.venue) {
     transformed.gameInfo = {
@@ -1545,14 +1563,20 @@ function transformSummaryData(data) {
 
   // Plays - only last entry
   if (data.plays && data.plays.length > 0) {
-    const lastPlay = data.plays[data.plays.length - 1];
+    const lastPlay = data.plays[data.plays.length - 5]; // Get the 5th last play for better relevance
     const participants = {};
 
     if (lastPlay.participants) {
       lastPlay.participants.forEach((p, idx) => {
-        participants[`athlete${idx + 1}`] = {
-          [p.athlete?.id]: p.athlete?.displayName,
-        };
+        const aid = p?.athlete?.id || p?.athlete?.externalId || null;
+        const key = aid != null ? String(aid) : null;
+        const nameFromBox = key ? athleteNameById[key] : null;
+        const displayName = p?.athlete?.displayName || nameFromBox || null;
+        if (key) {
+          participants[`athlete${idx + 1}`] = { [key]: displayName };
+        } else {
+          participants[`athlete${idx + 1}`] = {};
+        }
       });
     }
 
@@ -2873,6 +2897,19 @@ async function initialize() {
     }, 30 * 60 * 1000);
   }
 
+  // Kick off a background rosters/gamelogs fetch on startup so /api/rosters
+  // has cached data without requiring a manual request. Run best-effort and
+  // do not block server initialization.
+  try {
+    if (!rosterGamelogCache["all"]) {
+      fetchAllRostersAndGamelogs()
+        .then(() => console.log("[Rosters] Initial background rosters/gamelogs fetch complete"))
+        .catch((e) => console.warn("[Rosters] Initial fetch failed (non-fatal)", e?.message || e));
+    }
+  } catch (e) {
+    console.warn("[Rosters] Failed to start initial fetch", e?.message || e);
+  }
+
   // Start realtime listener so server reacts to external inserts into Supabase
   try {
     setupBetslipRealtimeListener();
@@ -3805,13 +3842,12 @@ function startWatcherInline(betslipId) {
             const isWinning = isOver
               ? currentTotal > lineNum
               : currentTotal < lineNum;
-            newState = isCompleted
-              ? isWinning
-                ? "won"
-                : "lost"
-              : isWinning
-              ? "in progress"
-              : "pending";
+            if (isWinning) {
+              // If game is in progress treat the bet as won immediately
+              newState = isCompleted || isInProgress ? "won" : "in progress";
+            } else {
+              newState = isCompleted ? "lost" : "pending";
+            }
           }
           // Player-specific over/under numeric heuristics: if we have a
           // `player_overunder` and it's an 'over' bet, treat current > bet
@@ -3828,13 +3864,11 @@ function startWatcherInline(betslipId) {
                 Number.isFinite(lineNum)
               ) {
                 const isWinning = cur > lineNum;
-                newState = isCompleted
-                  ? isWinning
-                    ? "won"
-                    : "lost"
-                  : isWinning
-                  ? "in progress"
-                  : "pending";
+                if (isWinning) {
+                  newState = isCompleted || isInProgress ? "won" : "in progress";
+                } else {
+                  newState = isCompleted ? "lost" : "pending";
+                }
               }
             } catch (e) {}
           }

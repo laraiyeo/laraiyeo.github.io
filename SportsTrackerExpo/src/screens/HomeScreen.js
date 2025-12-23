@@ -74,6 +74,12 @@ const STORAGE_KEY = "home_sports_config_v1";
 // Returns the reconstructed sports array (same shape as the in-component state).
 async function prefetchHomeSportsConfig() {
   try {
+    // If another caller already prefetched and cached the value, return it silently.
+    if (typeof module !== "undefined" && module.exports && module.exports.__prefetchedHomeSports) {
+      return module.exports.__prefetchedHomeSports;
+    }
+    const t0 = Date.now();
+    console.log("prefetchHomeSportsConfig: start", new Date().toISOString());
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
@@ -92,6 +98,8 @@ async function prefetchHomeSportsConfig() {
     if (typeof module !== "undefined" && module.exports) {
       module.exports.__prefetchedHomeSports = reconstructed;
     }
+    const t1 = Date.now();
+    console.log("prefetchHomeSportsConfig: done; duration_ms=", t1 - t0);
     return reconstructed;
   } catch (err) {
     console.warn("prefetchHomeSportsConfig failed:", err);
@@ -172,6 +180,8 @@ const HomeScreen = () => {
   };
 
   const loadSportsConfig = async () => {
+    const startLoadTs = Date.now();
+    console.log("loadSportsConfig: start", new Date().toISOString());
     try {
       // If a prefetched value exists (populated by app startup), use it to avoid waiting
       if (
@@ -184,11 +194,15 @@ const HomeScreen = () => {
           setSportsState(pref);
           loadedRef.current = true;
           setIsReady(true);
+          const usedTs = Date.now();
+          console.log("loadSportsConfig: used prefetched value; time_to_ready_ms=", usedTs - startLoadTs);
           return;
         }
       }
-
+      const tBeforeStorage = Date.now();
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      const tAfterStorage = Date.now();
+      console.log("loadSportsConfig: AsyncStorage.getItem duration_ms=", tAfterStorage - tBeforeStorage);
       if (!raw) return;
       const parsed = JSON.parse(raw);
       const byId = {};
@@ -205,6 +219,8 @@ const HomeScreen = () => {
       setSportsState(reconstructed);
       loadedRef.current = true;
       setIsReady(true);
+      const doneTs = Date.now();
+      console.log("loadSportsConfig: finished; total_time_ms=", doneTs - startLoadTs);
     } catch (e) {
       console.error("Failed to load sports config", e);
     }

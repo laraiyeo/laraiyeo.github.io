@@ -35,6 +35,8 @@ import UpdateService from "./src/services/UpdateService";
 
 // Import Emote Service for preloading
 import EmoteService from "./src/services/EmoteService";
+// Prefetch helper for HomeScreen to speed first render
+import { prefetchHomeSportsConfig } from "./src/screens/HomeScreen";
 
 // Import PresenceService for viewer tracking
 import { PresenceService } from "./src/services/PresenceService";
@@ -1986,6 +1988,16 @@ const AppContent = () => {
         console.warn("🎭 Failed to preload emotes:", error);
       }
     };
+
+    // Kick off prefetch tasks early and in parallel to reduce first-screen latency
+    (async () => {
+      try {
+        // Prefetch home sports config so HomeScreen can render instantly when no user edits exist
+        await prefetchHomeSportsConfig();
+      } catch (e) {
+        console.warn("Home prefetch failed:", e?.message || e);
+      }
+    })();
 
     preloadEmotes();
   }, []);

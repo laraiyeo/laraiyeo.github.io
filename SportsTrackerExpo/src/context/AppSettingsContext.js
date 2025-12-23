@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import UpdateService from "../services/UpdateService";
 
 const KEY = "@show_bet_tab";
 
@@ -39,6 +40,15 @@ export const AppSettingsProvider = ({ children }) => {
       );
     }
     setShowBetTabState(!!v);
+
+    // Restart app so navigation (tabs) is recreated with new config —
+    // mirror the behavior used when applying an update.
+    try {
+      // markForFeaturePopup = false (no feature popup needed)
+      await UpdateService.restartApp(false);
+    } catch (e) {
+      console.warn("AppSettings: failed to restart app after toggling bet tab", e?.message || e);
+    }
   };
 
   return (
