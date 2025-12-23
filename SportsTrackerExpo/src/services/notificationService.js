@@ -64,7 +64,10 @@ export const registerForPushNotifications = async (serverAuthToken = null) => {
         ios: { allowAlert: true, allowBadge: true, allowSound: true },
       });
       console.log("Requested notification permissions:", requested);
-      await appendPushDebug({ type: "permissions_requested", value: requested });
+      await appendPushDebug({
+        type: "permissions_requested",
+        value: requested,
+      });
       finalPerm = requested;
     }
 
@@ -80,10 +83,18 @@ export const registerForPushNotifications = async (serverAuthToken = null) => {
       try {
         await AsyncStorage.setItem(
           "@last_push_registration",
-          JSON.stringify({ token: null, status: "permission_denied", response: finalPerm, ts: new Date().toISOString() })
+          JSON.stringify({
+            token: null,
+            status: "permission_denied",
+            response: finalPerm,
+            ts: new Date().toISOString(),
+          })
         );
       } catch (e) {
-        console.warn("Failed to persist permission denial info", e?.message || e);
+        console.warn(
+          "Failed to persist permission denial info",
+          e?.message || e
+        );
       }
       return;
     }
@@ -95,22 +106,36 @@ export const registerForPushNotifications = async (serverAuthToken = null) => {
       );
       // tokenResp shape can vary across SDKs; log entire response for diagnostics
       console.log("getExpoPushTokenAsync response:", tokenResp);
-        await appendPushDebug({ type: "token_response_raw", value: tokenResp });
+      await appendPushDebug({ type: "token_response_raw", value: tokenResp });
       token = tokenResp?.data || tokenResp?.data?.token || tokenResp || null;
       console.log("Resolved push token:", token);
       // Persist initial token result so standalone builds can surface it
       try {
         await AsyncStorage.setItem(
           "@last_push_registration",
-          JSON.stringify({ token: token || null, status: null, response: tokenResp || null, ts: new Date().toISOString() })
+          JSON.stringify({
+            token: token || null,
+            status: null,
+            response: tokenResp || null,
+            ts: new Date().toISOString(),
+          })
         );
-          await appendPushDebug({ type: "token_persisted_initial", value: { token: token || null, resp: tokenResp } });
+        await appendPushDebug({
+          type: "token_persisted_initial",
+          value: { token: token || null, resp: tokenResp },
+        });
       } catch (e) {
-        console.warn("Failed to persist initial push registration", e?.message || e);
+        console.warn(
+          "Failed to persist initial push registration",
+          e?.message || e
+        );
       }
     } catch (e) {
       console.error("Failed to get Expo push token:", e?.message || e);
-        await appendPushDebug({ type: "token_error", value: { message: e?.message || String(e) } });
+      await appendPushDebug({
+        type: "token_error",
+        value: { message: e?.message || String(e) },
+      });
       throw e;
     }
 
@@ -133,20 +158,34 @@ export const registerForPushNotifications = async (serverAuthToken = null) => {
         });
         const text = await res.text();
         console.log("Push token upsert HTTP status:", res.status);
-        await appendPushDebug({ type: "upsert_response_raw", value: { status: res.status, response: text } });
+        await appendPushDebug({
+          type: "upsert_response_raw",
+          value: { status: res.status, response: text },
+        });
         // Persist final upsert result for debug UI
         try {
           await AsyncStorage.setItem(
             "@last_push_registration",
-            JSON.stringify({ token: token || null, status: res.status, response: text, ts: new Date().toISOString() })
+            JSON.stringify({
+              token: token || null,
+              status: res.status,
+              response: text,
+              ts: new Date().toISOString(),
+            })
           );
-          await appendPushDebug({ type: "upsert_persisted", value: { status: res.status, response: text } });
+          await appendPushDebug({
+            type: "upsert_persisted",
+            value: { status: res.status, response: text },
+          });
         } catch (e) {
           console.warn("Failed to persist push upsert result", e?.message || e);
         }
         if (!res.ok) {
           console.warn("Push token upsert responded with", res.status, text);
-          await appendPushDebug({ type: "upsert_failed", value: { status: res.status, response: text } });
+          await appendPushDebug({
+            type: "upsert_failed",
+            value: { status: res.status, response: text },
+          });
         } else {
           console.log("Push token upsert success", text);
           await appendPushDebug({ type: "upsert_success", value: text });
@@ -156,15 +195,28 @@ export const registerForPushNotifications = async (serverAuthToken = null) => {
       }
     } catch (error) {
       console.error("Error saving push token:", error?.message || error);
-      await appendPushDebug({ type: "upsert_exception", value: { message: error?.message || String(error) } });
+      await appendPushDebug({
+        type: "upsert_exception",
+        value: { message: error?.message || String(error) },
+      });
       try {
         await AsyncStorage.setItem(
           "@last_push_registration",
-          JSON.stringify({ token: token || null, error: error?.message || String(error), ts: new Date().toISOString() })
+          JSON.stringify({
+            token: token || null,
+            error: error?.message || String(error),
+            ts: new Date().toISOString(),
+          })
         );
-        await appendPushDebug({ type: "upsert_exception_persisted", value: { message: error?.message || String(error) } });
+        await appendPushDebug({
+          type: "upsert_exception_persisted",
+          value: { message: error?.message || String(error) },
+        });
       } catch (e2) {
-        console.warn("Failed to persist push registration error", e2?.message || e2);
+        console.warn(
+          "Failed to persist push registration error",
+          e2?.message || e2
+        );
       }
     }
   } else {

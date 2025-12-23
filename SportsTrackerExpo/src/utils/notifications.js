@@ -23,33 +23,51 @@ export async function registerForPushNotificationsAsync(serverUrl, authToken) {
 
   const tokenResp = await Notifications.getExpoPushTokenAsync();
   console.log("getExpoPushTokenAsync response:", tokenResp);
-  const expoPushToken = tokenResp?.data || tokenResp?.data?.token || tokenResp || null;
+  const expoPushToken =
+    tokenResp?.data || tokenResp?.data?.token || tokenResp || null;
   console.log("Resolved expoPushToken:", expoPushToken);
 
   try {
-    const res = await fetch(`${serverUrl.replace(/\/+$/, "")}/api/profile/push-token`, { // Fixed the regex
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${authToken}`, // This part should work correctly now
-      },
-      body: JSON.stringify({
-        pushToken: expoPushToken,
-        platform: Device.osName || "unknown",
-      }),
-    });
+    const res = await fetch(
+      `${serverUrl.replace(/\/+$/, "")}/api/profile/push-token`,
+      {
+        // Fixed the regex
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`, // This part should work correctly now
+        },
+        body: JSON.stringify({
+          pushToken: expoPushToken,
+          platform: Device.osName || "unknown",
+        }),
+      }
+    );
 
     const text = await res.text();
-    console.log("Push token upsert HTTP status:", res.status, "response:", text);
+    console.log(
+      "Push token upsert HTTP status:",
+      res.status,
+      "response:",
+      text
+    );
 
     // Persist a short record so standalone builds can surface registration status
     try {
       await AsyncStorage.setItem(
         "@last_push_registration",
-        JSON.stringify({ token: expoPushToken, status: res.status, response: text, ts: new Date().toISOString() })
+        JSON.stringify({
+          token: expoPushToken,
+          status: res.status,
+          response: text,
+          ts: new Date().toISOString(),
+        })
       );
     } catch (e) {
-      console.warn("Failed to persist push registration result", e?.message || e);
+      console.warn(
+        "Failed to persist push registration result",
+        e?.message || e
+      );
     }
 
     if (!res.ok) console.warn("Push token upsert failed", res.status, text);
@@ -60,10 +78,17 @@ export async function registerForPushNotificationsAsync(serverUrl, authToken) {
     try {
       await AsyncStorage.setItem(
         "@last_push_registration",
-        JSON.stringify({ token: expoPushToken, error: e?.message || String(e), ts: new Date().toISOString() })
+        JSON.stringify({
+          token: expoPushToken,
+          error: e?.message || String(e),
+          ts: new Date().toISOString(),
+        })
       );
     } catch (e2) {
-      console.warn("Failed to persist push registration error", e2?.message || e2);
+      console.warn(
+        "Failed to persist push registration error",
+        e2?.message || e2
+      );
     }
   }
 

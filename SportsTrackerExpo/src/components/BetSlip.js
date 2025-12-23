@@ -1012,7 +1012,10 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                       await handleConfirmBet();
                     } catch (e) {
                       console.warn("handleConfirmBet error", e?.message || e);
-                      Alert.alert("Bet failed", e?.message || "Failed to place bet");
+                      Alert.alert(
+                        "Bet failed",
+                        e?.message || "Failed to place bet"
+                      );
                     } finally {
                       setPlacingBet(false);
                     }
@@ -1022,9 +1025,19 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                 }}
               >
                 {placingBet ? (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 10,
+                    }}
+                  >
                     <ActivityIndicator size="small" color={colors.primary} />
-                    <Text style={[styles.mainBetButtonLabel, { color: theme.text }]}>Processing...</Text>
+                    <Text
+                      style={[styles.mainBetButtonLabel, { color: theme.text }]}
+                    >
+                      Processing...
+                    </Text>
                   </View>
                 ) : !showNumpad || !betAmount ? (
                   <>
