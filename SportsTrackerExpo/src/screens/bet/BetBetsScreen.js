@@ -148,21 +148,30 @@ const BetBetsScreen = () => {
     const ln = Number(left) || 0;
     const rn = Number(right) || 0;
     return (
-      <Text style={[styles.scoreText, { color: theme.text }]}> 
+      <Text style={[styles.scoreText, { color: theme.text }]}>
         <Text style={{ fontWeight: ln > rn ? "700" : "400" }}>{left ?? 0}</Text>
         {" - "}
-        <Text style={{ fontWeight: rn > ln ? "700" : "400" }}>{right ?? 0}</Text>
+        <Text style={{ fontWeight: rn > ln ? "700" : "400" }}>
+          {right ?? 0}
+        </Text>
       </Text>
     );
   };
 
   // Choose display scores preferring betslip payload (pick.scores) then scoreboard competitors
   const getDisplayScoresFor = (pick, liveCompetitors) => {
-    if (pick && pick.scores && (pick.scores.team1 != null || pick.scores.team2 != null)) {
+    if (
+      pick &&
+      pick.scores &&
+      (pick.scores.team1 != null || pick.scores.team2 != null)
+    ) {
       return [pick.scores.team1, pick.scores.team2];
     }
     if (Array.isArray(liveCompetitors) && liveCompetitors.length >= 2) {
-      return [liveCompetitors[1]?.score ?? null, liveCompetitors[0]?.score ?? null];
+      return [
+        liveCompetitors[1]?.score ?? null,
+        liveCompetitors[0]?.score ?? null,
+      ];
     }
     return [null, null];
   };
@@ -178,20 +187,33 @@ const BetBetsScreen = () => {
 
     // pick.scores: team1 = away, team2 = home in our mapping
     if (pick?.scores) {
-      awayScore = pick.scores.team1 ?? pick.scores.away ?? pick.scores.teamA ?? null;
-      homeScore = pick.scores.team2 ?? pick.scores.home ?? pick.scores.teamB ?? null;
+      awayScore =
+        pick.scores.team1 ?? pick.scores.away ?? pick.scores.teamA ?? null;
+      homeScore =
+        pick.scores.team2 ?? pick.scores.home ?? pick.scores.teamB ?? null;
     }
 
     if (liveGame?.competitions?.[0]?.competitors) {
       const comps = liveGame.competitions[0].competitors;
       const awayComp = comps.find((c) => c.homeAway === "away") || comps[0];
-      const homeComp = comps.find((c) => c.homeAway === "home") || comps[1] || comps[0];
+      const homeComp =
+        comps.find((c) => c.homeAway === "home") || comps[1] || comps[0];
       awayName =
-        awayComp?.team?.abbreviation || awayComp?.team?.shortDisplayName || awayComp?.team?.displayName || awayComp?.team?.name || awayComp?.team?.abbrev;
+        awayComp?.team?.abbreviation ||
+        awayComp?.team?.shortDisplayName ||
+        awayComp?.team?.displayName ||
+        awayComp?.team?.name ||
+        awayComp?.team?.abbrev;
       homeName =
-        homeComp?.team?.abbreviation || homeComp?.team?.shortDisplayName || homeComp?.team?.displayName || homeComp?.team?.name || homeComp?.team?.abbrev;
-      awayScore = awayScore ?? (awayComp?.score ?? awayComp?.statistics?.score ?? null);
-      homeScore = homeScore ?? (homeComp?.score ?? homeComp?.statistics?.score ?? null);
+        homeComp?.team?.abbreviation ||
+        homeComp?.team?.shortDisplayName ||
+        homeComp?.team?.displayName ||
+        homeComp?.team?.name ||
+        homeComp?.team?.abbrev;
+      awayScore =
+        awayScore ?? awayComp?.score ?? awayComp?.statistics?.score ?? null;
+      homeScore =
+        homeScore ?? homeComp?.score ?? homeComp?.statistics?.score ?? null;
     }
 
     // Fallback: try to parse `pick.gameInfo` like "AWAY @ HOME"
@@ -212,9 +234,13 @@ const BetBetsScreen = () => {
 
     return (
       <Text style={[styles.scoreText, { color: theme.text }]}>
-        <Text style={{ fontWeight: hs > as ? "700" : "400" }}>{`${hn} ${hs}`}</Text>
+        <Text
+          style={{ fontWeight: hs > as ? "700" : "400" }}
+        >{`${hn} ${hs}`}</Text>
         {" - "}
-        <Text style={{ fontWeight: as > hs ? "700" : "400" }}>{`${an} ${as}`}</Text>
+        <Text
+          style={{ fontWeight: as > hs ? "700" : "400" }}
+        >{`${an} ${as}`}</Text>
       </Text>
     );
   };
@@ -1114,7 +1140,9 @@ const BetBetsScreen = () => {
 
           <View style={styles.parlayGameInfo}>
             <View style={styles.parlayGameScore}>
-              <Text style={[styles.parlayGameText, { color: theme.textSecondary }]}> 
+              <Text
+                style={[styles.parlayGameText, { color: theme.textSecondary }]}
+              >
                 {parlay.gameInfo}
               </Text>
               {parlay.scores && (
@@ -1124,10 +1152,17 @@ const BetBetsScreen = () => {
               )}
             </View>
             <View style={styles.parlayGameStatusRow}>
-              <View style={[styles.liveIndicator, { backgroundColor: theme.error }]}> 
+              <View
+                style={[styles.liveIndicator, { backgroundColor: theme.error }]}
+              >
                 <Text style={styles.liveText}>LIVE</Text>
               </View>
-              <Text style={[styles.parlayGameStatus, { color: theme.textTertiary, marginRight: 8 }]}>
+              <Text
+                style={[
+                  styles.parlayGameStatus,
+                  { color: theme.textTertiary, marginRight: 8 },
+                ]}
+              >
                 {parlay.gameStatus}
               </Text>
             </View>
@@ -1240,12 +1275,12 @@ const BetBetsScreen = () => {
 
         <View style={styles.parlayGameInfo}>
           <View style={styles.parlayGameScore}>
-              <Text
-                style={[styles.parlayGameText, { color: theme.textSecondary }]}
-              >
-                {parlay.gameInfo}
-              </Text>
-              {renderScoreText(parlay.scores?.team1, parlay.scores?.team2)}
+            <Text
+              style={[styles.parlayGameText, { color: theme.textSecondary }]}
+            >
+              {parlay.gameInfo}
+            </Text>
+            {renderScoreText(parlay.scores?.team1, parlay.scores?.team2)}
           </View>
           <View style={styles.parlayGameStatusRow}>
             <View
@@ -1428,8 +1463,9 @@ const BetBetsScreen = () => {
               }
               // Prefer canonical player name from betslip payload for non-pre games
               try {
-                const evtState =
-                  (eventData?.status?.state || "").toString().toLowerCase();
+                const evtState = (eventData?.status?.state || "")
+                  .toString()
+                  .toLowerCase();
                 if (playerData.name && evtState !== "pre") {
                   pick.playerName = playerData.name;
                 }
@@ -1445,15 +1481,20 @@ const BetBetsScreen = () => {
                     if (homeScore != null && awayScore != null) {
                       // keep numeric scores separate in `pick.scores` so we can
                       // render them with `renderScoreText` (which bolds winners)
-                      pick.gameInfo = `${g.awayTeam || away} @ ${g.homeTeam || home}`;
+                      pick.gameInfo = `${g.awayTeam || away} @ ${
+                        g.homeTeam || home
+                      }`;
                     } else if (g.homeTeam && g.awayTeam) {
                       pick.gameInfo = `${g.awayTeam} @ ${g.homeTeam}`;
                     }
-                    pick.gameStatus = eventData.status.shortDetail ||
+                    pick.gameStatus =
+                      eventData.status.shortDetail ||
                       eventData.status.state ||
                       pick.gameStatus;
                     pick.gameState = eventData.status.state || pick.gameState;
-                    pick.scores = g ? { team1: g.awayScore, team2: g.homeScore } : pick.scores;
+                    pick.scores = g
+                      ? { team1: g.awayScore, team2: g.homeScore }
+                      : pick.scores;
                   }
                 }
               } catch (e) {
@@ -1642,8 +1683,9 @@ const BetBetsScreen = () => {
             }
             // Prefer canonical game names/scores/status from event payload when not pre
             try {
-              const evtState =
-                (eventData?.status?.state || "").toString().toLowerCase();
+              const evtState = (eventData?.status?.state || "")
+                .toString()
+                .toLowerCase();
               if (eventData?.status && evtState !== "pre") {
                 // set game info to include scores for post games
                 const g = eventData.status.game;
@@ -1653,12 +1695,15 @@ const BetBetsScreen = () => {
                   const away = g.awayTeam || g.away || g.awayAbbrev || "";
                   const homeScore = g.homeScore ?? g.home_score ?? null;
                   const awayScore = g.awayScore ?? g.away_score ?? null;
-                    if (homeScore != null && awayScore != null) {
-                      pick.gameInfo = `${g.awayTeam || away} @ ${g.homeTeam || home}`;
-                    } else if (g.homeTeam && g.awayTeam) {
-                      pick.gameInfo = `${g.awayTeam} @ ${g.homeTeam}`;
-                    }
-                  pick.gameStatus = eventData.status.shortDetail ||
+                  if (homeScore != null && awayScore != null) {
+                    pick.gameInfo = `${g.awayTeam || away} @ ${
+                      g.homeTeam || home
+                    }`;
+                  } else if (g.homeTeam && g.awayTeam) {
+                    pick.gameInfo = `${g.awayTeam} @ ${g.homeTeam}`;
+                  }
+                  pick.gameStatus =
+                    eventData.status.shortDetail ||
                     eventData.status.state ||
                     pick.gameStatus;
                   pick.gameState = eventData.status.state || pick.gameState;
@@ -1679,15 +1724,30 @@ const BetBetsScreen = () => {
       // Ensure we prefer betslip_url payload values for non-pre events
       try {
         if (betslipData?.events) {
-          const overrideEvent = betslipData.events.find((e) => e.eventId === bet.gameId);
-          const evtState = (overrideEvent?.status?.state || "").toString().toLowerCase();
+          const overrideEvent = betslipData.events.find(
+            (e) => e.eventId === bet.gameId
+          );
+          const evtState = (overrideEvent?.status?.state || "")
+            .toString()
+            .toLowerCase();
           if (overrideEvent && evtState !== "pre") {
             // Player-level overrides
             if (pick.playerName && overrideEvent?.bets?.players) {
-              const p = overrideEvent.bets.players.find((pp) => pp.id === bet.playerId);
+              const p = overrideEvent.bets.players.find(
+                (pp) => pp.id === bet.playerId
+              );
               if (p) {
-                const statUpper = bet.statType?.toUpperCase()?.substring(0, 3) || "PTS";
-                const statMap = { POI: "PTS", REB: "REB", ASS: "AST", BLO: "BLK", STE: "STL", TUR: "TO", PRA: "PRA" };
+                const statUpper =
+                  bet.statType?.toUpperCase()?.substring(0, 3) || "PTS";
+                const statMap = {
+                  POI: "PTS",
+                  REB: "REB",
+                  ASS: "AST",
+                  BLO: "BLK",
+                  STE: "STL",
+                  TUR: "TO",
+                  PRA: "PRA",
+                };
                 const statKey = statMap[statUpper] || "PTS";
                 if (p.milestones?.[statKey]) {
                   pick.currentValue = Number(p.milestones[statKey].current);
@@ -1710,7 +1770,10 @@ const BetBetsScreen = () => {
                 let teamScore = null;
                 let oppScore = null;
                 try {
-                  if (String(bet.team).toUpperCase() === String(g?.homeTeam).toUpperCase()) {
+                  if (
+                    String(bet.team).toUpperCase() ===
+                    String(g?.homeTeam).toUpperCase()
+                  ) {
                     teamScore = homeScore;
                     oppScore = awayScore;
                   } else {
@@ -1722,16 +1785,29 @@ const BetBetsScreen = () => {
                   oppScore = 0;
                 }
                 pick.currentValue = Number(oppScore - teamScore);
-              } else if (bet.type === "Total" && overrideEvent.bets.totalPoints) {
+              } else if (
+                bet.type === "Total" &&
+                overrideEvent.bets.totalPoints
+              ) {
                 const totalCurrent = overrideEvent.bets.totalPoints.current;
                 let parsedCurrent = null;
-                if (typeof totalCurrent === "number") parsedCurrent = totalCurrent;
-                else if (totalCurrent && typeof totalCurrent === "object") parsedCurrent = Number(totalCurrent.score ?? totalCurrent.current ?? totalCurrent.value ?? NaN);
+                if (typeof totalCurrent === "number")
+                  parsedCurrent = totalCurrent;
+                else if (totalCurrent && typeof totalCurrent === "object")
+                  parsedCurrent = Number(
+                    totalCurrent.score ??
+                      totalCurrent.current ??
+                      totalCurrent.value ??
+                      NaN
+                  );
                 else if (totalCurrent != null) {
                   const n = Number(totalCurrent);
                   parsedCurrent = isNaN(n) ? null : n;
                 }
-                pick.currentValue = parsedCurrent !== null && !isNaN(parsedCurrent) ? Number(parsedCurrent) : pick.currentValue;
+                pick.currentValue =
+                  parsedCurrent !== null && !isNaN(parsedCurrent)
+                    ? Number(parsedCurrent)
+                    : pick.currentValue;
               }
             }
           }
