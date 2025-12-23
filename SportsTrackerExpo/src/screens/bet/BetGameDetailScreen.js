@@ -66,7 +66,6 @@ const calculateColorSimilarity = (color1, color2) => {
       : null;
   };
 
-  
   const rgb1 = hexToRgb(color1);
   const rgb2 = hexToRgb(color2);
 
@@ -1139,29 +1138,48 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     const athletes = [];
     Object.keys(participants).forEach((k) => {
       const map = participants[k] || {};
-      Object.keys(map).forEach((aid) => athletes.push({ id: aid, displayName: map[aid] }));
+      Object.keys(map).forEach((aid) =>
+        athletes.push({ id: aid, displayName: map[aid] })
+      );
     });
 
     // Build athlete metadata map from summary.boxscore if available
     let athleteMeta = summary?.athletes || {};
     try {
-      if ((!athleteMeta || Object.keys(athleteMeta).length === 0) && summary?.boxscore?.players) {
+      if (
+        (!athleteMeta || Object.keys(athleteMeta).length === 0) &&
+        summary?.boxscore?.players
+      ) {
         athleteMeta = {};
         summary.boxscore.players.forEach((teamBlock) => {
           const team = teamBlock.team || {};
           const teamAbbrev = team.abbreviation || team.displayName || null;
-          const athletesArr = (teamBlock.statistics && teamBlock.statistics.athletes) || [];
+          const athletesArr =
+            (teamBlock.statistics && teamBlock.statistics.athletes) || [];
           athletesArr.forEach((entry) => {
-            const aid = String(entry.athlete?.id || entry.athlete?.athleteId || "");
+            const aid = String(
+              entry.athlete?.id || entry.athlete?.athleteId || ""
+            );
             if (!aid) return;
             athleteMeta[aid] = athleteMeta[aid] || {};
-            athleteMeta[aid].displayName = entry.athlete?.displayName || athleteMeta[aid].displayName;
-            athleteMeta[aid].position = entry.athlete?.position || athleteMeta[aid].position;
-            athleteMeta[aid].jersey = entry.athlete?.jersey || athleteMeta[aid].jersey;
+            athleteMeta[aid].displayName =
+              entry.athlete?.displayName || athleteMeta[aid].displayName;
+            athleteMeta[aid].position =
+              entry.athlete?.position || athleteMeta[aid].position;
+            athleteMeta[aid].jersey =
+              entry.athlete?.jersey || athleteMeta[aid].jersey;
             athleteMeta[aid].stats = entry.stats || athleteMeta[aid].stats;
-            athleteMeta[aid].headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${aid}.png&w=200`;
-            athleteMeta[aid].team = athleteMeta[aid].team || { abbreviation: teamAbbrev };
-            athleteMeta[aid].teamLogo = `https://a.espncdn.com/i/teamlogos/nba/500/${(teamAbbrev || "").toLowerCase()}.png`;
+            athleteMeta[
+              aid
+            ].headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${aid}.png&w=200`;
+            athleteMeta[aid].team = athleteMeta[aid].team || {
+              abbreviation: teamAbbrev,
+            };
+            athleteMeta[
+              aid
+            ].teamLogo = `https://a.espncdn.com/i/teamlogos/nba/500/${(
+              teamAbbrev || ""
+            ).toLowerCase()}.png`;
           });
         });
       }
@@ -1171,7 +1189,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     const byTeam = {};
     athletes.forEach((a) => {
       const meta = athleteMeta[a.id] || {};
-      const teamAbbrev = (meta.team && (meta.team.abbreviation || meta.team?.abbrev)) || meta.teamAbbrev || meta.teamName || "UNK";
+      const teamAbbrev =
+        (meta.team && (meta.team.abbreviation || meta.team?.abbrev)) ||
+        meta.teamAbbrev ||
+        meta.teamName ||
+        "UNK";
       if (!byTeam[teamAbbrev]) byTeam[teamAbbrev] = [];
       byTeam[teamAbbrev].push({ ...a, meta });
     });
@@ -1179,8 +1201,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     // Build team lookup from summary/header so participants use same logos/colors as header
     const competition = summary?.header?.competitions?.[0] || null;
     const competitors = competition?.competitors || [];
-    const awayTeamBlock = competitors.find((c) => c.homeAway === "away")?.team || {};
-    const homeTeamBlock = competitors.find((c) => c.homeAway === "home")?.team || {};
+    const awayTeamBlock =
+      competitors.find((c) => c.homeAway === "away")?.team || {};
+    const homeTeamBlock =
+      competitors.find((c) => c.homeAway === "home")?.team || {};
 
     const darkSuffix = isDarkMode ? "-dark" : "";
     const awayAbbr = (awayTeamBlock.abbreviation || "").toLowerCase();
@@ -1199,11 +1223,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         : null,
     };
 
-    const { team1Color: resolvedAwayColor, team2Color: resolvedHomeColor } = getSmartTeamColors(
-      headerTeamData,
-      headerTeam2Data,
-      colors
-    );
+    const { team1Color: resolvedAwayColor, team2Color: resolvedHomeColor } =
+      getSmartTeamColors(headerTeamData, headerTeam2Data, colors);
 
     const teamLookup = {
       [(awayTeamBlock.abbreviation || "").toUpperCase()]: {
@@ -1222,33 +1243,88 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     );
 
     return (
-      <View style={[styles.participantsSection, { borderTopColor: theme.border }]}> 
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>{`Play Participant${participantCount !== 1 ? 's' : ''}`}</Text>
+      <View
+        style={[styles.participantsSection, { borderTopColor: theme.border }]}
+      >
+        <Text
+          style={[styles.sectionTitle, { color: theme.text }]}
+        >{`Play Participant${participantCount !== 1 ? "s" : ""}`}</Text>
         {Object.keys(byTeam).map((team) => (
           <View key={team} style={styles.participantsTeamGroup}>
             {byTeam[team].map((ath, idx) => {
               const m = ath.meta || {};
               const headshot = m.headshot || (m.images && m.images.headshot);
               // Prefer header/teamLookup values for consistent logos/colors, fall back to athlete meta
-              const teamColor = (teamLookup[team] && teamLookup[team].color) || m.team?.color || m.teamColor || colors.primary;
-              const teamLogo = (teamLookup[team] && teamLookup[team].logo) || m.team?.logo || m.team?.logoUrl || `https://a.espncdn.com/i/teamlogos/nba/500/${(team || "").toLowerCase()}.png`;
+              const teamColor =
+                (teamLookup[team] && teamLookup[team].color) ||
+                m.team?.color ||
+                m.teamColor ||
+                colors.primary;
+              const teamLogo =
+                (teamLookup[team] && teamLookup[team].logo) ||
+                m.team?.logo ||
+                m.team?.logoUrl ||
+                `https://a.espncdn.com/i/teamlogos/nba/500/${(
+                  team || ""
+                ).toLowerCase()}.png`;
               const position = m.position || m.pos || "";
               const number = m.jersey || m.number || "";
 
               const stats = summary?.stats?.[ath.id] || m.stats || {};
               const statOrder = ["PTS", "REB", "AST", "FG", "+/-", "MIN"];
-              const statValues = statOrder.map((s) => ({ key: s, value: stats[s] ?? stats[s.toLowerCase()] ?? "-" }));
+              const statValues = statOrder.map((s) => ({
+                key: s,
+                value: stats[s] ?? stats[s.toLowerCase()] ?? "-",
+              }));
 
               return (
-                <View key={ath.id} style={[styles.participantCard, idx !== byTeam[team].length - 1 ? styles.participantBorder : null]}>
+                <View
+                  key={ath.id}
+                  style={[
+                    styles.participantCard,
+                    idx !== byTeam[team].length - 1
+                      ? styles.participantBorder
+                      : null,
+                  ]}
+                >
                   <View style={styles.participantTop}>
-                    <View style={[styles.headshotWrap, { backgroundColor: teamColor }]}> 
-                      {headshot ? <Image source={{ uri: headshot }} style={styles.headshot} /> : <View style={styles.headshotPlaceholder} />}
-                      {teamLogo ? <Image source={{ uri: teamLogo }} style={styles.teamLogoOverlay} /> : null}
+                    <View
+                      style={[
+                        styles.headshotWrap,
+                        { backgroundColor: teamColor },
+                      ]}
+                    >
+                      {headshot ? (
+                        <Image
+                          source={{ uri: headshot }}
+                          style={styles.headshot}
+                        />
+                      ) : (
+                        <View style={styles.headshotPlaceholder} />
+                      )}
+                      {teamLogo ? (
+                        <Image
+                          source={{ uri: teamLogo }}
+                          style={styles.teamLogoOverlay}
+                        />
+                      ) : null}
                     </View>
                     <View style={styles.participantInfo}>
-                      <Text style={[styles.participantName, { color: theme.text }]}>{ath.displayName || m.displayName || 'Unknown'}</Text>
-                      <Text style={[styles.participantMeta, { color: theme.textSecondary }]}>{`${position || ''} ${number ? `• #${number} •` : ''} ${team}`.trim()}</Text>
+                      <Text
+                        style={[styles.participantName, { color: theme.text }]}
+                      >
+                        {ath.displayName || m.displayName || "Unknown"}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.participantMeta,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {`${position || ""} ${
+                          number ? `• #${number} •` : ""
+                        } ${team}`.trim()}
+                      </Text>
                     </View>
                   </View>
 
@@ -1256,11 +1332,26 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     {statValues.map((s) => {
                       const isPlusMinus = s.key === "+/-";
                       const val = s.value == null ? "-" : String(s.value);
-                      const color = isPlusMinus ? (val.startsWith("+") ? theme.success : val.startsWith("-") ? theme.error : theme.text) : theme.text;
+                      const color = isPlusMinus
+                        ? val.startsWith("+")
+                          ? theme.success
+                          : val.startsWith("-")
+                          ? theme.error
+                          : theme.text
+                        : theme.text;
                       return (
                         <View key={s.key} style={styles.statBubble}>
-                          <Text style={[styles.statValue, { color }]}>{val}</Text>
-                          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{s.key}</Text>
+                          <Text style={[styles.statValue, { color }]}>
+                            {val}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.statLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {s.key}
+                          </Text>
                         </View>
                       );
                     })}
@@ -2580,7 +2671,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 marginBottom: 8,
               }}
             >
-              <Text style={[styles.contentTitle, { color: theme.text, marginBottom: -5 }]}>
+              <Text
+                style={[
+                  styles.contentTitle,
+                  { color: theme.text, marginBottom: -5 },
+                ]}
+              >
                 Live Play
               </Text>
             </View>
@@ -2869,7 +2965,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           },
                         ]}
                       >
-                        <Text style={[styles.playText, { color: theme.text }]}> 
+                        <Text style={[styles.playText, { color: theme.text }]}>
                           {summaryData.plays.text || "Waiting for next play..."}
                         </Text>
                         <View style={styles.playMetaContainer}>
@@ -2921,7 +3017,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       {/* Play participants (pro only) - render directly under play card */}
                       {isPro && summaryData?.plays?.participants && (
                         <View style={{ marginTop: 12 }}>
-                          <PlayParticipants participants={summaryData.plays.participants} />
+                          <PlayParticipants
+                            participants={summaryData.plays.participants}
+                          />
                         </View>
                       )}
                     </View>

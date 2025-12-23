@@ -859,7 +859,8 @@ export const getDailyRewardState = async (profileId) => {
               .fill(false)
               .map((v, i) => !!json.claimedDays[i]);
             // Normalize nextAvailableAt from server and clear it if it's in the past
-            let nextAvailableRaw = json.nextAvailableAt || json.daily_next_available_at || null;
+            let nextAvailableRaw =
+              json.nextAvailableAt || json.daily_next_available_at || null;
             if (nextAvailableRaw) {
               try {
                 const now = new Date();
@@ -911,7 +912,12 @@ export const getDailyRewardState = async (profileId) => {
             const now = new Date();
             const nextDt = nextAvailableRaw ? new Date(nextAvailableRaw) : null;
             const allUnclaimed = claimedDays.every((d) => d === false);
-            if (nextDt && !isNaN(nextDt.getTime()) && now >= nextDt && allUnclaimed) {
+            if (
+              nextDt &&
+              !isNaN(nextDt.getTime()) &&
+              now >= nextDt &&
+              allUnclaimed
+            ) {
               nextAvailableRaw = null;
             }
           } catch (e) {}
