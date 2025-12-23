@@ -306,21 +306,32 @@ const BetLoginScreen = ({ navigation }) => {
       try {
         const cached = await getCachedPhoneForUser(username);
         if (cached) {
-          console.log("BetLogin: found cached phone for user, attempting fast sign-in", cached);
-          ({ data: authData, error: authError } = await supabase.auth.signInWithPassword({
-            phone: cached,
-            password,
-          }));
-          console.log("BetLogin: fast sign-in result:", { authData, authError });
+          console.log(
+            "BetLogin: found cached phone for user, attempting fast sign-in",
+            cached
+          );
+          ({ data: authData, error: authError } =
+            await supabase.auth.signInWithPassword({
+              phone: cached,
+              password,
+            }));
+          console.log("BetLogin: fast sign-in result:", {
+            authData,
+            authError,
+          });
           if (!authError && authData) {
             userPhone = cached;
             // Validate cache in background (non-blocking)
             (async () => {
               try {
-                const { data: rpcData } = await supabase.rpc("get_phone_by_username", { uname: username });
+                const { data: rpcData } = await supabase.rpc(
+                  "get_phone_by_username",
+                  { uname: username }
+                );
                 let rpcPhone = null;
                 if (typeof rpcData === "string") rpcPhone = rpcData;
-                else if (Array.isArray(rpcData) && rpcData.length > 0) rpcPhone = rpcData[0];
+                else if (Array.isArray(rpcData) && rpcData.length > 0)
+                  rpcPhone = rpcData[0];
                 else if (rpcData && rpcData.phone) rpcPhone = rpcData.phone;
                 if (rpcPhone && rpcPhone !== cached) {
                   await setCachedPhoneForUser(username, rpcPhone);
@@ -329,15 +340,26 @@ const BetLoginScreen = ({ navigation }) => {
                 /* validation failure ignored */
               }
             })();
-          } else if (authError && authError.message && (authError.message.includes("Invalid") || authError.message.includes("credentials"))) {
+          } else if (
+            authError &&
+            authError.message &&
+            (authError.message.includes("Invalid") ||
+              authError.message.includes("credentials"))
+          ) {
             // Wrong password -> surface immediately
-            console.warn("BetLogin: fast sign-in invalid credentials", authError);
+            console.warn(
+              "BetLogin: fast sign-in invalid credentials",
+              authError
+            );
             Alert.alert("Login Failed", "Invalid password. Please try again.");
             setLoading(false);
             return;
           } else {
             // Unexpected auth error (user not found for cached phone etc.) - fall through to RPC lookup
-            console.log("BetLogin: fast sign-in failed, falling back to RPC lookup", authError);
+            console.log(
+              "BetLogin: fast sign-in failed, falling back to RPC lookup",
+              authError
+            );
           }
         }
       } catch (e) {
@@ -549,8 +571,12 @@ const BetLoginScreen = ({ navigation }) => {
         // Defer rosters fetch to avoid any chance of blocking the login flow/UI
         setTimeout(() => {
           fetchRosters()
-            .then(() => console.log("BetLogin: background fetchRosters completed"))
-            .catch((e) => console.error("BetLogin: background fetchRosters error", e));
+            .then(() =>
+              console.log("BetLogin: background fetchRosters completed")
+            )
+            .catch((e) =>
+              console.error("BetLogin: background fetchRosters error", e)
+            );
         }, 0);
       }
 
@@ -577,7 +603,8 @@ const BetLoginScreen = ({ navigation }) => {
       (async () => {
         try {
           const userId =
-            authData?.user?.id || (await supabase.auth.getUser()).data?.user?.id;
+            authData?.user?.id ||
+            (await supabase.auth.getUser()).data?.user?.id;
           if (userId) {
             const { data: profileRow, error: pErr } = await supabase
               .from("profiles")

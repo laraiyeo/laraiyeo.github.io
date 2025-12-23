@@ -75,7 +75,11 @@ const STORAGE_KEY = "home_sports_config_v1";
 async function prefetchHomeSportsConfig() {
   try {
     // If another caller already prefetched and cached the value, return it silently.
-    if (typeof module !== "undefined" && module.exports && module.exports.__prefetchedHomeSports) {
+    if (
+      typeof module !== "undefined" &&
+      module.exports &&
+      module.exports.__prefetchedHomeSports
+    ) {
       return module.exports.__prefetchedHomeSports;
     }
     const t0 = Date.now();
@@ -195,14 +199,20 @@ const HomeScreen = () => {
           loadedRef.current = true;
           setIsReady(true);
           const usedTs = Date.now();
-          console.log("loadSportsConfig: used prefetched value; time_to_ready_ms=", usedTs - startLoadTs);
+          console.log(
+            "loadSportsConfig: used prefetched value; time_to_ready_ms=",
+            usedTs - startLoadTs
+          );
           return;
         }
       }
       const tBeforeStorage = Date.now();
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
       const tAfterStorage = Date.now();
-      console.log("loadSportsConfig: AsyncStorage.getItem duration_ms=", tAfterStorage - tBeforeStorage);
+      console.log(
+        "loadSportsConfig: AsyncStorage.getItem duration_ms=",
+        tAfterStorage - tBeforeStorage
+      );
       if (!raw) return;
       const parsed = JSON.parse(raw);
       const byId = {};
@@ -220,7 +230,10 @@ const HomeScreen = () => {
       loadedRef.current = true;
       setIsReady(true);
       const doneTs = Date.now();
-      console.log("loadSportsConfig: finished; total_time_ms=", doneTs - startLoadTs);
+      console.log(
+        "loadSportsConfig: finished; total_time_ms=",
+        doneTs - startLoadTs
+      );
     } catch (e) {
       console.error("Failed to load sports config", e);
     }

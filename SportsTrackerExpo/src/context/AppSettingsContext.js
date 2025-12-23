@@ -47,7 +47,10 @@ export const AppSettingsProvider = ({ children }) => {
       // markForFeaturePopup = false (no feature popup needed)
       await UpdateService.restartApp(false);
     } catch (e) {
-      console.warn("AppSettings: failed to restart app after toggling bet tab", e?.message || e);
+      console.warn(
+        "AppSettings: failed to restart app after toggling bet tab",
+        e?.message || e
+      );
     }
   };
 

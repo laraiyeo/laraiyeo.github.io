@@ -214,7 +214,9 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
           if (!bodyText) {
             if (bs.status === "won") {
               bodyText = potentialRounded
-                ? `Congrats! Your ${legsCount || ""} bet has won! You've won ${potentialRounded} credits!`
+                ? `Congrats! Your ${
+                    legsCount || ""
+                  } bet has won! You've won ${potentialRounded} credits!`
                 : `Congrats! Your bet has won!`;
             } else if (bs.status === "lost") {
               bodyText = legsCount
@@ -265,7 +267,7 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
         .eq("user_id", resolvedProfileId);
 
       if (!error && data?.length) {
-        pushTokens.push(...data.map(t => t.expo_push_token));
+        pushTokens.push(...data.map((t) => t.expo_push_token));
       }
     }
 
@@ -276,14 +278,12 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
         .eq("user_id", userId);
 
       if (!error && data?.length) {
-        pushTokens.push(...data.map(t => t.expo_push_token));
+        pushTokens.push(...data.map((t) => t.expo_push_token));
       }
     }
 
     // Deduplicate + validate
-    pushTokens = [
-      ...new Set(pushTokens.filter(Expo.isExpoPushToken)),
-    ];
+    pushTokens = [...new Set(pushTokens.filter(Expo.isExpoPushToken))];
 
     if (!pushTokens.length) {
       console.log(
@@ -298,7 +298,7 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
     // ================================================================
     // Send push to ALL devices
     // ================================================================
-    const messages = pushTokens.map(token => ({
+    const messages = pushTokens.map((token) => ({
       to: token,
       sound: "default",
       title,
@@ -313,7 +313,7 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
       try {
         const tickets = await expo.sendPushNotificationsAsync(chunk);
 
-        tickets.forEach(ticket => {
+        tickets.forEach((ticket) => {
           if (ticket.status === "error") {
             console.error("Expo push error:", ticket.message, ticket.details);
           }
@@ -357,7 +357,6 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
     console.error("sendPushNotification error", err?.message || err);
   }
 }
-
 
 async function broadcastToAll(title, bodyText, data = {}) {
   try {
@@ -1445,7 +1444,10 @@ function transformSummaryData(data) {
     }
   } catch (e) {
     // Non-fatal - lookup map is best-effort
-    console.warn("transformSummaryData: failed to build athleteNameById map", e?.message || e);
+    console.warn(
+      "transformSummaryData: failed to build athleteNameById map",
+      e?.message || e
+    );
   }
 
   // GameInfo - venue only
@@ -2903,8 +2905,17 @@ async function initialize() {
   try {
     if (!rosterGamelogCache["all"]) {
       fetchAllRostersAndGamelogs()
-        .then(() => console.log("[Rosters] Initial background rosters/gamelogs fetch complete"))
-        .catch((e) => console.warn("[Rosters] Initial fetch failed (non-fatal)", e?.message || e));
+        .then(() =>
+          console.log(
+            "[Rosters] Initial background rosters/gamelogs fetch complete"
+          )
+        )
+        .catch((e) =>
+          console.warn(
+            "[Rosters] Initial fetch failed (non-fatal)",
+            e?.message || e
+          )
+        );
     }
   } catch (e) {
     console.warn("[Rosters] Failed to start initial fetch", e?.message || e);
@@ -3865,7 +3876,8 @@ function startWatcherInline(betslipId) {
               ) {
                 const isWinning = cur > lineNum;
                 if (isWinning) {
-                  newState = isCompleted || isInProgress ? "won" : "in progress";
+                  newState =
+                    isCompleted || isInProgress ? "won" : "in progress";
                 } else {
                   newState = isCompleted ? "lost" : "pending";
                 }
