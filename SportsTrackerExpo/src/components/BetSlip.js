@@ -10,6 +10,7 @@ import {
   Animated,
   Dimensions,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -44,6 +45,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
   const [betAmount, setBetAmount] = useState("");
   const [showNumpad, setShowNumpad] = useState(false);
   const [credits, setCredits] = useState(0);
+  const [placingBet, setPlacingBet] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -989,25 +991,42 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
 
               {/* Main Bet Button */}
               <TouchableOpacity
+                disabled={placingBet || !(showNumpad && betAmount)}
                 style={[
                   styles.mainBetButton,
                   {
-                    backgroundColor:
-                      showNumpad && betAmount
-                        ? colors.primary
-                        : theme.surfaceSecondary,
-                    borderColor: theme.border,
+                    backgroundColor: placingBet
+                      ? "#dcdcdc"
+                      : showNumpad && betAmount
+                      ? colors.primary
+                      : theme.surface,
+                    borderColor: placingBet ? colors.primary : theme.border,
+                    opacity: placingBet ? 0.95 : 1,
                   },
                 ]}
-                onPress={() => {
+                onPress={async () => {
+                  if (placingBet) return;
                   if (showNumpad && betAmount) {
-                    handleConfirmBet();
+                    try {
+                      setPlacingBet(true);
+                      await handleConfirmBet();
+                    } catch (e) {
+                      console.warn("handleConfirmBet error", e?.message || e);
+                      Alert.alert("Bet failed", e?.message || "Failed to place bet");
+                    } finally {
+                      setPlacingBet(false);
+                    }
                   } else {
                     setShowNumpad(true);
                   }
                 }}
               >
-                {!showNumpad || !betAmount ? (
+                {placingBet ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={[styles.mainBetButtonLabel, { color: theme.text }]}>Processing...</Text>
+                  </View>
+                ) : !showNumpad || !betAmount ? (
                   <>
                     <Text
                       style={[

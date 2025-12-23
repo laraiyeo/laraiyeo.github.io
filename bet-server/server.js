@@ -136,12 +136,13 @@ const expo = new Expo();
 // Small helper: send push notification via Supabase-stored tokens
 async function sendPushNotification(userId, title, bodyText, data = {}) {
   try {
-    let pushToken = null;
     let resolvedProfileId = null;
     let resolvedUserRow = null;
+    let pushTokens = [];
 
-    // If caller didn't provide title/body but supplied a betslipId, fetch
-    // the betslip row here and build the notification content from it.
+    // ================================================================
+    // Build notification from betslip if needed
+    // ================================================================
     try {
       const betslipId = data?.betslipId;
       if ((!title || !bodyText) && betslipId) {
@@ -154,16 +155,15 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
         if (bsErr) {
           console.error("sendPushNotification: failed to fetch betslip", bsErr);
         } else if (bs) {
-          // If userId was not provided, prefer the betslip's user
           if (!userId && bs.user_id) userId = bs.user_id;
 
-          // Determine legs count from stored shapes
           let legsCount = 0;
           try {
             const dataObj =
               typeof bs.betslip_data === "string"
                 ? JSON.parse(bs.betslip_data)
                 : bs.betslip_data;
+
             if (dataObj) {
               if (Array.isArray(dataObj.bets)) legsCount = dataObj.bets.length;
               else if (Array.isArray(dataObj.events)) {
@@ -189,15 +189,15 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
             parseFloat(
               bs.total_stake ||
                 bs.amount ||
-                (bs.betslip_data && typeof bs.betslip_data === "object"
-                  ? bs.betslip_data.total_stake
+                (typeof bs.betslip_data === "object"
+                  ? bs.betslip_data?.total_stake
                   : NaN)
             ) || 0;
 
           const potential = parseFloat(
             bs.potential_payout ||
-              (bs.betslip_data && typeof bs.betslip_data === "object"
-                ? bs.betslip_data.potential_payout
+              (typeof bs.betslip_data === "object"
+                ? bs.betslip_data?.potential_payout
                 : bs.potential_payout)
           );
 
@@ -205,31 +205,23 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
             ? potential.toFixed(2)
             : null;
 
-          // Only set title/body if they weren't provided by caller
           if (!title) {
             if (bs.status === "won") title = "🎉 Bet Won!";
             else if (bs.status === "lost") title = "Bet Lost 😔";
             else title = "Bet Update";
           }
+
           if (!bodyText) {
             if (bs.status === "won") {
-              if (legsCount > 0 && potentialRounded) {
-                bodyText = `Congrats! Your ${legsCount} leg bet has won! You've won ${potentialRounded} credits!`;
-              } else if (potentialRounded) {
-                bodyText = `Congrats! Your bet has won! You've won ${potentialRounded} credits!`;
-              } else {
-                bodyText = `Congrats! Your bet has won!`;
-              }
+              bodyText = potentialRounded
+                ? `Congrats! Your ${legsCount || ""} bet has won! You've won ${potentialRounded} credits!`
+                : `Congrats! Your bet has won!`;
             } else if (bs.status === "lost") {
-              if (legsCount > 0) {
-                bodyText = `Unfortunately, your ${legsCount} leg bet has lost.`;
-              } else if (stake) {
-                bodyText = `Unfortunately, your bet of ${stake} credits has lost.`;
-              } else {
-                bodyText = `Unfortunately, your bet has lost.`;
-              }
+              bodyText = legsCount
+                ? `Unfortunately, your ${legsCount} leg bet has lost.`
+                : `Unfortunately, your bet has lost.`;
             } else {
-              bodyText = `Your ${legsCount} leg bet has successfully been updated.`;
+              bodyText = `Your ${legsCount} leg bet has been updated.`;
             }
           }
         }
@@ -241,28 +233,20 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
       );
     }
 
-    // ------------------------------------------------------------------
+    // ================================================================
     // Resolve profile UUID
-    // ------------------------------------------------------------------
+    // ================================================================
     try {
       const looksLikeUuid = typeof userId === "string" && userId.includes("-");
 
       if (looksLikeUuid) {
-        const { data: prof, error: perr } = await supabaseAdmin
+        const { data: prof } = await supabaseAdmin
           .from("profiles")
-          .select("id, username")
+          .select("id")
           .eq("id", userId)
           .maybeSingle();
 
-        if (!perr && prof) resolvedProfileId = prof.id;
-      } else if (resolvedUserRow?.username) {
-        const { data: prof, error: perr } = await supabaseAdmin
-          .from("profiles")
-          .select("id")
-          .eq("username", resolvedUserRow.username)
-          .maybeSingle();
-
-        if (!perr && prof) resolvedProfileId = prof.id;
+        if (prof) resolvedProfileId = prof.id;
       }
     } catch (e) {
       console.warn(
@@ -271,35 +255,39 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
       );
     }
 
-    // ------------------------------------------------------------------
-    // Fetch push token
-    // ------------------------------------------------------------------
-    if (!pushToken && resolvedProfileId) {
-      const { data: tokensByProfile, error } = await supabaseAdmin
+    // ================================================================
+    // Fetch ALL push tokens
+    // ================================================================
+    if (resolvedProfileId) {
+      const { data, error } = await supabaseAdmin
         .from("push_tokens")
         .select("expo_push_token")
-        .eq("user_id", resolvedProfileId)
-        .order("created_at", { ascending: false })
-        .limit(1);
+        .eq("user_id", resolvedProfileId);
 
-      if (!error && tokensByProfile?.length)
-        pushToken = tokensByProfile[0].expo_push_token;
+      if (!error && data?.length) {
+        pushTokens.push(...data.map(t => t.expo_push_token));
+      }
     }
 
-    if (!pushToken) {
-      const { data: tokens, error } = await supabaseAdmin
+    if (!pushTokens.length && userId) {
+      const { data, error } = await supabaseAdmin
         .from("push_tokens")
         .select("expo_push_token")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(1);
+        .eq("user_id", userId);
 
-      if (!error && tokens?.length) pushToken = tokens[0].expo_push_token;
+      if (!error && data?.length) {
+        pushTokens.push(...data.map(t => t.expo_push_token));
+      }
     }
 
-    if (!pushToken) {
+    // Deduplicate + validate
+    pushTokens = [
+      ...new Set(pushTokens.filter(Expo.isExpoPushToken)),
+    ];
+
+    if (!pushTokens.length) {
       console.log(
-        "No push token for user",
+        "No valid push tokens for user",
         userId,
         "resolvedProfileId",
         resolvedProfileId
@@ -307,35 +295,37 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
       return;
     }
 
-    if (!Expo.isExpoPushToken(pushToken)) {
-      console.error("Invalid Expo push token:", pushToken);
-      return;
-    }
-
-    // ------------------------------------------------------------------
-    // Send push
-    // ------------------------------------------------------------------
-    const message = {
-      to: pushToken,
+    // ================================================================
+    // Send push to ALL devices
+    // ================================================================
+    const messages = pushTokens.map(token => ({
+      to: token,
       sound: "default",
       title,
       body: bodyText,
       data,
       priority: "high",
-    };
+    }));
 
-    const chunks = expo.chunkPushNotifications([message]);
+    const chunks = expo.chunkPushNotifications(messages);
+
     for (const chunk of chunks) {
       try {
-        await expo.sendPushNotificationsAsync(chunk);
+        const tickets = await expo.sendPushNotificationsAsync(chunk);
+
+        tickets.forEach(ticket => {
+          if (ticket.status === "error") {
+            console.error("Expo push error:", ticket.message, ticket.details);
+          }
+        });
       } catch (err) {
-        console.error("expo send error", err);
+        console.error("Expo send error", err);
       }
     }
 
-    // ------------------------------------------------------------------
-    // Persist notification
-    // ------------------------------------------------------------------
+    // ================================================================
+    // Persist notification (once)
+    // ================================================================
     try {
       await supabaseAdmin.from("push_notifications").insert({
         user_id: userId,
@@ -367,6 +357,7 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
     console.error("sendPushNotification error", err?.message || err);
   }
 }
+
 
 async function broadcastToAll(title, bodyText, data = {}) {
   try {
