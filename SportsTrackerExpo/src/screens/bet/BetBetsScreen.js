@@ -143,6 +143,82 @@ const BetBetsScreen = () => {
     return scoreboardData.find((event) => event.id === eventId);
   };
 
+  // Helper to render two scores and bold the higher one (used for post-game emphasis)
+  const renderScoreText = (left, right) => {
+    const ln = Number(left) || 0;
+    const rn = Number(right) || 0;
+    return (
+      <Text style={[styles.scoreText, { color: theme.text }]}> 
+        <Text style={{ fontWeight: ln > rn ? "700" : "400" }}>{left ?? 0}</Text>
+        {" - "}
+        <Text style={{ fontWeight: rn > ln ? "700" : "400" }}>{right ?? 0}</Text>
+      </Text>
+    );
+  };
+
+  // Choose display scores preferring betslip payload (pick.scores) then scoreboard competitors
+  const getDisplayScoresFor = (pick, liveCompetitors) => {
+    if (pick && pick.scores && (pick.scores.team1 != null || pick.scores.team2 != null)) {
+      return [pick.scores.team1, pick.scores.team2];
+    }
+    if (Array.isArray(liveCompetitors) && liveCompetitors.length >= 2) {
+      return [liveCompetitors[1]?.score ?? null, liveCompetitors[0]?.score ?? null];
+    }
+    return [null, null];
+  };
+
+  // Render a combined "TEAM SCORE - TEAM SCORE" string with the winner bolded.
+  // Shows `home` first then `away` to match desired display (e.g. POR 102 - DET 110).
+  const renderGameScoreNames = (pick, liveGame, liveCompetitors) => {
+    // try payload scores first
+    let homeName = null;
+    let awayName = null;
+    let homeScore = null;
+    let awayScore = null;
+
+    // pick.scores: team1 = away, team2 = home in our mapping
+    if (pick?.scores) {
+      awayScore = pick.scores.team1 ?? pick.scores.away ?? pick.scores.teamA ?? null;
+      homeScore = pick.scores.team2 ?? pick.scores.home ?? pick.scores.teamB ?? null;
+    }
+
+    if (liveGame?.competitions?.[0]?.competitors) {
+      const comps = liveGame.competitions[0].competitors;
+      const awayComp = comps.find((c) => c.homeAway === "away") || comps[0];
+      const homeComp = comps.find((c) => c.homeAway === "home") || comps[1] || comps[0];
+      awayName =
+        awayComp?.team?.abbreviation || awayComp?.team?.shortDisplayName || awayComp?.team?.displayName || awayComp?.team?.name || awayComp?.team?.abbrev;
+      homeName =
+        homeComp?.team?.abbreviation || homeComp?.team?.shortDisplayName || homeComp?.team?.displayName || homeComp?.team?.name || homeComp?.team?.abbrev;
+      awayScore = awayScore ?? (awayComp?.score ?? awayComp?.statistics?.score ?? null);
+      homeScore = homeScore ?? (homeComp?.score ?? homeComp?.statistics?.score ?? null);
+    }
+
+    // Fallback: try to parse `pick.gameInfo` like "AWAY @ HOME"
+    if ((!homeName || !awayName) && pick?.gameInfo) {
+      try {
+        const parts = String(pick.gameInfo).split("@");
+        if (parts.length === 2) {
+          awayName = awayName || parts[0].trim();
+          homeName = homeName || parts[1].trim();
+        }
+      } catch (e) {}
+    }
+
+    const hn = homeName || "HOME";
+    const an = awayName || "AWAY";
+    const hs = homeScore != null ? Number(homeScore) : 0;
+    const as = awayScore != null ? Number(awayScore) : 0;
+
+    return (
+      <Text style={[styles.scoreText, { color: theme.text }]}>
+        <Text style={{ fontWeight: hs > as ? "700" : "400" }}>{`${hn} ${hs}`}</Text>
+        {" - "}
+        <Text style={{ fontWeight: as > hs ? "700" : "400" }}>{`${an} ${as}`}</Text>
+      </Text>
+    );
+  };
+
   // Filter bets by tab
   // Prefer server-provided bets when available; otherwise use submittedBets
   // but filter out purely-local tickets that haven't been persisted to Supabase.
@@ -987,9 +1063,7 @@ const BetBetsScreen = () => {
           </Text>
           {bet.scores && (
             <View style={styles.scoreRow}>
-              <Text style={[styles.scoreText, { color: theme.text }]}>
-                {bet.scores.team1} - {bet.scores.team2}
-              </Text>
+              {renderScoreText(bet.scores?.team1, bet.scores?.team2)}
               {bet.status === "winning" || bet.status === "losing" ? (
                 <View
                   style={[
@@ -1040,27 +1114,20 @@ const BetBetsScreen = () => {
 
           <View style={styles.parlayGameInfo}>
             <View style={styles.parlayGameScore}>
-              <Text
-                style={[styles.parlayGameText, { color: theme.textSecondary }]}
-              >
+              <Text style={[styles.parlayGameText, { color: theme.textSecondary }]}> 
                 {parlay.gameInfo}
               </Text>
-              <Text style={[styles.scoreText, { color: theme.text }]}>
-                {parlay.scores.team1} - {parlay.scores.team2}
-              </Text>
+              {parlay.scores && (
+                <View style={styles.scoreRow}>
+                  {renderScoreText(parlay.scores?.team1, parlay.scores?.team2)}
+                </View>
+              )}
             </View>
             <View style={styles.parlayGameStatusRow}>
-              <View
-                style={[styles.liveIndicator, { backgroundColor: theme.error }]}
-              >
+              <View style={[styles.liveIndicator, { backgroundColor: theme.error }]}> 
                 <Text style={styles.liveText}>LIVE</Text>
               </View>
-              <Text
-                style={[
-                  styles.parlayGameStatus,
-                  { color: theme.textTertiary, marginRight: 8 },
-                ]}
-              >
+              <Text style={[styles.parlayGameStatus, { color: theme.textTertiary, marginRight: 8 }]}>
                 {parlay.gameStatus}
               </Text>
             </View>
@@ -1173,14 +1240,12 @@ const BetBetsScreen = () => {
 
         <View style={styles.parlayGameInfo}>
           <View style={styles.parlayGameScore}>
-            <Text
-              style={[styles.parlayGameText, { color: theme.textSecondary }]}
-            >
-              {parlay.gameInfo}
-            </Text>
-            <Text style={[styles.scoreText, { color: theme.text }]}>
-              {parlay.scores.team1} - {parlay.scores.team2}
-            </Text>
+              <Text
+                style={[styles.parlayGameText, { color: theme.textSecondary }]}
+              >
+                {parlay.gameInfo}
+              </Text>
+              {renderScoreText(parlay.scores?.team1, parlay.scores?.team2)}
           </View>
           <View style={styles.parlayGameStatusRow}>
             <View
@@ -1360,6 +1425,39 @@ const BetBetsScreen = () => {
                     : "pending";
               } else {
                 pick.status = "pending";
+              }
+              // Prefer canonical player name from betslip payload for non-pre games
+              try {
+                const evtState =
+                  (eventData?.status?.state || "").toString().toLowerCase();
+                if (playerData.name && evtState !== "pre") {
+                  pick.playerName = playerData.name;
+                }
+
+                // Also prefer canonical game info/scores/status from payload for non-pre games
+                if (eventData?.status && evtState !== "pre") {
+                  const g = eventData.status.game;
+                  if (g) {
+                    const home = g.homeTeam || g.home || g.homeAbbrev || "";
+                    const away = g.awayTeam || g.away || g.awayAbbrev || "";
+                    const homeScore = g.homeScore ?? g.home_score ?? null;
+                    const awayScore = g.awayScore ?? g.away_score ?? null;
+                    if (homeScore != null && awayScore != null) {
+                      // keep numeric scores separate in `pick.scores` so we can
+                      // render them with `renderScoreText` (which bolds winners)
+                      pick.gameInfo = `${g.awayTeam || away} @ ${g.homeTeam || home}`;
+                    } else if (g.homeTeam && g.awayTeam) {
+                      pick.gameInfo = `${g.awayTeam} @ ${g.homeTeam}`;
+                    }
+                    pick.gameStatus = eventData.status.shortDetail ||
+                      eventData.status.state ||
+                      pick.gameStatus;
+                    pick.gameState = eventData.status.state || pick.gameState;
+                    pick.scores = g ? { team1: g.awayScore, team2: g.homeScore } : pick.scores;
+                  }
+                }
+              } catch (e) {
+                /* ignore */
               }
             }
           }
@@ -1542,10 +1640,104 @@ const BetBetsScreen = () => {
             } else {
               pick.status = "pending";
             }
+            // Prefer canonical game names/scores/status from event payload when not pre
+            try {
+              const evtState =
+                (eventData?.status?.state || "").toString().toLowerCase();
+              if (eventData?.status && evtState !== "pre") {
+                // set game info to include scores for post games
+                const g = eventData.status.game;
+                if (g) {
+                  // format: HOME SCORE - AWAY SCORE (Home and Away abbreviations preserved)
+                  const home = g.homeTeam || g.home || g.homeAbbrev || "";
+                  const away = g.awayTeam || g.away || g.awayAbbrev || "";
+                  const homeScore = g.homeScore ?? g.home_score ?? null;
+                  const awayScore = g.awayScore ?? g.away_score ?? null;
+                    if (homeScore != null && awayScore != null) {
+                      pick.gameInfo = `${g.awayTeam || away} @ ${g.homeTeam || home}`;
+                    } else if (g.homeTeam && g.awayTeam) {
+                      pick.gameInfo = `${g.awayTeam} @ ${g.homeTeam}`;
+                    }
+                  pick.gameStatus = eventData.status.shortDetail ||
+                    eventData.status.state ||
+                    pick.gameStatus;
+                  pick.gameState = eventData.status.state || pick.gameState;
+                  pick.scores = g
+                    ? { team1: g.awayScore, team2: g.homeScore }
+                    : pick.scores;
+                }
+              }
+            } catch (e) {
+              /* ignore */
+            }
           }
         } else {
           pick.status = "pending";
         }
+      }
+
+      // Ensure we prefer betslip_url payload values for non-pre events
+      try {
+        if (betslipData?.events) {
+          const overrideEvent = betslipData.events.find((e) => e.eventId === bet.gameId);
+          const evtState = (overrideEvent?.status?.state || "").toString().toLowerCase();
+          if (overrideEvent && evtState !== "pre") {
+            // Player-level overrides
+            if (pick.playerName && overrideEvent?.bets?.players) {
+              const p = overrideEvent.bets.players.find((pp) => pp.id === bet.playerId);
+              if (p) {
+                const statUpper = bet.statType?.toUpperCase()?.substring(0, 3) || "PTS";
+                const statMap = { POI: "PTS", REB: "REB", ASS: "AST", BLO: "BLK", STE: "STL", TUR: "TO", PRA: "PRA" };
+                const statKey = statMap[statUpper] || "PTS";
+                if (p.milestones?.[statKey]) {
+                  pick.currentValue = Number(p.milestones[statKey].current);
+                } else if (p.overUnder?.[statKey]) {
+                  pick.currentValue = Number(p.overUnder[statKey].current);
+                }
+              }
+            }
+
+            // Team-level overrides (spread/total)
+            if (!pick.playerName && overrideEvent?.bets) {
+              if (bet.type === "Moneyline" && overrideEvent.bets.moneyline) {
+                pick.scoreText = overrideEvent.bets.moneyline.current?.score;
+                pick.currentValue = null;
+              } else if (bet.type === "Spread" && overrideEvent.bets.spread) {
+                const spreadCurrent = overrideEvent.bets.spread.current;
+                const g = overrideEvent.status?.game;
+                const homeScore = Number(g?.homeScore) || 0;
+                const awayScore = Number(g?.awayScore) || 0;
+                let teamScore = null;
+                let oppScore = null;
+                try {
+                  if (String(bet.team).toUpperCase() === String(g?.homeTeam).toUpperCase()) {
+                    teamScore = homeScore;
+                    oppScore = awayScore;
+                  } else {
+                    teamScore = awayScore;
+                    oppScore = homeScore;
+                  }
+                } catch (e) {
+                  teamScore = Number(spreadCurrent?.adjustedScore) || 0;
+                  oppScore = 0;
+                }
+                pick.currentValue = Number(oppScore - teamScore);
+              } else if (bet.type === "Total" && overrideEvent.bets.totalPoints) {
+                const totalCurrent = overrideEvent.bets.totalPoints.current;
+                let parsedCurrent = null;
+                if (typeof totalCurrent === "number") parsedCurrent = totalCurrent;
+                else if (totalCurrent && typeof totalCurrent === "object") parsedCurrent = Number(totalCurrent.score ?? totalCurrent.current ?? totalCurrent.value ?? NaN);
+                else if (totalCurrent != null) {
+                  const n = Number(totalCurrent);
+                  parsedCurrent = isNaN(n) ? null : n;
+                }
+                pick.currentValue = parsedCurrent !== null && !isNaN(parsedCurrent) ? Number(parsedCurrent) : pick.currentValue;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        /* ignore */
       }
 
       return pick;
@@ -1728,19 +1920,7 @@ const BetBetsScreen = () => {
 
           <View style={styles.parlayGameInfo}>
             <View style={styles.parlayGameScore}>
-              <Text
-                style={[styles.parlayGameText, { color: theme.textSecondary }]}
-              >
-                {liveGame?.shortName || pick.gameInfo}{" "}
-                {liveGame?.status?.type?.state === "post"
-                  ? `- ${scores[1]?.score || 0} : ${scores[0]?.score || 0}`
-                  : ""}
-              </Text>
-              {scores && liveGame?.status?.type?.state === "in" && (
-                <Text style={[styles.scoreText, { color: theme.text }]}>
-                  {scores[1]?.score || 0} - {scores[0]?.score || 0}
-                </Text>
-              )}
+              {renderGameScoreNames(pick, liveGame, scores)}
             </View>
             <View style={styles.parlayGameStatusRow}>
               {liveGame?.status?.type?.state === "in" && (
@@ -1973,19 +2153,7 @@ const BetBetsScreen = () => {
 
           <View style={styles.parlayGameInfo}>
             <View style={styles.parlayGameScore}>
-              <Text
-                style={[styles.parlayGameText, { color: theme.textSecondary }]}
-              >
-                {liveGame?.shortName || firstPick.gameInfo}{" "}
-                {liveGame?.status?.type?.state === "post"
-                  ? `- ${scores[1]?.score || 0} : ${scores[0]?.score || 0}`
-                  : ""}
-              </Text>
-              {scores && liveGame?.status?.type?.state === "in" && (
-                <Text style={[styles.scoreText, { color: theme.text }]}>
-                  {scores[1]?.score || 0} - {scores[0]?.score || 0}
-                </Text>
-              )}
+              {renderGameScoreNames(firstPick, liveGame, scores)}
             </View>
             <View style={styles.parlayGameStatusRow}>
               {liveGame?.status?.type?.state === "in" && (
@@ -2246,22 +2414,7 @@ const BetBetsScreen = () => {
             <View key={gameId} style={{ marginBottom: 16 }}>
               <View style={styles.parlayGameInfo}>
                 <View style={styles.parlayGameScore}>
-                  <Text
-                    style={[
-                      styles.parlayGameText,
-                      { color: theme.textSecondary },
-                    ]}
-                  >
-                    {liveGame?.shortName || picks[0].gameInfo}{" "}
-                    {liveGame?.status?.type?.state === "post"
-                      ? `- ${scores[1]?.score || 0} : ${scores[0]?.score || 0}`
-                      : ""}
-                  </Text>
-                  {scores && liveGame?.status?.type?.state === "in" && (
-                    <Text style={[styles.scoreText, { color: theme.text }]}>
-                      {scores[1]?.score || 0} - {scores[0]?.score || 0}
-                    </Text>
-                  )}
+                  {renderGameScoreNames(picks[0], liveGame, scores)}
                 </View>
                 <View style={styles.parlayGameStatusRow}>
                   {liveGame?.status?.type?.state === "in" && (
