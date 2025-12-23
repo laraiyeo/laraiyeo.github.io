@@ -1565,7 +1565,7 @@ function transformSummaryData(data) {
 
   // Plays - only last entry
   if (data.plays && data.plays.length > 0) {
-    const lastPlay = data.plays[data.plays.length - 5];
+    const lastPlay = data.plays[data.plays.length - 1];
     const participants = {};
 
     if (lastPlay.participants) {

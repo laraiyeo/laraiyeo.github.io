@@ -858,6 +858,20 @@ export const getDailyRewardState = async (profileId) => {
             claimedDays = new Array(7)
               .fill(false)
               .map((v, i) => !!json.claimedDays[i]);
+            // Normalize nextAvailableAt from server and clear it if it's in the past
+            let nextAvailableRaw = json.nextAvailableAt || json.daily_next_available_at || null;
+            if (nextAvailableRaw) {
+              try {
+                const now = new Date();
+                const nextDt = new Date(nextAvailableRaw);
+                const allUnclaimed = claimedDays.every((d) => d === false);
+                if (!isNaN(nextDt.getTime()) && now >= nextDt && allUnclaimed) {
+                  nextAvailableRaw = null;
+                }
+              } catch (e) {
+                // ignore parse errors and fall back to raw value
+              }
+            }
           } else {
             // prefer explicit daily_* fields
             const availRaw =
@@ -886,11 +900,21 @@ export const getDailyRewardState = async (profileId) => {
               canClaim: !claimedFlag,
               claimed: !!claimedFlag,
               claimedAt: json.claimedAt || json.daily_claimed_at || null,
-              nextAvailableAt:
-                json.nextAvailableAt || json.daily_next_available_at || null,
+              nextAvailableAt: nextAvailableRaw,
               claimedDays,
             };
           }
+
+          // Normalize nextAvailableAt and clear if it's in the past and cycle shows all unclaimed
+          let nextAvailableRaw = json.nextAvailableAt || null;
+          try {
+            const now = new Date();
+            const nextDt = nextAvailableRaw ? new Date(nextAvailableRaw) : null;
+            const allUnclaimed = claimedDays.every((d) => d === false);
+            if (nextDt && !isNaN(nextDt.getTime()) && now >= nextDt && allUnclaimed) {
+              nextAvailableRaw = null;
+            }
+          } catch (e) {}
 
           return {
             success: true,
@@ -898,7 +922,7 @@ export const getDailyRewardState = async (profileId) => {
             canClaim: !json.claimed,
             claimed: !!json.claimed,
             claimedAt: json.claimedAt || null,
-            nextAvailableAt: json.nextAvailableAt || null,
+            nextAvailableAt: nextAvailableRaw,
             claimedDays,
           };
         }

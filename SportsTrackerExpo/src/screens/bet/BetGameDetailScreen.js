@@ -65,6 +65,8 @@ const calculateColorSimilarity = (color1, color2) => {
         }
       : null;
   };
+
+  
   const rgb1 = hexToRgb(color1);
   const rgb2 = hexToRgb(color2);
 
@@ -1126,6 +1128,151 @@ const BetGameDetailScreen = ({ navigation, route }) => {
   const isBoxScoreScrolling = useRef(false);
 
   const tabFontSize = getTabFontSize();
+
+  // Pro-only component: PlayParticipants
+  const PlayParticipants = ({ participants = {} }) => {
+    if (!isPro) return null;
+    if (!participants || Object.keys(participants).length === 0) return null;
+    const summary = summaryData || {};
+
+    // flatten participants map to array
+    const athletes = [];
+    Object.keys(participants).forEach((k) => {
+      const map = participants[k] || {};
+      Object.keys(map).forEach((aid) => athletes.push({ id: aid, displayName: map[aid] }));
+    });
+
+    // Build athlete metadata map from summary.boxscore if available
+    let athleteMeta = summary?.athletes || {};
+    try {
+      if ((!athleteMeta || Object.keys(athleteMeta).length === 0) && summary?.boxscore?.players) {
+        athleteMeta = {};
+        summary.boxscore.players.forEach((teamBlock) => {
+          const team = teamBlock.team || {};
+          const teamAbbrev = team.abbreviation || team.displayName || null;
+          const athletesArr = (teamBlock.statistics && teamBlock.statistics.athletes) || [];
+          athletesArr.forEach((entry) => {
+            const aid = String(entry.athlete?.id || entry.athlete?.athleteId || "");
+            if (!aid) return;
+            athleteMeta[aid] = athleteMeta[aid] || {};
+            athleteMeta[aid].displayName = entry.athlete?.displayName || athleteMeta[aid].displayName;
+            athleteMeta[aid].position = entry.athlete?.position || athleteMeta[aid].position;
+            athleteMeta[aid].jersey = entry.athlete?.jersey || athleteMeta[aid].jersey;
+            athleteMeta[aid].stats = entry.stats || athleteMeta[aid].stats;
+            athleteMeta[aid].headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${aid}.png&w=200`;
+            athleteMeta[aid].team = athleteMeta[aid].team || { abbreviation: teamAbbrev };
+            athleteMeta[aid].teamLogo = `https://a.espncdn.com/i/teamlogos/nba/500/${(teamAbbrev || "").toLowerCase()}.png`;
+          });
+        });
+      }
+    } catch (e) {
+      // ignore build errors and fall back to provided summary.athletes
+    }
+    const byTeam = {};
+    athletes.forEach((a) => {
+      const meta = athleteMeta[a.id] || {};
+      const teamAbbrev = (meta.team && (meta.team.abbreviation || meta.team?.abbrev)) || meta.teamAbbrev || meta.teamName || "UNK";
+      if (!byTeam[teamAbbrev]) byTeam[teamAbbrev] = [];
+      byTeam[teamAbbrev].push({ ...a, meta });
+    });
+
+    // Build team lookup from summary/header so participants use same logos/colors as header
+    const competition = summary?.header?.competitions?.[0] || null;
+    const competitors = competition?.competitors || [];
+    const awayTeamBlock = competitors.find((c) => c.homeAway === "away")?.team || {};
+    const homeTeamBlock = competitors.find((c) => c.homeAway === "home")?.team || {};
+
+    const darkSuffix = isDarkMode ? "-dark" : "";
+    const awayAbbr = (awayTeamBlock.abbreviation || "").toLowerCase();
+    const homeAbbr = (homeTeamBlock.abbreviation || "").toLowerCase();
+
+    const headerTeamData = {
+      team1Color: awayTeamBlock.color ? `#${awayTeamBlock.color}` : null,
+      team1AlternateColor: awayTeamBlock.alternateColor
+        ? `#${awayTeamBlock.alternateColor}`
+        : null,
+    };
+    const headerTeam2Data = {
+      team2Color: homeTeamBlock.color ? `#${homeTeamBlock.color}` : null,
+      team2AlternateColor: homeTeamBlock.alternateColor
+        ? `#${homeTeamBlock.alternateColor}`
+        : null,
+    };
+
+    const { team1Color: resolvedAwayColor, team2Color: resolvedHomeColor } = getSmartTeamColors(
+      headerTeamData,
+      headerTeam2Data,
+      colors
+    );
+
+    const teamLookup = {
+      [(awayTeamBlock.abbreviation || "").toUpperCase()]: {
+        logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${darkSuffix}/${awayAbbr}.png&h=200&w=200`,
+        color: resolvedAwayColor || colors.primary,
+      },
+      [(homeTeamBlock.abbreviation || "").toUpperCase()]: {
+        logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${darkSuffix}/${homeAbbr}.png&h=200&w=200`,
+        color: resolvedHomeColor || colors.primary,
+      },
+    };
+
+    const participantCount = Object.values(byTeam).reduce(
+      (sum, team) => sum + team.length,
+      0
+    );
+
+    return (
+      <View style={[styles.participantsSection, { borderTopColor: theme.border }]}> 
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>{`Play Participant${participantCount !== 1 ? 's' : ''}`}</Text>
+        {Object.keys(byTeam).map((team) => (
+          <View key={team} style={styles.participantsTeamGroup}>
+            {byTeam[team].map((ath, idx) => {
+              const m = ath.meta || {};
+              const headshot = m.headshot || (m.images && m.images.headshot);
+              // Prefer header/teamLookup values for consistent logos/colors, fall back to athlete meta
+              const teamColor = (teamLookup[team] && teamLookup[team].color) || m.team?.color || m.teamColor || colors.primary;
+              const teamLogo = (teamLookup[team] && teamLookup[team].logo) || m.team?.logo || m.team?.logoUrl || `https://a.espncdn.com/i/teamlogos/nba/500/${(team || "").toLowerCase()}.png`;
+              const position = m.position || m.pos || "";
+              const number = m.jersey || m.number || "";
+
+              const stats = summary?.stats?.[ath.id] || m.stats || {};
+              const statOrder = ["PTS", "REB", "AST", "FG", "+/-", "MIN"];
+              const statValues = statOrder.map((s) => ({ key: s, value: stats[s] ?? stats[s.toLowerCase()] ?? "-" }));
+
+              return (
+                <View key={ath.id} style={[styles.participantCard, idx !== byTeam[team].length - 1 ? styles.participantBorder : null]}>
+                  <View style={styles.participantTop}>
+                    <View style={[styles.headshotWrap, { backgroundColor: teamColor }]}> 
+                      {headshot ? <Image source={{ uri: headshot }} style={styles.headshot} /> : <View style={styles.headshotPlaceholder} />}
+                      {teamLogo ? <Image source={{ uri: teamLogo }} style={styles.teamLogoOverlay} /> : null}
+                    </View>
+                    <View style={styles.participantInfo}>
+                      <Text style={[styles.participantName, { color: theme.text }]}>{ath.displayName || m.displayName || 'Unknown'}</Text>
+                      <Text style={[styles.participantMeta, { color: theme.textSecondary }]}>{`${position || ''} ${number ? `• #${number} •` : ''} ${team}`.trim()}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.participantStatsRow}>
+                    {statValues.map((s) => {
+                      const isPlusMinus = s.key === "+/-";
+                      const val = s.value == null ? "-" : String(s.value);
+                      const color = isPlusMinus ? (val.startsWith("+") ? theme.success : val.startsWith("-") ? theme.error : theme.text) : theme.text;
+                      return (
+                        <View key={s.key} style={styles.statBubble}>
+                          <Text style={[styles.statValue, { color }]}>{val}</Text>
+                          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{s.key}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+    );
+  };
 
   // Game presence tracking
   const { viewerData, isJoined } = useGamePresence(game?.id);
@@ -2433,7 +2580,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 marginBottom: 8,
               }}
             >
-              <Text style={[styles.contentTitle, { color: theme.text }]}>
+              <Text style={[styles.contentTitle, { color: theme.text, marginBottom: -5 }]}>
                 Live Play
               </Text>
             </View>
@@ -2686,6 +2833,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       })()}
                     </View>
                   </View>
+                  {/* Play participants (pro only) - moved below play text to avoid overlap */}
                 </View>
               );
             })()}
@@ -2705,68 +2853,77 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 );
 
                 return (
-                  <View style={styles.playTextWrapper}>
-                    <View
-                      style={[
-                        styles.playTextContainer,
-                        {
-                          backgroundColor: theme.surface,
-                          borderWidth: 2,
-                          borderColor: summaryData.plays.team
-                            ? summaryData.plays.team === gameData.team1Abbr
-                              ? team1Color
-                              : team2Color
-                            : theme.border,
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.playText, { color: theme.text }]}>
-                        {summaryData.plays.text || "Waiting for next play..."}
-                      </Text>
-                      <View style={styles.playMetaContainer}>
-                        <Text
-                          style={[
-                            styles.playMeta,
-                            { color: theme.textSecondary },
-                          ]}
-                        >
-                          {summaryData.plays.period?.displayValue} •{" "}
-                          {summaryData.plays.clock}
-                        </Text>
-                        {summaryData.plays.scoringPlay &&
-                          summaryData.plays.shortDescription &&
-                          (() => {
-                            const bgColor = summaryData.plays.team
+                  <View>
+                    <View style={styles.playTextWrapper}>
+                      <View
+                        style={[
+                          styles.playTextContainer,
+                          {
+                            backgroundColor: theme.surface,
+                            borderWidth: 2,
+                            borderColor: summaryData.plays.team
                               ? summaryData.plays.team === gameData.team1Abbr
                                 ? team1Color
                                 : team2Color
-                              : colors.primary;
-                            const textColor =
-                              bgColor?.toLowerCase() === "#ffffff"
-                                ? "black"
-                                : "white";
+                              : theme.border,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.playText, { color: theme.text }]}> 
+                          {summaryData.plays.text || "Waiting for next play..."}
+                        </Text>
+                        <View style={styles.playMetaContainer}>
+                          <Text
+                            style={[
+                              styles.playMeta,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {summaryData.plays.period?.displayValue} •{" "}
+                            {summaryData.plays.clock}
+                          </Text>
+                          {summaryData.plays.scoringPlay &&
+                            summaryData.plays.shortDescription &&
+                            (() => {
+                              const bgColor = summaryData.plays.team
+                                ? summaryData.plays.team === gameData.team1Abbr
+                                  ? team1Color
+                                  : team2Color
+                                : colors.primary;
+                              const textColor =
+                                bgColor?.toLowerCase() === "#ffffff"
+                                  ? "black"
+                                  : "white";
 
-                            return (
-                              <View
-                                style={[
-                                  styles.scoringBadge,
-                                  {
-                                    backgroundColor: bgColor,
-                                  },
-                                ]}
-                              >
-                                <Text
+                              return (
+                                <View
                                   style={[
-                                    styles.scoringBadgeText,
-                                    { color: textColor },
+                                    styles.scoringBadge,
+                                    {
+                                      backgroundColor: bgColor,
+                                    },
                                   ]}
                                 >
-                                  {summaryData.plays.shortDescription}
-                                </Text>
-                              </View>
-                            );
-                          })()}
+                                  <Text
+                                    style={[
+                                      styles.scoringBadgeText,
+                                      { color: textColor },
+                                    ]}
+                                  >
+                                    {summaryData.plays.shortDescription}
+                                  </Text>
+                                </View>
+                              );
+                            })()}
+                        </View>
                       </View>
+
+                      {/* Play participants (pro only) - render directly under play card */}
+                      {isPro && summaryData?.plays?.participants && (
+                        <View style={{ marginTop: 12 }}>
+                          <PlayParticipants participants={summaryData.plays.participants} />
+                        </View>
+                      )}
                     </View>
                   </View>
                 );
@@ -3947,6 +4104,85 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     marginBottom: 12,
+  },
+
+  // Play Participants styles
+  participantsSection: {
+    paddingVertical: 12,
+  },
+  participantsTeamGroup: {
+    marginBottom: 8,
+  },
+  participantCard: {
+    paddingVertical: 12,
+  },
+  participantBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+  },
+  participantTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  headshotWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    overflow: "visible",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  headshot: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
+  headshotPlaceholder: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  teamLogoOverlay: {
+    position: "absolute",
+    right: -6,
+    bottom: -6,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    zIndex: 10,
+    elevation: 10,
+  },
+  participantInfo: {
+    flex: 1,
+  },
+  participantName: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  participantMeta: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  participantStatsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  statBubble: {
+    flex: 1,
+    alignItems: "center",
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  statLabel: {
+    fontSize: 11,
+    marginTop: 4,
   },
 
   // Linescore Styles
