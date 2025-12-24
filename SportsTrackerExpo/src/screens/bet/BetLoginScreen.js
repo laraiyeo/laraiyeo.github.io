@@ -653,7 +653,7 @@ const BetLoginScreen = ({ navigation }) => {
         </View>
 
         <Text style={[styles.title, { color: theme.text }]}>
-          Welcome to SportsHeart Bet
+          Welcome to SportsHeart Picks
         </Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           Login or create a new account

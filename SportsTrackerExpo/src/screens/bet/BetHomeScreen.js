@@ -853,8 +853,16 @@ const BetHomeScreen = ({ navigation }) => {
             setProfileIdForDaily(pid);
             const dr = await getDailyRewardState(pid);
             if (mounted && dr && dr.success) {
-              const hasProgress =
-                Array.isArray(dr.claimedDays) && dr.claimedDays.some(Boolean);
+              const claimedArr = Array.isArray(dr.claimedDays) ? dr.claimedDays : [];
+              const hasProgress = claimedArr.some(Boolean);
+              const avail = dr.availableDay || null;
+              const computedCan = avail && !claimedArr[avail - 1];
+              // Prefer server `canClaim` but allow computed availability to override an inconsistent false
+              const finalCanClaim =
+                typeof dr.canClaim !== "undefined"
+                  ? dr.canClaim || computedCan
+                  : computedCan;
+
               // Only show modal if user can claim now, or if there is progress AND the nextAvailableAt has passed (so they can continue the cycle)
               const now = new Date();
               const nextAvailable = dr.nextAvailableAt
@@ -862,8 +870,9 @@ const BetHomeScreen = ({ navigation }) => {
                 : null;
               const showBecauseProgress =
                 hasProgress && (!nextAvailable || now >= nextAvailable);
-              if (dr.canClaim || showBecauseProgress) {
-                setDailyState(dr);
+
+              if (finalCanClaim || showBecauseProgress) {
+                setDailyState({ ...(dr || {}), canClaim: finalCanClaim });
                 setDailyVisible(true);
               }
             }

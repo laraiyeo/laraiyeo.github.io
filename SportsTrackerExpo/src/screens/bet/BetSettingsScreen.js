@@ -335,7 +335,9 @@ const BetSettingsScreen = ({ navigation }) => {
           "nextAvailableInSec=",
           nextDiff
         );
-        const canClaim = serverCan !== null ? serverCan : computedCan;
+        // Prefer server `canClaim` but allow computed availability to override an inconsistent false
+        const canClaim =
+          serverCan !== null ? serverCan || computedCan : computedCan;
         setDailyState({ ...(state || {}), canClaim });
       } catch (e) {
         setDailyState(state);
@@ -994,7 +996,7 @@ const BetSettingsScreen = ({ navigation }) => {
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
               <Text style={[styles.settingLabel, { color: theme.text }]}>
-                How SportsHeart Bet works
+                How SportsHeart Picks works
               </Text>
               <Text
                 style={[
@@ -1155,7 +1157,7 @@ const BetSettingsScreen = ({ navigation }) => {
               ]}
             >
               <Text style={{ color: theme.text, fontWeight: "700" }}>
-                SportsHeart Bet Info
+                SportsHeart Picks Info
               </Text>
               <TouchableOpacity onPress={() => setInfoVisible(false)}>
                 <Text style={{ color: colors.primary, fontWeight: "700" }}>

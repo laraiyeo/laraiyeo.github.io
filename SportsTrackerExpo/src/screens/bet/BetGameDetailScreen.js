@@ -4039,11 +4039,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         <View
           style={[styles.tabsContainer, { backgroundColor: theme.surface }]}
         >
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tabsScroll}
-          >
+          <View style={{ flex: 1, flexDirection: "row", flexWrap: "nowrap" }}>
             {tabs.map((tab) => (
               <TouchableOpacity
                 key={tab.id}
@@ -4064,6 +4060,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         selectedTab === tab.id ? "white" : theme.textSecondary,
                       fontWeight: selectedTab === tab.id ? "bold" : "600",
                       fontSize: tabFontSize,
+                      textAlign: "center",
                     },
                   ]}
                 >
@@ -4071,7 +4068,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 </Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
+          </View>
         </View>
 
         {/* Tab Content */}

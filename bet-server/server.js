@@ -3385,6 +3385,8 @@ function startWatcherInline(betslipId) {
   }
   const lastStates = {};
   const lastEventStatus = {};
+  // Track raw event lifecycle state (e.g. 'pre'|'in'|'post') between ticks
+  const lastEventRawState = {};
   const intervalId = setInterval(async () => {
     try {
       const { data: rows } = await supabaseAdmin
@@ -3712,14 +3714,20 @@ function startWatcherInline(betslipId) {
             startedWithinDay = false;
           }
 
-          // Notify Game Started only on a real transition (prevEvent exists) or
-          // when the event start time is within a recent 30-minute window.
-          if (
-            !isFirstTick &&
-            prevEvent !== "in progress" &&
-            isInProgress &&
-            (prevEvent !== undefined || startedRecently)
-          ) {
+          // Prefer raw state transitions for start/end notifications to avoid
+          // spurious notifications caused by heuristics. Use summary's
+          // `status.type.state` when available.
+          const newRawState =
+            summary.header?.competitions?.[0]?.status?.type?.state || null;
+          const prevRawState = lastEventRawState[evId];
+
+          // Notify Game Started when either:
+          // - we observe a raw 'pre' -> 'in' transition between ticks, OR
+          // - fall back to heuristic (previous textual status != in progress
+          //   and current isInProgress) when raw states are not available.
+          const startedByTransition = !isFirstTick && prevRawState === "pre" && newRawState === "in";
+          const startedByHeuristic = !isFirstTick && prevEvent !== "in progress" && isInProgress && (prevEvent !== undefined || startedRecently);
+          if (startedByTransition || startedByHeuristic) {
             // Avoid spamming the same user about the same event multiple
             // times from different watchers or rapid ticks.
             if (!shouldSuppressNotification(fresh.user_id, evId, "started")) {
@@ -3739,14 +3747,11 @@ function startWatcherInline(betslipId) {
             }
           }
 
-          // Notify Game Ended only on a real transition (prevEvent exists) or
-          // when the event start time was within the last day (safety window).
-          if (
-            !isFirstTick &&
-            prevEvent !== "completed" &&
-            isCompleted &&
-            (prevEvent !== undefined || startedWithinDay)
-          ) {
+          // Notify Game Ended only when state transitions from 'in' -> 'post'
+          // between ticks. This avoids spurious end notifications based on
+          // intermediate heuristics. We do not use the startedWithinDay
+          // fallback here to ensure ends are genuine transitions.
+          if (!isFirstTick && prevRawState === "in" && newRawState === "post") {
             if (!shouldSuppressNotification(fresh.user_id, evId, "ended")) {
               console.log(
                 `[watcher ${betslipId}] notify -> Game Ended user:${fresh.user_id} event:${evId}`
@@ -3769,6 +3774,8 @@ function startWatcherInline(betslipId) {
             : isInProgress
             ? "in progress"
             : "scheduled";
+          // Persist the raw state for next tick comparisons
+          if (typeof newRawState === "string") lastEventRawState[evId] = newRawState;
 
           // simplified heuristics (moneyline/total/spread/player)
           // Only compute type-specific heuristics when we don't already

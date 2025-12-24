@@ -229,18 +229,44 @@ const BetBetsScreen = () => {
 
     const hn = homeName || "HOME";
     const an = awayName || "AWAY";
-    const hs = homeScore != null ? Number(homeScore) : 0;
-    const as = awayScore != null ? Number(awayScore) : 0;
+    const hs = homeScore != null ? Number(homeScore) : null;
+    const as = awayScore != null ? Number(awayScore) : null;
+
+    // Determine authoritative event state (prefer pick.gameState, then liveGame status)
+    const evtState = (
+      pick?.gameState ||
+      liveGame?.competitions?.[0]?.status?.type?.state ||
+      liveGame?.status?.type?.state ||
+      liveGame?.status?.state ||
+      pick?.gameStatus ||
+      ""
+    )
+      .toString()
+      .toLowerCase();
+
+    const isPre =
+      evtState === "pre" || evtState === "scheduled" || evtState.includes("pre");
+
+    // For pre/scheduled games, only show team names (no numeric scores)
+    if (isPre) {
+      return (
+        <Text style={[styles.scoreText, { color: theme.text }]}>
+          <Text style={{ fontWeight: "400" }}>{hn}</Text>
+          {" - "}
+          <Text style={{ fontWeight: "400" }}>{an}</Text>
+        </Text>
+      );
+    }
+
+    // For in/post games show numeric scores and bold the higher one
+    const homeNum = hs != null ? hs : 0;
+    const awayNum = as != null ? as : 0;
 
     return (
       <Text style={[styles.scoreText, { color: theme.text }]}>
-        <Text
-          style={{ fontWeight: hs > as ? "700" : "400" }}
-        >{`${hn} ${hs}`}</Text>
+        <Text style={{ fontWeight: homeNum > awayNum ? "700" : "400" }}>{`${hn} ${homeNum}`}</Text>
         {" - "}
-        <Text
-          style={{ fontWeight: as > hs ? "700" : "400" }}
-        >{`${an} ${as}`}</Text>
+        <Text style={{ fontWeight: awayNum > homeNum ? "700" : "400" }}>{`${an} ${awayNum}`}</Text>
       </Text>
     );
   };
@@ -576,8 +602,6 @@ const BetBetsScreen = () => {
     let mounted = true;
 
     const schedulePollForTicket = (ticket) => {
-      // clear existing
-      clearPollForTicket(ticket.id);
 
       const runOnceAndSchedule = async () => {
         let data = null;
@@ -589,9 +613,23 @@ const BetBetsScreen = () => {
             (ticket.betslipData && ticket.betslipData.betslip_url) ||
             null;
           const url = storedUrl || buildBetslipUrlFromTicket(ticket);
-          if (!url) return;
+          if (!url) {
+            if (typeof __DEV__ !== "undefined" && __DEV__)
+              console.log("[BetBetsScreen] no betslip url for ticket", ticket.id);
+            return;
+          }
+
+          if (typeof __DEV__ !== "undefined" && __DEV__)
+            console.log("[BetBetsScreen] fetching betslip for", ticket.id, url);
 
           const res = await fetch(url);
+          if (typeof __DEV__ !== "undefined" && __DEV__)
+            console.log(
+              "[BetBetsScreen] fetch result for",
+              ticket.id,
+              res.status,
+              res.ok
+            );
           data = await res.json();
           // Log full betslip JSON for debugging polling/state decisions
           try {
@@ -677,6 +715,64 @@ const BetBetsScreen = () => {
         ? serverBets
         : submittedBets;
 
+    try {
+      console.log(
+        "[BetBetsScreen] Polling effect run -> isFocused=",
+        isFocused,
+        "ticketsToUseCount=",
+        ticketsToUse ? ticketsToUse.length : 0
+      );
+
+      const inTickets = (ticketsToUse || []).filter((t) => {
+        try {
+          const latest =
+            betslipLiveMap[t.id] || t.betslipData || t.betslip_data || null;
+          let states = [];
+          if (latest && Array.isArray(latest.events) && latest.events.length)
+            states = latest.events.map(
+              (e) =>
+                (e?.status?.state || e?.status || e?.status?.type?.state || "")
+                  .toString()
+                  .toLowerCase()
+            );
+          else {
+            const gameIds = [
+              ...new Set((t.bets || []).map((b) => b.gameId).filter(Boolean)),
+            ];
+            states = gameIds.map((gid) => {
+              const ev = scoreboardData.find(
+                (g) => String(g.id) === String(gid) ||
+                       g.header?.competitions?.[0]?.id === gid
+              );
+              return (
+                ev?.header?.competitions?.[0]?.status?.type?.state ||
+                ev?.status?.type?.state ||
+                ev?.status?.state ||
+                ev?.status ||
+                ""
+              )
+                .toString()
+                .toLowerCase();
+            });
+          }
+          return states.some((s) =>
+            ["in", "live", "inprogress", "in_progress"].includes(s)
+          );
+        } catch (e) {
+          return false;
+        }
+      });
+
+      console.log(
+        "[BetBetsScreen] tickets with in/live games count=",
+        inTickets.length,
+        "ids=",
+        inTickets
+      );
+    } catch (e) {
+      /* ignore logging errors */
+    }
+
     // Start/stop polls for each selected ticket
     ticketsToUse.forEach((ticket) => {
       try {
@@ -686,7 +782,9 @@ const BetBetsScreen = () => {
           if (pollsRef.current[ticket.id]) clearPollForTicket(ticket.id);
           return;
         }
-        if (ticket.status && String(ticket.status).toLowerCase() !== "open") {
+        const tstat = (ticket.status || "").toString().toLowerCase();
+        // treat 'open' and 'pending' as pollable; stop polling otherwise
+        if (tstat && tstat !== "open" && tstat !== "pending") {
           if (pollsRef.current[ticket.id]) clearPollForTicket(ticket.id);
           return;
         }
@@ -730,7 +828,7 @@ const BetBetsScreen = () => {
       Object.keys(pollsRef.current).forEach((tid) => clearPollForTicket(tid));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverBets, submittedBets, scoreboardData]);
+  }, [serverBets, submittedBets, scoreboardData, isFocused]);
 
   // Parse various gameInfo formats into a timestamp (ms).
   // Handles strings like "12/18 - 7:00 PM EST", "LAC @ OKC - 12/18 - 7:00 PM EST",
@@ -2015,7 +2113,7 @@ const BetBetsScreen = () => {
                   { color: theme.textTertiary, marginLeft: 0 },
                 ]}
               >
-                {liveGame?.status?.type?.shortDetail || pick.gameStatus}
+                {pick.gameStatus || liveGame?.status?.type?.shortDetail}
               </Text>
             </View>
           </View>
@@ -2248,7 +2346,7 @@ const BetBetsScreen = () => {
                   { color: theme.textTertiary, marginLeft: 0 },
                 ]}
               >
-                {liveGame?.status?.type?.shortDetail || firstPick.gameStatus}
+                {firstPick.gameStatus || liveGame?.status?.type?.shortDetail}
               </Text>
             </View>
           </View>
@@ -2509,7 +2607,7 @@ const BetBetsScreen = () => {
                       { color: theme.textTertiary, marginLeft: 0 },
                     ]}
                   >
-                    {liveGame?.status?.type?.shortDetail || picks[0].gameStatus}
+                    {picks[0].gameStatus || liveGame?.status?.type?.shortDetail}
                   </Text>
                 </View>
               </View>
