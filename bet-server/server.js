@@ -3725,8 +3725,13 @@ function startWatcherInline(betslipId) {
           // - we observe a raw 'pre' -> 'in' transition between ticks, OR
           // - fall back to heuristic (previous textual status != in progress
           //   and current isInProgress) when raw states are not available.
-          const startedByTransition = !isFirstTick && prevRawState === "pre" && newRawState === "in";
-          const startedByHeuristic = !isFirstTick && prevEvent !== "in progress" && isInProgress && (prevEvent !== undefined || startedRecently);
+          const startedByTransition =
+            !isFirstTick && prevRawState === "pre" && newRawState === "in";
+          const startedByHeuristic =
+            !isFirstTick &&
+            prevEvent !== "in progress" &&
+            isInProgress &&
+            (prevEvent !== undefined || startedRecently);
           if (startedByTransition || startedByHeuristic) {
             // Avoid spamming the same user about the same event multiple
             // times from different watchers or rapid ticks.
@@ -3775,7 +3780,8 @@ function startWatcherInline(betslipId) {
             ? "in progress"
             : "scheduled";
           // Persist the raw state for next tick comparisons
-          if (typeof newRawState === "string") lastEventRawState[evId] = newRawState;
+          if (typeof newRawState === "string")
+            lastEventRawState[evId] = newRawState;
 
           // simplified heuristics (moneyline/total/spread/player)
           // Only compute type-specific heuristics when we don't already

@@ -245,7 +245,9 @@ const BetBetsScreen = () => {
       .toLowerCase();
 
     const isPre =
-      evtState === "pre" || evtState === "scheduled" || evtState.includes("pre");
+      evtState === "pre" ||
+      evtState === "scheduled" ||
+      evtState.includes("pre");
 
     // For pre/scheduled games, only show team names (no numeric scores)
     if (isPre) {
@@ -264,9 +266,13 @@ const BetBetsScreen = () => {
 
     return (
       <Text style={[styles.scoreText, { color: theme.text }]}>
-        <Text style={{ fontWeight: homeNum > awayNum ? "700" : "400" }}>{`${hn} ${homeNum}`}</Text>
+        <Text
+          style={{ fontWeight: homeNum > awayNum ? "700" : "400" }}
+        >{`${hn} ${homeNum}`}</Text>
         {" - "}
-        <Text style={{ fontWeight: awayNum > homeNum ? "700" : "400" }}>{`${an} ${awayNum}`}</Text>
+        <Text
+          style={{ fontWeight: awayNum > homeNum ? "700" : "400" }}
+        >{`${an} ${awayNum}`}</Text>
       </Text>
     );
   };
@@ -602,7 +608,6 @@ const BetBetsScreen = () => {
     let mounted = true;
 
     const schedulePollForTicket = (ticket) => {
-
       const runOnceAndSchedule = async () => {
         let data = null;
         try {
@@ -615,7 +620,10 @@ const BetBetsScreen = () => {
           const url = storedUrl || buildBetslipUrlFromTicket(ticket);
           if (!url) {
             if (typeof __DEV__ !== "undefined" && __DEV__)
-              console.log("[BetBetsScreen] no betslip url for ticket", ticket.id);
+              console.log(
+                "[BetBetsScreen] no betslip url for ticket",
+                ticket.id
+              );
             return;
           }
 
@@ -729,11 +737,10 @@ const BetBetsScreen = () => {
             betslipLiveMap[t.id] || t.betslipData || t.betslip_data || null;
           let states = [];
           if (latest && Array.isArray(latest.events) && latest.events.length)
-            states = latest.events.map(
-              (e) =>
-                (e?.status?.state || e?.status || e?.status?.type?.state || "")
-                  .toString()
-                  .toLowerCase()
+            states = latest.events.map((e) =>
+              (e?.status?.state || e?.status || e?.status?.type?.state || "")
+                .toString()
+                .toLowerCase()
             );
           else {
             const gameIds = [
@@ -741,8 +748,9 @@ const BetBetsScreen = () => {
             ];
             states = gameIds.map((gid) => {
               const ev = scoreboardData.find(
-                (g) => String(g.id) === String(gid) ||
-                       g.header?.competitions?.[0]?.id === gid
+                (g) =>
+                  String(g.id) === String(gid) ||
+                  g.header?.competitions?.[0]?.id === gid
               );
               return (
                 ev?.header?.competitions?.[0]?.status?.type?.state ||

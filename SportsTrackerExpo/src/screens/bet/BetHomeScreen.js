@@ -853,7 +853,9 @@ const BetHomeScreen = ({ navigation }) => {
             setProfileIdForDaily(pid);
             const dr = await getDailyRewardState(pid);
             if (mounted && dr && dr.success) {
-              const claimedArr = Array.isArray(dr.claimedDays) ? dr.claimedDays : [];
+              const claimedArr = Array.isArray(dr.claimedDays)
+                ? dr.claimedDays
+                : [];
               const hasProgress = claimedArr.some(Boolean);
               const avail = dr.availableDay || null;
               const computedCan = avail && !claimedArr[avail - 1];

@@ -642,70 +642,71 @@ export const getUserBetslips = async (status = null) => {
       }
     } catch (e) {}
 
-        if (resp.ok) {
-          const json = await resp.json().catch(() => null);
-          // Only treat server response as a successful claim when it clearly
-          // indicates which day was claimed or includes a claimed flag/date.
-          const serverIndicatesClaim =
-            json &&
-            json.success &&
-            (typeof json.day !== "undefined" ||
-              json.claimed === true ||
-              json.daily_claimed === true ||
-              json.claimedAt ||
-              json.daily_claimed_at);
+    if (resp.ok) {
+      const json = await resp.json().catch(() => null);
+      // Only treat server response as a successful claim when it clearly
+      // indicates which day was claimed or includes a claimed flag/date.
+      const serverIndicatesClaim =
+        json &&
+        json.success &&
+        (typeof json.day !== "undefined" ||
+          json.claimed === true ||
+          json.daily_claimed === true ||
+          json.claimedAt ||
+          json.daily_claimed_at);
 
-          if (serverIndicatesClaim) {
-            // Best-effort: update local storage to reflect canonical claim
-            try {
-              const key = DAILY_KEY_FOR(profileId);
-              const now = new Date();
-              const state = {
-                claimedDays: [false, false, false, false, false, false, false],
-                nextAvailableAt: null,
-              };
+      if (serverIndicatesClaim) {
+        // Best-effort: update local storage to reflect canonical claim
+        try {
+          const key = DAILY_KEY_FOR(profileId);
+          const now = new Date();
+          const state = {
+            claimedDays: [false, false, false, false, false, false, false],
+            nextAvailableAt: null,
+          };
 
-              const dayNum = Number(json.day) || 1;
-              if (dayNum >= 1 && dayNum <= 7) {
-                state.claimedDays[dayNum - 1] = true;
-                // Prefer server-provided nextAvailableAt when present, but only
-                // set it if we actually marked a day as claimed.
-                const nextFromServer =
-                  json.nextAvailableAt || json.daily_next_available_at || null;
-                if (nextFromServer) {
-                  try {
-                    const dt = new Date(nextFromServer);
-                    if (!isNaN(dt.getTime())) state.nextAvailableAt = dt.toISOString();
-                  } catch (e) {
-                    // ignore parse errors
-                  }
-                }
-                if (!state.nextAvailableAt) {
-                  state.nextAvailableAt = new Date(
-                    now.getTime() + 24 * 60 * 60 * 1000
-                  ).toISOString();
-                }
-                await AsyncStorage.setItem(key, JSON.stringify(state));
+          const dayNum = Number(json.day) || 1;
+          if (dayNum >= 1 && dayNum <= 7) {
+            state.claimedDays[dayNum - 1] = true;
+            // Prefer server-provided nextAvailableAt when present, but only
+            // set it if we actually marked a day as claimed.
+            const nextFromServer =
+              json.nextAvailableAt || json.daily_next_available_at || null;
+            if (nextFromServer) {
+              try {
+                const dt = new Date(nextFromServer);
+                if (!isNaN(dt.getTime()))
+                  state.nextAvailableAt = dt.toISOString();
+              } catch (e) {
+                // ignore parse errors
               }
-            } catch (e) {}
-
-            return {
-              success: true,
-              day: json.day,
-              reward: json.reward,
-              newCredits: json.user?.credits,
-            };
+            }
+            if (!state.nextAvailableAt) {
+              state.nextAvailableAt = new Date(
+                now.getTime() + 24 * 60 * 60 * 1000
+              ).toISOString();
+            }
+            await AsyncStorage.setItem(key, JSON.stringify(state));
           }
-          // If server returned success but did not clearly indicate a claimed
-          // day, fall through to the local claim fallback rather than setting
-          // nextAvailableAt based on an ambiguous response.
-          try {
-            console.warn(
-              "claimDailyReward: server response ambiguous, falling back to local claim",
-              { profileId, json }
-            );
-          } catch (e) {}
-        }
+        } catch (e) {}
+
+        return {
+          success: true,
+          day: json.day,
+          reward: json.reward,
+          newCredits: json.user?.credits,
+        };
+      }
+      // If server returned success but did not clearly indicate a claimed
+      // day, fall through to the local claim fallback rather than setting
+      // nextAvailableAt based on an ambiguous response.
+      try {
+        console.warn(
+          "claimDailyReward: server response ambiguous, falling back to local claim",
+          { profileId, json }
+        );
+      } catch (e) {}
+    }
 
     if (error) throw error;
 
@@ -902,15 +903,23 @@ export const getDailyRewardState = async (profileId) => {
               json.nextAvailableAt || json.daily_next_available_at || null;
             try {
               const now = new Date();
-              const nextDt = nextAvailableRaw ? new Date(nextAvailableRaw) : null;
-              const hasAnyClaimed = claimedDays.some((d) => d === true) ||
+              const nextDt = nextAvailableRaw
+                ? new Date(nextAvailableRaw)
+                : null;
+              const hasAnyClaimed =
+                claimedDays.some((d) => d === true) ||
                 !!json.claimed ||
                 !!json.daily_claimed ||
                 !!json.claimedAt ||
                 !!json.daily_claimed_at;
               // If server doesn't indicate any claimed day/timestamp, ignore nextAvailableAt
               if (!hasAnyClaimed) nextAvailableRaw = null;
-              else if (nextDt && !isNaN(nextDt.getTime()) && now >= nextDt && !hasAnyClaimed) {
+              else if (
+                nextDt &&
+                !isNaN(nextDt.getTime()) &&
+                now >= nextDt &&
+                !hasAnyClaimed
+              ) {
                 nextAvailableRaw = null;
               }
             } catch (e) {
@@ -939,7 +948,8 @@ export const getDailyRewardState = async (profileId) => {
             }
 
             // Preserve server-provided nextAvailable if present
-            let nextAvailableRaw = json.nextAvailableAt || json.daily_next_available_at || null;
+            let nextAvailableRaw =
+              json.nextAvailableAt || json.daily_next_available_at || null;
 
             return {
               success: true,
@@ -957,12 +967,18 @@ export const getDailyRewardState = async (profileId) => {
           try {
             const now = new Date();
             const nextDt = nextAvailableRaw ? new Date(nextAvailableRaw) : null;
-            const hasAnyClaimed = claimedDays.some((d) => d === true) ||
+            const hasAnyClaimed =
+              claimedDays.some((d) => d === true) ||
               !!json.claimed ||
               !!json.daily_claimed ||
               !!json.claimedAt ||
               !!json.daily_claimed_at;
-            if (nextDt && !isNaN(nextDt.getTime()) && now >= nextDt && !hasAnyClaimed) {
+            if (
+              nextDt &&
+              !isNaN(nextDt.getTime()) &&
+              now >= nextDt &&
+              !hasAnyClaimed
+            ) {
               nextAvailableRaw = null;
             }
             // If server didn't indicate any claimed day, drop nextAvailableRaw
