@@ -1281,15 +1281,18 @@ const BetHomeScreen = ({ navigation }) => {
               style={styles.horizontalScroll}
               contentContainerStyle={{ paddingRight: 20 }}
             >
-              {completedGames.slice().reverse().map((game) => (
-                <CompletedGameCard
-                  key={game.id}
-                  game={game}
-                  navigation={navigation}
-                  theme={theme}
-                  colors={colors}
-                />
-              ))}
+              {completedGames
+                .slice()
+                .reverse()
+                .map((game) => (
+                  <CompletedGameCard
+                    key={game.id}
+                    game={game}
+                    navigation={navigation}
+                    theme={theme}
+                    colors={colors}
+                  />
+                ))}
             </ScrollView>
           </View>
         )}
