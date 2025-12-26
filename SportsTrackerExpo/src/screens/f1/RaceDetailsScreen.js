@@ -97,7 +97,7 @@ const GridDriverImage = React.memo(
           source={{ uri: headshot, cache: "force-cache" }}
           style={[
             styles.gridDriverAvatar,
-            { borderColor: teamColor || theme.border },
+            { borderColor: teamColor || theme.border, backgroundColor: (teamColor || theme.border) + '50' },
           ]}
           onError={() => {
             setImageError(true);

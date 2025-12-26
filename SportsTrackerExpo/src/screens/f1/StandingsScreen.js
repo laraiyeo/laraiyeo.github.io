@@ -331,7 +331,7 @@ const StandingsScreen = ({ route }) => {
     return (
       <Image
         source={{ uri: driver.headshot }}
-        style={styles.driverImage}
+        style={[styles.driverImage, { backgroundColor: teamColor +'50' || theme.border, borderWidth: 1, borderColor: teamColor || theme.border }]}
         onError={() => setImageError(true)}
       />
     );

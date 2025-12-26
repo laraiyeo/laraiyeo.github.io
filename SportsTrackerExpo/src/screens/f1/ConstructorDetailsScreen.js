@@ -862,7 +862,7 @@ const ConstructorDetailsScreen = ({ route }) => {
     return (
       <Image
         source={{ uri: racer.headshot }}
-        style={[styles.racerImage, { borderColor: constructorColor }]}
+        style={[styles.racerImage, { borderColor: constructorColor, backgroundColor: (constructorColor || theme.border) + '50' }]}
         onError={() => setImageError(true)}
       />
     );
@@ -1644,7 +1644,7 @@ const ConstructorDetailsScreen = ({ route }) => {
       <View style={styles.constructorHeaderContent}>
         <View style={styles.constructorHeaderLogoContainer}>
           {constructorData?.logo && !logoError ? (
-            <View style={[styles.constructorHeaderLogoCircle, { backgroundColor: constructorColor || theme.border }]}> 
+            <View style={[styles.constructorHeaderLogoCircle, { borderWidth: 3, borderColor: constructorColor, backgroundColor: (constructorColor || theme.border) + '88' }]}> 
               <Image 
                 source={{ uri: constructorData.logo }} 
                 style={styles.constructorHeaderLogoInCircle}

@@ -7,7 +7,7 @@ const KEY = "@show_bet_tab";
 const AppSettingsContext = createContext();
 
 export const AppSettingsProvider = ({ children }) => {
-  const [showBetTab, setShowBetTabState] = useState(true);
+  const [showBetTab, setShowBetTabState] = useState(false); // change useState to true when app accepted
 
   useEffect(() => {
     let mounted = true;
@@ -16,8 +16,8 @@ export const AppSettingsProvider = ({ children }) => {
         const raw = await AsyncStorage.getItem(KEY);
         if (!mounted) return;
         if (raw == null) {
-          await AsyncStorage.setItem(KEY, "1");
-          setShowBetTabState(true);
+          await AsyncStorage.setItem(KEY, "0"); // change to "1" when app accepted
+          setShowBetTabState(false); // change to true when app accepted
         } else {
           setShowBetTabState(raw === "1");
         }

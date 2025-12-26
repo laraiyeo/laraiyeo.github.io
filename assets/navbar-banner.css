@@ -1,0 +1,75 @@
+/* Banner for top navbar */
+.site-banner{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:8px 12px;
+  background:#111;
+  color:#fff
+}
+
+.site-banner .banner-left{
+  display:flex;              /* ← ADD THIS */
+  align-items:center;        /* ← ADD THIS */
+  gap:10px;                  /* ← ADD THIS */
+}
+
+.site-banner .banner-left img{
+  height:48px;
+  max-height:64px;
+  display:block
+}
+
+.site-banner .banner-right{
+  display:flex;
+  align-items:center;
+  gap:8px
+}
+
+.text{
+  font-size:16px;
+  font-weight:bold;
+}
+
+.download-btn{
+  background:#dc2626;
+  color:#fff;
+  padding:8px 12px;
+  border-radius:6px;
+  text-decoration:none;
+  font-weight:600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px #dc26264d;
+}
+
+.download-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px #b91c1c66;
+    background: #b91c1c;
+}
+
+.banner-toggle{
+  display:none;
+  background:transparent;
+  border:none;
+  color:#fff;
+  font-size:18px;
+  cursor:pointer
+}
+
+.mobile-text {
+  display: none;
+}
+
+@media(max-width:700px){
+  .site-banner{flex-wrap:wrap}
+  .banner-toggle{display:inline-block}
+  .site-banner.collapsed .banner-left{display:none}
+  .site-banner.collapsed .download-btn{display:none}
+  .desktop-text {
+    display: none;
+  }
+  .mobile-text {
+    display: inline;
+  }
+}

@@ -1281,7 +1281,7 @@ const BetHomeScreen = ({ navigation }) => {
               style={styles.horizontalScroll}
               contentContainerStyle={{ paddingRight: 20 }}
             >
-              {completedGames.reverse().map((game) => (
+              {completedGames.slice().reverse().map((game) => (
                 <CompletedGameCard
                   key={game.id}
                   game={game}

@@ -129,11 +129,13 @@ const StandingsScreen = ({ route }) => {
                       const diffValue = parseInt(differential);
                       const diffColor = diffValue > 0 ? '#008000' : diffValue < 0 ? '#FF0000' : theme.textSecondary;
                       const nflTeamId = getNFLTeamId(entry.team);
+                      const clinchCode = entry.team?.clincher ? entry.team.clincher.toUpperCase() : null;
+                      const clinchColor = (clinchCode === 'X' || clinchCode === '*') ? theme.success : clinchCode === 'Z' ? theme.warning : clinchCode === 'E' ? theme.error : clinchCode === 'Y' ? theme.info : theme.surface;
                       
                       return (
                         <TouchableOpacity 
                           key={teamIndex} 
-                          style={[styles.tableRow, { borderBottomColor: theme.border }]}
+                          style={[styles.tableRow, { borderBottomColor: theme.border, borderLeftColor: clinchColor, borderLeftWidth: clinchCode ? 4 : 0 }]}
                           onPress={() => navigation.navigate('TeamPage', { teamId: nflTeamId, sport: 'nfl' })}
                         >
                           <View style={[styles.tableCell, styles.teamColumn]}>
@@ -167,6 +169,33 @@ const StandingsScreen = ({ route }) => {
             ))}
           </View>
         ))}
+
+        {/* Legend for clinch colors */}
+        <View style={[styles.legendContainer, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
+          <Text allowFontScaling={false} style={[styles.legendTitle, { color: colors.primary }]}>Legend</Text>
+          <View style={styles.legendItems}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { backgroundColor: theme.success }]} />
+              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>* - Clinched Best League Record</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { backgroundColor: theme.success }]} />
+              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>X - Clinched Division</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { backgroundColor: theme.warning }]} />
+              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>Z - Clinched Playoffs</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { backgroundColor: theme.info }]} />
+              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>Y - Clinched Wild Card</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { backgroundColor: theme.error }]} />
+              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>E - Eliminated</Text>
+            </View>
+          </View>
+        </View>
       </ScrollView>
     );
   };
@@ -283,6 +312,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     flex: 1,
+  },
+    legendContainer: {
+    marginHorizontal: 10,
+    marginTop: 12,
+    padding: 12,
+    borderTopWidth: 1,
+    borderRadius: 6,
+    marginBottom: 25,
+  },
+  legendTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  legendItems: {
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  legendSwatch: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  legendLabel: {
+    fontSize: 12,
   },
 });
 

@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.sportsheart.app",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
@@ -30,7 +30,7 @@
         "backgroundColor": "#000000"
       },
       "package": "com.sportsheart.app",
-      "versionCode": 14,
+      "versionCode": 15,
       "edgeToEdgeEnabled": true,
       "googleServicesFile": "./google-services.json",
       "permissions": ["INTERNET", "VIBRATE"],

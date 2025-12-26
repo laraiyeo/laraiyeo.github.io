@@ -70,7 +70,7 @@ const NFLBetTabNavigator = ({ navigation, route }) => {
       <Tab.Screen
         name="BetBets"
         options={{
-          tabBarLabel: "Bets",
+          tabBarLabel: "Picks",
         }}
       >
         {(props) => <BetBetsScreen {...props} sport={sport} />}

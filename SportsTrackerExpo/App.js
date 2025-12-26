@@ -35,8 +35,7 @@ import UpdateService from "./src/services/UpdateService";
 
 // Import Emote Service for preloading
 import EmoteService from "./src/services/EmoteService";
-// Prefetch helper for HomeScreen to speed first render
-import { prefetchHomeSportsConfig } from "./src/screens/HomeScreen";
+// Prefetch helper removed — home layout is static; no import needed.
 
 // Import PresenceService for viewer tracking
 import { PresenceService } from "./src/services/PresenceService";
@@ -314,7 +313,7 @@ const HomeTabNavigator = () => {
             iconName = "home";
           } else if (route.name === "Favorites") {
             iconName = "star";
-          } else if (route.name === "Bet") {
+          } else if (route.name === "Picks") {
             iconName = "cash";
           } else if (route.name === "Settings") {
             iconName = "settings";
@@ -360,10 +359,10 @@ const HomeTabNavigator = () => {
       />
       {(isPro || showBetTab) && (
         <Tab.Screen
-          name="Bet"
+          name="Picks"
           component={BetLoginScreen}
           options={{
-            title: "Bet",
+            title: "Picks",
             headerShown: true,
             headerStyle: {
               backgroundColor: colors.primary,
@@ -1901,7 +1900,7 @@ const MainStackNavigator = () => {
         name="BetMain"
         component={BetTabNavigator}
         options={{
-          title: "SportsHeart Bet",
+          title: "SportsHeart Picks",
           headerShown: true,
           headerStyle: {
             backgroundColor: colors.primary,
@@ -1989,42 +1988,8 @@ const AppContent = () => {
       }
     };
 
-    // Kick off prefetch tasks early and in parallel to reduce first-screen latency
-    (async () => {
-      try {
-        // Prefetch home sports config so HomeScreen can render instantly when no user edits exist
-        await prefetchHomeSportsConfig();
-      } catch (e) {
-        console.warn("Home prefetch failed:", e?.message || e);
-      }
-    })();
-
+    // No prefetch tasks required for home layout
     preloadEmotes();
-  }, []);
-
-  // Initialize LiveTracker service to fetch diary for the session
-  useEffect(() => {
-    const initLiveTracker = async () => {
-      try {
-        // lazy-import service to avoid circular deps during bundling
-        const LiveTrackerService =
-          require("./src/services/liveTrackerService").default;
-        console.log("Initializing LiveTrackerService (preloading diaries)...");
-        // Prefetch both football and basketball diaries to avoid later per-navigation fetches
-        if (typeof LiveTrackerService.prefetchDefaultDiaries === "function") {
-          await LiveTrackerService.prefetchDefaultDiaries();
-          console.log("LiveTrackerService: prefetchDefaultDiaries complete");
-        } else {
-          // Fallback to previous behavior for compatibility
-          await LiveTrackerService.initDiary();
-          console.log("LiveTrackerService: initDiary complete (fallback)");
-        }
-      } catch (err) {
-        console.warn("Failed to initialize LiveTrackerService:", err);
-      }
-    };
-
-    initLiveTracker();
   }, []);
 
   // Initialize PresenceService for viewer tracking
@@ -2223,17 +2188,7 @@ const AppContent = () => {
       // Small delay to ensure our custom splash screen is mounted
       setTimeout(async () => {
         try {
-          // Prefetch HomeScreen sports config while the native splash is still visible
-          try {
-            const Home = require("./src/screens/HomeScreen");
-            if (Home && typeof Home.prefetchHomeSportsConfig === "function") {
-              await Home.prefetchHomeSportsConfig();
-              console.log("HomeScreen: prefetchHomeSportsConfig complete");
-            }
-          } catch (pfErr) {
-            console.warn("HomeScreen prefetch failed:", pfErr);
-          }
-
+          // No HomeScreen prefetch needed; hide native splash
           await ExpoSplashScreen.hideAsync();
         } catch (error) {
           console.log("Native splash screen already hidden");

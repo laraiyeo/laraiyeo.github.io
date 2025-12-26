@@ -423,7 +423,7 @@ const RacerDetailsScreen = ({ route }) => {
     return (
       <Image
         source={{ uri: headshot }}
-        style={[styles.racerHeaderImage, { borderColor: racer?.team?.color || teamColor || theme.border }]}
+        style={[styles.racerHeaderImage, { borderColor: racer?.team?.color || teamColor || theme.border, backgroundColor: (racer?.team?.color || teamColor || theme.border) + '50' }]}
         onError={() => setImageError(true)}
       />
     );

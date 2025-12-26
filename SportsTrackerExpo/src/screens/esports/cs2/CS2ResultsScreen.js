@@ -818,8 +818,8 @@ const CS2ResultsScreen = ({ navigation, route }) => {
     return (
       <View style={styles.recentMatchesList}>
         {series.headToHeadData.results.map((match, index) => {
-          const isTeam1Winner = match.winner_team_id === series.team1?.id;
-          const isTeam2Winner = match.winner_team_id === series.team2?.id;
+          const isTeam1Winner = match.team1_score > match.team2_score;
+          const isTeam2Winner = match.team2_score > match.team1_score;
 
           return (
             <TouchableOpacity
@@ -3140,6 +3140,180 @@ const CS2ResultsScreen = ({ navigation, route }) => {
                               }
                             >
                               {roundsByHalves.secondHalf.map((round, index) => (
+                                <View
+                                  key={round.id}
+                                  style={styles.liquipediaRoundColumn}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.roundCardNumber,
+                                      { color: theme.text },
+                                    ]}
+                                  >
+                                    {round.number}
+                                  </Text>
+
+                                  {/* Team 1 Round (Top) */}
+                                  <View
+                                    style={[
+                                      styles.liquipediaRoundIndicator,
+                                      {
+                                        backgroundColor:
+                                          round.winningTeamNumber === 1
+                                            ? round.attackingTeamNumber === 1
+                                              ? theme.error
+                                              : theme.success
+                                            : theme.surfaceSecondary + "20",
+                                      },
+                                    ]}
+                                  >
+                                    {round.winningTeamNumber === 1 && (
+                                      <View style={styles.roundWinIcons}>
+                                        <FontAwesome6
+                                          name={getCS2EndReasonIcon(
+                                            round.winCondition
+                                          )}
+                                          size={13}
+                                          color="white"
+                                        />
+                                      </View>
+                                    )}
+                                  </View>
+
+                                  {/* Team 2 Round (Bottom) */}
+                                  <View
+                                    style={[
+                                      styles.liquipediaRoundIndicator,
+                                      {
+                                        backgroundColor:
+                                          round.winningTeamNumber === 2
+                                            ? round.attackingTeamNumber === 2
+                                              ? theme.error
+                                              : theme.success
+                                            : theme.surfaceSecondary + "20",
+                                      },
+                                    ]}
+                                  >
+                                    {round.winningTeamNumber === 2 && (
+                                      <View style={styles.roundWinIcons}>
+                                        <FontAwesome6
+                                          name={getCS2EndReasonIcon(
+                                            round.winCondition
+                                          )}
+                                          size={13}
+                                          color="white"
+                                        />
+                                      </View>
+                                    )}
+                                  </View>
+                                </View>
+                              ))}
+                            </ScrollView>
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Overtime */}
+                      {roundsByHalves.overtime.length > 0 && (
+                        <View style={[styles.roundsHalfSection, { marginBottom: 50 }]}>
+                          <Text
+                            style={[
+                              styles.roundsHalfTitle,
+                              { color: theme.text },
+                            ]}
+                          >
+                            Overtime
+                          </Text>
+                          <View style={styles.liquipediaRoundsContainer}>
+                            {/* Team Logos - Properly Aligned */}
+                            <View style={styles.fixedTeamLogosStack}>
+                              <View style={styles.roundNumberSpace} />
+                              <View style={styles.teamLogoAligned}>
+                                {series.team1?.logoUrl ? (
+                                  <Image
+                                    source={{ uri: series.team1.logoUrl }}
+                                    style={styles.roundsRowTeamLogo}
+                                    resizeMode="contain"
+                                  />
+                                ) : (
+                                  <View
+                                    style={[
+                                      styles.roundsRowTeamLogo,
+                                      {
+                                        backgroundColor: colors.primary,
+                                        justifyContent: "center",
+                                        alignItems: "center",
+                                        borderRadius: 6,
+                                      },
+                                    ]}
+                                  >
+                                    <Text
+                                      style={{
+                                        fontSize: 6,
+                                        fontWeight: "bold",
+                                        color: "white",
+                                      }}
+                                    >
+                                      {(
+                                        series.team1?.shortName ||
+                                        series.team1?.name ||
+                                        "T1"
+                                      )
+                                        .substring(0, 1)
+                                        .toUpperCase()}
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
+                              <View style={styles.teamLogoAligned}>
+                                {series.team2?.logoUrl ? (
+                                  <Image
+                                    source={{ uri: series.team2.logoUrl }}
+                                    style={styles.roundsRowTeamLogo}
+                                    resizeMode="contain"
+                                  />
+                                ) : (
+                                  <View
+                                    style={[
+                                      styles.roundsRowTeamLogo,
+                                      {
+                                        backgroundColor: colors.secondary,
+                                        justifyContent: "center",
+                                        alignItems: "center",
+                                        borderRadius: 6,
+                                      },
+                                    ]}
+                                  >
+                                    <Text
+                                      style={{
+                                        fontSize: 6,
+                                        fontWeight: "bold",
+                                        color: "white",
+                                      }}
+                                    >
+                                      {(
+                                        series.team2?.shortName ||
+                                        series.team2?.name ||
+                                        "T2"
+                                      )
+                                        .substring(0, 1)
+                                        .toUpperCase()}
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
+                            </View>
+
+                            {/* Scrollable Rounds Section */}
+                            <ScrollView
+                              horizontal
+                              style={styles.roundsHorizontalScroll}
+                              showsHorizontalScrollIndicator={false}
+                              contentContainerStyle={
+                                styles.roundsHorizontalContent
+                              }
+                            >
+                              {roundsByHalves.overtime.map((round, index) => (
                                 <View
                                   key={round.id}
                                   style={styles.liquipediaRoundColumn}

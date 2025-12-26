@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,9 +7,7 @@ import {
   TouchableOpacity,
   Image,
   Modal,
-  Animated,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { FontAwesome6, FontAwesome } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
@@ -68,50 +66,7 @@ const HOME_SPORTS_BASE = [
   },
 ];
 
-const STORAGE_KEY = "home_sports_config_v1";
-
-// Prefetch helper used by app startup to prepare home tiles while splash is visible.
-// Returns the reconstructed sports array (same shape as the in-component state).
-async function prefetchHomeSportsConfig() {
-  try {
-    // If another caller already prefetched and cached the value, return it silently.
-    if (
-      typeof module !== "undefined" &&
-      module.exports &&
-      module.exports.__prefetchedHomeSports
-    ) {
-      return module.exports.__prefetchedHomeSports;
-    }
-    const t0 = Date.now();
-    console.log("prefetchHomeSportsConfig: start", new Date().toISOString());
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    const byId = {};
-    HOME_SPORTS_BASE.forEach((s) => (byId[s.id] = s));
-    const reconstructed = [];
-    parsed.forEach((p) => {
-      const base = byId[p.id];
-      if (base) reconstructed.push({ ...base, hidden: !!p.hidden });
-    });
-    HOME_SPORTS_BASE.forEach((d) => {
-      if (!reconstructed.find((r) => r.id === d.id))
-        reconstructed.push({ ...d, hidden: false });
-    });
-    // Expose on module.exports so the component's loadSportsConfig can pick it up
-    if (typeof module !== "undefined" && module.exports) {
-      module.exports.__prefetchedHomeSports = reconstructed;
-    }
-    const t1 = Date.now();
-    console.log("prefetchHomeSportsConfig: done; duration_ms=", t1 - t0);
-    return reconstructed;
-  } catch (err) {
-    console.warn("prefetchHomeSportsConfig failed:", err);
-    return null;
-  }
-}
-
-export { prefetchHomeSportsConfig };
+// Prefetch helper removed — layout is static and no persistent config is used.
 
 const HomeScreen = () => {
   const navigation = useNavigation();
@@ -128,19 +83,10 @@ const HomeScreen = () => {
     color: colors.primary,
   }));
 
-  const STORAGE_KEY = "home_sports_config_v1";
-
-  const [sportsState, setSportsState] = useState(
+  const [sportsState] = useState(
     defaultSports.map((s) => ({ ...s, hidden: false }))
   );
-  const [editMode, setEditMode] = useState(false);
-  const [pickedId, setPickedId] = useState(null);
-  const loadedRef = useRef(false);
-  const [isReady, setIsReady] = useState(false);
-  const [bannerVisible, setBannerVisible] = useState(false);
-  const bannerAnim = useRef(new Animated.Value(-60)).current; // slide from -height to 0
-  const [bannerData, setBannerData] = useState(null);
-  const [headerHeight, setHeaderHeight] = useState(80);
+  const [isReady] = useState(true);
 
   // Check for update restart on component mount and set up update checking
   useEffect(() => {
@@ -171,184 +117,22 @@ const HomeScreen = () => {
 
     checkForUpdateRestart();
     setupUpdateCheck();
-    loadSportsConfig();
   }, []);
 
-  const saveSportsConfig = async (arr) => {
-    try {
-      const payload = arr.map((s) => ({ id: s.id, hidden: !!s.hidden }));
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch (e) {
-      console.error("Failed to save sports config", e);
-    }
-  };
-
-  const loadSportsConfig = async () => {
-    const startLoadTs = Date.now();
-    console.log("loadSportsConfig: start", new Date().toISOString());
-    try {
-      // If a prefetched value exists (populated by app startup), use it to avoid waiting
-      if (
-        typeof module !== "undefined" &&
-        module.exports &&
-        module.exports.__prefetchedHomeSports
-      ) {
-        const pref = module.exports.__prefetchedHomeSports;
-        if (Array.isArray(pref) && pref.length > 0) {
-          setSportsState(pref);
-          loadedRef.current = true;
-          setIsReady(true);
-          const usedTs = Date.now();
-          console.log(
-            "loadSportsConfig: used prefetched value; time_to_ready_ms=",
-            usedTs - startLoadTs
-          );
-          return;
-        }
-      }
-      const tBeforeStorage = Date.now();
-      const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      const tAfterStorage = Date.now();
-      console.log(
-        "loadSportsConfig: AsyncStorage.getItem duration_ms=",
-        tAfterStorage - tBeforeStorage
-      );
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      const byId = {};
-      defaultSports.forEach((s) => (byId[s.id] = s));
-      const reconstructed = [];
-      parsed.forEach((p) => {
-        const base = byId[p.id];
-        if (base) reconstructed.push({ ...base, hidden: !!p.hidden });
-      });
-      defaultSports.forEach((d) => {
-        if (!reconstructed.find((r) => r.id === d.id))
-          reconstructed.push({ ...d, hidden: false });
-      });
-      setSportsState(reconstructed);
-      loadedRef.current = true;
-      setIsReady(true);
-      const doneTs = Date.now();
-      console.log(
-        "loadSportsConfig: finished; total_time_ms=",
-        doneTs - startLoadTs
-      );
-    } catch (e) {
-      console.error("Failed to load sports config", e);
-    }
-  };
+  // Layout editing and persistence removed; using default static layout in `sportsState`.
 
   // (prefetch helper is defined at module top-level and exported there)
 
-  const showBanner = (data) => {
-    setBannerData(data);
-    setBannerVisible(true);
-    Animated.timing(bannerAnim, {
-      toValue: 0,
-      duration: 220,
-      useNativeDriver: true,
-    }).start();
-  };
+  // No banner UI needed when editing is removed.
 
-  const hideBanner = (delay = 0) => {
-    setTimeout(() => {
-      Animated.timing(bannerAnim, {
-        toValue: -60,
-        duration: 220,
-        useNativeDriver: true,
-      }).start(() => {
-        setBannerVisible(false);
-        setBannerData(null);
-      });
-    }, delay);
-  };
+  // No load fallback required now.
 
-  // Fallback: if config isn't loaded quickly, avoid flashing UI by marking ready
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (!loadedRef.current) {
-        loadedRef.current = true;
-        setIsReady(true);
-      }
-    }, 600);
-    return () => clearTimeout(t);
-  }, []);
-
-  const handleSportPress = async (sport) => {
-    if (editMode) {
-      if (sport.hidden) {
-        // re-add: mark visible and move to front
-        const next = sportsState.map((s) =>
-          s.id === sport.id ? { ...s, hidden: false } : s
-        );
-        const item = next.find((s) => s.id === sport.id);
-        const others = next.filter((s) => s.id !== sport.id);
-        const reordered = [item, ...others];
-        setSportsState(reordered);
-        await saveSportsConfig(reordered);
-      }
-
-      if (pickedId && pickedId !== sport.id) {
-        const idxA = sportsState.findIndex((s) => s.id === pickedId);
-        const idxB = sportsState.findIndex((s) => s.id === sport.id);
-        if (idxA >= 0 && idxB >= 0) {
-          const copy = [...sportsState];
-          const tmp = copy[idxA];
-          copy[idxA] = copy[idxB];
-          copy[idxB] = tmp;
-          setSportsState(copy);
-          await saveSportsConfig(copy);
-        }
-        setPickedId(null);
-        // update banner to show swapped with target then hide after 1.5s
-        showBanner({
-          id: sport.id,
-          title: sport.title,
-          icon: sport.icon,
-          status: "Swapped with",
-        });
-        hideBanner(1500);
-        return;
-      }
-
-      // otherwise ignore taps while editing
-      return;
-    }
-
-    // Normal behaviour: Log analytics event for sport selection
+  const handleSportPress = (sport) => {
     analyticsService.logSportSelection(sport.id);
     navigation.navigate("SportTabs", { sport: sport.id });
   };
 
-  const handleLongPress = (sport) => {
-    if (!editMode) return;
-    setPickedId(sport.id);
-    // show banner with pressed info
-    showBanner({
-      id: sport.id,
-      title: sport.title,
-      icon: sport.icon,
-      status: "Pressed",
-    });
-  };
-
-  const handleHideSport = async (sportId) => {
-    const next = sportsState.map((s) =>
-      s.id === sportId ? { ...s, hidden: true } : s
-    );
-    const visible = next.filter((s) => !s.hidden);
-    const hidden = next.filter((s) => s.hidden);
-    const reordered = [...visible, ...hidden];
-    setSportsState(reordered);
-    await saveSportsConfig(reordered);
-  };
-
-  // Persist when sportsState changes after initial load
-  useEffect(() => {
-    if (!loadedRef.current) return;
-    saveSportsConfig(sportsState);
-  }, [sportsState]);
+  // Long-press, hide, swap and persistence logic removed.
 
   if (!isReady) {
     return (
@@ -370,7 +154,6 @@ const HomeScreen = () => {
             elevation: 20,
           },
         ]}
-        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
       >
         <View style={styles.titleContainer}>
           <Text
@@ -394,229 +177,62 @@ const HomeScreen = () => {
         </Text>
       </View>
 
-      {/* Animated banner that drops under the header */}
-      {bannerVisible && (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.banner,
-            { transform: [{ translateY: bannerAnim }], top: headerHeight - 0 },
-            { backgroundColor: theme.surface },
-          ]}
-        >
-          {bannerData && (
-            <View style={styles.bannerInner}>
-              <View style={styles.bannerIcon}>
-                {bannerData.icon ? (
-                  <Image
-                    source={bannerData.icon}
-                    style={styles.bannerIconImage}
-                  />
-                ) : (
-                  <FontAwesome6
-                    name="computer"
-                    size={20}
-                    color={colors.primary}
-                  />
-                )}
-              </View>
-              <Text
-                allowFontScaling={false}
-                style={[styles.bannerText, { color: theme.text }]}
-              >
-                {" "}
-                {bannerData.status === "Pressed"
-                  ? `${bannerData.title} - Pressed`
-                  : `Swapped with ${bannerData.title}`}
-              </Text>
-            </View>
-          )}
-        </Animated.View>
-      )}
+      {/* Layout editing removed; no animated banner required */}
       <ScrollView
         style={styles.scrollArea}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.sportsGrid}>
-          {sportsState
-            .filter((s) => !s.hidden)
-            .map((sport) => {
-              const isPicked = pickedId === sport.id;
-              return (
-                <TouchableOpacity
-                  key={sport.id}
-                  style={[
-                    styles.sportCard,
-                    {
-                      backgroundColor: theme.surface,
-                      borderColor: colors.primary,
-                      opacity: editMode ? 0.5 : 1,
-                    },
-                    isPicked ? styles.pickedCard : null,
-                  ]}
-                  onPress={() => handleSportPress(sport)}
-                  onLongPress={() => handleLongPress(sport)}
-                  delayLongPress={250}
-                  activeOpacity={0.9}
-                >
-                  {/* close X shown in edit mode */}
-                  {editMode && (
-                    <TouchableOpacity
-                      style={[
-                        styles.smallClose,
-                        { backgroundColor: colors.error || "#e74c3c" },
-                      ]}
-                      onPress={() => handleHideSport(sport.id)}
-                    >
-                      <Text
-                        allowFontScaling={false}
-                        style={styles.smallCloseText}
-                      >
-                        ✕
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-
-                  <View style={styles.sportContent}>
-                    <View style={styles.iconWrapper}>
-                      {sport.icon ? (
-                        <Image
-                          source={sport.icon}
-                          style={styles.sportIconImage}
-                        />
-                      ) : (
-                        <FontAwesome6
-                          name={sport.iconName}
-                          size={48}
-                          color={colors.primary}
-                          style={styles.sportIconFA}
-                        />
-                      )}
-                    </View>
-
-                    <Text
-                      allowFontScaling={false}
-                      style={[styles.sportTitle, { color: colors.secondary }]}
-                    >
-                      {sport.title}
-                    </Text>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.sportDescription,
-                        { color: theme.textSecondary },
-                      ]}
-                    >
-                      {sport.description}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-
-          {/* Hidden cards shown at bottom as add-cards (only in edit mode) */}
-          {editMode &&
-            sportsState
-              .filter((s) => s.hidden)
-              .map((sport) => (
-                <TouchableOpacity
-                  key={sport.id}
-                  style={[
-                    styles.sportCard,
-                    styles.addCard,
-                    { backgroundColor: colors.success || "#27ae60" },
-                  ]}
-                  onPress={() => handleSportPress(sport)}
-                  activeOpacity={0.9}
-                >
-                  <View style={styles.sportContent}>
-                    <Text allowFontScaling={false} style={styles.addPlus}>
-                      +
-                    </Text>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.sportTitle,
-                        { color: "#fff", marginTop: 8 },
-                      ]}
-                    >
-                      {sport.title}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-        </View>
-
-        {/* Edit controls below the grid */}
-        <View style={styles.editBar}>
-          {editMode ? (
-            <>
-              <View style={styles.editButtonsRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.editButton,
-                    { backgroundColor: colors.secondary, marginRight: 12 },
-                  ]}
-                  onPress={() => {
-                    setEditMode(false);
-                    setPickedId(null);
-                  }}
-                >
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.editButtonText, { color: "#fff" }]}
-                  >
-                    Done
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.revertButton, { borderColor: theme.error }]}
-                  onPress={async () => {
-                    // revert to default order and visibility
-                    const reset = defaultSports.map((s) => ({
-                      ...s,
-                      hidden: false,
-                    }));
-                    setSportsState(reset);
-                    setPickedId(null);
-                    await saveSportsConfig(reset);
-                  }}
-                >
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.revertButtonText, { color: theme.error }]}
-                  >
-                    Revert
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              <Text
-                allowFontScaling={false}
-                style={[styles.hintText, { color: theme.textSecondary }]}
-              >
-                Long-press a card to pick it up, then tap another to swap. Tap ✕
-                to hide.
-              </Text>
-            </>
-          ) : (
+          {sportsState.map((sport) => (
             <TouchableOpacity
-              style={[styles.editButton, { backgroundColor: theme.surface }]}
-              onPress={() => {
-                setEditMode(true);
-                setPickedId(null);
-              }}
+              key={sport.id}
+              style={[
+                styles.sportCard,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: colors.primary,
+                },
+              ]}
+              onPress={() => handleSportPress(sport)}
+              activeOpacity={0.9}
             >
-              <Text
-                allowFontScaling={false}
-                style={[styles.editButtonText, { color: colors.primary }]}
-              >
-                Edit Layout
-              </Text>
+              <View style={styles.sportContent}>
+                <View style={styles.iconWrapper}>
+                  {sport.icon ? (
+                    <Image source={sport.icon} style={styles.sportIconImage} />
+                  ) : (
+                    <FontAwesome6
+                      name={sport.iconName}
+                      size={48}
+                      color={colors.primary}
+                      style={styles.sportIconFA}
+                    />
+                  )}
+                </View>
+
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.sportTitle, { color: colors.secondary }]}
+                >
+                  {sport.title}
+                </Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.sportDescription,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {sport.description}
+                </Text>
+              </View>
             </TouchableOpacity>
-          )}
+          ))}
+
+          {/* Hidden/add cards removed since layout cannot be changed */}
         </View>
+
+        {/* Layout editing controls removed; static default layout shown */}
       </ScrollView>
 
       {/* Update Modal */}
