@@ -71,9 +71,6 @@ const BetBetsScreen = () => {
       );
 
       const playerBets = {};
-      let totalParam = null;
-      let spreadParam = null;
-
       // Build per-game moneyline list aligned with gameIds
       const moneylines = gameIds.map((gid) => {
         const ml = ticket.bets.find(
@@ -82,19 +79,18 @@ const BetBetsScreen = () => {
         return ml ? ml.team : "";
       });
 
-      ticket.bets.forEach((bet) => {
-        if (bet.type === "Spread") {
-          spreadParam = `${bet.team}${bet.line}`;
-        } else if (bet.type === "Total") {
-          const overUnder = bet.description?.toLowerCase().includes("over")
-            ? "o"
-            : "u";
-          const lineNumber = String(bet.line || "").replace(/^[OU]\s+/, "");
-          totalParam = `${overUnder}${lineNumber}`;
-        } else if (bet.playerId && bet.statType) {
-          if (!playerBets[bet.playerId]) playerBets[bet.playerId] = {};
-          playerBets[bet.playerId][bet.statType] = bet.betValue;
-        }
+      // Build per-game totals and spreads aligned with gameIds
+      const totals = gameIds.map((gid) => {
+        const t = ticket.bets.find((b) => b.gameId === gid && b.type === "Total");
+        if (!t) return "";
+        const overUnder = t.description?.toLowerCase().includes("over") ? "o" : "u";
+        const lineNumber = String(t.line || "").replace(/^[OU]\s+/, "");
+        return `${overUnder}${lineNumber}`;
+      });
+
+      const spreads = gameIds.map((gid) => {
+        const s = ticket.bets.find((b) => b.gameId === gid && b.type === "Spread");
+        return s ? `${s.team}${s.line}` : "";
       });
 
       let query = `gameId=${gameIds.join(",")}`;
@@ -102,8 +98,13 @@ const BetBetsScreen = () => {
       if (moneylines.some((m) => m)) {
         query += `&moneyline=${moneylines.map(encodeURIComponent).join(",")}`;
       }
-      if (totalParam) query += `&total=${totalParam}`;
-      if (spreadParam) query += `&spread=${spreadParam}`;
+      if (totals.some((t) => t)) {
+        query += `&total=${totals.map(encodeURIComponent).join(",")}`;
+      }
+      if (spreads.some((s) => s)) {
+        const encodeSpread = (val) => encodeURIComponent(val).replace(/%2B/g, "+");
+        query += `&spread=${spreads.map(encodeSpread).join(",")}`;
+      }
 
       Object.entries(playerBets).forEach(([playerId, stats], index) => {
         const playerNum = index + 1;

@@ -2287,12 +2287,24 @@ app.get("/api/rosters", async (req, res) => {
 
 app.get("/api/betslip", async (req, res) => {
   try {
-    const { moneyline, total, gameId, ...playerBets } = req.query;
+    const { moneyline, total, spread, gameId, ...playerBets } = req.query;
 
-    // Support comma-separated moneyline values that map to each gameId.
-    // Example: gameId=G1,G2,G3&moneyline=TEAM1,TEAM2,TEAM3
+    // Support comma-separated moneyline/total/spread values that map to each gameId.
+    // Example: gameId=G1,G2,G3&moneyline=TEAM1,TEAM2,TEAM3&total=o220.5,u221.5&spread=DAL-3.5,ORL+4.5
     const moneylineValues = moneyline
       ? String(moneyline)
+          .split(",")
+          .map((s) => s.trim())
+      : null;
+
+    const totalValues = total
+      ? String(total)
+          .split(",")
+          .map((s) => s.trim())
+      : null;
+
+    const spreadValues = spread
+      ? String(spread)
           .split(",")
           .map((s) => s.trim())
       : null;
@@ -2428,8 +2440,15 @@ app.get("/api/betslip", async (req, res) => {
           }
         }
 
+        // Determine per-game total and spread tokens (support single-token applied-to-all)
+        const totalForThisGame = totalValues
+          ? totalValues.length === 1
+            ? totalValues[0]
+            : totalValues[gi] || ""
+          : null;
+
         // Process total points bet
-        if (total) {
+        if (totalForThisGame) {
           const competitors =
             summaryData.header?.competitions?.[0]?.competitors || [];
           const homeScore =
@@ -2440,8 +2459,9 @@ app.get("/api/betslip", async (req, res) => {
             0;
           const currentTotal = homeScore + awayScore;
 
-          const isOver = total.startsWith("o") || total.startsWith("O");
-          const line = parseFloat(total.substring(1));
+          const totalToken = totalForThisGame;
+          const isOver = totalToken.startsWith("o") || totalToken.startsWith("O");
+          const line = parseFloat(totalToken.substring(1));
           const isInProgress = !isCompleted && gameStatus?.state === "in";
 
           let won;
@@ -2479,12 +2499,19 @@ app.get("/api/betslip", async (req, res) => {
           };
         }
 
+        // Determine per-game spread token (support single-token applied-to-all)
+        const spreadForThisGame = spreadValues
+          ? spreadValues.length === 1
+            ? spreadValues[0]
+            : spreadValues[gi] || ""
+          : null;
+
         // Process spread bet
-        if (req.query.spread) {
+        if (spreadForThisGame) {
           // Accept spread formats like "DEN+1.5", "DEN 1.5", or "DEN-1.5".
           // Express may decode '+' into a space, so normalize by preserving
           // any explicit '+' or interpreting spaces as '+' when appropriate.
-          const rawSpread = String(req.query.spread || "");
+          const rawSpread = String(spreadForThisGame || "");
           const spreadBet = rawSpread.trim();
           const competitors =
             summaryData.header?.competitions?.[0]?.competitors || [];

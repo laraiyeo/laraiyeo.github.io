@@ -190,48 +190,59 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         return;
       }
       const playerBets = {};
-      const gameLineBets = { moneyline: null, total: null, spread: null };
 
-      // Group player bets and game line bets
+      // Build query string
+      let query = `gameId=${gameIds.join(",")}`;
+
+      // Build per-game moneyline list aligned with gameIds
+      const moneylines = gameIds.map((gid) => {
+        const ml = bets.find((b) => b.gameId === gid && b.type === "Moneyline");
+        return ml ? ml.team : "";
+      });
+
+      if (moneylines.some((m) => m)) {
+        query += `&moneyline=${moneylines.map(encodeURIComponent).join(",")}`;
+      }
+
+      // Build per-game totals aligned with gameIds (format: o242.5 or u242.5)
+      const totals = gameIds.map((gid) => {
+        const t = bets.find((b) => b.gameId === gid && b.type === "Total");
+        if (!t) return "";
+        const overUnder = t.description?.toLowerCase().includes("over") ? "o" : "u";
+        const lineNumber = String(t.line || "").replace(/^[OU]\s+/, "");
+        return `${overUnder}${lineNumber}`;
+      });
+      if (totals.some((t) => t)) {
+        query += `&total=${totals.map(encodeURIComponent).join(",")}`;
+      }
+
+      // Build per-game spreads aligned with gameIds (format: TEAM-3.5 or TEAM3.5 depending on original)
+      const spreads = gameIds.map((gid) => {
+        const s = bets.find((b) => b.gameId === gid && b.type === "Spread");
+        if (!s) return "";
+        return `${s.team}${s.line}`;
+      });
+      if (spreads.some((s) => s)) {
+        const encodeSpread = (val) =>
+          encodeURIComponent(val).replace(/%2B/g, "+");
+        query += `&spread=${spreads.map(encodeSpread).join(",")}`;
+      }
+
+      // Group player bets
       try {
         bets.forEach((bet) => {
-          // small guard to avoid throwing when fields missing
           if (!bet) return;
-          // Game line bets (Spread, Total, Moneyline)
-          if (bet.type === "Spread") {
-            gameLineBets.spread = `${bet.team}${bet.line}`;
-          } else if (bet.type === "Total") {
-            // Extract o/u from description (e.g., "OVER" or "UNDER")
-            const overUnder = bet.description?.toLowerCase().includes("over")
-              ? "o"
-              : "u";
-            // Extract just the number from bet.line (e.g., "U 242.5" -> "242.5")
-            const lineNumber = bet.line.replace(/^[OU]\s+/, "");
-            gameLineBets.total = `${overUnder}${lineNumber}`;
-          } else if (bet.type === "Moneyline") {
-            gameLineBets.moneyline = bet.team;
-          }
-          // Player prop bets
-          else if (bet.playerId && bet.statType) {
-            if (!playerBets[bet.playerId]) {
-              playerBets[bet.playerId] = {};
-            }
+          if (bet.playerId && bet.statType) {
+            if (!playerBets[bet.playerId]) playerBets[bet.playerId] = {};
             playerBets[bet.playerId][bet.statType] = bet.betValue;
           }
         });
       } catch (groupErr) {
-        console.error("Error grouping bets:", groupErr);
+        console.error("Error grouping player bets:", groupErr);
         throw groupErr;
       }
 
-      // Build query string
-      let query = `gameId=${gameIds.join(",")}`;
-      console.log("Player bets:", playerBets, "gameLineBets:", gameLineBets);
-
-      if (gameLineBets.moneyline)
-        query += `&moneyline=${gameLineBets.moneyline}`;
-      if (gameLineBets.total) query += `&total=${gameLineBets.total}`;
-      if (gameLineBets.spread) query += `&spread=${gameLineBets.spread}`;
+      console.log("Player bets:", playerBets);
 
       Object.entries(playerBets).forEach(([playerId, stats], index) => {
         const playerNum = index + 1;
