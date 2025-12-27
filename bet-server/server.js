@@ -2289,6 +2289,12 @@ app.get("/api/betslip", async (req, res) => {
   try {
     const { moneyline, total, gameId, ...playerBets } = req.query;
 
+    // Support comma-separated moneyline values that map to each gameId.
+    // Example: gameId=G1,G2,G3&moneyline=TEAM1,TEAM2,TEAM3
+    const moneylineValues = moneyline
+      ? String(moneyline).split(",").map((s) => s.trim())
+      : null;
+
     if (!gameId) {
       return res
         .status(400)
@@ -2299,8 +2305,9 @@ app.get("/api/betslip", async (req, res) => {
     const gameIds = gameId.split(",").map((id) => id.trim());
     const events = [];
 
-    // Process each game
-    for (const currentGameId of gameIds) {
+    // Process each game (use index to map per-game query parts)
+    for (let gi = 0; gi < gameIds.length; gi++) {
+      const currentGameId = gameIds[gi];
       try {
         // For betslip, we need raw ESPN data (not transformed) to get boxscore.players with full structure
         // So we fetch directly from ESPN rather than using the custom API which returns transformed data
@@ -2364,16 +2371,30 @@ app.get("/api/betslip", async (req, res) => {
         // Get team logos from boxscore
         const boxscoreTeams = summaryData.boxscore?.teams || [];
 
-        // Process moneyline bet
-        if (moneyline) {
+        // Process moneyline bet. Support per-game mapping when the
+        // `moneyline` query param contains comma-separated values.
+        let moneylineForThisGame = null;
+        if (Array.isArray(moneylineValues)) {
+          // If a single value was provided, use it for all games.
+          if (moneylineValues.length === 1) {
+            moneylineForThisGame = moneylineValues[0];
+          } else {
+            // If multiple values provided, map by index; missing entries => no moneyline for that game
+            moneylineForThisGame = moneylineValues.length > gi ? moneylineValues[gi] : null;
+          }
+        } else {
+          moneylineForThisGame = moneyline || null;
+        }
+
+        if (moneylineForThisGame) {
           const competitors =
             summaryData.header?.competitions?.[0]?.competitors || [];
 
           const betTeam = competitors.find(
-            (c) => c.team?.abbreviation === moneyline
+            (c) => c.team?.abbreviation === moneylineForThisGame
           );
           const opposingTeam = competitors.find(
-            (c) => c.team?.abbreviation !== moneyline
+            (c) => c.team?.abbreviation !== moneylineForThisGame
           );
 
           if (betTeam && opposingTeam) {
@@ -2383,12 +2404,12 @@ app.get("/api/betslip", async (req, res) => {
             const isInProgress = !isCompleted && gameStatus?.state === "in";
 
             eventData.bets.moneyline = {
-              team: moneyline,
+              team: moneylineForThisGame,
               current: {
                 score: `${betScore}-${oppScore}`,
                 lead:
                   betScore > oppScore
-                    ? moneyline
+                    ? moneylineForThisGame
                     : betScore < oppScore
                     ? opposingTeam.team?.abbreviation
                     : "Tied",

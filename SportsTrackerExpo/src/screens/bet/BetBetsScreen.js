@@ -71,19 +71,26 @@ const BetBetsScreen = () => {
       );
 
       const playerBets = {};
-      const gameLineBets = { moneyline: null, total: null, spread: null };
+      let totalParam = null;
+      let spreadParam = null;
+
+      // Build per-game moneyline list aligned with gameIds
+      const moneylines = gameIds.map((gid) => {
+        const ml = ticket.bets.find(
+          (b) => b.gameId === gid && b.type === "Moneyline"
+        );
+        return ml ? ml.team : "";
+      });
 
       ticket.bets.forEach((bet) => {
         if (bet.type === "Spread") {
-          gameLineBets.spread = `${bet.team}${bet.line}`;
+          spreadParam = `${bet.team}${bet.line}`;
         } else if (bet.type === "Total") {
           const overUnder = bet.description?.toLowerCase().includes("over")
             ? "o"
             : "u";
           const lineNumber = String(bet.line || "").replace(/^[OU]\s+/, "");
-          gameLineBets.total = `${overUnder}${lineNumber}`;
-        } else if (bet.type === "Moneyline") {
-          gameLineBets.moneyline = bet.team;
+          totalParam = `${overUnder}${lineNumber}`;
         } else if (bet.playerId && bet.statType) {
           if (!playerBets[bet.playerId]) playerBets[bet.playerId] = {};
           playerBets[bet.playerId][bet.statType] = bet.betValue;
@@ -91,10 +98,12 @@ const BetBetsScreen = () => {
       });
 
       let query = `gameId=${gameIds.join(",")}`;
-      if (gameLineBets.moneyline)
-        query += `&moneyline=${gameLineBets.moneyline}`;
-      if (gameLineBets.total) query += `&total=${gameLineBets.total}`;
-      if (gameLineBets.spread) query += `&spread=${gameLineBets.spread}`;
+      // Only include moneyline param when at least one moneyline exists
+      if (moneylines.some((m) => m)) {
+        query += `&moneyline=${moneylines.map(encodeURIComponent).join(",")}`;
+      }
+      if (totalParam) query += `&total=${totalParam}`;
+      if (spreadParam) query += `&spread=${spreadParam}`;
 
       Object.entries(playerBets).forEach(([playerId, stats], index) => {
         const playerNum = index + 1;
