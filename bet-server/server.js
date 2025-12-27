@@ -2460,7 +2460,8 @@ app.get("/api/betslip", async (req, res) => {
           const currentTotal = homeScore + awayScore;
 
           const totalToken = totalForThisGame;
-          const isOver = totalToken.startsWith("o") || totalToken.startsWith("O");
+          const isOver =
+            totalToken.startsWith("o") || totalToken.startsWith("O");
           const line = parseFloat(totalToken.substring(1));
           const isInProgress = !isCompleted && gameStatus?.state === "in";
 

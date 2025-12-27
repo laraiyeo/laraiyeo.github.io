@@ -208,7 +208,9 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
       const totals = gameIds.map((gid) => {
         const t = bets.find((b) => b.gameId === gid && b.type === "Total");
         if (!t) return "";
-        const overUnder = t.description?.toLowerCase().includes("over") ? "o" : "u";
+        const overUnder = t.description?.toLowerCase().includes("over")
+          ? "o"
+          : "u";
         const lineNumber = String(t.line || "").replace(/^[OU]\s+/, "");
         return `${overUnder}${lineNumber}`;
       });

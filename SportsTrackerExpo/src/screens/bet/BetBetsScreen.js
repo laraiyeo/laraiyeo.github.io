@@ -81,15 +81,21 @@ const BetBetsScreen = () => {
 
       // Build per-game totals and spreads aligned with gameIds
       const totals = gameIds.map((gid) => {
-        const t = ticket.bets.find((b) => b.gameId === gid && b.type === "Total");
+        const t = ticket.bets.find(
+          (b) => b.gameId === gid && b.type === "Total"
+        );
         if (!t) return "";
-        const overUnder = t.description?.toLowerCase().includes("over") ? "o" : "u";
+        const overUnder = t.description?.toLowerCase().includes("over")
+          ? "o"
+          : "u";
         const lineNumber = String(t.line || "").replace(/^[OU]\s+/, "");
         return `${overUnder}${lineNumber}`;
       });
 
       const spreads = gameIds.map((gid) => {
-        const s = ticket.bets.find((b) => b.gameId === gid && b.type === "Spread");
+        const s = ticket.bets.find(
+          (b) => b.gameId === gid && b.type === "Spread"
+        );
         return s ? `${s.team}${s.line}` : "";
       });
 
@@ -102,7 +108,8 @@ const BetBetsScreen = () => {
         query += `&total=${totals.map(encodeURIComponent).join(",")}`;
       }
       if (spreads.some((s) => s)) {
-        const encodeSpread = (val) => encodeURIComponent(val).replace(/%2B/g, "+");
+        const encodeSpread = (val) =>
+          encodeURIComponent(val).replace(/%2B/g, "+");
         query += `&spread=${spreads.map(encodeSpread).join(",")}`;
       }
 
