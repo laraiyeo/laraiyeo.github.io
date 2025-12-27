@@ -2292,7 +2292,9 @@ app.get("/api/betslip", async (req, res) => {
     // Support comma-separated moneyline values that map to each gameId.
     // Example: gameId=G1,G2,G3&moneyline=TEAM1,TEAM2,TEAM3
     const moneylineValues = moneyline
-      ? String(moneyline).split(",").map((s) => s.trim())
+      ? String(moneyline)
+          .split(",")
+          .map((s) => s.trim())
       : null;
 
     if (!gameId) {
@@ -2380,7 +2382,8 @@ app.get("/api/betslip", async (req, res) => {
             moneylineForThisGame = moneylineValues[0];
           } else {
             // If multiple values provided, map by index; missing entries => no moneyline for that game
-            moneylineForThisGame = moneylineValues.length > gi ? moneylineValues[gi] : null;
+            moneylineForThisGame =
+              moneylineValues.length > gi ? moneylineValues[gi] : null;
           }
         } else {
           moneylineForThisGame = moneyline || null;
