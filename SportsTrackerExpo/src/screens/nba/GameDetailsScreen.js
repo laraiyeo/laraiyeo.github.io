@@ -2957,24 +2957,36 @@ const NBAGameDetailsScreen = ({ route }) => {
       );
     }
 
-    // Check if we have onCourt data (only use if game is not finished)
+    // Determine if we can infer who's on court. Two possible sources:
+    // 1) `details.onCourt` array (legacy/live-tracker style)
+    // 2) `active` boolean on each athlete in the boxscore (summary data style)
+    const hasActiveFlags =
+      !isGameFinished &&
+      Array.isArray(details?.boxscore?.players) &&
+      details.boxscore.players.some((pb) =>
+        Array.isArray(pb.statistics) &&
+        pb.statistics.some((group) =>
+          Array.isArray(group.athletes) && group.athletes.some((a) => a.active)
+        )
+      );
+
     const hasonCourtData =
       !isGameFinished &&
-      details?.onCourt &&
-      Array.isArray(details.onCourt) &&
-      details.onCourt.length > 0;
+      ((details?.onCourt && Array.isArray(details.onCourt) && details.onCourt.length > 0) ||
+        hasActiveFlags);
 
     console.log(
-      `Has onCourt data: ${hasonCourtData}, onCourt length: ${
+      `Has onCourt data: ${hasonCourtData}, details.onCourt length: ${
         details?.onCourt?.length || 0
-      }`
+      }, hasActiveFlags: ${hasActiveFlags}`
     );
 
-    // Get players on ice for this team (from onCourt array) if available and game not finished
-    const onCourtData = hasonCourtData
-      ? details.onCourt.find((ice) => ice.teamId === team.team.id)
-      : null;
-    const onCourtPlayers = onCourtData?.entries || [];
+    // Get players on court entries depending on source
+    let onCourtPlayers = [];
+    if (!isGameFinished && details?.onCourt && Array.isArray(details.onCourt) && details.onCourt.length > 0) {
+      const onCourtData = details.onCourt.find((ice) => ice.teamId === team.team.id);
+      onCourtPlayers = onCourtData?.entries || [];
+    }
 
     // Find the detailed player lists for this team under boxscore.players
     const playersBox = details.boxscore.players || [];
@@ -2991,15 +3003,15 @@ const NBAGameDetailsScreen = ({ route }) => {
       if (positionGroup.athletes) {
         positionGroup.athletes.forEach((athlete) => {
           // athlete here is typically an object with an 'athlete' sub-object and 'stats'
+          // Determine on-court status either from athlete.active OR from details.onCourt entries
+          const activeFlag = athlete.active === true;
+          const onCourtFromEntries = onCourtPlayers.some(
+            (onCourt) => String(onCourt.athleteid) === String(athlete.athlete?.id)
+          );
           allPlayers.push({
             ...athlete,
             position: positionGroup.name,
-            isonCourt: hasonCourtData
-              ? onCourtPlayers.some(
-                  (onCourt) =>
-                    String(onCourt.athleteid) === String(athlete.athlete?.id)
-                )
-              : false,
+            isonCourt: activeFlag || (hasonCourtData ? onCourtFromEntries : false),
           });
         });
       }

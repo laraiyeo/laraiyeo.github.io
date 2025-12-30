@@ -166,10 +166,10 @@ const BetBetsScreen = () => {
     const rn = Number(right) || 0;
     return (
       <Text style={[styles.scoreText, { color: theme.text }]}>
-        <Text style={{ fontWeight: ln > rn ? "700" : "400" }}>{left ?? 0}</Text>
+        <Text style={{ fontWeight: rn > ln ? "700" : "400" }}>{right ?? 0}</Text>
         {" - "}
-        <Text style={{ fontWeight: rn > ln ? "700" : "400" }}>
-          {right ?? 0}
+        <Text style={{ fontWeight: ln > rn ? "700" : "400" }}>
+          {left ?? 0}
         </Text>
       </Text>
     );
@@ -270,9 +270,9 @@ const BetBetsScreen = () => {
     if (isPre) {
       return (
         <Text style={[styles.scoreText, { color: theme.text }]}>
-          <Text style={{ fontWeight: "400" }}>{hn}</Text>
-          {" - "}
           <Text style={{ fontWeight: "400" }}>{an}</Text>
+          {" - "}
+          <Text style={{ fontWeight: "400" }}>{hn}</Text>
         </Text>
       );
     }
@@ -284,12 +284,12 @@ const BetBetsScreen = () => {
     return (
       <Text style={[styles.scoreText, { color: theme.text }]}>
         <Text
-          style={{ fontWeight: homeNum > awayNum ? "700" : "400" }}
-        >{`${hn} ${homeNum}`}</Text>
-        {" - "}
-        <Text
           style={{ fontWeight: awayNum > homeNum ? "700" : "400" }}
         >{`${an} ${awayNum}`}</Text>
+        {" - "}
+        <Text
+          style={{ fontWeight: homeNum > awayNum ? "700" : "400" }}
+        >{`${hn} ${homeNum}`}</Text>
       </Text>
     );
   };

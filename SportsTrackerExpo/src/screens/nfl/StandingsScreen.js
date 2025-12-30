@@ -176,19 +176,15 @@ const StandingsScreen = ({ route }) => {
           <View style={styles.legendItems}>
             <View style={styles.legendItem}>
               <View style={[styles.legendSwatch, { backgroundColor: theme.success }]} />
-              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>* - Clinched Best League Record</Text>
+              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>* - Clinched Division and Home Field</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendSwatch, { backgroundColor: theme.success }]} />
-              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>X - Clinched Division</Text>
+              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>X - Clinched Playoffs</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendSwatch, { backgroundColor: theme.warning }]} />
-              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>Z - Clinched Playoffs</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendSwatch, { backgroundColor: theme.info }]} />
-              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>Y - Clinched Wild Card</Text>
+              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>Z - Clinched Division</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendSwatch, { backgroundColor: theme.error }]} />

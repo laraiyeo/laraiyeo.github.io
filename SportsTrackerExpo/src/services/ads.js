@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Platform } from "react-native";
+import { View, Platform, NativeModules } from "react-native";
 import Constants from "expo-constants";
 
 // Do not import `react-native-google-mobile-ads` at the top-level because
@@ -9,9 +9,31 @@ import Constants from "expo-constants";
 let _adsModule = null;
 function ensureAdsModule() {
   if (_adsModule !== null) return _adsModule;
+  // Avoid requiring the native package in environments where the native
+  // module cannot exist (web, Expo Go without native build). Check
+  // `NativeModules` for the presence of the underlying native module
+  // before attempting to require. This prevents TurboModuleRegistry errors.
+  if (Platform.OS === "web") {
+    _adsModule = null;
+    return null;
+  }
+
+  const nativePresent = Boolean(
+    NativeModules && (
+      NativeModules.RNGoogleMobileAdsModule ||
+      NativeModules.GoogleMobileAdsModule ||
+      NativeModules.RNGoogleMobileAds
+    )
+  );
+
+  if (!nativePresent) {
+    _adsModule = null;
+    return null;
+  }
+
   try {
     // require at runtime so bundlers won't eagerly include native-only code
-    // on web/expo-go.
+    // on web/expo-go. Only do this if native module was detected above.
     // eslint-disable-next-line global-require, import/no-extraneous-dependencies
     const mod = require("react-native-google-mobile-ads");
     _adsModule = mod && mod.__esModule ? mod.default || mod : mod;

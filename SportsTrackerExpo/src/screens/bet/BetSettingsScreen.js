@@ -200,6 +200,7 @@ const BetSettingsScreen = ({ navigation }) => {
   const [promoCodeInput, setPromoCodeInput] = useState("");
   const [redeemLoading, setRedeemLoading] = useState(false);
   const [redeemMessage, setRedeemMessage] = useState(null);
+  const [promoModalVisible, setPromoModalVisible] = useState(false);
 
   const infoPages = [
     {
@@ -213,6 +214,10 @@ const BetSettingsScreen = ({ navigation }) => {
     {
       title: "Credits System",
       body: "All wagers use app credits (C). Credits have no real-world value. They are used only for gameplay only and cannot be bought, sold, or redeemed for cash.",
+    },
+    {
+      title: "Leaderboards",
+      body: "The weekly leaderboard ranks the top 50 bettors by their multiplier — the amount they've multiplied their starting-week credits. The large value is the multiplier (for example, 3.50 means a starting 100 C became 350 C). Each row also shows total bets and the date of the user's first bet this week. Leaderboards are calculated per-week and reset at Sunday 02:00 PST.",
     },
     {
       title: "How To Read Odds",
@@ -619,6 +624,10 @@ const BetSettingsScreen = ({ navigation }) => {
         // If server returned already_pro, respect that
         if (json?.message === "already_pro") {
           setRedeemMessage("You already have Pro");
+          // close promo modal if open
+          try {
+            setPromoModalVisible(false);
+          } catch (e) {}
           // refresh profile
           const { data: userData } = await supabase.auth.getUser();
           const userId = userData?.user?.id || null;
@@ -637,6 +646,10 @@ const BetSettingsScreen = ({ navigation }) => {
           } catch (e) {}
         } else {
           setRedeemMessage("Promo applied — enjoy Pro!");
+          // close promo modal on success
+          try {
+            setPromoModalVisible(false);
+          } catch (e) {}
           // clear input
           setPromoCodeInput("");
           // refresh profile state: fetch full profile from Supabase to preserve username/is_pro
@@ -1040,12 +1053,36 @@ const BetSettingsScreen = ({ navigation }) => {
                 borderTopColor: theme.border,
               }}
             >
-              <Text style={[styles.settingLabel, { color: theme.text }]}>
-                You have Pro access
-              </Text>
-              <Text style={{ color: theme.textSecondary, marginTop: 8 }}>
-                Thank you for supporting SportsHeart ❤
-              </Text>
+              {/* Show Pro product id (capitalized) and expiry if available */}
+              {(() => {
+                const prodRaw =
+                  (profileMeta && profileMeta.pro_product_id) ||
+                  (profile && profile.pro_product_id) ||
+                  null;
+                const prodName = prodRaw
+                  ? String(prodRaw).charAt(0).toUpperCase() + String(prodRaw).slice(1)
+                  : "SportsHeart Pro";
+                const expiresRaw =
+                  (profileMeta && profileMeta.pro_expires_at) ||
+                  (profile && profile.pro_expires_at) ||
+                  null;
+                const expiresLabel = formatProExpiry(expiresRaw);
+                return (
+                  <>
+                    <Text style={[styles.settingLabel, { color: theme.text }]}>
+                      {prodName} - SportsHeart Pro
+                    </Text>
+                    {prodName ? (
+                      <Text style={{ color: theme.textSecondary, marginTop: 8 }}>
+                        {expiresLabel}
+                      </Text>
+                    ) : null}
+                      <Text style={{ color: theme.textSecondary, marginTop: 10 }}>
+                        Thank you for supporting SportsHeart ❤
+                      </Text>
+                  </>
+                );
+              })()}
             </View>
           ) : (
             <>
@@ -1091,35 +1128,93 @@ const BetSettingsScreen = ({ navigation }) => {
                   Have a promo code?
                 </Text>
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <TextInput
-                    value={promoCodeInput}
-                    onChangeText={setPromoCodeInput}
-                    placeholder="Enter promo code"
-                    placeholderTextColor={theme.textSecondary}
-                    style={{
-                      flex: 1,
-                      paddingVertical: 10,
-                      paddingHorizontal: 12,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: theme.border,
-                      color: theme.text,
-                      marginRight: 8,
-                    }}
-                  />
                   <TouchableOpacity
-                    onPress={handleRedeemPromo}
+                    onPress={() => setPromoModalVisible(true)}
                     style={[
                       styles.openSettingsButton,
                       { backgroundColor: colors.primary, paddingVertical: 10 },
                     ]}
-                    disabled={redeemLoading}
                   >
-                    <Text style={styles.openSettingsButtonText}>
-                      {redeemLoading ? "Redeeming..." : "Redeem"}
-                    </Text>
+                    <Text style={styles.openSettingsButtonText}>Enter Promo Code</Text>
                   </TouchableOpacity>
                 </View>
+
+                {/* Promo modal (floating) */}
+                <Modal
+                  visible={promoModalVisible}
+                  animationType="fade"
+                  transparent
+                  onRequestClose={() => setPromoModalVisible(false)}
+                >
+                  <View style={styles.modalOverlay}>
+                    <View
+                      style={[
+                        styles.modalContent,
+                        { padding: 18, maxWidth: 420, backgroundColor: theme.surface, borderColor: theme.border },
+                      ]}
+                    >
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 12,
+                        }}
+                      >
+                        <Text style={{ color: theme.text, fontWeight: "700" }}>
+                          Enter Promo Code
+                        </Text>
+                        <TouchableOpacity onPress={() => setPromoModalVisible(false)}>
+                          <Text style={{ color: colors.primary, fontWeight: "700" }}>
+                            Close
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      <TextInput
+                        value={promoCodeInput}
+                        onChangeText={setPromoCodeInput}
+                        placeholder="Enter promo code"
+                        placeholderTextColor={theme.textSecondary}
+                        style={{
+                          paddingVertical: 12,
+                          paddingHorizontal: 12,
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          borderColor: theme.border,
+                          color: theme.text,
+                        }}
+                      />
+
+                      {redeemMessage ? (
+                        <Text style={{ color: theme.textSecondary, marginTop: 8 }}>
+                          {redeemMessage}
+                        </Text>
+                      ) : null}
+
+                      <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 12 }}>
+                        <TouchableOpacity
+                          onPress={() => setPromoModalVisible(false)}
+                          style={[styles.dailySecondaryButton, { marginRight: 8 }]}
+                        >
+                          <Text style={styles.dailySecondaryText}>Cancel</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          onPress={handleRedeemPromo}
+                          disabled={redeemLoading}
+                          style={[styles.openSettingsButton, { backgroundColor: colors.primary, paddingVertical: 10 }]}
+                        >
+                          {redeemLoading ? (
+                            <ActivityIndicator color="#fff" />
+                          ) : (
+                            <Text style={styles.openSettingsButtonText}>Redeem</Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                </Modal>
                 {redeemMessage ? (
                   <Text style={{ color: theme.textSecondary, marginTop: 8 }}>
                     {redeemMessage}
@@ -1693,6 +1788,28 @@ const BetSettingsScreen = ({ navigation }) => {
     </ScrollView>
   );
 };
+
+  // Helper to format pro expiry from profile row
+  const formatProExpiry = (expiresAt) => {
+    if (!expiresAt) return null;
+    try {
+      const exp = new Date(expiresAt);
+      const now = new Date();
+      if (isNaN(exp.getTime())) return null;
+      const diffMs = exp.getTime() - now.getTime();
+      if (diffMs <= 0) return "Expired";
+      const totalDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+      if (totalDays < 30) {
+        return `${totalDays} day${totalDays === 1 ? "" : "s"} remaining`;
+      }
+      const months = Math.floor(totalDays / 30);
+      const days = totalDays % 30;
+      if (days === 0) return `${months} month${months === 1 ? "" : "s"} remaining`;
+      return `${months} month${months === 1 ? "" : "s"} ${days} day${days === 1 ? "" : "s"} remaining`;
+    } catch (e) {
+      return null;
+    }
+  };
 
 const styles = StyleSheet.create({
   container: {

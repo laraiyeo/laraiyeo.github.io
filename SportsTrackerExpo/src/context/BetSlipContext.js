@@ -36,7 +36,10 @@ export const BetSlipProvider = ({ children }) => {
       try {
         const v = await AsyncStorage.getItem("@is_pro");
         if (v === "1") {
-          if (mounted) setIsPro(true);
+          if (mounted) {
+            setIsPro(true);
+            console.log("BetSlipContext: isPro set from AsyncStorage -> true");
+          }
           return;
         }
       } catch (e) {}
@@ -44,12 +47,21 @@ export const BetSlipProvider = ({ children }) => {
       try {
         const prof = await getUserProfile();
         if (prof && prof.success && prof.profile && prof.profile.is_pro) {
-          if (mounted) setIsPro(true);
+          if (mounted) {
+            setIsPro(true);
+            console.log("BetSlipContext: isPro set from profile -> true");
+          }
         } else {
-          if (mounted) setIsPro(false);
+          if (mounted) {
+            setIsPro(false);
+            console.log("BetSlipContext: isPro set from profile -> false");
+          }
         }
       } catch (e) {
-        if (mounted) setIsPro(false);
+        if (mounted) {
+          setIsPro(false);
+          console.log("BetSlipContext: isPro set -> false (error)");
+        }
       }
     })();
     return () => (mounted = false);
