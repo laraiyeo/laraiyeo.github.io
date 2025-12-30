@@ -145,7 +145,10 @@ const BetLoginScreen = ({ navigation }) => {
       });
       // Batch write the credential payload and a last-login timestamp to reduce
       // native IO roundtrips. Verification is omitted to avoid extra reads.
-      await batchSet([[CRED_KEY, payload], ["@last_login", String(Date.now())]]);
+      await batchSet([
+        [CRED_KEY, payload],
+        ["@last_login", String(Date.now())],
+      ]);
     } catch (e) {
       console.error("Failed to save credentials", e);
     }
@@ -163,7 +166,11 @@ const BetLoginScreen = ({ navigation }) => {
   const checkSession = async () => {
     try {
       const sessionRes = await withTimeout(supabase.auth.getSession(), 8000);
-      const session = sessionRes?.data?.session || sessionRes?.session || sessionRes?.data || null;
+      const session =
+        sessionRes?.data?.session ||
+        sessionRes?.session ||
+        sessionRes?.data ||
+        null;
 
       if (session) {
         // User is already logged in, navigate to BetMain
@@ -343,7 +350,10 @@ const BetLoginScreen = ({ navigation }) => {
             authError = e;
             authData = null;
           }
-          console.log("BetLogin: fast sign-in result:", { authData, authError });
+          console.log("BetLogin: fast sign-in result:", {
+            authData,
+            authError,
+          });
           if (!authError && authData) {
             userPhone = cached;
             try {
@@ -355,23 +365,40 @@ const BetLoginScreen = ({ navigation }) => {
             // Persist credentials + phone cache asynchronously (non-blocking)
             setTimeout(() => {
               try {
-                const payload = JSON.stringify({ username, password, phone: userPhone });
-                batchSet([[CRED_KEY, payload], [PHONE_CACHE_KEY, JSON.stringify({ [username]: userPhone })]]).catch(() => {});
+                const payload = JSON.stringify({
+                  username,
+                  password,
+                  phone: userPhone,
+                });
+                batchSet([
+                  [CRED_KEY, payload],
+                  [PHONE_CACHE_KEY, JSON.stringify({ [username]: userPhone })],
+                ]).catch(() => {});
               } catch (e) {}
             }, 0);
           } else if (
             authError &&
             authError.message &&
-            (authError.message.includes("Invalid") || authError.message.includes("credentials"))
+            (authError.message.includes("Invalid") ||
+              authError.message.includes("credentials"))
           ) {
-            console.warn("BetLogin: fast sign-in invalid credentials", authError);
+            console.warn(
+              "BetLogin: fast sign-in invalid credentials",
+              authError
+            );
             Alert.alert("Login Failed", "Invalid password. Please try again.");
             setLoading(false);
             return;
           } else {
             // If cache exists but fast sign-in fails for another reason, abort without calling RPC
-            console.log("BetLogin: fast sign-in failed and cache exists — aborting without RPC", authError);
-            Alert.alert("Login Failed", authError?.message || "Failed to login");
+            console.log(
+              "BetLogin: fast sign-in failed and cache exists — aborting without RPC",
+              authError
+            );
+            Alert.alert(
+              "Login Failed",
+              authError?.message || "Failed to login"
+            );
             setLoading(false);
             return;
           }
@@ -386,12 +413,18 @@ const BetLoginScreen = ({ navigation }) => {
         let rpcData = null;
         try {
           console.time("rpc");
-          const res = await withTimeout(supabase.rpc("get_phone_by_username", { uname: username }), 8000);
+          const res = await withTimeout(
+            supabase.rpc("get_phone_by_username", { uname: username }),
+            8000
+          );
           console.timeEnd("rpc");
           rpcData = res.data || res;
           console.log("BetLogin: rpc lookup result:", { rpcData });
         } catch (rpcError) {
-          console.warn("BetLogin: rpc lookup failed or timed out", rpcError?.message || rpcError);
+          console.warn(
+            "BetLogin: rpc lookup failed or timed out",
+            rpcError?.message || rpcError
+          );
           throw rpcError;
         }
 
@@ -432,8 +465,15 @@ const BetLoginScreen = ({ navigation }) => {
         // Persist credentials + phone cache asynchronously (non-blocking)
         setTimeout(() => {
           try {
-            const payload = JSON.stringify({ username, password, phone: userPhone });
-            batchSet([[CRED_KEY, payload], [PHONE_CACHE_KEY, JSON.stringify({ [username]: userPhone })]]).catch(() => {});
+            const payload = JSON.stringify({
+              username,
+              password,
+              phone: userPhone,
+            });
+            batchSet([
+              [CRED_KEY, payload],
+              [PHONE_CACHE_KEY, JSON.stringify({ [username]: userPhone })],
+            ]).catch(() => {});
           } catch (e) {}
         }, 0);
 
@@ -495,11 +535,17 @@ const BetLoginScreen = ({ navigation }) => {
       setTimeout(() => {
         (async () => {
           try {
-            const userId = authData?.user?.id || (await withTimeout(supabase.auth.getUser(), 8000))?.data?.user?.id;
+            const userId =
+              authData?.user?.id ||
+              (await withTimeout(supabase.auth.getUser(), 8000))?.data?.user
+                ?.id;
             if (!userId) return;
             try {
               // Don't await this on the main path; wrap in timeout so it can't stall forever
-              await withTimeout(initPurchases("appl_mdoICWLxVPeKJjUzLbFUKhMrXAT", userId), 10000);
+              await withTimeout(
+                initPurchases("appl_mdoICWLxVPeKJjUzLbFUKhMrXAT", userId),
+                10000
+              );
               console.log("BetLogin: RevenueCat identify called", userId);
               try {
                 const info = await withTimeout(getCustomerInfo(), 8000);
@@ -520,29 +566,46 @@ const BetLoginScreen = ({ navigation }) => {
                   // will re-evaluate from profile.
                   await AsyncStorage.multiRemove(["@is_pro"]).catch(() => {});
                   try {
-                    const refreshed = await withTimeout(supabase.auth.getUser(), 8000);
+                    const refreshed = await withTimeout(
+                      supabase.auth.getUser(),
+                      8000
+                    );
                     // attempt to refresh profile from server
                     try {
                       const prof = await getUserProfile();
                       if (prof && prof.success && prof.profile) {
                         if (setIsPro) setIsPro(!!prof.profile.is_pro);
-                        await batchSet([["@is_pro", prof.profile.is_pro ? "1" : "0"]]).catch(() => {});
+                        await batchSet([
+                          ["@is_pro", prof.profile.is_pro ? "1" : "0"],
+                        ]).catch(() => {});
                       }
                     } catch (e) {
-                      console.warn("BetLogin: failed to refresh profile after RevenueCat not-entitled", e?.message || e);
+                      console.warn(
+                        "BetLogin: failed to refresh profile after RevenueCat not-entitled",
+                        e?.message || e
+                      );
                     }
                   } catch (e) {
                     // ignore failures to refresh user here
                   }
                 }
               } catch (e) {
-                console.warn("BetLogin: getCustomerInfo failed", e?.message || e);
+                console.warn(
+                  "BetLogin: getCustomerInfo failed",
+                  e?.message || e
+                );
               }
             } catch (e) {
-              console.warn("BetLogin: RevenueCat identify failed", e?.message || e);
+              console.warn(
+                "BetLogin: RevenueCat identify failed",
+                e?.message || e
+              );
             }
           } catch (e) {
-            console.warn("BetLogin: initPurchases identify error", e?.message || e);
+            console.warn(
+              "BetLogin: initPurchases identify error",
+              e?.message || e
+            );
           }
         })();
       }, 1000);
@@ -572,8 +635,14 @@ const BetLoginScreen = ({ navigation }) => {
           }
           if (res.ok && body && body.token) {
             // Batch store server token and last-server-auth timestamp to reduce IO
-            await batchSet([["@bet_token", body.token], ["@last_server_auth", String(Date.now())]]);
-            console.log("BetLogin: stored server auth token", (body.token || "").length);
+            await batchSet([
+              ["@bet_token", body.token],
+              ["@last_server_auth", String(Date.now())],
+            ]);
+            console.log(
+              "BetLogin: stored server auth token",
+              (body.token || "").length
+            );
             try {
               await registerForPushNotifications(body.token);
             } catch (e) {
@@ -648,10 +717,10 @@ const BetLoginScreen = ({ navigation }) => {
               .eq("id", userId)
               .maybeSingle();
             if (!pErr && profileRow) {
-                try {
-                  await batchSet([["@is_pro", profileRow.is_pro ? "1" : "0"]]);
-                  if (setIsPro) setIsPro(!!profileRow.is_pro);
-                } catch (e) {}
+              try {
+                await batchSet([["@is_pro", profileRow.is_pro ? "1" : "0"]]);
+                if (setIsPro) setIsPro(!!profileRow.is_pro);
+              } catch (e) {}
             }
           }
         } catch (e) {

@@ -2963,16 +2963,21 @@ const NBAGameDetailsScreen = ({ route }) => {
     const hasActiveFlags =
       !isGameFinished &&
       Array.isArray(details?.boxscore?.players) &&
-      details.boxscore.players.some((pb) =>
-        Array.isArray(pb.statistics) &&
-        pb.statistics.some((group) =>
-          Array.isArray(group.athletes) && group.athletes.some((a) => a.active)
-        )
+      details.boxscore.players.some(
+        (pb) =>
+          Array.isArray(pb.statistics) &&
+          pb.statistics.some(
+            (group) =>
+              Array.isArray(group.athletes) &&
+              group.athletes.some((a) => a.active)
+          )
       );
 
     const hasonCourtData =
       !isGameFinished &&
-      ((details?.onCourt && Array.isArray(details.onCourt) && details.onCourt.length > 0) ||
+      ((details?.onCourt &&
+        Array.isArray(details.onCourt) &&
+        details.onCourt.length > 0) ||
         hasActiveFlags);
 
     console.log(
@@ -2983,8 +2988,15 @@ const NBAGameDetailsScreen = ({ route }) => {
 
     // Get players on court entries depending on source
     let onCourtPlayers = [];
-    if (!isGameFinished && details?.onCourt && Array.isArray(details.onCourt) && details.onCourt.length > 0) {
-      const onCourtData = details.onCourt.find((ice) => ice.teamId === team.team.id);
+    if (
+      !isGameFinished &&
+      details?.onCourt &&
+      Array.isArray(details.onCourt) &&
+      details.onCourt.length > 0
+    ) {
+      const onCourtData = details.onCourt.find(
+        (ice) => ice.teamId === team.team.id
+      );
       onCourtPlayers = onCourtData?.entries || [];
     }
 
@@ -3006,12 +3018,14 @@ const NBAGameDetailsScreen = ({ route }) => {
           // Determine on-court status either from athlete.active OR from details.onCourt entries
           const activeFlag = athlete.active === true;
           const onCourtFromEntries = onCourtPlayers.some(
-            (onCourt) => String(onCourt.athleteid) === String(athlete.athlete?.id)
+            (onCourt) =>
+              String(onCourt.athleteid) === String(athlete.athlete?.id)
           );
           allPlayers.push({
             ...athlete,
             position: positionGroup.name,
-            isonCourt: activeFlag || (hasonCourtData ? onCourtFromEntries : false),
+            isonCourt:
+              activeFlag || (hasonCourtData ? onCourtFromEntries : false),
           });
         });
       }

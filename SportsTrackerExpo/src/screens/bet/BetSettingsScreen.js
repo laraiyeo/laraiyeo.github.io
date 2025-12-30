@@ -1060,7 +1060,8 @@ const BetSettingsScreen = ({ navigation }) => {
                   (profile && profile.pro_product_id) ||
                   null;
                 const prodName = prodRaw
-                  ? String(prodRaw).charAt(0).toUpperCase() + String(prodRaw).slice(1)
+                  ? String(prodRaw).charAt(0).toUpperCase() +
+                    String(prodRaw).slice(1)
                   : "SportsHeart Pro";
                 const expiresRaw =
                   (profileMeta && profileMeta.pro_expires_at) ||
@@ -1073,13 +1074,15 @@ const BetSettingsScreen = ({ navigation }) => {
                       {prodName} - SportsHeart Pro
                     </Text>
                     {prodName ? (
-                      <Text style={{ color: theme.textSecondary, marginTop: 8 }}>
+                      <Text
+                        style={{ color: theme.textSecondary, marginTop: 8 }}
+                      >
                         {expiresLabel}
                       </Text>
                     ) : null}
-                      <Text style={{ color: theme.textSecondary, marginTop: 10 }}>
-                        Thank you for supporting SportsHeart ❤
-                      </Text>
+                    <Text style={{ color: theme.textSecondary, marginTop: 10 }}>
+                      Thank you for supporting SportsHeart ❤
+                    </Text>
                   </>
                 );
               })()}
@@ -1135,7 +1138,9 @@ const BetSettingsScreen = ({ navigation }) => {
                       { backgroundColor: colors.primary, paddingVertical: 10 },
                     ]}
                   >
-                    <Text style={styles.openSettingsButtonText}>Enter Promo Code</Text>
+                    <Text style={styles.openSettingsButtonText}>
+                      Enter Promo Code
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
@@ -1150,7 +1155,12 @@ const BetSettingsScreen = ({ navigation }) => {
                     <View
                       style={[
                         styles.modalContent,
-                        { padding: 18, maxWidth: 420, backgroundColor: theme.surface, borderColor: theme.border },
+                        {
+                          padding: 18,
+                          maxWidth: 420,
+                          backgroundColor: theme.surface,
+                          borderColor: theme.border,
+                        },
                       ]}
                     >
                       <View
@@ -1164,8 +1174,12 @@ const BetSettingsScreen = ({ navigation }) => {
                         <Text style={{ color: theme.text, fontWeight: "700" }}>
                           Enter Promo Code
                         </Text>
-                        <TouchableOpacity onPress={() => setPromoModalVisible(false)}>
-                          <Text style={{ color: colors.primary, fontWeight: "700" }}>
+                        <TouchableOpacity
+                          onPress={() => setPromoModalVisible(false)}
+                        >
+                          <Text
+                            style={{ color: colors.primary, fontWeight: "700" }}
+                          >
                             Close
                           </Text>
                         </TouchableOpacity>
@@ -1187,15 +1201,26 @@ const BetSettingsScreen = ({ navigation }) => {
                       />
 
                       {redeemMessage ? (
-                        <Text style={{ color: theme.textSecondary, marginTop: 8 }}>
+                        <Text
+                          style={{ color: theme.textSecondary, marginTop: 8 }}
+                        >
                           {redeemMessage}
                         </Text>
                       ) : null}
 
-                      <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 12 }}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          justifyContent: "flex-end",
+                          marginTop: 12,
+                        }}
+                      >
                         <TouchableOpacity
                           onPress={() => setPromoModalVisible(false)}
-                          style={[styles.dailySecondaryButton, { marginRight: 8 }]}
+                          style={[
+                            styles.dailySecondaryButton,
+                            { marginRight: 8 },
+                          ]}
                         >
                           <Text style={styles.dailySecondaryText}>Cancel</Text>
                         </TouchableOpacity>
@@ -1203,12 +1228,20 @@ const BetSettingsScreen = ({ navigation }) => {
                         <TouchableOpacity
                           onPress={handleRedeemPromo}
                           disabled={redeemLoading}
-                          style={[styles.openSettingsButton, { backgroundColor: colors.primary, paddingVertical: 10 }]}
+                          style={[
+                            styles.openSettingsButton,
+                            {
+                              backgroundColor: colors.primary,
+                              paddingVertical: 10,
+                            },
+                          ]}
                         >
                           {redeemLoading ? (
                             <ActivityIndicator color="#fff" />
                           ) : (
-                            <Text style={styles.openSettingsButtonText}>Redeem</Text>
+                            <Text style={styles.openSettingsButtonText}>
+                              Redeem
+                            </Text>
                           )}
                         </TouchableOpacity>
                       </View>
@@ -1789,27 +1822,30 @@ const BetSettingsScreen = ({ navigation }) => {
   );
 };
 
-  // Helper to format pro expiry from profile row
-  const formatProExpiry = (expiresAt) => {
-    if (!expiresAt) return null;
-    try {
-      const exp = new Date(expiresAt);
-      const now = new Date();
-      if (isNaN(exp.getTime())) return null;
-      const diffMs = exp.getTime() - now.getTime();
-      if (diffMs <= 0) return "Expired";
-      const totalDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
-      if (totalDays < 30) {
-        return `${totalDays} day${totalDays === 1 ? "" : "s"} remaining`;
-      }
-      const months = Math.floor(totalDays / 30);
-      const days = totalDays % 30;
-      if (days === 0) return `${months} month${months === 1 ? "" : "s"} remaining`;
-      return `${months} month${months === 1 ? "" : "s"} ${days} day${days === 1 ? "" : "s"} remaining`;
-    } catch (e) {
-      return null;
+// Helper to format pro expiry from profile row
+const formatProExpiry = (expiresAt) => {
+  if (!expiresAt) return null;
+  try {
+    const exp = new Date(expiresAt);
+    const now = new Date();
+    if (isNaN(exp.getTime())) return null;
+    const diffMs = exp.getTime() - now.getTime();
+    if (diffMs <= 0) return "Expired";
+    const totalDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+    if (totalDays < 30) {
+      return `${totalDays} day${totalDays === 1 ? "" : "s"} remaining`;
     }
-  };
+    const months = Math.floor(totalDays / 30);
+    const days = totalDays % 30;
+    if (days === 0)
+      return `${months} month${months === 1 ? "" : "s"} remaining`;
+    return `${months} month${months === 1 ? "" : "s"} ${days} day${
+      days === 1 ? "" : "s"
+    } remaining`;
+  } catch (e) {
+    return null;
+  }
+};
 
 const styles = StyleSheet.create({
   container: {

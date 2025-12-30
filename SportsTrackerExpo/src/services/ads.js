@@ -19,11 +19,10 @@ function ensureAdsModule() {
   }
 
   const nativePresent = Boolean(
-    NativeModules && (
-      NativeModules.RNGoogleMobileAdsModule ||
-      NativeModules.GoogleMobileAdsModule ||
-      NativeModules.RNGoogleMobileAds
-    )
+    NativeModules &&
+      (NativeModules.RNGoogleMobileAdsModule ||
+        NativeModules.GoogleMobileAdsModule ||
+        NativeModules.RNGoogleMobileAds)
   );
 
   if (!nativePresent) {
