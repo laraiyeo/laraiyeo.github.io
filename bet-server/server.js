@@ -2252,7 +2252,7 @@ const ESPN_PATHS = {
 };
 // SportGameOdds API configuration
 const SPORTSGAMEODDS_API_BASE = "https://api.sportsgameodds.com/v2/events";
-const SPORTSGAMEODDS_API_KEY = process.env.SPORTSGAMEODDS_API_KEY || "";
+const SPORTSGAMEODDS_API_KEY = process.env.SPORTSGAMEODDS_API_KEY || "fb5cd7db7f9e18a03caa04b10b505a41";
 
 // Mapping sport slug -> leagueID for SportGameOdds
 const SGO_LEAGUE_IDS = {
