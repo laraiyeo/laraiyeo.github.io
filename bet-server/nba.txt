@@ -1,0 +1,344 @@
+{
+  "events": [
+    {
+      "eventId": "401810322",
+      "status": {
+        "shortDetail": "Final",
+        "completed": true,
+        "state": "post",
+        "date": "2026-01-01T00:00Z",
+        "game": {
+          "homeTeam": "SA",
+          "awayTeam": "NY",
+          "homeScore": "134",
+          "awayScore": "132"
+        }
+      },
+      "bets": {
+        "moneyline": {
+          "team": "NY",
+          "current": {
+            "score": "132-134",
+            "lead": "SA",
+            "won": false
+          }
+        },
+        "totalPoints": {
+          "bet": "237.5 ",
+          "line": 237.5,
+          "type": "over",
+          "current": 266,
+          "won": true
+        },
+        "spread": {
+          "team": "NY",
+          "line": -4.5,
+          "lineDisplay": "-4.5",
+          "current": {
+            "score": "132-134",
+            "adjustedScore": "-4.5",
+            "won": false
+          }
+        },
+        "homePoints": {
+          "bet": "120.5",
+          "line": 120.5,
+          "current": 134,
+          "type": "over",
+          "won": true
+        },
+        "awayPoints": {
+          "bet": "u116.5",
+          "line": 116.5,
+          "current": 132,
+          "type": "under",
+          "won": false
+        },
+        "Q1_ML": {
+          "bet": "NY",
+          "current": "36-45",
+          "won": true
+        },
+        "Q1_SP": {
+          "team": "NY",
+          "line": -1.5,
+          "current": "36-45",
+          "won": true
+        },
+        "Q1_T": {
+          "bet": "62.5",
+          "line": 62.5,
+          "type": "over",
+          "current": 81,
+          "won": true
+        },
+        "homePoints1Q": {
+          "bet": "o31.5",
+          "line": 31.5,
+          "current": 36,
+          "type": "over",
+          "won": true
+        },
+        "awayPoints1Q": {
+          "bet": "30.5-",
+          "line": 30.5,
+          "current": 45,
+          "type": "under",
+          "won": false
+        },
+        "Q2_ML": {
+          "bet": "NY",
+          "current": "27-28",
+          "won": true
+        },
+        "Q2_SP": {
+          "team": "NY",
+          "line": -1.5,
+          "current": "27-28",
+          "won": false
+        },
+        "Q2_T": {
+          "bet": "o60.5",
+          "line": 60.5,
+          "type": "over",
+          "current": 55,
+          "won": false
+        },
+        "homePoints2Q": {
+          "bet": "30.5",
+          "line": 30.5,
+          "current": 27,
+          "type": "over",
+          "won": false
+        },
+        "awayPoints2Q": {
+          "bet": "u29.5",
+          "line": 29.5,
+          "current": 28,
+          "type": "under",
+          "won": true
+        },
+        "Q3_ML": {
+          "bet": "NY",
+          "current": "30-29",
+          "won": false
+        },
+        "Q3_SP": {
+          "team": "NY",
+          "line": -1.5,
+          "current": "30-29",
+          "won": false
+        },
+        "Q3_T": {
+          "bet": "55.5",
+          "line": 55.5,
+          "type": "over",
+          "current": 59,
+          "won": true
+        },
+        "Q4_ML": {
+          "bet": "NY",
+          "current": "41-30",
+          "won": false
+        },
+        "Q4_SP": {
+          "team": "NY",
+          "line": -0.5,
+          "current": "41-30",
+          "won": false
+        },
+        "Q4_T": {
+          "bet": "o54.5",
+          "line": 54.5,
+          "type": "over",
+          "current": 71,
+          "won": true
+        },
+        "H1_ML": {
+          "bet": "NY",
+          "current": "63-73",
+          "won": true
+        },
+        "H1_T": {
+          "bet": "o122.5",
+          "line": 122.5,
+          "type": "over",
+          "current": 136,
+          "won": true
+        },
+        "H1_SP": {
+          "team": "NY",
+          "line": -2.5,
+          "current": "63-73",
+          "won": true
+        },
+        "homePoints1H": {
+          "bet": "62.5",
+          "line": 62.5,
+          "current": 63,
+          "type": "over",
+          "won": true
+        },
+        "awayPoints1H": {
+          "bet": "59.5-",
+          "line": 59.5,
+          "current": 73,
+          "type": "under",
+          "won": false
+        },
+        "H2_ML": {
+          "bet": "NY",
+          "current": "71-59",
+          "won": false
+        },
+        "H2_T": {
+          "bet": "114.5",
+          "line": 114.5,
+          "type": "over",
+          "current": 130,
+          "won": true
+        },
+        "H2_SP": {
+          "team": "NY",
+          "line": -1.5,
+          "current": "71-59",
+          "won": false
+        },
+        "homePoints2H": {
+          "bet": "o59.5",
+          "line": 59.5,
+          "current": 71,
+          "type": "over",
+          "won": true
+        },
+        "awayPoints2H": {
+          "bet": "u57.5",
+          "line": 57.5,
+          "current": 59,
+          "type": "under",
+          "won": false
+        },
+        "players": [
+          {
+            "id": "5104157",
+            "name": "Victor Wembanyama",
+            "color": "000000",
+            "overUnder": {
+              "PA": {
+                "bet": 37.5,
+                "type": "over",
+                "current": 32,
+                "won": false
+              },
+              "RA": {
+                "bet": 16.5,
+                "type": "over",
+                "current": 14,
+                "won": false
+              },
+              "AST": {
+                "bet": 10.5,
+                "type": "over",
+                "current": 1,
+                "won": false
+              },
+              "STL": {
+                "bet": 1.5,
+                "type": "over",
+                "current": 0,
+                "won": false
+              },
+              "3PM": {
+                "bet": 2.5,
+                "type": "over",
+                "current": 2,
+                "won": false
+              },
+              "1QAST": {
+                "bet": 3.5,
+                "type": "over",
+                "current": 0,
+                "won": false
+              },
+              "BS": {
+                "bet": 1.5,
+                "type": "over",
+                "current": 0,
+                "won": false
+              }
+            },
+            "milestones": {
+              "PRA": {
+                "bet": "45.5 ",
+                "threshold": 45.5,
+                "current": 45,
+                "won": false
+              },
+              "PR": {
+                "bet": "32.5 ",
+                "threshold": 32.5,
+                "current": 44,
+                "won": true
+              },
+              "PTS": {
+                "bet": "26.5 ",
+                "threshold": 26.5,
+                "current": 31,
+                "won": true
+              },
+              "REB": {
+                "bet": "5.5 ",
+                "threshold": 5.5,
+                "current": 13,
+                "won": true
+              },
+              "BLK": {
+                "bet": "0.5 ",
+                "threshold": 0.5,
+                "current": 1,
+                "won": true
+              },
+              "1QPTS": {
+                "bet": "7.5 ",
+                "threshold": 7.5,
+                "current": 6,
+                "won": false
+              },
+              "1QREB": {
+                "bet": "1.5 ",
+                "threshold": 1.5,
+                "current": 2,
+                "won": true
+              },
+              "FIRSTBASKET": {
+                "bet": "yes",
+                "current": 1,
+                "won": true
+              },
+              "2DBL": {
+                "bet": "yes",
+                "current": 1,
+                "won": true
+              },
+              "3DBL": {
+                "bet": "no",
+                "current": 0,
+                "won": true
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "payloadSize": {
+      "bytes": 3504,
+      "kb": 3.42,
+      "withinPushLimit": true,
+      "recommendedForPush": false
+    },
+    "totalBets": 20,
+    "gamesCount": 1
+  }
+}

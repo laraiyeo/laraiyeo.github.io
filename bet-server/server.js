@@ -15,13 +15,20 @@ const { Expo } = require("expo-server-sdk");
 // Create Supabase admin client from env
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabaseAdmin = createClient(
-  SUPABASE_URL || "",
-  SUPABASE_SERVICE_ROLE_KEY || "",
-  {
-    auth: { persistSession: false },
-  }
-);
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error(
+    "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.\n" +
+      "Create a .env file in the bet-server folder with the following values, then restart the server:\n" +
+      "SUPABASE_URL=https://your-project.supabase.co\n" +
+      "SUPABASE_SERVICE_ROLE_KEY=your_service_role_key"
+  );
+  process.exit(1);
+}
+
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false },
+});
 
 // Betslip cleanup scheduler: clear betslips 24 hours after creation.
 const betslipCleanupTimers = {};
@@ -58,6 +65,8 @@ async function clearBetslipNow(betslipId) {
       }
     } catch (e) {}
   }
+
+  // (drives handling moved into transformSummaryData where `data` and `isNFL` are available)
 }
 
 function scheduleClearBetslip(betslip) {
@@ -603,6 +612,1286 @@ app.use(
   })
 );
 
+// Helper: parse gamelog into recent games and season averages
+function parseGamelogIntoGames(gamelog, limit = 10) {
+  if (!gamelog) return { recentGames: [], seasonAverages: null, allGames: [] };
+  const debugEnabledLocal = process.env.DEBUG_SGO_MATCH === "1";
+  const labels = gamelog.labels || [];
+  const names = gamelog.names || [];
+  const displayNames = gamelog.displayNames || [];
+  const eventsObj = gamelog.events || [];
+  const eventsArray = Array.isArray(eventsObj)
+    ? eventsObj.slice()
+    : Object.values(eventsObj || {});
+
+  const sortedEvents = eventsArray.sort(
+    (a, b) => new Date(b.gameDate) - new Date(a.gameDate)
+  );
+  const seasonTypes = gamelog.seasonTypes || [];
+
+  // Build eventId -> stats map by scanning seasonTypes/categories/events
+  // Approach:
+  // 1) Build an abbreviation -> [eventId] map from the top-level `events` object
+  // 2) Iterate seasonTypes/categories/events and for each entry try to:
+  //    a) extract explicit event ids (eventId, id, gameId, etc.) and map
+  //       those to top-level event ids
+  //    b) if no explicit id, extract team/opponent abbreviations from the
+  //       seasonTypes entry and use the abbrev->eventId map to resolve which
+  //       top-level event this seasonTypes entry refers to, then attach stats
+  const eventStatsMap = {};
+  const abbrevToEventIds = {};
+  eventsArray.forEach((ev) => {
+    const evId = String(ev.id);
+    const evAbbrevs = [ev.team?.abbreviation, ev.opponent?.abbreviation]
+      .filter(Boolean)
+      .map((s) => String(s).toUpperCase());
+    evAbbrevs.forEach((a) => {
+      if (!abbrevToEventIds[a]) abbrevToEventIds[a] = [];
+      abbrevToEventIds[a].push(evId);
+    });
+  });
+
+  const debugInfo = debugEnabledLocal
+    ? { checkedSeasonEvents: 0, resolvedByAbbrev: {}, missing: [] }
+    : null;
+
+  // When debugging, expose the top-level events list so callers can verify
+  // we correctly parsed the gamelog `events` object. For each event include
+  // only `id` and the `opponent` object (id, abbreviation, displayName).
+  if (debugEnabledLocal && debugInfo) {
+    try {
+      eventsArray.forEach((ev) => {
+        try {
+          debugInfo.resolvedByAbbrev[String(ev.id)] = {
+            id: ev.id,
+            opponent: ev.opponent
+              ? {
+                  id: ev.opponent.id || null,
+                  abbreviation: ev.opponent.abbreviation || null,
+                  displayName: ev.opponent.displayName || null,
+                }
+              : null,
+          };
+        } catch (e) {
+          /* ignore per-event mapping errors */
+        }
+      });
+    } catch (e) {
+      /* ignore debug mapping errors */
+    }
+  }
+
+  function extractAbbrevsFrom(obj, found = []) {
+    if (!obj || typeof obj !== "object") return found;
+    for (const k of Object.keys(obj)) {
+      try {
+        const v = obj[k];
+        if (!v) continue;
+        const lk = String(k).toLowerCase();
+        if (/(abbrev|abbreviation|abbr)/i.test(lk) && typeof v === "string") {
+          found.push(String(v).toUpperCase());
+        } else if (typeof v === "object") {
+          extractAbbrevsFrom(v, found);
+        }
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    return found;
+  }
+
+  seasonTypes.forEach((seasonType) => {
+    const categories = seasonType.categories || [];
+    categories.forEach((category) => {
+      const categoryEvents = category.events || [];
+      categoryEvents.forEach((eventData) => {
+        debugInfo && (debugInfo.checkedSeasonEvents += 1);
+        try {
+          const candidates = [eventData];
+          if (eventData && typeof eventData === "object") {
+            if (eventData.event && typeof eventData.event === "object")
+              candidates.push(eventData.event);
+          }
+          let attached = false;
+          for (const cand of candidates) {
+            if (!cand || typeof cand !== "object") continue;
+            const possibleIds = [
+              cand.eventId,
+              cand.eventID,
+              cand.event_id,
+              cand.id,
+              cand.gameId,
+              cand.gameID,
+              cand.game_id,
+            ]
+              .filter((v) => v !== undefined && v !== null)
+              .map((v) => String(v));
+            // If there are explicit ids, map them directly
+            for (const pid of possibleIds) {
+              // pid might already be the top-level id; otherwise try to find
+              // a matching top-level event by id
+              const match = eventsArray.find((ev) => String(ev.id) === pid);
+              if (match) {
+                const stats = cand.stats || eventData.stats || [];
+                const formatted = {};
+                for (let i = 0; i < stats.length; i++) {
+                  const key =
+                    (displayNames && displayNames[i]) ||
+                    (names && names[i]) ||
+                    (labels && labels[i]) ||
+                    String(i);
+                  if (stats[i] !== undefined) formatted[key] = stats[i];
+                }
+                if (Object.keys(formatted).length > 0) {
+                  eventStatsMap[match.id] = formatted;
+                  attached = true;
+                  if (debugEnabledLocal) {
+                    debugInfo.matched[match.id] = {
+                      seasonType:
+                        seasonType.displayName || seasonType.type || null,
+                      keys: Object.keys(formatted),
+                      resolvedFrom: "explicit-id",
+                    };
+                  }
+                  break;
+                }
+              }
+            }
+            if (attached) break;
+          }
+          if (attached) return;
+
+          // No explicit ids matched: try resolving by abbreviation keys found
+          const abbrevs = extractAbbrevsFrom(eventData || {}).concat(
+            eventData.team?.abbreviation
+              ? [String(eventData.team.abbreviation).toUpperCase()]
+              : [],
+            eventData.opponent?.abbreviation
+              ? [String(eventData.opponent.abbreviation).toUpperCase()]
+              : []
+          );
+          for (const a of abbrevs) {
+            const mapped = abbrevToEventIds[a] || [];
+            if (mapped.length > 0) {
+              // Attach stats to all matching event ids for this abbrev
+              const candStats =
+                eventData.stats ||
+                (eventData.event && eventData.event.stats) ||
+                [];
+              const formatted = {};
+              for (let i = 0; i < candStats.length; i++) {
+                const key =
+                  (displayNames && displayNames[i]) ||
+                  (names && names[i]) ||
+                  (labels && labels[i]) ||
+                  String(i);
+                if (candStats[i] !== undefined) formatted[key] = candStats[i];
+              }
+              if (Object.keys(formatted).length > 0) {
+                mapped.forEach((mid) => {
+                  eventStatsMap[mid] = formatted;
+                  if (debugEnabledLocal) {
+                    debugInfo.resolvedByAbbrev[mid] = {
+                      seasonType:
+                        seasonType.displayName || seasonType.type || null,
+                      keys: Object.keys(formatted),
+                      abbrev: a,
+                    };
+                  }
+                });
+              }
+              break;
+            }
+          }
+        } catch (e) {
+          /* ignore and continue */
+        }
+      });
+    });
+  });
+
+  // After processing seasonTypes, record any top-level events that remain without stats
+  const sortedEventIds = sortedEvents.map((e) => e.id);
+  if (debugEnabledLocal) {
+    sortedEventIds.forEach((eventId) => {
+      if (!eventStatsMap[eventId]) debugInfo.missing.push(String(eventId));
+    });
+  }
+  const recentWithStats = [];
+  for (const ev of sortedEvents) {
+    if (recentWithStats.length >= limit) break;
+    const statsForEv = eventStatsMap[ev.id];
+    if (statsForEv && Object.keys(statsForEv).length > 0) {
+      recentWithStats.push({ event: ev, stats: statsForEv });
+    }
+  }
+
+  // attach stats to all games so callers can compute season totals
+  const allGamesWithStats = sortedEvents.map((ev) => ({
+    ...ev,
+    stats: eventStatsMap[ev.id] || null,
+  }));
+
+  const recentGames = recentWithStats.map(({ event, stats }) => ({
+    id: event.id,
+    atVs: event.atVs,
+    gameDate: event.gameDate,
+    score: event.score,
+    gameResult: event.gameResult,
+    opponent: {
+      id: event.opponent?.id || null,
+      displayName: event.opponent?.displayName || null,
+      abbreviation: event.opponent?.abbreviation || null,
+    },
+    stats: stats,
+  }));
+
+  // Season averages: try to find summary 'Averages' in seasonTypes
+  let seasonAverages = null;
+  seasonTypes.forEach((seasonType) => {
+    if (seasonType.summary && seasonType.summary.stats) {
+      const summaryStats = seasonType.summary.stats || [];
+      summaryStats.forEach((summaryItem) => {
+        if (summaryItem.displayName === "Averages") {
+          const stats = summaryItem.stats || [];
+          const formatted = {};
+          labels.forEach((label, index) => {
+            if (stats[index] !== undefined) formatted[label] = stats[index];
+          });
+          seasonAverages = formatted;
+        }
+      });
+    }
+  });
+
+  const result = { recentGames, seasonAverages, allGames: allGamesWithStats };
+  if (debugEnabledLocal) {
+    // Ensure we don't expose the previous 'matched' structure — caller wants
+    // only the resolvedByAbbrev listing of top-level events.
+    if (debugInfo && debugInfo.matched) delete debugInfo.matched;
+    result.gamelogDebug = debugInfo;
+  }
+  return result;
+}
+
+// Helper: compute numeric stat value for a game given gamelog stats and desired statID
+function computeStatValueForGame(
+  statsMap,
+  labels,
+  statID,
+  sportKey,
+  allowComposite = true
+) {
+  if (!statsMap) return null;
+  const normalize = (s) => String(s || "").toLowerCase();
+  const debugEnabled = process.env.DEBUG_SGO_MATCH === "1";
+  if (debugEnabled) {
+    try {
+      console.debug(
+        `[computeStatValueForGame] statID=${statID} sport=${sportKey} keys=${Object.keys(
+          statsMap || {}
+        )
+          .slice(0, 50)
+          .join(",")}`
+      );
+    } catch (e) {
+      /* swallow debug errors */
+    }
+  }
+  // Special-case: NFL aggregated touchdowns should sum receiving, rushing, interception touchdowns
+  if (sportKey === "nfl" && statID === "touchdowns") {
+    try {
+      const tdRegexes = [
+        /receiv(e|ing)?.*touchdown|receiving\s*touchdowns|receiving\s*touchdown/i,
+        /rush(ing)?.*touchdown|rushing\s*touchdowns|rushing\s*touchdown/i,
+        /interception.*touchdown|interception\s*touchdowns|interception\s*touchdown/i,
+      ];
+      let sum = 0;
+      let found = 0;
+      for (const key of Object.keys(statsMap || {})) {
+        const val = Number(statsMap[key]);
+        if (isNaN(val)) continue;
+        for (const rx of tdRegexes) {
+          if (rx.test(key)) {
+            sum += val;
+            found++;
+            break;
+          }
+        }
+      }
+      if (found > 0) {
+        if (debugEnabled)
+          console.debug(
+            `[computeStatValueForGame] NFL touchdowns aggregated value=${sum} foundParts=${found}`
+          );
+        return sum;
+      }
+    } catch (e) {
+      /* ignore and fallthrough to normal handling */
+    }
+  }
+
+  // Composite statIDs like 'points+assists'
+  if (allowComposite && statID && statID.includes("+")) {
+    const parts = statID.split("+").map((p) => p.trim());
+    let sum = 0;
+    let foundAny = false;
+    for (const part of parts) {
+      // Try several candidate forms for the stat part to match ESPN displayNames
+      const candidates = [
+        part,
+        part.replace(/_/g, " "),
+        part.replace(/_/g, ""),
+        `${part}_yards`,
+        `${part.replace(/_/g, "")}yards`,
+      ];
+      let partVal = null;
+      for (const c of candidates) {
+        const v = computeStatValueForGame(statsMap, labels, c, sportKey, false);
+        if (v !== null && !isNaN(v)) {
+          partVal = Number(v);
+          break;
+        }
+      }
+      if (partVal !== null) {
+        sum += partVal;
+        foundAny = true;
+      }
+    }
+    return foundAny ? sum : null;
+  }
+
+  // Map common statIDs to label regexes per sport
+  const STAT_LABEL_MAP = {
+    nba: {
+      points: /pts|points/i,
+      assists: /ast|assists/i,
+      rebounds: /reb|rebounds/i,
+      steals: /stl|steals/i,
+      threePointers: /3pt|three/i,
+      doubleDouble: /double/i,
+      tripleDouble: /triple/i,
+      blocks: /blk|blocks/i,
+    },
+    nhl: {
+      goals: /goals|g$/i,
+      shots_onGoal: /shots on goal|sog|shots|shots on goal/i,
+      shots: /shots on goal|sog|shots/i,
+      assists: /assists|a$/i,
+      points: /points|pts|g\+a/i,
+      powerPlay_goals: /power play goals|power play goal|ppg/i,
+      powerPlay_assists: /power play assists|power play assist|ppa/i,
+      powerPlayPoints: /power play|ppp|pppts/i,
+      anyGoal: /goals|g$/i,
+      goalie_saves: /saves|save|saves$/i,
+    },
+    nfl: {
+      // NFL-specific stat label mappings
+      passing_yards: /pass(ing)?\b.*(yds|yards)|pass\s*yds|passing\s*yards/i,
+      passing_attempts: /att|attempts|passing\s*att/i,
+      passing_completions: /comp|completions|passing\s*comp/i,
+      passing_interceptions: /int|interceptions/i,
+      passing_longestCompletion:
+        /long(est)?\b.*pass|longest.*completion|longest.*pass/i,
+      passing_touchdowns: /pass(ing)?\b.*(td|touchdown)|passing.*td/i,
+
+      rushing_yards: /rush(ing)?\b.*(yds|yards)|rush\s*yds|rushing\s*yards/i,
+      rushing_longestRush: /long(est)?\b.*rush|longest.*rush/i,
+
+      receiving_yards: /rec(eiving)?\b.*(yds|yards)|receiving\s*yds|rec\s*yds/i,
+      receiving_longestReception:
+        /long(est)?\b.*recept|longest.*rec|longest.*reception/i,
+      receiving_receptions: /rec|receptions|recs?/i,
+
+      extraPoints_kicksMade: /extra\s*point|xp|extra\s*points?/i,
+      fieldGoals_made: /field\s*goal|fgm|fieldgoals?\s*made|fg\s*made/i,
+      kicking_totalPoints:
+        /kicking\b.*points|kicking\s*points|kicking\s*total/i,
+
+      defense_sacks: /sack|sacks/i,
+
+      // generic fallbacks
+      passing: /pass(ing)?\b.*(yds|yards)|pass\s*yds|passing\s*yards/i,
+      rushing: /rush(ing)?\b.*(yds|yards)|rush\s*yds|rushing\s*yards/i,
+      receiving: /rec(eiving)?\b.*(yds|yards)|receiving\s*yds|rec\s*yds/i,
+      touchdowns: /td|touchdown/i,
+    },
+  };
+
+  const map = STAT_LABEL_MAP[sportKey] || {};
+  let regex = null;
+  if (map[statID]) regex = map[statID];
+  else regex = new RegExp(statID.replace(/[^a-z0-9]/gi, ""), "i");
+
+  // Special handling for NBA double/triple double: return count of stat categories >=10
+  if (
+    sportKey === "nba" &&
+    (statID === "doubleDouble" || statID === "tripleDouble")
+  ) {
+    const lookups = {
+      points: /pts|points/i,
+      rebounds: /reb|rebounds/i,
+      assists: /ast|assists/i,
+      steals: /stl|steals/i,
+      blocks: /blk|blocks/i,
+    };
+    let cnt = 0;
+    for (const rx of Object.values(lookups)) {
+      for (const label of Object.keys(statsMap || {})) {
+        if (!label) continue;
+        if (rx.test(label)) {
+          const v = statsMap[label];
+          const n = Number(
+            v && typeof v === "object" && v.value !== undefined ? v.value : v
+          );
+          if (!isNaN(n) && n >= 10) cnt++;
+          break;
+        }
+      }
+    }
+    return cnt; // caller can interpret >=2 as double-double, >=3 triple-double
+  }
+
+  // Find first matching label
+  for (const label of Object.keys(statsMap || {})) {
+    if (!label) continue;
+    if (regex.test(label)) {
+      const val = statsMap[label];
+      const num = Number(val);
+      if (!isNaN(num)) {
+        if (debugEnabled) {
+          try {
+            console.debug(
+              `[computeStatValueForGame] MATCH statID=${statID} sport=${sportKey} label=${label} value=${num}`
+            );
+          } catch (e) {}
+        }
+        return num;
+      }
+      // sometimes stats are objects
+      if (typeof val === "object" && val !== null) {
+        if (val.value !== undefined) return Number(val.value);
+      }
+    }
+  }
+
+  if (debugEnabled) {
+    try {
+      console.debug(
+        `[computeStatValueForGame] NO MATCH statID=${statID} sport=${sportKey} keys=${Object.keys(
+          statsMap || {}
+        )
+          .slice(0, 50)
+          .join(",")}`
+      );
+    } catch (e) {
+      /* swallow debug errors */
+    }
+  }
+  return null;
+}
+
+// New endpoint: athlete detail with gamelog and odds breakdown
+app.get("/api/athlete/:sport/:id", async (req, res) => {
+  try {
+    const sportKey = String(req.params.sport || "nba").toLowerCase();
+    const athleteId = String(req.params.id || "").trim();
+    if (!athleteId)
+      return res.status(400).json({ error: "athlete id required" });
+
+    // Ensure roster cache is available
+    if (!rosterCache[sportKey] || !rosterCache[sportKey].data) {
+      await fetchRostersForSport(sportKey);
+    }
+
+    const rosterData = rosterCache[sportKey]?.data;
+    if (!rosterData)
+      return res.status(503).json({ error: "roster data not available" });
+
+    try {
+      // copy per-period stat objects (e.g., '1Q','2Q') into the nested athlete meta
+      // so resolvePlayerStatValue can find period stats via athleteObj
+      if (athlete && athlete.athlete) {
+        Object.keys(athlete || {}).forEach((k) => {
+          try {
+            if (/^[0-9]+Q$/.test(String(k))) {
+              athlete.athlete[k] = athlete[k];
+            }
+          } catch (e) {}
+        });
+      }
+    } catch (e) {}
+    // Find athlete and team
+    let found = null;
+    for (const t of rosterData.teams || []) {
+      const athletes = (t.roster && t.roster.athletes) || [];
+      for (const a of athletes) {
+        if (!a) continue;
+        if (String(a.id) === athleteId) {
+          found = {
+            athlete: a,
+            team: t.team || null,
+            opponentId: t.opponentId || null,
+          };
+          break;
+        }
+      }
+      if (found) break;
+    }
+
+    if (!found) {
+      return res.status(404).json({ error: "athlete not found in rosters" });
+    }
+
+    const athlete = found.athlete;
+    const team = found.team;
+
+    // Ensure odds are fresh for this athlete
+    const oddsMarkets =
+      getPlayerOddsFromCache(sportKey, athlete) || athlete.odds || [];
+
+    // Fetch gamelog from ESPN web API for the sport
+    const webBase =
+      (ESPN_PATHS[sportKey] && ESPN_PATHS[sportKey].web) || ESPN_WEB_API_URL;
+    let gamelog = null;
+    try {
+      const resp = await axios.get(`${webBase}/athletes/${athleteId}/gamelog`);
+      gamelog = resp.data;
+    } catch (e) {
+      console.warn(
+        `[Athlete:${sportKey}] failed to fetch gamelog for ${athleteId}:`,
+        e?.message || e
+      );
+    }
+
+    const parsedGamelog = parseGamelogIntoGames(gamelog, 20);
+    let { recentGames, seasonAverages, allGames, gamelogDebug } = parsedGamelog;
+    let computedSeasonAverages = seasonAverages;
+    // If ESPN didn't provide season averages for NFL, compute simple averages from allGames
+    if (!computedSeasonAverages && sportKey === "nfl") {
+      try {
+        const gamesWithStats = Array.isArray(allGames)
+          ? allGames.filter(
+              (eg) => eg && eg.stats && Object.keys(eg.stats || {}).length > 0
+            )
+          : [];
+        const sums = {};
+        const counts = {};
+        for (const g of gamesWithStats) {
+          for (const [k, v] of Object.entries(g.stats || {})) {
+            const num = Number(
+              typeof v === "object" && v !== null && v.value !== undefined
+                ? v.value
+                : v
+            );
+            if (!isNaN(num)) {
+              sums[k] = (sums[k] || 0) + num;
+              counts[k] = (counts[k] || 0) + 1;
+            }
+          }
+        }
+        const avg = {};
+        for (const k of Object.keys(sums)) {
+          const c = counts[k] || 1;
+          avg[k] = Number((sums[k] / c).toFixed(1));
+        }
+        computedSeasonAverages = Object.keys(avg).length > 0 ? avg : null;
+      } catch (e) {
+        console.warn(
+          `[Athlete:${sportKey}] failed to compute season averages:`,
+          e?.message || e
+        );
+        computedSeasonAverages = null;
+      }
+    }
+    // If ESPN didn't provide season averages for NHL, compute simple averages from allGames
+    if (!computedSeasonAverages && sportKey === "nhl") {
+      try {
+        const gamesWithStats = Array.isArray(allGames)
+          ? allGames.filter(
+              (eg) => eg && eg.stats && Object.keys(eg.stats || {}).length > 0
+            )
+          : [];
+
+        const sums = {};
+        const counts = {};
+        const timeFields = {}; // mark fields that are time-like
+
+        const parseTimeToSeconds = (s) => {
+          if (s === null || s === undefined) return null;
+          const str = String(s).trim();
+          // Match H:MM:SS or MM:SS
+          const parts = str.split(":").map((p) => p.trim());
+          if (
+            parts.length === 2 &&
+            parts[0].match(/^\d+$/) &&
+            parts[1].match(/^\d{2}$/)
+          ) {
+            const mins = Number(parts[0]);
+            const secs = Number(parts[1]);
+            if (isNaN(mins) || isNaN(secs)) return null;
+            return mins * 60 + secs;
+          }
+          if (parts.length === 3 && parts.every((p) => p.match(/^\d{1,2}$/))) {
+            const hrs = Number(parts[0]);
+            const mins = Number(parts[1]);
+            const secs = Number(parts[2]);
+            if (isNaN(hrs) || isNaN(mins) || isNaN(secs)) return null;
+            return hrs * 3600 + mins * 60 + secs;
+          }
+          return null;
+        };
+
+        const formatSecondsToTime = (secs) => {
+          if (secs === null || secs === undefined || isNaN(secs)) return null;
+          const total = Math.round(secs);
+          const hrs = Math.floor(total / 3600);
+          const mins = Math.floor((total % 3600) / 60);
+          const s = total % 60;
+          const pad = (n) => (n < 10 ? `0${n}` : `${n}`);
+          if (hrs > 0) return `${hrs}:${pad(mins)}:${pad(s)}`;
+          return `${mins}:${pad(s)}`;
+        };
+
+        for (const g of gamesWithStats) {
+          for (const [k, v] of Object.entries(g.stats || {})) {
+            // Try numeric first
+            const num = Number(
+              typeof v === "object" && v !== null && v.value !== undefined
+                ? v.value
+                : v
+            );
+            if (!isNaN(num)) {
+              sums[k] = (sums[k] || 0) + num;
+              counts[k] = (counts[k] || 0) + 1;
+              continue;
+            }
+
+            // Try time parsing (e.g., "12:34" or "1:12:34")
+            const secs = parseTimeToSeconds(v);
+            if (secs !== null) {
+              timeFields[k] = true;
+              sums[k] = (sums[k] || 0) + secs;
+              counts[k] = (counts[k] || 0) + 1;
+            }
+          }
+        }
+
+        const avg = {};
+        for (const k of Object.keys(sums)) {
+          const c = counts[k] || 1;
+          if (timeFields[k]) {
+            const avgSecs = sums[k] / c;
+            avg[k] = formatSecondsToTime(avgSecs);
+          } else {
+            avg[k] = Number((sums[k] / c).toFixed(1));
+          }
+        }
+        computedSeasonAverages = Object.keys(avg).length > 0 ? avg : null;
+      } catch (e) {
+        console.warn(
+          `[Athlete:${sportKey}] failed to compute NHL season averages:`,
+          e?.message || e
+        );
+        computedSeasonAverages = null;
+      }
+    }
+    // Prepare last10matches (most recent 10 with stats)
+    let last10matches = recentGames.slice(0, 10);
+
+    // Determine today's opponent via scoreboard when possible (more reliable)
+    let opponentId = found.opponentId || null;
+    let opponentAbbreviation = null;
+    let opponentDisplayName = null;
+    // Debug flag: whether scoreboard lookup successfully located the opponent
+    let opponentFoundFromScoreboard = false;
+    try {
+      const sb = await fetchScoreboard(sportKey);
+      if (sb && sb.events) {
+        for (const ev of sb.events) {
+          const comps = ev.competitions?.[0]?.competitors || [];
+          const match = comps.find(
+            (c) => String(c.team?.id) === String(team?.id)
+          );
+          if (match) {
+            const other = comps.find(
+              (c) => String(c.team?.id) !== String(team?.id)
+            );
+            if (other && other.team && other.team.id) {
+              opponentId = other.team.id;
+              opponentAbbreviation = other.team.abbreviation || null;
+              opponentDisplayName = other.team.displayName || null;
+              opponentFoundFromScoreboard = true;
+              break;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(
+        `[Athlete:${sportKey}] scoreboard lookup failed:`,
+        e?.message || e
+      );
+    }
+
+    // If scoreboard provided an opponent but our parsed gamelog didn't produce
+    // any h2h matches, attempt to find top-level events that reference that
+    // opponent abbreviation and attach seasonTypes stats for those events so
+    // they can be included in h2h calculations.
+    try {
+      const oppAbb = opponentAbbreviation
+        ? String(opponentAbbreviation).toUpperCase()
+        : null;
+      if (oppAbb && Array.isArray(allGames) && allGames.length > 0) {
+        const eventsObj = gamelog?.events || [];
+        const eventsArr = Array.isArray(eventsObj)
+          ? eventsObj.slice()
+          : Object.values(eventsObj || {});
+        const candidates = eventsArr.filter((ev) => {
+          try {
+            return (
+              String(ev.opponent?.abbreviation || "").toUpperCase() ===
+                oppAbb ||
+              String(ev.team?.abbreviation || "").toUpperCase() === oppAbb
+            );
+          } catch (e) {
+            return false;
+          }
+        });
+        if (candidates.length > 0) {
+          // helper: try to extract stats for an eventId from gamelog.seasonTypes
+          const extractStatsForEvent = (eventId) => {
+            try {
+              const stypes = gamelog?.seasonTypes || [];
+              for (const st of stypes) {
+                const cats = st.categories || [];
+                for (const c of cats) {
+                  const evs = c.events || [];
+                  for (const ed of evs) {
+                    const cands = [ed];
+                    if (ed && typeof ed === "object" && ed.event)
+                      cands.push(ed.event);
+                    for (const cand of cands) {
+                      if (!cand || typeof cand !== "object") continue;
+                      const possibleIds = [
+                        cand.eventId,
+                        cand.eventID,
+                        cand.event_id,
+                        cand.id,
+                        cand.gameId,
+                        cand.gameID,
+                        cand.game_id,
+                      ]
+                        .filter((v) => v !== undefined && v !== null)
+                        .map((v) => String(v));
+                      if (possibleIds.includes(String(eventId))) {
+                        const stats = cand.stats || ed.stats || [];
+                        const formatted = {};
+                        const labels = gamelog.labels || [];
+                        const names = gamelog.names || [];
+                        const displayNames = gamelog.displayNames || [];
+                        for (let i = 0; i < stats.length; i++) {
+                          const key =
+                            (displayNames && displayNames[i]) ||
+                            (names && names[i]) ||
+                            (labels && labels[i]) ||
+                            String(i);
+                          if (stats[i] !== undefined) formatted[key] = stats[i];
+                        }
+                        if (Object.keys(formatted).length > 0) return formatted;
+                      }
+                    }
+                  }
+                }
+              }
+            } catch (e) {}
+            return null;
+          };
+
+          let attachedAny = false;
+          for (const ev of candidates) {
+            try {
+              const eid = String(ev.id);
+              const existing = allGames.find((g) => String(g.id) === eid);
+              if (
+                existing &&
+                existing.stats &&
+                Object.keys(existing.stats || {}).length > 0
+              )
+                continue;
+              const stats = extractStatsForEvent(eid);
+              if (stats) {
+                // update allGames entry
+                allGames = allGames.map((g) =>
+                  String(g.id) === eid ? Object.assign({}, g, { stats }) : g
+                );
+                attachedAny = true;
+                if (gamelogDebug)
+                  gamelogDebug.resolvedByAbbrev =
+                    gamelogDebug.resolvedByAbbrev || {};
+                gamelogDebug.resolvedByAbbrev[eid] = { abbrev: oppAbb };
+              }
+            } catch (e) {}
+          }
+          if (attachedAny) {
+            // rebuild recentGames and last10matches from updated allGames
+            const recentWithStats = allGames
+              .filter(
+                (eg) => eg && eg.stats && Object.keys(eg.stats || {}).length > 0
+              )
+              .sort((a, b) => new Date(b.gameDate) - new Date(a.gameDate));
+            recentGames = recentWithStats.slice(0, 20);
+            last10matches = recentGames.slice(0, 10);
+          }
+        }
+      }
+    } catch (e) {
+      /* ignore augmentation errors */
+    }
+
+    // Helper: robust opponent matching across possible identifier shapes
+    const normalizeForMatch = (s) => (s ? String(s).toLowerCase().trim() : "");
+    const oppIdNorm = normalizeForMatch(opponentId);
+    const oppAbbrevNorm = normalizeForMatch(opponentAbbreviation);
+    const oppDispNorm = normalizeForMatch(opponentDisplayName);
+
+    const matchesOpponent = (g) => {
+      if (!g || !g.opponent) return false;
+      const oid = normalizeForMatch(g.opponent.id);
+      const oabbr = normalizeForMatch(g.opponent.abbreviation);
+      const odisp = normalizeForMatch(g.opponent.displayName);
+      if (oppIdNorm && oid && oid === oppIdNorm) return true;
+      if (oppAbbrevNorm && oabbr && oabbr === oppAbbrevNorm) return true;
+      if (oppDispNorm && odisp && odisp === oppDispNorm) return true;
+      // fallback: check substring containment for display names
+      if (
+        oppDispNorm &&
+        odisp &&
+        (odisp.includes(oppDispNorm) || oppDispNorm.includes(odisp))
+      )
+        return true;
+      return false;
+    };
+
+    // Derive head-to-head games from the season-level `allGames` listing so
+    // events discovered via gamelog/seasonTypes (and attached to `allGames`)
+    // are included in h2h calculations even when they're not present in the
+    // `last10matches` view. Limit to the N most recent opponent games to avoid
+    // unbounded arrays.
+    const opponentGamesAll = Array.isArray(allGames)
+      ? allGames
+          .filter((g) => matchesOpponent(g))
+          .sort((a, b) => new Date(b.gameDate) - new Date(a.gameDate))
+      : [];
+    // Use up to 20 most recent opponent games for per-line h2h calculations.
+    let h2hMatches = opponentId ? opponentGamesAll.slice(0, 20) : [];
+
+    // Fallback: only try to infer the opponent from the most recent game when
+    // we were unable to determine an opponent from roster/scoreboard lookup.
+    // Do NOT run this when `opponentId` was found (prevents overriding a
+    // valid scoreboard-derived opponent and producing incorrect h2h results).
+    if (
+      (!h2hMatches || h2hMatches.length === 0) &&
+      !oppIdNorm &&
+      last10matches.length > 0
+    ) {
+      try {
+        const recentOpp = last10matches[0].opponent || null;
+        if (recentOpp) {
+          const recentOppId = normalizeForMatch(recentOpp.id);
+          const recentOppAbb = normalizeForMatch(recentOpp.abbreviation);
+          const recentOppDisp = normalizeForMatch(recentOpp.displayName);
+          h2hMatches = last10matches.filter((g) => {
+            if (!g || !g.opponent) return false;
+            const oid = normalizeForMatch(g.opponent.id);
+            const oabbr = normalizeForMatch(g.opponent.abbreviation);
+            const odisp = normalizeForMatch(g.opponent.displayName);
+            if (recentOppId && oid && oid === recentOppId) return true;
+            if (recentOppAbb && oabbr && oabbr === recentOppAbb) return true;
+            if (recentOppDisp && odisp && odisp === recentOppDisp) return true;
+            if (
+              recentOppDisp &&
+              odisp &&
+              (odisp.includes(recentOppDisp) || recentOppDisp.includes(odisp))
+            )
+              return true;
+            return false;
+          });
+        }
+      } catch (e) {
+        /* ignore fallback errors */
+      }
+    }
+
+    // For each odd market, compute l5, l10, h2h occurrences for each variant and altLines
+    // Helper to resolve stat values, handling composite '+' statIDs by summing parts
+    const resolveStatValue = (statsMap, statID) => {
+      const debugEnabledLocal = process.env.DEBUG_SGO_MATCH === "1";
+      if (!statsMap || !statID) {
+        if (debugEnabledLocal)
+          console.debug(`[resolveStatValue] no statsMap or statID=${statID}`);
+        return null;
+      }
+      if (statID.includes("+")) {
+        const parts = statID.split("+").map((p) => p.trim());
+        let sum = 0;
+        let foundAny = false;
+        if (debugEnabledLocal)
+          console.debug(
+            `[resolveStatValue] composite statID=${statID} parts=${parts.join(
+              ","
+            )}`
+          );
+        for (const part of parts) {
+          // try variants
+          const candidates = [
+            part,
+            part.replace(/_/g, " "),
+            part.replace(/_/g, ""),
+            `${part}_yards`,
+            `${part.replace(/_/g, "")}yards`,
+          ];
+          let partVal = null;
+          if (debugEnabledLocal)
+            console.debug(
+              `[resolveStatValue] trying part=${part} candidates=${candidates.join(
+                ","
+              )}`
+            );
+          for (const c of candidates) {
+            const v = computeStatValueForGame(
+              statsMap,
+              Object.keys(statsMap || {}),
+              c,
+              sportKey
+            );
+            if (v !== null && !isNaN(v)) {
+              partVal = Number(v);
+              if (debugEnabledLocal)
+                console.debug(
+                  `[resolveStatValue] part match part=${part} candidate=${c} val=${partVal}`
+                );
+              break;
+            }
+          }
+          if (partVal !== null) {
+            sum += partVal;
+            foundAny = true;
+          } else if (debugEnabledLocal) {
+            console.debug(
+              `[resolveStatValue] no match for part=${part} statID=${statID}`
+            );
+          }
+        }
+        return foundAny ? sum : null;
+      }
+      const v = computeStatValueForGame(
+        statsMap,
+        Object.keys(statsMap || {}),
+        statID,
+        sportKey
+      );
+      if (debugEnabledLocal)
+        console.debug(`[resolveStatValue] statID=${statID} resolved=${v}`);
+      return v;
+    };
+
+    const annotateOdds = (markets) => {
+      if (!Array.isArray(markets)) return [];
+      // Filter out NFL player-only markets that are tied to a specific period
+      const filteredMarkets = (markets || []).filter((m) => {
+        try {
+          if (sportKey === "nfl" && !m.statEntityID) {
+            const variants = m.variants || [];
+            // If any variant is period-specific (either on the variant itself
+            // or inside its byBookmaker entries), skip the whole market
+            const hasPeriodSpecific = variants.some((v) => {
+              if (v && v.periodID && v.periodID !== "game") return true;
+              const bkEntries = Object.values(v.byBookmaker || {});
+              return bkEntries.some(
+                (bk) => bk && bk.periodID && bk.periodID !== "game"
+              );
+            });
+            if (hasPeriodSpecific) {
+              return false;
+            }
+          }
+        } catch (e) {
+          return true;
+        }
+        return true;
+      });
+      return filteredMarkets.map((m) => {
+        const statID = m.statID || null;
+        const annotated = Object.assign({}, m);
+        annotated.variants = (m.variants || []).map((v) => {
+          const annotatedVariant = Object.assign({}, v);
+          annotatedVariant.byBookmaker = {};
+          for (const [bk, bkData] of Object.entries(v.byBookmaker || {})) {
+            const bkEntry = Object.assign({}, bkData);
+            // If this variant is tied to a specific period (1q, 1h, etc.) we cannot derive annotatedLines from ESPN gamelog
+            // Special-case: for NFL player-only markets (no statEntityID), hide period-based lines
+            if (annotatedVariant.periodID || bkEntry.periodID) {
+              if (sportKey === "nfl" && !m.statEntityID) {
+                // player-only NFL market tied to a period -> don't show annotated lines
+                annotatedVariant.byBookmaker[bk] = Object.assign({}, bkEntry, {
+                  annotatedLines: [],
+                });
+                continue;
+              }
+              // For other markets, also avoid attempting to annotate period-specific markets
+              annotatedVariant.byBookmaker[bk] = Object.assign({}, bkEntry, {
+                annotatedLines: [],
+              });
+              continue;
+            }
+
+            const linesToCheck = [];
+            if (bkEntry.overUnder !== undefined) {
+              linesToCheck.push({
+                overUnder: bkEntry.overUnder,
+                odds: bkEntry.odds,
+              });
+            }
+            if (bkEntry.altLines && Array.isArray(bkEntry.altLines)) {
+              for (const alt of bkEntry.altLines) linesToCheck.push(alt);
+            }
+
+            // For NHL some markets use 'points' in SGO but ESPN labels Goals/Assists separately.
+            // When the marketName explicitly references Goals, prefer 'goals' as the stat to resolve.
+            const effectiveStatID =
+              sportKey === "nhl" &&
+              statID === "points" &&
+              (m.marketName || "").toLowerCase().includes("goals over/under")
+                ? "goals"
+                : statID;
+
+            const annotatedLines = linesToCheck.map((line) => {
+              let threshold = parseFloat(line.overUnder);
+              if (isNaN(threshold)) threshold = 1; // default for boolean markets
+              const side = annotatedVariant.sideID || v.sideID || "over";
+              // compute counts
+              const gamesForCalc = last10matches;
+              const l10 = gamesForCalc.reduce((acc, g) => {
+                const val = resolveStatValue(g.stats, effectiveStatID);
+                if (val === null || isNaN(val)) return acc;
+                if (side === "over") return acc + (val >= threshold ? 1 : 0);
+                return acc + (val <= threshold ? 1 : 0);
+              }, 0);
+
+              const l5 = gamesForCalc.slice(0, 5).reduce((acc, g) => {
+                const val = resolveStatValue(g.stats, effectiveStatID);
+                if (val === null || isNaN(val)) return acc;
+                if (side === "over") return acc + (val >= threshold ? 1 : 0);
+                return acc + (val <= threshold ? 1 : 0);
+              }, 0);
+
+              const h2h = h2hMatches.reduce((acc, g) => {
+                const val = resolveStatValue(g.stats, effectiveStatID);
+                if (val === null || isNaN(val)) return acc;
+                if (side === "over") return acc + (val >= threshold ? 1 : 0);
+                return acc + (val <= threshold ? 1 : 0);
+              }, 0);
+
+              // Season totals across allGames (use allGames from parseGamelog)
+              const seasonGames = Array.isArray(allGames)
+                ? allGames.filter(
+                    (eg) =>
+                      eg && eg.stats && Object.keys(eg.stats || {}).length > 0
+                  ).length
+                : 0;
+              const seasonHits = Array.isArray(allGames)
+                ? allGames.reduce((acc, eg) => {
+                    if (!eg || !eg.stats) return acc;
+                    const val = resolveStatValue(eg.stats, effectiveStatID);
+                    if (val === null || isNaN(val)) return acc;
+                    if (side === "over")
+                      return acc + (val >= threshold ? 1 : 0);
+                    return acc + (val <= threshold ? 1 : 0);
+                  }, 0)
+                : 0;
+
+              const seasonH2HGames = Array.isArray(allGames)
+                ? allGames.filter(
+                    (eg) => eg && eg.opponent && matchesOpponent(eg)
+                  ).length
+                : 0;
+              const seasonH2HHits = Array.isArray(allGames)
+                ? allGames.reduce((acc, eg) => {
+                    if (!eg || !eg.opponent || !matchesOpponent(eg)) return acc;
+                    if (!eg.stats) return acc;
+                    const val = resolveStatValue(eg.stats, statID);
+                    if (val === null || isNaN(val)) return acc;
+                    if (side === "over")
+                      return acc + (val >= threshold ? 1 : 0);
+                    return acc + (val <= threshold ? 1 : 0);
+                  }, 0)
+                : 0;
+
+              const season = `${seasonHits}/${seasonGames}`;
+              const h2hSeason = `${seasonH2HHits}/${seasonH2HGames}`;
+
+              return Object.assign({}, line, {
+                l5,
+                l10,
+                h2h,
+                season,
+                h2hSeason,
+              });
+            });
+
+            annotatedVariant.byBookmaker[bk] = Object.assign({}, bkEntry, {
+              annotatedLines,
+            });
+          }
+          return annotatedVariant;
+        });
+        return annotated;
+      });
+    };
+
+    const oddsAnnotated = annotateOdds(oddsMarkets);
+
+    const athleteOut = Object.assign({}, athlete);
+    if (athleteOut && athleteOut.odds) delete athleteOut.odds;
+
+    // If we have gamelog debug info and a scoreboard-derived opponent,
+    // filter the resolvedByAbbrev listing to only include events where the
+    // event.opponent.abbreviation matches the scoreboard opponentAbbreviation.
+    // Also attempt to attach the seasonTypes stats for the matched event id.
+    if (gamelogDebug && gamelogDebug.resolvedByAbbrev && opponentAbbreviation) {
+      try {
+        const filtered = {};
+        const targetAbb = String(opponentAbbreviation).toUpperCase();
+        const stypes = gamelog?.seasonTypes || [];
+        const labelsAll = gamelog?.labels || [];
+        const namesAll = gamelog?.names || [];
+        const displayNamesAll = gamelog?.displayNames || [];
+
+        const extractStatsForEvent = (eventId) => {
+          try {
+            for (const st of stypes) {
+              const cats = st.categories || [];
+              for (const c of cats) {
+                const evs = c.events || [];
+                for (const ed of evs) {
+                  const cands = [ed];
+                  if (ed && typeof ed === "object" && ed.event)
+                    cands.push(ed.event);
+                  for (const cand of cands) {
+                    if (!cand || typeof cand !== "object") continue;
+                    const possibleIds = [
+                      cand.eventId,
+                      cand.eventID,
+                      cand.event_id,
+                      cand.id,
+                      cand.gameId,
+                      cand.gameID,
+                      cand.game_id,
+                    ]
+                      .filter((v) => v !== undefined && v !== null)
+                      .map((v) => String(v));
+                    if (possibleIds.includes(String(eventId))) {
+                      const stats = cand.stats || ed.stats || [];
+                      const formatted = {};
+                      for (let i = 0; i < stats.length; i++) {
+                        const key =
+                          (displayNamesAll && displayNamesAll[i]) ||
+                          (namesAll && namesAll[i]) ||
+                          (labelsAll && labelsAll[i]) ||
+                          String(i);
+                        if (stats[i] !== undefined) formatted[key] = stats[i];
+                      }
+                      return Object.keys(formatted).length > 0
+                        ? formatted
+                        : null;
+                    }
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            return null;
+          }
+          return null;
+        };
+
+        for (const [evtId, evtObj] of Object.entries(
+          gamelogDebug.resolvedByAbbrev || {}
+        )) {
+          try {
+            const evOppAbb = String(
+              evtObj?.opponent?.abbreviation || ""
+            ).toUpperCase();
+            if (evOppAbb === targetAbb) {
+              // attach stats from seasonTypes if available
+              const stats = extractStatsForEvent(evtId);
+              filtered[evtId] = { id: evtObj.id, opponent: evtObj.opponent };
+              if (stats) filtered[evtId].stats = stats;
+            }
+          } catch (e) {
+            /* ignore per-entry errors */
+          }
+        }
+        gamelogDebug.resolvedByAbbrev = filtered;
+      } catch (e) {
+        /* ignore debug augmentation errors */
+      }
+    }
+
+    // Style h2h entries like `last10matches` objects. Keep the most useful
+    // fields (id, links, atVs, gameDate, score, opponent, stats, etc.). Use
+    // available fields from the season `allGames` entries and provide safe
+    // defaults when a field is missing.
+    const h2hStyled = (h2hMatches || []).map((g) => {
+      const gid = g?.id || g?.gameId || g?.eventId || null;
+      const gameDate = g?.gameDate || g?.date || null;
+      const gameResult = g?.gameResult || g?.result || null;
+      // Determine atVs similar to last10matches: if homeTeamId equals our team id, it's 'vs', otherwise '@'
+      const homeTeamId = g?.homeTeamId || g?.home?.id || null;
+      const atVs =
+        g?.atVs ||
+        (homeTeamId
+          ? String(homeTeamId) === String(team?.id)
+            ? "vs"
+            : "@"
+          : null);
+      const score = g?.score || null;
+      const oppSrc = g?.opponent || {};
+      const opponent = oppSrc
+        ? {
+            id: oppSrc.id || oppSrc.teamId || null,
+            displayName: oppSrc.displayName || oppSrc.name || null,
+            abbreviation: oppSrc.abbreviation || oppSrc.abbrev || null,
+          }
+        : null;
+
+      return {
+        id: gid,
+        atVs,
+        gameDate,
+        score,
+        gameResult,
+        opponent,
+        stats: g?.stats || null,
+      };
+    });
+
+    const out = {
+      athlete: athleteOut,
+      team,
+      odds: oddsAnnotated,
+      last10matches,
+      h2h: h2hStyled,
+      seasonAverages: computedSeasonAverages,
+    };
+    return res.json(out);
+  } catch (e) {
+    console.error("/api/athlete error", e?.message || e);
+    return res.status(500).json({ error: "internal error" });
+  }
+});
+
 // Backwards-compatibility aliases: map singular /api/betslip (used by client)
 // to the plural /api/betslips routes implemented in this server. We only
 // rewrite requests that are intended to hit the betslips handlers so we don't
@@ -941,6 +2230,547 @@ const ESPN_BASE_URL =
   "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
 const ESPN_WEB_API_URL =
   "https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba";
+
+// Mapping of supported sports to ESPN API base paths
+const ESPN_PATHS = {
+  nba: {
+    base: "https://site.api.espn.com/apis/site/v2/sports/basketball/nba",
+    web: "https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba",
+  },
+  nhl: {
+    base: "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl",
+    web: "https://site.web.api.espn.com/apis/common/v3/sports/hockey/nhl",
+  },
+  nfl: {
+    base: "https://site.api.espn.com/apis/site/v2/sports/football/nfl",
+    web: "https://site.web.api.espn.com/apis/common/v3/sports/football/nfl",
+  },
+  uefa: {
+    base: "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions",
+    web: "https://site.web.api.espn.com/apis/common/v3/sports/soccer/uefa.champions",
+  },
+};
+// SportGameOdds API configuration
+const SPORTSGAMEODDS_API_BASE = "https://api.sportsgameodds.com/v2/events";
+const SPORTSGAMEODDS_API_KEY = process.env.SPORTSGAMEODDS_API_KEY || "";
+
+// Mapping sport slug -> leagueID for SportGameOdds
+const SGO_LEAGUE_IDS = {
+  nba: "NBA",
+  nhl: "NHL",
+  nfl: "NFL",
+  uefa: "UEFA_CHAMPIONS_LEAGUE",
+};
+
+// Odds cache (refreshed every 2 hours)
+let oddsCache = {}; // { [sport]: { lastFetched: Date, data: [...] } }
+const SGO_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+let rosterCache = {}; // { [sport]: { lastFetched: number, data: {...}, isFetching: bool } }
+
+// Helper: compute startsAfter / startsBefore for SportGameOdds based on PST day
+function getSGODayRangePST() {
+  const pst = getPSTTime();
+  // Use previous day if before 2am PST
+  const dayStart = new Date(pst);
+  if (pst.getHours() < 2) dayStart.setDate(dayStart.getDate() - 1);
+  const dayStartY = dayStart.getFullYear();
+  const dayStartM = String(dayStart.getMonth() + 1).padStart(2, "0");
+  const dayStartD = String(dayStart.getDate()).padStart(2, "0");
+  const startsAfter = `${dayStartY}-${dayStartM}-${dayStartD}T10:00:00Z`;
+
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+  const dayEndY = dayEnd.getFullYear();
+  const dayEndM = String(dayEnd.getMonth() + 1).padStart(2, "0");
+  const dayEndD = String(dayEnd.getDate()).padStart(2, "0");
+  const startsBefore = `${dayEndY}-${dayEndM}-${dayEndD}T10:00:00Z`;
+
+  return { startsAfter, startsBefore };
+}
+
+// Transform SportGameOdds event data into simplified shape per requirements
+function transformSGOEvent(event, sportKey = "nba") {
+  const teams = {
+    home: {
+      name: event.teams?.home?.names?.long || null,
+      abbr: event.teams?.home?.names?.short || null,
+      id: event.teams?.home?.teamID || null,
+    },
+    away: {
+      name: event.teams?.away?.names?.long || null,
+      abbr: event.teams?.away?.names?.short || null,
+      id: event.teams?.away?.teamID || null,
+    },
+  };
+
+  const playersMap = {}; // playerId -> marketName -> grouped
+  const teamMap = { home: new Map(), away: new Map() }; // marketName -> grouped
+  const allMap = new Map();
+
+  const oddsObj = event.odds || {};
+  const markets = Object.values(oddsObj || {});
+
+  for (const m of markets) {
+    const byBookmaker = m.byBookmaker || {};
+    // prune bookmakers: remove top-level lastUpdatedAt and deeplink; keep other fields
+    const prunedByBookmaker = {};
+    for (const [bk, val] of Object.entries(byBookmaker)) {
+      if (!val || (typeof val === "object" && Object.keys(val).length === 0))
+        continue;
+      const copy = { ...(val || {}) };
+      delete copy.lastUpdatedAt;
+      delete copy.deeplink;
+
+      // handle altLines: include but remove lastUpdatedAt and available
+      if (Array.isArray(copy.altLines) && copy.altLines.length) {
+        copy.altLines = copy.altLines
+          .map((al) => {
+            if (!al || typeof al !== "object") return null;
+            const a = { ...(al || {}) };
+            delete a.lastUpdatedAt;
+            delete a.available;
+            return a;
+          })
+          .filter(Boolean);
+        if (copy.altLines.length === 0) delete copy.altLines;
+      }
+
+      // if copy ended up empty after deletion, skip
+      if (Object.keys(copy).length === 0) continue;
+      prunedByBookmaker[bk] = copy;
+    }
+
+    // if no bookmakers after pruning, skip this market
+    if (Object.keys(prunedByBookmaker).length === 0) continue;
+
+    const marketName = m.marketName || null;
+    const statID = m.statID || m.statId || null;
+    const statEntityID = m.statEntityID || null;
+
+    const variant = {
+      sideID: m.sideID || null,
+      byBookmaker: prunedByBookmaker,
+    };
+    if (m.periodID && m.periodID !== "game") variant.periodID = m.periodID;
+
+    // classify and group
+    if (m.playerID) {
+      const pid = String(m.playerID);
+      if (!playersMap[pid]) playersMap[pid] = new Map();
+      const key = marketName || statID || "";
+      if (!playersMap[pid].has(key)) {
+        playersMap[pid].set(key, { marketName, statID, variants: [] });
+      }
+      playersMap[pid].get(key).variants.push(variant);
+    } else if (
+      typeof statEntityID === "string" &&
+      statEntityID.toLowerCase().includes("home")
+    ) {
+      const key = marketName || statID || "";
+      if (!teamMap.home.has(key)) {
+        teamMap.home.set(key, {
+          marketName,
+          statID,
+          statEntityID,
+          variants: [],
+        });
+      }
+      teamMap.home.get(key).variants.push(variant);
+    } else if (
+      typeof statEntityID === "string" &&
+      statEntityID.toLowerCase().includes("away")
+    ) {
+      const key = marketName || statID || "";
+      if (!teamMap.away.has(key)) {
+        teamMap.away.set(key, {
+          marketName,
+          statID,
+          statEntityID,
+          variants: [],
+        });
+      }
+      teamMap.away.get(key).variants.push(variant);
+    } else {
+      const key = marketName || statID || "";
+      if (!allMap.has(key)) {
+        allMap.set(key, { marketName, statID, statEntityID, variants: [] });
+      }
+      allMap.get(key).variants.push(variant);
+    }
+  }
+
+  // Convert maps to arrays and for players convert inner maps to arrays
+  const teamOdds = {
+    home: Array.from(teamMap.home.values()),
+    away: Array.from(teamMap.away.values()),
+  };
+
+  const players = {};
+  for (const [pid, map] of Object.entries(playersMap)) {
+    const arr = [];
+    for (const entry of Array.from(map.values())) {
+      try {
+        const variants = entry.variants || [];
+        const hasPeriodSpecific = variants.some((v) => {
+          if (v && v.periodID && v.periodID !== "game") return true;
+          const bkEntries = Object.values(v.byBookmaker || {});
+          return bkEntries.some(
+            (bk) => bk && bk.periodID && bk.periodID !== "game"
+          );
+        });
+        // Only skip these player markets for NFL — other sports may legitimately
+        // include period-specific player markets that we should preserve.
+        if (sportKey === "nfl" && hasPeriodSpecific) continue; // skip player market tied to a specific period for NFL
+      } catch (e) {
+        // ignore and include entry on error
+      }
+      arr.push(entry);
+    }
+    if (arr.length > 0) players[pid] = arr;
+  }
+
+  const allOdds = Array.from(allMap.values());
+
+  // build player meta map (id -> display name) to help matching later
+  const playerMeta = {};
+  if (event.players && typeof event.players === "object") {
+    for (const [pid, pdata] of Object.entries(event.players)) {
+      playerMeta[pid] =
+        pdata?.name || pdata?.displayName || pdata?.fullName || null;
+    }
+  }
+
+  return {
+    id: event.eventID || event.eventId || event.event_id || null,
+    date: event.status?.startsAt || event.startsAt || event.date || null,
+    teams,
+    odds: {
+      teams: teamOdds,
+      players,
+      all: allOdds,
+    },
+    playerMeta,
+  };
+}
+async function fetchSGOOdds(sport = "nba") {
+  const sportKey = String(sport || "nba").toLowerCase();
+  // mark fetching to avoid duplicate concurrent fetches
+  if (!oddsCache[sportKey])
+    oddsCache[sportKey] = { lastFetched: 0, data: null, isFetching: false };
+  if (oddsCache[sportKey].isFetching) return null; // another fetch in progress
+
+  oddsCache[sportKey].isFetching = true;
+  try {
+    const leagueID = SGO_LEAGUE_IDS[sportKey] || SGO_LEAGUE_IDS.nba;
+    const { startsAfter, startsBefore } = getSGODayRangePST();
+
+    const url = `${SPORTSGAMEODDS_API_BASE}?leagueID=${encodeURIComponent(
+      leagueID
+    )}&startsAfter=${encodeURIComponent(
+      startsAfter
+    )}&startsBefore=${encodeURIComponent(
+      startsBefore
+    )}&ended=false&live=false&bookmakerID=draftkings&includeOpposingOdds=false&expandResults=false&includeAltLines=true&apiKey=${SPORTSGAMEODDS_API_KEY}`;
+
+    const resp = await axios.get(url, { timeout: 20000 });
+    const events = resp.data?.data || resp.data || [];
+
+    const transformed = Array.isArray(events)
+      ? events.map((ev) => transformSGOEvent(ev, sportKey))
+      : [];
+
+    oddsCache[sportKey] = {
+      lastFetched: Date.now(),
+      data: transformed,
+      isFetching: false,
+    };
+    console.log(`[SGO:${sportKey}] fetched ${transformed.length} events`);
+    return transformed;
+  } catch (err) {
+    oddsCache[sportKey].isFetching = false;
+    return null;
+  }
+}
+
+// Find player odds from in-memory SGO cache by matching player name heuristically
+function getPlayerOddsFromCache(sportKey, athlete) {
+  try {
+    if (!oddsCache[sportKey] || !oddsCache[sportKey].data) {
+      return null;
+    }
+
+    const events = oddsCache[sportKey].data || [];
+
+    // Helper: normalize names (remove diacritics, punctuation, collapse spaces)
+    const normalize = (s) => {
+      if (!s) return "";
+      try {
+        return String(s)
+          .normalize("NFD")
+          .replace(/\p{Diacritic}/gu, "")
+          .replace(/[^a-zA-Z0-9\s]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+      } catch (e) {
+        return String(s).toLowerCase();
+      }
+    };
+
+    const first = athlete.firstName || null;
+    const last = athlete.lastName || null;
+    const short = athlete.shortName || null;
+    const display = athlete.displayName || athlete.name || null;
+    const normalizedFull = normalize(`${first || ""} ${last || ""}`.trim());
+
+    // First try: exact full-name match against SGO player names (highest confidence)
+    if (normalizedFull) {
+      for (const ev of events) {
+        const playerMeta = ev.playerMeta || {};
+        const playerOdds = ev.odds?.players || {};
+        for (const [pid, markets] of Object.entries(playerOdds || {})) {
+          const pnameRaw = playerMeta[pid] || pid || "";
+          const pname = normalize(pnameRaw);
+          if (!pname) continue;
+          if (pname === normalizedFull) {
+            return markets;
+          }
+        }
+      }
+    }
+    // Strict exact matching only: compare normalized player names from SGO
+    // against athlete normalized full name and display name. This avoids
+    // fuzzy collisions (e.g., shared last names) that produced incorrect
+    // assignments.
+    const normalizedDisplay = display ? normalize(display) : null;
+    for (const ev of events) {
+      const playerMeta = ev.playerMeta || {};
+      const playerOdds = ev.odds?.players || {};
+      for (const [pid, markets] of Object.entries(playerOdds || {})) {
+        const pnameRaw = playerMeta[pid] || pid || "";
+        const pname = normalize(pnameRaw);
+        if (!pname) continue;
+        if (normalizedFull && pname === normalizedFull) return markets;
+        if (normalizedDisplay && pname === normalizedDisplay) return markets;
+      }
+    }
+
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Fetch rosters for a sport (team roster pages only, no gamelogs). Populate rosterCache.
+async function fetchRostersForSport(sport = "nba") {
+  const sportKey = String(sport || "nba").toLowerCase();
+  if (!rosterCache[sportKey])
+    rosterCache[sportKey] = { lastFetched: 0, data: null, isFetching: false };
+  // Short startup delay to give a background SGO fetch time to prime (reduce races)
+  await new Promise((r) => setTimeout(r, 2500));
+  if (rosterCache[sportKey].isFetching) return null;
+  rosterCache[sportKey].isFetching = true;
+  try {
+    // Ensure scoreboard exists for the sport so we can discover teams
+    const sb = await fetchScoreboard(sportKey);
+    if (!sb || !sb.events) {
+      rosterCache[sportKey].isFetching = false;
+      return null;
+    }
+
+    const teamIds = new Set();
+    const opponentMap = {};
+    sb.events.forEach((event) => {
+      const comps = event.competitions || [];
+      const competitors = comps[0]?.competitors || [];
+      competitors.forEach((c) => {
+        if (c.team?.id) teamIds.add(c.team.id);
+      });
+      if (competitors.length === 2) {
+        const t1 = competitors[0].team.id;
+        const t2 = competitors[1].team.id;
+        opponentMap[t1] = t2;
+        opponentMap[t2] = t1;
+      }
+    });
+
+    const teamsData = [];
+    const esBase =
+      (ESPN_PATHS[sportKey] && ESPN_PATHS[sportKey].base) ||
+      ESPN_PATHS.nba.base;
+
+    for (const teamId of Array.from(teamIds)) {
+      try {
+        const resp = await axios.get(`${esBase}/teams/${teamId}/roster`, {
+          timeout: 15000,
+        });
+        const roster = resp.data || {};
+
+        // If odds cache for this sport is empty, try to fetch SGO odds first
+        if (
+          (!oddsCache[sportKey] || !oddsCache[sportKey].data) &&
+          !oddsCache[sportKey]?.isFetching
+        ) {
+          try {
+            await fetchSGOOdds(sportKey);
+          } catch (e) {
+            console.warn(
+              `[Rosters:${sportKey}] attempted to prime SGO cache but failed:`,
+              e?.message || e
+            );
+          }
+        }
+
+        // Support multiple roster shapes returned by ESPN APIs
+        const athletesRaw =
+          roster.athletes ||
+          roster.items ||
+          roster.roster?.athletes ||
+          roster.players ||
+          [];
+
+        // Normalize shapes where ESPN groups athletes by position (e.g. NHL/NFL):
+        // [{ position: 'center', items: [ ...players ] }, ...]
+        let athletesList = [];
+        if (
+          Array.isArray(athletesRaw) &&
+          athletesRaw.length > 0 &&
+          Array.isArray(athletesRaw[0].items)
+        ) {
+          athletesList = athletesRaw.flatMap((g) => g.items || []);
+        } else if (Array.isArray(athletesRaw)) {
+          athletesList = athletesRaw;
+        }
+
+        const processedAthletes = (athletesList || [])
+          .filter((a) => !a.injuries || a.injuries.length === 0)
+          .map((ath) => {
+            // Robust id extraction
+            const id =
+              ath.id ||
+              ath.player?.id ||
+              ath.athlete?.id ||
+              ath.person?.id ||
+              null;
+
+            // Robust name extraction
+            const displayName =
+              ath.displayName ||
+              ath.fullName ||
+              ath.player?.fullName ||
+              ath.athlete?.displayName ||
+              ath.name ||
+              null;
+            const first =
+              ath.firstName ||
+              ath.player?.firstName ||
+              (displayName ? displayName.split(" ")[0] : null);
+            const last =
+              ath.lastName ||
+              ath.player?.lastName ||
+              (displayName ? displayName.split(" ").slice(1).join(" ") : null);
+            const shortName = ath.shortName || ath.player?.shortName || null;
+            const jersey =
+              ath.jersey || ath.uniform?.number || ath.player?.jersey || null;
+            const position =
+              ath.position?.abbreviation ||
+              ath.player?.position?.abbreviation ||
+              ath.position ||
+              null;
+
+            const athleteObj = {
+              id: id,
+              name:
+                displayName || `${first || ""} ${last || ""}`.trim() || null,
+              firstName: first || null,
+              lastName: last || null,
+              jersey: jersey,
+            };
+
+            // attach odds from local SGO cache (no network fetch from SGO endpoint)
+            const odds = getPlayerOddsFromCache(sportKey, athleteObj) || null;
+            if (odds) athleteObj.odds = odds;
+            // Only include players for which we could attach odds from the SGO cache
+            // (the caller requested roster-only output with odds attached when available).
+            return odds ? athleteObj : null;
+          })
+          .filter(Boolean);
+
+        teamsData.push({
+          team: roster.team,
+          roster: { athletes: processedAthletes },
+          opponentId: opponentMap[teamId] || null,
+          lastUpdated: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.warn(
+          `[Rosters:${sportKey}] failed to fetch roster for team ${teamId}:`,
+          e?.message || e
+        );
+      }
+    }
+
+    const combined = {
+      teams: teamsData,
+      lastUpdated: new Date().toISOString(),
+    };
+    rosterCache[sportKey] = {
+      lastFetched: Date.now(),
+      data: combined,
+      isFetching: false,
+    };
+    return combined;
+  } catch (e) {
+    rosterCache[sportKey].isFetching = false;
+    console.error(`[Rosters:${sport}] fetch error:`, e?.message || e);
+    return null;
+  }
+}
+
+// Schedule periodic fetching every 2 hours for all supported sports
+function scheduleSGOOddsPolling() {
+  // Schedule a single daily fetch at 2:00 AM PST that will populate the
+  // in-memory `oddsCache` for the whole day. This replaces the previous
+  // 2-hour polling behavior.
+  cron.schedule(
+    "0 2 * * *",
+    async () => {
+      for (const sport of Object.keys(SGO_LEAGUE_IDS)) {
+        try {
+          const sgo = await fetchSGOOdds(sport).catch((e) => {
+            console.error(
+              `[SGO:${sport}] daily fetch failed:`,
+              e?.message || e
+            );
+            return null;
+          });
+          if (!sgo)
+            console.warn(`[SGO:${sport}] no events fetched on daily run`);
+
+          // Refresh rosters after odds so they can attach odds where available
+          await fetchRostersForSport(sport).catch((e) =>
+            console.error(
+              `[Rosters:${sport}] daily roster fetch failed:`,
+              e?.message || e
+            )
+          );
+        } catch (e) {
+          console.error(
+            `[SGO:${sport}] daily sequence error:`,
+            e?.message || e
+          );
+        }
+      }
+    },
+    {
+      timezone: "America/Los_Angeles",
+    }
+  );
+
+  // NOTE: No periodic setInterval is used — the cache will persist until
+  // the next daily run. If an immediate prime is desired on startup,
+  // call `fetchSGOOdds` separately during initialization.
+}
 // Prefer using the transformed internal summary endpoint when available
 const PUBLIC_API_URL =
   "https://laraiyeogithubio-production-f5af.up.railway.app";
@@ -1033,16 +2863,34 @@ function transformStatistics(statsArray) {
 
 // Helper function to transform linescores array to object
 function transformLinescores(linescoresArray) {
-  if (!linescoresArray || !Array.isArray(linescoresArray)) return {};
+  if (!linescoresArray) return {};
 
   const linescoresObj = {};
-  linescoresArray.forEach((score, index) => {
-    // Use period if available, otherwise generate from index
-    const period = score.period || index + 1;
-    const value = score.displayValue !== undefined ? score.displayValue : score;
-    linescoresObj[period] = value;
-  });
-  return linescoresObj;
+  // If ESPN provides an array of period objects, handle that shape
+  if (Array.isArray(linescoresArray)) {
+    linescoresArray.forEach((score, index) => {
+      const period =
+        (score && (score.period || score.periodNumber)) || index + 1;
+      const value =
+        score && score.displayValue !== undefined ? score.displayValue : score;
+      linescoresObj[period] = value;
+    });
+    return linescoresObj;
+  }
+
+  // If ESPN provides an object mapping period -> value (common in some sports), handle that too
+  if (typeof linescoresArray === "object") {
+    try {
+      Object.keys(linescoresArray || {}).forEach((k) => {
+        // keep the key as-is (period number or name)
+        linescoresObj[k] = linescoresArray[k];
+      });
+    } catch (e) {
+      return {};
+    }
+    return linescoresObj;
+  }
+  return {};
 }
 
 // Data transformation functions
@@ -1074,7 +2922,7 @@ function transformScoreboardData(data) {
           score: competitor.score,
           linescores: transformLinescores(competitor.linescores),
           statistics: transformStatistics(competitor.statistics),
-          record: competitor.records?.[0]?.summary || null,
+          record: { summary: competitor.records?.[0]?.summary || null },
         })),
         notes: comp.notes,
       })),
@@ -1381,6 +3229,161 @@ function transformSummaryData(data) {
 
   const transformed = {};
 
+  // Detect NFL from meta or header when possible
+  const sportHint = String(
+    data.meta?.gp_topic ||
+      data.header?.league?.slug ||
+      data.header?.league?.abbreviation ||
+      ""
+  ).toLowerCase();
+  const isNFL = /football.*nfl|\bnfl\b|football/i.test(sportHint);
+  const isNHL = /hockey|nhl/i.test(sportHint);
+
+  // Precompute 1Q stats and first-made-basket (athlete id + team + scoreValue + period)
+  // We do this early so we can attach per-player 1Q stats when building the boxscore.
+  const qStats = {}; // { athleteId: { PTS, REB, AST } }
+  let firstBasket = null;
+  let firstTouchdown = null;
+  let lastTouchdown = null;
+  let firstGoal = null;
+  let lastGoal = null;
+  try {
+    if (data.plays && Array.isArray(data.plays) && data.plays.length > 0) {
+      // For NBA-style data keep 1Q/firstBasket logic; for NFL we'll compute touchdowns below
+      for (const play of data.plays) {
+        if (!isNFL && !isNHL) {
+          // Determine first made field goal: first scoringPlay with a positive scoreValue
+          if (!firstBasket && play && play.scoringPlay && play.scoreValue > 0) {
+            const scorerRaw =
+              play.participants && play.participants[0]
+                ? play.participants[0].athlete?.id ||
+                  play.participants[0].athlete?.externalId
+                : null;
+            if (scorerRaw) {
+              const sid = String(scorerRaw);
+              firstBasket = {
+                athleteId: sid,
+                athleteName: null, // filled later after we build athleteNameById
+                teamId: play.team?.id || null,
+                team: getTeamAbbreviationById(play.team?.id),
+                scoreValue: play.scoreValue,
+                period: play.period?.number || null,
+              };
+            }
+          }
+
+          // Only accumulate 1Q stats for period number === 1
+          const periodNum = play?.period?.number;
+          if (periodNum !== 1) continue;
+
+          // Points (scorer appears as first participant for scoringPlay)
+          if (
+            play.scoringPlay &&
+            play.participants &&
+            play.participants.length > 0
+          ) {
+            const scorerRaw =
+              play.participants[0].athlete?.id ||
+              play.participants[0].athlete?.externalId;
+            if (scorerRaw) {
+              const sid = String(scorerRaw);
+              qStats[sid] = qStats[sid] || { PTS: 0, REB: 0, AST: 0 };
+              const pts =
+                typeof play.scoreValue === "number"
+                  ? play.scoreValue
+                  : Number(play.scoreValue) || 0;
+              qStats[sid].PTS += pts;
+            }
+
+            // Assist (second participant)
+            if (
+              play.participants[1] &&
+              (play.participants[1].athlete?.id ||
+                play.participants[1].athlete?.externalId)
+            ) {
+              const assistRaw =
+                play.participants[1].athlete?.id ||
+                play.participants[1].athlete?.externalId;
+              const aid = String(assistRaw);
+              qStats[aid] = qStats[aid] || { PTS: 0, REB: 0, AST: 0 };
+              qStats[aid].AST += 1;
+            }
+          }
+
+          // Rebounds: shortDescription or type containing 'Rebound', first participant is rebounder
+          const shortDesc = String(play.shortDescription || "").toLowerCase();
+          const typeText = String(play.type?.text || "").toLowerCase();
+          if (shortDesc.includes("rebound") || typeText.includes("rebound")) {
+            if (play.participants && play.participants.length > 0) {
+              const reboundRaw =
+                play.participants[0].athlete?.id ||
+                play.participants[0].athlete?.externalId;
+              if (reboundRaw) {
+                const rid = String(reboundRaw);
+                qStats[rid] = qStats[rid] || { PTS: 0, REB: 0, AST: 0 };
+                qStats[rid].REB += 1;
+              }
+            }
+          }
+        } else if (isNHL) {
+          // For NHL, detect first and last goals by play.type.abbreviation === 'goal'
+          try {
+            const isGoal =
+              play &&
+              play.type &&
+              String(play.type.abbreviation || "").toLowerCase() === "goal";
+            if (isGoal) {
+              // firstGoal: first goal play encountered
+              if (!firstGoal) {
+                const scorerRaw =
+                  play.participants && play.participants[0]
+                    ? play.participants[0].athlete?.id ||
+                      play.participants[0].athlete?.externalId
+                    : null;
+                if (scorerRaw) {
+                  firstGoal = {
+                    athleteId: String(scorerRaw),
+                    athleteName: null,
+                    teamId: play.team?.id || null,
+                    team: getTeamAbbreviationById(play.team?.id),
+                    period: play.period?.number || null,
+                    scoreValue: play.scoreValue || null,
+                    playIndex: play.sequenceNumber || null,
+                  };
+                }
+              }
+              // always update lastGoal to the latest goal encountered
+              const scorerRaw2 =
+                play.participants && play.participants[0]
+                  ? play.participants[0].athlete?.id ||
+                    play.participants[0].athlete?.externalId
+                  : null;
+              if (scorerRaw2) {
+                lastGoal = {
+                  athleteId: String(scorerRaw2),
+                  athleteName: null,
+                  teamId: play.team?.id || null,
+                  team: getTeamAbbreviationById(play.team?.id),
+                  period: play.period?.number || null,
+                  scoreValue: play.scoreValue || null,
+                  playIndex: play.sequenceNumber || null,
+                };
+              }
+            }
+          } catch (e) {
+            /* ignore per-play errors */
+          }
+        } // end NHL handling
+      }
+    }
+  } catch (e) {
+    // non-fatal
+    console.warn(
+      "transformSummaryData: failed computing initial 1Q or firstBasket",
+      e?.message || e
+    );
+  }
+
   // Boxscore - teams
   if (data.boxscore?.teams) {
     transformed.boxscore = {
@@ -1401,29 +3404,108 @@ function transformSummaryData(data) {
     // Boxscore - players
     if (data.boxscore?.players) {
       transformed.boxscore.players = data.boxscore.players.map((playerTeam) => {
-        const stats = playerTeam.statistics?.[0];
+        // `playerTeam.statistics` can be an array of category objects (passing, rushing, receiving, etc.)
+        // Each category has `labels` and `athletes` arrays. We'll aggregate per-athlete across categories.
+        const categories = Array.isArray(playerTeam.statistics)
+          ? playerTeam.statistics
+          : playerTeam.statistics
+          ? [playerTeam.statistics]
+          : [];
+
+        const athleteMap = {}; // id -> { athlete, active, stats: { category: { label: value } } }
+
+        const normalizeVal = (v) => {
+          if (v === null || v === undefined) return v;
+          if (typeof v === "number") return v;
+          if (typeof v === "string" && /^[-+]?\d+(?:\.\d+)?$/.test(v))
+            return Number(v);
+          return v;
+        };
+
+        for (const cat of categories) {
+          const catLabels = cat.labels || [];
+          // Attempt to decide a category key name
+          const rawCatKey = cat.name || cat.label || cat.displayName || "other";
+          const catKey = String(rawCatKey).toLowerCase().replace(/\s+/g, "_");
+
+          const athletesList = cat.athletes || [];
+          for (const a of athletesList) {
+            const idRaw = a?.athlete?.id || a?.athlete?.externalId || null;
+            if (idRaw == null) continue;
+            const id = String(idRaw);
+            if (!athleteMap[id]) {
+              athleteMap[id] = {
+                active: a.active || a.active === undefined ? a.active : null,
+                athlete: {
+                  id: a.athlete?.id || null,
+                  displayName:
+                    a.athlete?.displayName || a.athlete?.shortName || null,
+                  jersey: a.athlete?.jersey || null,
+                  position: a.athlete?.position?.abbreviation || null,
+                },
+                stats: {},
+              };
+            }
+
+            // Ensure category bucket exists
+            athleteMap[id].stats[catKey] = athleteMap[id].stats[catKey] || {};
+
+            // If athlete stats provided as array corresponding to catLabels
+            if (Array.isArray(a.stats)) {
+              for (let i = 0; i < a.stats.length; i++) {
+                const label = catLabels[i] || String(i);
+                const val = a.stats[i];
+                athleteMap[id].stats[catKey][label] = normalizeVal(val);
+              }
+            } else if (a.stats && typeof a.stats === "object") {
+              // If stats already object keyed by label
+              for (const [kk, vv] of Object.entries(a.stats || {})) {
+                athleteMap[id].stats[catKey][kk] = normalizeVal(vv);
+              }
+            }
+          }
+        }
+
+        // Build athletes array from map
+        const athletes = Object.values(athleteMap).map((entry) => {
+          const athleteId = entry.athlete?.id ? String(entry.athlete.id) : null;
+          const oneQ = athleteId
+            ? qStats[athleteId] || { PTS: 0, REB: 0, AST: 0 }
+            : { PTS: 0, REB: 0, AST: 0 };
+
+          const out = {
+            active: entry.active,
+            athlete: entry.athlete,
+            ...(isNFL || isNHL ? {} : { "1Q": oneQ }),
+          };
+
+          if (isNFL) {
+            // For NFL keep grouped categories
+            out.stats = entry.stats;
+          } else {
+            // For other sports flatten categories into a single flat stats map
+            const flat = {};
+            for (const catName of Object.keys(entry.stats || {})) {
+              const catObj = entry.stats[catName] || {};
+              for (const [label, val] of Object.entries(catObj)) {
+                flat[label] = val;
+              }
+            }
+            out.stats = flat;
+          }
+
+          return out;
+        });
+
         return {
           team: {
             id: playerTeam.team?.id,
             abbreviation: playerTeam.team?.abbreviation,
             displayName: playerTeam.team?.displayName,
           },
-          statistics: stats
-            ? {
-                athletes: stats.athletes?.map((athleteData) => ({
-                  active: athleteData.active,
-                  athlete: {
-                    id: athleteData.athlete?.id,
-                    displayName: athleteData.athlete?.displayName,
-                    shortName: athleteData.athlete?.shortName,
-                    jersey: athleteData.athlete?.jersey,
-                    position: athleteData.athlete?.position?.abbreviation,
-                  },
-                  starter: athleteData.starter,
-                  stats: transformPlayerStats(athleteData.stats, stats.labels),
-                })),
-              }
-            : {},
+          statistics: {
+            athletes,
+          },
         };
       });
     }
@@ -1450,6 +3532,300 @@ function transformSummaryData(data) {
     );
   }
 
+  // UEFA-specific: enrich rosters, extract first/last goals from keyEvents,
+  // and simplify commentary. Detect UEFA via sportHint.
+  const isUEFA = /uefa|champions|uefa.champions/i.test(sportHint);
+  if (isUEFA) {
+    try {
+      // Prefer boxscore.rosters, fall back to top-level data.rosters
+      const rawRosters =
+        data.boxscore &&
+        Array.isArray(data.boxscore.rosters) &&
+        data.boxscore.rosters.length
+          ? data.boxscore.rosters
+          : Array.isArray(data.rosters)
+          ? data.rosters
+          : [];
+      if (rawRosters && rawRosters.length) {
+        transformed.rosters = rawRosters.map((r) => {
+          const team = Object.assign({}, r.team || {});
+          if (team.logos) delete team.logos;
+          const roster = (r.roster || []).map((p) => {
+            const np = Object.assign({}, p || {});
+            if (np.athlete) {
+              np.athlete = {
+                id: String(np.athlete.id || np.athlete.uid || "") || null,
+                lastName: np.athlete.lastName || null,
+                displayName: np.athlete.displayName || null,
+              };
+            }
+            if (np.position) {
+              np.position = { abbreviation: np.position.abbreviation || null };
+            }
+            if (np.formationPlace) delete np.formationPlace;
+            if (np.media) delete np.media;
+            if (Array.isArray(np.stats)) {
+              const statsObj = {};
+              np.stats.forEach((s) => {
+                if (s && s.abbreviation)
+                  statsObj[s.abbreviation] = s.displayValue;
+              });
+              np.stats = statsObj;
+            }
+            return np;
+          });
+          return { homeAway: r.homeAway, team, roster };
+        });
+
+        // Build normalized name -> id map from transformed rosters for resolving participants
+        const normalizeRosterName = (s) =>
+          String(s || "")
+            .normalize("NFD")
+            .replace(/\p{Diacritic}/gu, "")
+            .replace(/[^ -]/g, "")
+            .replace(/[^\\w\s]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim()
+            .toLowerCase();
+
+        const rosterNameToId = {};
+        transformed.rosters.forEach((r) => {
+          (r.roster || []).forEach((p) => {
+            const a = p.athlete || {};
+            if (a.displayName)
+              rosterNameToId[normalizeRosterName(a.displayName)] = a.id;
+          });
+        });
+
+        // Extract first/last goal from keyEvents (first scoringPlay where type.id !== 97)
+        const keyEvents = Array.isArray(data.keyEvents) ? data.keyEvents : [];
+        let uFirstGoal = null;
+        let uLastGoal = null;
+        for (const ke of keyEvents) {
+          if (ke && ke.scoringPlay && ke.type && ke.type.id !== "97") {
+            // Build normalized goal object with athleteId and athleteName when available
+            let goalObj = null;
+            if (Array.isArray(ke.participants) && ke.participants.length > 0) {
+              const part = ke.participants[0];
+              // Prefer explicit athlete.id if present in keyEvents
+              const athleteIdRaw =
+                part?.athlete?.id || part?.athlete?.externalId || null;
+              const athleteName =
+                part?.athlete?.displayName ||
+                part?.displayName ||
+                part?.name ||
+                null;
+              let athleteId = null;
+              if (athleteIdRaw) athleteId = String(athleteIdRaw);
+              else if (athleteName)
+                athleteId =
+                  rosterNameToId[normalizeRosterName(athleteName)] || null;
+
+              if (athleteId) {
+                goalObj = {
+                  athleteId: athleteId,
+                  athleteName: athleteName || null,
+                  teamId: ke.team?.id || null,
+                  team: ke.team?.displayName || null,
+                  period: ke.period?.number || null,
+                  scoreValue: ke.scoreValue || null,
+                  playIndex: ke.id || ke.sequenceNumber || null,
+                };
+              } else {
+                // fallback to name-only object
+                const name = athleteName || null;
+                goalObj = {
+                  athleteId: null,
+                  athleteName: name,
+                  teamId: ke.team?.id || null,
+                  team: ke.team?.displayName || null,
+                  period: ke.period?.number || null,
+                  scoreValue: ke.scoreValue || null,
+                  playIndex: ke.id || ke.sequenceNumber || null,
+                };
+              }
+            }
+
+            if (goalObj) {
+              if (!uFirstGoal) uFirstGoal = goalObj;
+              uLastGoal = goalObj;
+            }
+          }
+        }
+        if (uFirstGoal) transformed.firstGoal = uFirstGoal;
+        // only expose lastGoal when game is finished/post
+        const gameStateUEFA = String(
+          data?.meta?.gameState ||
+            data.header?.competitions?.[0]?.status?.type?.state ||
+            ""
+        ).toLowerCase();
+        if (uLastGoal && gameStateUEFA === "post")
+          transformed.lastGoal = uLastGoal;
+
+        // UEFA should not include firstBasket
+        if (transformed.firstBasket) delete transformed.firstBasket;
+
+        // Commentary: only last object, bring play.time to parent and simplify play
+        const commentary = Array.isArray(data.commentary)
+          ? data.commentary
+          : [];
+        const lastComment = commentary.length
+          ? commentary[commentary.length - 1]
+          : null;
+        if (lastComment) {
+          const c = Object.assign({}, lastComment || {});
+          if (c.play) {
+            if (c.play.time) c.time = c.play.time;
+            const play = c.play;
+            const simplePlay = {
+              type: play.type,
+              text: play.text,
+              period: play.period,
+              clock: play.clock,
+              team: play.team,
+              participants: Array.isArray(play.participants)
+                ? play.participants.map((part) => {
+                    const name =
+                      part?.displayName ||
+                      part?.athlete?.displayName ||
+                      part?.name ||
+                      null;
+                    const id = name
+                      ? rosterNameToId[normalizeRosterName(name)] || null
+                      : null;
+                    return id ? { [id]: name } : { displayName: name };
+                  })
+                : [],
+              fieldPositionX: play.fieldPositionX,
+              fieldPositionY: play.fieldPositionY,
+              fieldPosition2X: play.fieldPosition2X,
+              fieldPosition2Y: play.fieldPosition2Y,
+            };
+            c.play = simplePlay;
+          }
+          transformed.commentary = c;
+        }
+      }
+    } catch (e) {
+      console.warn("transformSummaryData: UEFA enrich failed", e?.message || e);
+    }
+  }
+
+  // Build reverse lookup name -> id (normalized) to resolve scorer names from scoringPlays
+  const normalizeAthleteName = (s) =>
+    String(s || "")
+      .toLowerCase()
+      .replace(/\b(jr|sr|ii|iii|iv|v)\b/g, "")
+      .replace(/[^\w\s]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  const athleteIdByName = {};
+  try {
+    for (const [id, name] of Object.entries(athleteNameById || {})) {
+      if (!name) continue;
+      const key = normalizeAthleteName(name);
+      athleteIdByName[key] = id;
+    }
+  } catch (e) {
+    /* ignore */
+  }
+
+  // After building the athlete lookup, attach athleteName to firstBasket (if we found one earlier)
+  if (!isNFL && !isNHL) {
+    if (firstBasket && firstBasket.athleteId) {
+      firstBasket.athleteName =
+        athleteNameById[firstBasket.athleteId] ||
+        firstBasket.athleteName ||
+        null;
+    }
+    transformed.firstBasket = firstBasket;
+  } else if (isNHL) {
+    // For NHL attach firstGoal and lastGoal (lastGoal only meaningful after game is post)
+    if (firstGoal && firstGoal.athleteId) {
+      firstGoal.athleteName =
+        athleteNameById[firstGoal.athleteId] || firstGoal.athleteName || null;
+    }
+    // only expose lastGoal if game is finished/post
+    const gameState = String(data?.meta?.gameState || "").toLowerCase();
+    if (lastGoal && lastGoal.athleteId && gameState === "post") {
+      lastGoal.athleteName =
+        athleteNameById[lastGoal.athleteId] || lastGoal.athleteName || null;
+    } else {
+      lastGoal = null;
+    }
+    transformed.firstGoal = firstGoal;
+    transformed.lastGoal = lastGoal;
+  } else {
+    // For NFL compute firstTouchdown and lastTouchdown from scoringPlays
+    if (Array.isArray(data.scoringPlays) && data.scoringPlays.length > 0) {
+      const tdPlays = data.scoringPlays.filter(
+        (p) =>
+          (p.type &&
+            String(p.type.abbreviation || "").toUpperCase() === "TD") ||
+          p.scoringPlay
+      );
+      if (tdPlays.length > 0) {
+        const first = tdPlays[0];
+        const last = tdPlays[tdPlays.length - 1];
+        const extractScorer = (play) => {
+          const pid =
+            play.participants &&
+            play.participants[0] &&
+            (play.participants[0].athlete?.id ||
+              play.participants[0].athlete?.externalId);
+          if (pid)
+            return {
+              athleteId: String(pid),
+              athleteName: athleteNameById[String(pid)] || null,
+            };
+          const txt = String(play.text || play.shortDescription || "");
+          const m = txt.match(/^([^0-9\(]+?)\s+\d+\s*yd/i);
+          let nameGuess = null;
+          if (m && m[1]) nameGuess = m[1].trim();
+          else nameGuess = txt.split(" ").slice(0, 3).join(" ");
+
+          // Try to resolve the guessed name against athleteIdByName
+          try {
+            const key = normalizeAthleteName(nameGuess || "");
+            const foundId = athleteIdByName[key];
+            if (foundId)
+              return {
+                athleteId: String(foundId),
+                athleteName: athleteNameById[String(foundId)] || nameGuess,
+              };
+          } catch (e) {
+            /* ignore */
+          }
+
+          return { athleteId: null, athleteName: nameGuess };
+        };
+        const firstScorer = extractScorer(first);
+        const firstTouchdown = {
+          athleteId: firstScorer.athleteId || null,
+          athleteName: firstScorer.athleteName || null,
+          teamId: first.team?.id || first.teamId || null,
+          teamDisplayName: first.team?.displayName || null,
+          text: first.text || first.shortDescription || null,
+          period: first.period?.number || null,
+        };
+        transformed.firstTouchdown = firstTouchdown;
+        const state =
+          data.header?.competitions?.[0]?.status?.type?.state || null;
+        if (state === "post") {
+          const lastScorer = extractScorer(last);
+          transformed.lastTouchdown = {
+            athleteId: lastScorer.athleteId || null,
+            athleteName: lastScorer.athleteName || null,
+            teamId: last.team?.id || last.teamId || null,
+            teamDisplayName: last.team?.displayName || null,
+            text: last.text || last.shortDescription || null,
+            period: last.period?.number || null,
+          };
+        }
+      }
+    }
+  }
+
   // GameInfo - venue only
   if (data.gameInfo?.venue) {
     transformed.gameInfo = {
@@ -1457,8 +3833,29 @@ function transformSummaryData(data) {
     };
   }
 
-  // LastFiveGames
-  if (data.lastFiveGames) {
+  // LastFiveGames - prefer boxscore.form (UEFA) otherwise fall back to data.lastFiveGames
+  if (
+    data.boxscore &&
+    Array.isArray(data.boxscore.form) &&
+    data.boxscore.form.length > 0
+  ) {
+    transformed.lastFiveGames = data.boxscore.form.map((teamGames) => ({
+      team: {
+        id: teamGames.team?.id,
+        displayName: teamGames.team?.displayName,
+        abbreviation: teamGames.team?.abbreviation,
+      },
+      events: teamGames.events?.map((event) => ({
+        id: event.id,
+        opponent: event.opponent?.displayName,
+        opponentAbbreviation: event.opponent?.abbreviation,
+        atVs: event.atVs,
+        date: event.gameDate,
+        score: event.score,
+        result: event.gameResult,
+      })),
+    }));
+  } else if (data.lastFiveGames) {
     transformed.lastFiveGames = data.lastFiveGames.map((teamGames) => ({
       team: {
         id: teamGames.team?.id,
@@ -1611,6 +4008,73 @@ function transformSummaryData(data) {
     };
   }
 
+  // Drives (NFL): flatten previous/current/all structures and return the last drive
+  if (isNFL && data.drives) {
+    try {
+      const combined = [];
+      const maybeArrays = [
+        data.drives.previous,
+        data.drives.current,
+        data.drives.all,
+      ].filter(Boolean);
+      for (const item of maybeArrays) {
+        if (Array.isArray(item)) {
+          for (const e of item) {
+            if (Array.isArray(e)) combined.push(...e);
+            else combined.push(e);
+          }
+        } else if (item && typeof item === "object") {
+          for (const v of Object.values(item || {})) {
+            if (Array.isArray(v)) combined.push(...v);
+          }
+        }
+      }
+      if (combined.length === 0 && typeof data.drives.previous === "object") {
+        for (const v of Object.values(data.drives.previous || {})) {
+          if (Array.isArray(v)) combined.push(...v);
+        }
+      }
+      if (combined.length > 0) {
+        const lastDrive = combined[combined.length - 1];
+        const driveOut = {};
+        for (const k of Object.keys(lastDrive || {})) {
+          if (k === "team") {
+            driveOut.team = {
+              id: lastDrive.team?.id || null,
+              name: lastDrive.team?.name || lastDrive.team?.displayName || null,
+              abbreviation: lastDrive.team?.abbreviation || null,
+              displayName: lastDrive.team?.displayName || null,
+            };
+            continue;
+          }
+          if (k === "isScore") continue;
+          if (k === "plays" && Array.isArray(lastDrive.plays)) {
+            driveOut.plays = lastDrive.plays.map((pl) => {
+              const {
+                id,
+                sequenceNumber,
+                awayScore,
+                homeScore,
+                scoringPlay,
+                priority,
+                modified,
+                wallClock,
+                teamParticipants,
+                ...rest
+              } = pl || {};
+              return rest;
+            });
+            continue;
+          }
+          driveOut[k] = lastDrive[k];
+        }
+        transformed.drives = driveOut;
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
   // Header
   if (data.header) {
     transformed.header = {
@@ -1631,7 +4095,7 @@ function transformSummaryData(data) {
           },
           score: competitor.score,
           linescores: transformLinescores(competitor.linescores),
-          record: competitor.record?.[0]?.summary || null,
+          record: { summary: competitor.record?.[0]?.summary || null },
         })),
         status: {
           displayClock: comp.status?.displayClock,
@@ -1664,16 +4128,29 @@ function transformRostersData(rostersData) {
       return !athlete.injuries || athlete.injuries.length === 0;
     });
 
-    const athletes = healthyAthletes.map((athlete) => {
-      const gamelog = gamelogs[athlete.id];
+    let athletes = healthyAthletes.map((athlete) => {
+      const gamelog = (gamelogs && gamelogs[athlete.id]) || null;
 
-      // Base athlete info
+      // Determine athlete name robustly: prefer `name`, then `firstName/lastName`,
+      // then `displayName`, then `shortName`.
+      const resolvedName =
+        athlete.name ||
+        `${athlete.firstName || ""} ${athlete.lastName || ""}`.trim() ||
+        athlete.displayName ||
+        athlete.shortName ||
+        null;
+
+      // Position may be an object with abbreviation or already an abbreviation string
+      const resolvedPosition =
+        (athlete.position && athlete.position.abbreviation) ||
+        athlete.position ||
+        null;
+
+      // Base athlete info (omit shortName and position for ESPN outputs)
       const athleteData = {
         id: athlete.id,
-        name: `${athlete.firstName} ${athlete.lastName}`,
-        shortName: athlete.shortName,
+        name: resolvedName,
         jersey: athlete.jersey,
-        position: athlete.position?.abbreviation || null,
       };
 
       // Add gamelog data if available
@@ -1708,7 +4185,14 @@ function transformRostersData(rostersData) {
                   const formattedStats = {};
                   labels.forEach((label, index) => {
                     if (stats[index] !== undefined) {
-                      formattedStats[label] = stats[index];
+                      const key =
+                        displayNames[index] &&
+                        String(displayNames[index]).trim()
+                          ? String(displayNames[index])
+                          : names[index] && String(names[index]).trim()
+                          ? String(names[index])
+                          : label;
+                      formattedStats[key] = stats[index];
                     }
                   });
                   eventStatsMap[eventId] = formattedStats;
@@ -1779,10 +4263,19 @@ function transformRostersData(rostersData) {
           gamelog,
           opponentId ? { id: opponentId } : null
         );
+      } else if (athlete.odds) {
+        // If no gamelog was fetched but odds were attached earlier (e.g. from SGO cache),
+        // preserve those odds instead of attempting to index into undefined gamelogs.
+        athleteData.odds = athlete.odds;
       }
 
       return athleteData;
     });
+
+    // Filter out any athletes that do not have odds attached (we only want
+    // roster entries that include SGO-derived odds). This ensures roster
+    // payloads don't contain players without odds.
+    athletes = athletes.filter((a) => a && a.odds);
 
     return {
       id: team.id,
@@ -1797,11 +4290,13 @@ function transformRostersData(rostersData) {
 }
 
 // Fetch functions
-async function fetchScoreboard() {
+async function fetchScoreboard(sport = "nba") {
   try {
+    const sportKey = String(sport || "nba").toLowerCase();
+    const urls = ESPN_PATHS[sportKey] || ESPN_PATHS["nba"];
     const dateParam = getScoreboardDate();
     const response = await axios.get(
-      `${ESPN_BASE_URL}/scoreboard?dates=${dateParam}`
+      `${urls.base}/scoreboard?dates=${dateParam}`
     );
     scoreboardData = response.data;
 
@@ -1810,24 +4305,58 @@ async function fetchScoreboard() {
 
     return scoreboardData;
   } catch (error) {
-    console.error("[Scoreboard] Error fetching data:", error.message);
+    console.error(
+      `[Scoreboard:${sport}] Error fetching data:`,
+      error?.message || error
+    );
     return null;
   }
 }
 
-async function fetchSummary(eventId) {
+async function fetchSummary(eventId, sport) {
   try {
-    const response = await axios.get(
-      `${ESPN_BASE_URL}/summary?event=${eventId}`
-    );
+    // Determine sportKey: explicit param, infer from cached scoreboard, or default to 'nba'
+    let sportKey = (sport || "").toLowerCase();
+    if (!sportKey) {
+      try {
+        if (scoreboardData && Array.isArray(scoreboardData.events)) {
+          const ev = scoreboardData.events.find(
+            (e) => String(e.id) === String(eventId)
+          );
+          if (ev && ev.sport && ev.sport.slug) {
+            // map slug like 'nba' or 'football' to our ESPN_PATHS keys
+            const slug = String(ev.sport.slug || "").toLowerCase();
+            if (ESPN_PATHS[slug]) sportKey = slug;
+            else {
+              // try common mappings
+              if (slug.includes("football")) sportKey = "nfl";
+              else if (slug.includes("hockey")) sportKey = "nhl";
+              else if (slug.includes("basketball")) sportKey = "nba";
+              else if (slug.includes("soccer")) sportKey = "uefa";
+            }
+          }
+        }
+      } catch (e) {
+        /* ignore */
+      }
+    }
+
+    const urls =
+      ESPN_PATHS[sportKey] && ESPN_PATHS[sportKey].base
+        ? ESPN_PATHS[sportKey]
+        : { base: ESPN_BASE_URL };
+    const response = await axios.get(`${urls.base}/summary?event=${eventId}`);
     response.data.lastPolledTime = new Date();
     summaryDataCache[eventId] = response.data;
     return response.data;
   } catch (error) {
-    console.error(
-      `[Summary] Error fetching data for event ${eventId}:`,
-      error.message
-    );
+    // Suppress 404 logs (expected for invalid/old event IDs), log other errors
+    if (error?.response?.status !== 404) {
+      console.error(
+        `[Summary] Error fetching data for event ${eventId}:`,
+        error?.message || error
+      );
+    }
     return null;
   }
 }
@@ -1835,7 +4364,34 @@ async function fetchSummary(eventId) {
 async function fetchTeamRoster(teamId) {
   try {
     console.log(`[Roster] Fetching data for team ${teamId}...`);
-    const response = await axios.get(`${ESPN_BASE_URL}/teams/${teamId}/roster`);
+    // Attempt to use sport-specific ESPN path by inferring sport from scoreboardData
+    let baseUrl = ESPN_BASE_URL;
+    try {
+      if (scoreboardData && Array.isArray(scoreboardData.events)) {
+        const ev = scoreboardData.events.find((e) => {
+          return (e.competitions || []).some((c) =>
+            (c.competitors || []).some(
+              (comp) => String(comp.team?.id) === String(teamId)
+            )
+          );
+        });
+        const slug = ev?.sport?.slug
+          ? String(ev.sport.slug).toLowerCase()
+          : null;
+        if (slug) {
+          if (ESPN_PATHS[slug] && ESPN_PATHS[slug].base)
+            baseUrl = ESPN_PATHS[slug].base;
+          else if (slug.includes("football")) baseUrl = ESPN_PATHS["nfl"].base;
+          else if (slug.includes("hockey")) baseUrl = ESPN_PATHS["nhl"].base;
+          else if (slug.includes("basketball"))
+            baseUrl = ESPN_PATHS["nba"].base;
+          else if (slug.includes("soccer")) baseUrl = ESPN_PATHS["uefa"].base;
+        }
+      }
+    } catch (e) {
+      /* ignore */
+    }
+    const response = await axios.get(`${baseUrl}/teams/${teamId}/roster`);
     console.log(`[Roster] Data fetched successfully for team ${teamId}`);
     return response.data;
   } catch (error) {
@@ -2125,7 +4681,10 @@ cron.schedule(
   "0 2 * * *",
   async () => {
     console.log("[Cron] Running daily roster/gamelog update at 2:00 AM PST");
-    await fetchAllRostersAndGamelogs();
+    // Refresh rosters for all supported sports at daily cron
+    await Promise.all(
+      Object.keys(SGO_LEAGUE_IDS).map((sport) => fetchRostersForSport(sport))
+    );
   },
   {
     timezone: "America/Los_Angeles",
@@ -2149,16 +4708,19 @@ async function checkForGameStarts() {
       (isGameLive(status) && minutesUntilStart <= 5)
     ) {
       // Only fetch if we haven't updated recently (within last 5 minutes)
-      const cached = rosterGamelogCache["all"];
-      if (
-        !cached ||
-        getTimeDifferenceInMinutes(now, new Date(cached.lastUpdated)) > 5
-      ) {
+      // Check any rosterCache entry age
+      const anyRecent = Object.values(rosterCache || {}).some((c) => {
+        if (!c || !c.lastFetched) return false;
+        return getTimeDifferenceInMinutes(now, new Date(c.lastFetched)) <= 5;
+      });
+      if (!anyRecent) {
         console.log(
-          `[Game Start] Updating all rosters/gamelogs (games starting)`
+          `[Game Start] Updating rosters for all sports (games starting)`
         );
-        await fetchAllRostersAndGamelogs();
-        break; // Only fetch once per check
+        await Promise.all(
+          Object.keys(SGO_LEAGUE_IDS).map((s) => fetchRostersForSport(s))
+        );
+        break;
       }
     }
   }
@@ -2175,7 +4737,7 @@ app.get("/", (req, res) => {
     endpoints: {
       scoreboard: "/api/scoreboard",
       summary: "/api/summary/:eventId",
-      rosters: "/api/rosters",
+      rosters: "/api/rosters/:sport",
       betslip:
         "/api/betslip?gameId=:eventId&moneyline=:team&total=:bet&spread=:bet&p1=:playerId&p1_pts=:bet",
       betslipNotification:
@@ -2189,12 +4751,16 @@ app.get("/", (req, res) => {
         "/api/betslip/notification?gameId=401836803&moneyline=BOS&total=o220.5&p1=4432166&p1_pts=o29.5",
       multiGame:
         "/api/betslip?gameId=401836803,401839023&moneyline=DET&p1=4432166&p1_pts=o29.5",
+      scoreboard:
+        "/api/scoreboard/:sport?dates=YYYYMMDD (supported: nba, nhl, nfl, uefa)",
     },
     status: {
       isAnyGameLive,
       nextGameStart: nextGameStartTime,
       cachedEvents: Object.keys(summaryDataCache).length,
-      cachedRosters: rosterGamelogCache["all"] ? "cached" : "not cached",
+      cachedRosters: Object.keys(rosterCache || {}).length
+        ? "cached"
+        : "not cached",
       pollingMode: currentPollingMode,
     },
     deployment: {
@@ -2205,81 +4771,491 @@ app.get("/", (req, res) => {
   });
 });
 
-app.get("/api/scoreboard", async (req, res) => {
+app.get("/api/scoreboard/:sport", async (req, res) => {
   try {
-    if (!scoreboardData) {
-      await fetchScoreboard();
+    const { sport } = req.params;
+
+    // Fetch scoreboard for requested sport (defaults to nba)
+    const data = await fetchScoreboard(sport || "nba");
+
+    if (!data) {
+      return res
+        .status(500)
+        .json({ error: `Failed to fetch ${sport || "nba"} scoreboard` });
     }
 
     // Transform and return only the filtered data
-    const transformedData = transformScoreboardData(scoreboardData);
+    const transformedData = transformScoreboardData(data);
     res.json(transformedData || { error: "Failed to fetch scoreboard data" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get("/api/summary/:eventId", async (req, res) => {
+// Odds endpoint using SportGameOdds (cached, refreshed every 2 hours)
+app.get("/api/odds/:sport", async (req, res) => {
   try {
-    const { eventId } = req.params;
-
-    // Check cache first
-    const old = summaryDataCache[eventId];
-    const newSummary = await fetchSummary(eventId);
-
-    // If we had an old summary, compare game state transitions
-    try {
-      const oldState = old?.header?.competitions?.[0]?.status?.type?.state;
-      const newState =
-        newSummary?.header?.competitions?.[0]?.status?.type?.state;
-      if (oldState && newState && oldState !== newState) {
-        const comp = newSummary.header?.competitions?.[0];
-        const home =
-          comp?.competitors?.find((c) => c.homeAway === "home")?.team
-            ?.abbreviation || "";
-        const away =
-          comp?.competitors?.find((c) => c.homeAway === "away")?.team
-            ?.abbreviation || "";
-        // Only broadcast once per transition using eventBroadcastState
-        const lastBroadcast = eventBroadcastState[eventId] || null;
-        if (oldState === "pre" && newState === "in" && lastBroadcast !== "in") {
-          eventBroadcastState[eventId] = "in";
-          // game started
-        }
-        if (
-          oldState === "in" &&
-          newState === "post" &&
-          lastBroadcast !== "post"
-        ) {
-          eventBroadcastState[eventId] = "post";
-          const homeScore =
-            comp?.competitors?.find((c) => c.homeAway === "home")?.score || 0;
-          const awayScore =
-            comp?.competitors?.find((c) => c.homeAway === "away")?.score || 0;
-        }
+    const { sport } = req.params;
+    const key = String(sport || "nba").toLowerCase();
+    // If we have cached data and it's still fresh, return it immediately.
+    const entry = oddsCache[key];
+    if (entry && entry.data) {
+      const age = Date.now() - (entry.lastFetched || 0);
+      if (age < SGO_CACHE_TTL_MS) {
+        return res.json({
+          lastFetched: new Date(entry.lastFetched),
+          events: entry.data,
+        });
       }
-    } catch (e) {
-      console.error("Error comparing summary states", e?.message || e);
+
+      // Stale: return cached immediately and trigger a background refresh (non-blocking).
+      if (!entry.isFetching) {
+        fetchSGOOdds(key).catch((e) =>
+          console.error("Background SGO fetch failed:", e)
+        );
+      }
+      return res.json({
+        lastFetched: new Date(entry.lastFetched),
+        events: entry.data,
+        stale: true,
+      });
     }
 
-    // Transform and return only the filtered data
-    const transformedData = transformSummaryData(summaryDataCache[eventId]);
-    res.json(transformedData || { error: "Failed to fetch summary data" });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    // No cache present: do not block on SGO fetch. Trigger background fetch and return 503
+    if (!entry)
+      oddsCache[key] = { lastFetched: 0, data: null, isFetching: false };
+    if (!oddsCache[key].isFetching) {
+      fetchSGOOdds(key).catch((e) =>
+        console.error("Background SGO fetch failed:", e)
+      );
+    }
+    return res
+      .status(503)
+      .json({ error: "Odds cache not ready yet", retryAfterSeconds: 30 });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || String(err) });
   }
 });
 
-app.get("/api/rosters", async (req, res) => {
+app.get("/api/summary/:sport/:eventId", async (req, res) => {
   try {
-    // Check cache first
-    if (!rosterGamelogCache["all"]) {
-      await fetchAllRostersAndGamelogs();
+    const rawParam = String(req.params.sport || "nba");
+    const explicitEventId = req.params.eventId
+      ? String(req.params.eventId)
+      : null;
+    // If an explicit :eventId param was provided, use that for event-based summary
+    if (explicitEventId) {
+      const eventId = explicitEventId;
+      try {
+        // Check cache first
+        const old = summaryDataCache[eventId];
+        const newSummary = await fetchSummary(eventId, rawParam);
+
+        // If we had an old summary, compare game state transitions
+        try {
+          const oldState = old?.header?.competitions?.[0]?.status?.type?.state;
+          const newState =
+            newSummary?.header?.competitions?.[0]?.status?.type?.state;
+          if (oldState && newState && oldState !== newState) {
+            const comp = newSummary.header?.competitions?.[0];
+            const home =
+              comp?.competitors?.find((c) => c.homeAway === "home")?.team
+                ?.abbreviation || "";
+            const away =
+              comp?.competitors?.find((c) => c.homeAway === "away")?.team
+                ?.abbreviation || "";
+            // Only broadcast once per transition using eventBroadcastState
+            const lastBroadcast = eventBroadcastState[eventId] || null;
+            if (
+              oldState === "pre" &&
+              newState === "in" &&
+              lastBroadcast !== "in"
+            ) {
+              eventBroadcastState[eventId] = "in";
+              // game started
+            }
+            if (
+              oldState === "in" &&
+              newState === "post" &&
+              lastBroadcast !== "post"
+            ) {
+              eventBroadcastState[eventId] = "post";
+              const homeScore =
+                comp?.competitors?.find((c) => c.homeAway === "home")?.score ||
+                0;
+              const awayScore =
+                comp?.competitors?.find((c) => c.homeAway === "away")?.score ||
+                0;
+            }
+          }
+        } catch (e) {
+          console.error("Error comparing summary states", e?.message || e);
+        }
+
+        // Transform and return only the filtered data (prefer freshly fetched summary)
+        let transformedData = transformSummaryData(
+          newSummary || summaryDataCache[eventId]
+        );
+
+        // Attempt to attach SGO odds for this event (if odds cache available)
+        try {
+          const sportKey = rawParam.toLowerCase();
+          const sgoEvents =
+            (oddsCache[sportKey] && oddsCache[sportKey].data) || [];
+          if (
+            sgoEvents &&
+            sgoEvents.length > 0 &&
+            transformedData?.header?.competitions?.[0]
+          ) {
+            const comp = transformedData.header.competitions[0];
+            const competitors = comp.competitors || [];
+            const home = competitors.find((c) => c.homeAway === "home");
+            const away = competitors.find((c) => c.homeAway === "away");
+            const normalize = (s) => {
+              if (!s) return "";
+              try {
+                return String(s)
+                  .normalize("NFD")
+                  .replace(/\p{Diacritic}/gu, "")
+                  .replace(/[^a-zA-Z0-9\s]/g, " ")
+                  .replace(/\s+/g, " ")
+                  .trim()
+                  .toLowerCase();
+              } catch (e) {
+                return String(s).toLowerCase();
+              }
+            };
+
+            const homeName = normalize(
+              home?.team?.displayName || home?.team?.abbreviation || ""
+            );
+            const awayName = normalize(
+              away?.team?.displayName || away?.team?.abbreviation || ""
+            );
+
+            // build quick index
+            const sgoIndexByNormalizedTeamPair = {};
+            for (const ev of sgoEvents) {
+              const evHome = normalize(
+                ev.teams?.home?.name || ev.teams?.home?.abbr || ""
+              );
+              const evAway = normalize(
+                ev.teams?.away?.name || ev.teams?.away?.abbr || ""
+              );
+              sgoIndexByNormalizedTeamPair[`${evHome}||${evAway}`] = ev;
+            }
+
+            let sgoMatch =
+              sgoIndexByNormalizedTeamPair[`${homeName}||${awayName}`] || null;
+            if (!sgoMatch) {
+              for (const ev of sgoEvents) {
+                const evHome = normalize(
+                  ev.teams?.home?.name || ev.teams?.home?.abbr || ""
+                );
+                const evAway = normalize(
+                  ev.teams?.away?.name || ev.teams?.away?.abbr || ""
+                );
+                if (
+                  (evHome && evHome === homeName && evAway === awayName) ||
+                  (evHome && evHome === awayName && evAway === homeName)
+                ) {
+                  sgoMatch = ev;
+                  break;
+                }
+                if (
+                  (evHome && evHome.includes(homeName)) ||
+                  (evAway && evAway.includes(awayName))
+                ) {
+                  sgoMatch = ev; // weak match
+                  break;
+                }
+              }
+            }
+
+            if (sgoMatch) {
+              try {
+                const sgoHomeOdds = sgoMatch.odds?.teams?.home || null;
+                const sgoAwayOdds = sgoMatch.odds?.teams?.away || null;
+                if (home && !home.record) home.record = {};
+                if (away && !away.record) away.record = {};
+                if (home) home.record.odds = { sgo: sgoHomeOdds };
+                if (away) away.record.odds = { sgo: sgoAwayOdds };
+                if (
+                  sgoMatch.odds &&
+                  Array.isArray(sgoMatch.odds.all) &&
+                  sgoMatch.odds.all.length > 0
+                ) {
+                  // Attach SGO markets at the top-level only and remove any
+                  // legacy competition-level `pickcenter` to avoid duplicate data.
+                  transformedData.pickcenter = { all: sgoMatch.odds.all };
+                  try {
+                    if (comp && comp.pickcenter) delete comp.pickcenter;
+                  } catch (delErr) {
+                    /* non-fatal */
+                  }
+                }
+              } catch (e) {
+                console.warn(
+                  `[Summary:${sportKey}] failed to attach SGO odds to event ${eventId}:`,
+                  e?.message || e
+                );
+              }
+            } else {
+              console.debug(
+                `[Summary:${sportKey}] SGO events:${
+                  sgoEvents.length
+                } no match for ${homeName}||${awayName}. SGO sample keys: ${sgoEvents
+                  .slice(0, 6)
+                  .map((ev) => {
+                    const nH = normalize(
+                      ev.teams?.home?.name || ev.teams?.home?.abbr || ""
+                    );
+                    const nA = normalize(
+                      ev.teams?.away?.name || ev.teams?.away?.abbr || ""
+                    );
+                    return `${nH}||${nA}`;
+                  })
+                  .join(", ")}`
+              );
+            }
+          }
+        } catch (e) {
+          console.warn(
+            `Error attaching SGO odds for event ${eventId}:`,
+            e?.message || e
+          );
+        }
+
+        return res.json(
+          transformedData || { error: "Failed to fetch summary data" }
+        );
+      } catch (error) {
+        return res.status(500).json({ error: error.message });
+      }
     }
 
-    // Transform and return the data
-    const transformedData = transformRostersData(rosterGamelogCache["all"]);
-    res.json(transformedData || { error: "Failed to fetch rosters data" });
+    // If the param looks like an ESPN eventId (numeric single-segment), allow that too
+    if (/^\d+$/.test(rawParam)) {
+      const eventId = rawParam;
+      try {
+        const old = summaryDataCache[eventId];
+        const newSummary = await fetchSummary(eventId, rawParam);
+        try {
+          const oldState = old?.header?.competitions?.[0]?.status?.type?.state;
+          const newState =
+            newSummary?.header?.competitions?.[0]?.status?.type?.state;
+          if (oldState && newState && oldState !== newState) {
+            const comp = newSummary.header?.competitions?.[0];
+            const lastBroadcast = eventBroadcastState[eventId] || null;
+            if (
+              oldState === "pre" &&
+              newState === "in" &&
+              lastBroadcast !== "in"
+            ) {
+              eventBroadcastState[eventId] = "in";
+            }
+            if (
+              oldState === "in" &&
+              newState === "post" &&
+              lastBroadcast !== "post"
+            ) {
+              eventBroadcastState[eventId] = "post";
+            }
+          }
+        } catch (e) {
+          console.error("Error comparing summary states", e?.message || e);
+        }
+        const transformedData = transformSummaryData(
+          newSummary || summaryDataCache[eventId]
+        );
+        return res.json(
+          transformedData || { error: "Failed to fetch summary data" }
+        );
+      } catch (error) {
+        return res.status(500).json({ error: error.message });
+      }
+    }
+
+    const sportKey = rawParam.toLowerCase();
+
+    // Fetch latest scoreboard for sport
+    const sb = await fetchScoreboard(sportKey);
+    if (!sb || !sb.events)
+      return res.status(503).json({ error: "scoreboard not available" });
+
+    // Transform scoreboard into the familiar summary shape
+    const transformedScore = transformScoreboardData(sb);
+
+    // Try to grab SGO odds for this sport
+    const sgoEvents = (oddsCache[sportKey] && oddsCache[sportKey].data) || [];
+    if (!sgoEvents || sgoEvents.length === 0) {
+      // Kick off a background fetch if empty
+      if (!oddsCache[sportKey] || !oddsCache[sportKey].isFetching) {
+        fetchSGOOdds(sportKey).catch((e) =>
+          console.error(`[SGO:${sportKey}] background prime failed:`, e)
+        );
+      }
+    }
+
+    const normalize = (s) => {
+      if (!s) return "";
+      try {
+        return String(s)
+          .normalize("NFD")
+          .replace(/\p{Diacritic}/gu, "")
+          .replace(/[^a-zA-Z0-9\s]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+      } catch (e) {
+        return String(s).toLowerCase();
+      }
+    };
+
+    // For each event in the transformed scoreboard, attempt to find matching SGO event
+    const sgoIndexByNormalizedTeamPair = {};
+    for (const ev of sgoEvents) {
+      const homeName = normalize(
+        ev.teams?.home?.name || ev.teams?.home?.abbr || ""
+      );
+      const awayName = normalize(
+        ev.teams?.away?.name || ev.teams?.away?.abbr || ""
+      );
+      const key = `${homeName}||${awayName}`;
+      sgoIndexByNormalizedTeamPair[key] = ev;
+    }
+
+    // Attach odds to each competitor under competitor.record.odds and replace pickcenter with sgo 'all'
+    if (
+      transformedScore.header &&
+      Array.isArray(transformedScore.header.competitions)
+    ) {
+      for (const comp of transformedScore.header.competitions) {
+        const competitors = comp.competitors || [];
+        const home = competitors.find((c) => c.homeAway === "home");
+        const away = competitors.find((c) => c.homeAway === "away");
+        const homeName = normalize(
+          home?.team?.displayName || home?.team?.abbreviation || ""
+        );
+        const awayName = normalize(
+          away?.team?.displayName || away?.team?.abbreviation || ""
+        );
+
+        // try exact pairing
+        let sgoMatch =
+          sgoIndexByNormalizedTeamPair[`${homeName}||${awayName}`] || null;
+
+        // fallback: try matching by home OR away name individually
+        if (!sgoMatch) {
+          for (const ev of sgoEvents) {
+            const evHome = normalize(
+              ev.teams?.home?.name || ev.teams?.home?.abbr || ""
+            );
+            const evAway = normalize(
+              ev.teams?.away?.name || ev.teams?.away?.abbr || ""
+            );
+            if (
+              (evHome && evHome === homeName && evAway === awayName) ||
+              (evHome && evHome === awayName && evAway === homeName)
+            ) {
+              sgoMatch = ev;
+              break;
+            }
+            // also allow substring matches
+            if (
+              (evHome && evHome.includes(homeName)) ||
+              (evAway && evAway.includes(awayName))
+            ) {
+              sgoMatch = ev; // weak match
+              break;
+            }
+          }
+        }
+
+        // Attach odds under competitor.record.odds
+        if (sgoMatch) {
+          try {
+            const sgoHomeOdds = sgoMatch.odds?.teams?.home || null;
+            const sgoAwayOdds = sgoMatch.odds?.teams?.away || null;
+            if (!home.record) home.record = {};
+            if (!away.record) away.record = {};
+            home.record.odds = { sgo: sgoHomeOdds };
+            away.record.odds = { sgo: sgoAwayOdds };
+
+            // Replace pickcenter/top-level pick data with SGO 'all' markets for this event
+            if (
+              sgoMatch.odds &&
+              Array.isArray(sgoMatch.odds.all) &&
+              sgoMatch.odds.all.length > 0
+            ) {
+              // Attach SGO markets only at the top-level and remove any
+              // existing competition-level `pickcenter` to avoid legacy duplicates.
+              transformedScore.pickcenter = { all: sgoMatch.odds.all };
+              try {
+                if (comp && comp.pickcenter) delete comp.pickcenter;
+              } catch (delErr) {
+                /* non-fatal */
+              }
+            }
+          } catch (e) {
+            console.warn(
+              `[Summary:${sportKey}] failed to attach SGO odds:`,
+              e?.message || e
+            );
+          }
+        }
+        // helpful debug: no SGO match found for this competition
+        console.debug(
+          `[Summary:${sportKey}] no SGO match for ${
+            home?.team?.displayName || home?.team?.abbreviation
+          } vs ${away?.team?.displayName || away?.team?.abbreviation}`
+        );
+      }
+    }
+
+    return res.json(transformedScore || { error: "failed to build summary" });
+  } catch (err) {
+    console.error("/api/summary error", err?.message || err);
+    return res.status(500).json({ error: "internal error" });
+  }
+});
+
+app.get("/api/rosters/:sport", async (req, res) => {
+  try {
+    const { sport } = req.params;
+    const key = String(sport || "nba").toLowerCase();
+
+    const entry = rosterCache[key];
+    if (entry && entry.data) {
+      const age = Date.now() - (entry.lastFetched || 0);
+      if (age < SGO_CACHE_TTL_MS) {
+        const transformedData = transformRostersData(entry.data);
+        return res.json(
+          transformedData || { error: "Failed to fetch rosters data" }
+        );
+      }
+
+      // Stale: return cached immediately and trigger a background refresh (non-blocking)
+      if (!entry.isFetching) {
+        fetchRostersForSport(key).catch((e) =>
+          console.error("Background roster fetch failed:", e)
+        );
+      }
+      const transformedData = transformRostersData(entry.data);
+      return res.json({ ...transformedData, stale: true });
+    }
+
+    // No cache: trigger background fetch and return 503 so caller knows to retry
+    if (!rosterCache[key])
+      rosterCache[key] = { lastFetched: 0, data: null, isFetching: false };
+    if (!rosterCache[key].isFetching) {
+      fetchRostersForSport(key).catch((e) =>
+        console.error("Background roster fetch failed:", e)
+      );
+    }
+    return res
+      .status(503)
+      .json({ error: "Roster cache not ready yet", retryAfterSeconds: 30 });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -2296,6 +5272,1009 @@ app.get("/api/betslip", async (req, res) => {
           .split(",")
           .map((s) => s.trim())
       : null;
+
+    // Generic per-game param lookup helper (supports comma-separated or single value)
+    const getParamValueForGame = (paramName, giIndex) => {
+      const raw = req.query[paramName];
+      if (raw === undefined || raw === null) return null;
+      const parts = String(raw)
+        .split(",")
+        .map((s) => s.trim());
+      return parts.length === 1 ? parts[0] : parts[giIndex] || null;
+    };
+
+    // Normalize player-style comma-joined key=value fragments.
+    // Some clients send `p1_ugl=1+,p1_card=1+` (comma instead of `&`).
+    // Expand those into separate entries on `playerBets` so downstream logic treats them as distinct bets.
+    try {
+      Object.keys(req.query || {}).forEach((k) => {
+        const raw = req.query[k];
+        if (typeof raw !== "string") return;
+        if (raw.indexOf(",") === -1 || raw.indexOf("=") === -1) return;
+        const parts = raw
+          .split(",")
+          .map((p) => p.trim())
+          .filter(Boolean);
+        if (!parts.length) return;
+        for (const part of parts) {
+          const eq = part.indexOf("=");
+          if (eq === -1) continue;
+          const subk = part.substring(0, eq).trim();
+          const subv = part.substring(eq + 1).trim();
+          if (/^p\d+(_\w+)?$/.test(subk)) {
+            // only add if not already present to avoid overwriting explicit params
+            if (!playerBets[subk]) playerBets[subk] = subv;
+          }
+        }
+        // If original key is a player stat (pN[_stat]) and the first comma-part is a simple value,
+        // set the original key to its first value portion (helpful when clients send `p1_ugl=1+,p1_card=1+`).
+        if (/^p\d+(_\w+)?$/.test(k)) {
+          const first = parts[0];
+          if (first && first.indexOf("=") === -1) playerBets[k] = first;
+          else if (first && first.indexOf("=") !== -1)
+            playerBets[k] = first.split("=")[1].trim();
+        }
+      });
+    } catch (e) {
+      /* ignore normalization errors */
+    }
+
+    // Helper: map common short stat aliases to a regex that can find the index in labels
+    const findStatIndexByAlias = (labels = [], alias = "") => {
+      if (!labels || !Array.isArray(labels)) return -1;
+      const a = String(alias || "").toUpperCase();
+      let regex = null;
+      switch (a) {
+        case "PYDS":
+          regex = /pass(ing)?\b.*(yds|yards)|pass\s*yds/i;
+          break;
+        case "PRYDS":
+          // composite: passing + rushing yards (handled as composite)
+          return -2;
+        case "RYDS":
+          regex = /rush(ing)?\b.*(yds|yards)|rush\s*yds/i;
+          break;
+        case "RECYDS":
+          regex = /rec(eiving)?\b.*(yds|yards)|rec\s*yds/i;
+          break;
+        case "PCMP":
+        case "PATT":
+          // Comp/Att composite parsing handled specially
+          return -2;
+        case "PINT":
+          regex = /pass(ing)?\b.*int|int\b|intercept(ion|ions)/i;
+          break;
+        case "PLNG":
+          regex = /pass(ing)?\b.*long|long\b|longest pass/i;
+          break;
+        case "PTD":
+          // Passing TD (try to match passing TD label)
+          regex = /pass(ing)?\b.*td|passing.*td|td\b/i;
+          break;
+        case "TDS":
+          // Total touchdowns composite (rushing + receiving + defensive)
+          return -2;
+        case "RLNG":
+          regex = /rush(ing)?\b.*long|long\b|longest rush/i;
+          break;
+        case "RREC":
+          regex = /rec(eiving)?\b.*(rec|recs|receptions)|rec\b/i;
+          break;
+        case "RECLONG":
+          regex = /rec(eiving)?\b.*long|long\b|longest rec/i;
+          break;
+        case "RRYDS":
+          // composite: rushing + receiving yards
+          return -2;
+        case "RATT":
+          regex = /car\b|att\b|carries|rush attempts|rush att/i;
+          break;
+        case "DSAC":
+          regex = /sack(s)?\b|sacks/i;
+          break;
+        case "KXP":
+        case "KFG":
+        case "KPTS":
+          return -2;
+        case "HGL":
+        case "GOAL":
+        case "GOALS":
+          // NHL goals (can be yes/no or numeric)
+          regex = /^g$|^goals?$|\bg\b/i;
+          break;
+        case "SHT":
+        case "SOG":
+          // NHL shots on goal
+          regex = /sog|shots on goal|shots/i;
+          break;
+        case "GA":
+          // NHL goals + assists composite
+          return -2;
+        case "BS":
+          // NHL blocked shots
+          regex = /^bs$|blocked shots|blocks/i;
+          break;
+        case "GSV":
+          // NHL goalie saves
+          regex = /^sv$|saves?|goalie saves/i;
+          break;
+        case "PTS":
+          regex = /pts|points/i;
+          break;
+        case "AST":
+          regex = /ast|assists/i;
+          break;
+        case "REB":
+          regex = /reb|rebounds/i;
+          break;
+        case "3PT":
+        case "THREES":
+          regex = /3pt|three/i;
+          break;
+        case "PRA":
+          // Points+Rebounds+Assists special composite handled elsewhere
+          return -2; // signal composite
+        case "PA":
+          // Points + Assists
+          return -2;
+        case "PR":
+          // Points + Rebounds
+          return -2;
+        case "RA":
+          // Rebounds + Assists
+          return -2;
+        case "3PM":
+        case "3PTM":
+          regex = /3pt|three/i;
+          break;
+        case "STL":
+        case "STEALS":
+          regex = /stl|steals/i;
+          break;
+        case "BLK":
+        case "BLOCKS":
+          regex = /blk|blocks/i;
+          break;
+        case "1QPTS":
+        case "1QAST":
+        case "1QREB":
+          // period-specific labels handled via resolvePlayerStatValue
+          return -2;
+        case "2DBL":
+        case "DBL":
+        case "DOUBLEDOUBLE":
+          return -2;
+        case "3DBL":
+        case "TRIPLED":
+        case "TRIPLEDOUBLE":
+          return -2;
+        default:
+          regex = null;
+      }
+      if (!regex) return -1;
+      return labels.findIndex((lab) => regex.test(String(lab || "")));
+    };
+
+    // Resolve a player's stat value by alias or composite name without reading definitions.txt
+    const resolvePlayerStatValue = (
+      athleteEntry,
+      labels,
+      statUpper,
+      sportKeyGuess
+    ) => {
+      // athleteEntry shape may be { athlete: {...}, stats: [...] } or a flat athlete object
+      const athleteObj = athleteEntry.athlete || athleteEntry;
+      // helper to read label-indexed stats array
+      const readLabelIndex = (labelName) => {
+        if (Array.isArray(labels) && Array.isArray(athleteEntry.stats)) {
+          const idx = labels.findIndex(
+            (l) => String(l).toUpperCase() === String(labelName).toUpperCase()
+          );
+          if (idx >= 0) return parseFloat(athleteEntry.stats[idx]) || 0;
+        }
+        return null;
+      };
+
+      // helper to read nested properties (case-insensitive)
+      const tryGet = (obj, keys) => {
+        try {
+          let cur = obj;
+          for (const k of keys) {
+            if (!cur) return null;
+            if (cur[k] !== undefined) cur = cur[k];
+            else if (cur[String(k).toLowerCase()] !== undefined)
+              cur = cur[String(k).toLowerCase()];
+            else if (cur[String(k).toUpperCase()] !== undefined)
+              cur = cur[String(k).toUpperCase()];
+            else return null;
+          }
+          return cur;
+        } catch (e) {
+          return null;
+        }
+      };
+
+      // common simple aliases
+      if (statUpper === "PTS")
+        return (
+          readLabelIndex("PTS") ??
+          tryGet(athleteEntry, ["stats", "PTS"]) ??
+          tryGet(athleteObj, ["stats", "PTS"]) ??
+          tryGet(athleteObj, ["pts"]) ??
+          0
+        );
+      if (statUpper === "REB")
+        return (
+          readLabelIndex("REB") ??
+          tryGet(athleteEntry, ["stats", "REB"]) ??
+          tryGet(athleteObj, ["stats", "REB"]) ??
+          tryGet(athleteObj, ["reb"]) ??
+          0
+        );
+      if (statUpper === "AST")
+        return (
+          readLabelIndex("AST") ??
+          tryGet(athleteEntry, ["stats", "AST"]) ??
+          tryGet(athleteObj, ["stats", "AST"]) ??
+          tryGet(athleteObj, ["ast"]) ??
+          0
+        );
+
+      // PRA = PTS + REB + AST
+      if (statUpper === "PRA") {
+        const ptsLabel = readLabelIndex("PTS");
+        const ptsEntry = tryGet(athleteEntry, ["stats", "PTS"]);
+        const ptsObj = tryGet(athleteObj, ["stats", "PTS"]);
+        const ptsFlat = tryGet(athleteObj, ["pts"]);
+        const pts = ptsLabel ?? ptsEntry ?? ptsObj ?? ptsFlat ?? 0;
+
+        const rebLabel = readLabelIndex("REB");
+        const rebEntry = tryGet(athleteEntry, ["stats", "REB"]);
+        const rebObj = tryGet(athleteObj, ["stats", "REB"]);
+        const rebFlat = tryGet(athleteObj, ["reb"]);
+        const reb = rebLabel ?? rebEntry ?? rebObj ?? rebFlat ?? 0;
+
+        const astLabel = readLabelIndex("AST");
+        const astEntry = tryGet(athleteEntry, ["stats", "AST"]);
+        const astObj = tryGet(athleteObj, ["stats", "AST"]);
+        const astFlat = tryGet(athleteObj, ["ast"]);
+        const ast = astLabel ?? astEntry ?? astObj ?? astFlat ?? 0;
+
+        console.log(
+          `[Betslip] PRA debug: ptsLabel=${ptsLabel}, ptsEntry=${ptsEntry}, ptsObj=${ptsObj}, ptsFlat=${ptsFlat}, final pts=${pts}`
+        );
+        console.log(
+          `[Betslip] PRA debug: rebLabel=${rebLabel}, rebEntry=${rebEntry}, rebObj=${rebObj}, rebFlat=${rebFlat}, final reb=${reb}`
+        );
+        console.log(
+          `[Betslip] PRA debug: astLabel=${astLabel}, astEntry=${astEntry}, astObj=${astObj}, astFlat=${astFlat}, final ast=${ast}`
+        );
+        console.log(
+          `[Betslip] PRA calculation: pts=${pts}, reb=${reb}, ast=${ast}, sum=${
+            Number(pts) + Number(reb) + Number(ast)
+          }`
+        );
+        return Number(pts) + Number(reb) + Number(ast);
+      }
+
+      // PA = PTS + AST
+      if (statUpper === "PA") {
+        const pts =
+          readLabelIndex("PTS") ??
+          tryGet(athleteEntry, ["stats", "PTS"]) ??
+          tryGet(athleteObj, ["stats", "PTS"]) ??
+          tryGet(athleteObj, ["pts"]) ??
+          0;
+        const ast =
+          readLabelIndex("AST") ??
+          tryGet(athleteEntry, ["stats", "AST"]) ??
+          tryGet(athleteObj, ["stats", "AST"]) ??
+          tryGet(athleteObj, ["ast"]) ??
+          0;
+        return Number(pts) + Number(ast);
+      }
+
+      // PR = PTS + REB
+      if (statUpper === "PR") {
+        const pts =
+          readLabelIndex("PTS") ??
+          tryGet(athleteEntry, ["stats", "PTS"]) ??
+          tryGet(athleteObj, ["stats", "PTS"]) ??
+          tryGet(athleteObj, ["pts"]) ??
+          0;
+        const reb =
+          readLabelIndex("REB") ??
+          tryGet(athleteEntry, ["stats", "REB"]) ??
+          tryGet(athleteObj, ["stats", "REB"]) ??
+          tryGet(athleteObj, ["reb"]) ??
+          0;
+        return Number(pts) + Number(reb);
+      }
+
+      // RA = REB + AST
+      if (statUpper === "RA") {
+        const reb =
+          readLabelIndex("REB") ??
+          tryGet(athleteEntry, ["stats", "REB"]) ??
+          tryGet(athleteObj, ["stats", "REB"]) ??
+          tryGet(athleteObj, ["reb"]) ??
+          0;
+        const ast =
+          readLabelIndex("AST") ??
+          tryGet(athleteEntry, ["stats", "AST"]) ??
+          tryGet(athleteObj, ["stats", "AST"]) ??
+          tryGet(athleteObj, ["ast"]) ??
+          0;
+        return Number(reb) + Number(ast);
+      }
+
+      // 1Q / period-specific stats (NBA stores per-period objects like '1Q')
+      if (/^1Q(PTS|AST|REB)$/.test(statUpper)) {
+        try {
+          const key = statUpper.replace(/^1Q/, "");
+          // Try several shapes: athleteEntry['1Q'], athlete.athlete['1Q'], athleteEntry.stats object, or labeled stats array like '1Q PTS'
+          const periodObj =
+            tryGet(athleteEntry, ["1Q"]) ||
+            tryGet(athleteObj, ["1Q"]) ||
+            tryGet(athleteEntry, ["athlete", "1Q"]) ||
+            tryGet(athleteObj, ["stats", "1Q"]) ||
+            tryGet(athleteEntry, ["stats", "1Q"]);
+          if (periodObj && typeof periodObj === "object") {
+            const val =
+              tryGet(periodObj, [key]) ??
+              tryGet(periodObj, [key.toUpperCase()]) ??
+              tryGet(periodObj, [key.toLowerCase()]);
+            console.log(
+              `[Betslip] resolvePlayerStatValue 1Q lookup for stat=${statUpper}, athleteId=${
+                tryGet(athleteEntry, ["athlete", "id"]) ||
+                tryGet(athleteEntry, ["id"])
+              }, periodObj=`,
+              periodObj,
+              "val=",
+              val
+            );
+            return Number(val) || 0;
+          }
+
+          // If stats are in array form with labels, try to find a label like '1Q PTS' or 'Q1 PTS'
+          if (Array.isArray(labels) && Array.isArray(athleteEntry.stats)) {
+            const re = new RegExp(`(1Q|Q1).*(?:\\s|-|_)?${key}`, "i");
+            const idx = labels.findIndex((l) => re.test(String(l || "")));
+            if (idx >= 0) return Number(athleteEntry.stats[idx]) || 0;
+          }
+        } catch (e) {}
+        return 0;
+      }
+
+      // 3PM / three pointers made: parse "3PT" string like "5-12"
+      if (statUpper === "3PM" || statUpper === "3PTM") {
+        const raw =
+          readLabelIndex("3PT") ||
+          tryGet(athleteEntry, ["stats", "3PT"]) ||
+          tryGet(athleteObj, ["stats", "3PT"]) ||
+          tryGet(athleteObj, ["3pt"]) ||
+          null;
+        if (raw && String(raw).includes("/")) {
+          const nums = String(raw)
+            .split(/[-\/]/)
+            .map((s) => parseInt(s, 10))
+            .filter((n) => !isNaN(n));
+          if (nums.length >= 1) return nums[0];
+        }
+        if (raw && String(raw).includes("-")) {
+          const nums = String(raw)
+            .split("-")
+            .map((s) => parseInt(s, 10))
+            .filter((n) => !isNaN(n));
+          if (nums.length >= 1) return nums[0];
+        }
+        return Number(raw) || 0;
+      }
+
+      // Steals / Blocks simple lookups
+      if (statUpper === "STL" || statUpper === "STEALS")
+        return (
+          readLabelIndex("STL") ??
+          tryGet(athleteEntry, ["stats", "STL"]) ??
+          tryGet(athleteObj, ["stats", "STL"]) ??
+          tryGet(athleteObj, ["stl"]) ??
+          0
+        );
+      if (statUpper === "BLK" || statUpper === "BLOCKS")
+        return (
+          readLabelIndex("BLK") ??
+          tryGet(athleteEntry, ["stats", "BLK"]) ??
+          tryGet(athleteObj, ["stats", "BLK"]) ??
+          tryGet(athleteObj, ["blk"]) ??
+          0
+        );
+
+      // Double-double / Triple-double detection
+      if (
+        statUpper === "2DBL" ||
+        statUpper === "DBL" ||
+        statUpper === "DOUBLEDOUBLE"
+      ) {
+        const pts =
+          Number(
+            readLabelIndex("PTS") ??
+              tryGet(athleteEntry, ["stats", "PTS"]) ??
+              tryGet(athleteObj, ["stats", "PTS"]) ??
+              0
+          ) || 0;
+        const reb =
+          Number(
+            readLabelIndex("REB") ??
+              tryGet(athleteEntry, ["stats", "REB"]) ??
+              tryGet(athleteObj, ["stats", "REB"]) ??
+              0
+          ) || 0;
+        const ast =
+          Number(
+            readLabelIndex("AST") ??
+              tryGet(athleteEntry, ["stats", "AST"]) ??
+              tryGet(athleteObj, ["stats", "AST"]) ??
+              0
+          ) || 0;
+        const stl =
+          Number(
+            readLabelIndex("STL") ??
+              tryGet(athleteEntry, ["stats", "STL"]) ??
+              tryGet(athleteObj, ["stats", "STL"]) ??
+              0
+          ) || 0;
+        const blk =
+          Number(
+            readLabelIndex("BLK") ??
+              tryGet(athleteEntry, ["stats", "BLK"]) ??
+              tryGet(athleteObj, ["stats", "BLK"]) ??
+              0
+          ) || 0;
+        const categories = [pts, reb, ast, stl, blk];
+        const count = categories.reduce(
+          (c, v) => c + (Number(v) >= 10 ? 1 : 0),
+          0
+        );
+        return count >= 2 ? 1 : 0;
+      }
+      if (
+        statUpper === "3DBL" ||
+        statUpper === "TRIPLEDOUBLE" ||
+        statUpper === "TRIPLED"
+      ) {
+        const pts =
+          Number(
+            readLabelIndex("PTS") ??
+              tryGet(athleteEntry, ["stats", "PTS"]) ??
+              tryGet(athleteObj, ["stats", "PTS"]) ??
+              0
+          ) || 0;
+        const reb =
+          Number(
+            readLabelIndex("REB") ??
+              tryGet(athleteEntry, ["stats", "REB"]) ??
+              tryGet(athleteObj, ["stats", "REB"]) ??
+              0
+          ) || 0;
+        const ast =
+          Number(
+            readLabelIndex("AST") ??
+              tryGet(athleteEntry, ["stats", "AST"]) ??
+              tryGet(athleteObj, ["stats", "AST"]) ??
+              0
+          ) || 0;
+        const stl =
+          Number(
+            readLabelIndex("STL") ??
+              tryGet(athleteEntry, ["stats", "STL"]) ??
+              tryGet(athleteObj, ["stats", "STL"]) ??
+              0
+          ) || 0;
+        const blk =
+          Number(
+            readLabelIndex("BLK") ??
+              tryGet(athleteEntry, ["stats", "BLK"]) ??
+              tryGet(athleteObj, ["stats", "BLK"]) ??
+              0
+          ) || 0;
+        const categories = [pts, reb, ast, stl, blk];
+        const count = categories.reduce(
+          (c, v) => c + (Number(v) >= 10 ? 1 : 0),
+          0
+        );
+        return count >= 3 ? 1 : 0;
+      }
+
+      // UGL / Goals (common soccer shorthand)
+      if (
+        statUpper === "UGL" ||
+        statUpper === "G" ||
+        statUpper === "GOAL" ||
+        statUpper === "GOALS"
+      ) {
+        const v =
+          readLabelIndex("G") ??
+          readLabelIndex("Gls") ??
+          tryGet(athleteObj, ["stats", "G"]) ??
+          tryGet(athleteObj, ["goals"]) ??
+          tryGet(athleteObj, ["G"]) ??
+          0;
+        // If no explicit stat, try counting goal-type plays (some summaries record goals in `plays`)
+        const parsed = Number(v) || 0;
+        if (parsed > 0) return parsed;
+        try {
+          const plays =
+            (athleteEntry && athleteEntry.plays) ||
+            (athleteObj && athleteObj.plays) ||
+            (athleteEntry &&
+              athleteEntry.athlete &&
+              athleteEntry.athlete.plays) ||
+            [];
+          if (Array.isArray(plays) && plays.length) {
+            const cnt = plays.reduce((sum, p) => {
+              try {
+                const s = JSON.stringify(p || "").toLowerCase();
+                if (/(\bgoal\b|\bscor(e|ed)\b|penalty goal|\bpen\b)/i.test(s))
+                  return sum + 1;
+              } catch (e) {}
+              return sum;
+            }, 0);
+            if (cnt > 0) return cnt;
+          }
+        } catch (e) {}
+        return 0;
+      }
+
+      // Yellow cards (YC)
+      if (
+        statUpper === "YC" ||
+        statUpper === "Y" ||
+        statUpper === "YELLOW" ||
+        statUpper === "YELLOWCARDS"
+      ) {
+        const v =
+          readLabelIndex("YC") ??
+          readLabelIndex("Y") ??
+          readLabelIndex("Yellow Cards") ??
+          tryGet(athleteObj, ["stats", "YC"]) ??
+          tryGet(athleteObj, ["yellowCards"]) ??
+          0;
+        const parsed = Number(v) || 0;
+        if (parsed > 0) return parsed;
+        try {
+          const plays =
+            (athleteEntry && athleteEntry.plays) ||
+            (athleteObj && athleteObj.plays) ||
+            (athleteEntry &&
+              athleteEntry.athlete &&
+              athleteEntry.athlete.plays) ||
+            [];
+          if (Array.isArray(plays) && plays.length) {
+            const cnt = plays.reduce((sum, p) => {
+              try {
+                const s = JSON.stringify(p || "").toLowerCase();
+                if (/(yellow card|yellow)/i.test(s)) return sum + 1;
+              } catch (e) {}
+              return sum;
+            }, 0);
+            if (cnt > 0) return cnt;
+          }
+        } catch (e) {}
+        return 0;
+      }
+
+      // Red cards (RC)
+      if (statUpper === "RC" || statUpper === "R" || statUpper === "REDCARDS") {
+        const v =
+          readLabelIndex("RC") ??
+          readLabelIndex("R") ??
+          readLabelIndex("Red Cards") ??
+          tryGet(athleteObj, ["stats", "RC"]) ??
+          tryGet(athleteObj, ["redCards"]) ??
+          0;
+        const parsed = Number(v) || 0;
+        if (parsed > 0) return parsed;
+        try {
+          const plays =
+            (athleteEntry && athleteEntry.plays) ||
+            (athleteObj && athleteObj.plays) ||
+            (athleteEntry &&
+              athleteEntry.athlete &&
+              athleteEntry.athlete.plays) ||
+            [];
+          if (Array.isArray(plays) && plays.length) {
+            const cnt = plays.reduce((sum, p) => {
+              try {
+                const s = JSON.stringify(p || "").toLowerCase();
+                if (/(red card|red)/i.test(s)) return sum + 1;
+              } catch (e) {}
+              return sum;
+            }, 0);
+            if (cnt > 0) return cnt;
+          }
+        } catch (e) {}
+        return 0;
+      }
+
+      // CARD = Yellow + Red
+      if (
+        statUpper === "CARD" ||
+        statUpper === "CARDS" ||
+        statUpper === "YCRC" ||
+        statUpper === "YC+RC"
+      ) {
+        const yc =
+          readLabelIndex("YC") ??
+          readLabelIndex("Y") ??
+          tryGet(athleteObj, ["stats", "YC"]) ??
+          tryGet(athleteObj, ["yellowCards"]) ??
+          0;
+        const rc =
+          readLabelIndex("RC") ??
+          readLabelIndex("R") ??
+          tryGet(athleteObj, ["stats", "RC"]) ??
+          tryGet(athleteObj, ["redCards"]) ??
+          0;
+        const parsedYC = Number(yc) || 0;
+        const parsedRC = Number(rc) || 0;
+        if (parsedYC > 0 || parsedRC > 0) return parsedYC + parsedRC;
+        // fallback to plays
+        try {
+          const plays =
+            (athleteEntry && athleteEntry.plays) ||
+            (athleteObj && athleteObj.plays) ||
+            (athleteEntry &&
+              athleteEntry.athlete &&
+              athleteEntry.athlete.plays) ||
+            [];
+          if (Array.isArray(plays) && plays.length) {
+            const ycCnt = plays.reduce((sum, p) => {
+              try {
+                const s = JSON.stringify(p || "").toLowerCase();
+                if (/(yellow card|yellow)/i.test(s)) return sum + 1;
+              } catch (e) {}
+              return sum;
+            }, 0);
+            const rcCnt = plays.reduce((sum, p) => {
+              try {
+                const s = JSON.stringify(p || "").toLowerCase();
+                if (/(red card|red)/i.test(s)) return sum + 1;
+              } catch (e) {}
+              return sum;
+            }, 0);
+            return ycCnt + rcCnt;
+          }
+        } catch (e) {}
+        return 0;
+      }
+
+      // Passing yards + rushing yards composite (PRYDS)
+      if (statUpper === "PRYDS") {
+        const passY =
+          tryGet(athleteObj, ["passing", "YDS"]) ||
+          tryGet(athleteObj, ["passing", "yds"]) ||
+          tryGet(athleteObj, ["stats", "passing", "YDS"]) ||
+          tryGet(athleteEntry, ["stats", "passing", "YDS"]) ||
+          tryGet(athleteEntry, ["athlete", "stats", "passing", "YDS"]) ||
+          null;
+        const rushY =
+          tryGet(athleteObj, ["rushing", "YDS"]) ||
+          tryGet(athleteObj, ["rushing", "yds"]) ||
+          tryGet(athleteObj, ["stats", "rushing", "YDS"]) ||
+          tryGet(athleteEntry, ["stats", "rushing", "YDS"]) ||
+          tryGet(athleteEntry, ["athlete", "stats", "rushing", "YDS"]) ||
+          null;
+        return (Number(passY) || 0) + (Number(rushY) || 0);
+      }
+
+      // PYDS, RYDS, RECYDS individual (nested fallback)
+      if (statUpper === "PYDS")
+        return (
+          readLabelIndex("PYDS") ??
+          tryGet(athleteObj, ["passing", "YDS"]) ??
+          tryGet(athleteObj, ["passing", "yds"]) ??
+          tryGet(athleteEntry, ["stats", "passing", "YDS"]) ??
+          tryGet(athleteEntry, ["stats", "passing", "yds"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "passing", "YDS"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "passing", "yds"]) ??
+          0
+        );
+      if (statUpper === "RYDS")
+        return (
+          readLabelIndex("RYDS") ??
+          tryGet(athleteObj, ["rushing", "YDS"]) ??
+          tryGet(athleteObj, ["rushing", "yds"]) ??
+          tryGet(athleteEntry, ["stats", "rushing", "YDS"]) ??
+          tryGet(athleteEntry, ["stats", "rushing", "yds"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "rushing", "YDS"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "rushing", "yds"]) ??
+          0
+        );
+      if (statUpper === "RECYDS")
+        return (
+          readLabelIndex("RECYDS") ??
+          tryGet(athleteObj, ["receiving", "YDS"]) ??
+          tryGet(athleteObj, ["receiving", "yds"]) ??
+          tryGet(athleteEntry, ["stats", "receiving", "YDS"]) ??
+          tryGet(athleteEntry, ["stats", "receiving", "yds"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "receiving", "YDS"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "receiving", "yds"]) ??
+          0
+        );
+
+      // PINT - passing interceptions
+      if (statUpper === "PINT")
+        return (
+          readLabelIndex("PINT") ??
+          readLabelIndex("INT") ??
+          tryGet(athleteObj, ["passing", "INT"]) ??
+          tryGet(athleteEntry, ["stats", "passing", "INT"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "passing", "INT"]) ??
+          0
+        );
+
+      // PLNG - passing longest
+      if (statUpper === "PLNG")
+        return (
+          readLabelIndex("PLNG") ??
+          tryGet(athleteObj, ["passing", "LONG"]) ??
+          tryGet(athleteEntry, ["stats", "passing", "LONG"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "passing", "LONG"]) ??
+          0
+        );
+
+      // PTD - passing touchdowns
+      if (statUpper === "PTD")
+        return (
+          readLabelIndex("PTD") ??
+          readLabelIndex("TD") ??
+          tryGet(athleteObj, ["passing", "TD"]) ??
+          tryGet(athleteEntry, ["stats", "passing", "TD"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "passing", "TD"]) ??
+          0
+        );
+
+      // RLNG - rushing longest
+      if (statUpper === "RLNG")
+        return (
+          readLabelIndex("RLNG") ??
+          tryGet(athleteObj, ["rushing", "LONG"]) ??
+          tryGet(athleteEntry, ["stats", "rushing", "LONG"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "rushing", "LONG"]) ??
+          0
+        );
+
+      // RREC - receiving receptions
+      if (statUpper === "RREC")
+        return (
+          readLabelIndex("RREC") ??
+          readLabelIndex("REC") ??
+          tryGet(athleteObj, ["receiving", "REC"]) ??
+          tryGet(athleteEntry, ["stats", "receiving", "REC"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "receiving", "REC"]) ??
+          0
+        );
+
+      // RECLONG - receiving longest reception
+      if (statUpper === "RECLONG")
+        return (
+          readLabelIndex("RECLONG") ??
+          tryGet(athleteObj, ["receiving", "LONG"]) ??
+          tryGet(athleteEntry, ["stats", "receiving", "LONG"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "receiving", "LONG"]) ??
+          0
+        );
+
+      // RRYDS - rushing + receiving yards composite
+      if (statUpper === "RRYDS") {
+        const rushY =
+          tryGet(athleteObj, ["rushing", "YDS"]) ||
+          tryGet(athleteEntry, ["stats", "rushing", "YDS"]) ||
+          tryGet(athleteEntry, ["athlete", "stats", "rushing", "YDS"]) ||
+          0;
+        const recY =
+          tryGet(athleteObj, ["receiving", "YDS"]) ||
+          tryGet(athleteEntry, ["stats", "receiving", "YDS"]) ||
+          tryGet(athleteEntry, ["athlete", "stats", "receiving", "YDS"]) ||
+          0;
+        return (Number(rushY) || 0) + (Number(recY) || 0);
+      }
+
+      // RATT - rushing attempts/carries
+      if (statUpper === "RATT")
+        return (
+          readLabelIndex("RATT") ??
+          readLabelIndex("CAR") ??
+          tryGet(athleteObj, ["rushing", "CAR"]) ??
+          tryGet(athleteEntry, ["stats", "rushing", "CAR"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "rushing", "CAR"]) ??
+          0
+        );
+
+      // DSAC - defensive sacks
+      if (statUpper === "DSAC")
+        return (
+          readLabelIndex("DSAC") ??
+          readLabelIndex("SACKS") ??
+          tryGet(athleteObj, ["defensive", "SACKS"]) ??
+          tryGet(athleteEntry, ["stats", "defensive", "SACKS"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "defensive", "SACKS"]) ??
+          0
+        );
+
+      // NHL stats (flat stats object, not nested like NFL)
+      // HGL - NHL goals
+      if (statUpper === "HGL" || statUpper === "GOAL" || statUpper === "GOALS")
+        return (
+          readLabelIndex("G") ??
+          readLabelIndex("GOALS") ??
+          tryGet(athleteObj, ["stats", "G"]) ??
+          tryGet(athleteObj, ["G"]) ??
+          tryGet(athleteEntry, ["stats", "G"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "G"]) ??
+          0
+        );
+
+      // SHT - NHL shots on goal
+      if (statUpper === "SHT" || statUpper === "SOG")
+        return (
+          readLabelIndex("SOG") ??
+          readLabelIndex("SHT") ??
+          readLabelIndex("S") ??
+          tryGet(athleteEntry, ["stats", "S"]) ??
+          tryGet(athleteEntry, ["stats", "SOG"]) ??
+          tryGet(athleteObj, ["stats", "SOG"]) ??
+          tryGet(athleteObj, ["SOG"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "SOG"]) ??
+          0
+        );
+
+      // GA - NHL goals + assists composite
+      if (statUpper === "GA") {
+        const goals =
+          tryGet(athleteObj, ["stats", "G"]) ||
+          tryGet(athleteEntry, ["stats", "G"]) ||
+          tryGet(athleteEntry, ["athlete", "stats", "G"]) ||
+          readLabelIndex("G") ||
+          0;
+        const assists =
+          tryGet(athleteObj, ["stats", "A"]) ||
+          tryGet(athleteEntry, ["stats", "A"]) ||
+          tryGet(athleteEntry, ["athlete", "stats", "A"]) ||
+          readLabelIndex("A") ||
+          0;
+        return (Number(goals) || 0) + (Number(assists) || 0);
+      }
+
+      // BS - NHL blocked shots
+      if (statUpper === "BS")
+        return (
+          readLabelIndex("BS") ??
+          tryGet(athleteObj, ["stats", "BS"]) ??
+          tryGet(athleteObj, ["BS"]) ??
+          tryGet(athleteEntry, ["stats", "BS"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "BS"]) ??
+          0
+        );
+
+      // GSV - NHL goalie saves
+      if (statUpper === "GSV")
+        return (
+          readLabelIndex("SV") ??
+          readLabelIndex("GSV") ??
+          tryGet(athleteObj, ["stats", "SV"]) ??
+          tryGet(athleteObj, ["SV"]) ??
+          tryGet(athleteEntry, ["stats", "SV"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "SV"]) ??
+          0
+        );
+
+      // PCMP / PATT parse strings like "33/44"
+      if (statUpper === "PCMP" || statUpper === "PATT") {
+        // try label 'Comp/Att' or 'C/ATT'
+        const raw =
+          readLabelIndex("Comp/Att") ||
+          readLabelIndex("C/ATT") ||
+          tryGet(athleteObj, ["passing", "C/ATT"]) ||
+          tryGet(athleteObj, ["passing", "Comp/Att"]) ||
+          tryGet(athleteObj, ["passing", "comp/att"]) ||
+          tryGet(athleteObj, ["stats", "Comp/Att"]) ||
+          tryGet(athleteEntry, ["stats", "passing", "C/ATT"]) ||
+          tryGet(athleteEntry, ["athlete", "stats", "passing", "C/ATT"]);
+        const rawStr =
+          raw ||
+          tryGet(athleteObj, ["passing", "C/ATT"]) ||
+          tryGet(athleteObj, ["passing", "comp/att"]) ||
+          tryGet(athleteEntry, ["stats", "passing", "C/ATT"]) ||
+          tryGet(athleteEntry, ["athlete", "stats", "passing", "C/ATT"]);
+        if (rawStr && String(rawStr).includes("/")) {
+          const nums = String(rawStr)
+            .split("/")
+            .map((s) => parseFloat(s))
+            .filter((n) => !isNaN(n));
+          if (nums.length >= 2) return statUpper === "PCMP" ? nums[0] : nums[1];
+        }
+        return 0;
+      }
+
+      // TDS: sum of rushing.TD + receiving.TD + defensive.TD where available
+      if (statUpper === "TDS") {
+        const rtd =
+          tryGet(athleteObj, ["rushing", "TD"]) ||
+          tryGet(athleteObj, ["rushing", "TDs"]) ||
+          tryGet(athleteObj, ["rushing", "td"]) ||
+          tryGet(athleteEntry, ["stats", "rushing", "TD"]) ||
+          tryGet(athleteEntry, ["athlete", "stats", "rushing", "TD"]) ||
+          0;
+        const recTd =
+          tryGet(athleteObj, ["receiving", "TD"]) ||
+          tryGet(athleteObj, ["receiving", "td"]) ||
+          tryGet(athleteEntry, ["stats", "receiving", "TD"]) ||
+          tryGet(athleteEntry, ["athlete", "stats", "receiving", "TD"]) ||
+          0;
+        const defTd =
+          tryGet(athleteObj, ["defensive", "TD"]) ||
+          tryGet(athleteObj, ["defensive", "td"]) ||
+          tryGet(athleteEntry, ["stats", "defensive", "TD"]) ||
+          tryGet(athleteEntry, ["athlete", "stats", "defensive", "TD"]) ||
+          0;
+        return (Number(rtd) || 0) + (Number(recTd) || 0) + (Number(defTd) || 0);
+      }
+
+      // Kicking fields
+      if (statUpper === "KXP" || statUpper === "KFG") {
+        // try strings like "1/2"
+        const raw =
+          tryGet(athleteObj, ["kicking", "FG"]) ||
+          tryGet(athleteObj, ["kicking", "XP"]) ||
+          tryGet(athleteEntry, ["stats", "kicking", "FG"]) ||
+          tryGet(athleteEntry, ["stats", "kicking", "XP"]) ||
+          tryGet(athleteEntry, ["athlete", "stats", "kicking", "FG"]) ||
+          tryGet(athleteEntry, ["athlete", "stats", "kicking", "XP"]) ||
+          readLabelIndex("FG") ||
+          readLabelIndex("XP");
+        if (raw && String(raw).includes("/")) {
+          const nums = String(raw)
+            .split("/")
+            .map((s) => parseFloat(s))
+            .filter((n) => !isNaN(n));
+          if (nums.length >= 1) return nums[0];
+        }
+        return 0;
+      }
+
+      if (statUpper === "KPTS")
+        return (
+          tryGet(athleteObj, ["kicking", "PTS"]) ||
+          tryGet(athleteEntry, ["stats", "kicking", "PTS"]) ||
+          tryGet(athleteEntry, ["athlete", "stats", "kicking", "PTS"]) ||
+          readLabelIndex("PTS") ||
+          0
+        );
+
+      // Fallback: try to find a label that contains the alias
+      if (Array.isArray(labels) && Array.isArray(athleteEntry.stats)) {
+        const idx = labels.findIndex((l) =>
+          String(l || "")
+            .toUpperCase()
+            .includes(statUpper)
+        );
+        if (idx >= 0) return parseFloat(athleteEntry.stats[idx]) || 0;
+      }
+
+      // final nested fallbacks by common keys
+      const guessMap = {
+        PYDS: ["passing", "YDS"],
+        RYDS: ["rushing", "YDS"],
+        RECYDS: ["receiving", "YDS"],
+      };
+      if (guessMap[statUpper]) {
+        const val = tryGet(athleteObj, guessMap[statUpper]);
+        return Number(val) || 0;
+      }
+
+      return 0;
+    };
 
     const totalValues = total
       ? String(total)
@@ -2321,40 +6300,166 @@ app.get("/api/betslip", async (req, res) => {
 
     // Process each game (use index to map per-game query parts)
     for (let gi = 0; gi < gameIds.length; gi++) {
-      const currentGameId = gameIds[gi];
+      const rawGameToken = String(gameIds[gi] || "");
+      // Support syntax: <eventId> or <eventId>_<sport>
+      // If a sport suffix is present and recognized, strip it and use it when selecting ESPN base path.
+      // If no suffix provided, default to 'nba' as requested.
+      let eventId = rawGameToken;
+      let explicitSport = null;
+      try {
+        const lastUnderscore = rawGameToken.lastIndexOf("_");
+        if (lastUnderscore !== -1 && lastUnderscore < rawGameToken.length - 1) {
+          const possible = rawGameToken
+            .substring(lastUnderscore + 1)
+            .toLowerCase();
+          const known = Object.keys(ESPN_PATHS || {}).map((k) =>
+            String(k).toLowerCase()
+          );
+          // also allow common short slugs if not present in ESPN_PATHS
+          const extras = [
+            "nfl",
+            "nba",
+            "nhl",
+            "mlb",
+            "wnba",
+            "ncaa",
+            "uefa",
+            "soccer",
+          ];
+          const allowed = new Set([...known, ...extras]);
+          if (allowed.has(possible)) {
+            explicitSport = possible;
+            eventId = rawGameToken.substring(0, lastUnderscore);
+          }
+        }
+      } catch (e) {
+        /* ignore parsing errors and fall through to defaults */
+      }
+
+      if (!explicitSport) explicitSport = "nba"; // default when not provided
+
       try {
         // For betslip, we need raw ESPN data (not transformed) to get boxscore.players with full structure
         // So we fetch directly from ESPN rather than using the custom API which returns transformed data
         let summaryData = null;
         try {
-          const espnResponse = await axios.get(
-            `${ESPN_BASE_URL}/summary?event=${currentGameId}`
-          );
-          summaryData = espnResponse.data;
-          console.log(
-            `[Betslip] Using ESPN raw data for game ${currentGameId}`
-          );
-          console.log(
-            `[Betslip] ESPN response has boxscore: ${!!summaryData.boxscore}, has boxscore.players: ${!!summaryData
-              .boxscore?.players}`
-          );
+          // Prefer the sport-specific ESPN path based on explicitSport (parsed or default)
+          let baseUrl = ESPN_BASE_URL;
+          try {
+            const slug = String(explicitSport).toLowerCase();
+            if (ESPN_PATHS[slug] && ESPN_PATHS[slug].base)
+              baseUrl = ESPN_PATHS[slug].base;
+            else if (slug.includes("football"))
+              baseUrl = ESPN_PATHS["nfl"].base;
+            else if (slug.includes("hockey")) baseUrl = ESPN_PATHS["nhl"].base;
+            else if (slug.includes("basketball"))
+              baseUrl = ESPN_PATHS["nba"].base;
+            else if (slug.includes("soccer")) baseUrl = ESPN_PATHS["uefa"].base;
+          } catch (e) {
+            /* ignore */
+          }
+
+          // Prefer a transformed summary (faster to resolve period/player shapes)
+          let usedTransformedSource = false;
+          try {
+            const transformedCandidates = [
+              `http://localhost:${PORT}/api/summary/${explicitSport}/${eventId}`,
+              `${PUBLIC_API_URL}/api/summary/${explicitSport}/${eventId}`,
+            ];
+            for (const tUrl of transformedCandidates) {
+              try {
+                const tResp = await axios.get(tUrl, { timeout: 2500 });
+                if (tResp && tResp.data) {
+                  // heuristics: if the returned payload looks transformed (has boxscore.players or firstBasket), prefer it
+                  if (tResp.data.boxscore || tResp.data.firstBasket) {
+                    summaryData = tResp.data;
+                    usedTransformedSource = true;
+                    console.log(
+                      `[Betslip] Using transformed summary from ${tUrl} for game ${eventId} (token=${rawGameToken})`
+                    );
+                    console.log(
+                      `[Betslip] Transformed response has boxscore: ${!!summaryData.boxscore}, has boxscore.players: ${!!summaryData
+                        .boxscore?.players}`
+                    );
+                    break;
+                  }
+                }
+              } catch (innerErr) {
+                console.log(
+                  `[Betslip] Could not fetch transformed summary from ${tUrl} for ${eventId}: ${
+                    innerErr?.message || innerErr
+                  }`
+                );
+                // try next candidate
+              }
+            }
+
+            if (!usedTransformedSource) {
+              const espnResponse = await axios.get(
+                `${baseUrl}/summary?event=${eventId}`
+              );
+              summaryData = espnResponse.data;
+              console.log(
+                `[Betslip] Using ESPN raw data for game ${eventId} (token=${rawGameToken})`
+              );
+              console.log(
+                `[Betslip] ESPN response has boxscore: ${!!summaryData.boxscore}, has boxscore.players: ${!!summaryData
+                  .boxscore?.players}`
+              );
+            }
+          } catch (espnError) {
+            console.log(
+              `[Betslip] Failed to fetch from ESPN for game ${eventId} (token=${rawGameToken}): ${espnError.message}`
+            );
+          }
         } catch (espnError) {
           console.log(
-            `[Betslip] Failed to fetch from ESPN for game ${currentGameId}: ${espnError.message}`
+            `[Betslip] Failed to fetch from ESPN for game ${eventId} (token=${rawGameToken}): ${espnError.message}`
           );
         }
 
         if (!summaryData) {
-          console.log(`[Betslip] No data available for game ${currentGameId}`);
+          console.log(`[Betslip] No data available for game ${rawGameToken}`);
           continue;
         }
 
         // Get game status
         const gameStatus = summaryData.header?.competitions?.[0]?.status?.type;
         const isCompleted = gameStatus?.completed || false;
+        const isInProgress = !isCompleted && gameStatus?.state === "in";
+
+        // Helper: Determine if a specific quarter/period/half is currently in progress
+        // based on linescore data. This provides granular in-progress detection.
+        const isPeriodInProgress = (periodIndex, linescoresHome, linescoresAway, gameState, completed) => {
+          // If game is completed, no period is in progress
+          if (completed) return false;
+          // If game hasn't started, nothing is in progress
+          if (gameState === 'pre') return false;
+          // If game state is post, nothing is in progress
+          if (gameState === 'post') return false;
+          // Game must be live ('in' state)
+          if (gameState !== 'in') return false;
+          
+          // Check if the specified period has a score (indicating it's started)
+          const periodHasScore = (linescoresHome[periodIndex] !== undefined && linescoresHome[periodIndex] !== null) ||
+                                 (linescoresAway[periodIndex] !== undefined && linescoresAway[periodIndex] !== null);
+          if (!periodHasScore) return false; // Period hasn't started yet
+          
+          // Check if any LATER periods have scores (if so, this period is done)
+          const maxPeriod = Math.max(
+            ...Object.keys(linescoresHome).map(k => parseInt(k)).filter(n => !isNaN(n)),
+            ...Object.keys(linescoresAway).map(k => parseInt(k)).filter(n => !isNaN(n))
+          );
+          
+          // If there are later periods with scores, this period is completed
+          if (maxPeriod > periodIndex) return false;
+          
+          // If this is the max period currently being played and game is live, it's in progress
+          return true;
+        };
 
         const eventData = {
-          eventId: currentGameId,
+          eventId: eventId,
           status: {
             shortDetail: gameStatus?.detail,
             completed: isCompleted,
@@ -2383,7 +6488,6 @@ app.get("/api/betslip", async (req, res) => {
         };
 
         // Get team logos from boxscore
-        const boxscoreTeams = summaryData.boxscore?.teams || [];
 
         // Process moneyline bet. Support per-game mapping when the
         // `moneyline` query param contains comma-separated values.
@@ -2417,26 +6521,45 @@ app.get("/api/betslip", async (req, res) => {
             const oppScore = parseInt(opposingTeam.score) || 0;
             const isWinning = betScore > oppScore;
             const isInProgress = !isCompleted && gameStatus?.state === "in";
-
-            eventData.bets.moneyline = {
-              team: moneylineForThisGame,
-              current: {
-                score: `${betScore}-${oppScore}`,
-                lead:
-                  betScore > oppScore
-                    ? moneylineForThisGame
-                    : betScore < oppScore
-                    ? opposingTeam.team?.abbreviation
-                    : "Tied",
-                won: isCompleted
-                  ? isWinning
-                    ? true
-                    : false
-                  : isInProgress
-                  ? "in progress"
-                  : "pending",
-              },
-            };
+            // Support draw bets ("X" or "DRAW") in addition to team picks
+            const rawML = String(moneylineForThisGame || "").trim();
+            const isDrawBet = /^(x|draw)$/i.test(rawML);
+            if (isDrawBet) {
+              const drawNow = betScore === oppScore;
+              eventData.bets.moneyline = {
+                team: rawML,
+                current: {
+                  score: `${betScore}-${oppScore}`,
+                  won: isCompleted
+                    ? drawNow
+                      ? true
+                      : false
+                    : isInProgress
+                    ? "in progress"
+                    : "pending",
+                },
+              };
+            } else {
+              eventData.bets.moneyline = {
+                team: moneylineForThisGame,
+                current: {
+                  score: `${betScore}-${oppScore}`,
+                  lead:
+                    betScore > oppScore
+                      ? moneylineForThisGame
+                      : betScore < oppScore
+                      ? opposingTeam.team?.abbreviation
+                      : "Tied",
+                  won: isCompleted
+                    ? isWinning
+                      ? true
+                      : false
+                    : isInProgress
+                    ? "in progress"
+                    : "pending",
+                },
+              };
+            }
           }
         }
 
@@ -2459,45 +6582,63 @@ app.get("/api/betslip", async (req, res) => {
             0;
           const currentTotal = homeScore + awayScore;
 
-          const totalToken = totalForThisGame;
-          const isOver =
-            totalToken.startsWith("o") || totalToken.startsWith("O");
-          const line = parseFloat(totalToken.substring(1));
-          const isInProgress = !isCompleted && gameStatus?.state === "in";
-
-          let won;
-          if (isOver) {
-            // Overs: consider >= as currently winning; keep existing behaviour
-            const isWinning = currentTotal >= line;
-            won = isCompleted
-              ? isWinning
-                ? true
-                : false
-              : isInProgress
-              ? "in progress"
-              : "pending";
+          const totalToken = String(totalForThisGame || "").trim();
+          // Accept formats: oNNN / uNNN OR NNN+ / NNN- (after number)
+          let isOver = false;
+          let line = null;
+          const mOU = totalToken.match(/^[ou]([0-9.]+)/i);
+          const mPlus = totalToken.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
+          const mMinus = totalToken.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
+          if (mOU) {
+            isOver = /^o/i.test(totalToken);
+            line = parseFloat(mOU[1]);
+          } else if (mPlus) {
+            isOver = true;
+            line = parseFloat(mPlus[1]);
+          } else if (mMinus) {
+            isOver = false;
+            line = parseFloat(mMinus[1]);
           } else {
-            // Unders: do NOT mark won while game is in progress even if current <= line.
-            // If game is in progress and current <= line -> still "in progress".
-            // If current > line while game is in progress -> mark as lost (false).
-            if (isInProgress) {
-              won = currentTotal <= line ? "in progress" : false;
-            } else if (!isCompleted) {
-              won = "pending";
-            } else {
-              // Game completed: under wins if current <= line
-              const isWinning = currentTotal <= line;
-              won = isWinning ? true : false;
+            // fallback: try parse leading numeric
+            const num = parseFloat(totalToken.replace(/[^0-9.]/g, ""));
+            if (!isNaN(num)) {
+              // treat bare number as line for over
+              isOver = true;
+              line = num;
             }
           }
 
-          eventData.bets.totalPoints = {
-            bet: total,
-            line: line,
-            type: isOver ? "over" : "under",
-            current: currentTotal,
-            won,
-          };
+          if (line !== null) {
+            const isInProgress = !isCompleted && gameStatus?.state === "in";
+            let won;
+            if (isOver) {
+              const isWinning = currentTotal >= line;
+              won = isCompleted
+                ? isWinning
+                  ? true
+                  : false
+                : isInProgress
+                ? "in progress"
+                : "pending";
+            } else {
+              if (isInProgress) {
+                won = currentTotal <= line ? "in progress" : false;
+              } else if (!isCompleted) {
+                won = "pending";
+              } else {
+                const isWinning = currentTotal <= line;
+                won = isWinning ? true : false;
+              }
+            }
+
+            eventData.bets.totalPoints = {
+              bet: total,
+              line: line,
+              type: isOver ? "over" : "under",
+              current: currentTotal,
+              won,
+            };
+          }
         }
 
         // Determine per-game spread token (support single-token applied-to-all)
@@ -2565,8 +6706,1607 @@ app.get("/api/betslip", async (req, res) => {
           }
         }
 
+        // ---- Additional bet types: team points, quarter/half moneylines/spreads/points, first/last scoring ----
+        try {
+          // compute some helpful structures
+          const competitors =
+            summaryData.header?.competitions?.[0]?.competitors || [];
+          const compHome = competitors.find((c) => c.homeAway === "home") || {};
+          const compAway = competitors.find((c) => c.homeAway === "away") || {};
+          const homeAbbr = compHome.team?.abbreviation || null;
+          const awayAbbr = compAway.team?.abbreviation || null;
+
+          // helper to read linescores (period -> value)
+          const homeLines = transformLinescores(compHome.linescores || []);
+          const awayLines = transformLinescores(compAway.linescores || []);
+
+          // Full game team points: homePoints and awayPoints
+          const homePointsToken = getParamValueForGame("homePoints", gi);
+          const awayPointsToken = getParamValueForGame("awayPoints", gi);
+          const homeScore = parseInt(compHome.score) || 0;
+          const awayScore = parseInt(compAway.score) || 0;
+
+          const processTeamPoints = (token, score, keyName) => {
+            if (!token) return;
+            const tkn = String(token).trim().replace(/\s+/g, '');
+            let isOver = false;
+            let line = null;
+            const mOU = tkn.match(/^[ou]([0-9.]+)/i);
+            const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
+            const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
+            // Also try matching if + was URL-decoded to space: "120.5 "
+            const mPlusSpace = !mPlus && String(token).trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
+            if (mOU) {
+              isOver = /^o/i.test(tkn);
+              line = parseFloat(mOU[1]);
+            } else if (mPlus) {
+              isOver = true;
+              line = parseFloat(mPlus[1]);
+            } else if (mMinus) {
+              isOver = false;
+              line = parseFloat(mMinus[1]);
+            } else if (mPlusSpace) {
+              // + was decoded as space, treat as over
+              isOver = true;
+              line = parseFloat(mPlusSpace[1]);
+            }
+            if (line !== null) {
+              let won;
+              if (isOver) {
+                const isWinning = score >= line;
+                won = isCompleted
+                  ? isWinning
+                    ? true
+                    : false
+                  : isInProgress
+                  ? "in progress"
+                  : "pending";
+              } else {
+                if (isInProgress) won = score <= line ? "in progress" : false;
+                else if (!isCompleted) won = "pending";
+                else won = score <= line ? true : false;
+              }
+              eventData.bets[keyName] = {
+                bet: token,
+                line,
+                current: score,
+                type: isOver ? "over" : "under",
+                won,
+              };
+            }
+          };
+          processTeamPoints(homePointsToken, homeScore, "homePoints");
+          processTeamPoints(awayPointsToken, awayScore, "awayPoints");
+
+          // helper: parse per-game param
+          const pointsToken = getParamValueForGame("points", gi);
+          if (pointsToken) {
+            // format: <TEAM><o|u><line>, e.g. TBo23.5
+            const m = String(pointsToken).match(
+              /^([A-Z]{1,5})([ouOU])([0-9.]+)$/i
+            );
+            if (m) {
+              const teamAbbr = m[1].toUpperCase();
+              const isOver = m[2].toLowerCase() === "o";
+              const line = parseFloat(m[3]);
+              const teamCompetitor = competitors.find(
+                (c) => c.team?.abbreviation === teamAbbr
+              );
+              const current = parseInt(teamCompetitor?.score) || 0;
+              const isInProgress = !isCompleted && gameStatus?.state === "in";
+              let won;
+              if (isOver) {
+                const isWinning = current >= line;
+                won = isCompleted
+                  ? isWinning
+                    ? true
+                    : false
+                  : isInProgress
+                  ? "in progress"
+                  : "pending";
+              } else {
+                if (isInProgress) {
+                  won = current <= line ? "in progress" : false;
+                } else if (!isCompleted) {
+                  won = "pending";
+                } else {
+                  const isWinning = current <= line;
+                  won = isWinning ? true : false;
+                }
+              }
+              eventData.bets.teamPoints = eventData.bets.teamPoints || [];
+              eventData.bets.teamPoints.push({
+                team: teamAbbr,
+                bet: pointsToken,
+                current,
+                line,
+                type: isOver ? "over" : "under",
+                won,
+              });
+            }
+          }
+
+          // Quarter and half moneyline/spread/points
+          const quarterNames = ["1st", "2nd", "3rd", "4th"];
+          const halfNames = ["1stH", "2ndH"];
+
+          // iterate quarters
+          for (let qi = 0; qi < quarterNames.length; qi++) {
+            const period = qi + 1;
+            const qKeyNum = `${period}ML`;
+            const qKeyNamed = `${quarterNames[qi]}ML`;
+            const qKeyQ = `Q${period}ML`;
+            const qKeyAlt = `moneyline${period}Q`;
+            const qVal =
+              getParamValueForGame(qKeyNum, gi) ||
+              getParamValueForGame(qKeyNamed, gi) ||
+              getParamValueForGame(qKeyQ, gi) ||
+              getParamValueForGame(qKeyAlt, gi);
+            if (qVal) {
+              // qVal expected as team abbr
+              const homeQ = parseInt(homeLines[period]) || 0;
+              const awayQ = parseInt(awayLines[period]) || 0;
+              const winner =
+                homeQ > awayQ ? homeAbbr : awayQ > homeQ ? awayAbbr : "Tied";
+              const quarterInProgress = isPeriodInProgress(period, homeLines, awayLines, gameStatus?.state, isCompleted);
+              eventData.bets[`Q${period}_ML`] = {
+                bet: qVal,
+                current: `${homeQ}-${awayQ}`,
+                won:
+                  qVal === winner
+                    ? isCompleted
+                      ? true
+                      : quarterInProgress
+                      ? "in progress"
+                      : "pending"
+                    : false,
+              };
+            }
+
+            // quarter spread (accept numeric, named or Q-prefixed keys)
+            const qSpKeyNum = `${period}SP`;
+            const qSpKeyNamed = `${quarterNames[qi]}SP`;
+            const qSpKeyQ = `Q${period}SP`;
+            const qSpKeyAlt = `spread${period}Q`;
+            const qSpVal =
+              getParamValueForGame(qSpKeyNum, gi) ||
+              getParamValueForGame(qSpKeyNamed, gi) ||
+              getParamValueForGame(qSpKeyQ, gi) ||
+              getParamValueForGame(qSpKeyAlt, gi);
+            if (qSpVal) {
+              // format similar to spread: "TB+1.5" or "TB-1.5" or "TB 1.5"
+              const match = String(qSpVal).match(
+                /^([A-Z]+)[+\s]?([+-]?[0-9.]+)$/i
+              );
+              if (match) {
+                const teamAbbr = match[1].toUpperCase();
+                const spreadLine = parseFloat(match[2]);
+                const homeQ = parseInt(homeLines[period]) || 0;
+                const awayQ = parseInt(awayLines[period]) || 0;
+                const betTeamScore = teamAbbr === homeAbbr ? homeQ : awayQ;
+                const oppScore = teamAbbr === homeAbbr ? awayQ : homeQ;
+                const adjusted = betTeamScore + spreadLine;
+                const isWinning = adjusted > oppScore;
+                const quarterInProgress = isPeriodInProgress(period, homeLines, awayLines, gameStatus?.state, isCompleted);
+                eventData.bets[`Q${period}_SP`] = {
+                  team: teamAbbr,
+                  line: spreadLine,
+                  current: `${homeQ}-${awayQ}`,
+                  won: isCompleted
+                    ? isWinning
+                      ? true
+                      : false
+                    : quarterInProgress
+                    ? "in progress"
+                    : "pending",
+                };
+              }
+            }
+
+            // Quarter total
+            const qTotalKey = `total${period}Q`;
+            const qTotalAlt = `Q${period}T`;
+            const qTotalVal =
+              getParamValueForGame(qTotalKey, gi) ||
+              getParamValueForGame(qTotalAlt, gi);
+            if (qTotalVal) {
+              const tkn = String(qTotalVal).trim().replace(/\s+/g, '');
+              let isOver = false;
+              let line = null;
+              const mOU = tkn.match(/^[ou]([0-9.]+)/i);
+              const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
+              const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
+              const mPlusSpace = !mPlus && String(qTotalVal).trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
+              if (mOU) {
+                isOver = /^o/i.test(tkn);
+                line = parseFloat(mOU[1]);
+              } else if (mPlus) {
+                isOver = true;
+                line = parseFloat(mPlus[1]);
+              } else if (mMinus) {
+                isOver = false;
+                line = parseFloat(mMinus[1]);
+              } else if (mPlusSpace) {
+                isOver = true;
+                line = parseFloat(mPlusSpace[1]);
+              }
+              if (line !== null) {
+                const homeQ = parseInt(homeLines[period]) || 0;
+                const awayQ = parseInt(awayLines[period]) || 0;
+                const currentQTotal = homeQ + awayQ;
+                const quarterInProgress = isPeriodInProgress(period, homeLines, awayLines, gameStatus?.state, isCompleted);
+                let won;
+                if (isOver) {
+                  const isWinning = currentQTotal >= line;
+                  won = isCompleted
+                    ? isWinning
+                      ? true
+                      : false
+                    : quarterInProgress
+                    ? "in progress"
+                    : "pending";
+                } else {
+                  if (quarterInProgress)
+                    won = currentQTotal <= line ? "in progress" : false;
+                  else if (!isCompleted) won = "pending";
+                  else won = currentQTotal <= line ? true : false;
+                }
+                eventData.bets[`Q${period}_T`] = {
+                  bet: qTotalVal,
+                  line,
+                  type: isOver ? "over" : "under",
+                  current: currentQTotal,
+                  won,
+                };
+              }
+            }
+
+            // Quarter team points: homePoints1Q, awayPoints1Q
+            const qHomePointsKey = `homePoints${period}Q`;
+            const qAwayPointsKey = `awayPoints${period}Q`;
+            const qPtKeyNum = `${period}QTP`;
+            const qPtKeyNamed = `${quarterNames[qi]}QTP`;
+            const qPtKeyQ = `Q${period}TP`;
+            const qHomePointsVal = getParamValueForGame(qHomePointsKey, gi);
+            const qAwayPointsVal = getParamValueForGame(qAwayPointsKey, gi);
+            const qPtVal =
+              getParamValueForGame(qPtKeyNum, gi) ||
+              getParamValueForGame(qPtKeyNamed, gi) ||
+              getParamValueForGame(qPtKeyQ, gi);
+            // Process homePoints1Q / awayPoints1Q
+            const processQuarterTeamPoints = (token, teamSide, keyName) => {
+              if (!token) return;
+              const tkn = String(token).trim().replace(/\s+/g, '');
+              let isOver = false;
+              let line = null;
+              const mOU = tkn.match(/^[ou]([0-9.]+)/i);
+              const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
+              const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
+              const mPlusSpace = !mPlus && String(token).trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
+              if (mOU) {
+                isOver = /^o/i.test(tkn);
+                line = parseFloat(mOU[1]);
+              } else if (mPlus) {
+                isOver = true;
+                line = parseFloat(mPlus[1]);
+              } else if (mMinus) {
+                isOver = false;
+                line = parseFloat(mMinus[1]);
+              } else if (mPlusSpace) {
+                isOver = true;
+                line = parseFloat(mPlusSpace[1]);
+              }
+              if (line !== null) {
+                const homeQ = parseInt(homeLines[period]) || 0;
+                const awayQ = parseInt(awayLines[period]) || 0;
+                const current = teamSide === "home" ? homeQ : awayQ;
+                const quarterInProgress = isPeriodInProgress(period, homeLines, awayLines, gameStatus?.state, isCompleted);
+                let won;
+                if (isOver) {
+                  const isWinning = current >= line;
+                  won = isCompleted
+                    ? isWinning
+                      ? true
+                      : false
+                    : quarterInProgress
+                    ? "in progress"
+                    : "pending";
+                } else {
+                  if (quarterInProgress)
+                    won = current <= line ? "in progress" : false;
+                  else if (!isCompleted) won = "pending";
+                  else won = current <= line ? true : false;
+                }
+                eventData.bets[keyName] = {
+                  bet: token,
+                  line,
+                  current,
+                  type: isOver ? "over" : "under",
+                  won,
+                };
+              }
+            };
+            processQuarterTeamPoints(
+              qHomePointsVal,
+              "home",
+              `homePoints${period}Q`
+            );
+            processQuarterTeamPoints(
+              qAwayPointsVal,
+              "away",
+              `awayPoints${period}Q`
+            );
+
+            // Legacy format: 1QTP=TBo23.5
+            if (qPtVal) {
+              const m = String(qPtVal).match(
+                /^([A-Z]{1,5})([ouOU])([0-9.]+)$/i
+              );
+              if (m) {
+                const teamAbbr = m[1].toUpperCase();
+                const isOver = m[2].toLowerCase() === "o";
+                const line = parseFloat(m[3]);
+                const current =
+                  teamAbbr === homeAbbr
+                    ? parseInt(homeLines[period]) || 0
+                    : parseInt(awayLines[period]) || 0;
+                const quarterInProgress = isPeriodInProgress(period, homeLines, awayLines, gameStatus?.state, isCompleted);
+                let won;
+                if (isOver) {
+                  const isWinning = current >= line;
+                  won = isCompleted
+                    ? isWinning
+                      ? true
+                      : false
+                    : quarterInProgress
+                    ? "in progress"
+                    : "pending";
+                } else {
+                  if (quarterInProgress) {
+                    won = current <= line ? "in progress" : false;
+                  } else if (!isCompleted) {
+                    won = "pending";
+                  } else {
+                    const isWinning = current <= line;
+                    won = isWinning ? true : false;
+                  }
+                }
+                eventData.bets[`Q${period}_TP`] =
+                  eventData.bets[`Q${period}_TP`] || [];
+                eventData.bets[`Q${period}_TP`].push({
+                  team: teamAbbr,
+                  bet: qPtVal,
+                  current,
+                  line,
+                  type: isOver ? "over" : "under",
+                  won,
+                });
+              }
+            }
+          }
+
+          // NHL Periods: moneyline1P, spread1P, total1P (for period 1, 2, 3, etc.)
+          for (let pi = 1; pi <= 3; pi++) {
+            const periodMLKey = `moneyline${pi}P`;
+            const periodSPKey = `spread${pi}P`;
+            const periodTKey = `total${pi}P`;
+
+            const periodMLVal = getParamValueForGame(periodMLKey, gi);
+            const periodSPVal = getParamValueForGame(periodSPKey, gi);
+            const periodTVal = getParamValueForGame(periodTKey, gi);
+
+            const homePeriod = parseInt(homeLines[pi]) || 0;
+            const awayPeriod = parseInt(awayLines[pi]) || 0;
+
+            // Period moneyline
+            if (periodMLVal) {
+              const winner =
+                homePeriod > awayPeriod
+                  ? homeAbbr
+                  : awayPeriod > homePeriod
+                  ? awayAbbr
+                  : "Tied";
+              const periodInProgress = isPeriodInProgress(pi, homeLines, awayLines, gameStatus?.state, isCompleted);
+              eventData.bets[`P${pi}_ML`] = {
+                bet: periodMLVal,
+                current: `${homePeriod}-${awayPeriod}`,
+                won:
+                  periodMLVal === winner
+                    ? isCompleted
+                      ? true
+                      : periodInProgress
+                      ? "in progress"
+                      : "pending"
+                    : false,
+              };
+            }
+
+            // Period spread
+            if (periodSPVal) {
+              const match = String(periodSPVal).match(
+                /^([A-Z]+)[+\s]?([+-]?[0-9.]+)$/i
+              );
+              if (match) {
+                const teamAbbr = match[1].toUpperCase();
+                const spreadLine = parseFloat(match[2]);
+                const betTeamScore =
+                  teamAbbr === homeAbbr ? homePeriod : awayPeriod;
+                const oppScore =
+                  teamAbbr === homeAbbr ? awayPeriod : homePeriod;
+                const adjusted = betTeamScore + spreadLine;
+                const isWinning = adjusted > oppScore;
+                const periodInProgress = isPeriodInProgress(pi, homeLines, awayLines, gameStatus?.state, isCompleted);
+                eventData.bets[`P${pi}_SP`] = {
+                  team: teamAbbr,
+                  line: spreadLine,
+                  current: `${homePeriod}-${awayPeriod}`,
+                  won: isCompleted
+                    ? isWinning
+                      ? true
+                      : false
+                    : periodInProgress
+                    ? "in progress"
+                    : "pending",
+                };
+              }
+            }
+
+            // Period total
+            if (periodTVal) {
+              const tkn = String(periodTVal).trim().replace(/\s+/g, '');
+              let isOver = false;
+              let line = null;
+              const mOU = tkn.match(/^[ou]([0-9.]+)/i);
+              const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
+              const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
+              const mPlusSpace = !mPlus && String(periodTVal).trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
+              if (mOU) {
+                isOver = /^o/i.test(tkn);
+                line = parseFloat(mOU[1]);
+              } else if (mPlus) {
+                isOver = true;
+                line = parseFloat(mPlus[1]);
+              } else if (mMinus) {
+                isOver = false;
+                line = parseFloat(mMinus[1]);
+              } else if (mPlusSpace) {
+                isOver = true;
+                line = parseFloat(mPlusSpace[1]);
+              }
+              if (line !== null) {
+                const currentPTotal = homePeriod + awayPeriod;
+                const periodInProgress = isPeriodInProgress(pi, homeLines, awayLines, gameStatus?.state, isCompleted);
+                let won;
+                if (isOver) {
+                  const isWinning = currentPTotal >= line;
+                  won = isCompleted
+                    ? isWinning
+                      ? true
+                      : false
+                    : periodInProgress
+                    ? "in progress"
+                    : "pending";
+                } else {
+                  if (periodInProgress)
+                    won = currentPTotal <= line ? "in progress" : false;
+                  else if (!isCompleted) won = "pending";
+                  else won = currentPTotal <= line ? true : false;
+                }
+                eventData.bets[`P${pi}_T`] = {
+                  bet: periodTVal,
+                  line,
+                  type: isOver ? "over" : "under",
+                  current: currentPTotal,
+                  won,
+                };
+              }
+            }
+          }
+
+          // halves: use first two periods for first half, last two for second half
+          for (let hi = 0; hi < 2; hi++) {
+            const halfIndex = hi + 1; // 1 or 2
+            const halfMLKey = `${halfIndex}HML`;
+            const halfMLAlt = `${halfIndex}ML`; // accept variant like 1stML for halves too if provided
+            // also accept query params like moneyline1H / moneyline2H
+            const halfMLVal =
+              getParamValueForGame(halfMLKey, gi) ||
+              getParamValueForGame(halfMLAlt, gi) ||
+              getParamValueForGame(`moneyline${halfIndex}H`, gi) ||
+              getParamValueForGame(`moneyline${halfIndex}`, gi);
+            const periods = hi === 0 ? [1, 2] : [3, 4];
+            // Determine whether linescores represent a 2-period game (e.g., soccer halves)
+            const maxPeriods = Math.max(
+              Object.keys(homeLines || {}).length,
+              Object.keys(awayLines || {}).length
+            );
+            let homeHalf = 0;
+            let awayHalf = 0;
+            if (maxPeriods <= 2) {
+              // For 2-period games use the period matching the half index (1 or 2)
+              const periodKey = halfIndex; // 1 => first period, 2 => second period
+              homeHalf = parseInt(homeLines[periodKey] || 0) || 0;
+              awayHalf = parseInt(awayLines[periodKey] || 0) || 0;
+            } else {
+              homeHalf =
+                (parseInt(homeLines[periods[0]] || 0) || 0) +
+                (parseInt(homeLines[periods[1]] || 0) || 0);
+              awayHalf =
+                (parseInt(awayLines[periods[0]] || 0) || 0) +
+                (parseInt(awayLines[periods[1]] || 0) || 0);
+            }
+            if (halfMLVal) {
+              const winner =
+                homeHalf > awayHalf
+                  ? homeAbbr
+                  : awayHalf > homeHalf
+                  ? awayAbbr
+                  : "Tied";
+              // For halves in 2-period games, check if that specific period is active
+              // For halves in 4-period games, check if either of the two quarters is active
+              let halfInProgress = false;
+              if (maxPeriods <= 2) {
+                halfInProgress = isPeriodInProgress(halfIndex, homeLines, awayLines, gameStatus?.state, isCompleted);
+              } else {
+                // Check if either of the two periods making up this half is in progress
+                halfInProgress = periods.some(p => isPeriodInProgress(p, homeLines, awayLines, gameStatus?.state, isCompleted));
+              }
+              eventData.bets[`H${halfIndex}_ML`] = {
+                bet: halfMLVal,
+                current: `${homeHalf}-${awayHalf}`,
+                won:
+                  halfMLVal === winner
+                    ? isCompleted
+                      ? true
+                      : halfInProgress
+                      ? "in progress"
+                      : "pending"
+                    : false,
+              };
+            }
+
+            // Half total
+            const halfTotalKey = `total${halfIndex}H`;
+            const halfTotalAlt = `H${halfIndex}_T`;
+            const halfTotalVal = getParamValueForGame(halfTotalKey, gi) || getParamValueForGame(halfTotalAlt, gi);
+            if (halfTotalVal) {
+              const tkn = String(halfTotalVal).trim().replace(/\s+/g, '');
+              let isOver = false;
+              let line = null;
+              const mOU = tkn.match(/^[ou]([0-9.]+)/i);
+              const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
+              const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
+              const mPlusSpace = !mPlus && String(halfTotalVal).trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
+              if (mOU) {
+                isOver = /^o/i.test(tkn);
+                line = parseFloat(mOU[1]);
+              } else if (mPlus) {
+                isOver = true;
+                line = parseFloat(mPlus[1]);
+              } else if (mMinus) {
+                isOver = false;
+                line = parseFloat(mMinus[1]);
+              } else if (mPlusSpace) {
+                isOver = true;
+                line = parseFloat(mPlusSpace[1]);
+              }
+              if (line !== null) {
+                const currentHalfTotal = homeHalf + awayHalf;
+                // Check if any periods in this half are in progress
+                let halfInProgress = false;
+                if (maxPeriods <= 2) {
+                  halfInProgress = isPeriodInProgress(halfIndex, homeLines, awayLines, gameStatus?.state, isCompleted);
+                } else {
+                  halfInProgress = periods.some(p => isPeriodInProgress(p, homeLines, awayLines, gameStatus?.state, isCompleted));
+                }
+                let won;
+                if (isOver) {
+                  const isWinning = currentHalfTotal >= line;
+                  won = isCompleted
+                    ? isWinning
+                      ? true
+                      : false
+                    : halfInProgress
+                    ? "in progress"
+                    : "pending";
+                } else {
+                  if (halfInProgress)
+                    won = currentHalfTotal <= line ? "in progress" : false;
+                  else if (!isCompleted) won = "pending";
+                  else won = currentHalfTotal <= line ? true : false;
+                }
+                eventData.bets[`H${halfIndex}_T`] = {
+                  bet: halfTotalVal,
+                  line,
+                  type: isOver ? "over" : "under",
+                  current: currentHalfTotal,
+                  won,
+                };
+              }
+            }
+
+            // Half spread
+            const halfSPKey = `spread${halfIndex}H`;
+            const halfSPAlt = `${halfIndex}HSP`;
+            const halfSPVal = getParamValueForGame(halfSPKey, gi);
+            if (halfSPVal) {
+              const match = String(halfSPVal).match(
+                /^([A-Z]+)[+\s]?([+-]?[0-9.]+)$/i
+              );
+              if (match) {
+                const teamAbbr = match[1].toUpperCase();
+                const spreadLine = parseFloat(match[2]);
+                // reuse computed half values
+                // homeHalf and awayHalf already defined above
+                const betTeamScore =
+                  teamAbbr === homeAbbr ? homeHalf : awayHalf;
+                const oppScore = teamAbbr === homeAbbr ? awayHalf : homeHalf;
+                const adjusted = betTeamScore + spreadLine;
+                const isWinning = adjusted > oppScore;
+                // Check if any periods in this half are in progress
+                let halfInProgress = false;
+                if (maxPeriods <= 2) {
+                  halfInProgress = isPeriodInProgress(halfIndex, homeLines, awayLines, gameStatus?.state, isCompleted);
+                } else {
+                  halfInProgress = periods.some(p => isPeriodInProgress(p, homeLines, awayLines, gameStatus?.state, isCompleted));
+                }
+                eventData.bets[`H${halfIndex}_SP`] = {
+                  team: teamAbbr,
+                  line: spreadLine,
+                  current: `${homeHalf}-${awayHalf}`,
+                  won: isCompleted
+                    ? isWinning
+                      ? true
+                      : false
+                    : halfInProgress
+                    ? "in progress"
+                    : "pending",
+                };
+              }
+            }
+
+            // half team points tokens: 1stHTP, 2ndHTP
+            const halfTPKey = `${halfIndex}HTP`;
+            const halfHomePointsKey = `homePoints${halfIndex}H`;
+            const halfAwayPointsKey = `awayPoints${halfIndex}H`;
+            const halfHomePointsVal = getParamValueForGame(
+              halfHomePointsKey,
+              gi
+            );
+            const halfAwayPointsVal = getParamValueForGame(
+              halfAwayPointsKey,
+              gi
+            );
+            const halfTPVal = getParamValueForGame(halfTPKey, gi);
+
+            // Process homePoints1H / awayPoints1H
+            const processHalfTeamPoints = (token, teamSide, keyName) => {
+              if (!token) return;
+              const tkn = String(token).trim().replace(/\s+/g, '');
+              let isOver = false;
+              let line = null;
+              const mOU = tkn.match(/^[ou]([0-9.]+)/i);
+              const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
+              const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
+              const mPlusSpace = !mPlus && String(token).trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
+              if (mOU) {
+                isOver = /^o/i.test(tkn);
+                line = parseFloat(mOU[1]);
+              } else if (mPlus) {
+                isOver = true;
+                line = parseFloat(mPlus[1]);
+              } else if (mMinus) {
+                isOver = false;
+                line = parseFloat(mMinus[1]);
+              } else if (mPlusSpace) {
+                isOver = true;
+                line = parseFloat(mPlusSpace[1]);
+              }
+              if (line !== null) {
+                const current = teamSide === "home" ? homeHalf : awayHalf;
+                // Check if any periods in this half are in progress
+                let halfInProgress = false;
+                if (maxPeriods <= 2) {
+                  halfInProgress = isPeriodInProgress(halfIndex, homeLines, awayLines, gameStatus?.state, isCompleted);
+                } else {
+                  halfInProgress = periods.some(p => isPeriodInProgress(p, homeLines, awayLines, gameStatus?.state, isCompleted));
+                }
+                let won;
+                if (isOver) {
+                  const isWinning = current >= line;
+                  won = isCompleted
+                    ? isWinning
+                      ? true
+                      : false
+                    : halfInProgress
+                    ? "in progress"
+                    : "pending";
+                } else {
+                  if (halfInProgress)
+                    won = current <= line ? "in progress" : false;
+                  else if (!isCompleted) won = "pending";
+                  else won = current <= line ? true : false;
+                }
+                eventData.bets[keyName] = {
+                  bet: token,
+                  line,
+                  current,
+                  type: isOver ? "over" : "under",
+                  won,
+                };
+              }
+            };
+            processHalfTeamPoints(
+              halfHomePointsVal,
+              "home",
+              `homePoints${halfIndex}H`
+            );
+            processHalfTeamPoints(
+              halfAwayPointsVal,
+              "away",
+              `awayPoints${halfIndex}H`
+            );
+
+            // Legacy format: 1HTP=TBo23.5
+            if (halfTPVal) {
+              const m = String(halfTPVal).match(
+                /^([A-Z]{1,5})([ouOU])([0-9.]+)$/i
+              );
+              if (m) {
+                const teamAbbr = m[1].toUpperCase();
+                const isOver = m[2].toLowerCase() === "o";
+                const line = parseFloat(m[3]);
+                const current = teamAbbr === homeAbbr ? homeHalf : awayHalf;
+                // Check if any periods in this half are in progress
+                let halfInProgress = false;
+                if (maxPeriods <= 2) {
+                  halfInProgress = isPeriodInProgress(halfIndex, homeLines, awayLines, gameStatus?.state, isCompleted);
+                } else {
+                  halfInProgress = periods.some(p => isPeriodInProgress(p, homeLines, awayLines, gameStatus?.state, isCompleted));
+                }
+                let won;
+                if (isOver) {
+                  const isWinning = current >= line;
+                  won = isCompleted
+                    ? isWinning
+                      ? true
+                      : false
+                    : halfInProgress
+                    ? "in progress"
+                    : "pending";
+                } else {
+                  if (isInProgress) {
+                    won = current <= line ? "in progress" : false;
+                  } else if (!isCompleted) {
+                    won = "pending";
+                  } else {
+                    const isWinning = current <= line;
+                    won = isWinning ? true : false;
+                  }
+                }
+                eventData.bets[`H${halfIndex}_TP`] =
+                  eventData.bets[`H${halfIndex}_TP`] || [];
+                eventData.bets[`H${halfIndex}_TP`].push({
+                  team: teamAbbr,
+                  bet: halfTPVal,
+                  current,
+                  line,
+                  type: isOver ? "over" : "under",
+                  won,
+                });
+              }
+            }
+          }
+
+          // Both Teams To Score (bothScore)
+          try {
+            const bothScoreToken = getParamValueForGame("bothScore", gi);
+            if (bothScoreToken) {
+              const homeScore =
+                parseInt(
+                  competitors.find((c) => c.homeAway === "home")?.score
+                ) || 0;
+              const awayScore =
+                parseInt(
+                  competitors.find((c) => c.homeAway === "away")?.score
+                ) || 0;
+              const occurred = homeScore >= 1 && awayScore >= 1;
+              const tkn = String(bothScoreToken).toLowerCase();
+              const isInProgress = !isCompleted && gameStatus?.state === "in";
+              if (tkn === "yes" || tkn === "no") {
+                const won = tkn === "yes" ? occurred : !occurred;
+                eventData.bets.bothScore = {
+                  bet: bothScoreToken,
+                  current: occurred ? 1 : 0,
+                  won: isCompleted
+                    ? won
+                    : isInProgress
+                    ? "in progress"
+                    : "pending",
+                };
+              } else {
+                eventData.bets.bothScore = {
+                  bet: bothScoreToken,
+                  current: occurred ? 1 : 0,
+                  won: isCompleted
+                    ? tkn === String(occurred).toLowerCase()
+                    : isInProgress
+                    ? "in progress"
+                    : "pending",
+                };
+              }
+            }
+          } catch (e) {
+            /* ignore bothScore errors */
+          }
+
+          // Team goals O/U: homeGoals / awayGoals
+          try {
+            const homeGoalsToken = getParamValueForGame("homeGoals", gi);
+            const awayGoalsToken = getParamValueForGame("awayGoals", gi);
+            const homeScore =
+              parseInt(competitors.find((c) => c.homeAway === "home")?.score) ||
+              0;
+            const awayScore =
+              parseInt(competitors.find((c) => c.homeAway === "away")?.score) ||
+              0;
+            const processGoalToken = (token, teamSide, keyName) => {
+              if (!token) return;
+              const tkn = String(token || "").trim();
+              const mOU = tkn.match(/^[ou]([0-9.]+)/i);
+              const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
+              const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
+              const mNum = tkn.match(/^([0-9]+(?:\.[0-9]+)?)$/);
+              let isOver = false;
+              let line = null;
+              if (mOU) {
+                isOver = /^o/i.test(tkn);
+                line = parseFloat(mOU[1]);
+              } else if (mPlus) {
+                isOver = true;
+                line = parseFloat(mPlus[1]);
+              } else if (mMinus) {
+                isOver = false;
+                line = parseFloat(mMinus[1]);
+              } else if (mNum) {
+                isOver = true;
+                line = parseFloat(mNum[1]);
+              }
+              if (line === null) return;
+              const current = teamSide === "home" ? homeScore : awayScore;
+              const isInProgress = !isCompleted && gameStatus?.state === "in";
+              let won;
+              if (isOver) {
+                const isWinning = current >= line;
+                won = isCompleted
+                  ? isWinning
+                    ? true
+                    : false
+                  : isInProgress
+                  ? "in progress"
+                  : "pending";
+              } else {
+                if (isInProgress) won = current <= line ? "in progress" : false;
+                else if (!isCompleted) won = "pending";
+                else won = current <= line ? true : false;
+              }
+              eventData.bets[keyName] = {
+                bet: token,
+                line,
+                current,
+                type: isOver ? "over" : "under",
+                won,
+              };
+            };
+            processGoalToken(homeGoalsToken, "home", "homeGoals");
+            processGoalToken(awayGoalsToken, "away", "awayGoals");
+          } catch (e) {
+            /* ignore goal O/U errors */
+          }
+
+          // cornerSpread and cardSpread (per-team spreads)
+          try {
+            const boxTeams = summaryData.boxscore?.teams || [];
+            const findBoxTeam = (abbr) => {
+              for (const t of boxTeams) {
+                try {
+                  const a =
+                    t.team?.abbreviation ||
+                    t.team?.shortDisplayName ||
+                    t.team?.name ||
+                    "";
+                  if (String(a).toUpperCase() === String(abbr).toUpperCase())
+                    return t;
+                } catch (e) {}
+              }
+              return null;
+            };
+
+            const sumStatForTeam = (teamObj, pattern) => {
+              try {
+                if (!teamObj) return 0;
+                const stats =
+                  teamObj.statistics ||
+                  teamObj.statisticsData ||
+                  teamObj.stats ||
+                  {};
+                if (!stats) return 0;
+                if (Array.isArray(stats)) {
+                  for (const item of stats) {
+                    if (!item) continue;
+                    const candidates = [
+                      item.label,
+                      item.name,
+                      item.displayName,
+                      item.stat,
+                      item.key,
+                    ];
+                    for (const c of candidates) {
+                      if (!c) continue;
+                      if (pattern.test(String(c))) {
+                        const raw =
+                          item.value ||
+                          item.displayValue ||
+                          item.statValue ||
+                          item.number ||
+                          item.count ||
+                          item.total ||
+                          null;
+                        return (
+                          parseInt(
+                            String(raw || "0").replace(/[^0-9\-]/g, "")
+                          ) || 0
+                        );
+                      }
+                    }
+                  }
+                }
+                if (typeof stats === "object") {
+                  for (const k of Object.keys(stats || {})) {
+                    if (pattern.test(String(k))) {
+                      let val = stats[k];
+                      if (val && typeof val === "object") {
+                        val =
+                          val.value ||
+                          val.displayValue ||
+                          val.count ||
+                          val.total ||
+                          JSON.stringify(val);
+                      }
+                      return (
+                        parseInt(String(val || "0").replace(/[^0-9\-]/g, "")) ||
+                        0
+                      );
+                    }
+                  }
+                }
+                return 0;
+              } catch (e) {
+                return 0;
+              }
+            };
+
+            const cornerSpreadToken = getParamValueForGame("cornerSpread", gi);
+            if (cornerSpreadToken) {
+              const m = String(cornerSpreadToken).match(
+                /^([A-Z]{1,5})[+\s]?([+-]?[0-9.]+)$/i
+              );
+              if (m) {
+                const teamAbbr = m[1].toUpperCase();
+                const line = parseFloat(m[2]);
+                const teamObj = findBoxTeam(teamAbbr);
+                // find opposing team
+                const oppObj = boxTeams.find((t) => t !== teamObj) || null;
+                const teamCorners = sumStatForTeam(teamObj, /corner/i);
+                const oppCorners = sumStatForTeam(oppObj, /corner/i);
+                const adjusted = teamCorners + line;
+                const isWinning = adjusted > oppCorners;
+                const isInProgress = !isCompleted && gameStatus?.state === "in";
+                eventData.bets.cornerSpread = {
+                  team: teamAbbr,
+                  line,
+                  current: { teamCorners, oppCorners },
+                  won: isCompleted
+                    ? isWinning
+                      ? true
+                      : false
+                    : isInProgress
+                    ? "in progress"
+                    : "pending",
+                };
+              }
+            }
+
+            const cardSpreadToken = getParamValueForGame("cardSpread", gi);
+            if (cardSpreadToken) {
+              const m = String(cardSpreadToken).match(
+                /^([A-Z]{1,5})[+\s]?([+-]?[0-9.]+)$/i
+              );
+              if (m) {
+                const teamAbbr = m[1].toUpperCase();
+                const line = parseFloat(m[2]);
+                const teamObj = findBoxTeam(teamAbbr);
+                const oppObj = boxTeams.find((t) => t !== teamObj) || null;
+                const yellowTeam = sumStatForTeam(teamObj, /yellow/i);
+                const redTeam = sumStatForTeam(teamObj, /red/i);
+                const yellowOpp = sumStatForTeam(oppObj, /yellow/i);
+                const redOpp = sumStatForTeam(oppObj, /red/i);
+                // weighting: yellow=1, red=2
+                const teamCards =
+                  (Number(yellowTeam) || 0) + (Number(redTeam) || 0) * 2;
+                const oppCards =
+                  (Number(yellowOpp) || 0) + (Number(redOpp) || 0) * 2;
+                const adjusted = teamCards + line;
+                const isWinning = adjusted > oppCards;
+                const isInProgress = !isCompleted && gameStatus?.state === "in";
+                eventData.bets.cardSpread = {
+                  team: teamAbbr,
+                  line,
+                  current: { teamCards, oppCards },
+                  won: isCompleted
+                    ? isWinning
+                      ? true
+                      : false
+                    : isInProgress
+                    ? "in progress"
+                    : "pending",
+                };
+              }
+            }
+          } catch (e) {
+            /* ignore corner/card spread errors */
+          }
+
+          // First/last scoring events: prefer transformed data when fetched from the transformed endpoint
+          const transformed =
+            summaryData && (summaryData.boxscore || summaryData.firstBasket)
+              ? summaryData
+              : transformSummaryData(summaryData) || {};
+          // Support common param variants/typos for first touchdown
+          const firstTDToken =
+            getParamValueForGame("firstTouchdown", gi) ||
+            getParamValueForGame("firstTD", gi) ||
+            getParamValueForGame("firstToucdown", gi) ||
+            getParamValueForGame("first_touchdown", gi);
+          if (firstTDToken && transformed.firstTouchdown) {
+            const tokenRaw = String(firstTDToken);
+            const token = tokenRaw.toLowerCase();
+            const team =
+              transformed.firstTouchdown.teamAbbr ||
+              transformed.firstTouchdown.team?.abbreviation;
+            const athleteId = String(
+              transformed.firstTouchdown.athleteId ||
+                transformed.firstTouchdown.athlete?.id ||
+                ""
+            );
+            if (token === "yes" || token === "no") {
+              const occurred = !!transformed.firstTouchdown;
+              eventData.bets.firstTouchdown = {
+                bet: firstTDToken,
+                won: token === "yes" ? occurred : !occurred,
+              };
+            } else if (/^[0-9]+$/.test(tokenRaw)) {
+              // numeric athlete id
+              eventData.bets.firstTouchdown = {
+                bet: firstTDToken,
+                won: athleteId === tokenRaw,
+              };
+            } else {
+              eventData.bets.firstTouchdown = {
+                bet: firstTDToken,
+                won: (team || "") === tokenRaw.toUpperCase(),
+              };
+            }
+          }
+
+          const lastTDToken =
+            getParamValueForGame("lastTouchdown", gi) ||
+            getParamValueForGame("lastTD", gi) ||
+            getParamValueForGame("last_touchdown", gi);
+          if (lastTDToken && transformed.lastTouchdown) {
+            const tokenRaw = String(lastTDToken);
+            const token = tokenRaw.toLowerCase();
+            const team =
+              transformed.lastTouchdown.teamAbbr ||
+              transformed.lastTouchdown.team?.abbreviation;
+            const athleteId = String(
+              transformed.lastTouchdown.athleteId ||
+                transformed.lastTouchdown.athlete?.id ||
+                ""
+            );
+            if (token === "yes" || token === "no") {
+              const occurred = !!transformed.lastTouchdown;
+              eventData.bets.lastTouchdown = {
+                bet: lastTDToken,
+                won: token === "yes" ? occurred : !occurred,
+              };
+            } else if (/^[0-9]+$/.test(tokenRaw)) {
+              eventData.bets.lastTouchdown = {
+                bet: lastTDToken,
+                won: athleteId === tokenRaw,
+              };
+            } else {
+              eventData.bets.lastTouchdown = {
+                bet: lastTDToken,
+                won: (team || "") === tokenRaw.toUpperCase(),
+              };
+            }
+          }
+
+          // NBA: firstBasket
+          const firstBasketToken = getParamValueForGame("firstBasket", gi);
+          if (firstBasketToken && transformed.firstBasket) {
+            const tokenRaw = String(firstBasketToken || "");
+            const token = tokenRaw.toLowerCase();
+            const team =
+              transformed.firstBasket.teamAbbr ||
+              transformed.firstBasket.team?.abbreviation;
+            // support boolean yes/no, numeric athlete id, or team abbr
+            if (token === "yes" || token === "no") {
+              const occurred = !!transformed.firstBasket;
+              eventData.bets.firstBasket = {
+                bet: firstBasketToken,
+                won: token === "yes" ? occurred : !occurred,
+              };
+            } else if (/^[0-9]+$/.test(tokenRaw)) {
+              // numeric athlete id
+              const athleteId = String(
+                transformed.firstBasket.athleteId ||
+                  transformed.firstBasket.athlete?.id ||
+                  ""
+              );
+              const obj = {
+                bet: firstBasketToken,
+                won: athleteId === tokenRaw,
+              };
+              // Try to augment with displayName and team color from multiple sources
+              try {
+                // 1) Search summaryData.boxscore.players if present
+                const bsPlayers = summaryData.boxscore?.players || [];
+                if (Array.isArray(bsPlayers) && bsPlayers.length) {
+                  for (const pt of bsPlayers) {
+                    const statsBlock = Array.isArray(pt.statistics)
+                      ? pt.statistics[0]
+                      : pt.statistics || {};
+                    const athletes = statsBlock?.athletes || [];
+                    const found = athletes.find(
+                      (a) => String(a.athlete?.id) === tokenRaw
+                    );
+                    if (found) {
+                      obj.displayName =
+                        found.athlete?.displayName ||
+                        found.athlete?.name ||
+                        obj.displayName ||
+                        null;
+                      // try to get team color from matching boxscore teams array
+                      const bsTeams = summaryData.boxscore?.teams || [];
+                      const teamMatch = bsTeams.find(
+                        (t) =>
+                          String(t.team?.id) === String(pt.team?.id) ||
+                          String(t.team?.abbreviation) ===
+                            String(pt.team?.abbreviation)
+                      );
+                      if (teamMatch)
+                        obj.color =
+                          teamMatch.team?.color ||
+                          teamMatch.team?.alternateColor ||
+                          obj.color;
+                      break;
+                    }
+                  }
+                }
+
+                // 2) If not found, search transformed.boxscore.players
+                if (!obj.displayName && transformed?.boxscore?.players) {
+                  for (const tb of transformed.boxscore.players) {
+                    const tat = tb.statistics?.athletes || [];
+                    const f = tat.find(
+                      (x) => String(x.athlete?.id) === tokenRaw
+                    );
+                    if (f) {
+                      obj.displayName =
+                        f.athlete?.displayName || obj.displayName || null;
+                      obj.color =
+                        obj.color ||
+                        tb.team?.color ||
+                        tb.team?.alternateColor ||
+                        null;
+                      break;
+                    }
+                  }
+                }
+
+                // 3) Fallback to rosters (UEFA-style)
+                if (!obj.displayName) {
+                  const rawRosters =
+                    summaryData.boxscore?.rosters || summaryData.rosters || [];
+                  for (const r of rawRosters) {
+                    const teamColor =
+                      r?.team?.color || r?.team?.alternateColor || null;
+                    const roster = r.roster || [];
+                    for (const p of roster) {
+                      const pid =
+                        p?.athlete?.id ||
+                        p?.athlete?.uid ||
+                        p?.athlete?.externalId ||
+                        null;
+                      if (!pid) continue;
+                      if (String(pid) === tokenRaw) {
+                        obj.displayName =
+                          p.athlete?.displayName || p.athlete?.name || null;
+                        if (teamColor) obj.color = teamColor;
+                        break;
+                      }
+                    }
+                    if (obj.displayName) break;
+                  }
+                }
+              } catch (e) {}
+              eventData.bets.firstBasket = obj;
+            } else {
+              eventData.bets.firstBasket = {
+                bet: firstBasketToken,
+                won: (team || "") === tokenRaw.toUpperCase(),
+              };
+            }
+          }
+
+          // NHL: firstGoal / lastGoal
+          const firstGoalToken =
+            getParamValueForGame("firstGoal", gi) ||
+            getParamValueForGame(`firstGoal${explicitSport}`, gi) ||
+            getParamValueForGame(`firstGoal_${explicitSport}`, gi) ||
+            getParamValueForGame(
+              `firstGoal${String(explicitSport).toUpperCase()}`,
+              gi
+            ) ||
+            getParamValueForGame(
+              `firstGoal_${String(explicitSport).toUpperCase()}`,
+              gi
+            );
+          if (firstGoalToken && transformed.firstGoal) {
+            const token = String(firstGoalToken).toLowerCase();
+            const team =
+              transformed.firstGoal.teamAbbr ||
+              transformed.firstGoal.team?.abbreviation;
+
+            const buildBetObj = (wonVal) => {
+              const obj = { bet: firstGoalToken, won: wonVal };
+              // If the bet is an athlete id, try to find displayName and team color from rosters
+              if (/^\d+$/.test(String(firstGoalToken))) {
+                try {
+                  const rawRosters =
+                    summaryData.boxscore?.rosters || summaryData.rosters || [];
+                  for (const r of rawRosters) {
+                    const teamColor =
+                      r?.team?.color || r?.team?.alternateColor || null;
+                    const roster = r.roster || [];
+                    for (const p of roster) {
+                      const pid =
+                        p?.athlete?.id ||
+                        p?.athlete?.uid ||
+                        p?.athlete?.externalId ||
+                        null;
+                      if (!pid) continue;
+                      if (String(pid) === String(firstGoalToken)) {
+                        obj.displayName =
+                          p.athlete?.displayName || p.athlete?.name || null;
+                        if (teamColor) obj.color = teamColor;
+                        break;
+                      }
+                    }
+                    if (obj.displayName) break;
+                  }
+                } catch (e) {
+                  /* ignore roster lookup errors */
+                }
+              }
+              return obj;
+            };
+
+            if (token === "yes" || token === "no") {
+              const occurred = !!transformed.firstGoal;
+              eventData.bets.firstGoal = buildBetObj(
+                token === "yes" ? occurred : !occurred
+              );
+            } else {
+              const won = (team || "") === String(firstGoalToken).toUpperCase();
+              eventData.bets.firstGoal = buildBetObj(won);
+            }
+          }
+
+          const lastGoalToken =
+            getParamValueForGame("lastGoal", gi) ||
+            getParamValueForGame(`lastGoal${explicitSport}`, gi) ||
+            getParamValueForGame(`lastGoal_${explicitSport}`, gi) ||
+            getParamValueForGame(
+              `lastGoal${String(explicitSport).toUpperCase()}`,
+              gi
+            ) ||
+            getParamValueForGame(
+              `lastGoal_${String(explicitSport).toUpperCase()}`,
+              gi
+            );
+          if (lastGoalToken && transformed.lastGoal) {
+            const token = String(lastGoalToken).toLowerCase();
+            const team =
+              transformed.lastGoal.teamAbbr ||
+              transformed.lastGoal.team?.abbreviation;
+
+            const buildLastObj = (wonVal) => {
+              const obj = { bet: lastGoalToken, won: wonVal };
+              if (/^\d+$/.test(String(lastGoalToken))) {
+                try {
+                  const rawRosters =
+                    summaryData.boxscore?.rosters || summaryData.rosters || [];
+                  for (const r of rawRosters) {
+                    const teamColor =
+                      r?.team?.color || r?.team?.alternateColor || null;
+                    const roster = r.roster || [];
+                    for (const p of roster) {
+                      const pid =
+                        p?.athlete?.id ||
+                        p?.athlete?.uid ||
+                        p?.athlete?.externalId ||
+                        null;
+                      if (!pid) continue;
+                      if (String(pid) === String(lastGoalToken)) {
+                        obj.displayName =
+                          p.athlete?.displayName || p.athlete?.name || null;
+                        if (teamColor) obj.color = teamColor;
+                        break;
+                      }
+                    }
+                    if (obj.displayName) break;
+                  }
+                } catch (e) {
+                  /* ignore roster lookup errors */
+                }
+              }
+              return obj;
+            };
+
+            if (token === "yes" || token === "no") {
+              const occurred = !!transformed.lastGoal;
+              eventData.bets.lastGoal = buildLastObj(
+                token === "yes" ? occurred : !occurred
+              );
+            } else {
+              const won = (team || "") === String(lastGoalToken).toUpperCase();
+              eventData.bets.lastGoal = buildLastObj(won);
+            }
+          }
+
+          // UEFA-specific totals: corners and cards
+          try {
+            const totalCornerToken =
+              getParamValueForGame("totalCorner", gi) ||
+              getParamValueForGame("totalCorners", gi);
+            const totalCardsToken =
+              getParamValueForGame("totalCards", gi) ||
+              getParamValueForGame("totalCard", gi);
+            // Helper to sum stat from boxscore. Accept keys by fuzzy match and handle
+            // both object-mapped stats (key -> value) and array-shaped stats
+            // (items with label/name/displayName and value fields).
+            const sumBoxscoreStat = (pattern) => {
+              try {
+                const teams = summaryData.boxscore?.teams || [];
+                let sum = 0;
+                for (const t of teams) {
+                  const stats =
+                    t.statistics || t.statisticsData || t.stats || {};
+                  if (!stats) continue;
+
+                  // If stats is an array of stat objects, try common fields
+                  if (Array.isArray(stats)) {
+                    let found = false;
+                    for (const item of stats) {
+                      if (!item) continue;
+                      const candidates = [];
+                      if (item.label) candidates.push(item.label);
+                      if (item.name) candidates.push(item.name);
+                      if (item.displayName) candidates.push(item.displayName);
+                      if (item.stat) candidates.push(item.stat);
+                      if (item.key) candidates.push(item.key);
+                      for (const c of candidates) {
+                        try {
+                          if (pattern.test(String(c || ""))) {
+                            const raw =
+                              item.value ||
+                              item.displayValue ||
+                              item.statValue ||
+                              item.number ||
+                              item.count ||
+                              item.total ||
+                              item.stats ||
+                              null;
+                            const n =
+                              parseInt(
+                                String(raw || "0").replace(/[^0-9\-]/g, "")
+                              ) || 0;
+                            sum += n;
+                            found = true;
+                            break;
+                          }
+                        } catch (e) {}
+                      }
+                      if (found) break;
+                    }
+                    if (found) continue;
+                  }
+
+                  // If stats is an object mapping label->value
+                  if (typeof stats === "object") {
+                    let val = null;
+                    for (const k of Object.keys(stats || {})) {
+                      try {
+                        if (pattern.test(String(k))) {
+                          val = stats[k];
+                          break;
+                        }
+                      } catch (e) {}
+                    }
+                    if (val && typeof val === "object") {
+                      const raw =
+                        val.value ||
+                        val.displayValue ||
+                        val.stats ||
+                        val.count ||
+                        val.total ||
+                        null;
+                      val = raw !== undefined ? raw : JSON.stringify(val);
+                    }
+                    const n =
+                      parseInt(String(val || "0").replace(/[^0-9\-]/g, "")) ||
+                      0;
+                    sum += n;
+                    continue;
+                  }
+                }
+                return sum;
+              } catch (e) {
+                return 0;
+              }
+            };
+
+            if (totalCornerToken) {
+              const totalCorners = sumBoxscoreStat(/corner/i);
+              const tkn = String(totalCornerToken || "").trim();
+              console.log(
+                `[Betslip][UEFA] totalCorner token raw='${String(
+                  totalCornerToken
+                )}' parsed='${tkn}' totalCorners=${totalCorners}`
+              );
+              const mOU = tkn.match(/^[ou]([0-9.]+)/i);
+              const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
+              const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
+              const mNum = tkn.match(/^([0-9]+(?:\.[0-9]+)?)$/);
+              console.log(
+                `[Betslip][UEFA] totalCorner regex mOU=${!!mOU} mPlus=${!!mPlus} mMinus=${!!mMinus} mNum=${!!mNum}`
+              );
+              let isOver = false;
+              let line = null;
+              if (mOU) {
+                isOver = /^o/i.test(tkn);
+                line = parseFloat(mOU[1]);
+              } else if (mPlus) {
+                isOver = true;
+                line = parseFloat(mPlus[1]);
+              } else if (mMinus) {
+                isOver = false;
+                line = parseFloat(mMinus[1]);
+              } else if (mNum) {
+                // Accept bare numbers (e.g., 10) as shorthand for over (equivalent to 10+)
+                isOver = true;
+                line = parseFloat(mNum[1]);
+              }
+              if (line !== null) {
+                const isInProgress = !isCompleted && gameStatus?.state === "in";
+                let won;
+                if (isOver) {
+                  const isWinning = totalCorners >= line;
+                  won = isCompleted
+                    ? isWinning
+                      ? true
+                      : false
+                    : isInProgress
+                    ? "in progress"
+                    : "pending";
+                } else {
+                  if (isInProgress)
+                    won = totalCorners <= line ? "in progress" : false;
+                  else if (!isCompleted) won = "pending";
+                  else {
+                    won = totalCorners <= line ? true : false;
+                  }
+                }
+                eventData.bets.totalCorner = {
+                  bet: totalCornerToken,
+                  line,
+                  current: totalCorners,
+                  type: isOver ? "over" : "under",
+                  won,
+                };
+              }
+            }
+
+            if (totalCardsToken) {
+              // Sum yellow + red
+              const yellow = sumBoxscoreStat(/yellow/i);
+              const red = sumBoxscoreStat(/red/i);
+              const totalCards = (Number(yellow) || 0) + (Number(red) || 0);
+              const tkn = String(totalCardsToken || "").trim();
+              console.log(
+                `[Betslip][UEFA] totalCards token raw='${String(
+                  totalCardsToken
+                )}' parsed='${tkn}' totalCards=${totalCards}`
+              );
+              const mOU = tkn.match(/^[ou]([0-9.]+)/i);
+              const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
+              const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
+              const mNum = tkn.match(/^([0-9]+(?:\.[0-9]+)?)$/);
+              console.log(
+                `[Betslip][UEFA] totalCards regex mOU=${!!mOU} mPlus=${!!mPlus} mMinus=${!!mMinus} mNum=${!!mNum}`
+              );
+              let isOver = false;
+              let line = null;
+              if (mOU) {
+                isOver = /^o/i.test(tkn);
+                line = parseFloat(mOU[1]);
+              } else if (mPlus) {
+                isOver = true;
+                line = parseFloat(mPlus[1]);
+              } else if (mMinus) {
+                isOver = false;
+                line = parseFloat(mMinus[1]);
+              } else if (mNum) {
+                // Accept bare numbers (e.g., 3) as shorthand for over (equivalent to 3+)
+                isOver = true;
+                line = parseFloat(mNum[1]);
+              }
+              if (line !== null) {
+                const isInProgress = !isCompleted && gameStatus?.state === "in";
+                let won;
+                if (isOver) {
+                  const isWinning = totalCards >= line;
+                  won = isCompleted
+                    ? isWinning
+                      ? true
+                      : false
+                    : isInProgress
+                    ? "in progress"
+                    : "pending";
+                } else {
+                  if (isInProgress)
+                    won = totalCards <= line ? "in progress" : false;
+                  else if (!isCompleted) won = "pending";
+                  else {
+                    won = totalCards <= line ? true : false;
+                  }
+                }
+                eventData.bets.totalCards = {
+                  bet: totalCardsToken,
+                  line,
+                  current: totalCards,
+                  type: isOver ? "over" : "under",
+                  won,
+                };
+              }
+            }
+          } catch (e) {
+            /* ignore UEFA totals errors */
+          }
+        } catch (e) {
+          console.log(
+            `[Betslip] Additional bets processing error for ${rawGameToken}: ${
+              e?.message || e
+            }`
+          );
+        }
+
         // Process player bets
         const boxscorePlayers = summaryData.boxscore?.players || [];
+        const boxscoreTeams = summaryData.boxscore?.teams || [];
         const players = [];
 
         console.log(
@@ -2575,186 +8315,543 @@ app.get("/api/betslip", async (req, res) => {
 
         Object.keys(playerBets).forEach((key) => {
           const playerMatch = key.match(/^p(\d+)$/);
-          if (playerMatch) {
-            const playerId = playerBets[key];
-            console.log(`[Betslip] Looking for player ID: ${playerId}`);
+          if (!playerMatch) return;
+          const playerId = playerBets[key];
+          console.log(`[Betslip] Looking for player ID: ${playerId}`);
 
-            const playerData = {
-              id: playerId,
-              name: null,
-              overUnder: {},
-              milestones: {},
-            };
+          const playerData = {
+            id: playerId,
+            name: null,
+            color: null,
+            overUnder: {},
+            milestones: {},
+          };
 
-            // Find player in boxscore
-            for (const team of boxscorePlayers) {
-              // Debug: Check team structure
-              console.log(
-                `[Betslip] Team: ${
-                  team.team?.abbreviation
-                }, has statistics: ${!!team.statistics}, statistics is array: ${Array.isArray(
-                  team.statistics
-                )}, length: ${team.statistics?.length}`
-              );
+          // Try to locate athlete in boxscore.players
+          let foundAthlete = null;
+          let foundLabels = [];
+          let foundStatsArr = [];
+          let foundTeamId = null;
 
-              // If statistics is missing or empty, log the team structure
-              if (
-                !team.statistics ||
-                !Array.isArray(team.statistics) ||
-                team.statistics.length === 0
-              ) {
-                console.log(
-                  `[Betslip] WARNING: Team ${team.team?.abbreviation} has no statistics array. Team keys:`,
-                  Object.keys(team)
-                );
-                continue;
-              }
-
-              // Statistics is an array, not an object
-              const statisticsData = team.statistics[0];
-              if (statisticsData) {
-                console.log(
-                  `[Betslip] Statistics data found, has athletes: ${!!statisticsData.athletes}, athletes length: ${
-                    statisticsData.athletes?.length
-                  }`
-                );
-              }
+          try {
+            for (const team of boxscorePlayers || []) {
+              const statisticsData = Array.isArray(team.statistics)
+                ? team.statistics[0]
+                : team.statistics || {};
               const athletes = statisticsData?.athletes || [];
-              console.log(
-                `[Betslip] Checking team: ${team.team?.abbreviation}, athletes count: ${athletes.length}`
+              const athlete = athletes.find(
+                (a) => String(a.athlete?.id) === String(playerId)
               );
-
-              const athlete = athletes.find((a) => a.athlete?.id === playerId);
               if (athlete) {
+                foundAthlete = athlete;
+                foundLabels = statisticsData.labels || [];
+                foundStatsArr = athlete.stats || [];
+                foundTeamId = team.team?.id || null;
+                playerData.name =
+                  athlete.athlete?.displayName ||
+                  athlete.athlete?.displayName ||
+                  null;
                 console.log(
-                  `[Betslip] Found player: ${athlete.athlete?.displayName}`
+                  `[Betslip] Found athlete in boxscore.players for id=${playerId}, displayName=${playerData.name}, teamId=${foundTeamId}, stats=`,
+                  athlete.stats
                 );
-                playerData.name = athlete.athlete?.displayName;
-
-                // Get stat labels for mapping
-                const labels = statisticsData.labels || [];
-
-                // Process player over/under and milestone bets
-                Object.keys(playerBets).forEach((betKey) => {
-                  const statMatch = betKey.match(/^p(\d+)_(\w+)$/);
-                  if (statMatch) {
-                    const [, num, stat] = statMatch;
-                    if (num === playerMatch[1]) {
-                      const betValue = playerBets[betKey];
-                      const statUpper = stat.toUpperCase();
-
-                      // Find stat index in labels
-                      const statIndex = labels.indexOf(statUpper);
-                      // Compute current value. If the requested stat is PRA
-                      // (Points+Rebounds+Assists), sum the corresponding
-                      // PTS, REB and AST values from the athlete.stats array.
-                      let current = 0;
-                      if (statUpper === "PRA") {
-                        const ptsIdx = labels.indexOf("PTS");
-                        const rebIdx = labels.indexOf("REB");
-                        const astIdx = labels.indexOf("AST");
-                        const pts =
-                          ptsIdx >= 0
-                            ? parseFloat(athlete.stats?.[ptsIdx]) || 0
-                            : 0;
-                        const reb =
-                          rebIdx >= 0
-                            ? parseFloat(athlete.stats?.[rebIdx]) || 0
-                            : 0;
-                        const ast =
-                          astIdx >= 0
-                            ? parseFloat(athlete.stats?.[astIdx]) || 0
-                            : 0;
-                        current = pts + reb + ast;
-                      } else {
-                        current =
-                          statIndex >= 0
-                            ? parseFloat(athlete.stats?.[statIndex]) || 0
-                            : 0;
-                      }
-
-                      console.log(
-                        `[Betslip] Processing bet: ${betKey}, stat: ${statUpper}, current: ${current}, betValue: ${betValue}`
+                try {
+                  const allTransformedAthletes = (
+                    transformed?.boxscore?.players || []
+                  ).flatMap((p) => p.statistics?.athletes || []);
+                  const transformedMatch = allTransformedAthletes.find(
+                    (a) => String(a.athlete?.id) === String(playerId)
+                  );
+                  console.log(
+                    `[Betslip] Transformed source used: ${
+                      usedTransformedSource ? "true" : "false"
+                    }`
+                  );
+                  console.log(
+                    `[Betslip] Matching athlete from transformed summary (if any):`,
+                    transformedMatch || "<no transformed athlete found>",
+                    "\nTransformed boxscore players count:",
+                    (transformed?.boxscore?.players || []).length
+                  );
+                } catch (e) {
+                  /* non-fatal */
+                }
+                console.log(
+                  `[Betslip] Found athlete 1Q data (pre-attach):`,
+                  athlete["1Q"] || athlete.athlete?.["1Q"] || null
+                );
+                // Attach per-period 1Q stats from transformed summary if available
+                try {
+                  if (
+                    transformed &&
+                    transformed.boxscore &&
+                    Array.isArray(transformed.boxscore.players)
+                  ) {
+                    for (const tb of transformed.boxscore.players) {
+                      const tat = tb.statistics?.athletes || [];
+                      const found = tat.find(
+                        (x) => String(x.athlete?.id) === String(playerId)
                       );
-
-                      // Check if it's an over/under (contains 'o' or 'u' prefix)
-                      if (betValue.match(/^[ou]/i)) {
-                        const isOver =
-                          betValue.startsWith("o") || betValue.startsWith("O");
-                        const line = parseFloat(betValue.substring(1));
-                        // Determine win state with special handling for unders
-                        const isInProgress =
-                          !isCompleted && gameStatus?.state === "in";
-                        let won;
-                        if (isOver) {
-                          const isWinning = current >= line;
-                          won = isCompleted
-                            ? isWinning
-                              ? true
-                              : false
-                            : isInProgress
-                            ? "in progress"
-                            : "pending";
-                        } else {
-                          // Under: while game in progress and current <= line -> still in progress
-                          // If current > line while in progress -> lost (false)
-                          if (isInProgress) {
-                            won = current <= line ? "in progress" : false;
-                          } else {
-                            const isWinning = current <= line;
-                            won = isWinning ? true : false;
-                          }
-                        }
-
-                        playerData.overUnder[statUpper] = {
-                          bet: line,
-                          type: isOver ? "over" : "under",
-                          current: current,
-                          won,
-                        };
-                      }
-                      // Check if it's a milestone (any number, may have + or % at the end)
-                      else {
-                        // Parse threshold from string (handles "5+", "5", "5%2B", etc.)
-                        const threshold = parseInt(
-                          betValue.replace(/[^0-9]/g, "")
-                        );
-                        if (!isNaN(threshold)) {
-                          const isWinning = current >= threshold;
-                          const isInProgress =
-                            !isCompleted && gameStatus?.state === "in";
-
-                          playerData.milestones[statUpper] = {
-                            bet: betValue,
-                            threshold: threshold,
-                            current: current,
-                            won: isWinning
-                              ? true
-                              : isInProgress
-                              ? "in progress"
-                              : !isCompleted
-                              ? "pending"
-                              : false,
-                          };
-                        }
+                      if (found && found["1Q"]) {
+                        // ensure resolver can find it either on top-level or under athlete
+                        foundAthlete["1Q"] = found["1Q"];
+                        break;
                       }
                     }
                   }
-                });
-
+                } catch (e) {
+                  /* non-fatal */
+                }
                 break;
               }
             }
+          } catch (e) {
+            /* ignore */
+          }
+
+          // Lookup team color from boxscore.teams if we have a team ID
+          if (foundTeamId && boxscoreTeams.length > 0) {
+            const teamData = boxscoreTeams.find(
+              (t) => String(t.team?.id) === String(foundTeamId)
+            );
+            if (teamData && teamData.team?.color) {
+              playerData.color = teamData.team.color;
+              console.log(
+                `[Betslip] Found team color for player ${playerId}: ${playerData.color}`
+              );
+            }
+          }
+
+          // Fallback: search raw rosters (UEFA and others)
+          if (!foundAthlete) {
+            try {
+              const rawRosters =
+                summaryData.boxscore?.rosters || summaryData.rosters || [];
+              for (const r of rawRosters) {
+                const roster = r.roster || [];
+                for (const p of roster) {
+                  const pid =
+                    p?.athlete?.id ||
+                    p?.athlete?.uid ||
+                    p?.athlete?.externalId ||
+                    null;
+                  if (!pid) continue;
+                  if (String(pid) === String(playerId)) {
+                    const name =
+                      p.athlete?.displayName || p.athlete?.name || null;
+                    playerData.name = name;
+                    // Capture team color from roster
+                    if (r.team?.color) {
+                      playerData.color = r.team.color;
+                      console.log(
+                        `[Betslip] Found team color from roster for player ${playerId}: ${playerData.color}`
+                      );
+                    }
+                    // Convert stats object to labels + array for compatibility
+                    const statsObj =
+                      p.stats && typeof p.stats === "object" ? p.stats : null;
+                    console.log(
+                      `[Betslip] Found athlete in rosters for id=${playerId}, displayName=${name}, teamColor=${playerData.color}, statsObj=`,
+                      statsObj || p.stats || p
+                    );
+                    if (statsObj) {
+                      // Some roster stats are an array of stat objects (name, abbreviation, value)
+                      if (Array.isArray(statsObj)) {
+                        const labelsArr = [];
+                        const valsArr = [];
+                        for (const it of statsObj) {
+                          if (!it) continue;
+                          const label =
+                            it.abbreviation ||
+                            it.shortDisplayName ||
+                            it.displayName ||
+                            it.name ||
+                            null;
+                          const rawVal =
+                            it.value ??
+                            it.displayValue ??
+                            it.count ??
+                            it.total ??
+                            null;
+                          labelsArr.push(String(label || "").toUpperCase());
+                          valsArr.push(
+                            rawVal !== null && rawVal !== undefined
+                              ? String(rawVal)
+                              : null
+                          );
+                        }
+                        foundLabels = labelsArr;
+                        foundStatsArr = valsArr;
+                        console.log(
+                          `[Betslip] Normalized roster stats for player ${playerId}: labels=${JSON.stringify(
+                            foundLabels
+                          )}, values=${JSON.stringify(foundStatsArr)}`
+                        );
+                      } else {
+                        foundLabels = Object.keys(statsObj || []);
+                        foundStatsArr = foundLabels.map((lbl) => statsObj[lbl]);
+                      }
+                    }
+                    foundAthlete = {
+                      athlete: { id: String(pid), displayName: name },
+                      stats: foundStatsArr,
+                    };
+                    // Attach per-period 1Q stats from transformed summary if available
+                    try {
+                      if (
+                        transformed &&
+                        transformed.boxscore &&
+                        Array.isArray(transformed.boxscore.players)
+                      ) {
+                        for (const tb of transformed.boxscore.players) {
+                          const tat = tb.statistics?.athletes || [];
+                          const found = tat.find(
+                            (x) => String(x.athlete?.id) === String(playerId)
+                          );
+                          if (found && found["1Q"]) {
+                            foundAthlete["1Q"] = found["1Q"];
+                            break;
+                          }
+                        }
+                      }
+                    } catch (e) {
+                      /* non-fatal */
+                    }
+                    break;
+                  }
+                }
+                if (foundAthlete) break;
+              }
+            } catch (e) {
+              /* ignore roster lookup errors */
+            }
+          }
+
+          // If athlete located, process their bets
+          if (foundAthlete) {
+            const labels = foundLabels || [];
+            const athlete = foundAthlete;
+
+            Object.keys(playerBets).forEach((betKey) => {
+              const statMatch = betKey.match(/^p(\d+)_(\w+)$/);
+              if (!statMatch) return;
+              const [, num, stat] = statMatch;
+              if (num !== playerMatch[1]) return;
+              const betValue = playerBets[betKey];
+              const statUpper = stat.toUpperCase();
+
+              // Find stat index in labels
+              let statIndex = labels.indexOf(statUpper);
+              if (statIndex === -1) {
+                const aliasIdx = findStatIndexByAlias(labels, statUpper);
+                if (aliasIdx === -2) statIndex = -2;
+                else if (aliasIdx >= 0) statIndex = aliasIdx;
+              }
+
+              const bv = String(betValue || "").toLowerCase();
+              const athleteId =
+                athlete.athlete?.id || athlete.athleteId || athlete.id;
+
+              // Handle first/last scoring boolean player bets
+              const handleFirstLast = () => {
+                try {
+                  if (statUpper === "FIRSTBASKET") {
+                    const occurred = !!(
+                      summaryData.firstBasket &&
+                      String(summaryData.firstBasket.athleteId) ===
+                        String(athleteId)
+                    );
+                    if (bv === "yes" || bv === "no") {
+                      const won = bv === "yes" ? occurred : !occurred;
+                      playerData.milestones[statUpper] = {
+                        bet: betValue,
+                        current: occurred ? 1 : 0,
+                        won,
+                      };
+                      return { handled: true };
+                    }
+                  }
+                  if (
+                    statUpper === "FIRSTTOUCHDOWN" ||
+                    statUpper === "FIRSTTD"
+                  ) {
+                    const occurred = !!(
+                      summaryData.firstTouchdown &&
+                      String(summaryData.firstTouchdown.athleteId) ===
+                        String(athleteId)
+                    );
+                    if (bv === "yes" || bv === "no") {
+                      const won = bv === "yes" ? occurred : !occurred;
+                      playerData.milestones[statUpper] = {
+                        bet: betValue,
+                        current: occurred ? 1 : 0,
+                        won,
+                      };
+                      return { handled: true };
+                    }
+                  }
+                  if (statUpper === "LASTTOUCHDOWN" || statUpper === "LASTTD") {
+                    const occurred = !!(
+                      summaryData.lastTouchdown &&
+                      String(summaryData.lastTouchdown.athleteId) ===
+                        String(athleteId)
+                    );
+                    if (bv === "yes" || bv === "no") {
+                      const won = bv === "yes" ? occurred : !occurred;
+                      playerData.milestones[statUpper] = {
+                        bet: betValue,
+                        current: occurred ? 1 : 0,
+                        won,
+                      };
+                      return { handled: true };
+                    }
+                  }
+                  if (statUpper === "FIRSTGOAL") {
+                    let occurred = false;
+                    if (summaryData.firstGoal) {
+                      if (summaryData.firstGoal.athleteId)
+                        occurred =
+                          String(summaryData.firstGoal.athleteId) ===
+                          String(athleteId);
+                      else if (
+                        Array.isArray(summaryData.firstGoal.participants)
+                      ) {
+                        for (const p of summaryData.firstGoal.participants) {
+                          const keys = Object.keys(p || {});
+                          if (
+                            keys.find((k) => String(k) === String(athleteId))
+                          ) {
+                            occurred = true;
+                            break;
+                          }
+                        }
+                      }
+                    }
+                    if (bv === "yes" || bv === "no") {
+                      const won = bv === "yes" ? occurred : !occurred;
+                      playerData.milestones[statUpper] = {
+                        bet: betValue,
+                        current: occurred ? 1 : 0,
+                        won,
+                      };
+                      return { handled: true };
+                    }
+                  }
+                  if (statUpper === "LASTGOAL") {
+                    let occurred = false;
+                    if (summaryData.lastGoal) {
+                      if (summaryData.lastGoal.athleteId)
+                        occurred =
+                          String(summaryData.lastGoal.athleteId) ===
+                          String(athleteId);
+                      else if (
+                        Array.isArray(summaryData.lastGoal.participants)
+                      ) {
+                        for (const p of summaryData.lastGoal.participants) {
+                          const keys = Object.keys(p || {});
+                          if (
+                            keys.find((k) => String(k) === String(athleteId))
+                          ) {
+                            occurred = true;
+                            break;
+                          }
+                        }
+                      }
+                    }
+                    if (bv === "yes" || bv === "no") {
+                      const won = bv === "yes" ? occurred : !occurred;
+                      playerData.milestones[statUpper] = {
+                        bet: betValue,
+                        current: occurred ? 1 : 0,
+                        won,
+                      };
+                      return { handled: true };
+                    }
+                  }
+                } catch (e) {
+                  return { handled: false };
+                }
+                return { handled: false };
+              };
+
+              const firstLastHandled = handleFirstLast();
+              if (firstLastHandled.handled) return;
+
+              // Compute current value
+              let current = 0;
+              if (statUpper === "PRA") {
+                // Handle both array-based stats (with labels) and object-based stats
+                let pts = 0,
+                  reb = 0,
+                  ast = 0;
+
+                if (
+                  typeof athlete.stats === "object" &&
+                  !Array.isArray(athlete.stats)
+                ) {
+                  // Stats are an object like { PTS: 31, REB: 13, AST: 1 }
+                  pts = parseFloat(athlete.stats.PTS) || 0;
+                  reb = parseFloat(athlete.stats.REB) || 0;
+                  ast = parseFloat(athlete.stats.AST) || 0;
+                } else if (
+                  Array.isArray(athlete.stats) &&
+                  Array.isArray(labels)
+                ) {
+                  // Stats are an array indexed by labels
+                  const ptsIdx = labels.indexOf("PTS");
+                  const rebIdx = labels.indexOf("REB");
+                  const astIdx = labels.indexOf("AST");
+                  pts =
+                    ptsIdx >= 0 ? parseFloat(athlete.stats?.[ptsIdx]) || 0 : 0;
+                  reb =
+                    rebIdx >= 0 ? parseFloat(athlete.stats?.[rebIdx]) || 0 : 0;
+                  ast =
+                    astIdx >= 0 ? parseFloat(athlete.stats?.[astIdx]) || 0 : 0;
+                }
+
+                current = pts + reb + ast;
+                console.log(
+                  `[Betslip] PRA hardcoded calculation: pts=${pts}, reb=${reb}, ast=${ast}, sum=${current}`
+                );
+              } else {
+                if (statIndex >= 0)
+                  current = parseFloat(athlete.stats?.[statIndex]) || 0;
+                else {
+                  try {
+                    current = resolvePlayerStatValue(
+                      athlete,
+                      labels,
+                      statUpper,
+                      explicitSport || ""
+                    );
+                  } catch (e) {
+                    current = 0;
+                  }
+                }
+              }
+
+              console.log(
+                `[Betslip] Processing bet: ${betKey}, stat: ${statUpper}, current: ${current}, betValue: ${betValue}`
+              );
+
+              if (bv === "yes" || bv === "no") {
+                // For GOALS milestone, current is already computed from resolvePlayerStatValue
+                // which checks HGL/G/GOAL/GOALS, so we can use it directly
+                const occurred = !!current && Number(current) > 0;
+                const won = bv === "yes" ? occurred : !occurred;
+                playerData.milestones[statUpper] = {
+                  bet: betValue,
+                  current: Number(current) || 0,
+                  won,
+                };
+                return;
+              }
+
+              // Over/under: accept oNN, uNN, NN+, or NN-
+              const bvStr = String(betValue || "").trim();
+              const mOU = bvStr.match(/^[ou]([0-9.]+)/i);
+              const mPlus = bvStr.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
+              const mMinus = bvStr.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
+              if (mOU || mPlus || mMinus) {
+                const isOver = mPlus
+                  ? true
+                  : mMinus
+                  ? false
+                  : /^o/i.test(bvStr);
+                const line = mOU
+                  ? parseFloat(mOU[1])
+                  : mPlus
+                  ? parseFloat(mPlus[1])
+                  : parseFloat(mMinus[1]);
+                const isInProgress = !isCompleted && gameStatus?.state === "in";
+                let won;
+                if (isOver) {
+                  const isWinning = Number(current) >= line;
+                  won = isCompleted
+                    ? isWinning
+                      ? true
+                      : false
+                    : isInProgress
+                    ? "in progress"
+                    : "pending";
+                } else {
+                  if (isInProgress)
+                    won = Number(current) <= line ? "in progress" : false;
+                  else {
+                    const isWinning = Number(current) <= line;
+                    won = isWinning ? true : false;
+                  }
+                }
+                playerData.overUnder[statUpper] = {
+                  bet: line,
+                  type: isOver ? "over" : "under",
+                  current: current,
+                  won,
+                };
+                return;
+              }
+
+              // Check for threshold with optional +/- suffix
+              const thresholdStr = String(betValue).trim();
+              const thresholdMatch = thresholdStr.match(/^([0-9.]+)([-+]?)$/);
+              if (thresholdMatch) {
+                const threshold = parseFloat(thresholdMatch[1]);
+                const suffix = thresholdMatch[2];
+                // If suffix is -, treat as under; otherwise treat as over (default)
+                const isOver = suffix !== "-";
+                const isInProgress = !isCompleted && gameStatus?.state === "in";
+                let isWinning;
+                if (isOver) {
+                  isWinning = Number(current) >= threshold;
+                } else {
+                  isWinning = Number(current) <= threshold;
+                }
+                playerData.milestones[statUpper] = {
+                  bet: betValue,
+                  threshold: threshold,
+                  current: current,
+                  won: isWinning
+                    ? true
+                    : isInProgress
+                    ? "in progress"
+                    : !isCompleted
+                    ? "pending"
+                    : false,
+                };
+                return;
+              }
+
+              // Fallback: parse numeric threshold (treat as over)
+              const threshold = parseFloat(
+                String(betValue).replace(/[^0-9.]/g, "")
+              );
+              if (!isNaN(threshold)) {
+                const isWinning = Number(current) >= threshold;
+                const isInProgress = !isCompleted && gameStatus?.state === "in";
+                playerData.milestones[statUpper] = {
+                  bet: betValue,
+                  threshold: threshold,
+                  current: current,
+                  won: isWinning
+                    ? true
+                    : isInProgress
+                    ? "in progress"
+                    : !isCompleted
+                    ? "pending"
+                    : false,
+                };
+                return;
+              }
+            });
 
             // Only add player if they have bets
             if (
               Object.keys(playerData.overUnder).length > 0 ||
               Object.keys(playerData.milestones).length > 0
-            ) {
+            )
               players.push(playerData);
-            } else {
+            else
               console.log(`[Betslip] Player ${playerId} has no bets processed`);
-            }
           }
         });
 
@@ -2765,7 +8862,7 @@ app.get("/api/betslip", async (req, res) => {
         events.push(eventData);
       } catch (gameError) {
         console.error(
-          `[Betslip] Error processing game ${currentGameId}:`,
+          `[Betslip] Error processing game ${rawGameToken}:`,
           gameError.message
         );
       }
@@ -2922,53 +9019,50 @@ async function initialize() {
     startScoreboardSlowPolling();
   }
 
-  // Start a dedicated 30-minute scoreboard refresh to keep /api/rosters up-to-date.
-  // This ensures the server refreshes ESPN's scoreboard feed on a regular cadence
-  // regardless of the dynamic polling mode used for live games.
+  // Start a dedicated 2-hour refresh to keep roster cache in sync with odds.
+  // This aligns rosters with SportGameOdds caching cadence.
   if (!rostersScoreboardInterval) {
     console.log(
-      "[Rosters Scheduler] Starting 30-minute scoreboard refresh for /api/rosters"
+      "[Rosters Scheduler] Starting 2-hour roster refresh (aligned with SGO polling)"
     );
     rostersScoreboardInterval = setInterval(async () => {
       try {
-        console.log("[Rosters Scheduler] Refreshing scoreboard for rosters...");
+        console.log(
+          "[Rosters Scheduler] Refreshing rosters and scoreboards..."
+        );
+        // Refresh scoreboard (lightweight) and clear roster cache so next request
+        // will rebuild (we keep this non-blocking).
         await fetchScoreboard();
-        // Clear the cached combined rosters/gamelogs so the next /api/rosters call
-        // will rebuild data based on the fresh scoreboard. We avoid immediate
-        // fetchAllRostersAndGamelogs here to keep this interval lightweight.
-        if (rosterGamelogCache["all"]) {
-          delete rosterGamelogCache["all"];
-          console.log(
-            '[Rosters Scheduler] Cleared rosterGamelogCache["all"] to force refresh on next request'
-          );
-        }
+        Object.keys(rosterCache || {}).forEach((k) => delete rosterCache[k]);
+        console.log("[Rosters Scheduler] Cleared rosterCache for all sports");
       } catch (err) {
         console.error(
-          "[Rosters Scheduler] Error refreshing scoreboard:",
+          "[Rosters Scheduler] Error refreshing rosters:",
           err?.message || err
         );
       }
-    }, 30 * 60 * 1000);
+    }, SGO_CACHE_TTL_MS);
   }
 
   // Kick off a background rosters/gamelogs fetch on startup so /api/rosters
   // has cached data without requiring a manual request. Run best-effort and
   // do not block server initialization.
   try {
-    if (!rosterGamelogCache["all"]) {
-      fetchAllRostersAndGamelogs()
+    // Prime rosters for all supported sports in background (non-blocking)
+    Object.keys(SGO_LEAGUE_IDS).forEach((sport) => {
+      fetchRostersForSport(sport)
         .then(() =>
           console.log(
-            "[Rosters] Initial background rosters/gamelogs fetch complete"
+            `[Rosters] Initial background fetch complete for ${sport}`
           )
         )
         .catch((e) =>
           console.warn(
-            "[Rosters] Initial fetch failed (non-fatal)",
+            `[Rosters] Initial fetch failed for ${sport}`,
             e?.message || e
           )
         );
-    }
+    });
   } catch (e) {
     console.warn("[Rosters] Failed to start initial fetch", e?.message || e);
   }
@@ -2986,6 +9080,13 @@ async function initialize() {
       "Failed to initialize betslips realtime listener:",
       e?.message || e
     );
+  }
+
+  // Start SportGameOdds polling (2-hour cadence)
+  try {
+    scheduleSGOOddsPolling();
+  } catch (e) {
+    console.warn("Failed to start SportGameOdds polling:", e?.message || e);
   }
 
   console.log("Server initialized successfully");
@@ -3441,25 +9542,22 @@ function startWatcherInline(betslipId) {
   const lastEventRawState = {};
   const intervalId = setInterval(async () => {
     try {
-      // ✅ declare ONCE, before any usage
-      let hasPendingEmptyEvents = false;
-
       const { data: rows } = await supabaseAdmin
         .from("betslips")
         .select("*")
         .eq("id", betslipId)
         .limit(1);
-
       const fresh = (rows && rows[0]) || null;
       if (!fresh) {
         clearInterval(intervalId);
         delete betslipWatchers[betslipId];
         try {
           stopTestNotifier(betslipId);
-        } catch {}
+        } catch (e) {}
         return;
       }
-
+      // Prefer fetching the canonical betslip payload via persisted `betslip_url`.
+      // If available, fetch that URL and normalize its `events` into per-pick entries.
       let betsArr = (fresh.betslip_data && fresh.betslip_data.bets) || [];
       const betslipUrl =
         fresh.betslip_url ||
@@ -3473,95 +9571,134 @@ function startWatcherInline(betslipId) {
           const payload = resp.data || {};
           const events = payload.events || [];
           const normalized = [];
-
           for (const ev of events) {
-            const gid = ev.eventId || ev.id || null;
-            if (!ev.bets) continue;
-
-            if (ev.bets.moneyline) {
-              normalized.push({
-                id: `moneyline:${gid}:${ev.bets.moneyline.team}`,
-                gameId: gid,
-                type: "moneyline",
-                team: ev.bets.moneyline.team,
-                current: ev.bets.moneyline.current,
-              });
-            }
-
-            if (ev.bets.totalPoints) {
-              normalized.push({
-                id: `total:${gid}`,
-                gameId: gid,
-                type: "total",
-                line: ev.bets.totalPoints.line,
-                current: {
-                  current: ev.bets.totalPoints.current,
-                  won: ev.bets.totalPoints.won,
-                },
-              });
-            }
-
-            if (ev.bets.spread) {
-              normalized.push({
-                id: `spread:${gid}:${ev.bets.spread.team}`,
-                gameId: gid,
-                type: "spread",
-                team: ev.bets.spread.team,
-                current: ev.bets.spread.current,
-              });
-            }
-
-            if (Array.isArray(ev.bets.players)) {
-              for (const p of ev.bets.players) {
-                const pid = p.id || p.playerId || null;
-
-                for (const k of Object.keys(p.overUnder || {})) {
-                  const entry = p.overUnder[k];
-                  normalized.push({
-                    id: `player:${gid}:${pid}:${k}:ou`,
-                    gameId: gid,
-                    type: "player_overunder",
-                    playerId: pid,
-                    stat: k,
-                    bet: entry?.bet,
-                    side: entry?.type || entry?.side,
-                    current: { current: entry?.current, won: entry?.won },
-                  });
-                }
-
-                for (const k of Object.keys(p.milestones || {})) {
-                  const entry = p.milestones[k];
-                  normalized.push({
-                    id: `player:${gid}:${pid}:${k}:ms`,
-                    gameId: gid,
-                    type: "player_milestone",
-                    playerId: pid,
-                    stat: k,
-                    threshold: entry?.threshold || entry?.bet,
-                    current: { current: entry?.current, won: entry?.won },
-                  });
+            const gid = ev.eventId || ev.id || ev.eventId || null;
+            // event-level bets
+            if (ev.bets) {
+              // moneyline
+              if (ev.bets.moneyline) {
+                normalized.push({
+                  id: `moneyline:${gid}:${ev.bets.moneyline.team}`,
+                  gameId: gid,
+                  type: "moneyline",
+                  team: ev.bets.moneyline.team,
+                  current: ev.bets.moneyline.current,
+                });
+              }
+              // total points
+              if (ev.bets.totalPoints) {
+                normalized.push({
+                  id: `total:${gid}`,
+                  gameId: gid,
+                  type: "total",
+                  line: ev.bets.totalPoints.line,
+                  current: {
+                    current: ev.bets.totalPoints.current,
+                    won: ev.bets.totalPoints.won,
+                  },
+                });
+              }
+              // spread
+              if (ev.bets.spread) {
+                normalized.push({
+                  id: `spread:${gid}:${ev.bets.spread.team}`,
+                  gameId: gid,
+                  type: "spread",
+                  team: ev.bets.spread.team,
+                  current: ev.bets.spread.current,
+                });
+              }
+              // players
+              if (Array.isArray(ev.bets.players)) {
+                for (const p of ev.bets.players) {
+                  const pid = p.id || p.playerId || null;
+                  // overUnder entries
+                  for (const k of Object.keys(p.overUnder || {})) {
+                    const entry = p.overUnder[k];
+                    normalized.push({
+                      id: `player:${gid}:${pid}:${k}:ou`,
+                      gameId: gid,
+                      type: "player_overunder",
+                      playerId: pid,
+                      stat: k,
+                      bet: entry?.bet,
+                      side: entry?.type || entry?.side || null,
+                      current: { current: entry?.current, won: entry?.won },
+                    });
+                  }
+                  // milestones
+                  for (const k of Object.keys(p.milestones || {})) {
+                    const entry = p.milestones[k];
+                    normalized.push({
+                      id: `player:${gid}:${pid}:${k}:ms`,
+                      gameId: gid,
+                      type: "player_milestone",
+                      playerId: pid,
+                      stat: k,
+                      threshold: entry?.threshold || entry?.bet,
+                      current: { current: entry?.current, won: entry?.won },
+                    });
+                  }
                 }
               }
             }
           }
-
           if (normalized.length > 0) betsArr = normalized;
         } catch (e) {
-          console.warn("failed to fetch betslip_url", e?.message || e);
+          console.warn(
+            "watcher: failed to fetch betslip_url, falling back to stored data",
+            e?.message || e
+          );
         }
       }
-
+      // fetch summaries
+      console.log(
+        `[watcher ${betslipId}] tick - bets:${betsArr.length} betslipUrl:${
+          betslipUrl ? "yes" : "no"
+        }`
+      );
       const summaries = {};
-      for (const evId of [
-        ...new Set(betsArr.map((b) => b.gameId).filter(Boolean)),
-      ]) {
+      for (const evId of Array.from(
+        new Set(betsArr.map((b) => b.gameId || b.game_id).filter(Boolean))
+      )) {
         try {
-          const resp = await axios.get(
-            `${ESPN_BASE_URL}/summary?event=${evId}`
-          );
+          // try to use sport-specific base if we can infer sport from scoreboardData
+          let baseUrl = ESPN_BASE_URL;
+          try {
+            if (scoreboardData && Array.isArray(scoreboardData.events)) {
+              const ev = scoreboardData.events.find(
+                (x) => String(x.id) === String(evId)
+              );
+              const slug = ev?.sport?.slug
+                ? String(ev.sport.slug).toLowerCase()
+                : null;
+              if (slug) {
+                if (ESPN_PATHS[slug] && ESPN_PATHS[slug].base)
+                  baseUrl = ESPN_PATHS[slug].base;
+                else if (slug.includes("football"))
+                  baseUrl = ESPN_PATHS["nfl"].base;
+                else if (slug.includes("hockey"))
+                  baseUrl = ESPN_PATHS["nhl"].base;
+                else if (slug.includes("basketball"))
+                  baseUrl = ESPN_PATHS["nba"].base;
+                else if (slug.includes("soccer"))
+                  baseUrl = ESPN_PATHS["uefa"].base;
+              }
+            }
+          } catch (e) {
+            /* ignore */
+          }
+          const resp = await axios.get(`${baseUrl}/summary?event=${evId}`);
           summaries[evId] = resp.data;
-        } catch {}
+        } catch (e) {
+          console.error("summary fetch", e);
+        }
       }
+      console.log(
+        `[watcher ${betslipId}] summaries fetched: ${Object.keys(
+          summaries
+        ).join(",")}`
+      );
 
       const isFirstTick = Object.keys(lastStates).length === 0;
       let allFinal = true;
@@ -3571,106 +9708,547 @@ function startWatcherInline(betslipId) {
 
       for (const bet of betsArr) {
         const pickKey = bet.id || JSON.stringify(bet);
-        const evId = bet.gameId;
+        const evId = bet.gameId || bet.game_id;
         const summary = summaries[evId];
-
         let newState = null;
         let isCompleted = false;
 
-        // ---------- payload-authoritative states ----------
-        if (bet?.won === true || bet?.current?.won === true) {
-          newState = "won";
-          isCompleted = true;
-        } else if (bet?.won === false || bet?.current?.won === false) {
-          newState = "lost";
-          isCompleted = true;
+        // If the stored bet object already contains resolved flags (e.g. from
+        // a previous /api/betslip computation or external update), prefer
+        // those markers so we can notify immediately.
+        try {
+          // Accept multiple shapes for resolved flags.
+          // 1) Top-level `won` boolean
+          const topWon = bet.won;
+          if (
+            topWon === true ||
+            (typeof topWon === "string" &&
+              String(topWon).toLowerCase() === "true")
+          ) {
+            newState = "won";
+            isCompleted = true;
+          } else if (
+            topWon === false ||
+            (typeof topWon === "string" &&
+              String(topWon).toLowerCase() === "false")
+          ) {
+            newState = "lost";
+            isCompleted = true;
+          }
+
+          // 2) Normalized shape from betslip_url: { current: { current, won } }
+          if (
+            newState === null &&
+            bet.current &&
+            typeof bet.current === "object"
+          ) {
+            const curWon = bet.current.won;
+            if (
+              curWon === true ||
+              (typeof curWon === "string" &&
+                String(curWon).toLowerCase() === "true")
+            ) {
+              newState = "won";
+              isCompleted = true;
+            } else if (
+              curWon === false ||
+              (typeof curWon === "string" &&
+                String(curWon).toLowerCase() === "false")
+            ) {
+              newState = "lost";
+              isCompleted = true;
+            } else if (
+              typeof curWon === "string" &&
+              String(curWon).toLowerCase() === "in progress"
+            ) {
+              newState = "in progress";
+              isCompleted = false;
+            }
+          }
+
+          // 3) Original nested overUnder entries (per-player object)
+          if (
+            newState === null &&
+            bet.overUnder &&
+            typeof bet.overUnder === "object"
+          ) {
+            for (const k of Object.keys(bet.overUnder)) {
+              const entry = bet.overUnder[k];
+              if (entry && entry.won === true) {
+                newState = "won";
+                isCompleted = true;
+                break;
+              }
+              if (entry && entry.won === false) {
+                newState = "lost";
+                isCompleted = true;
+                break;
+              }
+            }
+          }
+
+          // 4) Nested milestones entries
+          if (
+            newState === null &&
+            bet.milestones &&
+            typeof bet.milestones === "object"
+          ) {
+            for (const k of Object.keys(bet.milestones)) {
+              const entry = bet.milestones[k];
+              const wonVal = entry?.won;
+              if (
+                entry &&
+                (wonVal === true ||
+                  (typeof wonVal === "string" &&
+                    String(wonVal).toLowerCase() === "true"))
+              ) {
+                newState = "won";
+                isCompleted = true;
+                break;
+              }
+              if (
+                entry &&
+                (wonVal === false ||
+                  (typeof wonVal === "string" &&
+                    String(wonVal).toLowerCase() === "false"))
+              ) {
+                newState = "lost";
+                isCompleted = true;
+                break;
+              }
+              if (
+                entry &&
+                typeof entry.won === "string" &&
+                String(entry.won).toLowerCase() === "in progress"
+              ) {
+                newState = "in progress";
+                isCompleted = false;
+                break;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(
+            "watcher: error checking stored bet flags",
+            e?.message || e
+          );
         }
 
         if (!summary) {
-          newState ??= "in progress";
+          newState = "in progress";
         } else {
-          const status = summary.header?.competitions?.[0]?.status?.type || {};
+          const gameStatus = summary.header?.competitions?.[0]?.status?.type;
+          const statusName =
+            gameStatus?.name ||
+            gameStatus?.state ||
+            gameStatus?.description ||
+            "";
           const isInProgress =
-            /in/i.test(String(status.name || status.state)) &&
-            !status.completed;
-          isCompleted ||= !!status.completed;
+            /in/i.test(String(statusName)) && !gameStatus?.completed;
+          // Preserve any completion state derived from the bet payload itself
+          // (e.g., `bet.current.won=true`) rather than overwriting it with
+          // the game's completed flag. Use logical OR so a pick marked
+          // completed by the payload remains completed even if the game
+          // summary hasn't flipped `completed: true` yet.
+          const gameCompleted = !!gameStatus?.completed;
+          isCompleted = Boolean(isCompleted) || gameCompleted;
 
-          // ---------- heuristic resolution ----------
-          if (newState === null && !bet.playerId && bet.team) {
-            const comps = summary.header.competitions[0].competitors;
-            const betTeam = comps.find((c) => c.team.abbreviation === bet.team);
-            const opp = comps.find((c) => c !== betTeam);
+          // detect game started and ended and emit once per event (skip on first tick)
+          const prevEvent = lastEventStatus[evId];
+          const competitors =
+            summary.header?.competitions?.[0]?.competitors || [];
+          const homeCompetitor =
+            competitors.find((c) => c.homeAway === "home") ||
+            competitors[0] ||
+            {};
+          const awayCompetitor =
+            competitors.find((c) => c.homeAway === "away") ||
+            competitors[1] ||
+            {};
+          const homeAbbr = homeCompetitor.team?.abbreviation || "";
+          const awayAbbr = awayCompetitor.team?.abbreviation || "";
+          const homeScore = homeCompetitor.score || "";
+          const awayScore = awayCompetitor.score || "";
 
+          // determine event start time and windows to avoid notifying long-past events
+          const startTimeRaw = summary.header?.competitions?.[0]?.date || null;
+          let startedRecently = false;
+          let startedWithinDay = false;
+          try {
+            if (startTimeRaw) {
+              const startDate = new Date(startTimeRaw);
+              const minutesSinceStart =
+                (Date.now() - startDate.getTime()) / 60000;
+              // within +/-30 minutes
+              startedRecently =
+                minutesSinceStart >= -30 && minutesSinceStart <= 30;
+              // started within last day (useful for end notifications fallback)
+              startedWithinDay =
+                minutesSinceStart >= 0 && minutesSinceStart <= 24 * 60;
+            }
+          } catch (e) {
+            startedRecently = false;
+            startedWithinDay = false;
+          }
+
+          // Prefer raw state transitions for start/end notifications to avoid
+          // spurious notifications caused by heuristics. Use summary's
+          // `status.type.state` when available.
+          const newRawState =
+            summary.header?.competitions?.[0]?.status?.type?.state || null;
+          const prevRawState = lastEventRawState[evId];
+
+          // Notify Game Started when either:
+          // - we observe a raw 'pre' -> 'in' transition between ticks, OR
+          // - fall back to heuristic (previous textual status != in progress
+          //   and current isInProgress) when raw states are not available.
+          const startedByTransition =
+            !isFirstTick && prevRawState === "pre" && newRawState === "in";
+          const startedByHeuristic =
+            !isFirstTick &&
+            prevEvent !== "in progress" &&
+            isInProgress &&
+            (prevEvent !== undefined || startedRecently);
+          if (startedByTransition || startedByHeuristic) {
+            // Avoid spamming the same user about the same event multiple
+            // times from different watchers or rapid ticks.
+            if (!shouldSuppressNotification(fresh.user_id, evId, "started")) {
+              console.log(
+                `[watcher ${betslipId}] notify -> Game Started user:${fresh.user_id} event:${evId}`
+              );
+              await sendPushNotification(
+                fresh.user_id,
+                "Game Started 🏀",
+                `${homeAbbr} vs ${awayAbbr} has now started`,
+                { betslipId: fresh.id, eventId: evId }
+              );
+            } else {
+              console.log(
+                `[watcher ${betslipId}] suppressed duplicate Game Started notify -> user:${fresh.user_id} event:${evId}`
+              );
+            }
+          }
+
+          // Notify Game Ended only when state transitions from 'in' -> 'post'
+          // between ticks. This avoids spurious end notifications based on
+          // intermediate heuristics. We do not use the startedWithinDay
+          // fallback here to ensure ends are genuine transitions.
+          if (!isFirstTick && prevRawState === "in" && newRawState === "post") {
+            if (!shouldSuppressNotification(fresh.user_id, evId, "ended")) {
+              console.log(
+                `[watcher ${betslipId}] notify -> Game Ended user:${fresh.user_id} event:${evId}`
+              );
+              await sendPushNotification(
+                fresh.user_id,
+                "Game Ended 🏀",
+                `${homeAbbr} ${homeScore} vs ${awayAbbr} ${awayScore} has ended`,
+                { betslipId: fresh.id, eventId: evId }
+              );
+            } else {
+              console.log(
+                `[watcher ${betslipId}] suppressed duplicate Game Ended notify -> user:${fresh.user_id} event:${evId}`
+              );
+            }
+          }
+
+          lastEventStatus[evId] = isCompleted
+            ? "completed"
+            : isInProgress
+            ? "in progress"
+            : "scheduled";
+          // Persist the raw state for next tick comparisons
+          if (typeof newRawState === "string")
+            lastEventRawState[evId] = newRawState;
+
+          // simplified heuristics (moneyline/total/spread/player)
+          // Only compute type-specific heuristics when we don't already
+          // have a resolved `newState` from the incoming payload (authoritative).
+          if (newState === null && !bet.playerId && !bet.player && !bet.prop) {
+            const competitors =
+              summary.header?.competitions?.[0]?.competitors || [];
+            const betTeam = competitors.find(
+              (c) =>
+                c.team?.abbreviation ===
+                (bet.team || bet.selection || bet.description)
+            );
+            const opp = competitors.find(
+              (c) =>
+                c.team?.abbreviation !==
+                (bet.team || bet.selection || bet.description)
+            );
             if (betTeam && opp) {
-              const win = Number(betTeam.score) > Number(opp.score);
-              newState = isCompleted
-                ? win
-                  ? "won"
-                  : "lost"
-                : win
-                ? "in progress"
-                : "pending";
+              const betScore = parseInt(betTeam.score) || 0;
+              const oppScore = parseInt(opp.score) || 0;
+              let isWinning = false;
+              // If this is a spread bet, prefer adjustedScore if provided
+              if (
+                bet.type === "spread" ||
+                String(bet.id || "").startsWith("spread:")
+              ) {
+                // Try adjustedScore first: format like "+6.5" or "-3.0"
+                const adjustedRaw =
+                  bet.current?.adjustedScore || bet.current?.adjusted || null;
+                if (adjustedRaw != null) {
+                  const adj = parseFloat(
+                    String(adjustedRaw).replace(/[^0-9\.-]/g, "")
+                  );
+                  if (!Number.isNaN(adj)) {
+                    isWinning = adj >= 0;
+                  }
+                } else if (bet.line != null) {
+                  // fallback: compute adjusted = betScore + line - oppScore
+                  const lineNum =
+                    parseFloat(String(bet.line).replace(/[^0-9\.-]/g, "")) || 0;
+                  const adjusted = betScore + lineNum - oppScore;
+                  isWinning = adjusted >= 0;
+                } else {
+                  // as a last resort, compare raw scores
+                  isWinning = betScore > oppScore;
+                }
+              } else {
+                // moneyline / generic comparison
+                isWinning = betScore > oppScore;
+              }
+              // Determine state carefully and log details for diagnostics
+              if (isCompleted) {
+                newState = isWinning ? "won" : "lost";
+              } else {
+                newState = isWinning ? "in progress" : "pending";
+              }
+              const labelType = bet.type || "moneyline";
+              console.log(
+                `[watcher ${betslipId}] pick:${pickKey} ${labelType} check -> team:${
+                  bet.team || bet.selection || bet.description
+                } score:${betScore}-${oppScore} isWinning:${isWinning} isInProgress:${isInProgress} isCompleted:${isCompleted} -> newState:${newState}`
+              );
+            }
+          }
+          if (
+            newState === null &&
+            (bet.line || bet.betValue || bet.type === "total")
+          ) {
+            const competitors =
+              summary.header?.competitions?.[0]?.competitors || [];
+            const home =
+              parseInt(competitors.find((c) => c.homeAway === "home")?.score) ||
+              0;
+            const away =
+              parseInt(competitors.find((c) => c.homeAway === "away")?.score) ||
+              0;
+            const currentTotal = home + away;
+            const raw = bet.line || bet.betValue || "";
+            const isOver = String(raw).toLowerCase().startsWith("o");
+            const lineNum =
+              parseFloat(String(raw).replace(/[^0-9\\.\\-]/g, "")) || 0;
+            const isWinning = isOver
+              ? currentTotal > lineNum
+              : currentTotal < lineNum;
+            if (isWinning) {
+              // If game is in progress treat the bet as won immediately
+              newState = isCompleted || isInProgress ? "won" : "in progress";
+            } else {
+              newState = isCompleted ? "lost" : "pending";
+            }
+          }
+          // Player-specific over/under numeric heuristics: if we have a
+          // `player_overunder` and it's an 'over' bet, treat current > bet
+          // as an in-progress win even before the game completes.
+          if (newState === null && bet.type === "player_overunder") {
+            try {
+              const cur = Number(bet.current?.current);
+              const lineNum = Number(bet.bet);
+              const isOverSide =
+                String(bet.side || "").toLowerCase() === "over";
+              if (
+                isOverSide &&
+                Number.isFinite(cur) &&
+                Number.isFinite(lineNum)
+              ) {
+                const isWinning = cur > lineNum;
+                if (isWinning) {
+                  newState =
+                    isCompleted || isInProgress ? "won" : "in progress";
+                } else {
+                  newState = isCompleted ? "lost" : "pending";
+                }
+              }
+            } catch (e) {}
+          }
+
+          if (newState === null) newState = "in progress";
+        }
+
+        // Log computed state for this pick for easier debugging
+        try {
+          console.log(
+            `[watcher ${betslipId}] pickResult -> pick:${pickKey} computed:${newState} isCompleted:${isCompleted} rawBet:${JSON.stringify(
+              bet
+            )} summaryState:${
+              summary?.header?.competitions?.[0]?.status?.type?.state
+            }`
+          );
+        } catch (e) {}
+
+        // track completion metrics for finalization rule
+        if (isCompleted) anyCompleted = true;
+        if (isCompleted && newState !== "won") anyCompletedNotWon = true;
+
+        // avoid spamming notifications on the very first tick when watcher starts
+        if (lastStates[pickKey] !== newState) {
+          if (!isFirstTick) {
+            if (newState === "won") {
+              console.log(
+                `[watcher ${betslipId}] notify -> Pick Won user:${fresh.user_id} pick:${pickKey}`
+              );
+            }
+            if (newState === "lost") {
+              console.log(
+                `[watcher ${betslipId}] notify -> Pick Lost user:${fresh.user_id} pick:${pickKey}`
+              );
+            }
+            if (newState === "in progress") {
+              console.log(
+                `[watcher ${betslipId}] notify -> Pick In Progress user:${fresh.user_id} pick:${pickKey}`
+              );
+            }
+          }
+          lastStates[pickKey] = newState;
+        }
+
+        // Consider final states only: won, lost, push, void
+        if (!["won", "lost", "push", "void"].includes(newState)) {
+          allFinal = false;
+        }
+        if (newState === "lost") anyLost = true;
+      }
+
+      // New finalization rule: if any completed pick exists and any completed pick is not won -> mark whole bet lost
+      // NOTE: avoid finalizing on the very first tick immediately after creation
+      // If the betslip payload included multiple events (games) but some
+      // of those events contain no picks (e.g. parlay with one player bet and
+      // another game with no player selections yet), we should not finalize
+      // the bet until those other events are no longer in 'pre' or otherwise
+      // incomplete. Check for any such events and, if found and still pre,
+      // defer finalization by treating the slip as not-final.
+      let hasPendingEmptyEvents = false;
+      try {
+        const payloadEvents =
+          (fresh.betslip_data && fresh.betslip_data.events) || [];
+        if (Array.isArray(payloadEvents) && payloadEvents.length > 0) {
+          for (const ev of payloadEvents) {
+            const evId = ev.eventId || ev.id || ev.eventId || null;
+            const hasBets =
+              (ev.bets && Object.keys(ev.bets).length > 0) ||
+              (Array.isArray(ev.bets?.players) && ev.bets.players.length > 0);
+            if (!hasBets && evId) {
+              // If we have a summary for this event and it's not completed,
+              // consider it pending and prevent premature finalization.
+              const s = summaries[evId];
+              if (!s) {
+                hasPendingEmptyEvents = true;
+                break;
+              }
+              const evStatus = s.header?.competitions?.[0]?.status?.type || {};
+              const evCompleted = !!evStatus.completed;
+              if (!evCompleted) {
+                hasPendingEmptyEvents = true;
+                break;
+              }
             }
           }
         }
-
-        newState ??= "in progress";
-
-        // ---------- SAME GAME PARLAY DEFERRAL ----------
-        try {
-          const uniqueEvIds = [
-            ...new Set(betsArr.map((b) => b.gameId).filter(Boolean)),
-          ];
-          if (uniqueEvIds.length === 1) {
-            const s = summaries[uniqueEvIds[0]];
-            const st = s?.header?.competitions?.[0]?.status?.type || {};
-            if (/in/i.test(st.state) && !st.completed) {
-              hasPendingEmptyEvents = true;
-            }
-          }
-        } catch {}
-
-        if (isCompleted) anyCompleted = true;
-        if (isCompleted && newState !== "won") anyCompletedNotWon = true;
-        if (!["won", "lost", "push", "void"].includes(newState))
-          allFinal = false;
-        if (newState === "lost") anyLost = true;
-
-        lastStates[pickKey] = newState;
+      } catch (e) {
+        // ignore and be conservative
+        hasPendingEmptyEvents = true;
       }
 
-      // ---------- FINALIZATION ----------
       if (
         !isFirstTick &&
         anyCompleted &&
         anyCompletedNotWon &&
         !hasPendingEmptyEvents
       ) {
-        await supabaseAdmin.rpc("settle_betslip", {
-          p_betslip_id: betslipId,
-          p_result: "lost",
-        });
-        await sendBetResultNotification(betslipId);
+        if (fresh.status !== "lost") {
+          try {
+            // Use DB RPC to atomically settle and record ledger/history
+            const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc(
+              "settle_betslip",
+              { p_betslip_id: betslipId, p_result: "lost" }
+            );
+            if (rpcErr) {
+              console.error(
+                `[watcher ${betslipId}] settle_betslip RPC error`,
+                rpcErr
+              );
+              // Fallback: attempt manual settlement using service role
+              await manualSettleBetslip(betslipId, "lost");
+            } else {
+              console.log(
+                `[watcher ${betslipId}] settled (lost) via RPC for user:${fresh.user_id}`,
+                rpcRes
+              );
+            }
+            // Use centralized formatter to produce richer notification
+            await sendBetResultNotification(betslipId);
+          } catch (e) {
+            console.error(
+              `[watcher ${betslipId}] error while settling lost bet`,
+              e?.message || e
+            );
+          }
+        }
         clearInterval(intervalId);
         delete betslipWatchers[betslipId];
+        try {
+          stopTestNotifier(betslipId);
+        } catch (e) {}
         return;
       }
 
+      // Also avoid finalizing the whole slip as won/lost if there are
+      // pending events that have no bets (parlay gaps) which are not yet
+      // completed. This prevents a single-leg completion from settling the
+      // entire multi-game bet when another game is still 'pre'.
       if (!isFirstTick && allFinal && !hasPendingEmptyEvents) {
-        const result = anyLost ? "lost" : "won";
-        await supabaseAdmin.rpc("settle_betslip", {
-          p_betslip_id: betslipId,
-          p_result: result,
-        });
-        await sendBetResultNotification(betslipId);
+        const newStatus = anyLost ? "lost" : "won";
+        if (fresh.status !== newStatus) {
+          try {
+            const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc(
+              "settle_betslip",
+              { p_betslip_id: betslipId, p_result: newStatus }
+            );
+            if (rpcErr) {
+              console.error(
+                `[watcher ${betslipId}] settle_betslip RPC error`,
+                rpcErr
+              );
+              // Fallback: attempt manual settlement using service role
+              await manualSettleBetslip(betslipId, newStatus);
+            } else {
+              console.log(
+                `[watcher ${betslipId}] settled via RPC -> ${newStatus} user:${fresh.user_id}`,
+                rpcRes
+              );
+            }
+            // send bet result using centralized formatter
+            await sendBetResultNotification(betslipId);
+          } catch (e) {
+            console.error(
+              `[watcher ${betslipId}] error while settling bet`,
+              e?.message || e
+            );
+          }
+        }
         clearInterval(intervalId);
         delete betslipWatchers[betslipId];
+        try {
+          stopTestNotifier(betslipId);
+        } catch (e) {}
       }
     } catch (e) {
       console.error("watcher tick error", e);
     }
   }, 4000);
-
   betslipWatchers[betslipId] = { intervalId, lastStates, lastEventStatus };
   console.log(`[watcher] started watcher for ${betslipId}`);
 }

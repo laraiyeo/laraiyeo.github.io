@@ -1,0 +1,360 @@
+{
+  "events": [
+    {
+      "eventId": "401772916",
+      "status": {
+        "shortDetail": "Final",
+        "completed": true,
+        "state": "post",
+        "date": "2025-12-28T18:00Z",
+        "game": {
+          "homeTeam": "MIA",
+          "awayTeam": "TB",
+          "homeScore": "20",
+          "awayScore": "17"
+        }
+      },
+      "bets": {
+        "moneyline": {
+          "team": "TB",
+          "current": {
+            "score": "17-20",
+            "lead": "MIA",
+            "won": false
+          }
+        },
+        "totalPoints": {
+          "bet": "43.5 ",
+          "line": 43.5,
+          "type": "over",
+          "current": 37,
+          "won": false
+        },
+        "spread": {
+          "team": "TB",
+          "line": -3,
+          "lineDisplay": "-3",
+          "current": {
+            "score": "17-20",
+            "adjustedScore": "-3",
+            "won": false
+          }
+        },
+        "homePoints": {
+          "bet": "o23.5",
+          "line": 23.5,
+          "current": 20,
+          "type": "over",
+          "won": false
+        },
+        "awayPoints": {
+          "bet": "20.5-",
+          "line": 20.5,
+          "current": 17,
+          "type": "under",
+          "won": true
+        },
+        "Q1_ML": {
+          "bet": "TB",
+          "current": "7-7",
+          "won": false
+        },
+        "Q1_SP": {
+          "team": "TB",
+          "line": -0.5,
+          "current": "7-7",
+          "won": false
+        },
+        "Q1_T": {
+          "bet": "7.5",
+          "line": 7.5,
+          "type": "over",
+          "current": 14,
+          "won": true
+        },
+        "homePoints1Q": {
+          "bet": "o3.5",
+          "line": 3.5,
+          "current": 7,
+          "type": "over",
+          "won": true
+        },
+        "awayPoints1Q": {
+          "bet": "2.5-",
+          "line": 2.5,
+          "current": 7,
+          "type": "under",
+          "won": false
+        },
+        "Q2_ML": {
+          "bet": "TB",
+          "current": "10-0",
+          "won": false
+        },
+        "Q2_SP": {
+          "team": "TB",
+          "line": -0.5,
+          "current": "10-0",
+          "won": false
+        },
+        "Q2_T": {
+          "bet": "o13.5",
+          "line": 13.5,
+          "type": "over",
+          "current": 10,
+          "won": false
+        },
+        "Q3_ML": {
+          "bet": "TB",
+          "current": "0-3",
+          "won": true
+        },
+        "Q3_SP": {
+          "team": "TB",
+          "line": -0.5,
+          "current": "0-3",
+          "won": true
+        },
+        "Q3_T": {
+          "bet": "9.5",
+          "line": 9.5,
+          "type": "over",
+          "current": 3,
+          "won": false
+        },
+        "Q4_ML": {
+          "bet": "TB",
+          "current": "3-7",
+          "won": true
+        },
+        "Q4_SP": {
+          "team": "TB",
+          "line": -0.5,
+          "current": "3-7",
+          "won": true
+        },
+        "Q4_T": {
+          "bet": "o12.5",
+          "line": 12.5,
+          "type": "over",
+          "current": 10,
+          "won": false
+        },
+        "H1_ML": {
+          "bet": "TB",
+          "current": "17-7",
+          "won": false
+        },
+        "H1_T": {
+          "bet": "21.5",
+          "line": 21.5,
+          "type": "over",
+          "current": 24,
+          "won": true
+        },
+        "H1_SP": {
+          "team": "TB",
+          "line": -1.5,
+          "current": "17-7",
+          "won": false
+        },
+        "homePoints1H": {
+          "bet": "o10.5",
+          "line": 10.5,
+          "current": 17,
+          "type": "over",
+          "won": true
+        },
+        "awayPoints1H": {
+          "bet": "9.5-",
+          "line": 9.5,
+          "current": 7,
+          "type": "under",
+          "won": true
+        },
+        "H2_ML": {
+          "bet": "TB",
+          "current": "3-10",
+          "won": true
+        },
+        "H2_T": {
+          "bet": "o21.5",
+          "line": 21.5,
+          "type": "over",
+          "current": 13,
+          "won": false
+        },
+        "H2_SP": {
+          "team": "TB",
+          "line": -1.5,
+          "current": "3-10",
+          "won": true
+        },
+        "homePoints2H": {
+          "bet": "10.5",
+          "line": 10.5,
+          "current": 3,
+          "type": "over",
+          "won": false
+        },
+        "awayPoints2H": {
+          "bet": "u9.5",
+          "line": 9.5,
+          "current": 10,
+          "type": "under",
+          "won": false
+        },
+        "players": [
+          {
+            "id": "3052587",
+            "name": "Baker Mayfield",
+            "color": "bd1c36",
+            "overUnder": {
+              "PATT": {
+                "bet": 31.5,
+                "type": "over",
+                "current": 44,
+                "won": true
+              },
+              "PINT": {
+                "bet": 0.5,
+                "type": "under",
+                "current": 2,
+                "won": false
+              },
+              "PTD": {
+                "bet": 1.5,
+                "type": "over",
+                "current": 2,
+                "won": true
+              },
+              "RYDS": {
+                "bet": 60.5,
+                "type": "over",
+                "current": 16,
+                "won": false
+              },
+              "RATT": {
+                "bet": 15.5,
+                "type": "over",
+                "current": 3,
+                "won": false
+              },
+              "RREC": {
+                "bet": 4.5,
+                "type": "over",
+                "current": 0,
+                "won": false
+              },
+              "RRYDS": {
+                "bet": 82.5,
+                "type": "over",
+                "current": 16,
+                "won": false
+              },
+              "KXP": {
+                "bet": 2.5,
+                "type": "over",
+                "current": 0,
+                "won": false
+              },
+              "KPTS": {
+                "bet": 7.5,
+                "type": "over",
+                "current": 0,
+                "won": false
+              }
+            },
+            "milestones": {
+              "PYDS": {
+                "bet": "221.5 ",
+                "threshold": 221.5,
+                "current": 346,
+                "won": true
+              },
+              "PCMP": {
+                "bet": "20.5 ",
+                "threshold": 20.5,
+                "current": 33,
+                "won": true
+              },
+              "PLNG": {
+                "bet": "36.5 ",
+                "threshold": 36.5,
+                "current": 0,
+                "won": false
+              },
+              "PRYDS": {
+                "bet": "242.5 ",
+                "threshold": 242.5,
+                "current": 362,
+                "won": true
+              },
+              "RLNG": {
+                "bet": "13.5 ",
+                "threshold": 13.5,
+                "current": 11,
+                "won": false
+              },
+              "RECYDS": {
+                "bet": "53.5 ",
+                "threshold": 53.5,
+                "current": 0,
+                "won": false
+              },
+              "RECLONG": {
+                "bet": "21.5 ",
+                "threshold": 21.5,
+                "current": 0,
+                "won": false
+              },
+              "TDS": {
+                "bet": "1.5 ",
+                "threshold": 1.5,
+                "current": 0,
+                "won": false
+              },
+              "TOUCHDOWNS": {
+                "bet": "yes",
+                "current": 0,
+                "won": false
+              },
+              "FIRSTTOUCHDOWN": {
+                "bet": "no",
+                "current": 0,
+                "won": true
+              },
+              "LASTTOUCHDOWN": {
+                "bet": "no",
+                "current": 0,
+                "won": true
+              },
+              "KFG": {
+                "bet": "1.5 ",
+                "threshold": 1.5,
+                "current": 0,
+                "won": false
+              },
+              "DSAC": {
+                "bet": "0.5 ",
+                "threshold": 0.5,
+                "current": 0,
+                "won": false
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "payloadSize": {
+      "bytes": 3632,
+      "kb": 3.55,
+      "withinPushLimit": true,
+      "recommendedForPush": false
+    },
+    "totalBets": 25,
+    "gamesCount": 1
+  }
+}

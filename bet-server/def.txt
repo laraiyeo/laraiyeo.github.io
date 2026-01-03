@@ -1,0 +1,270 @@
+# NBA Market Name to Betslip Parameter Mapping
+# Format: Market Name = Betslip Parameter
+
+## Team Bets
+Spread = spread (e.g., spread=DET-4.5)
+Moneyline = moneyline (e.g., moneyline=DET or moneyline=MIA)
+1st Half Moneyline = moneyline1H (e.g., moneyline1H=DET)
+1st Half Spread = spread1H (e.g., spread1H=DET-2.5)
+1st Quarter Moneyline = moneyline1Q (e.g., moneyline1Q=DET)
+1st Quarter Spread = spread1Q (e.g., spread1Q=DET-1.5)
+2nd Quarter Moneyline = moneyline2Q (e.g., moneyline2Q=DET)
+2nd Quarter Spread = spread2Q (e.g., spread2Q=DET-1.5)
+3rd Quarter Moneyline = moneyline3Q (e.g., moneyline3Q=DET)
+3rd Quarter Spread = spread3Q (e.g., spread3Q=DET-1.5)
+4th Quarter Moneyline = moneyline4Q (e.g., moneyline4Q=DET)
+4th Quarter Spread = spread4Q (e.g., spread4Q=DET-0.5)
+2nd Half Moneyline = moneyline2H (e.g., moneyline2H=DET)
+2nd Half Spread = spread2H (e.g., spread2H=DET-1.5)
+Over/Under = total (e.g., total=o237.5 or total=u237.5)
+1st Half Over/Under = total1H (e.g., total1H=o122.5)
+1st Quarter Over/Under = total1Q (e.g., total1Q=o62.5)
+2nd Quarter Over/Under = total2Q (e.g., total2Q=o60.5)
+3rd Quarter Over/Under = total3Q (e.g., total3Q=o55.5)
+4th Quarter Over/Under = total4Q (e.g., total4Q=o54.5)
+2nd Half Over/Under = total2H (e.g., total2H=o114.5)
+Detroit Pistons Points Over/Under = homePoints (e.g., homePoints=o120.5 or homePoints=120.5+)
+Miami Heat Points Over/Under = awayPoints (e.g., awayPoints=o116.5 or awayPoints=116.5+)
+Detroit Pistons 1st Quarter Points Over/Under = homePoints1Q (e.g., homePoints1Q=o31.5)
+Miami Heat 1st Quarter Points Over/Under = awayPoints1Q (e.g., awayPoints1Q=o30.5)
+Detroit Pistons 2nd Quarter Points Over/Under = homePoints2Q (e.g., homePoints2Q=o30.5)
+Miami Heat 2nd Quarter Points Over/Under = awayPoints2Q (e.g., awayPoints2Q=o29.5)
+Detroit Pistons 1st Half Points Over/Under = homePoints1H (e.g., homePoints1H=o62.5)
+Miami Heat 1st Half Points Over/Under = awayPoints1H (e.g., awayPoints1H=o59.5)
+Detroit Pistons 2nd Half Points Over/Under = homePoints2H (e.g., homePoints2H=o59.5)
+Miami Heat 2nd Half Points Over/Under = awayPoints2H (e.g., awayPoints2H=o57.5)
+Regulation 3-Way Moneyline = moneyline (e.g., moneyline=DRAW or moneyline=X)
+
+## Player Bets - Composite Stats
+[Player Name] Points + Rebounds + Assists Over/Under = PRA (e.g., p1_pra=43.5+)
+[Player Name] Points + Assists Over/Under = PA (e.g., p1_pa=37.5+)
+[Player Name] Points + Rebounds Over/Under = PR (e.g., p1_pr=32.5+)
+[Player Name] Rebounds + Assists Over/Under = RA (e.g., p1_ra=16.5+)
+
+## Player Bets - Individual Stats
+[Player Name] Points Over/Under = PTS (e.g., p1_pts=26.5+)
+[Player Name] Assists Over/Under = AST (e.g., p1_ast=10.5+)
+[Player Name] Rebounds Over/Under = REB (e.g., p1_reb=5.5+)
+[Player Name] Steals Over/Under = STL (e.g., p1_stl=1.5+)
+[Player Name] Blocks Over/Under = BLK (e.g., p1_blk=0.5+)
+[Player Name] Three Pointers Made Over/Under = 3PM (e.g., p1_3pm=2.5+)
+
+## Player Bets - Quarter-Specific Stats
+[Player Name] 1st Quarter Points Over/Under = 1QPTS (e.g., p1_1qpts=7.5+)
+[Player Name] 1st Quarter Assists Over/Under = 1QAST (e.g., p1_1qast=3.5+)
+[Player Name] 1st Quarter Rebounds Over/Under = 1QREB (e.g., p1_1qreb=1.5+)
+
+## Player Bets - Special Props
+[Player Name] To Record First Basket Yes/No = firstBasket (e.g., p1_firstbasket=yes)
+[Player Name] Any Double-Double Yes/No = 2DBL (e.g., p1_2dbl=yes)
+[Player Name] Any Triple-Double Yes/No = 3DBL (e.g., p1_3dbl=yes)
+[Player Name] Blocks + Steals Over/Under = BS (e.g., p1_bs=1.5+)
+
+## Usage Notes
+# - Replace [Player Name] with actual player name in query
+# - For player bets, use format: p1=PLAYER_ID&p1_STAT=VALUE
+# - For over bets, append '+' to threshold (e.g., p1_pts=26.5+)
+# - For under bets, append '-' to threshold (e.g., p1_pts=26.5-)
+# - Multiple players: p1, p2, p3, etc.
+# - Case-insensitive for stat aliases
+# - Composite stats (PRA, PA, PR, RA) are automatically calculated from components
+
+## Example Full Query (NBA)
+# gameId=NcVZ92I4haFXFxMBEsWq&p1=3446&p1_pra=43.5+&p1_pts=26.5+&p1_ast=10.5+
+# This checks Cade Cunningham (player 3446) for:
+# - Points + Rebounds + Assists over 43.5
+# - Points over 26.5
+# - Assists over 10.5
+
+################################################################################
+# NFL MARKETS
+################################################################################
+
+## Team Bets - NFL
+Spread = spread (e.g., spread=TB-3)
+Moneyline = moneyline (e.g., moneyline=TB or moneyline=CAR)
+1st Half Moneyline = moneyline1H (e.g., moneyline1H=TB)
+1st Half Spread = spread1H (e.g., spread1H=TB-1.5)
+1st Quarter Moneyline = moneyline1Q (e.g., moneyline1Q=TB)
+1st Quarter Spread = spread1Q (e.g., spread1Q=TB-0.5)
+2nd Quarter Moneyline = moneyline2Q (e.g., moneyline2Q=TB)
+2nd Quarter Spread = spread2Q (e.g., spread2Q=TB-0.5)
+3rd Quarter Moneyline = moneyline3Q (e.g., moneyline3Q=TB)
+3rd Quarter Spread = spread3Q (e.g., spread3Q=TB-0.5)
+4th Quarter Moneyline = moneyline4Q (e.g., moneyline4Q=TB)
+4th Quarter Spread = spread4Q (e.g., spread4Q=TB-0.5)
+2nd Half Moneyline = moneyline2H (e.g., moneyline2H=TB)
+2nd Half Spread = spread2H (e.g., spread2H=TB-1.5)
+Over/Under = total (e.g., total=o43.5 or total=u43.5)
+1st Half Over/Under = total1H (e.g., total1H=o21.5)
+1st Quarter Over/Under = total1Q (e.g., total1Q=o7.5)
+2nd Quarter Over/Under = total2Q (e.g., total2Q=o13.5)
+3rd Quarter Over/Under = total3Q (e.g., total3Q=o9.5)
+4th Quarter Over/Under = total4Q (e.g., total4Q=o12.5)
+2nd Half Over/Under = total2H (e.g., total2H=o21.5)
+Tampa Bay Buccaneers Points Over/Under = homePoints (e.g., homePoints=o23.5 or homePoints=23.5+)
+Carolina Panthers Points Over/Under = awayPoints (e.g., awayPoints=o20.5 or awayPoints=20.5+)
+Tampa Bay Buccaneers 1st Quarter Points Over/Under = homePoints1Q (e.g., homePoints1Q=o3.5)
+Carolina Panthers 1st Quarter Points Over/Under = awayPoints1Q (e.g., awayPoints1Q=o2.5)
+Tampa Bay Buccaneers 2nd Half Points Over/Under = homePoints2H (e.g., homePoints2H=o10.5)
+Carolina Panthers 2nd Half Points Over/Under = awayPoints2H (e.g., awayPoints2H=o9.5)
+Tampa Bay Buccaneers 1st Half Points Over/Under = homePoints1H (e.g., homePoints1H=o10.5)
+Carolina Panthers 1st Half Points Over/Under = awayPoints1H (e.g., awayPoints1H=o9.5)
+
+## Player Bets - Passing Stats
+[Player Name] Passing Yards Over/Under = PYDS (e.g., p1_pyds=221.5+)
+[Player Name] Passing Attempts Over/Under = PATT (e.g., p1_patt=31.5+)
+[Player Name] Passing Completions Over/Under = PCMP (e.g., p1_pcmp=20.5+)
+[Player Name] Interceptions Over/Under = PINT (e.g., p1_pint=0.5+)
+[Player Name] Longest Completion Over/Under = PLNG (e.g., p1_plng=36.5+)
+[Player Name] Passing Touchdowns Over/Under = PTD (e.g., p1_ptd=1.5+)
+[Player Name] Passing + Rushing Yards Over/Under = PRYDS (e.g., p1_pryds=242.5+)
+
+## Player Bets - Rushing Stats
+[Player Name] Rushing Yards Over/Under = RYDS (e.g., p1_ryds=60.5+)
+[Player Name] Longest Rush Over/Under = RLNG (e.g., p1_rlng=13.5+)
+[Player Name] Rushing Attempts Over/Under = RATT (e.g., p1_ratt=15.5+)
+
+## Player Bets - Receiving Stats
+[Player Name] Receiving Yards Over/Under = RECYDS (e.g., p1_recyds=53.5+)
+[Player Name] Receptions Over/Under = RREC (e.g., p1_rrec=4.5+)
+[Player Name] Longest Reception Over/Under = RECLONG (e.g., p1_reclong=21.5+)
+[Player Name] Rushing + Receiving Yards Over/Under = RRYDS (e.g., p1_rryds=82.5+)
+
+## Player Bets - Touchdowns (All positions)
+[Player Name] Touchdowns Over/Under = TDS (e.g., p1_tds=1.5+)
+[Player Name] Any Touchdowns Yes/No = touchdowns (e.g., p1_touchdowns=yes)
+[Player Name] To Record First Touchdown Yes/No = firstTouchdown (e.g., p1_firsttouchdown=yes)
+[Player Name] To Record Last Touchdown Yes/No = lastTouchdown (e.g., p1_lasttouchdown=yes)
+
+## Player Bets - Kicking Stats
+[Player Name] Extra Points Made Over/Under = KXP (e.g., p1_kxp=2.5+)
+[Player Name] Field Goals Made Over/Under = KFG (e.g., p1_kfg=1.5+)
+[Player Name] Kicking Total Points Over/Under = KPTS (e.g., p1_kpts=7.5+)
+
+## Player Bets - Defensive Stats
+[Player Name] Sacks Over/Under = DSAC (e.g., p1_dsac=0.5+)
+
+## Usage Notes - NFL
+# - Replace [Player Name] with actual player name in query
+# - For player bets, use format: p1=PLAYER_ID&p1_STAT=VALUE
+# - For over bets, append '+' to threshold (e.g., p1_pyds=221.5+)
+# - For under bets, append '-' to threshold (e.g., p1_pyds=221.5-)
+# - Multiple players: p1, p2, p3, etc.
+# - Case-insensitive for stat aliases
+# - Composite stats (PRYDS, TDS, RRYDS) are automatically calculated from components
+
+## Example Full Query (NFL)
+# gameId=djI3aqpByfOJiE4vspII&p1=BAKER_MAYFIELD&p1_pyds=221.5+&p1_pryds=242.5+&p1_ptd=1.5+
+# This checks Baker Mayfield for:
+# - Passing Yards over 221.5
+# - Passing + Rushing Yards over 242.5
+# - Passing Touchdowns over 1.5
+
+################################################################################
+# NHL MARKETS
+################################################################################
+
+## Team Bets - NHL
+Spread = spread (e.g., spread=FLA-1.5)
+Moneyline = moneyline (e.g., moneyline=FLA or moneyline=NYR)
+Regulation Moneyline = moneyline (with periodID=reg) (e.g., moneyline=FLA)
+Regulation 3-Way Moneyline = moneyline (e.g., moneyline=FLA, moneyline=NYR, or moneyline=DRAW)
+1st Period Moneyline = moneyline1P (e.g., moneyline1P=FLA)
+1st Period Spread = spread1P (e.g., spread1P=FLA-0.5)
+2nd Period Spread = spread2P (e.g., spread2P=FLA-0.5)
+Over/Under = total (e.g., total=o5.5 or total=u5.5)
+1st Period Over/Under = total1P (e.g., total1P=o1.5)
+2nd Period Over/Under = total2P (e.g., total2P=o1.5)
+Florida Panthers Goals Over/Under = homeGoals (e.g., homeGoals=o3.5 or homeGoals=3.5+)
+New York Rangers Goals Over/Under = awayGoals (e.g., awayGoals=o2.5 or awayGoals=2.5+)
+
+## Player Bets - Goals
+[Player Name] Goals Over/Under = HGL or GOAL or GOALS (e.g., p1_hgl=1.5+)
+[Player Name] Any Goals Yes/No = goals (e.g., p1_goals=yes)
+[Player Name] To Record First Goal Yes/No = firstGoal (e.g., p1_firstgoal=yes)
+[Player Name] To Record Last Goal Yes/No = lastGoal (e.g., p1_lastgoal=yes)
+
+## Player Bets - Assists & Points
+[Player Name] Assists Over/Under = AST (e.g., p1_ast=0.5+)
+[Player Name] Points (Goals + Assists) Over/Under = GA (e.g., p1_ga=0.5+)
+[Player Name] Power-Play Points Over/Under = PPP (e.g., p1_ppp=0.5+)
+
+## Player Bets - Other Stats
+[Player Name] Shots On Goal Over/Under = SHT or SOG (e.g., p1_sht=2.5+)
+[Player Name] Blocked Shots Over/Under = BS (e.g., p1_bs=1.5+)
+
+## Goalie Bets
+[Goalie Name] Saves Over/Under = GSV (e.g., p1_gsv=26.5+)
+
+## Usage Notes - NHL
+# - Replace [Player Name] with actual player name in query
+# - For player bets, use format: p1=PLAYER_ID&p1_STAT=VALUE
+# - For over bets, append '+' to threshold (e.g., p1_hgl=1.5+)
+# - For under bets, append '-' to threshold (e.g., p1_hgl=1.5-)
+# - Multiple players: p1, p2, p3, etc.
+# - Case-insensitive for stat aliases
+# - Composite stat GA (Goals + Assists) is automatically calculated from components
+# - Power-Play Points (PPP) includes both power-play goals and power-play assists
+
+## Example Full Query (NHL)
+# gameId=6kDyhKPAsZPQ65IAZNoP&p1=ARTEMI_PANARIN_1_NHL&p1_hgl=1.5+&p1_ast=0.5+&p1_ga=0.5+&p1_sht=2.5+
+# This checks Artemi Panarin for:
+# - Goals over 1.5
+# - Assists over 0.5
+# - Points (Goals + Assists) over 0.5
+# - Shots On Goal over 2.5
+
+################################################################################
+# UEFA/SOCCER MARKETS
+################################################################################
+
+## Team Bets - UEFA/Soccer
+3-Way Moneyline (Regulation) = moneyline (e.g., moneyline=ALM, moneyline=OLY, or moneyline=DRAW)
+Spread (Full Match) = spread (e.g., spread=ALM-1.5)
+Moneyline (Regulation) = moneyline (e.g., moneyline=ALM or moneyline=OLY)
+1st Half 3-Way Moneyline = moneyline1H (e.g., moneyline1H=ALM or moneyline1H=DRAW)
+2nd Half 3-Way Moneyline = moneyline2H (e.g., moneyline2H=ALM or moneyline2H=DRAW)
+Kairat Almaty Goals Over/Under (Full Match) = homeGoals (e.g., homeGoals=o1.5 or homeGoals=1.5+)
+Olympiacos FC Goals Over/Under (Full Match) = awayGoals (e.g., awayGoals=o2.5 or awayGoals=2.5+)
+Corner Kicks Spread (Full Match) = cornerSpread (e.g., cornerSpread=ALM-1.5)
+Cards (Weighted) Spread (Full Match) = cardSpread (e.g., cardSpread=ALM-0.5)
+
+## Game-Level Bets - UEFA/Soccer
+Over/Under (Full Match) = total (e.g., total=o2.5 or total=u2.5)
+Both Teams To Score Yes/No (Full Match) = bothScore (e.g., bothScore=yes or bothScore=no)
+Total Corner Kicks Over/Under (Full Match) = totalCorner (e.g., totalCorner=o9.5 or totalCorner=9.5+)
+Total Cards (Weighted) Over/Under (Full Match) = totalCards (e.g., totalCards=o3.5 or totalCards=3.5+)
+
+## Player Bets - Goals (UEFA/Soccer)
+[Player Name] To Record First Goal Yes/No = firstGoal (e.g., p1_firstgoal=yes)
+[Player Name] To Record Last Goal Yes/No = lastGoal (e.g., p1_lastgoal=yes)
+[Player Name] Any Goals Yes/No = goals (e.g., p1_goals=yes)
+[Player Name] Goals Over/Under = UGL or G or GOAL or GOALS (e.g., p1_ugl=0.5+)
+
+## Player Bets - Cards (UEFA/Soccer)
+[Player Name] Any Cards Yes/No = cards (e.g., p1_cards=yes)
+[Player Name] Any Red Cards Yes/No = redCards (e.g., p1_redcards=yes)
+[Player Name] Yellow Cards Over/Under = YC or Y or YELLOW (e.g., p1_yc=0.5+)
+[Player Name] Red Cards Over/Under = RC or R or REDCARDS (e.g., p1_rc=0.5+)
+[Player Name] Total Cards (Yellow + Red) = CARD or CARDS (e.g., p1_card=1.5+)
+
+## Usage Notes - UEFA/Soccer
+# - Replace [Player Name] with actual player name in query
+# - For player bets, use format: p1=PLAYER_ID&p1_STAT=VALUE
+# - For over bets, append '+' to threshold (e.g., p1_ugl=0.5+)
+# - For under bets, append '-' to threshold (e.g., p1_ugl=0.5-)
+# - Multiple players: p1, p2, p3, etc.
+# - Case-insensitive for stat aliases
+# - CARD composite = Yellow Cards + Red Cards
+# - Cards weighted: Yellow = 1 point, Red = 2 points (for weighted card markets)
+# - 3-Way Moneyline includes DRAW option (use moneyline=DRAW or moneyline=X)
+# - Corner kicks and cards spreads follow same format as goal spreads (teamAbbr+/-line)
+
+## Example Full Query (UEFA/Soccer)
+# gameId=iOMd0VqPJHjfJpHLB9oP&p1=MEHDI_TAREMI_1_UEFA_CHAMPIONS_LEAGUE&p1_ugl=0.5+&p1_firstgoal=yes&total=o2.5&bothScore=yes
+# This checks Mehdi Taremi and game props:
+# - Player Goals over 0.5
+# - Player To Record First Goal = Yes
+# - Total Goals over 2.5
+# - Both Teams To Score = Yes

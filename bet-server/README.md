@@ -187,7 +187,19 @@ railway domain
 
 ## Environment Variables
 
-The server uses `PORT` from environment variables (provided automatically by Railway). No additional configuration needed.
+- `PORT`: Optional (provided automatically by Railway or your host).
+- `SUPABASE_URL`: Your Supabase project URL (e.g. https://your-project.supabase.co).
+- `SUPABASE_SERVICE_ROLE_KEY`: Supabase service role (admin) key. Required for server admin operations.
+
+Create a `.env` file in the `bet-server` folder for local development. Example:
+
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+PORT=3000
+```
+
+Warning: Keep the service role key secret. Do not commit `.env` to source control.
 
 ## Data Fetching Schedule
 

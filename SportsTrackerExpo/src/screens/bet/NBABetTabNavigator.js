@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
+import { useSport } from "./BetTabNavigator";
 
 // Import bet screens
 import BetHomeScreen from "./BetHomeScreen";
@@ -12,9 +13,9 @@ import BetSettingsScreen from "./BetSettingsScreen";
 
 const Tab = createBottomTabNavigator();
 
-const NBABetTabNavigator = ({ navigation, route }) => {
+const NBABetTabNavigator = ({ navigation, route, onHideSportTabs }) => {
   const { colors, theme } = useTheme();
-  const sport = "NBA";
+  const { sport } = useSport();
 
   return (
     <Tab.Navigator
@@ -50,6 +51,14 @@ const NBABetTabNavigator = ({ navigation, route }) => {
           fontWeight: "500",
         },
       })}
+      screenListeners={{
+        state: (e) => {
+          // Hide sport tabs on Leaders, Bets, and Settings screens
+          const currentRoute = e.data?.state?.routes?.[e.data?.state?.index]?.name;
+          const shouldHide = ['BetLeaders', 'BetBets', 'BetSettings'].includes(currentRoute);
+          onHideSportTabs?.(shouldHide);
+        },
+      }}
     >
       <Tab.Screen
         name="BetHome"

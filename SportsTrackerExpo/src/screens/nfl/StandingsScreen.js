@@ -130,7 +130,7 @@ const StandingsScreen = ({ route }) => {
                       const diffColor = diffValue > 0 ? '#008000' : diffValue < 0 ? '#FF0000' : theme.textSecondary;
                       const nflTeamId = getNFLTeamId(entry.team);
                       const clinchCode = entry.team?.clincher ? entry.team.clincher.toUpperCase() : null;
-                      const clinchColor = (clinchCode === 'X' || clinchCode === '*') ? theme.success : clinchCode === 'Z' ? theme.warning : clinchCode === 'E' ? theme.error : clinchCode === 'Y' ? theme.info : theme.surface;
+                      const clinchColor = clinchCode === 'X' ? theme.success : clinchCode === '*' ? colors.primary : clinchCode === 'Z' ? theme.warning : clinchCode === 'E' ? theme.error : clinchCode === 'Y' ? theme.info : theme.surface;
                       
                       return (
                         <TouchableOpacity 
@@ -175,7 +175,7 @@ const StandingsScreen = ({ route }) => {
           <Text allowFontScaling={false} style={[styles.legendTitle, { color: colors.primary }]}>Legend</Text>
           <View style={styles.legendItems}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendSwatch, { backgroundColor: theme.success }]} />
+              <View style={[styles.legendSwatch, { backgroundColor: colors.primary }]} />
               <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>* - Clinched Division and Home Field</Text>
             </View>
             <View style={styles.legendItem}>
@@ -185,6 +185,10 @@ const StandingsScreen = ({ route }) => {
             <View style={styles.legendItem}>
               <View style={[styles.legendSwatch, { backgroundColor: theme.warning }]} />
               <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>Z - Clinched Division</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { backgroundColor: theme.info }]} />
+              <Text allowFontScaling={false} style={[styles.legendLabel, { color: theme.text }]}>Y - Clinched Wild Card</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendSwatch, { backgroundColor: theme.error }]} />

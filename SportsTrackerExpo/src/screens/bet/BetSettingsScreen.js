@@ -1822,7 +1822,7 @@ const BetSettingsScreen = ({ navigation }) => {
   );
 };
 
-// Helper to format pro expiry from profile row
+// Helper to format pro expiry from profile row (always show days remaining)
 const formatProExpiry = (expiresAt) => {
   if (!expiresAt) return null;
   try {
@@ -1831,17 +1831,9 @@ const formatProExpiry = (expiresAt) => {
     if (isNaN(exp.getTime())) return null;
     const diffMs = exp.getTime() - now.getTime();
     if (diffMs <= 0) return "Expired";
-    const totalDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
-    if (totalDays < 30) {
-      return `${totalDays} day${totalDays === 1 ? "" : "s"} remaining`;
-    }
-    const months = Math.floor(totalDays / 30);
-    const days = totalDays % 30;
-    if (days === 0)
-      return `${months} month${months === 1 ? "" : "s"} remaining`;
-    return `${months} month${months === 1 ? "" : "s"} ${days} day${
-      days === 1 ? "" : "s"
-    } remaining`;
+    // round to nearest whole day to avoid off-by-one when times differ by hours
+    const totalDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
+    return `${totalDays} day${totalDays === 1 ? "" : "s"} remaining`;
   } catch (e) {
     return null;
   }

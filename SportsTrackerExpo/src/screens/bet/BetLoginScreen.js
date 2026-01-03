@@ -9,6 +9,8 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Keyboard,
+  InteractionManager,
   Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -187,6 +189,7 @@ const BetLoginScreen = ({ navigation }) => {
   // Note: phone is entered by the user. Placeholder below shows a test number.
 
   const handleSignup = async (signupUsername, signupPassword) => {
+    Keyboard.dismiss();
     try {
       setLoading(true);
 
@@ -304,7 +307,9 @@ const BetLoginScreen = ({ navigation }) => {
                     console.error("BetLogin: signup - fetchRosters error", e)
                   );
               }
-              navigation.navigate("BetMain");
+              InteractionManager.runAfterInteractions(() => {
+                navigation.navigate("BetMain");
+              });
             },
           },
         ]
@@ -313,11 +318,15 @@ const BetLoginScreen = ({ navigation }) => {
       console.error("Signup error:", error);
       Alert.alert("Signup Failed", error.message || "Could not create account");
     } finally {
-      setLoading(false);
+      // Only stop loading if still on login screen
+      InteractionManager.runAfterInteractions(() => {
+        setLoading(false);
+      });
     }
   };
 
   const handleLogin = async () => {
+    Keyboard.dismiss();
     if (!username || !password) {
       Alert.alert("Error", "Please enter both username and password");
       return;
@@ -357,7 +366,9 @@ const BetLoginScreen = ({ navigation }) => {
           if (!authError && authData) {
             userPhone = cached;
             try {
-              navigation.navigate("BetMain");
+              InteractionManager.runAfterInteractions(() => {
+                navigation.navigate("BetMain");
+              });
               navigated = true;
             } catch (e) {
               console.warn("BetLogin: navigate error", e);
@@ -735,13 +746,11 @@ const BetLoginScreen = ({ navigation }) => {
         "Login Failed",
         error.message || "An unexpected error occurred"
       );
-    } finally {
-      setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
+    <View
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={[styles.container, { backgroundColor: theme.background }]}
     >
@@ -897,7 +906,7 @@ const BetLoginScreen = ({ navigation }) => {
         </View>
       </View>
       {/* daily reward modal moved to BetHomeScreen */}
-    </KeyboardAvoidingView>
+    </View>
   );
 };
 

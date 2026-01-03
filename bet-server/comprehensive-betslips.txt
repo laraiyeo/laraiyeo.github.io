@@ -1,0 +1,227 @@
+# COMPREHENSIVE BETSLIPS FOR ALL 4 SPORTS
+# Using every prop from def.txt with o/u notation support
+
+==============================================================================
+NBA BETSLIP (gameId: 401810322_nba, player: 5104157, team: NY)
+==============================================================================
+
+BASE URL: http://localhost:3000/api/betslip
+
+FULL URL (NBA):
+http://localhost:3000/api/betslip?gameId=401810322_nba&moneyline=NY&spread=NY-4.5&total=237.5+&homePoints=120.5+&awayPoints=u116.5&moneyline1H=NY&spread1H=NY-2.5&total1H=o122.5&homePoints1H=62.5+&awayPoints1H=59.5-&moneyline2H=NY&spread2H=NY-1.5&total2H=114.5+&homePoints2H=o59.5&awayPoints2H=u57.5&moneyline1Q=NY&spread1Q=NY-1.5&total1Q=62.5+&homePoints1Q=o31.5&awayPoints1Q=30.5-&moneyline2Q=NY&spread2Q=NY-1.5&total2Q=o60.5&homePoints2Q=30.5+&awayPoints2Q=u29.5&moneyline3Q=NY&spread3Q=NY-1.5&total3Q=55.5+&moneyline4Q=NY&spread4Q=NY-0.5&total4Q=o54.5&p1=5104157&p1_pra=45.5+&p1_pa=o37.5&p1_pr=32.5+&p1_ra=o16.5&p1_pts=26.5+&p1_ast=o10.5&p1_reb=5.5+&p1_stl=o1.5&p1_blk=0.5+&p1_3pm=o2.5&p1_1qpts=7.5+&p1_1qast=o3.5&p1_1qreb=1.5+&p1_firstbasket=yes&p1_2dbl=yes&p1_3dbl=no&p1_bs=o1.5
+
+BREAKDOWN (NBA):
+Team Bets:
+- moneyline=NY (NY wins)
+- spread=NY-4.5 (NY wins by more than 4.5)
+- total=237.5+ (total points over 237.5 using +/- notation)
+- homePoints=120.5+ (home team points over 120.5 using +/- notation)
+- awayPoints=u116.5 (away team points under 116.5 using o/u notation)
+
+1st Half:
+- moneyline1H=NY
+- spread1H=NY-2.5
+- total1H=o122.5 (o/u notation)
+- homePoints1H=62.5+ (+/- notation)
+- awayPoints1H=59.5- (-/+ notation for under)
+
+2nd Half:
+- moneyline2H=NY
+- spread2H=NY-1.5
+- total2H=114.5+ (+/- notation)
+- homePoints2H=o59.5 (o/u notation)
+- awayPoints2H=u57.5 (o/u notation)
+
+Quarters (1Q, 2Q, 3Q, 4Q):
+- moneyline1Q=NY, spread1Q=NY-1.5, total1Q=62.5+ (+/-), homePoints1Q=o31.5 (o/u), awayPoints1Q=30.5- (-/+)
+- moneyline2Q=NY, spread2Q=NY-1.5, total2Q=o60.5 (o/u), homePoints2Q=30.5+ (+/-), awayPoints2Q=u29.5 (o/u)
+- moneyline3Q=NY, spread3Q=NY-1.5, total3Q=55.5+ (+/-)
+- moneyline4Q=NY, spread4Q=NY-0.5, total4Q=o54.5 (o/u)
+
+Player 5104157 Bets:
+- p1_pra=45.5+ (Points + Rebounds + Assists over 45.5 using +/- notation)
+- p1_pa=o37.5 (Points + Assists over 37.5 using o/u notation)
+- p1_pr=32.5+ (Points + Rebounds over 32.5 using +/- notation)
+- p1_ra=o16.5 (Rebounds + Assists over 16.5 using o/u notation)
+- p1_pts=26.5+ (Points over 26.5 using +/- notation)
+- p1_ast=o10.5 (Assists over 10.5 using o/u notation)
+- p1_reb=5.5+ (Rebounds over 5.5 using +/- notation)
+- p1_stl=o1.5 (Steals over 1.5 using o/u notation)
+- p1_blk=0.5+ (Blocks over 0.5 using +/- notation)
+- p1_3pm=o2.5 (Three Pointers Made over 2.5 using o/u notation)
+- p1_1qpts=7.5+ (1st Quarter Points over 7.5 using +/- notation)
+- p1_1qast=o3.5 (1st Quarter Assists over 3.5 using o/u notation)
+- p1_1qreb=1.5+ (1st Quarter Rebounds over 1.5 using +/- notation)
+- p1_firstbasket=yes (First Basket)
+- p1_2dbl=yes (Double-Double)
+- p1_3dbl=no (No Triple-Double)
+- p1_bs=o1.5 (Blocks + Steals over 1.5 using o/u notation)
+
+==============================================================================
+NFL BETSLIP (gameId: 401772916_nfl, player: 3052587, team: TB)
+==============================================================================
+
+FULL URL (NFL):
+http://localhost:3000/api/betslip?gameId=401772916_nfl&moneyline=TB&spread=TB-3&total=43.5+&homePoints=o23.5&awayPoints=20.5-&moneyline1H=TB&spread1H=TB-1.5&total1H=21.5+&homePoints1H=o10.5&awayPoints1H=9.5-&moneyline2H=TB&spread2H=TB-1.5&total2H=o21.5&homePoints2H=10.5+&awayPoints2H=u9.5&moneyline1Q=TB&spread1Q=TB-0.5&total1Q=7.5+&homePoints1Q=o3.5&awayPoints1Q=2.5-&moneyline2Q=TB&spread2Q=TB-0.5&total2Q=o13.5&moneyline3Q=TB&spread3Q=TB-0.5&total3Q=9.5+&moneyline4Q=TB&spread4Q=TB-0.5&total4Q=o12.5&p1=3052587&p1_pyds=221.5+&p1_patt=o31.5&p1_pcmp=20.5+&p1_pint=u0.5&p1_plng=36.5+&p1_ptd=o1.5&p1_pryds=242.5+&p1_ryds=o60.5&p1_rlng=13.5+&p1_ratt=o15.5&p1_recyds=53.5+&p1_rrec=o4.5&p1_reclong=21.5+&p1_rryds=o82.5&p1_tds=1.5+&p1_touchdowns=yes&p1_firsttouchdown=no&p1_lasttouchdown=no&p1_kxp=o2.5&p1_kfg=1.5+&p1_kpts=o7.5&p1_dsac=0.5+
+
+BREAKDOWN (NFL):
+Team Bets:
+- moneyline=TB
+- spread=TB-3
+- total=43.5+ (over 43.5 using +/- notation)
+- homePoints=o23.5 (over 23.5 using o/u notation)
+- awayPoints=20.5- (under 20.5 using +/- notation)
+
+Halves & Quarters (1H, 2H, 1Q, 2Q, 3Q, 4Q):
+- moneyline1H=TB, spread1H=TB-1.5, total1H=21.5+ (+/-), homePoints1H=o10.5 (o/u), awayPoints1H=9.5- (-/+)
+- moneyline2H=TB, spread2H=TB-1.5, total2H=o21.5 (o/u), homePoints2H=10.5+ (+/-), awayPoints2H=u9.5 (o/u)
+- moneyline1Q=TB, spread1Q=TB-0.5, total1Q=7.5+ (+/-), homePoints1Q=o3.5 (o/u), awayPoints1Q=2.5- (-/+)
+- moneyline2Q=TB, spread2Q=TB-0.5, total2Q=o13.5 (o/u)
+- moneyline3Q=TB, spread3Q=TB-0.5, total3Q=9.5+ (+/-)
+- moneyline4Q=TB, spread4Q=TB-0.5, total4Q=o12.5 (o/u)
+
+Player 3052587 Bets (Passing):
+- p1_pyds=221.5+ (Passing Yards over 221.5 using +/- notation)
+- p1_patt=o31.5 (Passing Attempts over 31.5 using o/u notation)
+- p1_pcmp=20.5+ (Passing Completions over 20.5 using +/- notation)
+- p1_pint=u0.5 (Interceptions under 0.5 using o/u notation)
+- p1_plng=36.5+ (Longest Completion over 36.5 using +/- notation)
+- p1_ptd=o1.5 (Passing Touchdowns over 1.5 using o/u notation)
+- p1_pryds=242.5+ (Passing + Rushing Yards over 242.5 using +/- notation)
+
+Player 3052587 Bets (Rushing):
+- p1_ryds=o60.5 (Rushing Yards over 60.5 using o/u notation)
+- p1_rlng=13.5+ (Longest Rush over 13.5 using +/- notation)
+- p1_ratt=o15.5 (Rushing Attempts over 15.5 using o/u notation)
+
+Player 3052587 Bets (Receiving):
+- p1_recyds=53.5+ (Receiving Yards over 53.5 using +/- notation)
+- p1_rrec=o4.5 (Receptions over 4.5 using o/u notation)
+- p1_reclong=21.5+ (Longest Reception over 21.5 using +/- notation)
+- p1_rryds=o82.5 (Rushing + Receiving Yards over 82.5 using o/u notation)
+
+Player 3052587 Bets (Touchdowns):
+- p1_tds=1.5+ (Touchdowns over 1.5 using +/- notation)
+- p1_touchdowns=yes (Any Touchdowns)
+- p1_firsttouchdown=no (Not First Touchdown)
+- p1_lasttouchdown=no (Not Last Touchdown)
+
+Player 3052587 Bets (Kicking):
+- p1_kxp=o2.5 (Extra Points Made over 2.5 using o/u notation)
+- p1_kfg=1.5+ (Field Goals Made over 1.5 using +/- notation)
+- p1_kpts=o7.5 (Kicking Total Points over 7.5 using o/u notation)
+
+Player 3052587 Bets (Defense):
+- p1_dsac=0.5+ (Sacks over 0.5 using +/- notation)
+
+==============================================================================
+NHL BETSLIP (gameId: 401802991_nhl, player: 3941546, team: VGK)
+==============================================================================
+
+FULL URL (NHL):
+http://localhost:3000/api/betslip?gameId=401802991_nhl&moneyline=VGK&spread=VGK-1.5&total=5.5+&homeGoals=o3.5&awayGoals=2.5-&moneyline1P=VGK&spread1P=VGK-0.5&total1P=1.5+&spread2P=VGK-0.5&total2P=o1.5&p1=3941546&p1_hgl=1.5+&p1_goals=yes&p1_firstgoal=yes&p1_lastgoal=no&p1_ast=o0.5&p1_ga=0.5+&p1_ppp=o0.5&p1_sht=2.5+&p1_bs=o1.5&p1_gsv=26.5+
+
+BREAKDOWN (NHL):
+Team Bets:
+- moneyline=VGK
+- spread=VGK-1.5
+- total=5.5+ (total goals over 5.5 using +/- notation)
+- homeGoals=o3.5 (home goals over 3.5 using o/u notation)
+- awayGoals=2.5- (away goals under 2.5 using +/- notation)
+
+Periods:
+- moneyline1P=VGK (1st Period Moneyline)
+- spread1P=VGK-0.5 (1st Period Spread)
+- total1P=1.5+ (1st Period Total over 1.5 using +/- notation)
+- spread2P=VGK-0.5 (2nd Period Spread)
+- total2P=o1.5 (2nd Period Total over 1.5 using o/u notation)
+
+Player 3941546 Bets:
+- p1_hgl=1.5+ (Goals over 1.5 using +/- notation)
+- p1_goals=yes (Any Goals)
+- p1_firstgoal=yes (First Goal)
+- p1_lastgoal=no (Not Last Goal)
+- p1_ast=o0.5 (Assists over 0.5 using o/u notation)
+- p1_ga=0.5+ (Goals + Assists over 0.5 using +/- notation)
+- p1_ppp=o0.5 (Power-Play Points over 0.5 using o/u notation)
+- p1_sht=2.5+ (Shots On Goal over 2.5 using +/- notation)
+- p1_bs=o1.5 (Blocked Shots over 1.5 using o/u notation)
+- p1_gsv=26.5+ (Goalie Saves over 26.5 using +/- notation)
+
+==============================================================================
+UEFA BETSLIP (gameId: 757749_uefa, player: 332962, team: TOT)
+==============================================================================
+
+FULL URL (UEFA):
+http://localhost:3000/api/betslip?gameId=757749_uefa&moneyline=TOT&spread=TOT-1.5&moneyline1H=TOT&moneyline2H=TOT&homeGoals=1.5+&awayGoals=u2.5&total=2.5+&bothScore=yes&totalCorner=o9.5&totalCards=3.5+&cornerSpread=TOT-1.5&cardSpread=TOT-0.5&p1=332962&p1_firstgoal=yes&p1_lastgoal=no&p1_goals=yes&p1_ugl=0.5+&p1_cards=no&p1_redcards=no&p1_yc=u0.5&p1_rc=u0.5&p1_card=1.5-
+
+BREAKDOWN (UEFA):
+Team Bets:
+- moneyline=TOT (3-Way Moneyline)
+- spread=TOT-1.5 (Spread)
+- moneyline1H=TOT (1st Half 3-Way Moneyline)
+- moneyline2H=TOT (2nd Half 3-Way Moneyline)
+- homeGoals=1.5+ (Home Goals over 1.5 using +/- notation)
+- awayGoals=u2.5 (Away Goals under 2.5 using o/u notation)
+
+Game-Level Bets:
+- total=2.5+ (Total Goals over 2.5 using +/- notation)
+- bothScore=yes (Both Teams To Score)
+- totalCorner=o9.5 (Total Corner Kicks over 9.5 using o/u notation)
+- totalCards=3.5+ (Total Cards over 3.5 using +/- notation)
+- cornerSpread=TOT-1.5 (Corner Kicks Spread)
+- cardSpread=TOT-0.5 (Cards Spread)
+
+Player 332962 Bets (Goals):
+- p1_firstgoal=yes (First Goal)
+- p1_lastgoal=no (Not Last Goal)
+- p1_goals=yes (Any Goals)
+- p1_ugl=0.5+ (Goals over 0.5 using +/- notation)
+
+Player 332962 Bets (Cards):
+- p1_cards=no (No Cards)
+- p1_redcards=no (No Red Cards)
+- p1_yc=u0.5 (Yellow Cards under 0.5 using o/u notation)
+- p1_rc=u0.5 (Red Cards under 0.5 using o/u notation)
+- p1_card=1.5- (Total Cards under 1.5 using +/- notation)
+
+==============================================================================
+NOTES ON O/U NOTATION SUPPORT:
+==============================================================================
+
+The betslip API supports BOTH notations interchangeably:
+1. **o/u prefix**: o225.5 (over), u116.5 (under)
+2. **+/- suffix**: 225.5+ (over), 116.5- (under)
+
+Both formats work identically. The code at line 8224 checks:
+- const mOU = bvStr.match(/^[ou]([0-9.]+)/i);  // o/u prefix
+- const mPlus = bvStr.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);  // + suffix for over
+- For under with +/- notation, use the minus sign: 116.5-
+
+Examples of equivalent bets:
+- p1_pts=o26.5  ===  p1_pts=26.5+  (Points OVER 26.5)
+- p1_pts=u26.5  ===  p1_pts=26.5-  (Points UNDER 26.5)
+
+All betslips above use a BALANCED MIX of both notations (~50/50 split):
+- o/u notation: o237.5, u116.5
+- +/- notation: 237.5+, 116.5-
+
+This demonstrates that both formats are fully supported and interchangeable.
+
+==============================================================================
+TESTING COMMANDS:
+==============================================================================
+
+Test each sport individually:
+
+# NBA Test (mix of o/u and +/- notation):
+curl "http://localhost:3000/api/betslip?gameId=401810322_nba&p1=5104157&p1_pra=45.5+&p1_pts=26.5+"
+
+# NFL Test (mix of o/u and +/- notation):
+curl "http://localhost:3000/api/betslip?gameId=401772916_nfl&p1=3052587&p1_pyds=221.5+&p1_ptd=o1.5"
+
+# NHL Test (mix of o/u and +/- notation):
+curl "http://localhost:3000/api/betslip?gameId=401802991_nhl&p1=3941546&p1_hgl=1.5+&p1_ast=o0.5"
+
+# UEFA Test (mix of o/u and +/- notation):
+curl "http://localhost:3000/api/betslip?gameId=757749_uefa&p1=332962&p1_ugl=0.5+&p1_goals=yes"
