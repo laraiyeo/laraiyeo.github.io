@@ -1,6 +1,7 @@
 # Bet Server API Documentation
 
 ## Base URL
+
 - **Production**: `https://laraiyeogithubio-production-f5af.up.railway.app`
 - **Local**: `http://localhost:3000`
 
@@ -9,11 +10,13 @@
 ## Core Endpoints
 
 ### 1. Root Endpoint
+
 **`GET /`**
 
 Returns server status and available endpoints.
 
 **Response:**
+
 ```json
 {
   "message": "NBA Data Fetcher API",
@@ -32,21 +35,25 @@ Returns server status and available endpoints.
 ---
 
 ### 2. Scoreboard Endpoint
+
 **`GET /api/scoreboard/:sport`**
 
 Fetches live scoreboard data for a specific sport.
 
 **Parameters:**
+
 - `sport` (path) - Sport identifier: `nba`, `nhl`, `nfl`, `uefa`
 - `dates` (query, optional) - Date filter in format `YYYYMMDD`
 
 **Example:**
+
 ```
 GET /api/scoreboard/nba
 GET /api/scoreboard/nfl?dates=20250102
 ```
 
 **Response:**
+
 ```json
 {
   "events": [
@@ -86,20 +93,24 @@ GET /api/scoreboard/nfl?dates=20250102
 ---
 
 ### 3. Summary Endpoint
+
 **`GET /api/summary/:sport/:eventId`**
 
 Fetches detailed game summary with box scores, player stats, and SGO odds.
 
 **Parameters:**
+
 - `sport` (path) - Sport identifier: `nba`, `nhl`, `nfl`, `uefa`
 - `eventId` (path) - Event ID (e.g., `401810322`)
 
 **Example:**
+
 ```
 GET /api/summary/nba/401810322
 ```
 
 **Response:**
+
 ```json
 {
   "header": {
@@ -146,6 +157,7 @@ GET /api/summary/nba/401810322
 ```
 
 **⚠️ MIGRATION NOTE:**
+
 - **Old Format**: `/api/summary/:eventId` (sport inferred from scoreboard cache)
 - **New Format**: `/api/summary/:sport/:eventId` (explicit sport parameter)
 - Old format still supported for backward compatibility
@@ -153,19 +165,23 @@ GET /api/summary/nba/401810322
 ---
 
 ### 4. Odds Endpoint
+
 **`GET /api/odds/:sport`**
 
 Returns SportGameOdds cached data for a sport. Cache refreshes daily at 2 AM PST.
 
 **Parameters:**
+
 - `sport` (path) - Sport identifier: `nba`, `nhl`, `nfl`, `uefa`
 
 **Example:**
+
 ```
 GET /api/odds/nba
 ```
 
 **Response:**
+
 ```json
 {
   "lastFetched": "2026-01-02T10:00:00.000Z",
@@ -189,7 +205,9 @@ GET /api/odds/nba
           "home": { "moneyline": -150, "spread": -3.5 },
           "away": { "moneyline": +130, "spread": +3.5 }
         },
-        "all": [ /* All SGO markets */ ]
+        "all": [
+          /* All SGO markets */
+        ]
       }
     }
   ]
@@ -197,6 +215,7 @@ GET /api/odds/nba
 ```
 
 **Cache Behavior:**
+
 - Fresh cache (< 2 hours): Returns immediately
 - Stale cache: Returns cached + triggers background refresh
 - No cache: Returns 503, triggers background fetch
@@ -204,19 +223,23 @@ GET /api/odds/nba
 ---
 
 ### 5. Rosters Endpoint
+
 **`GET /api/rosters/:sport`**
 
 Fetches team rosters with player odds attached from SGO cache.
 
 **Parameters:**
+
 - `sport` (path) - Sport identifier: `nba`, `nhl`, `nfl`, `uefa`
 
 **Example:**
+
 ```
 GET /api/rosters/nba
 ```
 
 **Response:**
+
 ```json
 {
   "teamId1": {
@@ -227,7 +250,9 @@ GET /api/rosters/nba
           "displayName": "Jayson Tatum",
           "position": { "abbreviation": "F" }
         },
-        "odds": { /* SGO player props */ }
+        "odds": {
+          /* SGO player props */
+        }
       }
     ]
   }
@@ -237,20 +262,24 @@ GET /api/rosters/nba
 ---
 
 ### 6. Athlete Endpoint
+
 **`GET /api/athlete/:sport/:id`**
 
 Returns detailed athlete information with gamelog and odds breakdown.
 
 **Parameters:**
+
 - `sport` (path) - Sport identifier: `nba`, `nhl`, `nfl`, `uefa`
 - `id` (path) - Athlete ID
 
 **Example:**
+
 ```
 GET /api/athlete/nba/5104157
 ```
 
 **Response:**
+
 ```json
 {
   "athlete": {
@@ -276,6 +305,7 @@ GET /api/athlete/nba/5104157
 ---
 
 ### 7. Betslip Generation Endpoint
+
 **`GET /api/betslip`**
 
 Generates betslip response from query parameters. Evaluates bets against live data.
@@ -283,6 +313,7 @@ Generates betslip response from query parameters. Evaluates bets against live da
 **Query Parameters:**
 
 #### Game-Level Bets
+
 - `gameId` - Event ID(s), comma-separated for parlays
 - `moneyline` - Team abbreviation (e.g., `NY`)
 - `spread` - Team + line (e.g., `NY-4.5`)
@@ -291,12 +322,14 @@ Generates betslip response from query parameters. Evaluates bets against live da
 - `awayPoints` - Away team points (e.g., `u116.5`, `116.5-`)
 
 #### Quarter Bets (NBA/NFL)
+
 - `moneyline1Q`, `moneyline2Q`, `moneyline3Q`, `moneyline4Q` - Quarter moneyline
 - `spread1Q`, `spread2Q`, `spread3Q`, `spread4Q` - Quarter spread (e.g., `NY-1.5`)
 - `total1Q`, `total2Q`, `total3Q`, `total4Q` - Quarter total (e.g., `62.5+`, `o60.5`)
 - `homePoints1Q`-`4Q`, `awayPoints1Q`-`4Q` - Quarter team points
 
 #### Half Bets (All Sports)
+
 - `moneyline1H`, `moneyline2H` - Half moneyline
 - `spread1H`, `spread2H` - Half spread
 - `total1H`, `total2H` - Half total
@@ -304,11 +337,13 @@ Generates betslip response from query parameters. Evaluates bets against live da
 - `awayPoints1H`, `awayPoints2H` - Half team points
 
 #### Period Bets (NHL)
+
 - `moneyline1P`, `moneyline2P`, `moneyline3P` - Period moneyline
 - `spread1P`, `spread2P`, `spread3P` - Period spread
 - `total1P`, `total2P`, `total3P` - Period total
 
 #### UEFA-Specific Bets
+
 - `bothScore` - Both teams to score (yes/no)
 - `totalCorner` - Total corner kicks (e.g., `o9.5`)
 - `totalCards` - Total cards (e.g., `3.5+`)
@@ -316,6 +351,7 @@ Generates betslip response from query parameters. Evaluates bets against live da
 - `cardSpread` - Cards spread (e.g., `TOT-0.5`)
 
 #### Player Props
+
 - `p1`, `p2`, etc. - Player ID
 - `p1_pts`, `p1_reb`, `p1_ast` - Basic stats (e.g., `26.5+`, `o10.5`)
 - `p1_pra`, `p1_pa`, `p1_pr`, `p1_ra` - Combo stats
@@ -326,6 +362,7 @@ Generates betslip response from query parameters. Evaluates bets against live da
 - `p1_2dbl`, `p1_3dbl` - Double/triple-double (yes/no)
 
 **NFL Player Props:**
+
 - `p1_pyds`, `p1_patt`, `p1_pcmp`, `p1_pint`, `p1_plng`, `p1_ptd` - Passing
 - `p1_ryds`, `p1_ratt`, `p1_rlng` - Rushing
 - `p1_recyds`, `p1_rrec`, `p1_reclong` - Receiving
@@ -335,6 +372,7 @@ Generates betslip response from query parameters. Evaluates bets against live da
 - `p1_dsac` - Defense (sacks)
 
 **NHL Player Props:**
+
 - `p1_hgl`, `p1_goals` - Goals
 - `p1_ast`, `p1_ga` - Assists / Goals+Assists
 - `p1_ppp` - Power-play points
@@ -342,20 +380,24 @@ Generates betslip response from query parameters. Evaluates bets against live da
 - `p1_gsv` - Goalie saves
 
 **UEFA Player Props:**
+
 - `p1_ugl`, `p1_goals` - Goals
 - `p1_cards`, `p1_redcards` - Cards
 - `p1_yc`, `p1_rc`, `p1_card` - Yellow/red cards
 
 **Over/Under Notation:**
+
 - `o237.5` or `237.5+` = Over 237.5
 - `u237.5` or `237.5-` = Under 237.5
 
 **Example:**
+
 ```
 GET /api/betslip?gameId=401810322_nba&moneyline=NY&spread=NY-4.5&total=237.5+&homePoints=120.5+&awayPoints=u116.5&p1=5104157&p1_pts=26.5+&p1_reb=o5.5&p1_firstbasket=yes
 ```
 
 **Response:**
+
 ```json
 {
   "events": [
@@ -471,12 +513,14 @@ GET /api/betslip?gameId=401810322_nba&moneyline=NY&spread=NY-4.5&total=237.5+&ho
 ```
 
 **Bet Status Values:**
+
 - `true` - Bet won
 - `false` - Bet lost
 - `"pending"` - Game hasn't started
 - `"in progress"` - Bet is currently live and could win/lose
 
 **In-Progress Logic (NEW):**
+
 - **Quarters/Periods**: Shows "in progress" only if that specific quarter/period is currently active (based on linescore)
 - **Halves**: Shows "in progress" if any constituent quarter/period is active
 - **Examples**:
@@ -490,11 +534,13 @@ GET /api/betslip?gameId=401810322_nba&moneyline=NY&spread=NY-4.5&total=237.5+&ho
 ## Authentication Endpoints
 
 ### 8. Sign Up
+
 **`POST /api/auth/signup`**
 
 Creates new user account.
 
 **Body:**
+
 ```json
 {
   "email": "user@example.com",
@@ -504,6 +550,7 @@ Creates new user account.
 ```
 
 **Response:**
+
 ```json
 {
   "token": "eyJhbGc...",
@@ -518,11 +565,13 @@ Creates new user account.
 ---
 
 ### 9. Login
+
 **`POST /api/auth/login`**
 
 Authenticates user and returns JWT token.
 
 **Body:**
+
 ```json
 {
   "email": "user@example.com",
@@ -531,6 +580,7 @@ Authenticates user and returns JWT token.
 ```
 
 **Response:**
+
 ```json
 {
   "token": "eyJhbGc...",
@@ -546,16 +596,19 @@ Authenticates user and returns JWT token.
 ---
 
 ### 10. Verify Token
+
 **`POST /api/auth/verify`**
 
 Verifies JWT token validity.
 
 **Headers:**
+
 ```
 Authorization: Bearer eyJhbGc...
 ```
 
 **Response:**
+
 ```json
 {
   "valid": true,
@@ -568,16 +621,19 @@ Authorization: Bearer eyJhbGc...
 ## Betslip Management Endpoints
 
 ### 11. Create Betslip
+
 **`POST /api/betslips`**
 
 Creates a new betslip record in database.
 
 **Headers:**
+
 ```
 Authorization: Bearer eyJhbGc...
 ```
 
 **Body:**
+
 ```json
 {
   "gameIds": ["401810322_nba"],
@@ -597,11 +653,12 @@ Authorization: Bearer eyJhbGc...
   ],
   "betslip_url": "http://localhost:3000/api/betslip?gameId=...",
   "wager": 10,
-  "potential_payout": 25.50
+  "potential_payout": 25.5
 }
 ```
 
 **Response:**
+
 ```json
 {
   "id": "betslip_uuid",
@@ -615,20 +672,24 @@ Authorization: Bearer eyJhbGc...
 ---
 
 ### 12. List Betslips
+
 **`GET /api/betslips`**
 
 Returns user's betslips with optional filtering.
 
 **Headers:**
+
 ```
 Authorization: Bearer eyJhbGc...
 ```
 
 **Query Parameters:**
+
 - `status` (optional) - Filter by status: `pending`, `won`, `lost`
 - `limit` (optional) - Max results (default: 50)
 
 **Response:**
+
 ```json
 {
   "betslips": [
@@ -646,16 +707,19 @@ Authorization: Bearer eyJhbGc...
 ---
 
 ### 13. Get Betslip by ID
+
 **`GET /api/betslips/:id`**
 
 Fetches single betslip by ID.
 
 **Headers:**
+
 ```
 Authorization: Bearer eyJhbGc...
 ```
 
 **Response:**
+
 ```json
 {
   "id": "uuid",
@@ -671,16 +735,19 @@ Authorization: Bearer eyJhbGc...
 ---
 
 ### 14. Watch Betslip
+
 **`POST /api/betslips/:id/watch`**
 
 Adds betslip to realtime watcher for automatic settlement.
 
 **Headers:**
+
 ```
 Authorization: Bearer eyJhbGc...
 ```
 
 **Response:**
+
 ```json
 {
   "watching": true,
@@ -691,16 +758,19 @@ Authorization: Bearer eyJhbGc...
 ---
 
 ### 15. Unwatch Betslip
+
 **`DELETE /api/betslips/:id/watch`**
 
 Removes betslip from realtime watcher.
 
 **Headers:**
+
 ```
 Authorization: Bearer eyJhbGc...
 ```
 
 **Response:**
+
 ```json
 {
   "watching": false
@@ -712,16 +782,19 @@ Authorization: Bearer eyJhbGc...
 ## Daily Rewards Endpoints
 
 ### 16. Get Daily State
+
 **`GET /api/daily/state`**
 
 Returns current daily reward state for authenticated user.
 
 **Headers:**
+
 ```
 Authorization: Bearer eyJhbGc...
 ```
 
 **Response:**
+
 ```json
 {
   "day": 3,
@@ -734,16 +807,19 @@ Authorization: Bearer eyJhbGc...
 ---
 
 ### 17. Claim Daily Reward
+
 **`POST /api/daily/claim`**
 
 Claims current day's reward if eligible.
 
 **Headers:**
+
 ```
 Authorization: Bearer eyJhbGc...
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -757,16 +833,19 @@ Authorization: Bearer eyJhbGc...
 ---
 
 ### 18. Dismiss Daily Modal
+
 **`POST /api/daily/dismiss`**
 
 Dismisses daily modal for 24 hours without claiming.
 
 **Headers:**
+
 ```
 Authorization: Bearer eyJhbGc...
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -779,16 +858,19 @@ Authorization: Bearer eyJhbGc...
 ## Notification Endpoints
 
 ### 19. Register Push Token
+
 **`POST /api/profile/push-token`**
 
 Registers Expo push notification token for user.
 
 **Headers:**
+
 ```
 Authorization: Bearer eyJhbGc...
 ```
 
 **Body:**
+
 ```json
 {
   "pushToken": "ExponentPushToken[...]"
@@ -796,6 +878,7 @@ Authorization: Bearer eyJhbGc...
 ```
 
 **Response:**
+
 ```json
 {
   "success": true
@@ -805,16 +888,19 @@ Authorization: Bearer eyJhbGc...
 ---
 
 ### 20. Test Push Notification
+
 **`POST /api/debug/push-test`**
 
 Sends test push notification to authenticated user.
 
 **Headers:**
+
 ```
 Authorization: Bearer eyJhbGc...
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -827,16 +913,19 @@ Authorization: Bearer eyJhbGc...
 ## Admin Endpoints
 
 ### 21. Grant Pro Access
+
 **`POST /api/admin/pro`**
 
 Grants pro access to user (admin only).
 
 **Headers:**
+
 ```
 Authorization: Bearer eyJhbGc...
 ```
 
 **Body:**
+
 ```json
 {
   "userId": "user_uuid"
@@ -846,16 +935,19 @@ Authorization: Bearer eyJhbGc...
 ---
 
 ### 22. Redeem Promo Code
+
 **`POST /api/promo/redeem`**
 
 Redeems promotional code for credits.
 
 **Headers:**
+
 ```
 Authorization: Bearer eyJhbGc...
 ```
 
 **Body:**
+
 ```json
 {
   "code": "PROMO2026"
@@ -863,6 +955,7 @@ Authorization: Bearer eyJhbGc...
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -876,11 +969,13 @@ Authorization: Bearer eyJhbGc...
 ## Health & Status
 
 ### 23. Health Check
+
 **`GET /health`**
 
 Server health check endpoint.
 
 **Response:**
+
 ```json
 {
   "ok": true,
@@ -896,17 +991,20 @@ Server health check endpoint.
 ### Automated Tasks
 
 1. **SGO Odds Refresh**
+
    - **Schedule**: Daily at 2:00 AM PST
    - **Function**: `scheduleSGOOddsPolling()`
    - **Sports**: NBA, NHL, NFL, UEFA
    - **Cache Duration**: Until next 2 AM run
 
 2. **Roster Refresh**
+
    - **Schedule**: Daily at 2:00 AM PST (after odds)
    - **Function**: `fetchRostersForSport()`
    - **Attaches**: SGO odds to player data
 
 3. **Betslip Auto-Cleanup**
+
    - **Schedule**: 24 hours after betslip creation
    - **Function**: `scheduleClearBetslip()`
    - **Action**: Clears betslip data from database
@@ -923,43 +1021,45 @@ Server health check endpoint.
 
 ### Old → New Endpoint Format
 
-| Old Format | New Format | Status |
-|------------|------------|--------|
-| `/api/summary/:eventId` | `/api/summary/:sport/:eventId` | ⚠️ Deprecated (still works) |
-| `/api/betslip` (singular POST) | `/api/betslips` (plural POST) | ✅ Both work (forwarded) |
-| `/api/betslip/:id/watch` (singular) | `/api/betslips/:id/watch` (plural) | ✅ Both work (forwarded) |
+| Old Format                          | New Format                         | Status                      |
+| ----------------------------------- | ---------------------------------- | --------------------------- |
+| `/api/summary/:eventId`             | `/api/summary/:sport/:eventId`     | ⚠️ Deprecated (still works) |
+| `/api/betslip` (singular POST)      | `/api/betslips` (plural POST)      | ✅ Both work (forwarded)    |
+| `/api/betslip/:id/watch` (singular) | `/api/betslips/:id/watch` (plural) | ✅ Both work (forwarded)    |
 
 ### Required App Changes
 
 1. **Update Summary Calls:**
+
    ```javascript
    // OLD
-   fetch(`${API_URL}/api/summary/${eventId}`)
-   
+   fetch(`${API_URL}/api/summary/${eventId}`);
+
    // NEW (required for reliability)
-   fetch(`${API_URL}/api/summary/${sport}/${eventId}`)
+   fetch(`${API_URL}/api/summary/${sport}/${eventId}`);
    ```
 
 2. **Update Betslip Creation:**
+
    ```javascript
    // OLD (still works but deprecated)
    fetch(`${API_URL}/api/betslip`, {
-     method: 'POST',
-     body: JSON.stringify(betslipData)
-   })
-   
+     method: "POST",
+     body: JSON.stringify(betslipData),
+   });
+
    // NEW (recommended)
    fetch(`${API_URL}/api/betslips`, {
-     method: 'POST',
-     body: JSON.stringify(betslipData)
-   })
+     method: "POST",
+     body: JSON.stringify(betslipData),
+   });
    ```
 
 3. **Update Watch/Unwatch:**
    ```javascript
    // Use plural form for consistency
-   fetch(`${API_URL}/api/betslips/${id}/watch`, { method: 'POST' })
-   fetch(`${API_URL}/api/betslips/${id}/watch`, { method: 'DELETE' })
+   fetch(`${API_URL}/api/betslips/${id}/watch`, { method: "POST" });
+   fetch(`${API_URL}/api/betslips/${id}/watch`, { method: "DELETE" });
    ```
 
 ---
@@ -969,6 +1069,7 @@ Server health check endpoint.
 All endpoints return errors in consistent format:
 
 **4xx Client Errors:**
+
 ```json
 {
   "error": "Invalid gameId parameter"
@@ -976,6 +1077,7 @@ All endpoints return errors in consistent format:
 ```
 
 **5xx Server Errors:**
+
 ```json
 {
   "error": "Failed to fetch summary data"
@@ -983,6 +1085,7 @@ All endpoints return errors in consistent format:
 ```
 
 **503 Cache Not Ready:**
+
 ```json
 {
   "error": "Odds cache not ready yet",

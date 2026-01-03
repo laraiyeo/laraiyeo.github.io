@@ -1,14 +1,17 @@
 # Multi-Sport Bet App Update Summary
 
 ## Overview
+
 Updated the React Native bet app to support multiple sports (NBA, NFL, NHL, UEFA) with proper URL routing and sport-specific data management.
 
 ## Changes Made
 
 ### 1. BetTabNavigator.js
+
 **Purpose**: Parent navigator with sport selector tabs
 
 **Changes**:
+
 - Created `SportContext` with `useSport()` hook for sharing sport state
 - Added all 4 sports to the selector: NBA, NFL, NHL, UEFA
 - Added `hideSportTabs` state for conditional rendering
@@ -16,6 +19,7 @@ Updated the React Native bet app to support multiple sports (NBA, NFL, NHL, UEFA
 - Wrapped component in `SportContext.Provider`
 
 **Key Code**:
+
 ```javascript
 const SportContext = createContext();
 export const useSport = () => useContext(SportContext);
@@ -24,14 +28,16 @@ const sports = [
   { name: "NBA", icon: "basketball" },
   { name: "NFL", icon: "american-football" },
   { name: "NHL", icon: "hockey-puck" },
-  { name: "UEFA", icon: "football" }
+  { name: "UEFA", icon: "football" },
 ];
 ```
 
 ### 2. NBABetTabNavigator.js
+
 **Purpose**: Bottom tab navigator for NBA screens
 
 **Changes**:
+
 - Imported `useSport` hook from BetTabNavigator
 - Changed from `const sport = "NBA"` to `const { sport } = useSport()`
 - Added `onHideSportTabs` prop
@@ -41,6 +47,7 @@ const sports = [
   - BetSettings
 
 **Key Code**:
+
 ```javascript
 const { sport } = useSport();
 
@@ -54,37 +61,46 @@ screenListeners={{
 ```
 
 ### 3. NFLBetTabNavigator.js
+
 **Purpose**: Bottom tab navigator for NFL screens
 
 **Changes**: Same pattern as NBABetTabNavigator
+
 - Uses `useSport()` hook
 - Accepts `onHideSportTabs` prop
 - Added `screenListeners` for conditional tab hiding
 
 ### 4. SOCCERBetTabNavigator.js
+
 **Purpose**: Bottom tab navigator for UEFA/NHL screens
 
 **Changes**: Same pattern as NBABetTabNavigator
+
 - Uses `useSport()` hook
 - Accepts `onHideSportTabs` prop
 - Added `screenListeners` for conditional tab hiding
 
 ### 5. BetDataContext.js
+
 **Purpose**: Provides scoreboard/roster data with intelligent polling
 
 **Major Changes**:
+
 1. **Multi-Sport State Management**:
+
    - Changed from single data objects to sport-keyed objects
    - `scoreboardData` is now `{ NBA: {...}, NFL: {...}, NHL: {...}, UEFA: {...} }`
    - `rostersData`, `lastFetchTime`, `currentPollingMode` similarly updated
 
 2. **Sport-Specific URLs**:
+
    - Old: `/api/scoreboard`
    - New: `/api/scoreboard/${sport.toLowerCase()}`
    - Old: `/api/rosters`
    - New: `/api/rosters/${sport.toLowerCase()}`
 
 3. **Sport-Specific Polling**:
+
    - Each sport has independent polling intervals
    - Fast (2s) during live games
    - Moderate (90s) before games
@@ -96,31 +112,34 @@ screenListeners={{
    - Each sport cached independently
 
 **Updated Functions**:
+
 ```javascript
-fetchScoreboard(sport = "NBA")  // Now accepts sport parameter
-fetchRosters(sport = "NBA")     // Now accepts sport parameter
-fetchInitialData(sport = "NBA") // Now accepts sport parameter
-startPolling(mode, sport)       // Updated to handle per-sport intervals
+fetchScoreboard((sport = "NBA")); // Now accepts sport parameter
+fetchRosters((sport = "NBA")); // Now accepts sport parameter
+fetchInitialData((sport = "NBA")); // Now accepts sport parameter
+startPolling(mode, sport); // Updated to handle per-sport intervals
 ```
 
 **New Context Values**:
+
 ```javascript
 {
-  scoreboardData,      // Object with sport keys
-  rostersData,         // Object with sport keys
-  currentSport,        // Current active sport
-  setCurrentSport,     // Function to change active sport
-  lastFetchTime,       // Object with sport keys
-  currentPollingMode,  // Object with sport keys
-  fetchScoreboard,     // Now accepts sport param
-  fetchRosters,        // Now accepts sport param
-  fetchInitialData     // Now accepts sport param
+  scoreboardData, // Object with sport keys
+    rostersData, // Object with sport keys
+    currentSport, // Current active sport
+    setCurrentSport, // Function to change active sport
+    lastFetchTime, // Object with sport keys
+    currentPollingMode, // Object with sport keys
+    fetchScoreboard, // Now accepts sport param
+    fetchRosters, // Now accepts sport param
+    fetchInitialData; // Now accepts sport param
 }
 ```
 
 ## How It Works
 
 ### Sport Selection Flow
+
 1. User selects sport tab in BetTabNavigator (NBA, NFL, NHL, or UEFA)
 2. SportContext updates with selected sport
 3. Appropriate sport navigator renders (NBA/NFL/SOCCERBetTabNavigator)
@@ -128,6 +147,7 @@ startPolling(mode, sport)       // Updated to handle per-sport intervals
 5. Screens receive sport prop and use it for data fetching
 
 ### Data Fetching Flow
+
 1. BetDataContext loads cached data for all sports on mount
 2. Each sport starts polling based on its game states
 3. When screen needs data, it calls:
@@ -137,6 +157,7 @@ startPolling(mode, sport)       // Updated to handle per-sport intervals
 5. Polling adjusts per-sport based on game states
 
 ### Tab Hiding Flow
+
 1. User navigates to Leaders, Bets, or Settings screen
 2. `screenListeners` in sport navigator detects route change
 3. Calls `onHideSportTabs(true)` to hide sport tabs
@@ -148,19 +169,23 @@ startPolling(mode, sport)       // Updated to handle per-sport intervals
 The server already supports sport-specific endpoints:
 
 ### Scoreboard Endpoints
+
 - `/api/scoreboard/nba` - NBA games
 - `/api/scoreboard/nfl` - NFL games
 - `/api/scoreboard/nhl` - NHL games
 - `/api/scoreboard/uefa` - UEFA games
 
 ### Rosters Endpoints
+
 - `/api/rosters/nba` - NBA rosters
 - `/api/rosters/nfl` - NFL rosters
 - `/api/rosters/nhl` - NHL rosters
 - `/api/rosters/uefa` - UEFA rosters
 
 ### Other Sport-Specific Endpoints
+
 All these accept sport parameter:
+
 - `/api/summary/:sport/:eventId`
 - `/api/odds/:sport`
 - `/api/generate-betslip` (with `sport` query param)

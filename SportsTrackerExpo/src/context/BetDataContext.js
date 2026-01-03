@@ -103,7 +103,9 @@ export const BetDataProvider = ({ children }) => {
         break;
       case "moderate":
         interval = 90000; // 90 seconds
-        console.log(`[BetData ${sport}] Starting MODERATE polling (90 seconds)`);
+        console.log(
+          `[BetData ${sport}] Starting MODERATE polling (90 seconds)`
+        );
         break;
       default:
         interval = 30 * 60 * 1000; // 30 minutes
@@ -114,61 +116,77 @@ export const BetDataProvider = ({ children }) => {
       fetchScoreboard(sport);
     }, interval);
 
-    setCurrentPollingMode(prev => ({ ...prev, [sport]: mode }));
+    setCurrentPollingMode((prev) => ({ ...prev, [sport]: mode }));
   };
 
   // Fetch scoreboard data
-  const fetchScoreboard = useCallback(async (sport = "NBA") => {
-    // Debug instrumentation: count calls and print short stack to identify callers
-    try {
-      fetchCounterRef.current = (fetchCounterRef.current || 0) + 1;
-      const shortStack = (new Error().stack || "")
-        .split("\n")
-        .slice(2, 6)
-        .join(" | ");
-    } catch (dbgErr) {
-      /* ignore debug failures */
-    }
-    try {
-      const sportLower = sport.toLowerCase();
-      const response = await fetch(`${API_BASE_URL}/scoreboard/${sportLower}`);
-      const data = await response.json();
-      setScoreboardData(prev => ({ ...prev, [sport]: data }));
-      setLastFetchTime(prev => ({ ...prev, [sport]: new Date().toISOString() }));
-
-      // Cache scoreboard data (best-effort). Handle quota errors gracefully.
+  const fetchScoreboard = useCallback(
+    async (sport = "NBA") => {
+      // Debug instrumentation: count calls and print short stack to identify callers
       try {
-        await AsyncStorage.setItem(`bet_scoreboard_data_${sport}`, JSON.stringify(data));
-        await AsyncStorage.setItem(
-          `bet_scoreboard_time_${sport}`,
-          new Date().toISOString()
+        fetchCounterRef.current = (fetchCounterRef.current || 0) + 1;
+        const shortStack = (new Error().stack || "")
+          .split("\n")
+          .slice(2, 6)
+          .join(" | ");
+      } catch (dbgErr) {
+        /* ignore debug failures */
+      }
+      try {
+        const sportLower = sport.toLowerCase();
+        const response = await fetch(
+          `${API_BASE_URL}/scoreboard/${sportLower}`
         );
-        console.log(`[BetData ${sport}] Cached scoreboard data`);
-      } catch (cacheErr) {
-        // AsyncStorage quota exceeded or other storage error — warn but don't fail the fetch
-        console.warn(
-          `[BetData ${sport}] Warning: failed to cache scoreboard data (ignored):`,
-          cacheErr
+        const data = await response.json();
+        setScoreboardData((prev) => ({ ...prev, [sport]: data }));
+        setLastFetchTime((prev) => ({
+          ...prev,
+          [sport]: new Date().toISOString(),
+        }));
+
+        // Cache scoreboard data (best-effort). Handle quota errors gracefully.
+        try {
+          await AsyncStorage.setItem(
+            `bet_scoreboard_data_${sport}`,
+            JSON.stringify(data)
+          );
+          await AsyncStorage.setItem(
+            `bet_scoreboard_time_${sport}`,
+            new Date().toISOString()
+          );
+          console.log(`[BetData ${sport}] Cached scoreboard data`);
+        } catch (cacheErr) {
+          // AsyncStorage quota exceeded or other storage error — warn but don't fail the fetch
+          console.warn(
+            `[BetData ${sport}] Warning: failed to cache scoreboard data (ignored):`,
+            cacheErr
+          );
+        }
+
+        // Update polling mode based on new data
+        const newMode = determinePollingMode(data?.events);
+        if (newMode !== currentPollingMode[sport]) {
+          startPolling(newMode, sport);
+        }
+
+        return data;
+      } catch (error) {
+        console.error(`Error fetching scoreboard for ${sport}:`, error);
+        // Try to load from cache on error
+        const cachedData = await AsyncStorage.getItem(
+          `bet_scoreboard_data_${sport}`
         );
+        if (cachedData) {
+          setScoreboardData((prev) => ({
+            ...prev,
+            [sport]: JSON.parse(cachedData),
+          }));
+        }
+        return null;
       }
-
-      // Update polling mode based on new data
-      const newMode = determinePollingMode(data?.events);
-      if (newMode !== currentPollingMode[sport]) {
-        startPolling(newMode, sport);
-      }
-
-      return data;
-    } catch (error) {
-      console.error(`Error fetching scoreboard for ${sport}:`, error);
-      // Try to load from cache on error
-      const cachedData = await AsyncStorage.getItem(`bet_scoreboard_data_${sport}`);
-      if (cachedData) {
-        setScoreboardData(prev => ({ ...prev, [sport]: JSON.parse(cachedData) }));
-      }
-      return null;
-    }
-  }, [currentPollingMode]);
+    },
+    [currentPollingMode]
+  );
 
   // Fetch rosters data
   const fetchRosters = async (sport = "NBA") => {
@@ -176,7 +194,7 @@ export const BetDataProvider = ({ children }) => {
       const sportLower = sport.toLowerCase();
       const response = await fetch(`${API_BASE_URL}/rosters/${sportLower}`);
       const data = await response.json();
-      setRostersData(prev => ({ ...prev, [sport]: data }));
+      setRostersData((prev) => ({ ...prev, [sport]: data }));
       // Note: Rosters data is too large for AsyncStorage, so we don't cache it
       return data;
     } catch (error) {
@@ -215,11 +233,13 @@ export const BetDataProvider = ({ children }) => {
           const cachedScoreboard = await AsyncStorage.getItem(
             `bet_scoreboard_data_${sport}`
           );
-          const cachedTime = await AsyncStorage.getItem(`bet_scoreboard_time_${sport}`);
+          const cachedTime = await AsyncStorage.getItem(
+            `bet_scoreboard_time_${sport}`
+          );
 
           if (cachedScoreboard) {
             const data = JSON.parse(cachedScoreboard);
-            setScoreboardData(prev => ({ ...prev, [sport]: data }));
+            setScoreboardData((prev) => ({ ...prev, [sport]: data }));
 
             // Start polling based on cached data
             const initialMode = determinePollingMode(data?.events);
@@ -238,13 +258,13 @@ export const BetDataProvider = ({ children }) => {
           }
 
           if (cachedTime) {
-            setLastFetchTime(prev => ({ ...prev, [sport]: cachedTime }));
+            setLastFetchTime((prev) => ({ ...prev, [sport]: cachedTime }));
           }
         }
       } catch (error) {
         console.error("Error loading cached data:", error);
         // Start slow polling for all sports even on error
-        sports.forEach(sport => startPolling("slow", sport));
+        sports.forEach((sport) => startPolling("slow", sport));
       }
     };
 
@@ -253,7 +273,7 @@ export const BetDataProvider = ({ children }) => {
     // Cleanup on unmount
     return () => {
       // Clear all sport-specific polling intervals
-      Object.keys(pollingIntervalRef.current).forEach(sport => {
+      Object.keys(pollingIntervalRef.current).forEach((sport) => {
         if (pollingIntervalRef.current[sport]) {
           clearInterval(pollingIntervalRef.current[sport]);
           pollingIntervalRef.current[sport] = null;

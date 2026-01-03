@@ -51,14 +51,19 @@ const BetTabNavigator = ({ navigation, route }) => {
   };
 
   return (
-    <SportContext.Provider value={{ sport: activeSport, setSport: setActiveSport }}>
+    <SportContext.Provider
+      value={{ sport: activeSport, setSport: setActiveSport }}
+    >
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         {/* Custom Top Tab Bar for Sport Selection - Hidden on certain screens */}
         {!hideSportTabs && (
           <View
             style={[
               styles.topTabBar,
-              { backgroundColor: theme.surface, borderBottomColor: theme.border },
+              {
+                backgroundColor: theme.surface,
+                borderBottomColor: theme.border,
+              },
             ]}
           >
             {sports.map((sport) => (

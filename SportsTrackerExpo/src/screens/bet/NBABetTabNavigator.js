@@ -54,8 +54,11 @@ const NBABetTabNavigator = ({ navigation, route, onHideSportTabs }) => {
       screenListeners={{
         state: (e) => {
           // Hide sport tabs on Leaders, Bets, and Settings screens
-          const currentRoute = e.data?.state?.routes?.[e.data?.state?.index]?.name;
-          const shouldHide = ['BetLeaders', 'BetBets', 'BetSettings'].includes(currentRoute);
+          const currentRoute =
+            e.data?.state?.routes?.[e.data?.state?.index]?.name;
+          const shouldHide = ["BetLeaders", "BetBets", "BetSettings"].includes(
+            currentRoute
+          );
           onHideSportTabs?.(shouldHide);
         },
       }}

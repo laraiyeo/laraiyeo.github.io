@@ -6430,30 +6430,43 @@ app.get("/api/betslip", async (req, res) => {
 
         // Helper: Determine if a specific quarter/period/half is currently in progress
         // based on linescore data. This provides granular in-progress detection.
-        const isPeriodInProgress = (periodIndex, linescoresHome, linescoresAway, gameState, completed) => {
+        const isPeriodInProgress = (
+          periodIndex,
+          linescoresHome,
+          linescoresAway,
+          gameState,
+          completed
+        ) => {
           // If game is completed, no period is in progress
           if (completed) return false;
           // If game hasn't started, nothing is in progress
-          if (gameState === 'pre') return false;
+          if (gameState === "pre") return false;
           // If game state is post, nothing is in progress
-          if (gameState === 'post') return false;
+          if (gameState === "post") return false;
           // Game must be live ('in' state)
-          if (gameState !== 'in') return false;
-          
+          if (gameState !== "in") return false;
+
           // Check if the specified period has a score (indicating it's started)
-          const periodHasScore = (linescoresHome[periodIndex] !== undefined && linescoresHome[periodIndex] !== null) ||
-                                 (linescoresAway[periodIndex] !== undefined && linescoresAway[periodIndex] !== null);
+          const periodHasScore =
+            (linescoresHome[periodIndex] !== undefined &&
+              linescoresHome[periodIndex] !== null) ||
+            (linescoresAway[periodIndex] !== undefined &&
+              linescoresAway[periodIndex] !== null);
           if (!periodHasScore) return false; // Period hasn't started yet
-          
+
           // Check if any LATER periods have scores (if so, this period is done)
           const maxPeriod = Math.max(
-            ...Object.keys(linescoresHome).map(k => parseInt(k)).filter(n => !isNaN(n)),
-            ...Object.keys(linescoresAway).map(k => parseInt(k)).filter(n => !isNaN(n))
+            ...Object.keys(linescoresHome)
+              .map((k) => parseInt(k))
+              .filter((n) => !isNaN(n)),
+            ...Object.keys(linescoresAway)
+              .map((k) => parseInt(k))
+              .filter((n) => !isNaN(n))
           );
-          
+
           // If there are later periods with scores, this period is completed
           if (maxPeriod > periodIndex) return false;
-          
+
           // If this is the max period currently being played and game is live, it's in progress
           return true;
         };
@@ -6728,14 +6741,18 @@ app.get("/api/betslip", async (req, res) => {
 
           const processTeamPoints = (token, score, keyName) => {
             if (!token) return;
-            const tkn = String(token).trim().replace(/\s+/g, '');
+            const tkn = String(token).trim().replace(/\s+/g, "");
             let isOver = false;
             let line = null;
             const mOU = tkn.match(/^[ou]([0-9.]+)/i);
             const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
             const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
             // Also try matching if + was URL-decoded to space: "120.5 "
-            const mPlusSpace = !mPlus && String(token).trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
+            const mPlusSpace =
+              !mPlus &&
+              String(token)
+                .trim()
+                .match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
             if (mOU) {
               isOver = /^o/i.test(tkn);
               line = parseFloat(mOU[1]);
@@ -6848,7 +6865,13 @@ app.get("/api/betslip", async (req, res) => {
               const awayQ = parseInt(awayLines[period]) || 0;
               const winner =
                 homeQ > awayQ ? homeAbbr : awayQ > homeQ ? awayAbbr : "Tied";
-              const quarterInProgress = isPeriodInProgress(period, homeLines, awayLines, gameStatus?.state, isCompleted);
+              const quarterInProgress = isPeriodInProgress(
+                period,
+                homeLines,
+                awayLines,
+                gameStatus?.state,
+                isCompleted
+              );
               eventData.bets[`Q${period}_ML`] = {
                 bet: qVal,
                 current: `${homeQ}-${awayQ}`,
@@ -6887,7 +6910,13 @@ app.get("/api/betslip", async (req, res) => {
                 const oppScore = teamAbbr === homeAbbr ? awayQ : homeQ;
                 const adjusted = betTeamScore + spreadLine;
                 const isWinning = adjusted > oppScore;
-                const quarterInProgress = isPeriodInProgress(period, homeLines, awayLines, gameStatus?.state, isCompleted);
+                const quarterInProgress = isPeriodInProgress(
+                  period,
+                  homeLines,
+                  awayLines,
+                  gameStatus?.state,
+                  isCompleted
+                );
                 eventData.bets[`Q${period}_SP`] = {
                   team: teamAbbr,
                   line: spreadLine,
@@ -6910,13 +6939,17 @@ app.get("/api/betslip", async (req, res) => {
               getParamValueForGame(qTotalKey, gi) ||
               getParamValueForGame(qTotalAlt, gi);
             if (qTotalVal) {
-              const tkn = String(qTotalVal).trim().replace(/\s+/g, '');
+              const tkn = String(qTotalVal).trim().replace(/\s+/g, "");
               let isOver = false;
               let line = null;
               const mOU = tkn.match(/^[ou]([0-9.]+)/i);
               const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
               const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
-              const mPlusSpace = !mPlus && String(qTotalVal).trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
+              const mPlusSpace =
+                !mPlus &&
+                String(qTotalVal)
+                  .trim()
+                  .match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
               if (mOU) {
                 isOver = /^o/i.test(tkn);
                 line = parseFloat(mOU[1]);
@@ -6934,7 +6967,13 @@ app.get("/api/betslip", async (req, res) => {
                 const homeQ = parseInt(homeLines[period]) || 0;
                 const awayQ = parseInt(awayLines[period]) || 0;
                 const currentQTotal = homeQ + awayQ;
-                const quarterInProgress = isPeriodInProgress(period, homeLines, awayLines, gameStatus?.state, isCompleted);
+                const quarterInProgress = isPeriodInProgress(
+                  period,
+                  homeLines,
+                  awayLines,
+                  gameStatus?.state,
+                  isCompleted
+                );
                 let won;
                 if (isOver) {
                   const isWinning = currentQTotal >= line;
@@ -6976,13 +7015,17 @@ app.get("/api/betslip", async (req, res) => {
             // Process homePoints1Q / awayPoints1Q
             const processQuarterTeamPoints = (token, teamSide, keyName) => {
               if (!token) return;
-              const tkn = String(token).trim().replace(/\s+/g, '');
+              const tkn = String(token).trim().replace(/\s+/g, "");
               let isOver = false;
               let line = null;
               const mOU = tkn.match(/^[ou]([0-9.]+)/i);
               const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
               const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
-              const mPlusSpace = !mPlus && String(token).trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
+              const mPlusSpace =
+                !mPlus &&
+                String(token)
+                  .trim()
+                  .match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
               if (mOU) {
                 isOver = /^o/i.test(tkn);
                 line = parseFloat(mOU[1]);
@@ -7000,7 +7043,13 @@ app.get("/api/betslip", async (req, res) => {
                 const homeQ = parseInt(homeLines[period]) || 0;
                 const awayQ = parseInt(awayLines[period]) || 0;
                 const current = teamSide === "home" ? homeQ : awayQ;
-                const quarterInProgress = isPeriodInProgress(period, homeLines, awayLines, gameStatus?.state, isCompleted);
+                const quarterInProgress = isPeriodInProgress(
+                  period,
+                  homeLines,
+                  awayLines,
+                  gameStatus?.state,
+                  isCompleted
+                );
                 let won;
                 if (isOver) {
                   const isWinning = current >= line;
@@ -7050,7 +7099,13 @@ app.get("/api/betslip", async (req, res) => {
                   teamAbbr === homeAbbr
                     ? parseInt(homeLines[period]) || 0
                     : parseInt(awayLines[period]) || 0;
-                const quarterInProgress = isPeriodInProgress(period, homeLines, awayLines, gameStatus?.state, isCompleted);
+                const quarterInProgress = isPeriodInProgress(
+                  period,
+                  homeLines,
+                  awayLines,
+                  gameStatus?.state,
+                  isCompleted
+                );
                 let won;
                 if (isOver) {
                   const isWinning = current >= line;
@@ -7106,7 +7161,13 @@ app.get("/api/betslip", async (req, res) => {
                   : awayPeriod > homePeriod
                   ? awayAbbr
                   : "Tied";
-              const periodInProgress = isPeriodInProgress(pi, homeLines, awayLines, gameStatus?.state, isCompleted);
+              const periodInProgress = isPeriodInProgress(
+                pi,
+                homeLines,
+                awayLines,
+                gameStatus?.state,
+                isCompleted
+              );
               eventData.bets[`P${pi}_ML`] = {
                 bet: periodMLVal,
                 current: `${homePeriod}-${awayPeriod}`,
@@ -7135,7 +7196,13 @@ app.get("/api/betslip", async (req, res) => {
                   teamAbbr === homeAbbr ? awayPeriod : homePeriod;
                 const adjusted = betTeamScore + spreadLine;
                 const isWinning = adjusted > oppScore;
-                const periodInProgress = isPeriodInProgress(pi, homeLines, awayLines, gameStatus?.state, isCompleted);
+                const periodInProgress = isPeriodInProgress(
+                  pi,
+                  homeLines,
+                  awayLines,
+                  gameStatus?.state,
+                  isCompleted
+                );
                 eventData.bets[`P${pi}_SP`] = {
                   team: teamAbbr,
                   line: spreadLine,
@@ -7153,13 +7220,17 @@ app.get("/api/betslip", async (req, res) => {
 
             // Period total
             if (periodTVal) {
-              const tkn = String(periodTVal).trim().replace(/\s+/g, '');
+              const tkn = String(periodTVal).trim().replace(/\s+/g, "");
               let isOver = false;
               let line = null;
               const mOU = tkn.match(/^[ou]([0-9.]+)/i);
               const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
               const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
-              const mPlusSpace = !mPlus && String(periodTVal).trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
+              const mPlusSpace =
+                !mPlus &&
+                String(periodTVal)
+                  .trim()
+                  .match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
               if (mOU) {
                 isOver = /^o/i.test(tkn);
                 line = parseFloat(mOU[1]);
@@ -7175,7 +7246,13 @@ app.get("/api/betslip", async (req, res) => {
               }
               if (line !== null) {
                 const currentPTotal = homePeriod + awayPeriod;
-                const periodInProgress = isPeriodInProgress(pi, homeLines, awayLines, gameStatus?.state, isCompleted);
+                const periodInProgress = isPeriodInProgress(
+                  pi,
+                  homeLines,
+                  awayLines,
+                  gameStatus?.state,
+                  isCompleted
+                );
                 let won;
                 if (isOver) {
                   const isWinning = currentPTotal >= line;
@@ -7246,10 +7323,24 @@ app.get("/api/betslip", async (req, res) => {
               // For halves in 4-period games, check if either of the two quarters is active
               let halfInProgress = false;
               if (maxPeriods <= 2) {
-                halfInProgress = isPeriodInProgress(halfIndex, homeLines, awayLines, gameStatus?.state, isCompleted);
+                halfInProgress = isPeriodInProgress(
+                  halfIndex,
+                  homeLines,
+                  awayLines,
+                  gameStatus?.state,
+                  isCompleted
+                );
               } else {
                 // Check if either of the two periods making up this half is in progress
-                halfInProgress = periods.some(p => isPeriodInProgress(p, homeLines, awayLines, gameStatus?.state, isCompleted));
+                halfInProgress = periods.some((p) =>
+                  isPeriodInProgress(
+                    p,
+                    homeLines,
+                    awayLines,
+                    gameStatus?.state,
+                    isCompleted
+                  )
+                );
               }
               eventData.bets[`H${halfIndex}_ML`] = {
                 bet: halfMLVal,
@@ -7268,15 +7359,21 @@ app.get("/api/betslip", async (req, res) => {
             // Half total
             const halfTotalKey = `total${halfIndex}H`;
             const halfTotalAlt = `H${halfIndex}_T`;
-            const halfTotalVal = getParamValueForGame(halfTotalKey, gi) || getParamValueForGame(halfTotalAlt, gi);
+            const halfTotalVal =
+              getParamValueForGame(halfTotalKey, gi) ||
+              getParamValueForGame(halfTotalAlt, gi);
             if (halfTotalVal) {
-              const tkn = String(halfTotalVal).trim().replace(/\s+/g, '');
+              const tkn = String(halfTotalVal).trim().replace(/\s+/g, "");
               let isOver = false;
               let line = null;
               const mOU = tkn.match(/^[ou]([0-9.]+)/i);
               const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
               const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
-              const mPlusSpace = !mPlus && String(halfTotalVal).trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
+              const mPlusSpace =
+                !mPlus &&
+                String(halfTotalVal)
+                  .trim()
+                  .match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
               if (mOU) {
                 isOver = /^o/i.test(tkn);
                 line = parseFloat(mOU[1]);
@@ -7295,9 +7392,23 @@ app.get("/api/betslip", async (req, res) => {
                 // Check if any periods in this half are in progress
                 let halfInProgress = false;
                 if (maxPeriods <= 2) {
-                  halfInProgress = isPeriodInProgress(halfIndex, homeLines, awayLines, gameStatus?.state, isCompleted);
+                  halfInProgress = isPeriodInProgress(
+                    halfIndex,
+                    homeLines,
+                    awayLines,
+                    gameStatus?.state,
+                    isCompleted
+                  );
                 } else {
-                  halfInProgress = periods.some(p => isPeriodInProgress(p, homeLines, awayLines, gameStatus?.state, isCompleted));
+                  halfInProgress = periods.some((p) =>
+                    isPeriodInProgress(
+                      p,
+                      homeLines,
+                      awayLines,
+                      gameStatus?.state,
+                      isCompleted
+                    )
+                  );
                 }
                 let won;
                 if (isOver) {
@@ -7346,9 +7457,23 @@ app.get("/api/betslip", async (req, res) => {
                 // Check if any periods in this half are in progress
                 let halfInProgress = false;
                 if (maxPeriods <= 2) {
-                  halfInProgress = isPeriodInProgress(halfIndex, homeLines, awayLines, gameStatus?.state, isCompleted);
+                  halfInProgress = isPeriodInProgress(
+                    halfIndex,
+                    homeLines,
+                    awayLines,
+                    gameStatus?.state,
+                    isCompleted
+                  );
                 } else {
-                  halfInProgress = periods.some(p => isPeriodInProgress(p, homeLines, awayLines, gameStatus?.state, isCompleted));
+                  halfInProgress = periods.some((p) =>
+                    isPeriodInProgress(
+                      p,
+                      homeLines,
+                      awayLines,
+                      gameStatus?.state,
+                      isCompleted
+                    )
+                  );
                 }
                 eventData.bets[`H${halfIndex}_SP`] = {
                   team: teamAbbr,
@@ -7382,13 +7507,17 @@ app.get("/api/betslip", async (req, res) => {
             // Process homePoints1H / awayPoints1H
             const processHalfTeamPoints = (token, teamSide, keyName) => {
               if (!token) return;
-              const tkn = String(token).trim().replace(/\s+/g, '');
+              const tkn = String(token).trim().replace(/\s+/g, "");
               let isOver = false;
               let line = null;
               const mOU = tkn.match(/^[ou]([0-9.]+)/i);
               const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
               const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
-              const mPlusSpace = !mPlus && String(token).trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
+              const mPlusSpace =
+                !mPlus &&
+                String(token)
+                  .trim()
+                  .match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
               if (mOU) {
                 isOver = /^o/i.test(tkn);
                 line = parseFloat(mOU[1]);
@@ -7407,9 +7536,23 @@ app.get("/api/betslip", async (req, res) => {
                 // Check if any periods in this half are in progress
                 let halfInProgress = false;
                 if (maxPeriods <= 2) {
-                  halfInProgress = isPeriodInProgress(halfIndex, homeLines, awayLines, gameStatus?.state, isCompleted);
+                  halfInProgress = isPeriodInProgress(
+                    halfIndex,
+                    homeLines,
+                    awayLines,
+                    gameStatus?.state,
+                    isCompleted
+                  );
                 } else {
-                  halfInProgress = periods.some(p => isPeriodInProgress(p, homeLines, awayLines, gameStatus?.state, isCompleted));
+                  halfInProgress = periods.some((p) =>
+                    isPeriodInProgress(
+                      p,
+                      homeLines,
+                      awayLines,
+                      gameStatus?.state,
+                      isCompleted
+                    )
+                  );
                 }
                 let won;
                 if (isOver) {
@@ -7460,9 +7603,23 @@ app.get("/api/betslip", async (req, res) => {
                 // Check if any periods in this half are in progress
                 let halfInProgress = false;
                 if (maxPeriods <= 2) {
-                  halfInProgress = isPeriodInProgress(halfIndex, homeLines, awayLines, gameStatus?.state, isCompleted);
+                  halfInProgress = isPeriodInProgress(
+                    halfIndex,
+                    homeLines,
+                    awayLines,
+                    gameStatus?.state,
+                    isCompleted
+                  );
                 } else {
-                  halfInProgress = periods.some(p => isPeriodInProgress(p, homeLines, awayLines, gameStatus?.state, isCompleted));
+                  halfInProgress = periods.some((p) =>
+                    isPeriodInProgress(
+                      p,
+                      homeLines,
+                      awayLines,
+                      gameStatus?.state,
+                      isCompleted
+                    )
+                  );
                 }
                 let won;
                 if (isOver) {
