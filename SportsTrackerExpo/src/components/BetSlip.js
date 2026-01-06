@@ -380,7 +380,9 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
               const sportSuffix = `_${sport}`;
               query += `&${paramName}${periodSuffix}${sportSuffix}=${values
                 .map(encodeURIComponent)
-                .join(",")}`;
+                .join(",")
+                .replace(/%2B/g, "+")
+                .replace(/%2D/g, "-")}`;
             }
           });
         } else {
@@ -398,16 +400,19 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
           if (values.some((v) => v)) {
             query += `&${paramName}${periodSuffix}=${values
               .map(encodeURIComponent)
-              .join(",")}`;
+              .join(",")
+              .replace(/%2B/g, "+")
+              .replace(/%2D/g, "-")}`;
           }
         }
       };
 
       // Helper to check if bet matches the parameter type
       const matchesBetType = (bet, paramName) => {
+        const betType = bet.type?.toLowerCase() || "";
         switch (paramName) {
           case "moneyline":
-            return bet.type === "Moneyline";
+            return bet.type === "Moneyline" || betType.includes("moneyline");
           case "moneylineReg":
             return bet.type === "Regulation 3-Way Moneyline";
           case "spread":
@@ -418,22 +423,22 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
           case "total":
             return (
               !bet.team &&
-              (bet.type?.toLowerCase().includes("over/under") ||
-                bet.type?.toLowerCase().includes("total") ||
+              (betType.includes("over/under") ||
+                betType.includes("total") ||
                 bet.type === "Milestone")
             );
           case "homePoints":
             return (
               bet.team &&
-              (bet.type?.toLowerCase().includes("over/under") ||
-                bet.type?.toLowerCase().includes("total") ||
+              (betType.includes("over/under") ||
+                betType.includes("total") ||
                 (bet.type?.includes("(Alt)") && bet.statType === "points"))
             );
           case "awayPoints":
             return (
               bet.team &&
-              (bet.type?.toLowerCase().includes("over/under") ||
-                bet.type?.toLowerCase().includes("total") ||
+              (betType.includes("over/under") ||
+                betType.includes("total") ||
                 (bet.type?.includes("(Alt)") && bet.statType === "points"))
             );
           default:

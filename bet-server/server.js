@@ -6435,18 +6435,6 @@ app.get("/api/betslip", async (req, res) => {
       return 0;
     };
 
-    const totalValues = total
-      ? String(total)
-          .split(",")
-          .map((s) => s.trim())
-      : null;
-
-    const spreadValues = spread
-      ? String(spread)
-          .split(",")
-          .map((s) => s.trim())
-      : null;
-
     if (!gameId) {
       return res
         .status(400)
@@ -6663,32 +6651,10 @@ app.get("/api/betslip", async (req, res) => {
 
         // Process moneyline bet. Support per-game mapping when the
         // `moneyline` query param contains comma-separated values.
-        let moneylineForThisGame = null;
-        if (Array.isArray(moneylineValues)) {
-          // If a single value was provided, use it for all games.
-          if (moneylineValues.length === 1) {
-            moneylineForThisGame = moneylineValues[0];
-          } else {
-            // If multiple values provided, map by index; missing entries => no moneyline for that game
-            moneylineForThisGame =
-              moneylineValues.length > gi ? moneylineValues[gi] : null;
-          }
-        } else {
-          moneylineForThisGame = moneyline || null;
-        }
+        const moneylineForThisGame = getParamValueForGame("moneyline", gi);
 
         // moneylineReg per-game token (use regulation winner across first N periods)
-        let moneylineRegForThisGame = null;
-        if (Array.isArray(moneylineRegValues)) {
-          if (moneylineRegValues.length === 1) {
-            moneylineRegForThisGame = moneylineRegValues[0];
-          } else {
-            moneylineRegForThisGame =
-              moneylineRegValues.length > gi ? moneylineRegValues[gi] : null;
-          }
-        } else {
-          moneylineRegForThisGame = moneylineReg || null;
-        }
+        const moneylineRegForThisGame = getParamValueForGame("moneylineReg", gi);
 
         if (moneylineForThisGame) {
           const competitors =
@@ -6757,12 +6723,7 @@ app.get("/api/betslip", async (req, res) => {
           getParamValueForGame("totalNHL", gi) ||
           null;
         const totalForThisGame =
-          totalNHLToken ||
-          (totalValues
-            ? totalValues.length === 1
-              ? totalValues[0]
-              : totalValues[gi] || ""
-            : null);
+          totalNHLToken || getParamValueForGame("total", gi);
 
         // Process total points bet
         if (totalForThisGame) {
@@ -6826,7 +6787,7 @@ app.get("/api/betslip", async (req, res) => {
             }
 
             eventData.bets.totalPoints = {
-              bet: total,
+              bet: totalForThisGame,
               line: line,
               type: isOver ? "over" : "under",
               current: currentTotal,
@@ -6836,11 +6797,7 @@ app.get("/api/betslip", async (req, res) => {
         }
 
         // Determine per-game spread token (support single-token applied-to-all)
-        const spreadForThisGame = spreadValues
-          ? spreadValues.length === 1
-            ? spreadValues[0]
-            : spreadValues[gi] || ""
-          : null;
+        const spreadForThisGame = getParamValueForGame("spread", gi);
 
         // Process spread bet
         if (spreadForThisGame) {
@@ -6917,7 +6874,6 @@ app.get("/api/betslip", async (req, res) => {
           // (first 4 periods for sports with >=4 periods, else first 2 halves).
           try {
             if (
-              eventData.bets.moneyline &&
               typeof moneylineRegForThisGame !== "undefined" &&
               moneylineRegForThisGame !== null
             ) {
@@ -6936,41 +6892,67 @@ app.get("/api/betslip", async (req, res) => {
               );
               const regCount =
                 maxPeriods >= 4 ? 4 : maxPeriods >= 2 ? 2 : maxPeriods;
-              if (regCount > 0) {
-                let homeReg = 0;
-                let awayReg = 0;
-                for (let p = 1; p <= regCount; p++) {
-                  homeReg += Number(homeLines[p] || 0);
-                  awayReg += Number(awayLines[p] || 0);
-                }
-                const regWinner =
-                  homeReg > awayReg
-                    ? homeAbbr
-                    : awayReg > homeReg
-                    ? awayAbbr
-                    : "Draw";
-                // Only change won logic when game state is post (completed)
-                if (eventData.bets.moneyline) {
-                  const rawReg = String(moneylineRegForThisGame).trim();
-                  const isDrawReg = /^(x|draw)$/i.test(rawReg);
-                  const betTarget = isDrawReg ? "Draw" : rawReg.toUpperCase();
-                  const won = isCompleted
-                    ? betTarget === regWinner
-                      ? true
-                      : false
-                    : isInProgress
-                    ? "in progress"
-                    : "pending";
-                  // attach regulation summary and final won status
-                  eventData.bets.moneyline.reg = {
+              
+              // Always process moneylineReg bet, even pre-game (regCount may be 0)
+              let homeReg = 0;
+              let awayReg = 0;
+              for (let p = 1; p <= regCount; p++) {
+                homeReg += Number(homeLines[p] || 0);
+                awayReg += Number(awayLines[p] || 0);
+              }
+              const regWinner =
+                homeReg > awayReg
+                  ? homeAbbr
+                  : awayReg > homeReg
+                  ? awayAbbr
+                  : "Draw";
+              
+              const rawReg = String(moneylineRegForThisGame).trim();
+              const isDrawReg = /^(x|draw)$/i.test(rawReg);
+              const betTarget = isDrawReg ? "Draw" : rawReg.toUpperCase();
+              const won = isCompleted
+                ? betTarget === regWinner
+                  ? true
+                  : false
+                : isInProgress
+                ? "in progress"
+                : "pending";
+              
+              // Create or update moneyline bet with regulation data
+              if (!eventData.bets.moneyline) {
+                // Create new moneyline bet for regulation-only bets
+                const homeScore = parseInt(compHome?.score) || 0;
+                const awayScore = parseInt(compAway?.score) || 0;
+                
+                eventData.bets.moneyline = {
+                  team: moneylineRegForThisGame,
+                  current: {
+                    score: `${homeScore}-${awayScore}`,
+                    lead: homeScore > awayScore
+                      ? homeAbbr
+                      : awayScore > homeScore
+                      ? awayAbbr
+                      : "Tied",
+                  },
+                  won: won,
+                  reg: {
                     request: moneylineRegForThisGame,
                     homeReg,
                     awayReg,
                     regWinner,
                     countedPeriods: regCount,
-                  };
-                  eventData.bets.moneyline.won = won;
-                }
+                  },
+                };
+              } else {
+                // attach regulation summary and final won status to existing moneyline
+                eventData.bets.moneyline.reg = {
+                  request: moneylineRegForThisGame,
+                  homeReg,
+                  awayReg,
+                  regWinner,
+                  countedPeriods: regCount,
+                };
+                eventData.bets.moneyline.won = won;
               }
             }
           } catch (e) {
@@ -10115,9 +10097,11 @@ function startWatcherInline(betslipId) {
       );
       const summaries = {};
       const summaryBaseMap = {};
-      for (const evId of Array.from(
+      for (const rawEvId of Array.from(
         new Set(betsArr.map((b) => b.gameId || b.game_id).filter(Boolean))
       )) {
+        // Strip _sport suffix from gameId (e.g., "401810365_nba" -> "401810365")
+        const evId = String(rawEvId).replace(/_(nba|nfl|nhl|mlb|soccer|ncaa|wnba|uefa)$/i, "");
         try {
           // try to use sport-specific base if we can infer sport from scoreboardData
           let baseUrl = ESPN_BASE_URL;
