@@ -341,7 +341,9 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
       };
 
       // Determine if we have multiple sports in the bet slip
-      const sports = [...new Set(finalGameIds.map(getSportFromGameId).filter(Boolean))];
+      const sports = [
+        ...new Set(finalGameIds.map(getSportFromGameId).filter(Boolean)),
+      ];
       const isMultiSport = sports.length > 1;
 
       // Build query string now using normalized game ids
@@ -350,7 +352,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
       // Group gameIds by sport for multi-sport betslips
       const gameIdsBySport = {};
       if (isMultiSport) {
-        finalGameIds.forEach(gid => {
+        finalGameIds.forEach((gid) => {
           const sport = getSportFromGameId(gid);
           if (sport) {
             if (!gameIdsBySport[sport]) gameIdsBySport[sport] = [];
@@ -360,61 +362,80 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
       }
 
       // Helper to build array of values aligned with gameIds (or sport-specific gameIds)
-      const buildAlignedArray = (paramName, periodSuffix = '') => {
+      const buildAlignedArray = (paramName, periodSuffix = "") => {
         if (isMultiSport) {
           // For multi-sport, create separate arrays per sport
           Object.entries(gameIdsBySport).forEach(([sport, sportGameIds]) => {
-            const values = sportGameIds.map(gid => {
-              const bet = bets.find(b => 
-                b.gameId === gid && 
-                getPeriodSuffix(b) === periodSuffix &&
-                matchesBetType(b, paramName)
+            const values = sportGameIds.map((gid) => {
+              const bet = bets.find(
+                (b) =>
+                  b.gameId === gid &&
+                  getPeriodSuffix(b) === periodSuffix &&
+                  matchesBetType(b, paramName)
               );
               return bet ? formatBetValue(bet, paramName) : "";
             });
-            
-            if (values.some(v => v)) {
+
+            if (values.some((v) => v)) {
               const sportSuffix = `_${sport}`;
-              query += `&${paramName}${periodSuffix}${sportSuffix}=${values.map(encodeURIComponent).join(",")}`;
+              query += `&${paramName}${periodSuffix}${sportSuffix}=${values
+                .map(encodeURIComponent)
+                .join(",")}`;
             }
           });
         } else {
           // Single sport: use simple aligned array
-          const values = finalGameIds.map(gid => {
-            const bet = bets.find(b => 
-              b.gameId === gid && 
-              getPeriodSuffix(b) === periodSuffix &&
-              matchesBetType(b, paramName)
+          const values = finalGameIds.map((gid) => {
+            const bet = bets.find(
+              (b) =>
+                b.gameId === gid &&
+                getPeriodSuffix(b) === periodSuffix &&
+                matchesBetType(b, paramName)
             );
             return bet ? formatBetValue(bet, paramName) : "";
           });
-          
-          if (values.some(v => v)) {
-            query += `&${paramName}${periodSuffix}=${values.map(encodeURIComponent).join(",")}`;
+
+          if (values.some((v) => v)) {
+            query += `&${paramName}${periodSuffix}=${values
+              .map(encodeURIComponent)
+              .join(",")}`;
           }
         }
       };
 
       // Helper to check if bet matches the parameter type
       const matchesBetType = (bet, paramName) => {
-        switch(paramName) {
-          case 'moneyline':
+        switch (paramName) {
+          case "moneyline":
             return bet.type === "Moneyline";
-          case 'moneylineReg':
+          case "moneylineReg":
             return bet.type === "Regulation 3-Way Moneyline";
-          case 'spread':
-            return bet.type === "Spread" || (bet.type?.includes("(Alt)") && bet.type?.includes("Spread"));
-          case 'total':
-            return !bet.team && (bet.type?.toLowerCase().includes("over/under") || 
-                   bet.type?.toLowerCase().includes("total") || bet.type === "Milestone");
-          case 'homePoints':
-            return bet.team && (bet.type?.toLowerCase().includes("over/under") || 
-                   bet.type?.toLowerCase().includes("total") || 
-                   (bet.type?.includes("(Alt)") && bet.statType === "points"));
-          case 'awayPoints':
-            return bet.team && (bet.type?.toLowerCase().includes("over/under") || 
-                   bet.type?.toLowerCase().includes("total") || 
-                   (bet.type?.includes("(Alt)") && bet.statType === "points"));
+          case "spread":
+            return (
+              bet.type === "Spread" ||
+              (bet.type?.includes("(Alt)") && bet.type?.includes("Spread"))
+            );
+          case "total":
+            return (
+              !bet.team &&
+              (bet.type?.toLowerCase().includes("over/under") ||
+                bet.type?.toLowerCase().includes("total") ||
+                bet.type === "Milestone")
+            );
+          case "homePoints":
+            return (
+              bet.team &&
+              (bet.type?.toLowerCase().includes("over/under") ||
+                bet.type?.toLowerCase().includes("total") ||
+                (bet.type?.includes("(Alt)") && bet.statType === "points"))
+            );
+          case "awayPoints":
+            return (
+              bet.team &&
+              (bet.type?.toLowerCase().includes("over/under") ||
+                bet.type?.toLowerCase().includes("total") ||
+                (bet.type?.includes("(Alt)") && bet.statType === "points"))
+            );
           default:
             return false;
         }
@@ -426,53 +447,61 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         const awayTeam = teamsStr.split(" @ ")[0];
         const homeTeam = teamsStr.split(" @ ")[1];
 
-        switch(paramName) {
-          case 'moneyline':
-          case 'moneylineReg':
+        switch (paramName) {
+          case "moneyline":
+          case "moneylineReg":
             return bet.team || bet.line || "";
-            
-          case 'spread':
+
+          case "spread":
             return `${bet.team}${bet.line}`;
-            
-          case 'total':
-          case 'homePoints':
-          case 'awayPoints': {
+
+          case "total":
+          case "homePoints":
+          case "awayPoints": {
             // Extract number with +/- from line
             let lineValue = String(bet.line || "").replace(/^[OU]\s+/, "");
-            if (bet.description?.includes("+") || bet.description?.toLowerCase().includes("over")) {
+            if (
+              bet.description?.includes("+") ||
+              bet.description?.toLowerCase().includes("over")
+            ) {
               if (!lineValue.includes("+")) lineValue += "+";
-            } else if (bet.description?.includes("-") || bet.description?.toLowerCase().includes("under")) {
+            } else if (
+              bet.description?.includes("-") ||
+              bet.description?.toLowerCase().includes("under")
+            ) {
               if (!lineValue.includes("-")) lineValue += "-";
             }
-            
+
             // For team totals, check if this bet matches home/away
-            if (paramName === 'homePoints' && bet.team !== homeTeam) return "";
-            if (paramName === 'awayPoints' && bet.team !== awayTeam) return "";
-            
+            if (paramName === "homePoints" && bet.team !== homeTeam) return "";
+            if (paramName === "awayPoints" && bet.team !== awayTeam) return "";
+
             return lineValue;
           }
-          
+
           default:
             return "";
         }
       };
 
       // Build all bet type parameters
-      buildAlignedArray('moneyline');
-      buildAlignedArray('moneylineReg');
-      buildAlignedArray('spread');
-      buildAlignedArray('total');
-      buildAlignedArray('homePoints');
-      buildAlignedArray('awayPoints');
+      buildAlignedArray("moneyline");
+      buildAlignedArray("moneylineReg");
+      buildAlignedArray("spread");
+      buildAlignedArray("total");
+      buildAlignedArray("homePoints");
+      buildAlignedArray("awayPoints");
 
       // Period-specific bets
-      ["1P", "2P", "3P", "1Q", "2Q", "3Q", "4Q", "1H", "2H"].forEach(suffix => {
-        buildAlignedArray('moneyline', suffix);
-        buildAlignedArray('spread', suffix);
-        buildAlignedArray('total', suffix);
-        buildAlignedArray('homePoints', suffix);
-        buildAlignedArray('awayPoints', suffix);
-      });
+      ["1P", "2P", "3P", "1Q", "2Q", "3Q", "4Q", "1H", "2H"].forEach(
+        (suffix) => {
+          buildAlignedArray("moneyline", suffix);
+          buildAlignedArray("spread", suffix);
+          buildAlignedArray("total", suffix);
+          buildAlignedArray("homePoints", suffix);
+          buildAlignedArray("awayPoints", suffix);
+        }
+      );
 
       // Player bets remain unchanged
       Object.entries(playerBets).forEach(([playerId, playerObj], index) => {
@@ -994,9 +1023,16 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                           closeSlip();
 
                           // Extract sport from gameId suffix (e.g., "401810365_nba" -> sport: "NBA", gameId: "401810365")
-                          const sportMatch = gameId.match(/_(nba|nfl|nhl|mlb|soccer|ncaa|wnba)$/i);
-                          const sport = sportMatch ? sportMatch[1].toUpperCase() : null;
-                          const cleanGameId = gameId.replace(/_(nba|nfl|nhl|mlb|soccer|ncaa|wnba)$/i, '');
+                          const sportMatch = gameId.match(
+                            /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba)$/i
+                          );
+                          const sport = sportMatch
+                            ? sportMatch[1].toUpperCase()
+                            : null;
+                          const cleanGameId = gameId.replace(
+                            /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba)$/i,
+                            ""
+                          );
 
                           // Navigate even if gameData is not found - BetGameDetailScreen will handle it
                           navigation.navigate("BetGameDetail", {
@@ -1186,7 +1222,8 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                               ]}
                             >
                               {/* For team bets, show team/game and bet line */}
-                              {bet.type.includes("Total") || bet.type.includes("Over/Under")
+                              {bet.type.includes("Total") ||
+                              bet.type.includes("Over/Under")
                                 ? bet.team
                                   ? `${bet.team} • ${bet.line}`
                                   : `${
@@ -1205,7 +1242,8 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                                       ? bet.period.toUpperCase()
                                       : "GAME")
                                   } • ${bet.line || bet.betValue || ""}`
-                                : bet.type === "alt" || (bet.type && bet.type.includes("(Alt)"))
+                                : bet.type === "alt" ||
+                                  (bet.type && bet.type.includes("(Alt)"))
                                 ? `${bet.team || "TEAM"} • ${
                                     bet.line || bet.betValue || ""
                                   }`

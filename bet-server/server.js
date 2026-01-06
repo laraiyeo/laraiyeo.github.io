@@ -1070,22 +1070,28 @@ function computeStatValueForGame(
       }
       // If value is a string like "1-6" or "1/6", extract the made number before the dash/slash
       try {
-        if (typeof val === 'string') {
+        if (typeof val === "string") {
           const m = String(val).match(/^\s*([0-9]+)\s*[-\/–—]/);
           if (m && m[1]) {
             const parsed = parseInt(m[1], 10) || 0;
-            console.log(`[computeStatValueForGame] PARSE-MADE statID=${statID} label=${label} raw='${val}' made=${parsed}`);
+            console.log(
+              `[computeStatValueForGame] PARSE-MADE statID=${statID} label=${label} raw='${val}' made=${parsed}`
+            );
             return parsed;
           }
         }
         // also handle nested objects with displayValue or value as strings like { displayValue: '1-6' }
-        if (typeof val === 'object' && val !== null) {
-          const cand = val.displayValue || val.value || val.count || val.total || null;
-          if (typeof cand === 'string') {
+        if (typeof val === "object" && val !== null) {
+          const cand =
+            val.displayValue || val.value || val.count || val.total || null;
+          if (typeof cand === "string") {
             const m2 = String(cand).match(/^\s*([0-9]+)\s*[-\/–—]/);
             if (m2 && m2[1]) {
               const parsed2 = parseInt(m2[1], 10) || 0;
-              if (debugEnabled) console.debug(`[computeStatValueForGame] PARSE-MADE nested statID=${statID} label=${label} raw='${cand}' made=${parsed2}`);
+              if (debugEnabled)
+                console.debug(
+                  `[computeStatValueForGame] PARSE-MADE nested statID=${statID} label=${label} raw='${cand}' made=${parsed2}`
+                );
               return parsed2;
             }
           }
@@ -1554,13 +1560,21 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
       // "3-Point Field Goals Made-Attempted" strings/objects like "1-6".
       // Prefer extracting the left-side (made) number when statID refers to 3PM.
       try {
-        if (statsMap && statID && /three|threePointersMade|threePointers|3pt/i.test(statID)) {
+        if (
+          statsMap &&
+          statID &&
+          /three|threePointersMade|threePointers|3pt/i.test(statID)
+        ) {
           for (const key of Object.keys(statsMap || {})) {
             if (!key) continue;
-            if (/\b3\s*-?\s?pt\b|3pt|3\s*-?\s?point|3-Point|3 Point|3PT/i.test(key)) {
+            if (
+              /\b3\s*-?\s?pt\b|3pt|3\s*-?\s?point|3-Point|3 Point|3PT/i.test(
+                key
+              )
+            ) {
               const raw = statsMap[key];
               // String like "1-6"
-              if (typeof raw === 'string') {
+              if (typeof raw === "string") {
                 const m = String(raw).match(/^\s*([0-9]+)\s*[-\/–—]/);
                 if (m && m[1]) {
                   return parseInt(m[1], 10) || 0;
@@ -1568,9 +1582,14 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
                 const num = Number(raw);
                 if (!isNaN(num)) return num;
               }
-              if (typeof raw === 'object' && raw !== null) {
-                const cand = raw.displayValue || raw.value || raw.count || raw.total || null;
-                if (typeof cand === 'string') {
+              if (typeof raw === "object" && raw !== null) {
+                const cand =
+                  raw.displayValue ||
+                  raw.value ||
+                  raw.count ||
+                  raw.total ||
+                  null;
+                if (typeof cand === "string") {
                   const m2 = String(cand).match(/^\s*([0-9]+)\s*[-\/–—]/);
                   if (m2 && m2[1]) {
                     return parseInt(m2[1], 10) || 0;
@@ -2315,7 +2334,7 @@ const ESPN_PATHS = {
 // SportGameOdds API configuration
 const SPORTSGAMEODDS_API_BASE = "https://api.sportsgameodds.com/v2/events";
 const SPORTSGAMEODDS_API_KEY =
-  process.env.SPORTSGAMEODDS_API_KEY || "fb5cd7db7f9e18a03caa04b10b505a41"; 
+  process.env.SPORTSGAMEODDS_API_KEY || "fb5cd7db7f9e18a03caa04b10b505a41";
 
 // Mapping sport slug -> leagueID for SportGameOdds
 const SGO_LEAGUE_IDS = {
@@ -3441,7 +3460,8 @@ function transformSummaryData(data) {
                 ) {
                   if (Array.isArray(play.participants)) {
                     for (const p of play.participants) {
-                      const pid = p?.athlete?.id || p?.athlete?.externalId || null;
+                      const pid =
+                        p?.athlete?.id || p?.athlete?.externalId || null;
                       if (!pid) continue;
                       const sid = String(pid);
                       ppCounts[sid] = (ppCounts[sid] || 0) + 1;
@@ -3581,7 +3601,10 @@ function transformSummaryData(data) {
                 const pp = ppCounts[athleteId];
                 // only attach for skaters (exclude goalies)
                 const pos = entry.athlete?.position || null;
-                if (pp !== undefined && String(pos || "").toUpperCase() !== "G") {
+                if (
+                  pp !== undefined &&
+                  String(pos || "").toUpperCase() !== "G"
+                ) {
                   out.stats = out.stats || {};
                   out.stats["PP"] = Number(pp) || 0;
                 }
@@ -5372,12 +5395,16 @@ app.get("/api/betslip", async (req, res) => {
 
     // Extract sport from gameId (e.g., "401810365_nba" -> "nba")
     const getSportFromGameId = (gid) => {
-      const match = String(gid || "").match(/_(nba|nfl|nhl|mlb|soccer|ncaa|wnba|uefa)$/i);
+      const match = String(gid || "").match(
+        /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba|uefa)$/i
+      );
       return match ? match[1].toLowerCase() : null;
     };
 
     // Determine if we have multiple sports in this betslip
-    const sports = [...new Set(gameIdValues.map(getSportFromGameId).filter(Boolean))];
+    const sports = [
+      ...new Set(gameIdValues.map(getSportFromGameId).filter(Boolean)),
+    ];
     const isMultiSport = sports.length > 1;
 
     // Generic per-game param lookup helper (supports comma-separated values and sport suffixes)
@@ -5386,9 +5413,9 @@ app.get("/api/betslip", async (req, res) => {
     const getParamValueForGame = (paramName, giIndex) => {
       const gameId = gameIdValues[giIndex];
       if (!gameId) return null;
-      
+
       const sport = getSportFromGameId(gameId);
-      
+
       // Try sport-specific parameter first if multi-sport
       if (isMultiSport && sport) {
         const sportParam = `${paramName}_${sport}`;
@@ -5398,12 +5425,14 @@ app.get("/api/betslip", async (req, res) => {
             .split(",")
             .map((s) => s.trim());
           // For multi-sport, find the index within this sport's games
-          const sportGameIds = gameIdValues.filter(gid => getSportFromGameId(gid) === sport);
+          const sportGameIds = gameIdValues.filter(
+            (gid) => getSportFromGameId(gid) === sport
+          );
           const sportIndex = sportGameIds.indexOf(gameId);
           return parts.length === 1 ? parts[0] : parts[sportIndex] || null;
         }
       }
-      
+
       // Fall back to non-suffixed parameter
       const raw = req.query[paramName];
       if (raw === undefined || raw === null) return null;
@@ -6685,7 +6714,10 @@ app.get("/api/betslip", async (req, res) => {
               eventData.bets.moneyline = {
                 team: rawML,
                 // store current score for display; won may be overwritten later when moneylineReg is present
-                current: { score: `${betScore}-${oppScore}`, lead: drawNow ? 'Draw' : 'Tied' },
+                current: {
+                  score: `${betScore}-${oppScore}`,
+                  lead: drawNow ? "Draw" : "Tied",
+                },
                 won: isCompleted
                   ? drawNow
                     ? true
@@ -6720,12 +6752,17 @@ app.get("/api/betslip", async (req, res) => {
 
         // Determine per-game total and spread tokens (support single-token applied-to-all)
         // Also support `totalPointsNHL` / `totalNHL` as aliases for NHL totals
-        const totalNHLToken = getParamValueForGame("totalPointsNHL", gi) || getParamValueForGame("totalNHL", gi) || null;
-        const totalForThisGame = totalNHLToken || (totalValues
-          ? totalValues.length === 1
-            ? totalValues[0]
-            : totalValues[gi] || ""
-          : null);
+        const totalNHLToken =
+          getParamValueForGame("totalPointsNHL", gi) ||
+          getParamValueForGame("totalNHL", gi) ||
+          null;
+        const totalForThisGame =
+          totalNHLToken ||
+          (totalValues
+            ? totalValues.length === 1
+              ? totalValues[0]
+              : totalValues[gi] || ""
+            : null);
 
         // Process total points bet
         if (totalForThisGame) {
@@ -6881,14 +6918,24 @@ app.get("/api/betslip", async (req, res) => {
           try {
             if (
               eventData.bets.moneyline &&
-              typeof moneylineRegForThisGame !== 'undefined' &&
+              typeof moneylineRegForThisGame !== "undefined" &&
               moneylineRegForThisGame !== null
             ) {
               // determine how many periods to count
-              const homePeriods = Object.keys(homeLines || {}).filter(k => !isNaN(Number(k))).map(Number).sort((a,b)=>a-b);
-              const awayPeriods = Object.keys(awayLines || {}).filter(k => !isNaN(Number(k))).map(Number).sort((a,b)=>a-b);
-              const maxPeriods = Math.max(homePeriods.length, awayPeriods.length);
-              const regCount = maxPeriods >= 4 ? 4 : maxPeriods >= 2 ? 2 : maxPeriods;
+              const homePeriods = Object.keys(homeLines || {})
+                .filter((k) => !isNaN(Number(k)))
+                .map(Number)
+                .sort((a, b) => a - b);
+              const awayPeriods = Object.keys(awayLines || {})
+                .filter((k) => !isNaN(Number(k)))
+                .map(Number)
+                .sort((a, b) => a - b);
+              const maxPeriods = Math.max(
+                homePeriods.length,
+                awayPeriods.length
+              );
+              const regCount =
+                maxPeriods >= 4 ? 4 : maxPeriods >= 2 ? 2 : maxPeriods;
               if (regCount > 0) {
                 let homeReg = 0;
                 let awayReg = 0;
@@ -6896,13 +6943,24 @@ app.get("/api/betslip", async (req, res) => {
                   homeReg += Number(homeLines[p] || 0);
                   awayReg += Number(awayLines[p] || 0);
                 }
-                const regWinner = homeReg > awayReg ? homeAbbr : awayReg > homeReg ? awayAbbr : 'Draw';
+                const regWinner =
+                  homeReg > awayReg
+                    ? homeAbbr
+                    : awayReg > homeReg
+                    ? awayAbbr
+                    : "Draw";
                 // Only change won logic when game state is post (completed)
                 if (eventData.bets.moneyline) {
                   const rawReg = String(moneylineRegForThisGame).trim();
                   const isDrawReg = /^(x|draw)$/i.test(rawReg);
-                  const betTarget = isDrawReg ? 'Draw' : rawReg.toUpperCase();
-                  const won = isCompleted ? (betTarget === regWinner ? true : false) : (isInProgress ? 'in progress' : 'pending');
+                  const betTarget = isDrawReg ? "Draw" : rawReg.toUpperCase();
+                  const won = isCompleted
+                    ? betTarget === regWinner
+                      ? true
+                      : false
+                    : isInProgress
+                    ? "in progress"
+                    : "pending";
                   // attach regulation summary and final won status
                   eventData.bets.moneyline.reg = {
                     request: moneylineRegForThisGame,
@@ -7104,7 +7162,8 @@ app.get("/api/betslip", async (req, res) => {
                   isCompleted
                 );
                 // numeric current: opponent - team
-                const qCurrentNumeric = (teamAbbr === homeAbbr ? awayQ - homeQ : homeQ - awayQ);
+                const qCurrentNumeric =
+                  teamAbbr === homeAbbr ? awayQ - homeQ : homeQ - awayQ;
                 eventData.bets[`Q${period}_SP`] = {
                   team: teamAbbr,
                   line: spreadLine,
@@ -7392,7 +7451,10 @@ app.get("/api/betslip", async (req, res) => {
                   isCompleted
                 );
                 // numeric current for period spread: opponent - team
-                const pCurrentNumeric = (teamAbbr === homeAbbr ? awayPeriod - homePeriod : homePeriod - awayPeriod);
+                const pCurrentNumeric =
+                  teamAbbr === homeAbbr
+                    ? awayPeriod - homePeriod
+                    : homePeriod - awayPeriod;
                 eventData.bets[`P${pi}_SP`] = {
                   team: teamAbbr,
                   line: spreadLine,
@@ -7665,7 +7727,10 @@ app.get("/api/betslip", async (req, res) => {
                     )
                   );
                 }
-                const hCurrentNumeric = (teamAbbr === homeAbbr ? awayHalf - homeHalf : homeHalf - awayHalf);
+                const hCurrentNumeric =
+                  teamAbbr === homeAbbr
+                    ? awayHalf - homeHalf
+                    : homeHalf - awayHalf;
                 eventData.bets[`H${halfIndex}_SP`] = {
                   team: teamAbbr,
                   line: spreadLine,
@@ -9070,18 +9135,32 @@ app.get("/api/betslip", async (req, res) => {
                   // athlete.stats may be object or array
                   if (athlete && typeof athlete.stats === "object") {
                     if (!Array.isArray(athlete.stats)) {
-                      val = Number(athlete.stats.PP || athlete.stats.PPP || 0) || 0;
-                    } else if (Array.isArray(labels) && Array.isArray(athlete.stats)) {
-                      const idx = labels.findIndex((l) => /^(PP|PPP)$/.test(String(l || "")) || /power[- ]?play/i.test(String(l || "")));
+                      val =
+                        Number(athlete.stats.PP || athlete.stats.PPP || 0) || 0;
+                    } else if (
+                      Array.isArray(labels) &&
+                      Array.isArray(athlete.stats)
+                    ) {
+                      const idx = labels.findIndex(
+                        (l) =>
+                          /^(PP|PPP)$/.test(String(l || "")) ||
+                          /power[- ]?play/i.test(String(l || ""))
+                      );
                       if (idx >= 0) val = Number(athlete.stats[idx]) || 0;
                     }
                   }
                   if (!val) {
                     // fallback to resolver which may inspect plays or nested shapes
                     try {
-                      val = Number(
-                        resolvePlayerStatValue(athlete, labels, "PP", explicitSport || "")
-                      ) || 0;
+                      val =
+                        Number(
+                          resolvePlayerStatValue(
+                            athlete,
+                            labels,
+                            "PP",
+                            explicitSport || ""
+                          )
+                        ) || 0;
                     } catch (e) {
                       val = 0;
                     }
@@ -10089,7 +10168,9 @@ function startWatcherInline(betslipId) {
           }
           if (!resp) {
             console.error(
-              `summary fetch failed for event ${evId}, tried bases: ${triedBases.join(",")}`
+              `summary fetch failed for event ${evId}, tried bases: ${triedBases.join(
+                ","
+              )}`
             );
           }
         } catch (e) {
@@ -10272,43 +10353,43 @@ function startWatcherInline(betslipId) {
           const homeScore = homeCompetitor.score || "";
           const awayScore = awayCompetitor.score || "";
 
-            // Choose an emoji appropriate to the sport for notifications.
-            // Prefer the ESPN base URL we successfully used to fetch the
-            // summary (e.g. '/sports/football/nfl' -> 🏈). Fall back to
-            // `summary.sport.slug` when the base isn't available.
-            const usedBase = summaryBaseMap[evId] || "";
-            let sportEmoji = "🏀"; // default
-            if (usedBase) {
-              const ub = String(usedBase).toLowerCase();
-              if (ub.includes("/basketball/") || ub.includes("/nba"))
-                sportEmoji = "🏀";
-              else if (ub.includes("/football/") || ub.includes("/nfl"))
-                sportEmoji = "🏈";
-              else if (ub.includes("/hockey/") || ub.includes("/nhl"))
-                sportEmoji = "🏒";
-              else if (ub.includes("/soccer/") || ub.includes("/uefa"))
-                sportEmoji = "⚽";
-              else if (ub.includes("/baseball/") || ub.includes("/mlb"))
-                sportEmoji = "⚾";
-              else if (ub.includes("/tennis/")) sportEmoji = "🎾";
-              else if (ub.includes("/cricket/")) sportEmoji = "🏏";
-              else sportEmoji = "🏟️";
-            } else {
-              const sportSlugRaw =
-                (summary.header?.competitions?.[0]?.sport?.slug ||
-                  summary.sport?.slug ||
-                  "") + "";
-              const sportSlug = String(sportSlugRaw).toLowerCase();
-              if (/basketball|nba/.test(sportSlug)) sportEmoji = "🏀";
-              else if (/football|nfl/.test(sportSlug)) sportEmoji = "🏈";
-              else if (/hockey|nhl/.test(sportSlug)) sportEmoji = "🏒";
-              else if (/soccer|uefa|football\/soccer|fifa/.test(sportSlug))
-                sportEmoji = "⚽";
-              else if (/baseball|mlb/.test(sportSlug)) sportEmoji = "⚾";
-              else if (/tennis/.test(sportSlug)) sportEmoji = "🎾";
-              else if (/cricket/.test(sportSlug)) sportEmoji = "🏏";
-              else sportEmoji = "🏟️";
-            }
+          // Choose an emoji appropriate to the sport for notifications.
+          // Prefer the ESPN base URL we successfully used to fetch the
+          // summary (e.g. '/sports/football/nfl' -> 🏈). Fall back to
+          // `summary.sport.slug` when the base isn't available.
+          const usedBase = summaryBaseMap[evId] || "";
+          let sportEmoji = "🏀"; // default
+          if (usedBase) {
+            const ub = String(usedBase).toLowerCase();
+            if (ub.includes("/basketball/") || ub.includes("/nba"))
+              sportEmoji = "🏀";
+            else if (ub.includes("/football/") || ub.includes("/nfl"))
+              sportEmoji = "🏈";
+            else if (ub.includes("/hockey/") || ub.includes("/nhl"))
+              sportEmoji = "🏒";
+            else if (ub.includes("/soccer/") || ub.includes("/uefa"))
+              sportEmoji = "⚽";
+            else if (ub.includes("/baseball/") || ub.includes("/mlb"))
+              sportEmoji = "⚾";
+            else if (ub.includes("/tennis/")) sportEmoji = "🎾";
+            else if (ub.includes("/cricket/")) sportEmoji = "🏏";
+            else sportEmoji = "🏟️";
+          } else {
+            const sportSlugRaw =
+              (summary.header?.competitions?.[0]?.sport?.slug ||
+                summary.sport?.slug ||
+                "") + "";
+            const sportSlug = String(sportSlugRaw).toLowerCase();
+            if (/basketball|nba/.test(sportSlug)) sportEmoji = "🏀";
+            else if (/football|nfl/.test(sportSlug)) sportEmoji = "🏈";
+            else if (/hockey|nhl/.test(sportSlug)) sportEmoji = "🏒";
+            else if (/soccer|uefa|football\/soccer|fifa/.test(sportSlug))
+              sportEmoji = "⚽";
+            else if (/baseball|mlb/.test(sportSlug)) sportEmoji = "⚾";
+            else if (/tennis/.test(sportSlug)) sportEmoji = "🎾";
+            else if (/cricket/.test(sportSlug)) sportEmoji = "🏏";
+            else sportEmoji = "🏟️";
+          }
 
           // determine event start time and windows to avoid notifying long-past events
           const startTimeRaw = summary.header?.competitions?.[0]?.date || null;

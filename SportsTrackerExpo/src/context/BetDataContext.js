@@ -269,14 +269,21 @@ export const BetDataProvider = ({ children }) => {
     };
 
     // If we previously fetched and validated rosters for this sport, reuse them.
-    if (rostersFetchedRef.current.has(sport) && isValidRosterData(rostersData[rosterKey])) {
-      console.log(`[BetData ${sport}] Rosters already fetched and valid, using cached data`);
+    if (
+      rostersFetchedRef.current.has(sport) &&
+      isValidRosterData(rostersData[rosterKey])
+    ) {
+      console.log(
+        `[BetData ${sport}] Rosters already fetched and valid, using cached data`
+      );
       return rostersData[rosterKey];
     }
 
     // If state already has data but it's not valid (e.g. placeholder error), clear it and attempt fresh fetch
     if (rostersData[rosterKey] && !isValidRosterData(rostersData[rosterKey])) {
-      console.warn(`[BetData ${sport}] Existing roster data invalid or placeholder; refetching`);
+      console.warn(
+        `[BetData ${sport}] Existing roster data invalid or placeholder; refetching`
+      );
       // remove any stale cached reference
       try {
         delete rostersData[rosterKey];
@@ -292,9 +299,16 @@ export const BetDataProvider = ({ children }) => {
       // If server returned error status, attempt to parse body to decide next steps
       if (!response.ok) {
         const body = await response.json().catch(() => null);
-        if (body && typeof body === "object" && body.error && String(body.error).toLowerCase().includes("roster cache not ready")) {
+        if (
+          body &&
+          typeof body === "object" &&
+          body.error &&
+          String(body.error).toLowerCase().includes("roster cache not ready")
+        ) {
           const retryAfter = Number(body.retryAfterSeconds) || 30;
-          console.warn(`[BetData ${sport}] Roster cache not ready; will retry in ${retryAfter}s`);
+          console.warn(
+            `[BetData ${sport}] Roster cache not ready; will retry in ${retryAfter}s`
+          );
           // schedule a retry but don't block — retry only once here; subsequent navigation to sport will also call fetchRosters
           setTimeout(() => {
             try {
@@ -303,13 +317,17 @@ export const BetDataProvider = ({ children }) => {
           }, retryAfter * 1000);
           return null;
         }
-        console.error(`[BetData ${sport}] Failed to fetch rosters: HTTP ${response.status}`);
+        console.error(
+          `[BetData ${sport}] Failed to fetch rosters: HTTP ${response.status}`
+        );
         return null;
       }
 
       const data = await response.json();
       if (!isValidRosterData(data)) {
-        console.warn(`[BetData ${sport}] Fetched roster payload appears invalid; will not cache`);
+        console.warn(
+          `[BetData ${sport}] Fetched roster payload appears invalid; will not cache`
+        );
         return null;
       }
 
@@ -340,7 +358,7 @@ export const BetDataProvider = ({ children }) => {
 
     const rosterKey = `rosters_${sport}`;
     const data = rostersData[rosterKey];
-    
+
     // Only return data if it's valid for the exact sport key
     if (data && isValidRosterData(data)) {
       return data;

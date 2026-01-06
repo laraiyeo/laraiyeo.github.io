@@ -4614,12 +4614,26 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             style={[
                               styles.ouButton,
                               {
-                                borderColor: isBetSelected(`team-${teamAbbr}-ou-${statId}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-over`) ? colors.primary : teamSmartColor,
-                                backgroundColor: isBetSelected(`team-${teamAbbr}-ou-${statId}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-over`) ? colors.primary : theme.surfaceSecondary,
+                                borderColor: isBetSelected(
+                                  `team-${teamAbbr}-ou-${statId}-${marketLabel
+                                    .replace(/\s+/g, "-")
+                                    .toLowerCase()}-over`
+                                )
+                                  ? colors.primary
+                                  : teamSmartColor,
+                                backgroundColor: isBetSelected(
+                                  `team-${teamAbbr}-ou-${statId}-${marketLabel
+                                    .replace(/\s+/g, "-")
+                                    .toLowerCase()}-over`
+                                )
+                                  ? colors.primary
+                                  : theme.surfaceSecondary,
                               },
                             ]}
                             onPress={() => {
-                              const betId = `team-${teamAbbr}-ou-${statId}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-over`;
+                              const betId = `team-${teamAbbr}-ou-${statId}-${marketLabel
+                                .replace(/\s+/g, "-")
+                                .toLowerCase()}-over`;
                               if (isBetSelected(betId)) toggleBet(betId);
                               else
                                 toggleBet({
@@ -4645,17 +4659,50 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             }}
                           >
                             <Text
-                              style={[styles.ouLabel, { color: isBetSelected(`team-${teamAbbr}-ou-${statId}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-over`) ? '#fff' : theme.text }]}
+                              style={[
+                                styles.ouLabel,
+                                {
+                                  color: isBetSelected(
+                                    `team-${teamAbbr}-ou-${statId}-${marketLabel
+                                      .replace(/\s+/g, "-")
+                                      .toLowerCase()}-over`
+                                  )
+                                    ? "#fff"
+                                    : theme.text,
+                                },
+                              ]}
                             >
                               Over
                             </Text>
                             <Text
-                              style={[styles.ouLine, { color: isBetSelected(`team-${teamAbbr}-ou-${statId}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-over`) ? '#fff' : theme.text }]}
+                              style={[
+                                styles.ouLine,
+                                {
+                                  color: isBetSelected(
+                                    `team-${teamAbbr}-ou-${statId}-${marketLabel
+                                      .replace(/\s+/g, "-")
+                                      .toLowerCase()}-over`
+                                  )
+                                    ? "#fff"
+                                    : theme.text,
+                                },
+                              ]}
                             >
                               {overVariant.bookmaker.overUnder}
                             </Text>
                             <Text
-                              style={[styles.ouOdds, { color: isBetSelected(`team-${teamAbbr}-ou-${statId}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-over`) ? '#fff' : colors.primary }]}
+                              style={[
+                                styles.ouOdds,
+                                {
+                                  color: isBetSelected(
+                                    `team-${teamAbbr}-ou-${statId}-${marketLabel
+                                      .replace(/\s+/g, "-")
+                                      .toLowerCase()}-over`
+                                  )
+                                    ? "#fff"
+                                    : colors.primary,
+                                },
+                              ]}
                             >
                               {formatOddsForDisplay(
                                 ensureAmericanLocal(overVariant.bookmaker.odds),
@@ -4670,12 +4717,26 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             style={[
                               styles.ouButton,
                               {
-                                borderColor: isBetSelected(`team-${teamAbbr}-ou-${statId}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-under`) ? colors.primary : teamSmartColor,
-                                backgroundColor: isBetSelected(`team-${teamAbbr}-ou-${statId}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-under`) ? colors.primary : theme.surfaceSecondary,
+                                borderColor: isBetSelected(
+                                  `team-${teamAbbr}-ou-${statId}-${marketLabel
+                                    .replace(/\s+/g, "-")
+                                    .toLowerCase()}-under`
+                                )
+                                  ? colors.primary
+                                  : teamSmartColor,
+                                backgroundColor: isBetSelected(
+                                  `team-${teamAbbr}-ou-${statId}-${marketLabel
+                                    .replace(/\s+/g, "-")
+                                    .toLowerCase()}-under`
+                                )
+                                  ? colors.primary
+                                  : theme.surfaceSecondary,
                               },
                             ]}
                             onPress={() => {
-                              const betId = `team-${teamAbbr}-ou-${statId}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-under`;
+                              const betId = `team-${teamAbbr}-ou-${statId}-${marketLabel
+                                .replace(/\s+/g, "-")
+                                .toLowerCase()}-under`;
                               if (isBetSelected(betId)) toggleBet(betId);
                               else
                                 toggleBet({
@@ -4701,17 +4762,50 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             }}
                           >
                             <Text
-                              style={[styles.ouLabel, { color: isBetSelected(`team-${teamAbbr}-ou-${statId}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-under`) ? '#fff' : theme.text }]}
+                              style={[
+                                styles.ouLabel,
+                                {
+                                  color: isBetSelected(
+                                    `team-${teamAbbr}-ou-${statId}-${marketLabel
+                                      .replace(/\s+/g, "-")
+                                      .toLowerCase()}-under`
+                                  )
+                                    ? "#fff"
+                                    : theme.text,
+                                },
+                              ]}
                             >
                               Under
                             </Text>
                             <Text
-                              style={[styles.ouLine, { color: isBetSelected(`team-${teamAbbr}-ou-${statId}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-under`) ? '#fff' : theme.text }]}
+                              style={[
+                                styles.ouLine,
+                                {
+                                  color: isBetSelected(
+                                    `team-${teamAbbr}-ou-${statId}-${marketLabel
+                                      .replace(/\s+/g, "-")
+                                      .toLowerCase()}-under`
+                                  )
+                                    ? "#fff"
+                                    : theme.text,
+                                },
+                              ]}
                             >
                               {underVariant.bookmaker.overUnder}
                             </Text>
                             <Text
-                              style={[styles.ouOdds, { color: isBetSelected(`team-${teamAbbr}-ou-${statId}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-under`) ? '#fff' : colors.primary }]}
+                              style={[
+                                styles.ouOdds,
+                                {
+                                  color: isBetSelected(
+                                    `team-${teamAbbr}-ou-${statId}-${marketLabel
+                                      .replace(/\s+/g, "-")
+                                      .toLowerCase()}-under`
+                                  )
+                                    ? "#fff"
+                                    : colors.primary,
+                                },
+                              ]}
                             >
                               {formatOddsForDisplay(
                                 ensureAmericanLocal(
@@ -4741,7 +4835,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               const lineValue = bk.spread || bk.overUnder || "";
                               const displayLine = lineValue || teamAbbr;
                               const oddsVal = ensureAmericanLocal(bk.odds);
-                              const betId = `team-${teamAbbr}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-${statId}-${side}`;
+                              const betId = `team-${teamAbbr}-${marketLabel
+                                .replace(/\s+/g, "-")
+                                .toLowerCase()}-${statId}-${side}`;
                               const isSelected = isBetSelected(betId);
                               return (
                                 <TouchableOpacity
@@ -4749,8 +4845,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   style={[
                                     styles.ouButton,
                                     {
-                                      borderColor: isSelected ? colors.primary : teamSmartColor,
-                                      backgroundColor: isSelected ? colors.primary : theme.surfaceSecondary,
+                                      borderColor: isSelected
+                                        ? colors.primary
+                                        : teamSmartColor,
+                                      backgroundColor: isSelected
+                                        ? colors.primary
+                                        : theme.surfaceSecondary,
                                     },
                                   ]}
                                   onPress={() => {
@@ -4777,7 +4877,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   <Text
                                     style={[
                                       styles.ouLabel,
-                                      { color: isSelected ? '#fff' : theme.text },
+                                      {
+                                        color: isSelected ? "#fff" : theme.text,
+                                      },
                                     ]}
                                   >
                                     {label}
@@ -4785,7 +4887,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   <Text
                                     style={[
                                       styles.ouLine,
-                                      { color: isSelected ? '#fff' : theme.text },
+                                      {
+                                        color: isSelected ? "#fff" : theme.text,
+                                      },
                                     ]}
                                   >
                                     {displayLine}
@@ -4793,7 +4897,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   <Text
                                     style={[
                                       styles.ouOdds,
-                                      { color: isSelected ? '#fff' : colors.primary },
+                                      {
+                                        color: isSelected
+                                          ? "#fff"
+                                          : colors.primary,
+                                      },
                                     ]}
                                   >
                                     {oddsVal
@@ -4839,7 +4947,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 const odds = ensureAmericanLocal(
                                   alt.odds ?? alt.odds
                                 );
-                                const betId = `team-${teamAbbr}-alt-over-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-${statId}-${ai}`;
+                                const betId = `team-${teamAbbr}-alt-over-${marketLabel
+                                  .replace(/\s+/g, "-")
+                                  .toLowerCase()}-${statId}-${ai}`;
                                 const isSelected = isBetSelected(betId);
                                 return (
                                   <TouchableOpacity
@@ -4847,8 +4957,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     style={[
                                       styles.milestoneButton,
                                       {
-                                        borderColor: isSelected ? colors.primary : teamSmartColor,
-                                        backgroundColor: isSelected ? colors.primary : theme.surfaceSecondary,
+                                        borderColor: isSelected
+                                          ? colors.primary
+                                          : teamSmartColor,
+                                        backgroundColor: isSelected
+                                          ? colors.primary
+                                          : theme.surfaceSecondary,
                                       },
                                     ]}
                                     onPress={() => {
@@ -4867,7 +4981,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                             teams: `${gameData.team1Abbr} @ ${gameData.team2Abbr}`,
                                           },
                                           team: teamAbbr,
-                                          type: marketLabel ? `${marketLabel} (Alt)` : "alt",
+                                          type: marketLabel
+                                            ? `${marketLabel} (Alt)`
+                                            : "alt",
                                           statType: "points",
                                           description: `${teamAbbr} ${displayVal}+`,
                                           line: `${displayVal}+`,
@@ -4878,7 +4994,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     <Text
                                       style={[
                                         styles.milestoneValue,
-                                        { color: isSelected ? '#fff' : theme.text },
+                                        {
+                                          color: isSelected
+                                            ? "#fff"
+                                            : theme.text,
+                                        },
                                       ]}
                                     >
                                       {displayVal}+
@@ -4886,7 +5006,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     <Text
                                       style={[
                                         styles.milestoneOdds,
-                                        { color: isSelected ? '#fff' : colors.primary },
+                                        {
+                                          color: isSelected
+                                            ? "#fff"
+                                            : colors.primary,
+                                        },
                                       ]}
                                     >
                                       {odds
@@ -4927,7 +5051,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 const odds = ensureAmericanLocal(
                                   alt.odds ?? alt.odds
                                 );
-                                const betId = `team-${teamAbbr}-alt-under-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-${statId}-${ai}`;
+                                const betId = `team-${teamAbbr}-alt-under-${marketLabel
+                                  .replace(/\s+/g, "-")
+                                  .toLowerCase()}-${statId}-${ai}`;
                                 const isSelected = isBetSelected(betId);
                                 return (
                                   <TouchableOpacity
@@ -4935,8 +5061,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     style={[
                                       styles.milestoneButton,
                                       {
-                                        borderColor: isSelected ? colors.primary : teamSmartColor,
-                                        backgroundColor: isSelected ? colors.primary : theme.surfaceSecondary,
+                                        borderColor: isSelected
+                                          ? colors.primary
+                                          : teamSmartColor,
+                                        backgroundColor: isSelected
+                                          ? colors.primary
+                                          : theme.surfaceSecondary,
                                       },
                                     ]}
                                     onPress={() => {
@@ -4955,7 +5085,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                             teams: `${gameData.team1Abbr} @ ${gameData.team2Abbr}`,
                                           },
                                           team: teamAbbr,
-                                          type: marketLabel ? `${marketLabel} (Alt)` : "alt",
+                                          type: marketLabel
+                                            ? `${marketLabel} (Alt)`
+                                            : "alt",
                                           statType: "points",
                                           description: `${teamAbbr} ${displayVal}-`,
                                           line: `${displayVal}-`,
@@ -4966,7 +5098,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     <Text
                                       style={[
                                         styles.milestoneValue,
-                                        { color: isSelected ? '#fff' : theme.text },
+                                        {
+                                          color: isSelected
+                                            ? "#fff"
+                                            : theme.text,
+                                        },
                                       ]}
                                     >
                                       {displayVal}-
@@ -4974,7 +5110,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     <Text
                                       style={[
                                         styles.milestoneOdds,
-                                        { color: isSelected ? '#fff' : colors.primary },
+                                        {
+                                          color: isSelected
+                                            ? "#fff"
+                                            : colors.primary,
+                                        },
                                       ]}
                                     >
                                       {odds
@@ -5011,7 +5151,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 const odds = ensureAmericanLocal(
                                   alt.odds ?? alt.odds
                                 );
-                                const betId = `team-${teamAbbr}-alt-other-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-${statId}-${ai}`;
+                                const betId = `team-${teamAbbr}-alt-other-${marketLabel
+                                  .replace(/\s+/g, "-")
+                                  .toLowerCase()}-${statId}-${ai}`;
                                 const isSelected = isBetSelected(betId);
                                 return (
                                   <TouchableOpacity
@@ -5019,8 +5161,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     style={[
                                       styles.milestoneButton,
                                       {
-                                        borderColor: isSelected ? colors.primary : teamSmartColor,
-                                        backgroundColor: isSelected ? colors.primary : theme.surfaceSecondary,
+                                        borderColor: isSelected
+                                          ? colors.primary
+                                          : teamSmartColor,
+                                        backgroundColor: isSelected
+                                          ? colors.primary
+                                          : theme.surfaceSecondary,
                                       },
                                     ]}
                                     onPress={() => {
@@ -5039,7 +5185,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                             teams: `${gameData.team1Abbr} @ ${gameData.team2Abbr}`,
                                           },
                                           team: teamAbbr,
-                                          type: marketLabel ? `${marketLabel} (Alt)` : "alt",
+                                          type: marketLabel
+                                            ? `${marketLabel} (Alt)`
+                                            : "alt",
                                           statType: "spread",
                                           description: `${teamAbbr} ${displayVal}`,
                                           line: `${displayVal}`,
@@ -5050,7 +5198,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     <Text
                                       style={[
                                         styles.milestoneValue,
-                                        { color: isSelected ? '#fff' : theme.text },
+                                        {
+                                          color: isSelected
+                                            ? "#fff"
+                                            : theme.text,
+                                        },
                                       ]}
                                     >
                                       {String(displayVal)}
@@ -5058,7 +5210,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     <Text
                                       style={[
                                         styles.milestoneOdds,
-                                        { color: isSelected ? '#fff' : colors.primary },
+                                        {
+                                          color: isSelected
+                                            ? "#fff"
+                                            : colors.primary,
+                                        },
                                       ]}
                                     >
                                       {odds
@@ -5284,12 +5440,26 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               style={[
                                 styles.ouButton,
                                 {
-                                  borderColor: isBetSelected(`game-${mi}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-ou-over`) ? colors.primary : theme.border,
-                                  backgroundColor: isBetSelected(`game-${mi}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-ou-over`) ? colors.primary : theme.surfaceSecondary,
+                                  borderColor: isBetSelected(
+                                    `game-${mi}-${marketLabel
+                                      .replace(/\s+/g, "-")
+                                      .toLowerCase()}-ou-over`
+                                  )
+                                    ? colors.primary
+                                    : theme.border,
+                                  backgroundColor: isBetSelected(
+                                    `game-${mi}-${marketLabel
+                                      .replace(/\s+/g, "-")
+                                      .toLowerCase()}-ou-over`
+                                  )
+                                    ? colors.primary
+                                    : theme.surfaceSecondary,
                                 },
                               ]}
                               onPress={() => {
-                                const betId = `game-${mi}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-ou-over`;
+                                const betId = `game-${mi}-${marketLabel
+                                  .replace(/\s+/g, "-")
+                                  .toLowerCase()}-ou-over`;
                                 if (isBetSelected(betId)) toggleBet(betId);
                                 else
                                   toggleBet({
@@ -5313,19 +5483,49 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               }}
                             >
                               <Text
-                                style={[styles.ouLabel, { color: isBetSelected(`game-${mi}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-ou-over`) ? '#fff' : theme.text }]}
+                                style={[
+                                  styles.ouLabel,
+                                  {
+                                    color: isBetSelected(
+                                      `game-${mi}-${marketLabel
+                                        .replace(/\s+/g, "-")
+                                        .toLowerCase()}-ou-over`
+                                    )
+                                      ? "#fff"
+                                      : theme.text,
+                                  },
+                                ]}
                               >
                                 Over
                               </Text>
                               <Text
-                                style={[styles.ouLine, { color: isBetSelected(`game-${mi}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-ou-over`) ? '#fff' : theme.text }]}
+                                style={[
+                                  styles.ouLine,
+                                  {
+                                    color: isBetSelected(
+                                      `game-${mi}-${marketLabel
+                                        .replace(/\s+/g, "-")
+                                        .toLowerCase()}-ou-over`
+                                    )
+                                      ? "#fff"
+                                      : theme.text,
+                                  },
+                                ]}
                               >
                                 {overVariant.bookmaker.overUnder}
                               </Text>
                               <Text
                                 style={[
                                   styles.ouOdds,
-                                  { color: isBetSelected(`game-${mi}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-ou-over`) ? '#fff' : colors.primary },
+                                  {
+                                    color: isBetSelected(
+                                      `game-${mi}-${marketLabel
+                                        .replace(/\s+/g, "-")
+                                        .toLowerCase()}-ou-over`
+                                    )
+                                      ? "#fff"
+                                      : colors.primary,
+                                  },
                                 ]}
                               >
                                 {formatOddsForDisplay(
@@ -5340,12 +5540,26 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               style={[
                                 styles.ouButton,
                                 {
-                                  borderColor: isBetSelected(`game-${mi}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-ou-under`) ? colors.primary : theme.border,
-                                  backgroundColor: isBetSelected(`game-${mi}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-ou-under`) ? colors.primary : theme.surfaceSecondary,
+                                  borderColor: isBetSelected(
+                                    `game-${mi}-${marketLabel
+                                      .replace(/\s+/g, "-")
+                                      .toLowerCase()}-ou-under`
+                                  )
+                                    ? colors.primary
+                                    : theme.border,
+                                  backgroundColor: isBetSelected(
+                                    `game-${mi}-${marketLabel
+                                      .replace(/\s+/g, "-")
+                                      .toLowerCase()}-ou-under`
+                                  )
+                                    ? colors.primary
+                                    : theme.surfaceSecondary,
                                 },
                               ]}
                               onPress={() => {
-                                const betId = `game-${mi}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-ou-under`;
+                                const betId = `game-${mi}-${marketLabel
+                                  .replace(/\s+/g, "-")
+                                  .toLowerCase()}-ou-under`;
                                 if (isBetSelected(betId)) toggleBet(betId);
                                 else
                                   toggleBet({
@@ -5369,19 +5583,49 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               }}
                             >
                               <Text
-                                style={[styles.ouLabel, { color: isBetSelected(`game-${mi}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-ou-under`) ? '#fff' : theme.text }]}
+                                style={[
+                                  styles.ouLabel,
+                                  {
+                                    color: isBetSelected(
+                                      `game-${mi}-${marketLabel
+                                        .replace(/\s+/g, "-")
+                                        .toLowerCase()}-ou-under`
+                                    )
+                                      ? "#fff"
+                                      : theme.text,
+                                  },
+                                ]}
                               >
                                 Under
                               </Text>
                               <Text
-                                style={[styles.ouLine, { color: isBetSelected(`game-${mi}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-ou-under`) ? '#fff' : theme.text }]}
+                                style={[
+                                  styles.ouLine,
+                                  {
+                                    color: isBetSelected(
+                                      `game-${mi}-${marketLabel
+                                        .replace(/\s+/g, "-")
+                                        .toLowerCase()}-ou-under`
+                                    )
+                                      ? "#fff"
+                                      : theme.text,
+                                  },
+                                ]}
                               >
                                 {underVariant.bookmaker.overUnder}
                               </Text>
                               <Text
                                 style={[
                                   styles.ouOdds,
-                                  { color: isBetSelected(`game-${mi}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-ou-under`) ? '#fff' : colors.primary },
+                                  {
+                                    color: isBetSelected(
+                                      `game-${mi}-${marketLabel
+                                        .replace(/\s+/g, "-")
+                                        .toLowerCase()}-ou-under`
+                                    )
+                                      ? "#fff"
+                                      : colors.primary,
+                                  },
                                 ]}
                               >
                                 {formatOddsForDisplay(
@@ -5413,7 +5657,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 const displayLine =
                                   lineValue || capitalizedSide;
                                 const oddsVal = ensureAmerican(bk.odds);
-                                const betId = `game-${mi}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-${side}`;
+                                const betId = `game-${mi}-${marketLabel
+                                  .replace(/\s+/g, "-")
+                                  .toLowerCase()}-${side}`;
                                 const isSelected = isBetSelected(betId);
                                 return (
                                   <TouchableOpacity
@@ -5421,8 +5667,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     style={[
                                       styles.ouButton,
                                       {
-                                        borderColor: isSelected ? colors.primary : theme.border,
-                                        backgroundColor: isSelected ? colors.primary : theme.surfaceSecondary,
+                                        borderColor: isSelected
+                                          ? colors.primary
+                                          : theme.border,
+                                        backgroundColor: isSelected
+                                          ? colors.primary
+                                          : theme.surfaceSecondary,
                                       },
                                     ]}
                                     onPress={() => {
@@ -5451,7 +5701,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     <Text
                                       style={[
                                         styles.ouLabel,
-                                        { color: isSelected ? '#fff' : theme.text },
+                                        {
+                                          color: isSelected
+                                            ? "#fff"
+                                            : theme.text,
+                                        },
                                       ]}
                                     >
                                       {label}
@@ -5459,7 +5713,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     <Text
                                       style={[
                                         styles.ouLine,
-                                        { color: isSelected ? '#fff' : theme.text },
+                                        {
+                                          color: isSelected
+                                            ? "#fff"
+                                            : theme.text,
+                                        },
                                       ]}
                                     >
                                       {displayLine}
@@ -5467,7 +5725,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     <Text
                                       style={[
                                         styles.ouOdds,
-                                        { color: isSelected ? '#fff' : colors.primary },
+                                        {
+                                          color: isSelected
+                                            ? "#fff"
+                                            : colors.primary,
+                                        },
                                       ]}
                                     >
                                       {oddsVal
@@ -5518,7 +5780,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   const odds = ensureAmerican(
                                     alt.odds ?? alt.odds
                                   );
-                                  const betId = `game-${mi}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-alt-over-${ai}`;
+                                  const betId = `game-${mi}-${marketLabel
+                                    .replace(/\s+/g, "-")
+                                    .toLowerCase()}-alt-over-${ai}`;
                                   const isSelected = isBetSelected(betId);
                                   return (
                                     <TouchableOpacity
@@ -5526,8 +5790,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                       style={[
                                         styles.milestoneButton,
                                         {
-                                          borderColor: isSelected ? colors.primary : theme.border,
-                                          backgroundColor: isSelected ? colors.primary : theme.surfaceSecondary,
+                                          borderColor: isSelected
+                                            ? colors.primary
+                                            : theme.border,
+                                          backgroundColor: isSelected
+                                            ? colors.primary
+                                            : theme.surfaceSecondary,
                                         },
                                       ]}
                                       onPress={() => {
@@ -5540,7 +5808,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                               gameData.id
                                             }_${sportToUse.toLowerCase()}`,
                                             sport: sportToUse,
-                                            period: overVariant?.periodID || null,
+                                            period:
+                                              overVariant?.periodID || null,
                                             gameInfo: {
                                               time:
                                                 gameData.statusDetail || "TBD",
@@ -5556,7 +5825,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                       <Text
                                         style={[
                                           styles.milestoneValue,
-                                          { color: isSelected ? '#fff' : theme.text },
+                                          {
+                                            color: isSelected
+                                              ? "#fff"
+                                              : theme.text,
+                                          },
                                         ]}
                                       >
                                         {displayVal}+
@@ -5564,7 +5837,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                       <Text
                                         style={[
                                           styles.milestoneOdds,
-                                          { color: isSelected ? '#fff' : colors.primary },
+                                          {
+                                            color: isSelected
+                                              ? "#fff"
+                                              : colors.primary,
+                                          },
                                         ]}
                                       >
                                         {odds
@@ -5614,7 +5891,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     const odds = ensureAmerican(
                                       alt.odds ?? alt.odds
                                     );
-                                    const betId = `game-${mi}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-alt-under-${ai}`;
+                                    const betId = `game-${mi}-${marketLabel
+                                      .replace(/\s+/g, "-")
+                                      .toLowerCase()}-alt-under-${ai}`;
                                     const isSelected = isBetSelected(betId);
                                     return (
                                       <TouchableOpacity
@@ -5622,8 +5901,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                         style={[
                                           styles.milestoneButton,
                                           {
-                                            borderColor: isSelected ? colors.primary : theme.border,
-                                            backgroundColor: isSelected ? colors.primary : theme.surfaceSecondary,
+                                            borderColor: isSelected
+                                              ? colors.primary
+                                              : theme.border,
+                                            backgroundColor: isSelected
+                                              ? colors.primary
+                                              : theme.surfaceSecondary,
                                           },
                                         ]}
                                         onPress={() => {
@@ -5636,7 +5919,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                                 gameData.id
                                               }_${sportToUse.toLowerCase()}`,
                                               sport: sportToUse,
-                                              period: underVariant?.periodID || null,
+                                              period:
+                                                underVariant?.periodID || null,
                                               gameInfo: {
                                                 time:
                                                   gameData.statusDetail ||
@@ -5653,7 +5937,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                         <Text
                                           style={[
                                             styles.milestoneValue,
-                                            { color: isSelected ? '#fff' : theme.text },
+                                            {
+                                              color: isSelected
+                                                ? "#fff"
+                                                : theme.text,
+                                            },
                                           ]}
                                         >
                                           {displayVal}-
@@ -5661,7 +5949,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                         <Text
                                           style={[
                                             styles.milestoneOdds,
-                                            { color: isSelected ? '#fff' : colors.primary },
+                                            {
+                                              color: isSelected
+                                                ? "#fff"
+                                                : colors.primary,
+                                            },
                                           ]}
                                         >
                                           {odds
@@ -5706,7 +5998,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     const odds = ensureAmerican(
                                       alt.odds ?? alt.odds
                                     );
-                                    const betId = `game-${mi}-${marketLabel.replace(/\s+/g, '-').toLowerCase()}-alt-other-${ai}`;
+                                    const betId = `game-${mi}-${marketLabel
+                                      .replace(/\s+/g, "-")
+                                      .toLowerCase()}-alt-other-${ai}`;
                                     const isSelected = isBetSelected(betId);
                                     return (
                                       <TouchableOpacity
@@ -5714,8 +6008,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                         style={[
                                           styles.milestoneButton,
                                           {
-                                            borderColor: isSelected ? colors.primary : theme.border,
-                                            backgroundColor: isSelected ? colors.primary : theme.surfaceSecondary,
+                                            borderColor: isSelected
+                                              ? colors.primary
+                                              : theme.border,
+                                            backgroundColor: isSelected
+                                              ? colors.primary
+                                              : theme.surfaceSecondary,
                                           },
                                         ]}
                                         onPress={() => {
@@ -5728,7 +6026,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                                 gameData.id
                                               }_${sportToUse.toLowerCase()}`,
                                               sport: sportToUse,
-                                              period: dkBySide.other?.[0]?.periodID || null,
+                                              period:
+                                                dkBySide.other?.[0]?.periodID ||
+                                                null,
                                               type: `${marketLabel} (Alt)`,
                                               description: `${displayVal}`,
                                               line: `${displayVal}`,
@@ -5739,7 +6039,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                         <Text
                                           style={[
                                             styles.milestoneValue,
-                                            { color: isSelected ? '#fff' : theme.text },
+                                            {
+                                              color: isSelected
+                                                ? "#fff"
+                                                : theme.text,
+                                            },
                                           ]}
                                         >
                                           {String(displayVal)}
@@ -5747,7 +6051,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                         <Text
                                           style={[
                                             styles.milestoneOdds,
-                                            { color: isSelected ? '#fff' : colors.primary },
+                                            {
+                                              color: isSelected
+                                                ? "#fff"
+                                                : colors.primary,
+                                            },
                                           ]}
                                         >
                                           {odds
