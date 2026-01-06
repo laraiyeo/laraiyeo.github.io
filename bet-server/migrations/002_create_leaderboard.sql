@@ -114,18 +114,32 @@ BEGIN
         v_credits_start := v_credits_current;
       END IF;
 
-      -- Compute multiplier as (current / start) rounded to 2 decimals; protect divide-by-zero
-      IF v_credits_start IS NULL OR v_credits_start = 0 THEN
+      -- Compute multiplier:
+      -- If credits_current < credits_start then multiplier := (start / current) * -1
+      -- Otherwise multiplier := (current / start). Protect divide-by-zero and nulls.
+      IF v_credits_start IS NULL OR v_credits_start = 0 OR v_credits_current IS NULL OR v_credits_current = 0 THEN
         v_multiplier := 0;
       ELSE
-        v_multiplier := ROUND((v_credits_current::numeric / v_credits_start::numeric)::numeric, 2);
+        IF v_credits_current < v_credits_start THEN
+          v_multiplier := ROUND((v_credits_start::numeric / v_credits_current::numeric) * -1, 2);
+        ELSE
+          v_multiplier := ROUND((v_credits_current::numeric / v_credits_start::numeric)::numeric, 2);
+        END IF;
       END IF;
 
       -- Upsert: save credits_current and computed multiplier. Do NOT increment total_bets here (we count placed bets on insert).
       INSERT INTO public.leaderboard (user_id, username, multiplier, total_bets, first_bet, credits_start, credits_current, updated_at)
       VALUES (v_user, v_username, v_multiplier, 0, NEW.created_at, v_credits_start, v_credits_current, now())
       ON CONFLICT (user_id) DO UPDATE
-      SET multiplier = ROUND((EXCLUDED.credits_current::numeric / COALESCE(public.leaderboard.credits_start, EXCLUDED.credits_start))::numeric, 2),
+      SET multiplier = (
+            CASE
+              WHEN COALESCE(EXCLUDED.credits_current,0) = 0 OR COALESCE(public.leaderboard.credits_start, EXCLUDED.credits_start) = 0 THEN 0
+              WHEN EXCLUDED.credits_current < COALESCE(public.leaderboard.credits_start, EXCLUDED.credits_start) THEN
+                ROUND((COALESCE(public.leaderboard.credits_start, EXCLUDED.credits_start)::numeric / EXCLUDED.credits_current::numeric) * -1, 2)
+              ELSE
+                ROUND((EXCLUDED.credits_current::numeric / COALESCE(public.leaderboard.credits_start, EXCLUDED.credits_start)::numeric)::numeric, 2)
+            END
+          ),
           credits_current = EXCLUDED.credits_current,
           username = COALESCE(EXCLUDED.username, public.leaderboard.username),
           first_bet = COALESCE(public.leaderboard.first_bet, EXCLUDED.first_bet),

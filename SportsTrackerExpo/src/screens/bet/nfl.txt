@@ -1,0 +1,1815 @@
+{
+  "boxscore": {
+    "teams": [
+      {
+        "team": {
+          "id": "33",
+          "abbreviation": "BAL",
+          "displayName": "Baltimore Ravens",
+          "shortDisplayName": "Ravens",
+          "color": "29126f",
+          "alternateColor": "000000"
+        },
+        "statistics": {
+          "1st Downs": "11",
+          "Passing 1st downs": "4",
+          "Rushing 1st downs": "6",
+          "1st downs from penalties": "1",
+          "3rd down efficiency": "4-11",
+          "4th down efficiency": "1-1",
+          "Total Plays": "43",
+          "Total Yards": "327",
+          "Yards per Play": "7.6",
+          "Total Drives": "9",
+          "Passing": "188",
+          "Comp/Att": "9/14",
+          "Yards per pass": "11.1",
+          "Interceptions thrown": "1",
+          "Sacks-Yards Lost": "3-16",
+          "Rushing": "139",
+          "Rushing Attempts": "26",
+          "Yards per rush": "5.3",
+          "Red Zone (Made-Att)": "0-0",
+          "Penalties": "8-73",
+          "Turnovers": "1",
+          "Fumbles lost": "0",
+          "Defensive / Special Teams TDs": "0",
+          "Possession": "24:54"
+        },
+        "homeAway": "away"
+      },
+      {
+        "team": {
+          "id": "23",
+          "abbreviation": "PIT",
+          "displayName": "Pittsburgh Steelers",
+          "shortDisplayName": "Steelers",
+          "color": "000000",
+          "alternateColor": "ffb612"
+        },
+        "statistics": {
+          "1st Downs": "24",
+          "Passing 1st downs": "14",
+          "Rushing 1st downs": "8",
+          "1st downs from penalties": "2",
+          "3rd down efficiency": "9-16",
+          "4th down efficiency": "1-2",
+          "Total Plays": "73",
+          "Total Yards": "390",
+          "Yards per Play": "5.3",
+          "Total Drives": "10",
+          "Passing": "290",
+          "Comp/Att": "31/47",
+          "Yards per pass": "5.9",
+          "Interceptions thrown": "0",
+          "Sacks-Yards Lost": "2-4",
+          "Rushing": "100",
+          "Rushing Attempts": "24",
+          "Yards per rush": "4.2",
+          "Red Zone (Made-Att)": "2-4",
+          "Penalties": "5-45",
+          "Turnovers": "0",
+          "Fumbles lost": "0",
+          "Defensive / Special Teams TDs": "0",
+          "Possession": "34:11"
+        },
+        "homeAway": "home"
+      }
+    ],
+    "players": [
+      {
+        "team": {
+          "id": "33",
+          "abbreviation": "BAL",
+          "displayName": "Baltimore Ravens"
+        },
+        "statistics": {
+          "athletes": [
+            {
+              "athlete": {
+                "id": "15795",
+                "displayName": "DeAndre Hopkins",
+                "jersey": "10",
+                "position": null
+              },
+              "stats": {
+                "receiving": {
+                  "REC": 0,
+                  "YDS": 0,
+                  "AVG": 0,
+                  "TD": 0,
+                  "LONG": 0,
+                  "TGTS": 1
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "15846",
+                "displayName": "John Jenkins",
+                "jersey": "94",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 3,
+                  "SOLO": 0,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "16772",
+                "displayName": "Kyle Van Noy",
+                "jersey": "53",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 2,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "16831",
+                "displayName": "Brent Urban",
+                "jersey": "97",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 3,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "2975417",
+                "displayName": "Patrick Ricard",
+                "jersey": "42",
+                "position": null
+              },
+              "stats": {
+                "receiving": {
+                  "REC": 1,
+                  "YDS": 8,
+                  "AVG": 8,
+                  "TD": 0,
+                  "LONG": 8,
+                  "TGTS": 1
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "2980153",
+                "displayName": "Ronnie Stanley",
+                "jersey": "79",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 1,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "3043078",
+                "displayName": "Derrick Henry",
+                "jersey": "22",
+                "position": null
+              },
+              "stats": {
+                "rushing": {
+                  "CAR": 20,
+                  "YDS": 126,
+                  "AVG": 6.3,
+                  "TD": 0,
+                  "LONG": 41
+                },
+                "receiving": {
+                  "REC": 0,
+                  "YDS": 0,
+                  "AVG": 0,
+                  "TD": 0,
+                  "LONG": 0,
+                  "TGTS": 1
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "3052101",
+                "displayName": "Chidobe Awuzie",
+                "jersey": "3",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 7,
+                  "SOLO": 6,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "3116365",
+                "displayName": "Mark Andrews",
+                "jersey": "89",
+                "position": null
+              },
+              "stats": {
+                "receiving": {
+                  "REC": 2,
+                  "YDS": 14,
+                  "AVG": 7,
+                  "TD": 0,
+                  "LONG": 8,
+                  "TGTS": 3
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "3126356",
+                "displayName": "Marlon Humphrey",
+                "jersey": "44",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 7,
+                  "SOLO": 5,
+                  "SACKS": 0,
+                  "TFL": 1,
+                  "PD": 1,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "3915189",
+                "displayName": "Roquan Smith",
+                "jersey": "0",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 3,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "3916387",
+                "displayName": "Lamar Jackson",
+                "jersey": "8",
+                "position": null
+              },
+              "stats": {
+                "passing": {
+                  "C/ATT": "9/14",
+                  "YDS": 204,
+                  "AVG": 14.6,
+                  "TD": 3,
+                  "INT": 1,
+                  "SACKS": "3-16",
+                  "RTG": 117.6
+                },
+                "rushing": {
+                  "CAR": 3,
+                  "YDS": 11,
+                  "AVG": 3.7,
+                  "TD": 0,
+                  "LONG": 5
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4039413",
+                "displayName": "Alohi Gilman",
+                "jersey": "12",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 8,
+                  "SOLO": 6,
+                  "SACKS": 0,
+                  "TFL": 1,
+                  "PD": 1,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4241250",
+                "displayName": "Jake Hummel",
+                "jersey": "35",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 1,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4260224",
+                "displayName": "Jordan Stout",
+                "jersey": "11",
+                "position": null
+              },
+              "stats": {
+                "punting": {
+                  "NO": 4,
+                  "YDS": 191,
+                  "AVG": 47.8,
+                  "TB": 0,
+                  "In 20": 3,
+                  "LONG": 54
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4361050",
+                "displayName": "Isaiah Likely",
+                "jersey": "80",
+                "position": null
+              },
+              "stats": {
+                "receiving": {
+                  "REC": 1,
+                  "YDS": 6,
+                  "AVG": 6,
+                  "TD": 0,
+                  "LONG": 6,
+                  "TGTS": 1
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4362139",
+                "displayName": "Travis Jones",
+                "jersey": "98",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 5,
+                  "SOLO": 1,
+                  "SACKS": 1,
+                  "TFL": 1,
+                  "PD": 0,
+                  "QB HTS": 1,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4362492",
+                "displayName": "Ar'Darius Washington",
+                "jersey": "29",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 2,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4426507",
+                "displayName": "David Ojabo",
+                "jersey": "90",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 1,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4429615",
+                "displayName": "Zay Flowers",
+                "jersey": "4",
+                "position": null
+              },
+              "stats": {
+                "receiving": {
+                  "REC": 4,
+                  "YDS": 138,
+                  "AVG": 34.5,
+                  "TD": 2,
+                  "LONG": 64,
+                  "TGTS": 6
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4430831",
+                "displayName": "Trenton Simpson",
+                "jersey": "32",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 9,
+                  "SOLO": 6,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4565350",
+                "displayName": "Jay Higgins IV",
+                "jersey": "49",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 2,
+                  "SOLO": 0,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4575517",
+                "displayName": "Kyle Hamilton",
+                "jersey": "14",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 9,
+                  "SOLO": 6,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 1,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4596334",
+                "displayName": "Keaton Mitchell",
+                "jersey": "34",
+                "position": null
+              },
+              "stats": {
+                "rushing": {
+                  "CAR": 2,
+                  "YDS": 2,
+                  "AVG": 1,
+                  "TD": 0,
+                  "LONG": 3
+                },
+                "kickreturns": {
+                  "NO": 1,
+                  "YDS": 19,
+                  "AVG": 19,
+                  "LONG": 19,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4601278",
+                "displayName": "Nate Wiggins",
+                "jersey": "2",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 4,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 2,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4683188",
+                "displayName": "Mike Green",
+                "jersey": "45",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 2,
+                  "SOLO": 0,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 1,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4685530",
+                "displayName": "Malaki Starks",
+                "jersey": "24",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 2,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4690013",
+                "displayName": "Rasheen Ali",
+                "jersey": "26",
+                "position": null
+              },
+              "stats": {
+                "rushing": {
+                  "CAR": 1,
+                  "YDS": 0,
+                  "AVG": 0,
+                  "TD": 0,
+                  "LONG": 0
+                },
+                "kickreturns": {
+                  "NO": 2,
+                  "YDS": 51,
+                  "AVG": 25.5,
+                  "LONG": 29,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4690143",
+                "displayName": "LaJohntay Wester",
+                "jersey": "83",
+                "position": null
+              },
+              "stats": {
+                "kickreturns": {
+                  "NO": 1,
+                  "YDS": 19,
+                  "AVG": 19,
+                  "LONG": 19,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4690179",
+                "displayName": "Tavius Robinson",
+                "jersey": "95",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 6,
+                  "SOLO": 3,
+                  "SACKS": 1,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 1,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4696882",
+                "displayName": "Devontez Walker",
+                "jersey": "81",
+                "position": null
+              },
+              "stats": {
+                "receiving": {
+                  "REC": 1,
+                  "YDS": 38,
+                  "AVG": 38,
+                  "TD": 1,
+                  "LONG": 38,
+                  "TGTS": 1
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4697745",
+                "displayName": "Tyler Loop",
+                "jersey": "33",
+                "position": null
+              },
+              "stats": {
+                "kicking": {
+                  "FG": "1/1",
+                  "PCT": 100,
+                  "LONG": 40,
+                  "XP": "3/3",
+                  "PTS": 6
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4878287",
+                "displayName": "Keondre Jackson",
+                "jersey": "39",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 1,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "team": {
+          "id": "23",
+          "abbreviation": "PIT",
+          "displayName": "Pittsburgh Steelers"
+        },
+        "statistics": {
+          "athletes": [
+            {
+              "athlete": {
+                "id": "8439",
+                "displayName": "Aaron Rodgers",
+                "jersey": "8",
+                "position": null
+              },
+              "stats": {
+                "passing": {
+                  "C/ATT": "31/47",
+                  "YDS": 294,
+                  "AVG": 6.3,
+                  "TD": 1,
+                  "INT": 0,
+                  "SACKS": "2-4",
+                  "RTG": 90.2
+                },
+                "rushing": {
+                  "CAR": 1,
+                  "YDS": 20,
+                  "AVG": 20,
+                  "TD": 0,
+                  "LONG": 20
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "13977",
+                "displayName": "Cameron Heyward",
+                "jersey": "97",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 7,
+                  "SOLO": 5,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 1,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "16460",
+                "displayName": "Adam Thielen",
+                "jersey": "16",
+                "position": null
+              },
+              "stats": {
+                "receiving": {
+                  "REC": 3,
+                  "YDS": 43,
+                  "AVG": 14.3,
+                  "TD": 0,
+                  "LONG": 28,
+                  "TGTS": 6
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "17372",
+                "displayName": "Chris Boswell",
+                "jersey": "9",
+                "position": null
+              },
+              "stats": {
+                "kicking": {
+                  "FG": "2/2",
+                  "PCT": 100,
+                  "LONG": 57,
+                  "XP": "2/3",
+                  "PTS": 8
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "3045282",
+                "displayName": "T.J. Watt",
+                "jersey": "90",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 2,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 1,
+                  "QB HTS": 0,
+                  "TD": 0
+                },
+                "interceptions": {
+                  "INT": 1,
+                  "YDS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "3045373",
+                "displayName": "Jalen Ramsey",
+                "jersey": "5",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 5,
+                  "SOLO": 3,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 1,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "3045463",
+                "displayName": "Chuck Clark",
+                "jersey": "21",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 1,
+                  "SOLO": 0,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "3051738",
+                "displayName": "Marquez Valdes-Scantling",
+                "jersey": "11",
+                "position": null
+              },
+              "stats": {
+                "receiving": {
+                  "REC": 5,
+                  "YDS": 34,
+                  "AVG": 6.8,
+                  "TD": 0,
+                  "LONG": 13,
+                  "TGTS": 7
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "3054212",
+                "displayName": "Jonnu Smith",
+                "jersey": "81",
+                "position": null
+              },
+              "stats": {
+                "rushing": {
+                  "CAR": 1,
+                  "YDS": 2,
+                  "AVG": 2,
+                  "TD": 0,
+                  "LONG": 2
+                },
+                "receiving": {
+                  "REC": 1,
+                  "YDS": 2,
+                  "AVG": 2,
+                  "TD": 0,
+                  "LONG": 2,
+                  "TGTS": 2
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "3125280",
+                "displayName": "Corliss Waitman",
+                "jersey": "3",
+                "position": null
+              },
+              "stats": {
+                "punting": {
+                  "NO": 3,
+                  "YDS": 119,
+                  "AVG": 39.7,
+                  "TB": 0,
+                  "In 20": 1,
+                  "LONG": 53
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "3914397",
+                "displayName": "Scotty Miller",
+                "jersey": "13",
+                "position": null
+              },
+              "stats": {
+                "receiving": {
+                  "REC": 2,
+                  "YDS": 9,
+                  "AVG": 4.5,
+                  "TD": 0,
+                  "LONG": 5,
+                  "TGTS": 2
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4035656",
+                "displayName": "Ben Skowronek",
+                "jersey": "15",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 1,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4037333",
+                "displayName": "Alex Highsmith",
+                "jersey": "56",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 2,
+                  "SOLO": 2,
+                  "SACKS": 1,
+                  "TFL": 2,
+                  "PD": 1,
+                  "QB HTS": 1,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4040615",
+                "displayName": "Malik Harrison",
+                "jersey": "50",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 5,
+                  "SOLO": 3,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4240759",
+                "displayName": "Esezi Otomewo",
+                "jersey": "93",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 1,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4241961",
+                "displayName": "Connor Heyward",
+                "jersey": "83",
+                "position": null
+              },
+              "stats": {
+                "rushing": {
+                  "CAR": 3,
+                  "YDS": 2,
+                  "AVG": 0.7,
+                  "TD": 1,
+                  "LONG": 1
+                },
+                "receiving": {
+                  "REC": 1,
+                  "YDS": 3,
+                  "AVG": 3,
+                  "TD": 0,
+                  "LONG": 3,
+                  "TGTS": 1
+                },
+                "defensive": {
+                  "TOT": 2,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4242207",
+                "displayName": "Patrick Queen",
+                "jersey": "6",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 1,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4243389",
+                "displayName": "Calvin Austin III",
+                "jersey": "19",
+                "position": null
+              },
+              "stats": {
+                "receiving": {
+                  "REC": 3,
+                  "YDS": 55,
+                  "AVG": 18.3,
+                  "TD": 1,
+                  "LONG": 26,
+                  "TGTS": 7
+                },
+                "puntreturns": {
+                  "NO": 2,
+                  "YDS": 11,
+                  "AVG": 5.5,
+                  "LONG": 9,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4259252",
+                "displayName": "James Pierre",
+                "jersey": "42",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 2,
+                  "SOLO": 2,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4361411",
+                "displayName": "Pat Freiermuth",
+                "jersey": "88",
+                "position": null
+              },
+              "stats": {
+                "receiving": {
+                  "REC": 3,
+                  "YDS": 51,
+                  "AVG": 17,
+                  "TD": 0,
+                  "LONG": 31,
+                  "TGTS": 5
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4361652",
+                "displayName": "Payton Wilson",
+                "jersey": "41",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 3,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4363034",
+                "displayName": "Asante Samuel Jr.",
+                "jersey": "22",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 1,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4371733",
+                "displayName": "Kenneth Gainwell",
+                "jersey": "14",
+                "position": null
+              },
+              "stats": {
+                "rushing": {
+                  "CAR": 5,
+                  "YDS": 10,
+                  "AVG": 2,
+                  "TD": 1,
+                  "LONG": 6
+                },
+                "receiving": {
+                  "REC": 8,
+                  "YDS": 64,
+                  "AVG": 8,
+                  "TD": 0,
+                  "LONG": 15,
+                  "TGTS": 9
+                },
+                "kickreturns": {
+                  "NO": 1,
+                  "YDS": 32,
+                  "AVG": 32,
+                  "LONG": 32,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4401811",
+                "displayName": "Kyle Dugger",
+                "jersey": "29",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 2,
+                  "SOLO": 0,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4426506",
+                "displayName": "Joey Porter Jr.",
+                "jersey": "24",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 1,
+                  "SOLO": 0,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4426694",
+                "displayName": "Keeanu Benton",
+                "jersey": "95",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 7,
+                  "SOLO": 4,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4429164",
+                "displayName": "Nick Herbig",
+                "jersey": "51",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 1,
+                  "SOLO": 1,
+                  "SACKS": 1,
+                  "TFL": 1,
+                  "PD": 0,
+                  "QB HTS": 1,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4429490",
+                "displayName": "Carson Bruener",
+                "jersey": "44",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 1,
+                  "SOLO": 0,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4431590",
+                "displayName": "Jack Sawyer",
+                "jersey": "33",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 1,
+                  "SOLO": 1,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4569474",
+                "displayName": "Logan Lee",
+                "jersey": "91",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 0,
+                  "SOLO": 0,
+                  "SACKS": 0,
+                  "TFL": 0,
+                  "PD": 1,
+                  "QB HTS": 0,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4569987",
+                "displayName": "Jaylen Warren",
+                "jersey": "30",
+                "position": null
+              },
+              "stats": {
+                "rushing": {
+                  "CAR": 14,
+                  "YDS": 66,
+                  "AVG": 4.7,
+                  "TD": 0,
+                  "LONG": 15
+                },
+                "receiving": {
+                  "REC": 5,
+                  "YDS": 33,
+                  "AVG": 6.6,
+                  "TD": 0,
+                  "LONG": 17,
+                  "TGTS": 5
+                },
+                "kickreturns": {
+                  "NO": 2,
+                  "YDS": 59,
+                  "AVG": 29.5,
+                  "LONG": 31,
+                  "TD": 0
+                }
+              }
+            },
+            {
+              "athlete": {
+                "id": "4682980",
+                "displayName": "Derrick Harmon",
+                "jersey": "99",
+                "position": null
+              },
+              "stats": {
+                "defensive": {
+                  "TOT": 2,
+                  "SOLO": 2,
+                  "SACKS": 1,
+                  "TFL": 0,
+                  "PD": 0,
+                  "QB HTS": 1,
+                  "TD": 0
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "firstTouchdown": {
+    "athleteId": "4696882",
+    "athleteName": "Devontez Walker",
+    "teamId": "33",
+    "teamDisplayName": "Baltimore Ravens",
+    "text": "Devontez Walker 38 Yd pass from Lamar Jackson (Tyler Loop Kick)",
+    "period": 1
+  },
+  "gameInfo": {
+    "venue": "Acrisure Stadium"
+  },
+  "injuries": [
+    {
+      "team": {
+        "id": "23",
+        "displayName": "Pittsburgh Steelers",
+        "abbreviation": "PIT"
+      },
+      "injuries": [
+        {
+          "4431492": "Roman Wilson"
+        },
+        {
+          "4819231": "Kaleb Johnson"
+        },
+        {
+          "4429955": "Will Howard"
+        },
+        {
+          "4034959": "Jeremiah Moon"
+        },
+        {
+          "3046326": "Tre Flowers"
+        }
+      ]
+    },
+    {
+      "team": {
+        "id": "33",
+        "displayName": "Baltimore Ravens",
+        "abbreviation": "BAL"
+      },
+      "injuries": [
+        {
+          "4243220": "Andrew Vorhees"
+        },
+        {
+          "4575517": "Kyle Hamilton"
+        },
+        {
+          "2972515": "Cooper Rush"
+        },
+        {
+          "4565311": "Aeneas Peebles"
+        },
+        {
+          "3116175": "Amani Oruwariye"
+        }
+      ]
+    }
+  ],
+  "pickcenter": {
+    "details": "BAL -4.5",
+    "overUnder": 41.5,
+    "spread": 4.5,
+    "overOdds": -110,
+    "underOdds": -110,
+    "moneyline": {
+      "home": {
+        "line": 170,
+        "odds": 170
+      },
+      "away": {
+        "line": -205,
+        "odds": -205
+      }
+    },
+    "pointSpread": {
+      "home": {
+        "line": 4.5,
+        "odds": -115
+      },
+      "away": {
+        "line": -4.5,
+        "odds": -105
+      }
+    },
+    "total": {
+      "over": {
+        "home": {
+          "line": 41.5,
+          "odds": -110
+        },
+        "away": {
+          "line": 41.5,
+          "odds": -110
+        }
+      },
+      "under": {
+        "home": {
+          "line": 41.5,
+          "odds": -110
+        },
+        "away": {
+          "line": 41.5,
+          "odds": -110
+        }
+      }
+    }
+  },
+  "winprobability": [0.4113, 0.4052, 0.3746, 0.3821, 0.3625, 0.3562, 0.3756, 0.3603, 0.4174, 0.2658, 0.2641, 0.2808, 0.3021, 0.2779, 0.2659, 0.248, 0.2501, 0.25, 0.2638, 0.2436, 0.2373, 0.2523, 0.2218, 0.2279, 0.2351, 0.2699, 0.265, 0.266, 0.2563, 0.2518, 0.2774, 0.2839, 0.2759, 0.2406, 0.2044, 0.2083, 0.1835, 0.1858, 0.1814, 0.1876, 0.2125, 0.1957, 0.1957, 0.1989, 0.1913, 0.1843, 0.2124, 0.231, 0.2113, 0.2133, 0.1814, 0.2338, 0.2338, 0.2211, 0.2529, 0.252, 0.2623, 0.2594, 0.2439, 0.2436, 0.2301, 0.2223, 0.2098, 0.2041, 0.218, 0.2179, 0.1942, 0.207, 0.2166, 0.2356, 0.2378, 0.2317, 0.2315, 0.2478, 0.237, 0.2365, 0.2283, 0.2738, 0.2905, 0.3052, 0.3, 0.3279, 0.3047, 0.3329, 0.3323, 0.3216, 0.3112, 0.3131, 0.3137, 0.3116, 0.3147, 0.2323, 0.2793, 0.2838, 0.2792, 0.2564, 0.2435, 0.2434, 0.295, 0.2746, 0.3593, 0.343, 0.3559, 0.2814, 0.3735, 0.4287, 0.4317, 0.4122, 0.4324, 0.4452, 0.5637, 0.6179, 0.5986, 0.6364, 0.6246, 0.6226, 0.5293, 0.5412, 0.5412, 0.5395, 0.5462, 0.5197, 0.5538, 0.5801, 0.5948, 0.5959, 0.5723, 0.5734, 0.5841, 0.6023, 0.6038, 0.6093, 0.5517, 0.575, 0.6495, 0.6239, 0.6226, 0.5755, 0.5619, 0.5635, 0.5221, 0.5487, 0.5466, 0.2649, 0.2604, 0.3038, 0.3292, 0.3668, 0.3656, 0.362, 0.37, 0.3028, 0.4995, 0.4942, 0.4796, 0.466, 0.4524, 0.668, 0.6625, 0.6975, 0.6096, 0.1648, 0.2099, 0.2701, 0.2603, 0.3296, 0.3816, 0.2807, 0.2267, 0.7023],
+  "drives": {
+    "id": "4017729603887",
+    "sequenceNumber": "388700",
+    "type": {
+      "id": "67",
+      "text": "Passing Touchdown",
+      "abbreviation": "TD"
+    },
+    "text": "(Shotgun) A.Rodgers pass deep left to C.Austin for 26 yards, TOUCHDOWN.",
+    "awayScore": 24,
+    "homeScore": 26,
+    "period": {
+      "number": 4
+    },
+    "clock": {
+      "displayValue": "0:55"
+    },
+    "scoringPlay": true,
+    "priority": false,
+    "scoreValue": 6,
+    "modified": "2026-01-05T04:25Z",
+    "participants": [
+      {
+        "athlete": {
+          "id": "8439",
+          "uid": "s:20~l:28~a:8439",
+          "guid": "5fbab03e-2816-55ab-ae10-83b132803d9e",
+          "lastName": "Rodgers",
+          "fullName": "Aaron Rodgers",
+          "displayName": "Aaron Rodgers",
+          "shortName": "A. Rodgers",
+          "links": [
+            {
+              "rel": [
+                "playercard",
+                "desktop",
+                "athlete"
+              ],
+              "href": "https://www.espn.com/nfl/player/_/id/8439/aaron-rodgers",
+              "text": "Player Card"
+            }
+          ],
+          "headshot": {
+            "href": "https://a.espncdn.com/i/headshots/nfl/players/full/8439.png",
+            "alt": "Aaron Rodgers"
+          },
+          "jersey": "8",
+          "position": {
+            "name": "Quarterback",
+            "displayName": "Quarterback",
+            "abbreviation": "QB"
+          },
+          "team": {
+            "abbreviation": "PIT"
+          },
+          "collegeAthlete": {
+            "$ref": "http://sports.core.api.espn.pvt/v2/sports/football/leagues/college-football/athletes/144994?lang=en&region=us"
+          },
+          "status": {
+            "id": "1",
+            "name": "Active",
+            "type": "active",
+            "abbreviation": "Active"
+          }
+        },
+        "playStatistics": {
+          "$ref": "http://sports.core.api.espn.pvt/v2/sports/football/leagues/nfl/events/401772960/competitions/401772960/plays/4017729603887/participants/8439/statistics/0?lang=en&region=us"
+        },
+        "type": "passer",
+        "stats": []
+      },
+      {
+        "athlete": {
+          "id": "4243389",
+          "uid": "s:20~l:28~a:4243389",
+          "guid": "ac6cdad8-a75e-2bac-59a0-ad2a99753d98",
+          "lastName": "Austin III",
+          "fullName": "Calvin Austin III",
+          "displayName": "Calvin Austin III",
+          "shortName": "C. Austin III",
+          "links": [
+            {
+              "rel": [
+                "playercard",
+                "desktop",
+                "athlete"
+              ],
+              "href": "https://www.espn.com/nfl/player/_/id/4243389/calvin-austin-iii",
+              "text": "Player Card"
+            }
+          ],
+          "headshot": {
+            "href": "https://a.espncdn.com/i/headshots/nfl/players/full/4243389.png",
+            "alt": "Calvin Austin III"
+          },
+          "jersey": "19",
+          "position": {
+            "name": "Wide Receiver",
+            "displayName": "Wide Receiver",
+            "abbreviation": "WR"
+          },
+          "team": {
+            "abbreviation": "PIT"
+          },
+          "collegeAthlete": {
+            "$ref": "http://sports.core.api.espn.pvt/v2/sports/football/leagues/college-football/athletes/4243389?lang=en&region=us"
+          },
+          "status": {
+            "id": "1",
+            "name": "Active",
+            "type": "active",
+            "abbreviation": "Active"
+          }
+        },
+        "playStatistics": {
+          "$ref": "http://sports.core.api.espn.pvt/v2/sports/football/leagues/nfl/events/401772960/competitions/401772960/plays/4017729603887/participants/4243389/statistics/0?lang=en&region=us"
+        },
+        "type": "receiver",
+        "stats": []
+      },
+      {
+        "athlete": {
+          "id": "4243389",
+          "uid": "s:20~l:28~a:4243389",
+          "guid": "ac6cdad8-a75e-2bac-59a0-ad2a99753d98",
+          "lastName": "Austin III",
+          "fullName": "Calvin Austin III",
+          "displayName": "Calvin Austin III",
+          "shortName": "C. Austin III",
+          "links": [
+            {
+              "rel": [
+                "playercard",
+                "desktop",
+                "athlete"
+              ],
+              "href": "https://www.espn.com/nfl/player/_/id/4243389/calvin-austin-iii",
+              "text": "Player Card"
+            }
+          ],
+          "headshot": {
+            "href": "https://a.espncdn.com/i/headshots/nfl/players/full/4243389.png",
+            "alt": "Calvin Austin III"
+          },
+          "jersey": "19",
+          "position": {
+            "name": "Wide Receiver",
+            "displayName": "Wide Receiver",
+            "abbreviation": "WR"
+          },
+          "team": {
+            "abbreviation": "PIT"
+          },
+          "collegeAthlete": {
+            "$ref": "http://sports.core.api.espn.pvt/v2/sports/football/leagues/college-football/athletes/4243389?lang=en&region=us"
+          },
+          "status": {
+            "id": "1",
+            "name": "Active",
+            "type": "active",
+            "abbreviation": "Active"
+          }
+        },
+        "playStatistics": {
+          "$ref": "http://sports.core.api.espn.pvt/v2/sports/football/leagues/nfl/events/401772960/competitions/401772960/plays/4017729603887/participants/4243389/statistics/0?lang=en&region=us"
+        },
+        "type": "scorer",
+        "stats": []
+      }
+    ],
+    "wallclock": "2026-01-05T04:24:27Z",
+    "teamParticipants": [
+      {
+        "team": {
+          "$ref": "http://sports.core.api.espn.pvt/v2/sports/football/leagues/nfl/seasons/2025/teams/23?lang=en&region=us"
+        },
+        "id": "23",
+        "statistics": {
+          "$ref": "http://sports.core.api.espn.pvt/v2/sports/football/leagues/nfl/events/401772960/competitions/401772960/plays/4017729603887/teams/23/statistics/1?lang=en&region=us"
+        },
+        "playStatistics": {
+          "$ref": "http://sports.core.api.espn.pvt/v2/sports/football/leagues/nfl/events/401772960/competitions/401772960/plays/4017729603887/teams/23/statistics/0?lang=en&region=us"
+        },
+        "order": 1,
+        "type": "offense"
+      },
+      {
+        "team": {
+          "$ref": "http://sports.core.api.espn.pvt/v2/sports/football/leagues/nfl/seasons/2025/teams/33?lang=en&region=us"
+        },
+        "id": "33",
+        "order": 2,
+        "type": "defense"
+      }
+    ],
+    "start": {
+      "down": 3,
+      "distance": 10,
+      "yardLine": 74,
+      "yardsToEndzone": 26,
+      "downDistanceText": "3rd & 10 at BAL 26",
+      "shortDownDistanceText": "3rd & 10",
+      "possessionText": "BAL 26",
+      "team": {
+        "id": "23"
+      }
+    },
+    "end": {
+      "down": -1,
+      "distance": 10,
+      "yardLine": 100,
+      "yardsToEndzone": 0,
+      "team": {
+        "id": "23"
+      }
+    },
+    "statYardage": 26,
+    "scoringType": {
+      "name": "touchdown",
+      "displayName": "Touchdown",
+      "abbreviation": "TD"
+    },
+    "pointAfterAttempt": {
+      "id": 0,
+      "text": "Not Available",
+      "abbreviation": "NA",
+      "value": 0
+    },
+    "yardsAfterCatch": 0
+  },
+  "header": {
+    "id": "401772960",
+    "season": {
+      "year": 2025,
+      "current": true,
+      "type": 2
+    },
+    "competitions": [
+      {
+        "date": "2026-01-05T01:20Z",
+        "competitors": [
+          {
+            "homeAway": "home",
+            "team": {
+              "id": "23",
+              "abbreviation": "PIT",
+              "displayName": "Pittsburgh Steelers",
+              "color": "000000",
+              "alternateColor": "ffb612"
+            },
+            "score": "26",
+            "linescores": {
+              "1": "0",
+              "2": "3",
+              "3": "10",
+              "4": "13"
+            },
+            "record": {
+              "summary": "9-7"
+            }
+          },
+          {
+            "homeAway": "away",
+            "team": {
+              "id": "33",
+              "abbreviation": "BAL",
+              "displayName": "Baltimore Ravens",
+              "color": "29126f",
+              "alternateColor": "000000"
+            },
+            "score": "24",
+            "linescores": {
+              "1": "7",
+              "2": "3",
+              "3": "0",
+              "4": "14"
+            },
+            "record": {
+              "summary": "8-8"
+            }
+          }
+        ],
+        "status": {
+          "displayClock": "0:55",
+          "period": 4,
+          "type": {
+            "state": "in",
+            "completed": false,
+            "detail": "0:55 - 4th Quarter",
+            "shortDetail": "0:55 - 4th"
+          }
+        }
+      }
+    ]
+  }
+}

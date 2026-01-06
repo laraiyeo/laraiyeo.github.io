@@ -13,6 +13,7 @@ http://localhost:3000/api/betslip?gameId=401810322_nba&moneyline=NY&spread=NY-4.
 BREAKDOWN (NBA):
 Team Bets:
 - moneyline=NY (NY wins)
+- moneylineReg=NY (NY wins in Regulation (can accept DRAW))
 - spread=NY-4.5 (NY wins by more than 4.5)
 - total=237.5+ (total points over 237.5 using +/- notation)
 - homePoints=120.5+ (home team points over 120.5 using +/- notation)
@@ -67,6 +68,7 @@ http://localhost:3000/api/betslip?gameId=401772916_nfl&moneyline=TB&spread=TB-3&
 BREAKDOWN (NFL):
 Team Bets:
 - moneyline=TB
+- moneuylineReg=TB (TB wins in Regulation (can accept DRAW))
 - spread=TB-3
 - total=43.5+ (over 43.5 using +/- notation)
 - homePoints=o23.5 (over 23.5 using o/u notation)
@@ -124,6 +126,7 @@ http://localhost:3000/api/betslip?gameId=401802991_nhl&moneyline=VGK&spread=VGK-
 BREAKDOWN (NHL):
 Team Bets:
 - moneyline=VGK
+- moneylineReg=VGK (VGK wins in Regulation (can accept DRAW))
 - spread=VGK-1.5
 - total=5.5+ (total goals over 5.5 using +/- notation)
 - homeGoals=o3.5 (home goals over 3.5 using o/u notation)
@@ -158,6 +161,7 @@ http://localhost:3000/api/betslip?gameId=757749_uefa&moneyline=TOT&spread=TOT-1.
 BREAKDOWN (UEFA):
 Team Bets:
 - moneyline=TOT (3-Way Moneyline)
+- moneylineReg=TOT (Regulation 3-Way Moneyline (can accept DRAW))
 - spread=TOT-1.5 (Spread)
 - moneyline1H=TOT (1st Half 3-Way Moneyline)
 - moneyline2H=TOT (2nd Half 3-Way Moneyline)

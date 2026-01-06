@@ -336,6 +336,56 @@ const BetLoginScreen = ({ navigation }) => {
       setLoading(true);
       console.log("BetLogin: attempting login for username:", username);
 
+      // Check if current credentials match saved credentials - if so, skip auth and navigate
+      try {
+        const savedJson = await AsyncStorage.getItem(CRED_KEY);
+        if (savedJson) {
+          const savedCreds = JSON.parse(savedJson);
+          const savedMatch =
+            savedCreds.username === username &&
+            savedCreds.password === password &&
+            (!phone || savedCreds.phone === phone);
+
+          console.log("BetLogin: credential match check:", {
+            savedUsername: savedCreds.username,
+            currentUsername: username,
+            passwordMatch: savedCreds.password === password,
+            phoneMatch: !phone || savedCreds.phone === phone,
+            overallMatch: savedMatch,
+          });
+
+          if (savedMatch) {
+            console.log(
+              "BetLogin: credentials match saved - skipping auth, navigating to BetMain"
+            );
+            // Navigate immediately
+            InteractionManager.runAfterInteractions(() => {
+              navigation.navigate("BetMain");
+            });
+
+            // Start background data fetches
+            setTimeout(() => {
+              fetchScoreboard().catch((e) =>
+                console.error("BetLogin: background fetchScoreboard error", e)
+              );
+            }, 0);
+
+            if (fetchRosters) {
+              setTimeout(() => {
+                fetchRosters().catch((e) =>
+                  console.error("BetLogin: background fetchRosters error", e)
+                );
+              }, 0);
+            }
+
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("BetLogin: credential match check failed", e);
+      }
+
       // Try a local in-memory cache of username->phone first to avoid RPC/AsyncStorage
       // During login we must avoid AsyncStorage IO. Use module-scoped `PHONE_CACHE_MAP`.
       let userPhone = null;

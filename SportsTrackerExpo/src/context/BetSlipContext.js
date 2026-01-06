@@ -67,6 +67,31 @@ export const BetSlipProvider = ({ children }) => {
     return () => (mounted = false);
   }, []);
 
+  // Helper: derive sport suffix and append to gameId when possible
+  const getSportSuffixFromString = (s) => {
+    if (!s) return null;
+    const t = String(s).toLowerCase();
+    if (t.includes("nba")) return "nba";
+    if (t.includes("nfl")) return "nfl";
+    if (t.includes("nhl")) return "nhl";
+    if (t.includes("uefa") || t.includes("soccer") || t.includes("football"))
+      return "uefa";
+    return null;
+  };
+
+  const appendSportSuffixToGameId = (gameId, sportHint) => {
+    if (!gameId) return gameId;
+    // Already suffixed?
+    try {
+      const s = String(gameId);
+      if (s.includes("_")) return s; // assume already has suffix
+      const suffix = getSportSuffixFromString(sportHint);
+      return suffix ? `${s}_${suffix}` : s;
+    } catch (e) {
+      return gameId;
+    }
+  };
+
   // Add or remove bet from slip
   const toggleBet = useCallback((bet) => {
     console.log("toggleBet called with:", bet);
@@ -82,7 +107,21 @@ export const BetSlipProvider = ({ children }) => {
       }
 
       // Otherwise bet is an object
-      const existingIndex = prevBets.findIndex((b) => b.id === bet.id);
+      // Normalize incoming bet's game id to include sport suffix when possible
+      const betToUse = { ...bet };
+      const providedGameId = bet.gameId || bet.game_id || bet.game || null;
+      const sportHint =
+        bet.sport ||
+        bet.league ||
+        bet.sportName ||
+        bet.gameSport ||
+        bet.sport_id ||
+        null;
+      if (providedGameId) {
+        betToUse.gameId = appendSportSuffixToGameId(providedGameId, sportHint);
+      }
+
+      const existingIndex = prevBets.findIndex((b) => b.id === betToUse.id);
       console.log("Existing bet index:", existingIndex);
 
       if (existingIndex >= 0) {
@@ -215,12 +254,12 @@ export const BetSlipProvider = ({ children }) => {
           (b) => !betsToRemove.includes(b.id)
         );
 
-        // Add the new bet
-        console.log("Adding bet:", bet);
+        // Add the new bet (use normalized betToUse)
+        console.log("Adding bet:", betToUse);
         if (betsToRemove.length > 0) {
           console.log("Removed conflicting bets:", betsToRemove);
         }
-        const newBets = [...filteredBets, bet];
+        const newBets = [...filteredBets, betToUse];
         console.log("New bets array:", newBets);
         return newBets;
       }
@@ -560,6 +599,29 @@ export const BetSlipProvider = ({ children }) => {
                 odds: row.odds || 0,
               });
             });
+          }
+
+          // Normalize loaded bets' gameId to include sport suffix when possible
+          try {
+            bets.forEach((b) => {
+              const providedGameId = b.gameId || b.game_id || b.game || null;
+              // attempt to extract sport hint from the aggregatedRow or group rows if available
+              const sampleRow = aggregatedRow || groupRows[0] || {};
+              const sportHint =
+                b.sport ||
+                sampleRow.sport ||
+                sampleRow.league ||
+                sampleRow.sportName ||
+                null;
+              if (
+                providedGameId &&
+                (!b.gameId || !String(b.gameId).includes("_"))
+              ) {
+                b.gameId = appendSportSuffixToGameId(providedGameId, sportHint);
+              }
+            });
+          } catch (e) {
+            // ignore normalization errors
           }
 
           // Determine ticket-level totals without summing duplicate per-row ticket totals

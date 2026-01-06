@@ -166,11 +166,11 @@ const BetBetsScreen = () => {
     const rn = Number(right) || 0;
     return (
       <Text style={[styles.scoreText, { color: theme.text }]}>
-        <Text style={{ fontWeight: rn > ln ? "700" : "400" }}>{right ?? 0}</Text>
-        {" - "}
-        <Text style={{ fontWeight: ln > rn ? "700" : "400" }}>
-          {left ?? 0}
+        <Text style={{ fontWeight: rn > ln ? "700" : "400" }}>
+          {right ?? 0}
         </Text>
+        {" - "}
+        <Text style={{ fontWeight: ln > rn ? "700" : "400" }}>{left ?? 0}</Text>
       </Text>
     );
   };
@@ -320,19 +320,6 @@ const BetBetsScreen = () => {
       ? serverBets
       : submittedFromSupabase;
 
-  // Dev log: show counts so it's clear whether UI is using Supabase rows or local-only slips
-  if (typeof __DEV__ !== "undefined" && __DEV__) {
-    try {
-      console.log(
-        `[BetBetsScreen] displayedBets count=${
-          (displayedBets && displayedBets.length) || 0
-        } submittedBets total=${
-          (submittedBets && submittedBets.length) || 0
-        } submittedFromSupabase=${submittedFromSupabase.length}`
-      );
-    } catch (e) {}
-  }
-
   const filteredBets = displayedBets.filter((bet) => {
     const status =
       (bet && bet.status && String(bet.status).toLowerCase()) || "";
@@ -381,15 +368,6 @@ const BetBetsScreen = () => {
     });
 
     // NOTE: we intentionally do NOT fetch on each toggle; on-focus bulk fetch handles updates
-
-    // Dev: log constructed picks to verify parsed values (lines/current)
-    try {
-      if (typeof __DEV__ !== "undefined" && __DEV__) {
-        console.log("[BetBetsScreen] allPicks constructed:", allPicks);
-      }
-    } catch (e) {
-      /* ignore */
-    }
   };
 
   // Fetch a ticket's canonical betslip payload on demand (used when user opens a ticket)
@@ -406,22 +384,8 @@ const BetBetsScreen = () => {
       const res = await fetch(url);
       const data = await res.json();
       setBetslipLiveMap((prev) => ({ ...prev, [ticket.id]: data }));
-      if (typeof __DEV__ !== "undefined" && __DEV__) {
-        console.log(
-          "[BetBetsScreen] on-demand fetch for ticket",
-          ticket.id,
-          data
-        );
-      }
       return data;
     } catch (e) {
-      if (typeof __DEV__ !== "undefined" && __DEV__) {
-        console.warn(
-          "[BetBetsScreen] on-demand fetch failed for",
-          ticket.id,
-          e
-        );
-      }
       return null;
     }
   };
@@ -437,12 +401,7 @@ const BetBetsScreen = () => {
         try {
           if (typeof loadSubmittedBets === "function")
             await loadSubmittedBets();
-        } catch (e) {
-          console.warn(
-            "[BetBetsScreen] failed to refresh submitted bets:",
-            e?.message || e
-          );
-        }
+        } catch (e) {}
         // First, attempt to fetch authoritative betslips from server
         try {
           const token = await AsyncStorage.getItem("@bet_token");
@@ -462,31 +421,12 @@ const BetBetsScreen = () => {
                 if (mounted) setServerBets(authoritative);
                 // use authoritative locally for this run
                 var authoritativeLocal = authoritative;
-                console.log(
-                  `[BetBetsScreen] fetched authoritative betslips: ${JSON.stringify(
-                    json
-                  )}`
-                );
               } else {
-                console.warn(
-                  "[BetBetsScreen] failed to fetch server betslips",
-                  resp.status
-                );
               }
-            } catch (innerErr) {
-              console.warn("[BetBetsScreen] server bets fetch error", innerErr);
-            }
+            } catch (innerErr) {}
           } else {
-            // No PUBLIC_API_URL configured in RN environment — skip server fetch to avoid network errors
-            if (typeof __DEV__ !== "undefined" && __DEV__) {
-              console.log(
-                "[BetBetsScreen] skipping server /api/betslips fetch — PUBLIC_API_URL not configured"
-              );
-            }
           }
-        } catch (e) {
-          console.warn("[BetBetsScreen] server bets outer error", e);
-        }
+        } catch (e) {}
 
         // Decide which source of tickets to query for canonical payloads
         const source =
@@ -517,9 +457,6 @@ const BetBetsScreen = () => {
             } else if (submittedBets && Array.isArray(submittedBets)) {
               sourceLabel = `submittedBets (Supabase) [${submittedBets.length}]`;
             }
-            console.log(
-              `[BetBetsScreen] Focused: serving bets from -> ${sourceLabel}`
-            );
 
             // If we're using Supabase rows, log id, updated_at and status for each row
             try {
@@ -534,9 +471,6 @@ const BetBetsScreen = () => {
                 ) &&
                 Array.isArray(submittedBets)
               ) {
-                console.log(
-                  `[BetBetsScreen] Supabase-sourced bets (${submittedBets.length}) -- listing id, updated_at, status:`
-                );
                 submittedBets.forEach((b) => {
                   try {
                     const id = b.id || b.bet_id || b.uuid || null;
@@ -548,9 +482,6 @@ const BetBetsScreen = () => {
                       b.modifiedAt ||
                       null;
                     const status = b.status || b.state || null;
-                    console.log(
-                      `[BetBetsScreen] bet id=${id} updated_at=${updated} status=${status}`
-                    );
                   } catch (inner) {
                     // ignore per-row logging errors
                   }
@@ -636,32 +567,11 @@ const BetBetsScreen = () => {
             null;
           const url = storedUrl || buildBetslipUrlFromTicket(ticket);
           if (!url) {
-            if (typeof __DEV__ !== "undefined" && __DEV__)
-              console.log(
-                "[BetBetsScreen] no betslip url for ticket",
-                ticket.id
-              );
-            return;
+            if (typeof __DEV__ !== "undefined" && __DEV__) return;
           }
-
-          if (typeof __DEV__ !== "undefined" && __DEV__)
-            console.log("[BetBetsScreen] fetching betslip for", ticket.id, url);
 
           const res = await fetch(url);
-          if (typeof __DEV__ !== "undefined" && __DEV__)
-            console.log(
-              "[BetBetsScreen] fetch result for",
-              ticket.id,
-              res.status,
-              res.ok
-            );
           data = await res.json();
-          // Log full betslip JSON for debugging polling/state decisions
-          try {
-            console.log("Fetched betslip for ticket", ticket.id, data);
-          } catch (e) {
-            // ignore console issues in some environments
-          }
           if (!mounted) return;
           setBetslipLiveMap((prev) => ({ ...prev, [ticket.id]: data }));
         } catch (e) {
@@ -741,13 +651,6 @@ const BetBetsScreen = () => {
         : submittedBets;
 
     try {
-      console.log(
-        "[BetBetsScreen] Polling effect run -> isFocused=",
-        isFocused,
-        "ticketsToUseCount=",
-        ticketsToUse ? ticketsToUse.length : 0
-      );
-
       const inTickets = (ticketsToUse || []).filter((t) => {
         try {
           const latest =
@@ -787,13 +690,6 @@ const BetBetsScreen = () => {
           return false;
         }
       });
-
-      console.log(
-        "[BetBetsScreen] tickets with in/live games count=",
-        inTickets.length,
-        "ids=",
-        inTickets
-      );
     } catch (e) {
       /* ignore logging errors */
     }
@@ -852,8 +748,9 @@ const BetBetsScreen = () => {
       // clear all
       Object.keys(pollsRef.current).forEach((tid) => clearPollForTicket(tid));
     };
+    // Only re-run when scoreboard data changes or focus changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverBets, submittedBets, scoreboardData, isFocused]);
+  }, [scoreboardData, isFocused]);
 
   // Parse various gameInfo formats into a timestamp (ms).
   // Handles strings like "12/18 - 7:00 PM EST", "LAC @ OKC - 12/18 - 7:00 PM EST",
@@ -966,10 +863,15 @@ const BetBetsScreen = () => {
   };
 
   const renderProgressBar = (pick) => {
-    const safeLine =
-      typeof pick.line === "number" && !isNaN(pick.line) && pick.line !== 0
-        ? pick.line
-        : null;
+    // Accept numeric lines provided as numbers or numeric strings ("234.5", "109")
+    let safeLine = null;
+    if (typeof pick.line === "number" && !isNaN(pick.line) && pick.line !== 0) {
+      safeLine = pick.line;
+    } else if (typeof pick.line === "string") {
+      // strip non-numeric characters (O, U, +, -) and parse
+      const n = Number(pick.line.replace(/[^0-9.-]+/g, ""));
+      if (!isNaN(n) && n !== 0) safeLine = n;
+    }
     let progress = 0;
     if (
       pick.currentValue !== null &&
@@ -1063,11 +965,25 @@ const BetBetsScreen = () => {
       key={pick.id}
       style={[styles.pickCard, { backgroundColor: theme.surface }]}
     >
-      <View style={styles.pickHeader}>
-        {pick.headshot && (
+      <View style={[styles.pickHeader]}>
+        {(pick.headshot ||
+          pick.headshot_url ||
+          pick.playerHeadshot ||
+          pick.headshotUrl) && (
           <Image
-            source={{ uri: pick.headshot }}
-            style={styles.playerHeadshot}
+            source={{
+              uri:
+                pick.headshot ||
+                pick.headshot_url ||
+                pick.playerHeadshot ||
+                pick.headshotUrl,
+            }}
+            style={[
+              styles.playerHeadshot,
+              pick.gameState !== "pre" && pick.playerColor
+                ? { backgroundColor: pick.playerColor + "88" }
+                : null,
+            ]}
           />
         )}
         <View style={styles.pickPlayerInfo}>
@@ -1080,9 +996,8 @@ const BetBetsScreen = () => {
         </View>
         {getStatusIcon(pick.status)}
       </View>
-      {typeof pick.currentValue === "number" &&
-        typeof pick.line === "number" &&
-        !isNaN(pick.line) &&
+      {pick.currentValue !== null &&
+        typeof pick.currentValue === "number" &&
         // Only render progress bar when the game is not in pre-game state
         pick.gameState !== "pre" &&
         renderProgressBar(pick)}
@@ -1105,25 +1020,40 @@ const BetBetsScreen = () => {
       style={[styles.pickCard, { backgroundColor: theme.surface }]}
     >
       <View style={styles.pickHeader}>
-        {pick.isTotal && pick.homeTeamLogo && pick.awayTeamLogo ? (
-          <View style={styles.overlappingLogos}>
-            <Image
-              source={{ uri: pick.homeTeamLogo }}
-              style={styles.homeTeamLogo}
-            />
-            <Image
-              source={{ uri: pick.awayTeamLogo }}
-              style={styles.awayTeamLogo}
-            />
-          </View>
-        ) : (
-          pick.teamLogo && (
-            <Image
-              source={{ uri: pick.teamLogo }}
-              style={styles.playerHeadshot}
-            />
-          )
-        )}
+        {(function () {
+          const homeLogo =
+            pick.homeTeamLogo ||
+            pick.home_team_logo ||
+            pick.home_logo ||
+            pick.homeTeamLogoUrl;
+          const awayLogo =
+            pick.awayTeamLogo ||
+            pick.away_team_logo ||
+            pick.away_logo ||
+            pick.awayTeamLogoUrl;
+          const singleLogo =
+            pick.teamLogo || pick.team_logo || pick.logo || pick.teamLogoUrl;
+
+          if (pick.isTotal && homeLogo && awayLogo) {
+            return (
+              <View style={styles.overlappingLogos}>
+                <Image source={{ uri: homeLogo }} style={styles.homeTeamLogo} />
+                <Image source={{ uri: awayLogo }} style={styles.awayTeamLogo} />
+              </View>
+            );
+          }
+
+          if (singleLogo) {
+            return (
+              <Image
+                source={{ uri: singleLogo }}
+                style={styles.playerHeadshot}
+              />
+            );
+          }
+
+          return null;
+        })()}
         <View style={styles.pickPlayerInfo}>
           <Text style={[styles.pickPlayerName, { color: theme.text }]}>
             {pick.displayName || pick.team || "GAME"}
@@ -1134,20 +1064,11 @@ const BetBetsScreen = () => {
         </View>
         {getStatusIcon(pick.status)}
       </View>
-      {typeof pick.currentValue === "number" &&
-        typeof pick.line === "number" &&
-        !isNaN(pick.line) &&
+      {pick.currentValue !== null &&
+        typeof pick.currentValue === "number" &&
         // Only render progress bar when the game is not in pre-game state
         pick.gameState !== "pre" &&
         (function () {
-          try {
-            if (typeof __DEV__ !== "undefined" && __DEV__ && pick.isTotal) {
-              console.log(
-                "[BetBetsScreen] renderTeamPick total before progress",
-                { pick }
-              );
-            }
-          } catch (e) {}
           return renderProgressBar(pick);
         })()}
       {!isInParlay && (
@@ -1164,9 +1085,14 @@ const BetBetsScreen = () => {
   );
 
   const renderPick = (pick, isInParlay = false) => {
+    // Debug logging to see why picks might not render
+    if (!pick.playerName && !pick.team && !pick.isTotal && !pick.line) {
+    }
+
     if (pick.playerName) {
       return renderPlayerPick(pick, isInParlay);
-    } else if (pick.team || pick.isTotal) {
+    } else if (pick.team || pick.isTotal || pick.line) {
+      // Include picks with a line value (like DRAW moneyline bets)
       return renderTeamPick(pick, isInParlay);
     }
     return null;
@@ -1448,6 +1374,93 @@ const BetBetsScreen = () => {
     const originalBets = betSlip.bets || betSlip.bets || [];
     const amount = betSlip.amount || 0;
 
+    // Helper: normalize gameId by stripping trailing sport suffix like _nba/_nfl
+    const normalizeGameId = (g) => {
+      try {
+        const s = String(g || "");
+        return s.replace(/_[a-z0-9]+$/i, "");
+      } catch (e) {
+        return String(g || "");
+      }
+    };
+
+    // Helper: derive canonical stat key used in betslip payloads (e.g. SHT, GSV, PTS)
+    const deriveStatKey = (statType) => {
+      try {
+        const s = String(statType || "").toLowerCase();
+        if (!s) return "PTS";
+        if (s.includes("shot") || s.includes("sht") || s.includes("shots"))
+          return "SHT";
+        if (s.includes("save") || s.includes("gsv")) return "GSV";
+        if (s.includes("pass") || s.includes("pyds") || s.includes("passing"))
+          return "PYD"; // passing yards shorthand (not used in milestones payloads)
+        if (s.includes("rush") || s.includes("ryds") || s.includes("rushing"))
+          return "RYD";
+        if (s.includes("point") || s.includes("pts") || s.includes("points"))
+          return "PTS";
+        if (s.includes("reb")) return "REB";
+        if (s.includes("ast")) return "AST";
+        if (s.includes("blk")) return "BLK";
+        if (s.includes("stl")) return "STL";
+        if (s.includes("tur") || s.includes("to") || s === "to") return "TO";
+        if (s.includes("points+rebounds+assists")) return "PRA";
+        // fallback: take first 3 uppercase letters
+        return String(statType).toUpperCase().substring(0, 3);
+      } catch (e) {
+        return String(statType || "PTS")
+          .toUpperCase()
+          .substring(0, 3);
+      }
+    };
+
+    // Normalize various period representations into payload keys like P1, P2, P3, P4, OT
+    const normalizePeriodKey = (p) => {
+      try {
+        if (!p && p !== 0) return null;
+        let s = String(p).toUpperCase().trim();
+        // already in P1/P2 format
+        if (/^P\d+/.test(s)) return s.replace(/^P(\d+)/, (m, n) => `P${n}`);
+        // numeric like '1' or '01'
+        if (/^\d+$/.test(s)) return `P${String(Number(s))}`;
+        // ordinals
+        if (
+          s.includes("1ST") ||
+          s.includes("FIRST") ||
+          s === "Q1" ||
+          s === "1ST PERIOD"
+        )
+          return "P1";
+        if (
+          s.includes("2ND") ||
+          s.includes("SECOND") ||
+          s === "Q2" ||
+          s === "2ND PERIOD"
+        )
+          return "P2";
+        if (
+          s.includes("3RD") ||
+          s.includes("THIRD") ||
+          s === "Q3" ||
+          s === "3RD PERIOD"
+        )
+          return "P3";
+        if (
+          s.includes("4TH") ||
+          s.includes("FOURTH") ||
+          s === "Q4" ||
+          s === "4TH PERIOD"
+        )
+          return "P4";
+        if (s.includes("OT") || s.includes("OVERTIME")) return "POT";
+        // fallback: if it starts with a digit somewhere, pick that
+        const m = s.match(/(\d)/);
+        if (m) return `P${m[1]}`;
+        return null;
+      } catch (e) {
+        return null;
+      }
+    };
+
     // Determine badge type
     const gameIds = [...new Set(originalBets.map((bet) => bet.gameId))];
     const gamesCount = gameIds.length;
@@ -1486,9 +1499,17 @@ const BetBetsScreen = () => {
       // Prefer betslipData.events for game info/status/scores
       let eventData = null;
       if (betslipData?.events) {
-        eventData = betslipData.events.find(
-          (e) => String(e.eventId) === String(bet.gameId)
-        );
+        const targetId = normalizeGameId(bet.gameId);
+        eventData = betslipData.events.find((e) => {
+          try {
+            return (
+              String(e.eventId) === targetId ||
+              normalizeGameId(e.eventId) === targetId
+            );
+          } catch (err) {
+            return false;
+          }
+        });
       }
       if (eventData) {
         // Use eventData for all game info
@@ -1501,28 +1522,210 @@ const BetBetsScreen = () => {
           "Scheduled";
         // expose normalized state (pre/in/post) for conditional rendering
         pick.gameState = eventData?.status?.state || null;
-        pick.scores = eventData?.status?.game
-          ? {
-              team1: eventData.status.game.awayScore,
-              team2: eventData.status.game.homeScore,
-            }
-          : undefined;
+        // Only expose scores if at least one score value is present
+        if (eventData?.status?.game) {
+          const awayScore = eventData.status.game.awayScore;
+          const homeScore = eventData.status.game.homeScore;
+          if (awayScore != null || homeScore != null) {
+            pick.scores = {
+              team1: awayScore,
+              team2: homeScore,
+            };
+          }
+        }
       } else {
         // Fallback to scoreboard or ticket data
         const liveGame = getLiveGameData(bet.gameId);
-        pick.gameInfo = liveGame?.shortName || bet.gameInfoTeams || "Game";
-        pick.gameStatus =
-          liveGame?.status?.type?.shortDetail ||
-          bet.gameInfoTime ||
-          "Scheduled";
+        // If the bet contains a gameInfo object (from ticket), prefer its fields for pre-game display
+        if (bet.gameInfo && typeof bet.gameInfo === "object") {
+          pick.gameInfo =
+            bet.gameInfo.teams ||
+            bet.gameInfoTeams ||
+            liveGame?.shortName ||
+            "Game";
+          pick.gameStatus =
+            bet.gameInfo.time ||
+            bet.gameInfoTime ||
+            liveGame?.status?.type?.shortDetail ||
+            "Scheduled";
+        } else {
+          pick.gameInfo = liveGame?.shortName || bet.gameInfoTeams || "Game";
+          pick.gameStatus =
+            liveGame?.status?.type?.shortDetail ||
+            bet.gameInfoTime ||
+            "Scheduled";
+        }
         pick.gameState = liveGame?.status?.type?.state || null;
       }
 
       // Player props
       if (bet.playerId) {
         pick.playerName = bet.player;
-        pick.headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${bet.playerId}.png&w=200`;
-        pick.prop = bet.prop;
+        // determine sport suffix from gameId or statType/prop
+        const getSportFromBet = (b) => {
+          try {
+            if (
+              b.gameId &&
+              typeof b.gameId === "string" &&
+              b.gameId.includes("_")
+            ) {
+              return b.gameId.split("_").pop().toLowerCase();
+            }
+            const s = (b.statType || b.prop || "").toLowerCase();
+            if (
+              s.includes("pass") ||
+              s.includes("pyds") ||
+              s.includes("passing")
+            )
+              return "nfl";
+            if (
+              s.includes("rush") ||
+              s.includes("ryds") ||
+              s.includes("rushing")
+            )
+              return "nfl";
+            if (
+              s.includes("shot") ||
+              s.includes("shots") ||
+              s.includes("sht") ||
+              s.includes("save") ||
+              s.includes("gsv")
+            )
+              return "nhl";
+            if (
+              s.includes("goal") ||
+              s.includes("ugl") ||
+              s.includes("yc") ||
+              s.includes("card")
+            )
+              return "uefa";
+            if (
+              s.includes("pts") ||
+              s.includes("points") ||
+              s.includes("3pm") ||
+              s.includes("ast")
+            )
+              return "nba";
+            return null;
+          } catch (e) {
+            return null;
+          }
+        };
+
+        const sportSuffix = getSportFromBet(bet) || "nba";
+        const sportPath = sportSuffix === "uefa" ? "soccer" : sportSuffix;
+        pick.headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${bet.playerId}.png&w=200`;
+        pick.color = bet.playerColor || null;
+
+        // Format prop text: for milestones, show "<line> <Formatted Prop>" and clean up the label
+        const formatMilestoneProp = (b) => {
+          const displayLine = b.betValue || b.line || "";
+          let raw = b.prop || b.statType || "";
+          if (!raw) return `${displayLine}`;
+          // Remove ou/o/u suffixes and any trailing numeric parts or standalone OU tokens
+          raw = String(raw);
+          // detect and strip Y/N suffixes like _yn or -yn
+          const hadYN = /[_-](y|yn)\b/i.test(raw);
+          raw = raw.replace(/[_-](y|yn)\b/gi, "");
+          // remove patterns like _ou, -ou at end
+          raw = raw.replace(/[_-](o|u|ou)\b/gi, "");
+          // remove standalone tokens 'ou', 'o', 'u'
+          raw = raw.replace(/\b(o|u|ou)\b/gi, "");
+          // remove the actual line value if present
+          try {
+            const escapedLine = String(displayLine).replace(
+              /[.*+?^${}()|[\]\\]/g,
+              "\\$&"
+            );
+            raw = raw.replace(new RegExp(escapedLine, "gi"), "");
+          } catch (e) {}
+          // replace underscores with spaces
+          raw = raw.replace(/_/g, " ");
+          // split camelCase (onGoal -> on Goal)
+          raw = raw.replace(/([a-z])([A-Z])/g, "$1 $2");
+          // collapse multiple spaces
+          raw = raw.replace(/\s+/g, " ").trim();
+          // special-case: points_yn -> ANYTIME GOALS
+          const rawLower = raw.toLowerCase();
+          if (hadYN && rawLower.includes("points")) {
+            const label = "ANYTIME GOALS";
+            return `${String(displayLine).toUpperCase()} ${label}`.trim();
+          }
+
+          // capitalize first letter of each word only
+          raw = raw
+            .split(" ")
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+            .join(" ");
+
+          // If this was a Y/N prop, prefer ALL CAPS for clarity and put bet value first
+          if (hadYN) {
+            return `${String(
+              displayLine
+            ).toUpperCase()} ${raw.toUpperCase()}`.trim();
+          }
+
+          return `${displayLine} ${raw}`.trim();
+        };
+
+        // Format over/under prop: "O2.5 Shots On Goal" or "U2.5 Shots On Goal"
+        const formatOverUnderProp = (b) => {
+          const displayLine = b.betValue || b.line || "";
+          let raw = b.prop || b.statType || "";
+          if (!raw) return `${displayLine}`;
+          raw = String(raw);
+          // detect and strip Y/N suffixes like _yn or -yn
+          const hadYN = /[_-](y|yn)\b/i.test(raw);
+          raw = raw.replace(/[_-](y|yn)\b/gi, "");
+          // remove patterns like _ou, -ou at end
+          raw = raw.replace(/[_-](o|u|ou)\b/gi, "");
+          // remove standalone O/U tokens and line values from the string
+          raw = raw.replace(/\b(o|u|ou)\s*\d+\.?\d*/gi, "");
+          // remove the actual line value if present
+          try {
+            const escapedLine = String(displayLine).replace(
+              /[.*+?^${}()|[\]\\]/g,
+              "\\$&"
+            );
+            raw = raw.replace(new RegExp(escapedLine, "gi"), "");
+          } catch (e) {}
+          // replace underscores with spaces
+          raw = raw.replace(/_/g, " ");
+          // split camelCase (onGoal -> on Goal)
+          raw = raw.replace(/([a-z])([A-Z])/g, "$1 $2");
+          // collapse multiple spaces
+          raw = raw.replace(/\s+/g, " ").trim();
+          // special-case: points_yn -> ANYTIME GOALS
+          const rawLower = raw.toLowerCase();
+          if (hadYN && rawLower.includes("points")) {
+            const label = "ANYTIME GOALS";
+            return `${String(displayLine).toUpperCase()} ${label}`.trim();
+          }
+
+          // capitalize first letter of each word only
+          raw = raw
+            .split(" ")
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+            .join(" ");
+
+          // If this was a Y/N prop, prefer ALL CAPS for clarity and put bet value first
+          if (hadYN) {
+            return `${String(
+              displayLine
+            ).toUpperCase()} ${raw.toUpperCase()}`.trim();
+          }
+
+          return `${displayLine} ${raw}`.trim();
+        };
+
+        pick.prop =
+          bet.type === "milestone"
+            ? formatMilestoneProp(bet)
+            : bet.type === "over" ||
+              bet.type === "under" ||
+              bet.type === "yesno"
+            ? formatOverUnderProp(bet)
+            : bet.prop || "";
         pick.propType = bet.statType;
         pick.line = Number(bet.line);
         pick.type = bet.type;
@@ -1530,25 +1733,29 @@ const BetBetsScreen = () => {
 
         // Try to get current value from betslipData
         if (betslipData?.events) {
-          const eventData = betslipData.events.find(
-            (e) => e.eventId === bet.gameId
-          );
+          const targetId = normalizeGameId(bet.gameId);
+          const eventData = betslipData.events.find((e) => {
+            try {
+              return (
+                String(e.eventId) === targetId ||
+                normalizeGameId(e.eventId) === targetId
+              );
+            } catch (err) {
+              return false;
+            }
+          });
           if (eventData?.bets?.players) {
             const playerData = eventData.bets.players.find(
-              (p) => p.id === bet.playerId
+              (p) => String(p.id) === String(bet.playerId)
             );
             if (playerData) {
-              const statUpper = bet.statType.toUpperCase().substring(0, 3);
-              const statMap = {
-                POI: "PTS",
-                REB: "REB",
-                ASS: "AST",
-                BLO: "BLK",
-                STE: "STL",
-                TUR: "TO",
-                PRA: "PRA",
-              };
-              const statKey = statMap[statUpper] || "PTS";
+              // Extract player color from payload for live games
+              if (playerData.color) {
+                pick.playerColor = String(playerData.color).startsWith("#")
+                  ? playerData.color
+                  : `#${playerData.color}`;
+              }
+              const statKey = deriveStatKey(bet.statType);
 
               if (
                 bet.type === "milestone" &&
@@ -1557,6 +1764,9 @@ const BetBetsScreen = () => {
                 pick.currentValue = Number(
                   playerData.milestones[statKey].current
                 );
+                pick.progressSource = `betslipData.event:${
+                  eventData?.eventId || bet.gameId
+                }.players:${playerData.id}.milestones:${statKey}`;
                 // Ensure a numeric `line` is present so progress bar can render
                 pick.line = Number(
                   playerData.milestones[statKey].threshold ??
@@ -1571,16 +1781,47 @@ const BetBetsScreen = () => {
                     : playerData.milestones[statKey].won === false
                     ? "losing"
                     : "pending";
+                pick.progressWonSource = `betslipData.event:${
+                  eventData?.eventId || bet.gameId
+                }.players:${playerData.id}.milestones:${statKey}.won`;
               } else if (playerData.overUnder?.[statKey]) {
                 pick.currentValue = Number(
                   playerData.overUnder[statKey].current
                 );
+                pick.progressSource = `betslipData.event:${
+                  eventData?.eventId || bet.gameId
+                }.players:${playerData.id}.overUnder:${statKey}`;
                 pick.status =
                   playerData.overUnder[statKey].won === true
                     ? "winning"
                     : playerData.overUnder[statKey].won === false
                     ? "losing"
                     : "pending";
+                pick.progressWonSource = `betslipData.event:${
+                  eventData?.eventId || bet.gameId
+                }.players:${playerData.id}.overUnder:${statKey}.won`;
+              } else if (playerData.milestones?.PRA) {
+                // Fallback to PRA milestone when specific statKey isn't available
+                if (pick.currentValue == null || isNaN(pick.currentValue)) {
+                  pick.currentValue = Number(playerData.milestones.PRA.current);
+                  pick.progressSource = `betslipData.event:${
+                    eventData?.eventId || bet.gameId
+                  }.players:${playerData.id}.milestones:PRA`;
+                  pick.line = Number(
+                    playerData.milestones.PRA.threshold ??
+                      playerData.milestones.PRA.bet ??
+                      pick.line
+                  );
+                  pick.status =
+                    playerData.milestones.PRA.won === true
+                      ? "winning"
+                      : playerData.milestones.PRA.won === false
+                      ? "losing"
+                      : "pending";
+                  pick.progressWonSource = `betslipData.event:${
+                    eventData?.eventId || bet.gameId
+                  }.players:${playerData.id}.milestones:PRA.won`;
+                }
               } else {
                 pick.status = "pending";
               }
@@ -1633,21 +1874,124 @@ const BetBetsScreen = () => {
       else if (
         bet.type === "Spread" ||
         bet.type === "Total" ||
-        bet.type === "Moneyline"
+        bet.type === "Moneyline" ||
+        bet.type === "Milestone" ||
+        bet.type === "alt" ||
+        bet.type === "away_points" ||
+        bet.type === "home_points" ||
+        bet.type === "away_goals" ||
+        bet.type === "home_goals" ||
+        bet.type?.toLowerCase().includes("moneyline") ||
+        bet.type?.toLowerCase().includes("spread") ||
+        bet.type?.toLowerCase().includes("period") ||
+        bet.type?.toLowerCase().includes("quarter") ||
+        bet.type?.toLowerCase().includes("half") ||
+        bet.type?.includes("_points") ||
+        bet.type?.includes("_goals")
       ) {
+        const liveGame = getLiveGameData(bet.gameId);
         pick.betType = bet.type.toLowerCase();
         pick.team = bet.team;
         pick.line = Number(bet.line);
 
         // Construct prop text based on bet type
-        if (bet.type === "Spread") {
-          pick.prop = `${bet.team} ${bet.line}`;
-        } else if (bet.type === "Moneyline") {
-          pick.prop = `${bet.team} ${bet.type}`;
+        if (
+          bet.type === "Spread" ||
+          bet.type?.toLowerCase().includes("spread")
+        ) {
+          const periodPart = bet.period ? ` ${bet.period}` : "";
+          const typePart = bet.statType
+            ? ` ${bet.statType}`
+            : bet.type !== "Spread"
+            ? ` ${bet.type}`
+            : "";
+          pick.prop = `${bet.team} ${bet.line}${periodPart}${typePart}`;
+        } else if (
+          bet.type === "Moneyline" ||
+          bet.type?.toLowerCase().includes("moneyline")
+        ) {
+          const periodPart =
+            bet.period && bet.period !== "reg" ? `${bet.period} ` : "";
+          const typePart = bet.statType || bet.type;
+          pick.prop = bet.team
+            ? `${bet.team} ${periodPart}${typePart}`
+            : `${bet.line || "DRAW"} ${periodPart}${typePart}`;
+          pick.displayName = bet.team || bet.line || "DRAW";
+
+          // For DRAW bets (regulation 3-way moneyline), show both team logos like totals
+          if (
+            !bet.team &&
+            (bet.line === "Draw" ||
+              bet.line === "DRAW" ||
+              String(bet.line).toLowerCase() === "draw")
+          ) {
+            let awayTeam = bet.awayTeam;
+            let homeTeam = bet.homeTeam;
+
+            if (!awayTeam || !homeTeam) {
+              if (liveGame?.competitions?.[0]?.competitors) {
+                const competitors = liveGame.competitions[0].competitors;
+                awayTeam = competitors.find((c) => c.homeAway === "away")?.team
+                  ?.abbreviation;
+                homeTeam = competitors.find((c) => c.homeAway === "home")?.team
+                  ?.abbreviation;
+              } else if (bet.gameInfo?.teams) {
+                const teams = bet.gameInfo.teams.split(" @ ");
+                awayTeam = teams[0]?.trim();
+                homeTeam = teams[1]?.trim();
+              }
+            }
+
+            const sportPath = (bet.sport || "nba").toLowerCase();
+            pick.awayTeamLogo = awayTeam
+              ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
+                  isDarkMode ? "-dark" : ""
+                }/${awayTeam.toLowerCase()}.png&h=100&w=100`
+              : null;
+            pick.homeTeamLogo = homeTeam
+              ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
+                  isDarkMode ? "-dark" : ""
+                }/${homeTeam.toLowerCase()}.png&h=100&w=100`
+              : null;
+            pick.isTotal = true;
+          }
         } else if (bet.type === "Total") {
-          // For Total bets: displayName = type (OVER/UNDER), prop = line
+          // For Total bets: displayName = type (OVER/UNDER), prop = line period statType/type
           pick.displayName = bet.description?.toUpperCase() || bet.type;
-          pick.prop = bet.line;
+          const periodPart = bet.period ? ` ${bet.period}` : "";
+          const typePart = bet.statType ? ` ${bet.statType}` : ` ${bet.type}`;
+          pick.prop = `${bet.line}${periodPart}${typePart}`;
+        } else if (bet.type === "Milestone") {
+          // Milestone bets: show line period statType/type
+          pick.displayName = bet.team || "GAME";
+          const periodPart = bet.period ? ` ${bet.period}` : "";
+          const typePart = bet.statType ? ` ${bet.statType}` : ` ${bet.type}`;
+          pick.prop = `${
+            bet.line || bet.description || ""
+          }${periodPart}${typePart}`;
+        } else if (bet.type === "alt") {
+          // Alternate line bets: show team/line period statType/type
+          const periodPart = bet.period ? ` ${bet.period}` : "";
+          const typePart = bet.statType ? ` ${bet.statType}` : ` ${bet.type}`;
+          pick.prop = `${bet.team || ""} ${
+            bet.line || ""
+          }${periodPart}${typePart}`.trim();
+        } else if (
+          bet.type?.includes("_points") ||
+          bet.type?.includes("_goals") ||
+          bet.type?.includes("period") ||
+          bet.type?.includes("quarter") ||
+          bet.type?.includes("half")
+        ) {
+          // Format special team bet types (away_points, home_goals, 1st_period, etc.)
+          let formattedType = bet.type.replace(/_/g, " ");
+          formattedType = formattedType
+            .split(" ")
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+            .join(" ");
+          pick.prop = `${bet.team || ""} ${formattedType} ${
+            bet.line || ""
+          }`.trim();
         }
 
         // For Total bets, get both team logos
@@ -1671,30 +2015,145 @@ const BetBetsScreen = () => {
             }
           }
 
+          const sportPath = (bet.sport || "nba").toLowerCase();
           pick.awayTeamLogo = awayTeam
-            ? `https://a.espncdn.com/i/teamlogos/nba/500${
+            ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
                 isDarkMode ? "-dark" : ""
-              }/${awayTeam.toLowerCase()}.png`
+              }/${awayTeam.toLowerCase()}.png&h=100&w=100`
             : null;
           pick.homeTeamLogo = homeTeam
-            ? `https://a.espncdn.com/i/teamlogos/nba/500${
+            ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
                 isDarkMode ? "-dark" : ""
-              }/${homeTeam.toLowerCase()}.png`
+              }/${homeTeam.toLowerCase()}.png&h=100&w=100`
+            : null;
+          pick.isTotal = true;
+        } else if (bet.type === "Milestone" && !bet.team) {
+          // Milestone game totals (no team): show both team logos
+          let awayTeam = bet.awayTeam;
+          let homeTeam = bet.homeTeam;
+
+          if (!awayTeam || !homeTeam) {
+            if (liveGame?.competitions?.[0]?.competitors) {
+              const competitors = liveGame.competitions[0].competitors;
+              awayTeam = competitors.find((c) => c.homeAway === "away")?.team
+                ?.abbreviation;
+              homeTeam = competitors.find((c) => c.homeAway === "home")?.team
+                ?.abbreviation;
+            } else if (bet.gameInfo?.teams) {
+              // Parse from "MEM @ MIN" format
+              const teams = bet.gameInfo.teams.split(" @ ");
+              awayTeam = teams[0]?.trim();
+              homeTeam = teams[1]?.trim();
+            }
+          }
+
+          const sportPath = (bet.sport || "nba").toLowerCase();
+          pick.awayTeamLogo = awayTeam
+            ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
+                isDarkMode ? "-dark" : ""
+              }/${awayTeam.toLowerCase()}.png&h=100&w=100`
+            : null;
+          pick.homeTeamLogo = homeTeam
+            ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
+                isDarkMode ? "-dark" : ""
+              }/${homeTeam.toLowerCase()}.png&h=100&w=100`
             : null;
           pick.isTotal = true;
         } else {
-          pick.teamLogo = `https://a.espncdn.com/i/teamlogos/nba/500${
+          const sportPath = (bet.sport || "nba").toLowerCase();
+          pick.teamLogo = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
             isDarkMode ? "-dark" : ""
-          }/${bet.team?.toLowerCase()}.png`;
+          }/${bet.team?.toLowerCase()}.png&h=100&w=100`;
         }
 
         // Try to get current value from betslipData
         if (betslipData?.events) {
-          const eventData = betslipData.events.find(
-            (e) => e.eventId === bet.gameId
-          );
+          const targetId = normalizeGameId(bet.gameId);
+          const eventData = betslipData.events.find((e) => {
+            try {
+              return (
+                String(e.eventId) === targetId ||
+                normalizeGameId(e.eventId) === targetId
+              );
+            } catch (err) {
+              return false;
+            }
+          });
           if (eventData?.bets) {
-            if (bet.type === "Moneyline" && eventData.bets.moneyline) {
+            // Period-specific overrides (e.g. P1_SP, P2_T)
+            try {
+              const periodKey = normalizePeriodKey(bet.period);
+              if (periodKey) {
+                const periodSpread = eventData.bets[`${periodKey}_SP`];
+                const periodTotal = eventData.bets[`${periodKey}_T`];
+                if (periodSpread) {
+                  // period spread current may be a score string like "0-0" or object
+                  const cur = periodSpread.current;
+                  let parsed = null;
+                  if (typeof cur === "number") parsed = cur;
+                  else if (typeof cur === "string") {
+                    const parts = cur.split("-").map((s) => Number(s.trim()));
+                    if (
+                      parts.length === 2 &&
+                      !isNaN(parts[0]) &&
+                      !isNaN(parts[1])
+                    )
+                      parsed = parts[1] - parts[0];
+                  } else if (cur && typeof cur === "object")
+                    parsed = Number(cur.score ?? cur.current ?? NaN);
+                  if (parsed != null && !isNaN(parsed)) {
+                    pick.currentValue = Number(parsed);
+                    pick.progressSource = `betslipData.event:${
+                      eventData?.eventId || bet.gameId
+                    }.bets.${periodKey}_SP.current`;
+                    pick.status =
+                      periodSpread.won === true
+                        ? "winning"
+                        : periodSpread.won === false
+                        ? "losing"
+                        : "pending";
+                    pick.progressWonSource = `betslipData.event:${
+                      eventData?.eventId || bet.gameId
+                    }.bets.${periodKey}_SP.won`;
+                  }
+                }
+                if (periodTotal) {
+                  const cur = periodTotal.current;
+                  let parsed = null;
+                  if (typeof cur === "number") parsed = cur;
+                  else if (cur && typeof cur === "object")
+                    parsed = Number(
+                      cur.score ?? cur.current ?? cur.value ?? NaN
+                    );
+                  else if (cur != null) {
+                    const n = Number(cur);
+                    parsed = isNaN(n) ? null : n;
+                  }
+                  if (parsed != null && !isNaN(parsed)) {
+                    pick.currentValue = Number(parsed);
+                    pick.progressSource = `betslipData.event:${
+                      eventData?.eventId || bet.gameId
+                    }.bets.${periodKey}_T.current`;
+                    pick.status =
+                      periodTotal.won === true
+                        ? "winning"
+                        : periodTotal.won === false
+                        ? "losing"
+                        : "pending";
+                    pick.progressWonSource = `betslipData.event:${
+                      eventData?.eventId || bet.gameId
+                    }.bets.${periodKey}_T.won`;
+                  }
+                }
+              }
+            } catch (e) {
+              /* ignore */
+            }
+            if (
+              (bet.type === "Moneyline" ||
+                String(bet.type).toLowerCase().includes("moneyline")) &&
+              eventData.bets.moneyline
+            ) {
               // moneyline current may be a score string; do not set numeric currentValue
               // to avoid rendering a progress bar for moneyline bets. Keep a scoreText for display if needed.
               pick.scoreText = eventData.bets.moneyline.current?.score;
@@ -1705,7 +2164,14 @@ const BetBetsScreen = () => {
                   : eventData.bets.moneyline.current?.won === false
                   ? "losing"
                   : "pending";
-            } else if (bet.type === "Spread" && eventData.bets.spread) {
+              pick.progressWonSource = `betslipData.event:${
+                eventData?.eventId || bet.gameId
+              }.bets.moneyline.current.won`;
+            } else if (
+              (bet.type === "Spread" ||
+                String(bet.type).toLowerCase().includes("spread")) &&
+              eventData.bets.spread
+            ) {
               // Compute current spread value using event scores so the slider bubble shows a meaningful numeric
               const spreadCurrent = eventData.bets.spread.current;
               const gameInfo = eventData.status?.game;
@@ -1732,6 +2198,9 @@ const BetBetsScreen = () => {
               }
 
               const lineNum = Number(bet.line) || 0;
+              if (!isNaN(lineNum) && lineNum !== 0) {
+                pick.line = lineNum;
+              }
               // For spread visualization:
               // - If line is positive (team is the underdog, e.g. +6.5), compute opponent - team
               //   so that more negative values move the indicator to the right (team trailing).
@@ -1739,6 +2208,9 @@ const BetBetsScreen = () => {
               // Always compute diff as opponent - team for consistent visualization
               const currentSpreadValue = oppScore - teamScore;
               pick.currentValue = Number(currentSpreadValue);
+              pick.progressSource = `betslipData.event:${
+                eventData?.eventId || bet.gameId
+              }.bets.spread.current`;
               // mark as spread for special visualization handling
               pick.isSpread = true;
               pick.spreadLine = lineNum;
@@ -1748,7 +2220,14 @@ const BetBetsScreen = () => {
                   : spreadCurrent?.won === false
                   ? "losing"
                   : "pending";
-            } else if (bet.type === "Total" && eventData.bets.totalPoints) {
+              pick.progressWonSource = `betslipData.event:${
+                eventData?.eventId || bet.gameId
+              }.bets.spread.current.won`;
+            } else if (
+              (bet.type === "Total" ||
+                String(bet.type).toLowerCase().includes("total")) &&
+              eventData.bets.totalPoints
+            ) {
               // ensure we have a numeric line to compute progress; prefer original bet.line but fall back to event payload
               const payloadLine = eventData.bets.totalPoints.line;
               if (typeof payloadLine === "number") {
@@ -1779,6 +2258,9 @@ const BetBetsScreen = () => {
                 parsedCurrent !== null && !isNaN(parsedCurrent)
                   ? Number(parsedCurrent)
                   : null;
+              pick.progressSource = `betslipData.event:${
+                eventData?.eventId || bet.gameId
+              }.bets.totalPoints.current`;
 
               pick.status =
                 eventData.bets.totalPoints.won === true
@@ -1786,20 +2268,90 @@ const BetBetsScreen = () => {
                   : eventData.bets.totalPoints.won === false
                   ? "losing"
                   : "pending";
+              pick.progressWonSource = `betslipData.event:${
+                eventData?.eventId || bet.gameId
+              }.bets.totalPoints.won`;
+            } else if (
+              (eventData.bets.awayPoints || eventData.bets.homePoints) &&
+              (bet.type?.toLowerCase().includes("_points") ||
+                String(bet.type).toLowerCase().includes("home") ||
+                String(bet.type).toLowerCase().includes("away"))
+            ) {
+              // Handle team-specific point totals (awayPoints / homePoints)
+              const g = eventData.status?.game || {};
+              const homeAbbrev = g.homeTeam || g.home || "";
+              const awayAbbrev = g.awayTeam || g.away || "";
+              let ptsPayload = null;
+              if (
+                eventData.bets.homePoints &&
+                (String(bet.team).toUpperCase() ===
+                  String(homeAbbrev).toUpperCase() ||
+                  String(bet.type).toLowerCase().includes("home"))
+              ) {
+                ptsPayload = eventData.bets.homePoints;
+              } else if (
+                eventData.bets.awayPoints &&
+                (String(bet.team).toUpperCase() ===
+                  String(awayAbbrev).toUpperCase() ||
+                  String(bet.type).toLowerCase().includes("away"))
+              ) {
+                ptsPayload = eventData.bets.awayPoints;
+              } else {
+                // fallback: prefer awayPoints then homePoints
+                ptsPayload =
+                  eventData.bets.awayPoints || eventData.bets.homePoints;
+              }
 
-              // Dev logging to debug missing progress bars for totals
-              try {
-                if (typeof __DEV__ !== "undefined" && __DEV__) {
-                  console.log("[BetBetsScreen] Total parse", {
-                    gameId: bet.gameId,
-                    bet,
-                    payload: eventData.bets.totalPoints,
-                    pickLine: pick.line,
-                    pickCurrent: pick.currentValue,
-                  });
+              if (ptsPayload) {
+                const payloadLine = ptsPayload.line;
+                if (typeof payloadLine === "number") {
+                  pick.line = payloadLine;
+                } else if (payloadLine != null) {
+                  const parsed = Number(payloadLine);
+                  if (!isNaN(parsed)) pick.line = parsed;
                 }
-              } catch (e) {
-                /* ignore logging errors */
+
+                const payloadCurrent = ptsPayload.current;
+                let parsedCurrent = null;
+                if (typeof payloadCurrent === "number")
+                  parsedCurrent = payloadCurrent;
+                else if (payloadCurrent && typeof payloadCurrent === "object")
+                  parsedCurrent = Number(
+                    payloadCurrent.score ??
+                      payloadCurrent.current ??
+                      payloadCurrent.value ??
+                      NaN
+                  );
+                else if (payloadCurrent != null) {
+                  const n = Number(payloadCurrent);
+                  parsedCurrent = isNaN(n) ? null : n;
+                }
+
+                pick.currentValue =
+                  parsedCurrent !== null && !isNaN(parsedCurrent)
+                    ? Number(parsedCurrent)
+                    : null;
+                // determine whether homePoints or awayPoints provided the payload
+                const ptsSource =
+                  ptsPayload === eventData.bets.homePoints
+                    ? "homePoints"
+                    : "awayPoints";
+                pick.progressSource = `betslipData.event:${
+                  eventData?.eventId || bet.gameId
+                }.bets.${ptsSource}.current`;
+
+                pick.status =
+                  ptsPayload.won === true
+                    ? "winning"
+                    : ptsPayload.won === false
+                    ? "losing"
+                    : "pending";
+                pick.progressWonSource = `betslipData.event:${
+                  eventData?.eventId || bet.gameId
+                }.bets.${ptsSource}.won`;
+                pick.isTotal = true;
+              } else {
+                pick.status = "pending";
               }
             } else {
               pick.status = "pending";
@@ -1847,17 +2399,93 @@ const BetBetsScreen = () => {
       // Ensure we prefer betslip_url payload values for non-pre events
       try {
         if (betslipData?.events) {
-          const overrideEvent = betslipData.events.find(
-            (e) => e.eventId === bet.gameId
-          );
+          const targetId = normalizeGameId(bet.gameId);
+          const overrideEvent = betslipData.events.find((e) => {
+            try {
+              return (
+                String(e.eventId) === targetId ||
+                normalizeGameId(e.eventId) === targetId
+              );
+            } catch (err) {
+              return false;
+            }
+          });
           const evtState = (overrideEvent?.status?.state || "")
             .toString()
             .toLowerCase();
           if (overrideEvent && evtState !== "pre") {
+            // Period-specific overrides (P1_SP, P2_T, etc.)
+            try {
+              const periodKey = normalizePeriodKey(bet.period);
+              if (periodKey) {
+                const periodSpread = overrideEvent.bets[`${periodKey}_SP`];
+                const periodTotal = overrideEvent.bets[`${periodKey}_T`];
+                if (periodSpread) {
+                  const cur = periodSpread.current;
+                  let parsed = null;
+                  if (typeof cur === "number") parsed = cur;
+                  else if (typeof cur === "string") {
+                    const parts = cur.split("-").map((s) => Number(s.trim()));
+                    if (
+                      parts.length === 2 &&
+                      !isNaN(parts[0]) &&
+                      !isNaN(parts[1])
+                    )
+                      parsed = parts[1] - parts[0];
+                  } else if (cur && typeof cur === "object")
+                    parsed = Number(cur.score ?? cur.current ?? NaN);
+                  if (parsed != null && !isNaN(parsed)) {
+                    pick.currentValue = Number(parsed);
+                    pick.progressSource = `overrideEvent.event:${
+                      overrideEvent?.eventId || bet.gameId
+                    }.bets.${periodKey}_SP.current`;
+                    pick.status =
+                      periodSpread.won === true
+                        ? "winning"
+                        : periodSpread.won === false
+                        ? "losing"
+                        : "pending";
+                    pick.progressWonSource = `overrideEvent.event:${
+                      overrideEvent?.eventId || bet.gameId
+                    }.bets.${periodKey}_SP.won`;
+                  }
+                }
+                if (periodTotal) {
+                  const cur = periodTotal.current;
+                  let parsed = null;
+                  if (typeof cur === "number") parsed = cur;
+                  else if (cur && typeof cur === "object")
+                    parsed = Number(
+                      cur.score ?? cur.current ?? cur.value ?? NaN
+                    );
+                  else if (cur != null) {
+                    const n = Number(cur);
+                    parsed = isNaN(n) ? null : n;
+                  }
+                  if (parsed != null && !isNaN(parsed)) {
+                    pick.currentValue = Number(parsed);
+                    pick.progressSource = `overrideEvent.event:${
+                      overrideEvent?.eventId || bet.gameId
+                    }.bets.${periodKey}_T.current`;
+                    pick.status =
+                      periodTotal.won === true
+                        ? "winning"
+                        : periodTotal.won === false
+                        ? "losing"
+                        : "pending";
+                    pick.progressWonSource = `overrideEvent.event:${
+                      overrideEvent?.eventId || bet.gameId
+                    }.bets.${periodKey}_T.won`;
+                  }
+                }
+              }
+            } catch (e) {
+              /* ignore */
+            }
             // Player-level overrides
             if (pick.playerName && overrideEvent?.bets?.players) {
               const p = overrideEvent.bets.players.find(
-                (pp) => pp.id === bet.playerId
+                (pp) => String(pp.id) === String(bet.playerId)
               );
               if (p) {
                 const statUpper =
@@ -1870,22 +2498,84 @@ const BetBetsScreen = () => {
                   STE: "STL",
                   TUR: "TO",
                   PRA: "PRA",
+                  SHT: "SHT",
+                  SAV: "GSV",
                 };
-                const statKey = statMap[statUpper] || "PTS";
+                const statKey = deriveStatKey(bet.statType);
                 if (p.milestones?.[statKey]) {
                   pick.currentValue = Number(p.milestones[statKey].current);
+                  pick.progressSource = `overrideEvent.event:${
+                    overrideEvent?.eventId || bet.gameId
+                  }.players:${p.id}.milestones:${statKey}`;
+                  pick.status =
+                    p.milestones[statKey].won === true
+                      ? "winning"
+                      : p.milestones[statKey].won === false
+                      ? "losing"
+                      : "pending";
+                  pick.progressWonSource = `overrideEvent.event:${
+                    overrideEvent?.eventId || bet.gameId
+                  }.players:${p.id}.milestones:${statKey}`;
                 } else if (p.overUnder?.[statKey]) {
                   pick.currentValue = Number(p.overUnder[statKey].current);
+                  pick.progressSource = `overrideEvent.event:${
+                    overrideEvent?.eventId || bet.gameId
+                  }.players:${p.id}.overUnder:${statKey}`;
+                  pick.status =
+                    p.overUnder[statKey].won === true
+                      ? "winning"
+                      : p.overUnder[statKey].won === false
+                      ? "losing"
+                      : "pending";
+                  pick.progressWonSource = `overrideEvent.event:${
+                    overrideEvent?.eventId || bet.gameId
+                  }.players:${p.id}.overUnder:${statKey}`;
+                }
+                // PRA fallback: if no statKey value found, prefer PRA milestone if present
+                if (
+                  (pick.currentValue == null || isNaN(pick.currentValue)) &&
+                  p.milestones?.PRA
+                ) {
+                  pick.currentValue = Number(p.milestones.PRA.current);
+                  pick.progressSource = `overrideEvent.event:${
+                    overrideEvent?.eventId || bet.gameId
+                  }.players:${p.id}.milestones:PRA`;
+                  pick.status =
+                    p.milestones.PRA.won === true
+                      ? "winning"
+                      : p.milestones.PRA.won === false
+                      ? "losing"
+                      : "pending";
+                  pick.progressWonSource = `overrideEvent.event:${
+                    overrideEvent?.eventId || bet.gameId
+                  }.players:${p.id}.milestones:PRA.won`;
                 }
               }
             }
 
-            // Team-level overrides (spread/total)
+            // Team-level overrides (spread/total/points)
             if (!pick.playerName && overrideEvent?.bets) {
-              if (bet.type === "Moneyline" && overrideEvent.bets.moneyline) {
+              if (
+                (bet.type === "Moneyline" ||
+                  String(bet.type).toLowerCase().includes("moneyline")) &&
+                overrideEvent.bets.moneyline
+              ) {
                 pick.scoreText = overrideEvent.bets.moneyline.current?.score;
                 pick.currentValue = null;
-              } else if (bet.type === "Spread" && overrideEvent.bets.spread) {
+                pick.status =
+                  overrideEvent.bets.moneyline.current?.won === true
+                    ? "winning"
+                    : overrideEvent.bets.moneyline.current?.won === false
+                    ? "losing"
+                    : "pending";
+                pick.progressWonSource = `overrideEvent.event:${
+                  overrideEvent?.eventId || bet.gameId
+                }.bets.moneyline.current.won`;
+              } else if (
+                (bet.type === "Spread" ||
+                  String(bet.type).toLowerCase().includes("spread")) &&
+                overrideEvent.bets.spread
+              ) {
                 const spreadCurrent = overrideEvent.bets.spread.current;
                 const g = overrideEvent.status?.game;
                 const homeScore = Number(g?.homeScore) || 0;
@@ -1908,10 +2598,37 @@ const BetBetsScreen = () => {
                   oppScore = 0;
                 }
                 pick.currentValue = Number(oppScore - teamScore);
+                pick.progressSource = `overrideEvent.event:${
+                  overrideEvent?.eventId || bet.gameId
+                }.bets.spread.current`;
+                pick.status =
+                  spreadCurrent?.won === true
+                    ? "winning"
+                    : spreadCurrent?.won === false
+                    ? "losing"
+                    : "pending";
+                pick.progressWonSource = `overrideEvent.event:${
+                  overrideEvent?.eventId || bet.gameId
+                }.bets.spread.current.won`;
+                // set numeric line if available
+                const spreadLine = overrideEvent.bets.spread.line;
+                if (typeof spreadLine === "number" && !isNaN(spreadLine)) {
+                  pick.line = spreadLine;
+                }
               } else if (
-                bet.type === "Total" &&
+                (bet.type === "Total" ||
+                  String(bet.type).toLowerCase().includes("total")) &&
                 overrideEvent.bets.totalPoints
               ) {
+                // set line if available in override payload
+                const overrideLine = overrideEvent.bets.totalPoints.line;
+                if (typeof overrideLine === "number") {
+                  pick.line = overrideLine;
+                } else if (overrideLine != null) {
+                  const parsed = Number(overrideLine);
+                  if (!isNaN(parsed)) pick.line = parsed;
+                }
+
                 const totalCurrent = overrideEvent.bets.totalPoints.current;
                 let parsedCurrent = null;
                 if (typeof totalCurrent === "number")
@@ -1931,6 +2648,90 @@ const BetBetsScreen = () => {
                   parsedCurrent !== null && !isNaN(parsedCurrent)
                     ? Number(parsedCurrent)
                     : pick.currentValue;
+                pick.progressSource = `overrideEvent.event:${
+                  overrideEvent?.eventId || bet.gameId
+                }.bets.totalPoints.current`;
+                pick.status =
+                  overrideEvent.bets.totalPoints?.won === true
+                    ? "winning"
+                    : overrideEvent.bets.totalPoints?.won === false
+                    ? "losing"
+                    : "pending";
+                pick.progressWonSource = `overrideEvent.event:${
+                  overrideEvent?.eventId || bet.gameId
+                }.bets.totalPoints.won`;
+              } else {
+                // also handle home/away specific points in override
+                const g = overrideEvent.status?.game || {};
+                const homeAbbrev = g.homeTeam || g.home || "";
+                const awayAbbrev = g.awayTeam || g.away || "";
+                const hasHome = overrideEvent.bets.homePoints;
+                const hasAway = overrideEvent.bets.awayPoints;
+                let ptsPayload = null;
+                if (
+                  hasHome &&
+                  (String(bet.team).toUpperCase() ===
+                    String(homeAbbrev).toUpperCase() ||
+                    String(bet.type).toLowerCase().includes("home"))
+                ) {
+                  ptsPayload = overrideEvent.bets.homePoints;
+                } else if (
+                  hasAway &&
+                  (String(bet.team).toUpperCase() ===
+                    String(awayAbbrev).toUpperCase() ||
+                    String(bet.type).toLowerCase().includes("away"))
+                ) {
+                  ptsPayload = overrideEvent.bets.awayPoints;
+                } else if (hasAway || hasHome) {
+                  ptsPayload =
+                    overrideEvent.bets.awayPoints ||
+                    overrideEvent.bets.homePoints;
+                }
+
+                if (ptsPayload) {
+                  const payloadLine = ptsPayload.line;
+                  if (typeof payloadLine === "number") pick.line = payloadLine;
+                  else if (payloadLine != null) {
+                    const parsed = Number(payloadLine);
+                    if (!isNaN(parsed)) pick.line = parsed;
+                  }
+
+                  const payloadCurrent = ptsPayload.current;
+                  let parsedCurrent = null;
+                  if (typeof payloadCurrent === "number")
+                    parsedCurrent = payloadCurrent;
+                  else if (payloadCurrent && typeof payloadCurrent === "object")
+                    parsedCurrent = Number(
+                      payloadCurrent.score ??
+                        payloadCurrent.current ??
+                        payloadCurrent.value ??
+                        NaN
+                    );
+                  else if (payloadCurrent != null) {
+                    const n = Number(payloadCurrent);
+                    parsedCurrent = isNaN(n) ? null : n;
+                  }
+                  pick.currentValue =
+                    parsedCurrent !== null && !isNaN(parsedCurrent)
+                      ? Number(parsedCurrent)
+                      : pick.currentValue;
+                  const ptsSource =
+                    ptsPayload === overrideEvent.bets.homePoints
+                      ? "homePoints"
+                      : "awayPoints";
+                  pick.progressSource = `overrideEvent.event:${
+                    overrideEvent?.eventId || bet.gameId
+                  }.bets.${ptsSource}.current`;
+                  pick.status =
+                    ptsPayload.won === true
+                      ? "winning"
+                      : ptsPayload.won === false
+                      ? "losing"
+                      : "pending";
+                  pick.progressWonSource = `overrideEvent.event:${
+                    overrideEvent?.eventId || bet.gameId
+                  }.bets.${ptsSource}.won`;
+                }
               }
             }
           }
@@ -1938,6 +2739,25 @@ const BetBetsScreen = () => {
       } catch (e) {
         /* ignore */
       }
+
+      try {
+        // Simple debug: show whether progress bar should render and its value/source
+        const progressEnabled =
+          pick.currentValue != null &&
+          !isNaN(pick.currentValue) &&
+          String(pick.gameState || "").toLowerCase() !== "pre";
+        // prefer explicit marker set when parsing values
+        let progressSource = pick.progressSource || "none";
+
+        console.log("[BetBetsScreen] progress-debug", {
+          pickId: pick.id,
+          prop: pick.prop,
+          progressEnabled,
+          progressValue: progressEnabled ? pick.currentValue : null,
+          progressSource,
+          progressWonSource: pick.progressWonSource || "none",
+        });
+      } catch (e) {}
 
       return pick;
     });
@@ -3139,7 +3959,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   parlayPicks: {
-    marginTop: 8,
+    marginTop: -10,
+    marginBottom: -20,
   },
   collapseButton: {
     alignItems: "center",

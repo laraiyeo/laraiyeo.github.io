@@ -190,53 +190,86 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         return;
       }
       const playerBets = {};
+      // query built after grouping so we can include normalized gameId suffixes
+      let query = "";
 
-      // Build query string
-      let query = `gameId=${gameIds.join(",")}`;
-
-      // Build per-game moneyline list aligned with gameIds
-      const moneylines = gameIds.map((gid) => {
-        const ml = bets.find((b) => b.gameId === gid && b.type === "Moneyline");
-        return ml ? ml.team : "";
-      });
-
-      if (moneylines.some((m) => m)) {
-        query += `&moneyline=${moneylines.map(encodeURIComponent).join(",")}`;
-      }
-
-      // Build per-game totals aligned with gameIds (format: o242.5 or u242.5)
-      const totals = gameIds.map((gid) => {
-        const t = bets.find((b) => b.gameId === gid && b.type === "Total");
-        if (!t) return "";
-        const overUnder = t.description?.toLowerCase().includes("over")
-          ? "o"
-          : "u";
-        const lineNumber = String(t.line || "").replace(/^[OU]\s+/, "");
-        return `${overUnder}${lineNumber}`;
-      });
-      if (totals.some((t) => t)) {
-        query += `&total=${totals.map(encodeURIComponent).join(",")}`;
-      }
-
-      // Build per-game spreads aligned with gameIds (format: TEAM-3.5 or TEAM3.5 depending on original)
-      const spreads = gameIds.map((gid) => {
-        const s = bets.find((b) => b.gameId === gid && b.type === "Spread");
-        if (!s) return "";
-        return `${s.team}${s.line}`;
-      });
-      if (spreads.some((s) => s)) {
-        const encodeSpread = (val) =>
-          encodeURIComponent(val).replace(/%2B/g, "+");
-        query += `&spread=${spreads.map(encodeSpread).join(",")}`;
-      }
-
-      // Group player bets
+      // Group player bets and capture sport hint (from gameId suffix or statType)
       try {
+        const inferSportFromStat = (stat) => {
+          if (!stat) return null;
+          const s = String(stat).toLowerCase();
+          if (s.includes("pass") || s.includes("pyds") || s.includes("passing"))
+            return "nfl";
+          if (s.includes("rush") || s.includes("ryds") || s.includes("rushing"))
+            return "nfl";
+          if (s.includes("rec") && s.includes("yd")) return "nfl";
+          if (
+            s.includes("pts") ||
+            s.includes("points") ||
+            s.includes("3pm") ||
+            s.includes("ast")
+          )
+            return "nba";
+          if (
+            s.includes("gsv") ||
+            s.includes("hgl") ||
+            s.includes("sht") ||
+            s.includes("shot") ||
+            s.includes("shots") ||
+            s.includes("save") ||
+            s.includes("saves")
+          )
+            return "nhl";
+          if (
+            s.includes("goals") ||
+            s.includes("ugl") ||
+            s.includes("yc") ||
+            s.includes("card")
+          )
+            return "uefa";
+          return null;
+        };
+
         bets.forEach((bet) => {
           if (!bet) return;
           if (bet.playerId && bet.statType) {
-            if (!playerBets[bet.playerId]) playerBets[bet.playerId] = {};
-            playerBets[bet.playerId][bet.statType] = bet.betValue;
+            if (!playerBets[bet.playerId])
+              playerBets[bet.playerId] = { sport: null, stats: {} };
+
+            // Prefer bet.sport field if available
+            if (bet.sport) {
+              playerBets[bet.playerId].sport = bet.sport.toLowerCase();
+            } else {
+              // Fallback: try to derive sport from bet.gameId suffix (e.g., 401772916_nfl)
+              try {
+                const gid = bet.gameId || bet.game_id || bet.game || "";
+                if (typeof gid === "string" && gid.includes("_")) {
+                  const parts = gid.split("_");
+                  const suf = parts[parts.length - 1].toLowerCase();
+                  if (["nba", "nfl", "nhl", "uefa"].includes(suf)) {
+                    playerBets[bet.playerId].sport = suf;
+                  }
+                }
+              } catch (e) {}
+
+              // if still unknown, infer from statType name
+              if (!playerBets[bet.playerId].sport) {
+                const inferred = inferSportFromStat(bet.statType);
+                if (inferred) playerBets[bet.playerId].sport = inferred;
+              }
+            }
+
+            // If gameId exists but lacks suffix, and we have sport, append it to the bet's gameId
+            try {
+              const gid = bet.gameId || bet.game_id || bet.game || null;
+              const suf = playerBets[bet.playerId].sport;
+              if (gid && suf && typeof gid === "string" && !gid.includes("_")) {
+                // mutate bet.gameId so later code uses suffixed id
+                bet.gameId = `${gid}_${suf}`;
+              }
+            } catch (e) {}
+
+            playerBets[bet.playerId].stats[bet.statType] = bet.betValue;
           }
         });
       } catch (groupErr) {
@@ -246,22 +279,373 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
 
       console.log("Player bets:", playerBets);
 
-      Object.entries(playerBets).forEach(([playerId, stats], index) => {
+      // Helper: Extract period suffix from bet object (checks bet.period field first, then bet.type)
+      const getPeriodSuffix = (bet) => {
+        // Check if period is directly stored in bet object (from game lines section)
+        if (bet.period) {
+          const p = bet.period.toLowerCase();
+          // Handle ESPN periodID format like "1", "2", "3" for periods or "reg" for regulation
+          if (p === "1") return "1P";
+          if (p === "2") return "2P";
+          if (p === "3") return "3P";
+          if (p === "4") return "4Q"; // 4th quarter in some sports
+          // Handle already-formatted periods like "1P", "2Q", "1H"
+          if (/^[1-4](P|Q|H)$/i.test(p)) return p.toUpperCase();
+        }
+
+        // Fallback: Extract from bet.type text (for team bets created with period in type name)
+        const betType = bet.type;
+        if (!betType) return "";
+        const type = betType.toLowerCase();
+        // Match patterns like "1st period", "2nd period", "1st quarter", "1st half"
+        const periodMatch = type.match(/(1st|2nd|3rd)\s*period/);
+        const quarterMatch = type.match(/(1st|2nd|3rd|4th)\s*quarter/);
+        const halfMatch = type.match(/(1st|2nd)\s*half/);
+
+        if (periodMatch) {
+          const num =
+            periodMatch[1] === "1st"
+              ? "1"
+              : periodMatch[1] === "2nd"
+              ? "2"
+              : "3";
+          return num + "P";
+        }
+        if (quarterMatch) {
+          const num =
+            quarterMatch[1] === "1st"
+              ? "1"
+              : quarterMatch[1] === "2nd"
+              ? "2"
+              : quarterMatch[1] === "3rd"
+              ? "3"
+              : "4";
+          return num + "Q";
+        }
+        if (halfMatch) {
+          const num = halfMatch[1] === "1st" ? "1" : "2";
+          return num + "H";
+        }
+        return "";
+      };
+
+      // Recompute gameIds after grouping (some bets may have been normalized to include sport suffix)
+      const finalGameIds = [...new Set(bets.map((bet) => bet.gameId))].filter(
+        Boolean
+      );
+
+      // Extract sport suffix from gameId (e.g., "401810365_nba" -> "nba")
+      const getSportFromGameId = (gameId) => {
+        const match = gameId.match(/_(nba|nfl|nhl|mlb|soccer|ncaa|wnba)$/i);
+        return match ? match[1].toLowerCase() : null;
+      };
+
+      // Determine if we have multiple sports in the bet slip
+      const sports = [...new Set(finalGameIds.map(getSportFromGameId).filter(Boolean))];
+      const isMultiSport = sports.length > 1;
+
+      // Build query string now using normalized game ids
+      query = `gameId=${finalGameIds.join(",")}`;
+
+      // Group gameIds by sport for multi-sport betslips
+      const gameIdsBySport = {};
+      if (isMultiSport) {
+        finalGameIds.forEach(gid => {
+          const sport = getSportFromGameId(gid);
+          if (sport) {
+            if (!gameIdsBySport[sport]) gameIdsBySport[sport] = [];
+            gameIdsBySport[sport].push(gid);
+          }
+        });
+      }
+
+      // Helper to build array of values aligned with gameIds (or sport-specific gameIds)
+      const buildAlignedArray = (paramName, periodSuffix = '') => {
+        if (isMultiSport) {
+          // For multi-sport, create separate arrays per sport
+          Object.entries(gameIdsBySport).forEach(([sport, sportGameIds]) => {
+            const values = sportGameIds.map(gid => {
+              const bet = bets.find(b => 
+                b.gameId === gid && 
+                getPeriodSuffix(b) === periodSuffix &&
+                matchesBetType(b, paramName)
+              );
+              return bet ? formatBetValue(bet, paramName) : "";
+            });
+            
+            if (values.some(v => v)) {
+              const sportSuffix = `_${sport}`;
+              query += `&${paramName}${periodSuffix}${sportSuffix}=${values.map(encodeURIComponent).join(",")}`;
+            }
+          });
+        } else {
+          // Single sport: use simple aligned array
+          const values = finalGameIds.map(gid => {
+            const bet = bets.find(b => 
+              b.gameId === gid && 
+              getPeriodSuffix(b) === periodSuffix &&
+              matchesBetType(b, paramName)
+            );
+            return bet ? formatBetValue(bet, paramName) : "";
+          });
+          
+          if (values.some(v => v)) {
+            query += `&${paramName}${periodSuffix}=${values.map(encodeURIComponent).join(",")}`;
+          }
+        }
+      };
+
+      // Helper to check if bet matches the parameter type
+      const matchesBetType = (bet, paramName) => {
+        switch(paramName) {
+          case 'moneyline':
+            return bet.type === "Moneyline";
+          case 'moneylineReg':
+            return bet.type === "Regulation 3-Way Moneyline";
+          case 'spread':
+            return bet.type === "Spread" || (bet.type?.includes("(Alt)") && bet.type?.includes("Spread"));
+          case 'total':
+            return !bet.team && (bet.type?.toLowerCase().includes("over/under") || 
+                   bet.type?.toLowerCase().includes("total") || bet.type === "Milestone");
+          case 'homePoints':
+            return bet.team && (bet.type?.toLowerCase().includes("over/under") || 
+                   bet.type?.toLowerCase().includes("total") || 
+                   (bet.type?.includes("(Alt)") && bet.statType === "points"));
+          case 'awayPoints':
+            return bet.team && (bet.type?.toLowerCase().includes("over/under") || 
+                   bet.type?.toLowerCase().includes("total") || 
+                   (bet.type?.includes("(Alt)") && bet.statType === "points"));
+          default:
+            return false;
+        }
+      };
+
+      // Helper to format bet value for the parameter
+      const formatBetValue = (bet, paramName) => {
+        const teamsStr = bet.gameInfo?.teams || "";
+        const awayTeam = teamsStr.split(" @ ")[0];
+        const homeTeam = teamsStr.split(" @ ")[1];
+
+        switch(paramName) {
+          case 'moneyline':
+          case 'moneylineReg':
+            return bet.team || bet.line || "";
+            
+          case 'spread':
+            return `${bet.team}${bet.line}`;
+            
+          case 'total':
+          case 'homePoints':
+          case 'awayPoints': {
+            // Extract number with +/- from line
+            let lineValue = String(bet.line || "").replace(/^[OU]\s+/, "");
+            if (bet.description?.includes("+") || bet.description?.toLowerCase().includes("over")) {
+              if (!lineValue.includes("+")) lineValue += "+";
+            } else if (bet.description?.includes("-") || bet.description?.toLowerCase().includes("under")) {
+              if (!lineValue.includes("-")) lineValue += "-";
+            }
+            
+            // For team totals, check if this bet matches home/away
+            if (paramName === 'homePoints' && bet.team !== homeTeam) return "";
+            if (paramName === 'awayPoints' && bet.team !== awayTeam) return "";
+            
+            return lineValue;
+          }
+          
+          default:
+            return "";
+        }
+      };
+
+      // Build all bet type parameters
+      buildAlignedArray('moneyline');
+      buildAlignedArray('moneylineReg');
+      buildAlignedArray('spread');
+      buildAlignedArray('total');
+      buildAlignedArray('homePoints');
+      buildAlignedArray('awayPoints');
+
+      // Period-specific bets
+      ["1P", "2P", "3P", "1Q", "2Q", "3Q", "4Q", "1H", "2H"].forEach(suffix => {
+        buildAlignedArray('moneyline', suffix);
+        buildAlignedArray('spread', suffix);
+        buildAlignedArray('total', suffix);
+        buildAlignedArray('homePoints', suffix);
+        buildAlignedArray('awayPoints', suffix);
+      });
+
+      // Player bets remain unchanged
+      Object.entries(playerBets).forEach(([playerId, playerObj], index) => {
         const playerNum = index + 1;
         query += `&p${playerNum}=${playerId}`;
-        Object.entries(stats).forEach(([statType, betValue]) => {
-          // Convert statType to short form for API
-          const statTypeMap = {
+        const stats = playerObj.stats || {};
+        const sport = playerObj.sport || null;
+
+        // Helper: normalize stat key (strip _ou/_o/_u/_yn and other suffixes) and map to short stat code based on sport
+        const normalizeStatKey = (statType) => {
+          if (!statType) return "";
+          let s = String(statType).toLowerCase();
+          // strip common suffixes like _ou, _o, _u, _yn, _ml and trailing -/+ forms BEFORE replacing special chars
+          s = s.replace(/[_-](o|u|ou|yn|ml)$/i, "");
+          s = s.replace(/_ou$/i, "");
+          s = s.replace(/_yn$/i, "");
+          s = s.replace(/_ml$/i, "");
+          s = s.replace(/_over$|_under$/i, "");
+          // Now replace special characters but keep + for combined stats
+          s = s.replace(/[^a-z0-9+]/g, "_");
+          return s;
+        };
+
+        // Helper: map a statType to short stat code based on sport
+        const getShortStat = (statType, sportHint) => {
+          if (!statType) return "pts";
+          const sRaw = normalizeStatKey(statType);
+          const s = sRaw;
+          // NBA defaults
+          const nbaMap = {
             points: "pts",
+            pts: "pts",
             rebounds: "reb",
+            reb: "reb",
             assists: "ast",
+            ast: "ast",
             blocks: "blk",
+            blk: "blk",
             steals: "stl",
+            stl: "stl",
             turnovers: "to",
-            threes: "3pt",
-            pra: "pra",
+            to: "to",
+            threes: "3pm",
+            "3pt": "3pm",
+            "points+rebounds+assists": "pra",
+            "points+assists": "pa",
+            "points+rebounds": "pr",
+            "rebounds+assists": "ra",
+            pra_total: "pra",
+            "1qpts": "1qpts",
+            "1qreb": "1qreb",
+            "1qast": "1qast",
+            doubledouble: "2dbl",
+            tripledouble: "3dbl",
+            firstbasket: "firstBasket",
           };
-          const shortStat = statTypeMap[statType.toLowerCase()] || "pts";
+
+          // NFL mappings (common patterns)
+          const nflMap = {
+            passing_yards: "pyds",
+            pyds: "pyds",
+            pass_yards: "pyds",
+            passing_attempts: "patt",
+            patt: "patt",
+            passing_completions: "pcmp",
+            pcmp: "pcmp",
+            passing_interceptions: "pint",
+            pint: "pint",
+            passing_longest: "plng",
+            plng: "plng",
+            passing_tds: "ptd",
+            ptd: "ptd",
+            "passing+ rushing": "pryds",
+            pryds: "pryds",
+            rushing_yards: "ryds",
+            ryds: "ryds",
+            rushing_longest: "rlng",
+            rlng: "rlng",
+            rushing_attempts: "ratt",
+            ratt: "ratt",
+            receiving_yards: "recyds",
+            recyds: "recyds",
+            receptions: "rrec",
+            rrec: "rrec",
+            rec_longest: "reclong",
+            reclong: "reclong",
+            "rush+rec": "rryds",
+            rryds: "rryds",
+            tds: "tds",
+            touchdowns: "touchdowns",
+            kxp: "kxp",
+            kfg: "kfg",
+            kpts: "kpts",
+            dsac: "dsac",
+          };
+
+          // NHL mappings
+          const nhlMap = {
+            "goals+assists": "ga",
+            "powerplay goals+assists": "ppp",
+            goal: "hgl",
+            hgl: "hgl",
+            points_yn: "goals",
+            points_ou: "hgl",
+            points: "hgl",
+            pts: "hgl",
+            shots_on_goal: "sht",
+            shots_ongoal: "sht",
+            sht: "sht",
+            shots: "sht",
+            shot: "sht",
+            assists: "ast",
+            ast: "ast",
+            blocked: "bs",
+            blocks: "bs",
+            bs: "bs",
+            ppp: "ppp",
+            saves: "gsv",
+            save: "gsv",
+            gsv: "gsv",
+          };
+
+          // choose mapping table based on sportHint
+          if (sportHint === "nfl") {
+            // try exact matches then substring heuristics
+            if (nflMap[s]) return nflMap[s];
+            if (s.includes("pass") && s.includes("yd")) return "pyds";
+            if (
+              s.includes("pass") &&
+              (s.includes("att") || s.includes("attempt"))
+            )
+              return "patt";
+            if (s.includes("comp")) return "pcmp";
+            if (s.includes("int")) return "pint";
+            if (s.includes("ptd") || s.includes("td") || s.includes("touch"))
+              return "ptd";
+            if (s.includes("rush") && s.includes("yd")) return "ryds";
+            if (s.includes("rec") && s.includes("yd")) return "recyds";
+            if (s.includes("kick") || s.includes("kxp") || s.includes("kfg")) {
+              if (s.includes("xp") || s.includes("kxp")) return "kxp";
+              if (s.includes("fg") || s.includes("kfg")) return "kfg";
+              return "kpts";
+            }
+            return s.replace(/[^a-z0-9]/g, "_");
+          }
+
+          if (sportHint === "nhl") {
+            if (nhlMap[s]) return nhlMap[s];
+            if (s.includes("shot") || s.includes("shots") || s.includes("sht"))
+              return "sht";
+            if (s.includes("save")) return "gsv";
+            if (s.includes("goal")) return "hgl";
+            // Special handling: points_yn -> goals, other points -> hgl
+            if (s.includes("point") || s.includes("pts")) {
+              if (s.includes("_yn")) return "goals";
+              return "hgl";
+            }
+            return s.replace(/[^a-z0-9]/g, "_");
+          }
+
+          // default to NBA mapping
+          if (nbaMap[s]) return nbaMap[s];
+          if (s.includes("pts") || s.includes("point")) return "pts";
+          if (s.includes("reb")) return "reb";
+          if (s.includes("ast")) return "ast";
+          if (s.includes("blk")) return "blk";
+          if (s.includes("stl")) return "stl";
+          if (s.includes("3pt") || s.includes("three")) return "3pm";
+          return s.replace(/[^a-z0-9]/g, "_");
+        };
+
+        Object.entries(stats).forEach(([statType, betValue]) => {
+          const shortStat = getShortStat(statType, sport);
           query += `&p${playerNum}_${shortStat}=${betValue}`;
         });
       });
@@ -609,10 +993,16 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                           // Close slip first, then navigate
                           closeSlip();
 
+                          // Extract sport from gameId suffix (e.g., "401810365_nba" -> sport: "NBA", gameId: "401810365")
+                          const sportMatch = gameId.match(/_(nba|nfl|nhl|mlb|soccer|ncaa|wnba)$/i);
+                          const sport = sportMatch ? sportMatch[1].toUpperCase() : null;
+                          const cleanGameId = gameId.replace(/_(nba|nfl|nhl|mlb|soccer|ncaa|wnba)$/i, '');
+
                           // Navigate even if gameData is not found - BetGameDetailScreen will handle it
                           navigation.navigate("BetGameDetail", {
-                            gameId: gameId,
-                            game: gameData || { id: gameId },
+                            gameId: cleanGameId,
+                            game: gameData || { id: cleanGameId },
+                            sport: sport, // Pass sport so it uses correct logic
                           });
                         }}
                       >
@@ -665,17 +1055,59 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
 
                     {/* Bets in this game */}
                     {group.bets.map((bet, index) => {
+                      // Helper to normalize stat type display (remove suffixes and format nicely)
+                      const normalizeStatTypeDisplay = (statType) => {
+                        if (!statType) return "";
+                        let normalized = statType
+                          .replace(/_ou$/i, "")
+                          .replace(/_yn$/i, "")
+                          .replace(/_ml$/i, "")
+                          .replace(/_o$/i, "")
+                          .replace(/_u$/i, "");
+
+                        // Convert underscores to spaces and capitalize each word
+                        normalized = normalized
+                          .replace(/_/g, " ")
+                          .split(" ")
+                          .map(
+                            (word) =>
+                              word.charAt(0).toUpperCase() + word.slice(1)
+                          )
+                          .join(" ");
+
+                        return normalized;
+                      };
+
                       // Format bet type display
                       const getBetTypeDisplay = () => {
                         if (!bet.type) return "BET";
 
-                        if (bet.type === "milestone") {
-                          // Capitalize first letter and add stat type (e.g., "Milestone Points")
+                        if (
+                          bet.type === "milestone" ||
+                          bet.type === "Milestone"
+                        ) {
                           const statType = bet.statType
-                            ? bet.statType.toUpperCase()
+                            ? normalizeStatTypeDisplay(bet.statType)
                             : bet.prop?.split(" ")[0] || "";
                           return `Milestone ${statType}`;
                         }
+
+                        // For alternate lines, show "Alt" with the stat type
+                        if (bet.type === "alt") {
+                          const statType = bet.statType
+                            ? normalizeStatTypeDisplay(bet.statType)
+                            : "";
+                          return `Alt ${statType}`;
+                        }
+
+                        // For yes/no bets, show the normalized stat type
+                        if (bet.type === "yesno") {
+                          const statType = bet.statType
+                            ? normalizeStatTypeDisplay(bet.statType)
+                            : "";
+                          return statType || "Yes/No";
+                        }
+
                         // For over/under player props, include stat type
                         if (
                           (bet.type === "over" || bet.type === "under") &&
@@ -684,7 +1116,9 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                           const capitalizedType =
                             bet.type.charAt(0).toUpperCase() +
                             bet.type.slice(1);
-                          return `${capitalizedType} ${bet.statType.toUpperCase()}`;
+                          return `${capitalizedType} ${normalizeStatTypeDisplay(
+                            bet.statType
+                          )}`;
                         }
                         // For game lines (Spread, Total, Moneyline), just return the type
                         return (
@@ -752,13 +1186,35 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                               ]}
                             >
                               {/* For team bets, show team/game and bet line */}
-                              {bet.type === "Total"
-                                ? `GAME • ${bet.line}`
-                                : bet.type === "Moneyline"
+                              {bet.type.includes("Total") || bet.type.includes("Over/Under")
                                 ? bet.team
-                                : bet.type === "Spread"
+                                  ? `${bet.team} • ${bet.line}`
+                                  : `${
+                                      bet.period
+                                        ? bet.period.toUpperCase()
+                                        : "GAME"
+                                    } • ${bet.line}`
+                                : bet.type.includes("Moneyline")
+                                ? bet.team || bet.line || "DRAW"
+                                : bet.type.includes("Spread")
                                 ? `${bet.team} • ${bet.line}`
-                                : `${bet.player} • ${bet.betValue}`}
+                                : bet.type === "Milestone"
+                                ? `${
+                                    bet.team ||
+                                    (bet.period
+                                      ? bet.period.toUpperCase()
+                                      : "GAME")
+                                  } • ${bet.line || bet.betValue || ""}`
+                                : bet.type === "alt" || (bet.type && bet.type.includes("(Alt)"))
+                                ? `${bet.team || "TEAM"} • ${
+                                    bet.line || bet.betValue || ""
+                                  }`
+                                : `${bet.player} • ${
+                                    bet.type === "yesno" && bet.betValue
+                                      ? bet.betValue.charAt(0).toUpperCase() +
+                                        bet.betValue.slice(1)
+                                      : bet.betValue
+                                  }`}
                             </Text>
                             <Text
                               style={[

@@ -15,13 +15,16 @@ const API_BASE_URL =
 
 export const BetDataProvider = ({ children }) => {
   const [scoreboardData, setScoreboardData] = useState({});
-  const [rostersData, setRostersData] = useState({});
+  const [rostersData, setRostersData] = useState({}); // Format: { rosters_NBA: data, rosters_NFL: data }
   const [isLoading, setIsLoading] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState({});
   const [currentPollingMode, setCurrentPollingMode] = useState({});
   const pollingIntervalRef = useRef({});
   const fetchCounterRef = useRef(0);
   const [currentSport, setCurrentSport] = useState("NBA");
+  const rostersFetchedRef = useRef(new Set()); // Track which sports have been fetched
+  const [lastRosterResetTime, setLastRosterResetTime] = useState(null); // Track last 2am PST reset
+  const rosterResetCheckIntervalRef = useRef(null);
 
   // Helper functions
   const getTimeDifferenceInMinutes = (date1, date2) => {
@@ -34,6 +37,65 @@ export const BetDataProvider = ({ children }) => {
 
   const isGameScheduled = (status) => {
     return status?.type?.state === "pre";
+  };
+
+  // Get the most recent 2am PST timestamp
+  const getLastTwoAmPST = () => {
+    const now = new Date();
+
+    // Get current time in PST
+    const pstTime = new Date(
+      now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
+    );
+
+    // Create a date for 2am PST today
+    const twoAmToday = new Date(pstTime);
+    twoAmToday.setHours(2, 0, 0, 0);
+
+    // If current time is before 2am PST today, use yesterday's 2am PST
+    if (pstTime < twoAmToday) {
+      twoAmToday.setDate(twoAmToday.getDate() - 1);
+    }
+
+    return twoAmToday.getTime();
+  };
+
+  // Check if rosters need to be reset (if we've passed 2am PST since last reset)
+  const checkAndResetRosters = async () => {
+    try {
+      const lastTwoAm = getLastTwoAmPST();
+      const storedResetTime = await AsyncStorage.getItem(
+        "bet_roster_reset_time"
+      );
+
+      let shouldReset = false;
+
+      if (!storedResetTime) {
+        // First time - set reset time but don't clear data yet
+        shouldReset = false;
+      } else {
+        const storedTime = parseInt(storedResetTime, 10);
+        // If the last 2am PST is after our stored reset time, we need to reset
+        if (lastTwoAm > storedTime) {
+          shouldReset = true;
+        }
+      }
+
+      if (shouldReset) {
+        console.log(
+          "[BetData] Resetting roster data - passed 2am PST threshold"
+        );
+        // Clear roster data
+        setRostersData({});
+        rostersFetchedRef.current.clear();
+      }
+
+      // Update the stored reset time to current 2am PST
+      await AsyncStorage.setItem("bet_roster_reset_time", lastTwoAm.toString());
+      setLastRosterResetTime(lastTwoAm);
+    } catch (error) {
+      console.error("[BetData] Error checking roster reset:", error);
+    }
   };
 
   const findNextGameStart = (events) => {
@@ -138,7 +200,11 @@ export const BetDataProvider = ({ children }) => {
           `${API_BASE_URL}/scoreboard/${sportLower}`
         );
         const data = await response.json();
-        setScoreboardData((prev) => ({ ...prev, [sport]: data }));
+
+        setScoreboardData((prev) => {
+          const updated = { ...prev, [sport]: data };
+          return updated;
+        });
         setLastFetchTime((prev) => ({
           ...prev,
           [sport]: new Date().toISOString(),
@@ -188,19 +254,100 @@ export const BetDataProvider = ({ children }) => {
     [currentPollingMode]
   );
 
-  // Fetch rosters data
+  // Fetch rosters data (only fetches once per sport)
   const fetchRosters = async (sport = "NBA") => {
+    const rosterKey = `rosters_${sport}`;
+    // Helper to validate that roster payload actually contains roster entries
+    const isValidRosterData = (d) => {
+      if (!d || typeof d !== "object") return false;
+      if (d.error) return false;
+      if (Array.isArray(d.teams) && d.teams.length > 0) return true;
+      if (Array.isArray(d.players) && d.players.length > 0) return true;
+      if (Array.isArray(d.rosters) && d.rosters.length > 0) return true;
+      // If object has some keys, assume it's valid (best-effort fallback)
+      return Object.keys(d).length > 0;
+    };
+
+    // If we previously fetched and validated rosters for this sport, reuse them.
+    if (rostersFetchedRef.current.has(sport) && isValidRosterData(rostersData[rosterKey])) {
+      console.log(`[BetData ${sport}] Rosters already fetched and valid, using cached data`);
+      return rostersData[rosterKey];
+    }
+
+    // If state already has data but it's not valid (e.g. placeholder error), clear it and attempt fresh fetch
+    if (rostersData[rosterKey] && !isValidRosterData(rostersData[rosterKey])) {
+      console.warn(`[BetData ${sport}] Existing roster data invalid or placeholder; refetching`);
+      // remove any stale cached reference
+      try {
+        delete rostersData[rosterKey];
+      } catch (e) {}
+      rostersFetchedRef.current.delete(sport);
+    }
+
     try {
+      console.log(`[BetData ${sport}] Fetching rosters`);
       const sportLower = sport.toLowerCase();
       const response = await fetch(`${API_BASE_URL}/rosters/${sportLower}`);
+
+      // If server returned error status, attempt to parse body to decide next steps
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        if (body && typeof body === "object" && body.error && String(body.error).toLowerCase().includes("roster cache not ready")) {
+          const retryAfter = Number(body.retryAfterSeconds) || 30;
+          console.warn(`[BetData ${sport}] Roster cache not ready; will retry in ${retryAfter}s`);
+          // schedule a retry but don't block — retry only once here; subsequent navigation to sport will also call fetchRosters
+          setTimeout(() => {
+            try {
+              fetchRosters(sport);
+            } catch (e) {}
+          }, retryAfter * 1000);
+          return null;
+        }
+        console.error(`[BetData ${sport}] Failed to fetch rosters: HTTP ${response.status}`);
+        return null;
+      }
+
       const data = await response.json();
-      setRostersData((prev) => ({ ...prev, [sport]: data }));
-      // Note: Rosters data is too large for AsyncStorage, so we don't cache it
+      if (!isValidRosterData(data)) {
+        console.warn(`[BetData ${sport}] Fetched roster payload appears invalid; will not cache`);
+        return null;
+      }
+
+      setRostersData((prev) => ({ ...prev, [rosterKey]: data }));
+      rostersFetchedRef.current.add(sport);
+
+      console.log(`[BetData ${sport}] Rosters fetched and cached`);
+      // Note: Rosters data is too large for AsyncStorage, so we don't persist it
       return data;
     } catch (error) {
       console.error(`Error fetching rosters for ${sport}:`, error);
       return null;
     }
+  };
+
+  // Get rosters for a specific sport (triggers fetch if not already loaded)
+  const getRosters = (sport = "NBA") => {
+    // Helper to validate that roster payload actually contains roster entries
+    const isValidRosterData = (d) => {
+      if (!d || typeof d !== "object") return false;
+      if (d.error) return false;
+      if (Array.isArray(d.teams) && d.teams.length > 0) return true;
+      if (Array.isArray(d.players) && d.players.length > 0) return true;
+      if (Array.isArray(d.rosters) && d.rosters.length > 0) return true;
+      // If object has some keys, assume it's valid (best-effort fallback)
+      return Object.keys(d).length > 0;
+    };
+
+    const rosterKey = `rosters_${sport}`;
+    const data = rostersData[rosterKey];
+    
+    // Only return data if it's valid for the exact sport key
+    if (data && isValidRosterData(data)) {
+      return data;
+    }
+
+    // Do not return the raw rostersData object as a fallback (avoids returning previously cached sport payload)
+    return null;
   };
 
   // Initial fetch on login - fetch scoreboard first, rosters in background
@@ -226,6 +373,9 @@ export const BetDataProvider = ({ children }) => {
   // Load cached data on mount
   useEffect(() => {
     const loadCachedData = async () => {
+      // Check and reset rosters if needed (before loading any data)
+      await checkAndResetRosters();
+
       const sports = ["NBA", "NFL", "NHL", "UEFA"];
       try {
         // Load cached data for each sport
@@ -270,8 +420,19 @@ export const BetDataProvider = ({ children }) => {
 
     loadCachedData();
 
+    // Set up periodic check for roster reset (every 30 minutes)
+    rosterResetCheckIntervalRef.current = setInterval(() => {
+      checkAndResetRosters();
+    }, 30 * 60 * 1000); // Check every 30 minutes
+
     // Cleanup on unmount
     return () => {
+      // Clear roster reset check interval
+      if (rosterResetCheckIntervalRef.current) {
+        clearInterval(rosterResetCheckIntervalRef.current);
+        rosterResetCheckIntervalRef.current = null;
+      }
+
       // Clear all sport-specific polling intervals
       Object.keys(pollingIntervalRef.current).forEach((sport) => {
         if (pollingIntervalRef.current[sport]) {
@@ -294,6 +455,7 @@ export const BetDataProvider = ({ children }) => {
     fetchScoreboard,
     fetchRosters,
     fetchInitialData,
+    getRosters, // Helper to get rosters for specific sport
   };
 
   return (

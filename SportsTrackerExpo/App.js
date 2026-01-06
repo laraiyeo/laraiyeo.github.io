@@ -198,6 +198,7 @@ import BetGameStatsScreen from "./src/screens/bet/BetGameStatsScreen";
 import BetQuickHitsScreen from "./src/screens/bet/BetQuickHitsScreen";
 import BetPlayerPropsScreen from "./src/screens/bet/BetPlayerPropsScreen";
 import BetGameLinesScreen from "./src/screens/bet/BetGameLinesScreen";
+import BetAthleteScreen from "./src/screens/bet/BetAthleteScreen";
 
 // Italy enhanced screens
 import ItalyScoreboardScreen from "./src/screens/soccer/italy/ItalyScoreboardScreen";
@@ -1946,6 +1947,20 @@ const MainStackNavigator = () => {
         component={BetGameLinesScreen}
         options={{
           headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="BetAthlete"
+        component={BetAthleteScreen}
+        options={{
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: "#fff",
+          headerTitle: (props) => (
+            <HeaderTitle {...props}>Player Details</HeaderTitle>
+          ),
         }}
       />
     </Stack.Navigator>

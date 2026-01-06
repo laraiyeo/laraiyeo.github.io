@@ -16,6 +16,7 @@ import { Ionicons, FontAwesome6 } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetData } from "../../context/BetDataContext";
+import { useSport } from "./BetTabNavigator";
 import BetSlip from "../../components/BetSlip";
 import {
   getDailyRewardState,
@@ -31,6 +32,57 @@ const imageCache = new Map();
 
 // Static tournament/logo assets (stable identity prevents remounts)
 const NBA_LOGO = require("../../../assets/nba.png");
+const NFL_LOGO = require("../../../assets/nfl.png");
+const NHL_LOGO = require("../../../assets/nhl.png");
+const SOCCER_LOGO = require("../../../assets/soccer.png");
+
+// Get sport-specific logo
+const getSportLogo = (sport) => {
+  switch (sport) {
+    case "NBA":
+      return NBA_LOGO;
+    case "NFL":
+      return NFL_LOGO;
+    case "NHL":
+      return NHL_LOGO;
+    case "UEFA":
+      return SOCCER_LOGO;
+    default:
+      return NBA_LOGO;
+  }
+};
+
+// Get sport-specific icon for no games message
+const getSportIcon = (sport) => {
+  switch (sport) {
+    case "NBA":
+      return "basketball";
+    case "NFL":
+      return "football";
+    case "NHL":
+      return "hockey-puck";
+    case "UEFA":
+      return "soccer-ball";
+    default:
+      return "basketball";
+  }
+};
+
+// Get sport path for ESPN logos
+const getSportPath = (sport) => {
+  switch (sport) {
+    case "NBA":
+      return "nba";
+    case "NFL":
+      return "nfl";
+    case "NHL":
+      return "nhl";
+    case "UEFA":
+      return "uefa.champions";
+    default:
+      return "nba";
+  }
+};
 
 const { width } = Dimensions.get("window");
 
@@ -97,8 +149,9 @@ const groupGamesByTournament = (games) => {
 
 // UpcomingGamesSection as a top-level memoized component to avoid remounts
 const UpcomingGamesSection = React.memo(
-  ({ games, navigation, theme }) => {
+  ({ games, navigation, theme, sport }) => {
     const groupedTournaments = groupGamesByTournament(games);
+    const sportLogo = getSportLogo(sport);
 
     return (
       <View style={styles.upcomingContainer}>
@@ -113,8 +166,11 @@ const UpcomingGamesSection = React.memo(
             <View style={styles.tournamentHeader}>
               <View style={styles.tournamentIconContainer}>
                 <Image
-                  source={NBA_LOGO}
-                  style={styles.nbaLogoSmall}
+                  source={sportLogo}
+                  style={[
+                    styles.nbaLogoSmall,
+                    sport === "UEFA" && { tintColor: theme.text },
+                  ]}
                   contentFit="contain"
                   cachePolicy="memory-disk"
                 />
@@ -163,7 +219,10 @@ const UpcomingGamesSection = React.memo(
       </View>
     );
   },
-  (prev, next) => prev.games === next.games && prev.theme === next.theme
+  (prev, next) =>
+    prev.games === next.games &&
+    prev.theme === next.theme &&
+    prev.sport === next.sport
 );
 
 // Format time to EST (robust across platforms). Returns { time, period }
@@ -189,7 +248,7 @@ const formatTimeEST = (dateString) => {
 };
 
 // Parse game data from API
-const parseGameData = (events, isDarkMode = false) => {
+const parseGameData = (events, isDarkMode = false, sport = "NBA") => {
   if (!events || !Array.isArray(events))
     return { live: [], scheduled: [], completed: [], hasLiveGames: false };
 
@@ -197,6 +256,8 @@ const parseGameData = (events, isDarkMode = false) => {
   const scheduled = [];
   const completed = [];
   let hasLiveGames = false;
+
+  const sportPath = getSportPath(sport);
 
   events.forEach((event) => {
     const competition = event.competitions?.[0];
@@ -217,25 +278,27 @@ const parseGameData = (events, isDarkMode = false) => {
 
     const gameData = {
       id: event.id,
-      sport: "NBA",
-      tournament: "NBA",
-      tournamentLabel: event.season?.slug || "2025-26 Season",
+      sport: sport,
+      tournament: event.league?.name || sport,
+      tournamentLabel:
+        event.season?.slug || event.season?.year?.toString() || "Season",
       shortName: event.shortName,
       team1: awayTeam.team?.displayName || "Team 1",
       team1Abbr: awayTeam.team?.abbreviation || "T1",
-      team1Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${darkSuffix}/${team1Abbr}.png&h=200&w=200`,
-      team1Record: awayTeam.record || null,
+      team1Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${team1Abbr}.png&h=200&w=200`,
+      team1Record: awayTeam.records?.[0]?.summary || null,
       team2: homeTeam.team?.displayName || "Team 2",
       team2Abbr: homeTeam.team?.abbreviation || "T2",
-      team2Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${darkSuffix}/${team2Abbr}.png&h=200&w=200`,
-      team2Record: homeTeam.record || null,
+      team2Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${team2Abbr}.png&h=200&w=200`,
+      team2Record: homeTeam.records?.[0]?.summary || null,
       score1: awayTeam.score || 0,
       score2: homeTeam.score || 0,
       shortDetail: status.type.detail || null,
       time:
         status.type?.state === "in" && status.displayClock
-          ? status.period
+          ? status.displayClock
           : timeFormatted.time,
+      period: status.period,
       // Keep original ISO start time for accurate sorting and comparisons
       startTime: event.date,
       timePeriod: timeFormatted.period,
@@ -269,6 +332,7 @@ const LiveGameCard = React.memo(
     const team2Source = imageCache.get(game.team2Logo) || {
       uri: game.team2Logo,
     };
+    const sportLogo = getSportLogo(game.sport);
 
     return (
       <TouchableOpacity
@@ -276,9 +340,17 @@ const LiveGameCard = React.memo(
           styles.liveGameCard,
           { backgroundColor: theme.surfaceSecondary },
         ]}
-        onPress={() =>
-          navigation.navigate("BetGameDetail", { gameId: game.id, game })
-        }
+        onPress={() => {
+          console.log("[BET HOME NAV] LiveGameCard click", {
+            gameId: game.id,
+            gameSport: game.sport,
+          });
+          navigation.navigate("BetGameDetail", {
+            gameId: game.id,
+            game,
+            sport: game.sport,
+          });
+        }}
       >
         <View style={styles.liveIndicator}>
           <View style={styles.liveDot} />
@@ -296,8 +368,11 @@ const LiveGameCard = React.memo(
         {/* Tournament Name with NBA Logo */}
         <View style={[styles.liveTournamentRow, { marginLeft: -5 }]}>
           <Image
-            source={NBA_LOGO}
-            style={styles.nbaLogo}
+            source={sportLogo}
+            style={[
+              styles.nbaLogo,
+              game.sport === "UEFA" && { tintColor: theme.text },
+            ]}
             contentFit="contain"
             cachePolicy="memory-disk"
           />
@@ -416,12 +491,17 @@ const ScheduledGameRow = React.memo(
     return (
       <TouchableOpacity
         style={styles.upcomingGameRow}
-        onPress={() =>
+        onPress={() => {
+          console.log("[BET HOME NAV] ScheduledGameRow click", {
+            gameId: game.id,
+            gameSport: game.sport,
+          });
           navigation.navigate("BetGameDetail", {
             gameId: game.id,
             game,
-          })
-        }
+            sport: game.sport,
+          });
+        }}
       >
         {/* Time */}
         <View style={styles.gameTimeContainer}>
@@ -532,6 +612,7 @@ const CompletedGameCard = React.memo(
       minute: "2-digit",
       hour12: true,
     });
+    const sportLogo = getSportLogo(game.sport);
 
     return (
       <TouchableOpacity
@@ -539,14 +620,26 @@ const CompletedGameCard = React.memo(
           styles.completedGameCard,
           { backgroundColor: theme.surfaceSecondary },
         ]}
-        onPress={() =>
-          navigation.navigate("BetGameDetail", { gameId: game.id, game })
-        }
+        onPress={() => {
+          console.log("[BET HOME NAV] CompletedGameCard click", {
+            gameId: game.id,
+            gameSport: game.sport,
+          });
+          navigation.navigate("BetGameDetail", {
+            gameId: game.id,
+            game,
+            sport: game.sport,
+          });
+        }}
       >
         <View style={styles.completedHeaderRow}>
           <Image
-            source={NBA_LOGO}
-            style={[styles.nbaLogoTiny, { marginTop: -5 }]}
+            source={sportLogo}
+            style={[
+              styles.nbaLogoTiny,
+              { marginTop: -5 },
+              game.sport === "UEFA" && { tintColor: theme.text },
+            ]}
             contentFit="contain"
             cachePolicy="memory-disk"
           />
@@ -664,8 +757,13 @@ const CompletedGameCard = React.memo(
 
 const BetHomeScreen = ({ navigation }) => {
   const { colors, theme, isDarkMode } = useTheme();
-  const { scoreboardData, fetchScoreboard } = useBetData();
+  const { sport } = useSport();
+  const { scoreboardData, fetchScoreboard, fetchRosters, getRosters } =
+    useBetData();
   const { isPro } = useBetSlip();
+
+  // Get sport-specific data
+  const currentScoreboardData = scoreboardData[sport];
   const focusPollRef = useRef(null);
   const [refreshing, setRefreshing] = useState(false);
   const [liveGames, setLiveGames] = useState([]);
@@ -721,43 +819,100 @@ const BetHomeScreen = ({ navigation }) => {
 
   // Pre-cache images when scoreboard data arrives - only cache new logos
   useEffect(() => {
-    if (scoreboardData?.events) {
+    if (currentScoreboardData) {
       const darkSuffix = isDarkMode ? "-dark" : "";
-      scoreboardData.events.forEach((event) => {
-        const competition = event.competitions?.[0];
-        if (!competition) return;
+      // Handle both array and object with events property
+      const eventsArray = Array.isArray(currentScoreboardData)
+        ? currentScoreboardData
+        : currentScoreboardData?.events;
 
-        const competitors = competition.competitors || [];
-        competitors.forEach((competitor) => {
-          const abbr = competitor.team?.abbreviation?.toLowerCase();
-          if (abbr) {
-            const logoUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${darkSuffix}/${abbr}.png&h=200&w=200`;
-            if (!imageCache.has(logoUrl)) {
-              imageCache.set(logoUrl, { uri: logoUrl });
+      if (eventsArray && Array.isArray(eventsArray)) {
+        const sportPath = getSportPath(sport);
+        eventsArray.forEach((event) => {
+          const competition = event.competitions?.[0];
+          if (!competition) return;
+
+          const competitors = competition.competitors || [];
+          competitors.forEach((competitor) => {
+            const abbr = competitor.team?.abbreviation?.toLowerCase();
+            if (abbr) {
+              const logoUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${abbr}.png&h=200&w=200`;
+              if (!imageCache.has(logoUrl)) {
+                imageCache.set(logoUrl, { uri: logoUrl });
+              }
             }
-          }
+          });
         });
-      });
+      }
     }
-  }, [scoreboardData?.events?.length, isDarkMode]); // Only run when number of events changes or theme changes
+  }, [currentScoreboardData, isDarkMode, sport]); // Run when data, theme, or sport changes
+
+  // Clear games when sport changes
+  useEffect(() => {
+    console.log(`[BetHome] Sport changed to ${sport}, clearing games`);
+    setLiveGames([]);
+    setScheduledGames([]);
+    setCompletedGames([]);
+    setHasLiveGames(false);
+  }, [sport]);
 
   // Update games when scoreboard data changes
   useEffect(() => {
-    if (scoreboardData?.events) {
-      const {
-        live,
-        scheduled,
-        completed,
-        hasLiveGames: hasLive,
-      } = parseGameData(scoreboardData.events, isDarkMode);
+    if (currentScoreboardData) {
+      // Handle both array and object with events property
+      const eventsArray = Array.isArray(currentScoreboardData)
+        ? currentScoreboardData
+        : currentScoreboardData?.events;
 
-      // Merge with previous games to maintain object identity
-      setLiveGames((prev) => mergeGames(prev, live));
-      setScheduledGames((prev) => mergeGames(prev, scheduled));
-      setCompletedGames((prev) => mergeGames(prev, completed));
-      setHasLiveGames(hasLive);
+      if (eventsArray && Array.isArray(eventsArray)) {
+        // Log raw game details from API
+        eventsArray.forEach((event, idx) => {
+          const detail = event.status?.type?.detail || "No detail";
+          const teams = `${
+            event.competitions?.[0]?.competitors?.[1]?.team?.abbreviation || "?"
+          } @ ${
+            event.competitions?.[0]?.competitors?.[0]?.team?.abbreviation || "?"
+          }`;
+        });
+
+        const {
+          live,
+          scheduled,
+          completed,
+          hasLiveGames: hasLive,
+        } = parseGameData(eventsArray, isDarkMode, sport);
+
+        // Merge with previous games to maintain object identity
+        setLiveGames((prev) => mergeGames(prev, live));
+        setScheduledGames((prev) => mergeGames(prev, scheduled));
+        setCompletedGames((prev) => mergeGames(prev, completed));
+        setHasLiveGames(hasLive);
+      }
     }
-  }, [scoreboardData, isDarkMode]);
+  }, [scoreboardData, sport, isDarkMode]);
+
+  // Fetch data when sport changes
+  useEffect(() => {
+    // Only fetch if we don't have data for this sport
+    if (!currentScoreboardData) {
+      fetchScoreboard(sport).catch((e) => {
+        console.error(`[BetHome] Failed to fetch ${sport} scoreboard:`, e);
+      });
+    }
+  }, [sport]);
+
+  // Fetch rosters when sport changes (only if not already fetched)
+  useEffect(() => {
+    const currentRosters = getRosters(sport);
+    if (!currentRosters) {
+      console.log(`[BetHome ${sport}] Fetching rosters for first time`);
+      fetchRosters(sport).catch((e) => {
+        console.error(`[BetHome] Failed to fetch ${sport} rosters:`, e);
+      });
+    } else {
+      console.log(`[BetHome ${sport}] Rosters already available, not fetching`);
+    }
+  }, [sport]);
 
   // Focused-local polling: while the Home screen is focused we ensure
   // the scoreboard link updates at 2s when live games exist and 90s when
@@ -769,7 +924,7 @@ const BetHomeScreen = ({ navigation }) => {
       let mounted = true;
       (async () => {
         try {
-          await fetchScoreboard();
+          await fetchScoreboard(sport);
         } catch (e) {
           /* ignore */
         }
@@ -792,7 +947,7 @@ const BetHomeScreen = ({ navigation }) => {
           mode === "fast" ? 2000 : mode === "moderate" ? 90000 : 30 * 60 * 1000;
 
         const id = setInterval(() => {
-          fetchScoreboard().catch(() => {});
+          fetchScoreboard(sport).catch(() => {});
         }, intervalMs);
         focusPollRef.current = { id, intervalMs };
       };
@@ -833,7 +988,7 @@ const BetHomeScreen = ({ navigation }) => {
         }
         clearInterval(visibilityInterval);
       };
-    }, [hasLiveGames, scheduledGames.length])
+    }, [hasLiveGames, scheduledGames.length, sport])
   );
 
   // Load daily reward state on focus and show modal if claimable or progress exists
@@ -892,7 +1047,7 @@ const BetHomeScreen = ({ navigation }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchScoreboard();
+    await fetchScoreboard(sport);
     setRefreshing(false);
   };
 
@@ -934,6 +1089,7 @@ const BetHomeScreen = ({ navigation }) => {
 
   const UpcomingGamesSection = ({ games }) => {
     const groupedTournaments = groupGamesByTournament(games);
+    const sportLogo = getSportLogo(sport);
 
     return (
       <View style={styles.upcomingContainer}>
@@ -949,8 +1105,11 @@ const BetHomeScreen = ({ navigation }) => {
             <View style={styles.tournamentHeader}>
               <View style={styles.tournamentIconContainer}>
                 <Image
-                  source={NBA_LOGO}
-                  style={styles.nbaLogoSmall}
+                  source={sportLogo}
+                  style={[
+                    styles.nbaLogoSmall,
+                    sport === "UEFA" && { tintColor: theme.text },
+                  ]}
                   contentFit="contain"
                   cachePolicy="memory-disk"
                 />
@@ -1262,7 +1421,7 @@ const BetHomeScreen = ({ navigation }) => {
               </Text>
             </View>
 
-            <UpcomingGamesSection games={scheduledGames} />
+            <UpcomingGamesSection games={scheduledGames} sport={sport} />
           </View>
         )}
 
@@ -1302,8 +1461,8 @@ const BetHomeScreen = ({ navigation }) => {
           scheduledGames.length === 0 &&
           completedGames.length === 0 && (
             <View style={styles.noGamesContainer}>
-              <Ionicons
-                name="basketball-outline"
+              <FontAwesome6
+                name={getSportIcon(sport)}
                 size={64}
                 color={theme.textTertiary}
               />

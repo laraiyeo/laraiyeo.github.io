@@ -26,7 +26,7 @@ const SOCCERBetTabNavigator = ({ navigation, route, onHideSportTabs }) => {
           if (route.name === "BetHome") {
             iconName = "home";
           } else if (route.name === "BetTop") {
-            iconName = "trending-up";
+            iconName = "search";
           } else if (route.name === "BetBets") {
             iconName = "receipt";
           } else if (route.name === "BetLeaders") {
@@ -74,7 +74,7 @@ const SOCCERBetTabNavigator = ({ navigation, route, onHideSportTabs }) => {
       <Tab.Screen
         name="BetTop"
         options={{
-          tabBarLabel: "Top",
+          tabBarLabel: "Search",
         }}
       >
         {(props) => <BetTopScreen {...props} sport={sport} />}

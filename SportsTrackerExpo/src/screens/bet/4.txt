@@ -1,0 +1,101 @@
+[
+  {
+    "id": "pc-0-ou-over",
+    "line": "O 234.5",
+    "odds": "-110",
+    "type": "Total",
+    "sport": "NBA",
+    "gameId": "401810357_nba",
+    "period": null,
+    "gameInfo": {
+      "time": "1/5 - 7:00 PM EST",
+      "teams": "NY @ DET"
+    },
+    "description": "Over 234.5"
+  },
+  {
+    "id": "pc-1-draw",
+    "line": "Draw",
+    "odds": "+1100",
+    "type": "Regulation 3-Way Moneyline",
+    "sport": "NBA",
+    "gameId": "401810357_nba",
+    "period": "reg",
+    "gameInfo": {
+      "time": "1/5 - 7:00 PM EST",
+      "teams": "NY @ DET"
+    },
+    "description": "Regulation 3-Way Moneyline DRAW"
+  },
+  {
+    "id": "team-NY-alt-other-points-3",
+    "line": "-20.5",
+    "odds": "+790",
+    "team": "NY",
+    "type": "alt",
+    "sport": "NBA",
+    "gameId": "401810357_nba",
+    "gameInfo": {
+      "time": "1/5 - 7:00 PM EST",
+      "teams": "NY @ DET"
+    },
+    "statType": "spread",
+    "description": "NY -20.5"
+  },
+  {
+    "id": "team-DET-alt-under-points-2",
+    "line": "108-",
+    "odds": "+260",
+    "team": "DET",
+    "type": "alt",
+    "sport": "NBA",
+    "gameId": "401810357_nba",
+    "gameInfo": {
+      "time": "1/5 - 7:00 PM EST",
+      "teams": "NY @ DET"
+    },
+    "statType": "points",
+    "description": "DET 108-"
+  },
+  {
+    "id": "team-UTA-points-away",
+    "line": "+0.5",
+    "odds": "-215",
+    "team": "UTA",
+    "type": "1st Period Spread",
+    "sport": "NHL",
+    "gameId": "401803013_nhl",
+    "gameInfo": {
+      "time": "1/5 - 7:00 PM EST",
+      "teams": "UTA @ NYR"
+    },
+    "description": "UTA 1st Period Spread AWAY"
+  },
+  {
+    "id": "pc-3-ou-over",
+    "line": "O 1.5",
+    "odds": "-145",
+    "type": "Total",
+    "sport": "NHL",
+    "gameId": "401803013_nhl",
+    "period": "2p",
+    "gameInfo": {
+      "time": "1/5 - 7:00 PM EST",
+      "teams": "UTA @ NYR"
+    },
+    "description": "Over 1.5"
+  },
+  {
+    "id": "pc-0-alt-under-3",
+    "line": "7-",
+    "odds": "-475",
+    "type": "Milestone",
+    "sport": "NHL",
+    "gameId": "401803013_nhl",
+    "gameInfo": {
+      "time": "1/5 - 7:00 PM EST",
+      "teams": "UTA @ NYR"
+    },
+    "description": "7-"
+  }
+]
