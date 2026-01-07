@@ -1347,6 +1347,7 @@ const BetHomeScreen = ({ navigation }) => {
                     {
                       marginRight: 12,
                       opacity: dailyState && dailyState.canClaim ? 1 : 0.6,
+                      backgroundColor: colors.primary,
                     },
                   ]}
                 >
@@ -1371,7 +1372,7 @@ const BetHomeScreen = ({ navigation }) => {
                   }}
                   style={styles.dailySecondaryButton}
                 >
-                  <Text style={styles.dailySecondaryText}>Close</Text>
+                  <Text style={[styles.dailySecondaryText, { color: colors.primary }]}>Close</Text>
                 </TouchableOpacity>
               </View>
             </View>

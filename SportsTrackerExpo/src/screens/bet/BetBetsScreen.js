@@ -1008,15 +1008,31 @@ const BetBetsScreen = () => {
     }
   };
 
+  // Helper to check if a line value is valid for progress bar
+  const isValidLineForProgress = (line) => {
+    if (line == null || line === "N/A") return false;
+    if (typeof line === "number") return !isNaN(line) && line !== 0;
+    if (typeof line === "string") {
+      // Strip symbols like +, -, and other non-numeric characters except decimal point
+      const cleaned = line.replace(/[^\d.-]/g, '');
+      const parsed = parseFloat(cleaned);
+      return !isNaN(parsed) && parsed !== 0;
+    }
+    return false;
+  };
+
   const renderProgressBar = (pick) => {
-    // Accept numeric lines provided as numbers or numeric strings ("234.5", "109")
+    // Accept numeric lines provided as numbers or numeric strings ("234.5", "109", "1+", "5-")
     let safeLine = null;
     if (typeof pick.line === "number" && !isNaN(pick.line) && pick.line !== 0) {
       safeLine = pick.line;
     } else if (typeof pick.line === "string") {
-      // strip non-numeric characters (O, U, +, -) and parse
-      const n = Number(pick.line.replace(/[^0-9.-]+/g, ""));
-      if (!isNaN(n) && n !== 0) safeLine = n;
+      // Strip symbols like +, -, and other non-numeric characters except decimal point
+      const cleaned = pick.line.replace(/[^\d.-]/g, '');
+      const parsed = parseFloat(cleaned);
+      if (!isNaN(parsed) && parsed !== 0) {
+        safeLine = parsed;
+      }
     }
     let progress = 0;
     if (
@@ -1144,7 +1160,8 @@ const BetBetsScreen = () => {
       </View>
       {pick.currentValue !== null &&
         typeof pick.currentValue === "number" &&
-        // Only render progress bar when the game is not in pre-game state
+        !isNaN(pick.currentValue) &&
+        isValidLineForProgress(pick.line) &&
         pick.gameState !== "pre" &&
         renderProgressBar(pick)}
       {!isInParlay && (
@@ -1212,11 +1229,10 @@ const BetBetsScreen = () => {
       </View>
       {pick.currentValue !== null &&
         typeof pick.currentValue === "number" &&
-        // Only render progress bar when the game is not in pre-game state
+        !isNaN(pick.currentValue) &&
+        isValidLineForProgress(pick.line) &&
         pick.gameState !== "pre" &&
-        (function () {
-          return renderProgressBar(pick);
-        })()}
+        renderProgressBar(pick)}
       {!isInParlay && (
         <View style={styles.pickFooter}>
           <Text style={[styles.pickGameInfo, { color: theme.textSecondary }]}>
@@ -1531,25 +1547,71 @@ const BetBetsScreen = () => {
     };
 
     // Helper: derive canonical stat key used in betslip payloads (e.g. SHT, GSV, PTS)
-    const deriveStatKey = (statType) => {
+    const deriveStatKey = (statType, sport) => {
       try {
         const s = String(statType || "").toLowerCase();
+        const sportLower = String(sport || "").toLowerCase();
         if (!s) return "PTS";
-        if (s.includes("shot") || s.includes("sht") || s.includes("shots"))
-          return "SHT";
-        if (s.includes("save") || s.includes("gsv")) return "GSV";
-        if (s.includes("pass") || s.includes("pyds") || s.includes("passing"))
-          return "PYD"; // passing yards shorthand (not used in milestones payloads)
-        if (s.includes("rush") || s.includes("ryds") || s.includes("rushing"))
-          return "RYD";
-        if (s.includes("point") || s.includes("pts") || s.includes("points"))
-          return "PTS";
-        if (s.includes("reb")) return "REB";
-        if (s.includes("ast")) return "AST";
-        if (s.includes("blk")) return "BLK";
-        if (s.includes("stl")) return "STL";
-        if (s.includes("tur") || s.includes("to") || s === "to") return "TO";
-        if (s.includes("points+rebounds+assists")) return "PRA";
+        
+        // Quarter-specific stats (NBA)
+        if (s.includes("1q_assists") || s === "1q_assists_ou") return "1QAST";
+        if (s.includes("1q_points") || s === "1q_points_ou") return "1QPTS";
+        if (s.includes("1q_rebounds") || s === "1q_rebounds_ou") return "1QREB";
+        
+        // NHL-specific stats (NHL uses "points" to mean "goals")
+        if (sportLower === "nhl") {
+          // Points in NHL = Goals
+          if (s === "points_yn" || s.includes("points_yn")) return "GOALS";
+          if (s === "points_ou" || s.includes("points_ou")) return "HGL";
+          
+          // First/Last to score
+          if (s.includes("firsttoscore") || s.includes("first_to_score")) return "FIRSTGOAL";
+          if (s.includes("lasttoscore") || s.includes("last_to_score")) return "LASTGOAL";
+          
+          // Power play goals+assists
+          if (s.includes("powerplay") || s.includes("power_play")) return "PPP";
+          
+          // Goals+Assists
+          if (s.includes("goals+assists") || s === "goals+assists_ou") return "GA";
+          
+          // Goalie saves
+          if (s.includes("goalie_saves") || s.includes("save") || s.includes("gsv")) return "GSV";
+          
+          // Shots on goal
+          if (s.includes("shots") || s.includes("shot") || s.includes("sht")) return "SHT";
+          
+          // Blocks for NHL
+          if (s.includes("block") || s.includes("bs")) return "BS";
+          
+          // Assists
+          if (s.includes("assist") || s.includes("ast")) return "AST";
+        }
+        
+        // NBA Combination stats
+        if (s.includes("blocks+steals") || s === "blocks+steals_ou") return "BS";
+        if (s.includes("points+assists") || s === "points+assists_ou") return "PA";
+        if (s.includes("points+rebounds+assists") || s === "points+rebounds+assists_ou") return "PRA";
+        if (s.includes("points+rebounds") || s === "points+rebounds_ou") return "PR";
+        if (s.includes("rebounds+assists") || s === "rebounds+assists_ou") return "RA";
+        
+        // Milestone/Special stats
+        if (s.includes("firstbasket") || s === "firstbasket_yn") return "FIRSTBASKET";
+        if (s.includes("doubledouble") || s === "doubledouble_yn") return "2DBL";
+        if (s.includes("tripledouble") || s === "tripledouble_yn") return "3DBL";
+        if (s.includes("threepointersmade") || s === "threepointersmade_ou") return "3PM";
+        
+        // NFL stats
+        if (s.includes("pass") || s.includes("pyds") || s.includes("passing")) return "PYD";
+        if (s.includes("rush") || s.includes("ryds") || s.includes("rushing")) return "RYD";
+        
+        // Basic stats (NBA/NFL)
+        if (s.includes("point") || s.includes("pts") || s.includes("points")) return "PTS";
+        if (s.includes("rebound") || s.includes("reb")) return "REB";
+        if (s.includes("assist") || s.includes("ast")) return "AST";
+        if (s.includes("block") || s.includes("blk")) return "BLK";
+        if (s.includes("steal") || s.includes("stl")) return "STL";
+        if (s.includes("turnover") || s.includes("tur") || s.includes("to") || s === "to") return "TO";
+        
         // fallback: take first 3 uppercase letters
         return String(statType).toUpperCase().substring(0, 3);
       } catch (e) {
@@ -1873,7 +1935,9 @@ const BetBetsScreen = () => {
             ? formatOverUnderProp(bet)
             : bet.prop || "";
         pick.propType = bet.statType;
-        pick.line = Number(bet.line);
+        // Preserve the original line value (could be "1+", "5-", "O1.5", etc.)
+        // Don't convert to number here - let the progress bar function handle parsing
+        pick.line = bet.line;
         pick.type = bet.type;
         pick.betValue = bet.betValue;
 
@@ -1913,14 +1977,15 @@ const BetBetsScreen = () => {
                 pick.progressSource = `betslipData.event:${
                   eventData?.eventId || bet.gameId
                 }.players:${playerData.id}.milestones:${statKey}`;
-                // Ensure a numeric `line` is present so progress bar can render
-                pick.line = Number(
+                // Preserve the line from milestone data or original bet.line
+                // Don't convert to number - let progress bar function handle parsing
+                const rawLine =
                   playerData.milestones[statKey].threshold ??
-                    playerData.milestones[statKey].bet ??
-                    bet.betValue ??
-                    bet.threshold ??
-                    bet.line
-                );
+                  playerData.milestones[statKey].bet ??
+                  bet.betValue ??
+                  bet.threshold ??
+                  bet.line;
+                if (rawLine != null) pick.line = rawLine;
                 pick.status =
                   playerData.milestones[statKey].won === true
                     ? "winning"
@@ -2041,14 +2106,6 @@ const BetBetsScreen = () => {
         pick.betType = bet.type.toLowerCase();
         pick.team = bet.team;
         pick.line = Number(bet.line);
-
-        // Construct prop text based on bet type
-        console.log("[BetBetsScreen] bet-type-check", {
-          pickId: pick.id,
-          betType: bet.type,
-          team: bet.team,
-          description: bet.description,
-        });
         if (
           bet.type === "Spread" ||
           bet.type?.toLowerCase().includes("spread")
@@ -2139,10 +2196,6 @@ const BetBetsScreen = () => {
           bet.type?.includes("Over/Under") ||
           bet.type?.includes("Goals")
         ) {
-          console.log("[BetBetsScreen] entered-over-under-block", {
-            pickId: pick.id,
-            betType: bet.type,
-          });
           // Format special team/period bet types
           // Extract period info from type (e.g., "1st Half", "1st Quarter", "2nd Period")
           const periodMatch = bet.type.match(
@@ -2172,13 +2225,6 @@ const BetBetsScreen = () => {
           // For game totals without a stat, add "TOTAL GOALS" or "TOTAL POINTS" based on sport
           if (!bet.team && !statPart && bet.type?.includes("Over/Under")) {
             const sport = bet.sport || bet.gameId?.split("_")[1] || "";
-            console.log("[BetBetsScreen] game-total-debug", {
-              hasBetTeam: !!bet.team,
-              statPart,
-              typeIncludesOverUnder: bet.type?.includes("Over/Under"),
-              sport,
-              parts: [...parts],
-            });
             if (
               sport.toLowerCase() === "nhl" ||
               sport.toLowerCase() === "soccer"
@@ -2191,12 +2237,6 @@ const BetBetsScreen = () => {
 
           // If we still don't have a prop, use type
           pick.prop = parts.length > 0 ? parts.join(" ") : bet.type;
-          console.log("[BetBetsScreen] prop-final-debug", {
-            pickId: pick.id,
-            betType: bet.type,
-            parts,
-            finalProp: pick.prop,
-          });
           pick.displayName = bet.team || "GAME";
         } else {
           // Fallback for any other bet type
@@ -2642,6 +2682,7 @@ const BetBetsScreen = () => {
           const evtState = (overrideEvent?.status?.state || "")
             .toString()
             .toLowerCase();
+          
           if (overrideEvent && evtState !== "pre") {
             // Period-specific overrides (P1_SP, P2_T, etc.)
             try {
@@ -2716,49 +2757,44 @@ const BetBetsScreen = () => {
               const p = overrideEvent.bets.players.find(
                 (pp) => String(pp.id) === String(bet.playerId)
               );
+              
               if (p) {
-                const statUpper =
-                  bet.statType?.toUpperCase()?.substring(0, 3) || "PTS";
-                const statMap = {
-                  POI: "PTS",
-                  REB: "REB",
-                  ASS: "AST",
-                  BLO: "BLK",
-                  STE: "STL",
-                  TUR: "TO",
-                  PRA: "PRA",
-                  SHT: "SHT",
-                  SAV: "GSV",
-                };
-                const statKey = deriveStatKey(bet.statType);
+                const statKey = deriveStatKey(bet.statType, bet.sport);
+                
                 if (p.milestones?.[statKey]) {
-                  pick.currentValue = Number(p.milestones[statKey].current);
-                  pick.progressSource = `overrideEvent.event:${
-                    overrideEvent?.eventId || bet.gameId
-                  }.players:${p.id}.milestones:${statKey}`;
-                  pick.status =
-                    p.milestones[statKey].won === true
-                      ? "winning"
-                      : p.milestones[statKey].won === false
-                      ? "losing"
-                      : "pending";
-                  pick.progressWonSource = `overrideEvent.event:${
-                    overrideEvent?.eventId || bet.gameId
-                  }.players:${p.id}.milestones:${statKey}`;
+                  const milestoneValue = Number(p.milestones[statKey].current);
+                  if (!isNaN(milestoneValue)) {
+                    pick.currentValue = milestoneValue;
+                    pick.progressSource = `overrideEvent.event:${
+                      overrideEvent?.eventId || bet.gameId
+                    }.players:${p.id}.milestones:${statKey}`;
+                    pick.status =
+                      p.milestones[statKey].won === true
+                        ? "winning"
+                        : p.milestones[statKey].won === false
+                        ? "losing"
+                        : "pending";
+                    pick.progressWonSource = `overrideEvent.event:${
+                      overrideEvent?.eventId || bet.gameId
+                    }.players:${p.id}.milestones:${statKey}`;
+                  }
                 } else if (p.overUnder?.[statKey]) {
-                  pick.currentValue = Number(p.overUnder[statKey].current);
-                  pick.progressSource = `overrideEvent.event:${
-                    overrideEvent?.eventId || bet.gameId
-                  }.players:${p.id}.overUnder:${statKey}`;
-                  pick.status =
-                    p.overUnder[statKey].won === true
-                      ? "winning"
-                      : p.overUnder[statKey].won === false
-                      ? "losing"
-                      : "pending";
-                  pick.progressWonSource = `overrideEvent.event:${
-                    overrideEvent?.eventId || bet.gameId
-                  }.players:${p.id}.overUnder:${statKey}`;
+                  const overUnderValue = Number(p.overUnder[statKey].current);
+                  if (!isNaN(overUnderValue)) {
+                    pick.currentValue = overUnderValue;
+                    pick.progressSource = `overrideEvent.event:${
+                      overrideEvent?.eventId || bet.gameId
+                    }.players:${p.id}.overUnder:${statKey}`;
+                    pick.status =
+                      p.overUnder[statKey].won === true
+                        ? "winning"
+                        : p.overUnder[statKey].won === false
+                        ? "losing"
+                        : "pending";
+                    pick.progressWonSource = `overrideEvent.event:${
+                      overrideEvent?.eventId || bet.gameId
+                    }.players:${p.id}.overUnder:${statKey}`;
+                  }
                 }
                 // PRA fallback: if no statKey value found, prefer PRA milestone if present
                 if (
@@ -2784,29 +2820,151 @@ const BetBetsScreen = () => {
 
             // Team-level overrides (spread/total/points)
             if (!pick.playerName && overrideEvent?.bets) {
-              if (
-                (bet.type === "Moneyline" ||
-                  String(bet.type).toLowerCase().includes("moneyline")) &&
-                overrideEvent.bets.moneyline
-              ) {
+              // First, determine bet type and check for quarter/half/period specific keys
+              const g = overrideEvent.status?.game || {};
+              const homeAbbrev = g.homeTeam || g.home || "";
+              const awayAbbrev = g.awayTeam || g.away || "";
+              const betType = String(bet.type || "").toLowerCase();
+              let handled = false;
+              let quarterOrHalfKey = null;
+              
+              // Period bets (NHL: P1_ML, P1_SP, P2_T, etc.)
+              if (betType.includes("1st period") || betType.includes("1p")) {
+                if (betType.includes("spread")) quarterOrHalfKey = "P1_SP";
+                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "P1_T";
+                else if (betType.includes("moneyline")) quarterOrHalfKey = "P1_ML";
+              } else if (betType.includes("2nd period") || betType.includes("2p")) {
+                if (betType.includes("spread")) quarterOrHalfKey = "P2_SP";
+                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "P2_T";
+                else if (betType.includes("moneyline")) quarterOrHalfKey = "P2_ML";
+              } else if (betType.includes("3rd period") || betType.includes("3p")) {
+                if (betType.includes("spread")) quarterOrHalfKey = "P3_SP";
+                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "P3_T";
+                else if (betType.includes("moneyline")) quarterOrHalfKey = "P3_ML";
+              }
+              // Quarter bets (NBA/NFL: Q1_SP, Q1_T, etc.)
+              else if (betType.includes("1st quarter") || betType.includes("1q")) {
+                if (betType.includes("spread")) quarterOrHalfKey = "Q1_SP";
+                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "Q1_T";
+              } else if (betType.includes("2nd quarter") || betType.includes("2q")) {
+                if (betType.includes("spread")) quarterOrHalfKey = "Q2_SP";
+                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "Q2_T";
+              } else if (betType.includes("3rd quarter") || betType.includes("3q")) {
+                if (betType.includes("spread")) quarterOrHalfKey = "Q3_SP";
+                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "Q3_T";
+              } else if (betType.includes("4th quarter") || betType.includes("4q")) {
+                if (betType.includes("spread")) quarterOrHalfKey = "Q4_SP";
+                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "Q4_T";
+              }
+              // Half bets (H1_SP, H1_T, H2_SP, H2_T)
+              else if (betType.includes("1st half") || betType.includes("1h")) {
+                if (betType.includes("spread")) quarterOrHalfKey = "H1_SP";
+                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "H1_T";
+                else if (betType.includes("moneyline")) quarterOrHalfKey = "H1_ML";
+              } else if (betType.includes("2nd half") || betType.includes("2h")) {
+                if (betType.includes("spread")) quarterOrHalfKey = "H2_SP";
+                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "H2_T";
+                else if (betType.includes("moneyline")) quarterOrHalfKey = "H2_ML";
+              }
+              
+              // Check for quarter/half/period bet in betslip data
+              if (quarterOrHalfKey && overrideEvent.bets[quarterOrHalfKey]) {
+                handled = true;
+                const qhBet = overrideEvent.bets[quarterOrHalfKey];
+                
+                if (quarterOrHalfKey.endsWith("_SP")) {
+                  // Spread
+                  const cur = qhBet.current;
+                  let parsed = null;
+                  if (typeof cur === "number") parsed = cur;
+                  else if (typeof cur === "string") {
+                    const parts = cur.split("-").map((s) => Number(s.trim()));
+                    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1]))
+                      parsed = parts[1] - parts[0];
+                  } else if (cur && typeof cur === "object")
+                    parsed = Number(cur.score ?? cur.current ?? NaN);
+                  
+                  if (parsed != null && !isNaN(parsed)) {
+                    pick.currentValue = Number(parsed);
+                    pick.progressSource = `overrideEvent.event:${
+                      overrideEvent?.eventId || bet.gameId
+                    }.bets.${quarterOrHalfKey}.current`;
+                    pick.status =
+                      qhBet.won === true
+                        ? "winning"
+                        : qhBet.won === false
+                        ? "losing"
+                        : "pending";
+                    pick.progressWonSource = `overrideEvent.event:${
+                      overrideEvent?.eventId || bet.gameId
+                    }.bets.${quarterOrHalfKey}.won`;
+                  }
+                } else if (quarterOrHalfKey.endsWith("_T")) {
+                  // Total
+                  const cur = qhBet.current;
+                  let parsed = null;
+                  if (typeof cur === "number") parsed = cur;
+                  else if (cur && typeof cur === "object")
+                    parsed = Number(cur.score ?? cur.current ?? cur.value ?? NaN);
+                  else if (cur != null) {
+                    const n = Number(cur);
+                    parsed = isNaN(n) ? null : n;
+                  }
+                  
+                  if (parsed != null && !isNaN(parsed)) {
+                    pick.currentValue = Number(parsed);
+                    pick.progressSource = `overrideEvent.event:${
+                      overrideEvent?.eventId || bet.gameId
+                    }.bets.${quarterOrHalfKey}.current`;
+                    pick.status =
+                      qhBet.won === true
+                        ? "winning"
+                        : qhBet.won === false
+                        ? "losing"
+                        : "pending";
+                    pick.progressWonSource = `overrideEvent.event:${
+                      overrideEvent?.eventId || bet.gameId
+                    }.bets.${quarterOrHalfKey}.won`;
+                  }
+                } else if (quarterOrHalfKey.endsWith("_ML")) {
+                  // Moneyline
+                  pick.scoreText = qhBet.current?.score || qhBet.current;
+                  pick.currentValue = null;
+                  pick.progressSource = `overrideEvent.event:${
+                    overrideEvent?.eventId || bet.gameId
+                  }.bets.${quarterOrHalfKey}`;
+                  pick.status =
+                    qhBet.won === true
+                      ? "winning"
+                      : qhBet.won === false
+                      ? "losing"
+                      : "pending";
+                  pick.progressWonSource = `overrideEvent.event:${
+                    overrideEvent?.eventId || bet.gameId
+                  }.bets.${quarterOrHalfKey}.won`;
+                }
+              }
+              
+              // If not handled by quarter/half/period, check generic moneyline/spread/total
+              if (!handled && overrideEvent.bets.moneyline && betType.includes("moneyline")) {
+                handled = true;
                 pick.scoreText = overrideEvent.bets.moneyline.current?.score;
                 pick.currentValue = null;
+                pick.progressSource = `overrideEvent.event:${
+                  overrideEvent?.eventId || bet.gameId
+                }.bets.moneyline`;
                 pick.status =
-                  overrideEvent.bets.moneyline.current?.won === true
+                  overrideEvent.bets.moneyline.won === true
                     ? "winning"
-                    : overrideEvent.bets.moneyline.current?.won === false
+                    : overrideEvent.bets.moneyline.won === false
                     ? "losing"
                     : "pending";
                 pick.progressWonSource = `overrideEvent.event:${
                   overrideEvent?.eventId || bet.gameId
-                }.bets.moneyline.current.won`;
-              } else if (
-                (bet.type === "Spread" ||
-                  String(bet.type).toLowerCase().includes("spread")) &&
-                overrideEvent.bets.spread
-              ) {
+                }.bets.moneyline.won`;
+              } else if (!handled && overrideEvent.bets.spread && betType.includes("spread")) {
+                handled = true;
                 const spreadCurrent = overrideEvent.bets.spread.current;
-                const g = overrideEvent.status?.game;
                 const homeScore = Number(g?.homeScore) || 0;
                 const awayScore = Number(g?.awayScore) || 0;
                 let teamScore = null;
@@ -2831,25 +2989,20 @@ const BetBetsScreen = () => {
                   overrideEvent?.eventId || bet.gameId
                 }.bets.spread.current`;
                 pick.status =
-                  spreadCurrent?.won === true
+                  overrideEvent.bets.spread.won === true
                     ? "winning"
-                    : spreadCurrent?.won === false
+                    : overrideEvent.bets.spread.won === false
                     ? "losing"
                     : "pending";
                 pick.progressWonSource = `overrideEvent.event:${
                   overrideEvent?.eventId || bet.gameId
-                }.bets.spread.current.won`;
-                // set numeric line if available
+                }.bets.spread.won`;
                 const spreadLine = overrideEvent.bets.spread.line;
                 if (typeof spreadLine === "number" && !isNaN(spreadLine)) {
                   pick.line = spreadLine;
                 }
-              } else if (
-                (bet.type === "Total" ||
-                  String(bet.type).toLowerCase().includes("total")) &&
-                overrideEvent.bets.totalPoints
-              ) {
-                // set line if available in override payload
+              } else if (!handled && overrideEvent.bets.totalPoints && (betType.includes("total") || betType.includes("over/under"))) {
+                handled = true;
                 const overrideLine = overrideEvent.bets.totalPoints.line;
                 if (typeof overrideLine === "number") {
                   pick.line = overrideLine;
@@ -2889,78 +3042,129 @@ const BetBetsScreen = () => {
                 pick.progressWonSource = `overrideEvent.event:${
                   overrideEvent?.eventId || bet.gameId
                 }.bets.totalPoints.won`;
-              } else {
-                // also handle home/away specific points in override
-                const g = overrideEvent.status?.game || {};
-                const homeAbbrev = g.homeTeam || g.home || "";
-                const awayAbbrev = g.awayTeam || g.away || "";
-                const hasHome = overrideEvent.bets.homePoints;
-                const hasAway = overrideEvent.bets.awayPoints;
-                let ptsPayload = null;
-                if (
-                  hasHome &&
-                  (String(bet.team).toUpperCase() ===
-                    String(homeAbbrev).toUpperCase() ||
-                    String(bet.type).toLowerCase().includes("home"))
-                ) {
-                  ptsPayload = overrideEvent.bets.homePoints;
-                } else if (
-                  hasAway &&
-                  (String(bet.team).toUpperCase() ===
-                    String(awayAbbrev).toUpperCase() ||
-                    String(bet.type).toLowerCase().includes("away"))
-                ) {
-                  ptsPayload = overrideEvent.bets.awayPoints;
-                } else if (hasAway || hasHome) {
-                  ptsPayload =
-                    overrideEvent.bets.awayPoints ||
-                    overrideEvent.bets.homePoints;
-                }
-
-                if (ptsPayload) {
-                  const payloadLine = ptsPayload.line;
-                  if (typeof payloadLine === "number") pick.line = payloadLine;
-                  else if (payloadLine != null) {
-                    const parsed = Number(payloadLine);
-                    if (!isNaN(parsed)) pick.line = parsed;
+              }
+              
+              // Handle team-specific points/goals if not already handled
+              if (!handled) {
+                // Check for quarter/half specific team points (awayPoints1H, homePoints2H, etc.)
+                  const hasHomePoints = overrideEvent.bets.homePoints;
+                  const hasAwayPoints = overrideEvent.bets.awayPoints;
+                  const hasHomeGoals = overrideEvent.bets.homeGoals;
+                  const hasAwayGoals = overrideEvent.bets.awayGoals;
+                  
+                  // Quarter/Half specific team points
+                  let teamPointsKey = null;
+                  if (betType.includes("1st half") || betType.includes("1h")) {
+                    if (betType.includes("home") || String(bet.team).toUpperCase() === String(homeAbbrev).toUpperCase()) {
+                      teamPointsKey = "homePoints1H";
+                    } else if (betType.includes("away") || String(bet.team).toUpperCase() === String(awayAbbrev).toUpperCase()) {
+                      teamPointsKey = "awayPoints1H";
+                    }
+                  } else if (betType.includes("2nd half") || betType.includes("2h")) {
+                    if (betType.includes("home") || String(bet.team).toUpperCase() === String(homeAbbrev).toUpperCase()) {
+                      teamPointsKey = "homePoints2H";
+                    } else if (betType.includes("away") || String(bet.team).toUpperCase() === String(awayAbbrev).toUpperCase()) {
+                      teamPointsKey = "awayPoints2H";
+                    }
+                  } else if (betType.includes("1st quarter") || betType.includes("1q")) {
+                    if (betType.includes("home") || String(bet.team).toUpperCase() === String(homeAbbrev).toUpperCase()) {
+                      teamPointsKey = "homePoints1Q";
+                    } else if (betType.includes("away") || String(bet.team).toUpperCase() === String(awayAbbrev).toUpperCase()) {
+                      teamPointsKey = "awayPoints1Q";
+                    }
+                  } else if (betType.includes("2nd quarter") || betType.includes("2q")) {
+                    if (betType.includes("home") || String(bet.team).toUpperCase() === String(homeAbbrev).toUpperCase()) {
+                      teamPointsKey = "homePoints2Q";
+                    } else if (betType.includes("away") || String(bet.team).toUpperCase() === String(awayAbbrev).toUpperCase()) {
+                      teamPointsKey = "awayPoints2Q";
+                    }
+                  }
+                  
+                  let ptsPayload = null;
+                  let ptsSource = null;
+                  
+                  // Check for quarter/half team points first
+                  if (teamPointsKey && overrideEvent.bets[teamPointsKey]) {
+                    ptsPayload = overrideEvent.bets[teamPointsKey];
+                    ptsSource = teamPointsKey;
+                  }
+                  // Then check for full game homePoints/awayPoints/homeGoals/awayGoals
+                  else if (
+                    hasHomePoints &&
+                    (String(bet.team).toUpperCase() === String(homeAbbrev).toUpperCase() ||
+                      betType.includes("home"))
+                  ) {
+                    ptsPayload = overrideEvent.bets.homePoints;
+                    ptsSource = "homePoints";
+                  } else if (
+                    hasAwayPoints &&
+                    (String(bet.team).toUpperCase() === String(awayAbbrev).toUpperCase() ||
+                      betType.includes("away"))
+                  ) {
+                    ptsPayload = overrideEvent.bets.awayPoints;
+                    ptsSource = "awayPoints";
+                  } else if (
+                    hasHomeGoals &&
+                    (String(bet.team).toUpperCase() === String(homeAbbrev).toUpperCase() ||
+                      betType.includes("home"))
+                  ) {
+                    ptsPayload = overrideEvent.bets.homeGoals;
+                    ptsSource = "homeGoals";
+                  } else if (
+                    hasAwayGoals &&
+                    (String(bet.team).toUpperCase() === String(awayAbbrev).toUpperCase() ||
+                      betType.includes("away"))
+                  ) {
+                    ptsPayload = overrideEvent.bets.awayGoals;
+                    ptsSource = "awayGoals";
+                  } else if (hasAwayPoints || hasHomePoints) {
+                    ptsPayload = overrideEvent.bets.awayPoints || overrideEvent.bets.homePoints;
+                    ptsSource = overrideEvent.bets.awayPoints ? "awayPoints" : "homePoints";
+                  } else if (hasAwayGoals || hasHomeGoals) {
+                    ptsPayload = overrideEvent.bets.awayGoals || overrideEvent.bets.homeGoals;
+                    ptsSource = overrideEvent.bets.awayGoals ? "awayGoals" : "homeGoals";
                   }
 
-                  const payloadCurrent = ptsPayload.current;
-                  let parsedCurrent = null;
-                  if (typeof payloadCurrent === "number")
-                    parsedCurrent = payloadCurrent;
-                  else if (payloadCurrent && typeof payloadCurrent === "object")
-                    parsedCurrent = Number(
-                      payloadCurrent.score ??
-                        payloadCurrent.current ??
-                        payloadCurrent.value ??
-                        NaN
-                    );
-                  else if (payloadCurrent != null) {
-                    const n = Number(payloadCurrent);
-                    parsedCurrent = isNaN(n) ? null : n;
+                  if (ptsPayload && ptsSource) {
+                    const payloadLine = ptsPayload.line;
+                    if (typeof payloadLine === "number") pick.line = payloadLine;
+                    else if (payloadLine != null) {
+                      const parsed = Number(payloadLine);
+                      if (!isNaN(parsed)) pick.line = parsed;
+                    }
+
+                    const payloadCurrent = ptsPayload.current;
+                    let parsedCurrent = null;
+                    if (typeof payloadCurrent === "number")
+                      parsedCurrent = payloadCurrent;
+                    else if (payloadCurrent && typeof payloadCurrent === "object")
+                      parsedCurrent = Number(
+                        payloadCurrent.score ??
+                          payloadCurrent.current ??
+                          payloadCurrent.value ??
+                          NaN
+                      );
+                    else if (payloadCurrent != null) {
+                      const n = Number(payloadCurrent);
+                      parsedCurrent = isNaN(n) ? null : n;
+                    }
+                    pick.currentValue =
+                      parsedCurrent !== null && !isNaN(parsedCurrent)
+                        ? Number(parsedCurrent)
+                        : pick.currentValue;
+                    pick.progressSource = `overrideEvent.event:${
+                      overrideEvent?.eventId || bet.gameId
+                    }.bets.${ptsSource}.current`;
+                    pick.status =
+                      ptsPayload.won === true
+                        ? "winning"
+                        : ptsPayload.won === false
+                        ? "losing"
+                        : "pending";
+                    pick.progressWonSource = `overrideEvent.event:${
+                      overrideEvent?.eventId || bet.gameId
+                    }.bets.${ptsSource}.won`;
                   }
-                  pick.currentValue =
-                    parsedCurrent !== null && !isNaN(parsedCurrent)
-                      ? Number(parsedCurrent)
-                      : pick.currentValue;
-                  const ptsSource =
-                    ptsPayload === overrideEvent.bets.homePoints
-                      ? "homePoints"
-                      : "awayPoints";
-                  pick.progressSource = `overrideEvent.event:${
-                    overrideEvent?.eventId || bet.gameId
-                  }.bets.${ptsSource}.current`;
-                  pick.status =
-                    ptsPayload.won === true
-                      ? "winning"
-                      : ptsPayload.won === false
-                      ? "losing"
-                      : "pending";
-                  pick.progressWonSource = `overrideEvent.event:${
-                    overrideEvent?.eventId || bet.gameId
-                  }.bets.${ptsSource}.won`;
-                }
               }
             }
           }
@@ -2977,15 +3181,16 @@ const BetBetsScreen = () => {
           String(pick.gameState || "").toLowerCase() !== "pre";
         // prefer explicit marker set when parsing values
         let progressSource = pick.progressSource || "none";
-
-        console.log("[BetBetsScreen] progress-debug", {
-          pickId: pick.id,
-          prop: pick.prop,
-          progressEnabled,
-          progressValue: progressEnabled ? pick.currentValue : null,
-          progressSource,
-          progressWonSource: pick.progressWonSource || "none",
-        });
+        
+        // Log bet progress info once per bet
+        console.log(`[Bet] ${bet.prop || bet.description} | Source: ${progressSource} | Current: ${pick.currentValue ?? 'N/A'} | Line: ${bet.line ?? 'N/A'}`);
+        
+        // Log progress bar check
+        const shouldShowProgressBar = pick.currentValue !== null &&
+          typeof pick.currentValue === "number" &&
+          !isNaN(pick.currentValue) &&
+          isValidLineForProgress(pick.line) &&
+          pick.gameState !== "pre";
       } catch (e) {}
 
       return pick;

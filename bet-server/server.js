@@ -6444,8 +6444,9 @@ app.get("/api/betslip", async (req, res) => {
         .json({ error: "gameId is required as a query parameter" });
     }
 
-    // Parse game IDs (can be single or comma-separated)
-    const gameIds = gameId.split(",").map((id) => id.trim());
+    // Use the gameIdValues array already defined at the start of this endpoint
+    // to ensure proper indexing with getParamValueForGame()
+    const gameIds = gameIdValues;
     const events = [];
 
     // Process each game (use index to map per-game query parts)
