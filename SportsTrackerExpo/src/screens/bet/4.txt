@@ -1,101 +1,330 @@
+Link generated : https://laraiyeogithubio-production-f5af.up.railway.app/api/betslip?gameId=401810370_nba&moneyline=DAL&spread=DAL+16.5&moneyline1H=DAL&p1=3468&p1_stl=1+&p1_3dbl=yes&p2=3978&p2_pr=15+&p2_ra=o7.5&p3=4278049&p3_reb=u6.5&p4=4432582&p4_pts=1+&p5=5041939&p5_pra=20+
+
+Corrected URL:
+https://laraiyeogithubio-production-f5af.up.railway.app/api/betslip?gameId=401810370_nba&moneyline_nba=DAL&spread_nba=DAL+16.5&moneyline1H_nba=DAL&p1=3468&p1_stl=1+&p1_3dbl=yes&p2=3978&p2_pr=15+&p2_ra=o7.5&p3=4278049&p3_reb=u6.5&p4=4432582&p4_3pm=1+&p5=5041939&p5_pra=20+
+
+Betslip data:
+
 [
   {
-    "id": "pc-0-ou-over",
-    "line": "O 234.5",
-    "odds": "-110",
-    "type": "Total",
+    "id": "3978-points+rebounds_ou-15+",
+    "line": "15+",
+    "odds": "-750",
+    "prop": "points+rebounds_ou 15+",
+    "team": "SAC",
+    "type": "milestone",
     "sport": "NBA",
-    "gameId": "401810357_nba",
-    "period": null,
+    "gameId": "401810370_nba",
+    "player": "DeMar DeRozan",
+    "betValue": "15+",
     "gameInfo": {
-      "time": "1/5 - 7:00 PM EST",
-      "teams": "NY @ DET"
+      "time": "1/6 - 11:00 PM EST",
+      "teams": "DAL @ SAC"
     },
-    "description": "Over 234.5"
+    "playerId": "3978",
+    "statType": "points+rebounds_ou",
+    "description": "DeMar DeRozan points+rebounds_ou 15+"
   },
   {
-    "id": "pc-1-draw",
-    "line": "Draw",
-    "odds": "+1100",
-    "type": "Regulation 3-Way Moneyline",
+    "id": "5041939-points+rebounds+assists_ou-20+",
+    "line": "20+",
+    "odds": "-2600",
+    "prop": "points+rebounds+assists_ou 20+",
+    "team": "DAL",
+    "type": "milestone",
     "sport": "NBA",
-    "gameId": "401810357_nba",
-    "period": "reg",
+    "gameId": "401810370_nba",
+    "player": "Cooper Flagg",
+    "betValue": "20+",
     "gameInfo": {
-      "time": "1/5 - 7:00 PM EST",
-      "teams": "NY @ DET"
+      "time": "1/6 - 11:00 PM EST",
+      "teams": "DAL @ SAC"
     },
-    "description": "Regulation 3-Way Moneyline DRAW"
+    "playerId": "5041939",
+    "statType": "points+rebounds+assists_ou",
+    "description": "Cooper Flagg points+rebounds+assists_ou 20+"
   },
   {
-    "id": "team-NY-alt-other-points-3",
-    "line": "-20.5",
-    "odds": "+790",
-    "team": "NY",
-    "type": "alt",
+    "id": "4278049-rebounds_ou-6.5-under",
+    "line": "6.5",
+    "odds": "-151",
+    "prop": "rebounds_ou U6.5",
+    "team": "DAL",
+    "type": "under",
     "sport": "NBA",
-    "gameId": "401810357_nba",
+    "gameId": "401810370_nba",
+    "player": "Daniel Gafford",
+    "betValue": "u6.5",
     "gameInfo": {
-      "time": "1/5 - 7:00 PM EST",
-      "teams": "NY @ DET"
+      "time": "1/6 - 11:00 PM EST",
+      "teams": "DAL @ SAC"
+    },
+    "playerId": "4278049",
+    "statType": "rebounds_ou",
+    "description": "Daniel Gafford rebounds_ou U6.5"
+  },
+  {
+    "id": "3978-rebounds+assists_ou-7.5-over",
+    "line": "7.5",
+    "odds": "-140",
+    "prop": "rebounds+assists_ou O7.5",
+    "team": "SAC",
+    "type": "over",
+    "sport": "NBA",
+    "gameId": "401810370_nba",
+    "player": "DeMar DeRozan",
+    "betValue": "o7.5",
+    "gameInfo": {
+      "time": "1/6 - 11:00 PM EST",
+      "teams": "DAL @ SAC"
+    },
+    "playerId": "3978",
+    "statType": "rebounds+assists_ou",
+    "description": "DeMar DeRozan rebounds+assists_ou O7.5"
+  },
+  {
+    "id": "3468-steals_ou-1+",
+    "line": "1+",
+    "odds": "-292",
+    "prop": "steals_ou 1+",
+    "team": "SAC",
+    "type": "milestone",
+    "sport": "NBA",
+    "gameId": "401810370_nba",
+    "player": "Russell Westbrook",
+    "betValue": "1+",
+    "gameInfo": {
+      "time": "1/6 - 11:00 PM EST",
+      "teams": "DAL @ SAC"
+    },
+    "playerId": "3468",
+    "statType": "steals_ou",
+    "description": "Russell Westbrook steals_ou 1+"
+  },
+  {
+    "id": "4432582-threePointersMade_ou-1+",
+    "line": "1+",
+    "odds": "-1280",
+    "prop": "threePointersMade_ou 1+",
+    "team": "DAL",
+    "type": "milestone",
+    "sport": "NBA",
+    "gameId": "401810370_nba",
+    "player": "Max Christie",
+    "betValue": "1+",
+    "gameInfo": {
+      "time": "1/6 - 11:00 PM EST",
+      "teams": "DAL @ SAC"
+    },
+    "playerId": "4432582",
+    "statType": "threepointersmade_ou",
+    "description": "Max Christie threePointersMade_ou 1+"
+  },
+  {
+    "id": "3468-tripleDouble_yn-yes",
+    "odds": "+1740",
+    "prop": "tripleDouble_yn YES",
+    "team": "SAC",
+    "type": "yesno",
+    "sport": "NBA",
+    "gameId": "401810370_nba",
+    "player": "Russell Westbrook",
+    "betValue": "yes",
+    "gameInfo": {
+      "time": "1/6 - 11:00 PM EST",
+      "teams": "DAL @ SAC"
+    },
+    "playerId": "3468",
+    "statType": "tripledouble_yn",
+    "description": "Russell Westbrook tripleDouble_yn YES"
+  },
+  {
+    "id": "team-DAL-alt-other-spread-points-40",
+    "line": "+16.5",
+    "odds": "-5000",
+    "team": "DAL",
+    "type": "Spread (Alt)",
+    "sport": "NBA",
+    "gameId": "401810370_nba",
+    "gameInfo": {
+      "time": "1/6 - 11:00 PM EST",
+      "teams": "DAL @ SAC"
     },
     "statType": "spread",
-    "description": "NY -20.5"
+    "description": "DAL +16.5"
   },
   {
-    "id": "team-DET-alt-under-points-2",
-    "line": "108-",
-    "odds": "+260",
-    "team": "DET",
-    "type": "alt",
+    "id": "team-DAL-moneyline-points-away",
+    "line": "DAL",
+    "odds": "-198",
+    "team": "DAL",
+    "type": "Moneyline",
     "sport": "NBA",
-    "gameId": "401810357_nba",
+    "gameId": "401810370_nba",
     "gameInfo": {
-      "time": "1/5 - 7:00 PM EST",
-      "teams": "NY @ DET"
+      "time": "1/6 - 11:00 PM EST",
+      "teams": "DAL @ SAC"
     },
-    "statType": "points",
-    "description": "DET 108-"
+    "description": "DAL Moneyline AWAY"
   },
   {
-    "id": "team-UTA-points-away",
-    "line": "+0.5",
-    "odds": "-215",
-    "team": "UTA",
-    "type": "1st Period Spread",
-    "sport": "NHL",
-    "gameId": "401803013_nhl",
+    "id": "team-DAL-1st-half-moneyline-points-away",
+    "line": "DAL",
+    "odds": "-170",
+    "team": "DAL",
+    "type": "1st Half Moneyline",
+    "sport": "NBA",
+    "gameId": "401810370_nba",
     "gameInfo": {
-      "time": "1/5 - 7:00 PM EST",
-      "teams": "UTA @ NYR"
+      "time": "1/6 - 11:00 PM EST",
+      "teams": "DAL @ SAC"
     },
-    "description": "UTA 1st Period Spread AWAY"
-  },
-  {
-    "id": "pc-3-ou-over",
-    "line": "O 1.5",
-    "odds": "-145",
-    "type": "Total",
-    "sport": "NHL",
-    "gameId": "401803013_nhl",
-    "period": "2p",
-    "gameInfo": {
-      "time": "1/5 - 7:00 PM EST",
-      "teams": "UTA @ NYR"
-    },
-    "description": "Over 1.5"
-  },
-  {
-    "id": "pc-0-alt-under-3",
-    "line": "7-",
-    "odds": "-475",
-    "type": "Milestone",
-    "sport": "NHL",
-    "gameId": "401803013_nhl",
-    "gameInfo": {
-      "time": "1/5 - 7:00 PM EST",
-      "teams": "UTA @ NYR"
-    },
-    "description": "7-"
+    "description": "DAL 1st Half Moneyline AWAY"
   }
 ]
+
+Betslip data:
+
+{
+  "events": [
+    {
+      "eventId": "401810370",
+      "status": {
+        "shortDetail": "11:36 - 1st Quarter",
+        "completed": false,
+        "state": "in",
+        "date": "2026-01-07T04:00Z",
+        "game": {
+          "homeTeam": "SAC",
+          "awayTeam": "DAL",
+          "homeScore": "3",
+          "awayScore": "0"
+        }
+      },
+      "bets": {
+        "moneyline": {
+          "team": "DAL",
+          "current": {
+            "score": "0-3",
+            "lead": "SAC"
+          },
+          "won": "in progress"
+        },
+        "spread": {
+          "team": "DAL",
+          "line": 16.5,
+          "lineDisplay": "+16.5",
+          "current": 3,
+          "won": "in progress"
+        },
+        "H1_ML": {
+          "bet": "DAL",
+          "current": "3-0",
+          "won": false
+        },
+        "players": [
+          {
+            "id": "3468",
+            "name": "Russell Westbrook",
+            "color": "5a2d81",
+            "overUnder": {
+
+            },
+            "milestones": {
+              "STL": {
+                "bet": "1 ",
+                "threshold": 1,
+                "current": 0,
+                "won": "in progress"
+              },
+              "3DBL": {
+                "bet": "yes",
+                "current": 0,
+                "won": "in progress"
+              }
+            }
+          },
+          {
+            "id": "3978",
+            "name": "DeMar DeRozan",
+            "color": "5a2d81",
+            "overUnder": {
+              "RA": {
+                "bet": 7.5,
+                "type": "over",
+                "current": 0,
+                "won": "in progress"
+              }
+            },
+            "milestones": {
+              "PR": {
+                "bet": "15 ",
+                "threshold": 15,
+                "current": 0,
+                "won": "in progress"
+              }
+            }
+          },
+          {
+            "id": "4278049",
+            "name": "Daniel Gafford",
+            "color": "0064b1",
+            "overUnder": {
+              "REB": {
+                "bet": 6.5,
+                "type": "under",
+                "current": 0,
+                "won": "in progress"
+              }
+            },
+            "milestones": {
+
+            }
+          },
+          {
+            "id": "4432582",
+            "name": "Max Christie",
+            "color": "0064b1",
+            "overUnder": {
+
+            },
+            "milestones": {
+              "3PM": {
+                "bet": "1 ",
+                "threshold": 1,
+                "current": 0,
+                "won": "in progress"
+              }
+            }
+          },
+          {
+            "id": "5041939",
+            "name": "Cooper Flagg",
+            "color": "0064b1",
+            "overUnder": {
+
+            },
+            "milestones": {
+              "PRA": {
+                "bet": "20 ",
+                "threshold": 20,
+                "current": 0,
+                "won": "in progress"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "payloadSize": {
+      "bytes": 1327,
+      "kb": 1.3,
+      "withinPushLimit": true,
+      "recommendedForPush": true
+    },
+    "totalBets": 9,
+    "gamesCount": 1
+  }
+}

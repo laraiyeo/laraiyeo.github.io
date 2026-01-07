@@ -5408,16 +5408,15 @@ app.get("/api/betslip", async (req, res) => {
     const isMultiSport = sports.length > 1;
 
     // Generic per-game param lookup helper (supports comma-separated values and sport suffixes)
-    // When multiple sports are present, it tries sport-specific params first (e.g., total_nba)
-    // Otherwise it falls back to non-suffixed params (e.g., total)
+    // Always tries sport-specific params first (e.g., total_nba), then falls back to non-suffixed params (e.g., total)
     const getParamValueForGame = (paramName, giIndex) => {
       const gameId = gameIdValues[giIndex];
       if (!gameId) return null;
 
       const sport = getSportFromGameId(gameId);
 
-      // Try sport-specific parameter first if multi-sport
-      if (isMultiSport && sport) {
+      // Try sport-specific parameter first (always, not just for multi-sport)
+      if (sport) {
         const sportParam = `${paramName}_${sport}`;
         const raw = req.query[sportParam];
         if (raw !== undefined && raw !== null) {
@@ -5425,11 +5424,15 @@ app.get("/api/betslip", async (req, res) => {
             .split(",")
             .map((s) => s.trim());
           // For multi-sport, find the index within this sport's games
-          const sportGameIds = gameIdValues.filter(
-            (gid) => getSportFromGameId(gid) === sport
-          );
-          const sportIndex = sportGameIds.indexOf(gameId);
-          return parts.length === 1 ? parts[0] : parts[sportIndex] || null;
+          if (isMultiSport) {
+            const sportGameIds = gameIdValues.filter(
+              (gid) => getSportFromGameId(gid) === sport
+            );
+            const sportIndex = sportGameIds.indexOf(gameId);
+            return parts.length === 1 ? parts[0] : parts[sportIndex] || null;
+          }
+          // For single-sport, use giIndex
+          return parts.length === 1 ? parts[0] : parts[giIndex] || null;
         }
       }
 
@@ -6981,9 +6984,9 @@ app.get("/api/betslip", async (req, res) => {
             /* ignore */
           }
 
-          // Full game team points: homePoints and awayPoints
-          const homePointsToken = getParamValueForGame("homePoints", gi);
-          const awayPointsToken = getParamValueForGame("awayPoints", gi);
+          // Full game team points: homePoints and awayPoints (or homeGoals/awayGoals for NHL)
+          const homePointsToken = getParamValueForGame("homePoints", gi) || getParamValueForGame("homeGoals", gi);
+          const awayPointsToken = getParamValueForGame("awayPoints", gi) || getParamValueForGame("awayGoals", gi);
           const homeScore = parseInt(compHome.score) || 0;
           const awayScore = parseInt(compAway.score) || 0;
 
@@ -7260,14 +7263,16 @@ app.get("/api/betslip", async (req, res) => {
               }
             }
 
-            // Quarter team points: homePoints1Q, awayPoints1Q
+            // Quarter team points: homePoints1Q, awayPoints1Q (or homeGoals/awayGoals for NHL)
             const qHomePointsKey = `homePoints${period}Q`;
             const qAwayPointsKey = `awayPoints${period}Q`;
+            const qHomeGoalsKey = `homeGoals${period}Q`;
+            const qAwayGoalsKey = `awayGoals${period}Q`;
             const qPtKeyNum = `${period}QTP`;
             const qPtKeyNamed = `${quarterNames[qi]}QTP`;
             const qPtKeyQ = `Q${period}TP`;
-            const qHomePointsVal = getParamValueForGame(qHomePointsKey, gi);
-            const qAwayPointsVal = getParamValueForGame(qAwayPointsKey, gi);
+            const qHomePointsVal = getParamValueForGame(qHomePointsKey, gi) || getParamValueForGame(qHomeGoalsKey, gi);
+            const qAwayPointsVal = getParamValueForGame(qAwayPointsKey, gi) || getParamValueForGame(qAwayGoalsKey, gi);
             const qPtVal =
               getParamValueForGame(qPtKeyNum, gi) ||
               getParamValueForGame(qPtKeyNamed, gi) ||
@@ -7556,6 +7561,64 @@ app.get("/api/betslip", async (req, res) => {
                 };
               }
             }
+            
+            // Period team points/goals: homeGoals1P, awayGoals1P, homePoints1P, awayPoints1P
+            const periodHomePointsKey = `homePoints${pi}P`;
+            const periodAwayPointsKey = `awayPoints${pi}P`;
+            const periodHomeGoalsKey = `homeGoals${pi}P`;
+            const periodAwayGoalsKey = `awayGoals${pi}P`;
+            const periodHomeVal = getParamValueForGame(periodHomePointsKey, gi) || getParamValueForGame(periodHomeGoalsKey, gi);
+            const periodAwayVal = getParamValueForGame(periodAwayPointsKey, gi) || getParamValueForGame(periodAwayGoalsKey, gi);
+            
+            const processPeriodTeamPoints = (token, score, keyName) => {
+              if (!token) return;
+              const tkn = String(token).trim().replace(/\s+/g, "");
+              let isOver = false;
+              let line = null;
+              const mOU = tkn.match(/^[ou]([0-9.]+)/i);
+              const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
+              const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
+              const mPlusSpace = !mPlus && String(token).trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
+              if (mOU) {
+                isOver = /^o/i.test(tkn);
+                line = parseFloat(mOU[1]);
+              } else if (mPlus) {
+                isOver = true;
+                line = parseFloat(mPlus[1]);
+              } else if (mMinus) {
+                isOver = false;
+                line = parseFloat(mMinus[1]);
+              } else if (mPlusSpace) {
+                isOver = true;
+                line = parseFloat(mPlusSpace[1]);
+              }
+              if (line !== null) {
+                const periodInProgress = isPeriodInProgress(pi, homeLines, awayLines, gameStatus?.state, isCompleted);
+                let won;
+                if (isOver) {
+                  const isWinning = score >= line;
+                  won = isCompleted
+                    ? isWinning ? true : false
+                    : periodInProgress
+                    ? isWinning ? true : "in progress"
+                    : isWinning ? true : false;
+                } else {
+                  const isWinning = score <= line;
+                  if (periodInProgress) won = isWinning ? "in progress" : false;
+                  else if (!isCompleted) won = isWinning ? true : false;
+                  else won = isWinning ? true : false;
+                }
+                eventData.bets[keyName] = {
+                  bet: token,
+                  line,
+                  current: score,
+                  type: isOver ? "over" : "under",
+                  won,
+                };
+              }
+            };
+            processPeriodTeamPoints(periodHomeVal, homePeriod, `homePoints${pi}P`);
+            processPeriodTeamPoints(periodAwayVal, awayPeriod, `awayPoints${pi}P`);
           }
 
           // halves: use first two periods for first half, last two for second half
@@ -7779,18 +7842,20 @@ app.get("/api/betslip", async (req, res) => {
               }
             }
 
-            // half team points tokens: 1stHTP, 2ndHTP
+            // half team points tokens: 1stHTP, 2ndHTP (or homeGoals/awayGoals for NHL)
             const halfTPKey = `${halfIndex}HTP`;
             const halfHomePointsKey = `homePoints${halfIndex}H`;
             const halfAwayPointsKey = `awayPoints${halfIndex}H`;
+            const halfHomeGoalsKey = `homeGoals${halfIndex}H`;
+            const halfAwayGoalsKey = `awayGoals${halfIndex}H`;
             const halfHomePointsVal = getParamValueForGame(
               halfHomePointsKey,
               gi
-            );
+            ) || getParamValueForGame(halfHomeGoalsKey, gi);
             const halfAwayPointsVal = getParamValueForGame(
               halfAwayPointsKey,
               gi
-            );
+            ) || getParamValueForGame(halfAwayGoalsKey, gi);
             const halfTPVal = getParamValueForGame(halfTPKey, gi);
 
             // Process homePoints1H / awayPoints1H

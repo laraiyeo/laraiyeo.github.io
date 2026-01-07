@@ -431,18 +431,22 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                 bet.type === "Milestone")
             );
           case "homePoints":
+          case "homeGoals":
             return (
               bet.team &&
               (betType.includes("over/under") ||
                 betType.includes("total") ||
-                (bet.type?.includes("(Alt)") && bet.statType === "points"))
+                betType.includes("goals") ||
+                (bet.type?.includes("(Alt)") && (bet.statType === "points" || bet.statType === "goals")))
             );
           case "awayPoints":
+          case "awayGoals":
             return (
               bet.team &&
               (betType.includes("over/under") ||
                 betType.includes("total") ||
-                (bet.type?.includes("(Alt)") && bet.statType === "points"))
+                betType.includes("goals") ||
+                (bet.type?.includes("(Alt)") && (bet.statType === "points" || bet.statType === "goals")))
             );
           default:
             return false;
@@ -465,7 +469,9 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
 
           case "total":
           case "homePoints":
-          case "awayPoints": {
+          case "awayPoints":
+          case "homeGoals":
+          case "awayGoals": {
             // Extract number with +/- from line
             let lineValue = String(bet.line || "").replace(/^[OU]\s+/, "");
             if (
@@ -481,8 +487,8 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             }
 
             // For team totals, check if this bet matches home/away
-            if (paramName === "homePoints" && bet.team !== homeTeam) return "";
-            if (paramName === "awayPoints" && bet.team !== awayTeam) return "";
+            if ((paramName === "homePoints" || paramName === "homeGoals") && bet.team !== homeTeam) return "";
+            if ((paramName === "awayPoints" || paramName === "awayGoals") && bet.team !== awayTeam) return "";
 
             return lineValue;
           }
@@ -497,8 +503,25 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
       buildAlignedArray("moneylineReg");
       buildAlignedArray("spread");
       buildAlignedArray("total");
-      buildAlignedArray("homePoints");
-      buildAlignedArray("awayPoints");
+      
+      // For NHL use Goals, for NBA/NFL use Points
+      if (isMultiSport) {
+        // Multi-sport: build both and let buildAlignedArray filter by sport
+        buildAlignedArray("homePoints");
+        buildAlignedArray("awayPoints");
+        buildAlignedArray("homeGoals");
+        buildAlignedArray("awayGoals");
+      } else {
+        // Single sport: use appropriate parameter name
+        const sport = getSportFromGameId(finalGameIds[0]);
+        if (sport === "nhl") {
+          buildAlignedArray("homeGoals");
+          buildAlignedArray("awayGoals");
+        } else {
+          buildAlignedArray("homePoints");
+          buildAlignedArray("awayPoints");
+        }
+      }
 
       // Period-specific bets
       ["1P", "2P", "3P", "1Q", "2Q", "3Q", "4Q", "1H", "2H"].forEach(
@@ -506,8 +529,22 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
           buildAlignedArray("moneyline", suffix);
           buildAlignedArray("spread", suffix);
           buildAlignedArray("total", suffix);
-          buildAlignedArray("homePoints", suffix);
-          buildAlignedArray("awayPoints", suffix);
+          
+          if (isMultiSport) {
+            buildAlignedArray("homePoints", suffix);
+            buildAlignedArray("awayPoints", suffix);
+            buildAlignedArray("homeGoals", suffix);
+            buildAlignedArray("awayGoals", suffix);
+          } else {
+            const sport = getSportFromGameId(finalGameIds[0]);
+            if (sport === "nhl") {
+              buildAlignedArray("homeGoals", suffix);
+              buildAlignedArray("awayGoals", suffix);
+            } else {
+              buildAlignedArray("homePoints", suffix);
+              buildAlignedArray("awayPoints", suffix);
+            }
+          }
         }
       );
 
@@ -560,11 +597,19 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             "rebounds+assists": "ra",
             pra_total: "pra",
             "1qpts": "1qpts",
+            "1q_points": "1qpts",
             "1qreb": "1qreb",
+            "1q_rebounds": "1qreb",
             "1qast": "1qast",
+            "1q_assists": "1qast",
             doubledouble: "2dbl",
+            "2dbl": "2dbl",
             tripledouble: "3dbl",
+            "3dbl": "3dbl",
             firstbasket: "firstBasket",
+            first_basket: "firstBasket",
+            blocks_steals: "bs",
+            "blocks+steals": "bs",
           };
 
           // NFL mappings (common patterns)
@@ -609,8 +654,11 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
           // NHL mappings
           const nhlMap = {
             "goals+assists": "ga",
-            "powerplay goals+assists": "ppp",
+            goals_assists: "ga",
+            "powerplay_goals+assists": "ppp",
+            powerplay_goals_assists: "ppp",
             goal: "hgl",
+            goals: "hgl",
             hgl: "hgl",
             points_yn: "goals",
             points_ou: "hgl",
@@ -628,8 +676,13 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             bs: "bs",
             ppp: "ppp",
             saves: "gsv",
+            goalie_saves: "gsv",
             save: "gsv",
             gsv: "gsv",
+            firsttoscore: "firstgoal",
+            first_to_score: "firstgoal",
+            lasttoscore: "lastgoal",
+            last_to_score: "lastgoal",
           };
 
           // choose mapping table based on sportHint
@@ -658,14 +711,20 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
 
           if (sportHint === "nhl") {
             if (nhlMap[s]) return nhlMap[s];
+            // Check if the original statType ends with _yn to determine yes/no vs over/under
+            const isYesNo = String(statType).toLowerCase().endsWith("_yn");
+            
             if (s.includes("shot") || s.includes("shots") || s.includes("sht"))
               return "sht";
             if (s.includes("save")) return "gsv";
-            if (s.includes("goal")) return "hgl";
-            // Special handling: points_yn -> goals, other points -> hgl
+            if (s.includes("firsttoscore") || s.includes("first_to_score"))
+              return "firstgoal";
+            if (s.includes("lasttoscore") || s.includes("last_to_score"))
+              return "lastgoal";
+            if (s.includes("goal")) return isYesNo ? "goals" : "hgl";
+            // Special handling: points_yn -> goals, points_ou -> hgl
             if (s.includes("point") || s.includes("pts")) {
-              if (s.includes("_yn")) return "goals";
-              return "hgl";
+              return isYesNo ? "goals" : "hgl";
             }
             return s.replace(/[^a-z0-9]/g, "_");
           }
