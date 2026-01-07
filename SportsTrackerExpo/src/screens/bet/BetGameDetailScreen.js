@@ -512,7 +512,7 @@ const HockeyRink = React.memo(
             const finalTeamColor = teamColor?.startsWith("#")
               ? teamColor
               : `#${teamColor || "999"}`;
-            
+
             return (
               <View
                 style={[
@@ -931,7 +931,14 @@ const NFLField = React.memo(
 );
 
 // Player Props Tab Component - DraftKings Style
-const PropTabContent = ({ gameData, theme, colors, propTypes, gameId, navigation }) => {
+const PropTabContent = ({
+  gameData,
+  theme,
+  colors,
+  propTypes,
+  gameId,
+  navigation,
+}) => {
   const { toggleBet, isBetSelected, removeBet, isPro } = useBetSlip();
   const { rostersData, getRosters } = useBetData();
   const oddsContext = useContext(OddsDisplayContext);
@@ -1473,7 +1480,9 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId, navigation
           const playerTeamColor =
             player.teamAbbr === gameData.team1Abbr ? team1Color : team2Color;
           const rawPlayerColor =
-            player.teamAbbr === gameData.team1Abbr ? gameData.team1Color : gameData.team2Color;
+            player.teamAbbr === gameData.team1Abbr
+              ? gameData.team1Color
+              : gameData.team2Color;
           const displayName =
             player.shortName || player.name || player.fullName || player.name;
 
@@ -1685,7 +1694,9 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId, navigation
           const playerTeamColor =
             player.teamAbbr === gameData.team1Abbr ? team1Color : team2Color;
           const rawPlayerColor =
-            player.teamAbbr === gameData.team1Abbr ? gameData.team1Color : gameData.team2Color;
+            player.teamAbbr === gameData.team1Abbr
+              ? gameData.team1Color
+              : gameData.team2Color;
           const displayName =
             player.shortName || player.name || player.fullName || player.name;
 
@@ -2387,11 +2398,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
               const number = m.jersey || m.number || "";
 
               const stats = summary?.stats?.[ath.id] || m.stats || {};
-              
+
               // Sport and position-specific stat order
               let statOrder;
               const sportUpper = (sportToUse || "").toUpperCase();
-              
+
               if (sportUpper === "NHL" || sportUpper === "HOCKEY") {
                 // NHL: Check if goalie (position G)
                 if (position.toUpperCase() === "G") {
@@ -2405,15 +2416,15 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 // Default NBA stats: PTS, REB, AST, FG, +/-, MIN
                 statOrder = ["PTS", "REB", "AST", "FG", "+/-", "MIN"];
               }
-              
+
               const statValues = statOrder.map((s) => {
                 let value = stats[s] ?? stats[s.toLowerCase()] ?? "-";
-                
+
                 // Format SV% to 2 decimals if present
                 if (s === "SV%" && value !== "-" && !isNaN(value)) {
                   value = (parseFloat(value) * 100).toFixed(2) + "%";
                 }
-                
+
                 return {
                   key: s,
                   value: value,
@@ -4257,10 +4268,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     const scale = width / 200;
                     // When rotated, the height becomes 150 * scale
                     const height = 150 * scale;
-                    
+
                     // Debug logging
-                    console.log(`[${sportUpper}] Device width: ${width}, Scale: ${scale}, Rink/Court width: ${sportUpper === 'NHL' ? 200 : 200}`);
-                    
+                    console.log(
+                      `[${sportUpper}] Device width: ${width}, Scale: ${scale}, Rink/Court width: ${
+                        sportUpper === "NHL" ? 200 : 200
+                      }`
+                    );
+
                     setCourtScale(scale);
                     setCourtContainerHeight(height);
                     setCourtContainerWidth(width);
@@ -4277,7 +4292,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   >
                     {sportUpper === "NHL" ? (
                       <>
-                        {console.log(`[NHL] Rendering HockeyRink with courtScale: ${courtScale}, containerWidth: ${courtContainerWidth}, containerHeight: ${courtContainerHeight}`)}
+                        {console.log(
+                          `[NHL] Rendering HockeyRink with courtScale: ${courtScale}, containerWidth: ${courtContainerWidth}, containerHeight: ${courtContainerHeight}`
+                        )}
                         <HockeyRink
                           coordinate={undefined}
                           isScoring={false}
@@ -4294,7 +4311,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       </>
                     ) : (
                       <>
-                        {console.log(`[NBA] Rendering BasketballCourt with courtScale: ${courtScale}, containerWidth: ${courtContainerWidth}, containerHeight: ${courtContainerHeight}`)}
+                        {console.log(
+                          `[NBA] Rendering BasketballCourt with courtScale: ${courtScale}, containerWidth: ${courtContainerWidth}, containerHeight: ${courtContainerHeight}`
+                        )}
                         <BasketballCourt
                           coordinate={undefined}
                           isScoring={false}
@@ -6431,61 +6450,61 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             </View>
             {/* Predicted Win Section */}
             {awayWinPct !== null && homeWinPct !== null && (
-            <View style={styles.lastFiveGamesSection}>
-              <Text
-                style={[
-                  styles.gameLineSectionTitle,
-                  { color: theme.text, marginBottom: 12 },
-                ]}
-              >
-                Predicted Win %
-              </Text>
-              <View
-                style={[
-                  styles.gameLineTable,
-                  { backgroundColor: theme.surfaceSecondary, padding: 16 },
-                ]}
-              >
-                <View style={styles.bettingPercentageBar}>
-                  <View
-                    style={[
-                      styles.bettingPercentageFill,
-                      {
-                        width: `${awayWinPct}%`,
-                        backgroundColor: colors.primary,
-                      },
-                    ]}
-                  />
-                </View>
-                <View style={styles.bettingPercentageLabels}>
-                  <Text
-                    style={[
-                      styles.bettingPercentageLabel,
-                      { color: theme.text },
-                    ]}
-                  >
-                    {awayTeam} {awayWinPct}%
-                  </Text>
-                  <Text
-                    style={[
-                      styles.bettingPercentageLabel,
-                      { color: theme.textSecondary },
-                    ]}
-                  >
-                    Win Probability
-                  </Text>
-                  <Text
-                    style={[
-                      styles.bettingPercentageLabel,
-                      { color: theme.text },
-                    ]}
-                  >
-                    {homeWinPct}% {homeTeam}
-                  </Text>
+              <View style={styles.lastFiveGamesSection}>
+                <Text
+                  style={[
+                    styles.gameLineSectionTitle,
+                    { color: theme.text, marginBottom: 12 },
+                  ]}
+                >
+                  Predicted Win %
+                </Text>
+                <View
+                  style={[
+                    styles.gameLineTable,
+                    { backgroundColor: theme.surfaceSecondary, padding: 16 },
+                  ]}
+                >
+                  <View style={styles.bettingPercentageBar}>
+                    <View
+                      style={[
+                        styles.bettingPercentageFill,
+                        {
+                          width: `${awayWinPct}%`,
+                          backgroundColor: colors.primary,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.bettingPercentageLabels}>
+                    <Text
+                      style={[
+                        styles.bettingPercentageLabel,
+                        { color: theme.text },
+                      ]}
+                    >
+                      {awayTeam} {awayWinPct}%
+                    </Text>
+                    <Text
+                      style={[
+                        styles.bettingPercentageLabel,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      Win Probability
+                    </Text>
+                    <Text
+                      style={[
+                        styles.bettingPercentageLabel,
+                        { color: theme.text },
+                      ]}
+                    >
+                      {homeWinPct}% {homeTeam}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          )}
+            )}
           </View>
         );
       default:

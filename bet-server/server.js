@@ -1967,7 +1967,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
       if (!sbData || !sbData.events || sbData.events.length === 0) {
         sbData = await fetchScoreboard(sportKey);
       }
-      
+
       if (sbData && sbData.events && team && team.id) {
         const todaysGame = sbData.events.find((evt) => {
           const comps = evt.competitions || [];
@@ -1983,7 +1983,10 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
         if (todaysGame) gameId = todaysGame.id;
       }
     } catch (e) {
-      console.warn(`[Athlete:${sportKey}] Failed to fetch gameId:`, e?.message || e);
+      console.warn(
+        `[Athlete:${sportKey}] Failed to fetch gameId:`,
+        e?.message || e
+      );
     }
 
     const out = {

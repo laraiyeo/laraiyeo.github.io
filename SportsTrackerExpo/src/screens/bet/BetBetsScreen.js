@@ -2155,13 +2155,13 @@ const BetBetsScreen = () => {
             else if (p === "2p") periodContext = " 2nd Period";
             else if (p === "3p") periodContext = " 3rd Period";
           }
-          
+
           // Clean up type label (remove Alt markers)
           let typeLabel = " Spread";
           if (bet.type && bet.type !== "Spread") {
             typeLabel = ` ${bet.type.replace(/\s*\(Alt\)/gi, "").trim()}`;
           }
-          
+
           pick.prop = `${bet.team}${periodContext}${typeLabel} ${bet.line}`;
         } else if (
           bet.type === "Moneyline" ||

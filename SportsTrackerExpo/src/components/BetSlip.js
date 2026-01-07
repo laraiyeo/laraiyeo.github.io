@@ -583,14 +583,14 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         // Helper: map a statType to short stat code based on sport
         const getShortStat = (statType, sportHint) => {
           if (!statType) return "pts";
-          
+
           // Keep original stat type (lowercase) for checking maps with suffixes like _yn, _ou
           const statOriginal = String(statType).toLowerCase();
-          
+
           // Normalized version (suffixes stripped) for fallback checks
           const sRaw = normalizeStatKey(statType);
           const s = sRaw;
-          
+
           // NBA defaults
           const nbaMap = {
             points: "pts",
@@ -728,10 +728,10 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
           if (sportHint === "nhl" || sportHint === "uefa") {
             // Check original stat type FIRST (with suffixes intact) for exact matches
             if (nhlMap[statOriginal]) return nhlMap[statOriginal];
-            
+
             // Then check normalized version
             if (nhlMap[s]) return nhlMap[s];
-            
+
             // Check if the original statType ends with _yn to determine yes/no vs over/under
             const isYesNo = statOriginal.endsWith("_yn");
 
@@ -1184,7 +1184,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                         if (!statType || !sport) return statType;
                         const sportUpper = String(sport).toUpperCase();
                         const statLower = String(statType).toLowerCase();
-                        
+
                         // Only convert for NHL or UEFA
                         if (sportUpper === "NHL" || sportUpper === "UEFA") {
                           // points_yn -> anytime_goals for yes/no bets
@@ -1196,17 +1196,20 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                             return "goals";
                           }
                         }
-                        
+
                         return statType;
                       };
 
                       // Helper to normalize stat type display (remove suffixes and format nicely)
                       const normalizeStatTypeDisplay = (statType, sport) => {
                         if (!statType) return "";
-                        
+
                         // Convert stat type based on sport FIRST
-                        let converted = convertStatTypeForSport(statType, sport);
-                        
+                        let converted = convertStatTypeForSport(
+                          statType,
+                          sport
+                        );
+
                         let normalized = converted
                           .replace(/_ou$/i, "")
                           .replace(/_yn$/i, "")
