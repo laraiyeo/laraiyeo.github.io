@@ -412,7 +412,8 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         const betType = bet.type?.toLowerCase() || "";
         switch (paramName) {
           case "moneyline":
-            return bet.type === "Moneyline" || betType.includes("moneyline");
+            return (bet.type === "Moneyline" || betType.includes("moneyline")) && 
+                   !betType.includes("regulation");
           case "moneylineReg":
             return bet.type === "Regulation 3-Way Moneyline";
           case "spread":

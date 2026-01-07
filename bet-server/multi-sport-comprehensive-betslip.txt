@@ -1,0 +1,207 @@
+# COMPREHENSIVE MULTI-SPORT BETSLIP (NBA + NHL)
+# 4 Games Total: 2 NBA + 2 NHL
+# 40+ Bets using all available parameters with sport suffixes
+
+==============================================================================
+GAME DETAILS
+==============================================================================
+
+NBA Game 1: 401810365_nba (CLE vs IND)
+NBA Game 2: 401810366_nba (ORL vs WSH)
+NHL Game 1: 401803019_nhl (COL @ TB)
+NHL Game 2: 401803022_nhl (DAL @ CAR)
+
+Players:
+- p1=4396907 (NBA)
+- p2=4432573 (NBA)
+- p3=3041969 (NHL)
+- p4=3904173 (NHL)
+
+==============================================================================
+FULL BETSLIP URL
+==============================================================================
+
+BASE URL: http://localhost:3000/api/betslip
+
+FULL URL (All Games Combined):
+http://localhost:3000/api/betslip?gameId=401810365_nba,401810366_nba,401803019_nhl,401803022_nhl&moneyline_nba=CLE,ORL&moneylineReg_nba=CLE,ORL&spread_nba=CLE-4.5,ORL-3.5&total_nba=237.5+,o242.5&homePoints_nba=120.5+,o118.5&awayPoints_nba=u116.5,123.5-&moneyline1H_nba=CLE,ORL&spread1H_nba=CLE-2.5,ORL-1.5&total1H_nba=o122.5,119.5+&homePoints1H_nba=62.5+,o60.5&awayPoints1H_nba=59.5-,u58.5&moneyline2H_nba=CLE,ORL&spread2H_nba=CLE-1.5,ORL-2.5&total2H_nba=114.5+,o123.5&homePoints2H_nba=o59.5,61.5+&awayPoints2H_nba=u57.5,62.5-&moneyline1Q_nba=CLE,ORL&spread1Q_nba=CLE-1.5,ORL-0.5&total1Q_nba=62.5+,o60.5&homePoints1Q_nba=o31.5,30.5+&awayPoints1Q_nba=30.5-,u29.5&moneyline2Q_nba=CLE,ORL&spread2Q_nba=CLE-1.5,ORL-1.5&total2Q_nba=o60.5,59.5+&homePoints2Q_nba=30.5+,o29.5&awayPoints2Q_nba=u29.5,28.5-&moneyline3Q_nba=CLE,ORL&spread3Q_nba=CLE-1.5,ORL-0.5&total3Q_nba=55.5+,o57.5&moneyline4Q_nba=CLE,ORL&spread4Q_nba=CLE-0.5,ORL-1.5&total4Q_nba=o54.5,56.5+&moneyline_nhl=COL,DAL&moneylineReg_nhl=COL,DAL&spread_nhl=COL-1.5,DAL-1.5&total_nhl=5.5+,o6.5&homeGoals_nhl=o3.5,3.5+&awayGoals_nhl=2.5-,u2.5&moneyline1P_nhl=COL,DAL&spread1P_nhl=COL-0.5,DAL-0.5&total1P_nhl=1.5+,o1.5&spread2P_nhl=COL-0.5,DAL-0.5&total2P_nhl=o1.5,2.5+&p1=4396907&p1_pra=45.5+&p1_pa=o37.5&p1_pr=32.5+&p1_ra=o16.5&p1_pts=26.5+&p1_ast=o10.5&p1_reb=5.5+&p1_stl=o1.5&p1_blk=0.5+&p1_3pm=o2.5&p1_1qpts=7.5+&p1_1qast=o3.5&p1_1qreb=1.5+&p1_firstbasket=yes&p1_2dbl=yes&p1_3dbl=no&p1_bs=o1.5&p2=4432573&p2_pra=42.5+&p2_pa=o35.5&p2_pr=30.5+&p2_ra=o15.5&p2_pts=24.5+&p2_ast=o9.5&p2_reb=4.5+&p2_stl=o1.5&p2_blk=0.5+&p2_3pm=o3.5&p2_1qpts=6.5+&p2_1qast=o2.5&p2_1qreb=1.5+&p2_firstbasket=no&p2_2dbl=yes&p2_3dbl=no&p2_bs=o2.5&p3=3041969&p3_hgl=1.5+&p3_goals=yes&p3_firstgoal=yes&p3_lastgoal=no&p3_ast=o0.5&p3_ga=0.5+&p3_ppp=o0.5&p3_sht=2.5+&p3_bs=o1.5&p3_gsv=26.5+&p4=3904173&p4_hgl=1.5+&p4_goals=yes&p4_firstgoal=no&p4_lastgoal=no&p4_ast=o1.5&p4_ga=1.5+&p4_ppp=o0.5&p4_sht=3.5+&p4_bs=o2.5&p4_gsv=24.5+
+
+==============================================================================
+BREAKDOWN BY SPORT
+==============================================================================
+
+NBA BETS (Games: 401810365_nba, 401810366_nba):
+----------------------------------------------
+
+Team Bets (Full Game):
+- moneyline_nba=CLE,ORL (CLE wins game 1, ORL wins game 2)
+- moneylineReg_nba=CLE,ORL (Regulation wins)
+- spread_nba=CLE-4.5,ORL-3.5 (CLE by 4.5+, ORL by 3.5+)
+- total_nba=237.5+,o242.5 (Game 1 over 237.5, Game 2 over 242.5)
+- homePoints_nba=120.5+,o118.5 (Home points over)
+- awayPoints_nba=u116.5,123.5- (Away points under)
+
+1st Half Bets:
+- moneyline1H_nba=CLE,ORL
+- spread1H_nba=CLE-2.5,ORL-1.5
+- total1H_nba=o122.5,119.5+ (Mixed notation)
+- homePoints1H_nba=62.5+,o60.5
+- awayPoints1H_nba=59.5-,u58.5
+
+2nd Half Bets:
+- moneyline2H_nba=CLE,ORL
+- spread2H_nba=CLE-1.5,ORL-2.5
+- total2H_nba=114.5+,o123.5
+- homePoints2H_nba=o59.5,61.5+
+- awayPoints2H_nba=u57.5,62.5-
+
+1st Quarter Bets:
+- moneyline1Q_nba=CLE,ORL
+- spread1Q_nba=CLE-1.5,ORL-0.5
+- total1Q_nba=62.5+,o60.5
+- homePoints1Q_nba=o31.5,30.5+
+- awayPoints1Q_nba=30.5-,u29.5
+
+2nd Quarter Bets:
+- moneyline2Q_nba=CLE,ORL
+- spread2Q_nba=CLE-1.5,ORL-1.5
+- total2Q_nba=o60.5,59.5+
+- homePoints2Q_nba=30.5+,o29.5
+- awayPoints2Q_nba=u29.5,28.5-
+
+3rd Quarter Bets:
+- moneyline3Q_nba=CLE,ORL
+- spread3Q_nba=CLE-1.5,ORL-0.5
+- total3Q_nba=55.5+,o57.5
+
+4th Quarter Bets:
+- moneyline4Q_nba=CLE,ORL
+- spread4Q_nba=CLE-0.5,ORL-1.5
+- total4Q_nba=o54.5,56.5+
+
+Player 4396907 Bets (NBA):
+- p1_pra=45.5+ (PRA over 45.5)
+- p1_pa=o37.5 (PA over 37.5)
+- p1_pr=32.5+ (PR over 32.5)
+- p1_ra=o16.5 (RA over 16.5)
+- p1_pts=26.5+ (Points over 26.5)
+- p1_ast=o10.5 (Assists over 10.5)
+- p1_reb=5.5+ (Rebounds over 5.5)
+- p1_stl=o1.5 (Steals over 1.5)
+- p1_blk=0.5+ (Blocks over 0.5)
+- p1_3pm=o2.5 (3PM over 2.5)
+- p1_1qpts=7.5+ (1Q Points over 7.5)
+- p1_1qast=o3.5 (1Q Assists over 3.5)
+- p1_1qreb=1.5+ (1Q Rebounds over 1.5)
+- p1_firstbasket=yes (First Basket)
+- p1_2dbl=yes (Double-Double)
+- p1_3dbl=no (No Triple-Double)
+- p1_bs=o1.5 (Blocks+Steals over 1.5)
+
+Player 4432573 Bets (NBA):
+- p2_pra=42.5+ (PRA over 42.5)
+- p2_pa=o35.5 (PA over 35.5)
+- p2_pr=30.5+ (PR over 30.5)
+- p2_ra=o15.5 (RA over 15.5)
+- p2_pts=24.5+ (Points over 24.5)
+- p2_ast=o9.5 (Assists over 9.5)
+- p2_reb=4.5+ (Rebounds over 4.5)
+- p2_stl=o1.5 (Steals over 1.5)
+- p2_blk=0.5+ (Blocks over 0.5)
+- p2_3pm=o3.5 (3PM over 3.5)
+- p2_1qpts=6.5+ (1Q Points over 6.5)
+- p2_1qast=o2.5 (1Q Assists over 2.5)
+- p2_1qreb=1.5+ (1Q Rebounds over 1.5)
+- p2_firstbasket=no (Not First Basket)
+- p2_2dbl=yes (Double-Double)
+- p2_3dbl=no (No Triple-Double)
+- p2_bs=o2.5 (Blocks+Steals over 2.5)
+
+NHL BETS (Games: 401803019_nhl, 401803022_nhl):
+----------------------------------------------
+
+Team Bets (Full Game):
+- moneyline_nhl=COL,DAL (COL wins game 1, DAL wins game 2)
+- moneylineReg_nhl=COL,DAL (Regulation wins)
+- spread_nhl=COL-1.5,DAL-1.5 (Puck line)
+- total_nhl=5.5+,o6.5 (Total goals over)
+- homeGoals_nhl=o3.5,3.5+ (Home goals over)
+- awayGoals_nhl=2.5-,u2.5 (Away goals under)
+
+1st Period Bets:
+- moneyline1P_nhl=COL,DAL
+- spread1P_nhl=COL-0.5,DAL-0.5
+- total1P_nhl=1.5+,o1.5
+
+2nd Period Bets:
+- spread2P_nhl=COL-0.5,DAL-0.5
+- total2P_nhl=o1.5,2.5+
+
+Player 3041969 Bets (NHL):
+- p3_hgl=1.5+ (Goals over 1.5)
+- p3_goals=yes (Any Goals)
+- p3_firstgoal=yes (First Goal)
+- p3_lastgoal=no (Not Last Goal)
+- p3_ast=o0.5 (Assists over 0.5)
+- p3_ga=0.5+ (Goals+Assists over 0.5)
+- p3_ppp=o0.5 (Power-Play Points over 0.5)
+- p3_sht=2.5+ (Shots over 2.5)
+- p3_bs=o1.5 (Blocked Shots over 1.5)
+- p3_gsv=26.5+ (Goalie Saves over 26.5)
+
+Player 3904173 Bets (NHL):
+- p4_hgl=1.5+ (Goals over 1.5)
+- p4_goals=yes (Any Goals)
+- p4_firstgoal=no (Not First Goal)
+- p4_lastgoal=no (Not Last Goal)
+- p4_ast=o1.5 (Assists over 1.5)
+- p4_ga=1.5+ (Goals+Assists over 1.5)
+- p4_ppp=o0.5 (Power-Play Points over 0.5)
+- p4_sht=3.5+ (Shots over 3.5)
+- p4_bs=o2.5 (Blocked Shots over 2.5)
+- p4_gsv=24.5+ (Goalie Saves over 24.5)
+
+==============================================================================
+TOTAL BET COUNT
+==============================================================================
+
+NBA Team Bets:
+- Full Game: 6 bet types × 2 games = 12 bets
+- 1st Half: 5 bet types × 2 games = 10 bets
+- 2nd Half: 5 bet types × 2 games = 10 bets
+- 1st Quarter: 5 bet types × 2 games = 10 bets
+- 2nd Quarter: 5 bet types × 2 games = 10 bets
+- 3rd Quarter: 3 bet types × 2 games = 6 bets
+- 4th Quarter: 3 bet types × 2 games = 6 bets
+NBA Player Bets:
+- Player 1: 17 bets
+- Player 2: 17 bets
+
+NHL Team Bets:
+- Full Game: 6 bet types × 2 games = 12 bets
+- 1st Period: 3 bet types × 2 games = 6 bets
+- 2nd Period: 2 bet types × 2 games = 4 bets
+NHL Player Bets:
+- Player 3: 10 bets
+- Player 4: 10 bets
+
+**TOTAL: 64 + 34 + 22 + 20 = 140 BETS**
+
+==============================================================================
+TESTING COMMAND
+==============================================================================
+
+# Copy and paste this into your terminal or browser:
+curl "http://localhost:3000/api/betslip?gameId=401810365_nba,401810366_nba,401803019_nhl,401803022_nhl&moneyline_nba=CLE,ORL&moneylineReg_nba=CLE,ORL&spread_nba=CLE-4.5,ORL-3.5&total_nba=237.5+,o242.5&homePoints_nba=120.5+,o118.5&awayPoints_nba=u116.5,123.5-&moneyline1H_nba=CLE,ORL&spread1H_nba=CLE-2.5,ORL-1.5&total1H_nba=o122.5,119.5+&homePoints1H_nba=62.5+,o60.5&awayPoints1H_nba=59.5-,u58.5&moneyline2H_nba=CLE,ORL&spread2H_nba=CLE-1.5,ORL-2.5&total2H_nba=114.5+,o123.5&homePoints2H_nba=o59.5,61.5+&awayPoints2H_nba=u57.5,62.5-&moneyline1Q_nba=CLE,ORL&spread1Q_nba=CLE-1.5,ORL-0.5&total1Q_nba=62.5+,o60.5&homePoints1Q_nba=o31.5,30.5+&awayPoints1Q_nba=30.5-,u29.5&moneyline2Q_nba=CLE,ORL&spread2Q_nba=CLE-1.5,ORL-1.5&total2Q_nba=o60.5,59.5+&homePoints2Q_nba=30.5+,o29.5&awayPoints2Q_nba=u29.5,28.5-&moneyline3Q_nba=CLE,ORL&spread3Q_nba=CLE-1.5,ORL-0.5&total3Q_nba=55.5+,o57.5&moneyline4Q_nba=CLE,ORL&spread4Q_nba=CLE-0.5,ORL-1.5&total4Q_nba=o54.5,56.5+&moneyline_nhl=COL,DAL&moneylineReg_nhl=COL,DAL&spread_nhl=COL-1.5,DAL-1.5&total_nhl=5.5+,o6.5&homeGoals_nhl=o3.5,3.5+&awayGoals_nhl=2.5-,u2.5&moneyline1P_nhl=COL,DAL&spread1P_nhl=COL-0.5,DAL-0.5&total1P_nhl=1.5+,o1.5&spread2P_nhl=COL-0.5,DAL-0.5&total2P_nhl=o1.5,2.5+&p1=4396907&p1_pra=45.5+&p1_pa=o37.5&p1_pr=32.5+&p1_ra=o16.5&p1_pts=26.5+&p1_ast=o10.5&p1_reb=5.5+&p1_stl=o1.5&p1_blk=0.5+&p1_3pm=o2.5&p1_1qpts=7.5+&p1_1qast=o3.5&p1_1qreb=1.5+&p1_firstbasket=yes&p1_2dbl=yes&p1_3dbl=no&p1_bs=o1.5&p2=4432573&p2_pra=42.5+&p2_pa=o35.5&p2_pr=30.5+&p2_ra=o15.5&p2_pts=24.5+&p2_ast=o9.5&p2_reb=4.5+&p2_stl=o1.5&p2_blk=0.5+&p2_3pm=o3.5&p2_1qpts=6.5+&p2_1qast=o2.5&p2_1qreb=1.5+&p2_firstbasket=no&p2_2dbl=yes&p2_3dbl=no&p2_bs=o2.5&p3=3041969&p3_hgl=1.5+&p3_goals=yes&p3_firstgoal=yes&p3_lastgoal=no&p3_ast=o0.5&p3_ga=0.5+&p3_ppp=o0.5&p3_sht=2.5+&p3_bs=o1.5&p3_gsv=26.5+&p4=3904173&p4_hgl=1.5+&p4_goals=yes&p4_firstgoal=no&p4_lastgoal=no&p4_ast=o1.5&p4_ga=1.5+&p4_ppp=o0.5&p4_sht=3.5+&p4_bs=o2.5&p4_gsv=24.5+"
+
+==============================================================================
+NOTES
+==============================================================================
+
+1. All parameters use sport suffixes (_nba, _nhl) for multi-sport bets
+2. Values are comma-separated arrays aligned to gameId array
+3. Mixed o/u and +/- notation used throughout (both are supported)
+4. Player bets don't need sport suffixes (they're tied to specific games)
+5. This creates a massive parlay with 140+ individual bets across 4 games
+6. Each sport gets all available bet types (full game, periods/quarters, team points/goals)
+7. All 4 players get comprehensive prop bets
