@@ -437,7 +437,8 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
               (betType.includes("over/under") ||
                 betType.includes("total") ||
                 betType.includes("goals") ||
-                (bet.type?.includes("(Alt)") && (bet.statType === "points" || bet.statType === "goals")))
+                (bet.type?.includes("(Alt)") &&
+                  (bet.statType === "points" || bet.statType === "goals")))
             );
           case "awayPoints":
           case "awayGoals":
@@ -446,7 +447,8 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
               (betType.includes("over/under") ||
                 betType.includes("total") ||
                 betType.includes("goals") ||
-                (bet.type?.includes("(Alt)") && (bet.statType === "points" || bet.statType === "goals")))
+                (bet.type?.includes("(Alt)") &&
+                  (bet.statType === "points" || bet.statType === "goals")))
             );
           default:
             return false;
@@ -487,8 +489,16 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             }
 
             // For team totals, check if this bet matches home/away
-            if ((paramName === "homePoints" || paramName === "homeGoals") && bet.team !== homeTeam) return "";
-            if ((paramName === "awayPoints" || paramName === "awayGoals") && bet.team !== awayTeam) return "";
+            if (
+              (paramName === "homePoints" || paramName === "homeGoals") &&
+              bet.team !== homeTeam
+            )
+              return "";
+            if (
+              (paramName === "awayPoints" || paramName === "awayGoals") &&
+              bet.team !== awayTeam
+            )
+              return "";
 
             return lineValue;
           }
@@ -503,7 +513,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
       buildAlignedArray("moneylineReg");
       buildAlignedArray("spread");
       buildAlignedArray("total");
-      
+
       // For NHL use Goals, for NBA/NFL use Points
       if (isMultiSport) {
         // Multi-sport: build both and let buildAlignedArray filter by sport
@@ -529,7 +539,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
           buildAlignedArray("moneyline", suffix);
           buildAlignedArray("spread", suffix);
           buildAlignedArray("total", suffix);
-          
+
           if (isMultiSport) {
             buildAlignedArray("homePoints", suffix);
             buildAlignedArray("awayPoints", suffix);
@@ -713,7 +723,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             if (nhlMap[s]) return nhlMap[s];
             // Check if the original statType ends with _yn to determine yes/no vs over/under
             const isYesNo = String(statType).toLowerCase().endsWith("_yn");
-            
+
             if (s.includes("shot") || s.includes("shots") || s.includes("sht"))
               return "sht";
             if (s.includes("save")) return "gsv";

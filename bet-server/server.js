@@ -6985,8 +6985,12 @@ app.get("/api/betslip", async (req, res) => {
           }
 
           // Full game team points: homePoints and awayPoints (or homeGoals/awayGoals for NHL)
-          const homePointsToken = getParamValueForGame("homePoints", gi) || getParamValueForGame("homeGoals", gi);
-          const awayPointsToken = getParamValueForGame("awayPoints", gi) || getParamValueForGame("awayGoals", gi);
+          const homePointsToken =
+            getParamValueForGame("homePoints", gi) ||
+            getParamValueForGame("homeGoals", gi);
+          const awayPointsToken =
+            getParamValueForGame("awayPoints", gi) ||
+            getParamValueForGame("awayGoals", gi);
           const homeScore = parseInt(compHome.score) || 0;
           const awayScore = parseInt(compAway.score) || 0;
 
@@ -7249,8 +7253,8 @@ app.get("/api/betslip", async (req, res) => {
                   if (quarterInProgress)
                     won = currentQTotal <= line ? "in progress" : false;
                   else if (!isCompleted)
-                    won =
-                      currentQTotal <= line ? true : false; // Period complete
+                    won = currentQTotal <= line ? true : false;
+                  // Period complete
                   else won = currentQTotal <= line ? true : false;
                 }
                 eventData.bets[`Q${period}_T`] = {
@@ -7271,8 +7275,12 @@ app.get("/api/betslip", async (req, res) => {
             const qPtKeyNum = `${period}QTP`;
             const qPtKeyNamed = `${quarterNames[qi]}QTP`;
             const qPtKeyQ = `Q${period}TP`;
-            const qHomePointsVal = getParamValueForGame(qHomePointsKey, gi) || getParamValueForGame(qHomeGoalsKey, gi);
-            const qAwayPointsVal = getParamValueForGame(qAwayPointsKey, gi) || getParamValueForGame(qAwayGoalsKey, gi);
+            const qHomePointsVal =
+              getParamValueForGame(qHomePointsKey, gi) ||
+              getParamValueForGame(qHomeGoalsKey, gi);
+            const qAwayPointsVal =
+              getParamValueForGame(qAwayPointsKey, gi) ||
+              getParamValueForGame(qAwayGoalsKey, gi);
             const qPtVal =
               getParamValueForGame(qPtKeyNum, gi) ||
               getParamValueForGame(qPtKeyNamed, gi) ||
@@ -7561,15 +7569,19 @@ app.get("/api/betslip", async (req, res) => {
                 };
               }
             }
-            
+
             // Period team points/goals: homeGoals1P, awayGoals1P, homePoints1P, awayPoints1P
             const periodHomePointsKey = `homePoints${pi}P`;
             const periodAwayPointsKey = `awayPoints${pi}P`;
             const periodHomeGoalsKey = `homeGoals${pi}P`;
             const periodAwayGoalsKey = `awayGoals${pi}P`;
-            const periodHomeVal = getParamValueForGame(periodHomePointsKey, gi) || getParamValueForGame(periodHomeGoalsKey, gi);
-            const periodAwayVal = getParamValueForGame(periodAwayPointsKey, gi) || getParamValueForGame(periodAwayGoalsKey, gi);
-            
+            const periodHomeVal =
+              getParamValueForGame(periodHomePointsKey, gi) ||
+              getParamValueForGame(periodHomeGoalsKey, gi);
+            const periodAwayVal =
+              getParamValueForGame(periodAwayPointsKey, gi) ||
+              getParamValueForGame(periodAwayGoalsKey, gi);
+
             const processPeriodTeamPoints = (token, score, keyName) => {
               if (!token) return;
               const tkn = String(token).trim().replace(/\s+/g, "");
@@ -7578,7 +7590,11 @@ app.get("/api/betslip", async (req, res) => {
               const mOU = tkn.match(/^[ou]([0-9.]+)/i);
               const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
               const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
-              const mPlusSpace = !mPlus && String(token).trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
+              const mPlusSpace =
+                !mPlus &&
+                String(token)
+                  .trim()
+                  .match(/^([0-9]+(?:\.[0-9]+)?)\s*$/);
               if (mOU) {
                 isOver = /^o/i.test(tkn);
                 line = parseFloat(mOU[1]);
@@ -7593,15 +7609,27 @@ app.get("/api/betslip", async (req, res) => {
                 line = parseFloat(mPlusSpace[1]);
               }
               if (line !== null) {
-                const periodInProgress = isPeriodInProgress(pi, homeLines, awayLines, gameStatus?.state, isCompleted);
+                const periodInProgress = isPeriodInProgress(
+                  pi,
+                  homeLines,
+                  awayLines,
+                  gameStatus?.state,
+                  isCompleted
+                );
                 let won;
                 if (isOver) {
                   const isWinning = score >= line;
                   won = isCompleted
-                    ? isWinning ? true : false
+                    ? isWinning
+                      ? true
+                      : false
                     : periodInProgress
-                    ? isWinning ? true : "in progress"
-                    : isWinning ? true : false;
+                    ? isWinning
+                      ? true
+                      : "in progress"
+                    : isWinning
+                    ? true
+                    : false;
                 } else {
                   const isWinning = score <= line;
                   if (periodInProgress) won = isWinning ? "in progress" : false;
@@ -7617,8 +7645,16 @@ app.get("/api/betslip", async (req, res) => {
                 };
               }
             };
-            processPeriodTeamPoints(periodHomeVal, homePeriod, `homePoints${pi}P`);
-            processPeriodTeamPoints(periodAwayVal, awayPeriod, `awayPoints${pi}P`);
+            processPeriodTeamPoints(
+              periodHomeVal,
+              homePeriod,
+              `homePoints${pi}P`
+            );
+            processPeriodTeamPoints(
+              periodAwayVal,
+              awayPeriod,
+              `awayPoints${pi}P`
+            );
           }
 
           // halves: use first two periods for first half, last two for second half
@@ -7848,14 +7884,12 @@ app.get("/api/betslip", async (req, res) => {
             const halfAwayPointsKey = `awayPoints${halfIndex}H`;
             const halfHomeGoalsKey = `homeGoals${halfIndex}H`;
             const halfAwayGoalsKey = `awayGoals${halfIndex}H`;
-            const halfHomePointsVal = getParamValueForGame(
-              halfHomePointsKey,
-              gi
-            ) || getParamValueForGame(halfHomeGoalsKey, gi);
-            const halfAwayPointsVal = getParamValueForGame(
-              halfAwayPointsKey,
-              gi
-            ) || getParamValueForGame(halfAwayGoalsKey, gi);
+            const halfHomePointsVal =
+              getParamValueForGame(halfHomePointsKey, gi) ||
+              getParamValueForGame(halfHomeGoalsKey, gi);
+            const halfAwayPointsVal =
+              getParamValueForGame(halfAwayPointsKey, gi) ||
+              getParamValueForGame(halfAwayGoalsKey, gi);
             const halfTPVal = getParamValueForGame(halfTPKey, gi);
 
             // Process homePoints1H / awayPoints1H
