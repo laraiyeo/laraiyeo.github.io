@@ -6784,7 +6784,9 @@ app.get("/api/betslip", async (req, res) => {
                   ? true
                   : false
                 : isInProgress
-                ? isWinning ? true : "in progress"
+                ? isWinning
+                  ? true
+                  : "in progress"
                 : "pending";
             } else {
               if (isInProgress) {
@@ -6904,7 +6906,13 @@ app.get("/api/betslip", async (req, res) => {
               );
               // NBA: 4 periods, NHL: 3 periods, UEFA/Soccer: 2 periods
               const regCount =
-                maxPeriods >= 4 ? 4 : maxPeriods >= 3 ? 3 : maxPeriods >= 2 ? 2 : maxPeriods;
+                maxPeriods >= 4
+                  ? 4
+                  : maxPeriods >= 3
+                  ? 3
+                  : maxPeriods >= 2
+                  ? 2
+                  : maxPeriods;
 
               // Always process moneylineReg bet, even pre-game (regCount may be 0)
               let homeReg = 0;
@@ -7016,7 +7024,9 @@ app.get("/api/betslip", async (req, res) => {
                     ? true
                     : false
                   : isInProgress
-                  ? isWinning ? true : "in progress"
+                  ? isWinning
+                    ? true
+                    : "in progress"
                   : "pending";
               } else {
                 const isWinning = score <= line;
@@ -7171,7 +7181,9 @@ app.get("/api/betslip", async (req, res) => {
                       : false
                     : quarterInProgress
                     ? "in progress"
-                    : isWinning ? true : false, // Period complete, evaluate result
+                    : isWinning
+                    ? true
+                    : false, // Period complete, evaluate result
                 };
               }
             }
@@ -7227,11 +7239,15 @@ app.get("/api/betslip", async (req, res) => {
                       : false
                     : quarterInProgress
                     ? "in progress"
-                    : isWinning ? true : false; // Period complete, evaluate result
+                    : isWinning
+                    ? true
+                    : false; // Period complete, evaluate result
                 } else {
                   if (quarterInProgress)
                     won = currentQTotal <= line ? "in progress" : false;
-                  else if (!isCompleted) won = currentQTotal <= line ? true : false; // Period complete
+                  else if (!isCompleted)
+                    won =
+                      currentQTotal <= line ? true : false; // Period complete
                   else won = currentQTotal <= line ? true : false;
                 }
                 eventData.bets[`Q${period}_T`] = {
@@ -7302,13 +7318,18 @@ app.get("/api/betslip", async (req, res) => {
                       ? true
                       : false
                     : quarterInProgress
-                    ? isWinning ? true : "in progress"
-                    : isWinning ? true : false; // Quarter complete, evaluate result
+                    ? isWinning
+                      ? true
+                      : "in progress"
+                    : isWinning
+                    ? true
+                    : false; // Quarter complete, evaluate result
                 } else {
                   const isWinning = current <= line;
                   if (quarterInProgress)
                     won = isWinning ? "in progress" : false;
-                  else if (!isCompleted) won = isWinning ? true : false; // Quarter complete
+                  else if (!isCompleted)
+                    won = isWinning ? true : false; // Quarter complete
                   else won = isWinning ? true : false;
                 }
                 eventData.bets[keyName] = {
@@ -7463,7 +7484,9 @@ app.get("/api/betslip", async (req, res) => {
                       : false
                     : periodInProgress
                     ? "in progress"
-                    : isWinning ? true : false, // Period complete, evaluate result
+                    : isWinning
+                    ? true
+                    : false, // Period complete, evaluate result
                 };
               }
             }
@@ -7511,13 +7534,17 @@ app.get("/api/betslip", async (req, res) => {
                       ? true
                       : false
                     : periodInProgress
-                    ? isWinning ? true : "in progress"
-                    : isWinning ? true : false; // Period complete, evaluate result
+                    ? isWinning
+                      ? true
+                      : "in progress"
+                    : isWinning
+                    ? true
+                    : false; // Period complete, evaluate result
                 } else {
                   const isWinning = currentPTotal <= line;
-                  if (periodInProgress)
-                    won = isWinning ? "in progress" : false;
-                  else if (!isCompleted) won = isWinning ? true : false; // Period complete
+                  if (periodInProgress) won = isWinning ? "in progress" : false;
+                  else if (!isCompleted)
+                    won = isWinning ? true : false; // Period complete
                   else won = isWinning ? true : false;
                 }
                 eventData.bets[`P${pi}_T`] = {
@@ -7669,13 +7696,17 @@ app.get("/api/betslip", async (req, res) => {
                       ? true
                       : false
                     : halfInProgress
-                    ? isWinning ? true : "in progress"
-                    : isWinning ? true : false; // Half complete, evaluate result
+                    ? isWinning
+                      ? true
+                      : "in progress"
+                    : isWinning
+                    ? true
+                    : false; // Half complete, evaluate result
                 } else {
                   const isWinning = currentHalfTotal <= line;
-                  if (halfInProgress)
-                    won = isWinning ? "in progress" : false;
-                  else if (!isCompleted) won = isWinning ? true : false; // Half complete
+                  if (halfInProgress) won = isWinning ? "in progress" : false;
+                  else if (!isCompleted)
+                    won = isWinning ? true : false; // Half complete
                   else won = isWinning ? true : false;
                 }
                 eventData.bets[`H${halfIndex}_T`] = {
@@ -7741,7 +7772,9 @@ app.get("/api/betslip", async (req, res) => {
                       : false
                     : halfInProgress
                     ? "in progress"
-                    : isWinning ? true : false, // Half complete, evaluate result
+                    : isWinning
+                    ? true
+                    : false, // Half complete, evaluate result
                 };
               }
             }
@@ -7818,13 +7851,17 @@ app.get("/api/betslip", async (req, res) => {
                       ? true
                       : false
                     : halfInProgress
-                    ? isWinning ? true : "in progress"
-                    : isWinning ? true : false; // Half complete, evaluate result
+                    ? isWinning
+                      ? true
+                      : "in progress"
+                    : isWinning
+                    ? true
+                    : false; // Half complete, evaluate result
                 } else {
                   const isWinning = current <= line;
-                  if (halfInProgress)
-                    won = isWinning ? "in progress" : false;
-                  else if (!isCompleted) won = isWinning ? true : false; // Half complete
+                  if (halfInProgress) won = isWinning ? "in progress" : false;
+                  else if (!isCompleted)
+                    won = isWinning ? true : false; // Half complete
                   else won = isWinning ? true : false;
                 }
                 eventData.bets[keyName] = {
@@ -7997,7 +8034,9 @@ app.get("/api/betslip", async (req, res) => {
                     ? true
                     : false
                   : isInProgress
-                  ? isWinning ? true : "in progress"
+                  ? isWinning
+                    ? true
+                    : "in progress"
                   : "pending";
               } else {
                 const isWinning = current <= line;
@@ -8971,7 +9010,9 @@ app.get("/api/betslip", async (req, res) => {
               const handleFirstLast = () => {
                 try {
                   if (statUpper === "FIRSTBASKET") {
-                    const hasData = summaryData.firstBasket && summaryData.firstBasket.athleteId;
+                    const hasData =
+                      summaryData.firstBasket &&
+                      summaryData.firstBasket.athleteId;
                     const occurred = !!(
                       hasData &&
                       String(summaryData.firstBasket.athleteId) ===
@@ -8981,10 +9022,22 @@ app.get("/api/betslip", async (req, res) => {
                       let won;
                       if (bv === "yes") {
                         // If data exists, evaluate; if no data yet and game not complete, pending
-                        won = hasData ? (occurred ? true : false) : (isCompleted ? false : "in progress");
+                        won = hasData
+                          ? occurred
+                            ? true
+                            : false
+                          : isCompleted
+                          ? false
+                          : "in progress";
                       } else {
                         // bet = "no": if data exists and it's someone else, mark true; if no data yet, pending
-                        won = hasData ? (!occurred ? true : false) : (isCompleted ? true : "in progress");
+                        won = hasData
+                          ? !occurred
+                            ? true
+                            : false
+                          : isCompleted
+                          ? true
+                          : "in progress";
                       }
                       playerData.milestones[statUpper] = {
                         bet: betValue,
@@ -9006,9 +9059,17 @@ app.get("/api/betslip", async (req, res) => {
                     if (bv === "yes" || bv === "no") {
                       let won;
                       if (bv === "yes") {
-                        won = occurred ? true : (isCompleted ? false : "in progress");
+                        won = occurred
+                          ? true
+                          : isCompleted
+                          ? false
+                          : "in progress";
                       } else {
-                        won = isCompleted ? !occurred : (occurred ? false : "in progress");
+                        won = isCompleted
+                          ? !occurred
+                          : occurred
+                          ? false
+                          : "in progress";
                       }
                       playerData.milestones[statUpper] = {
                         bet: betValue,
@@ -9027,9 +9088,17 @@ app.get("/api/betslip", async (req, res) => {
                     if (bv === "yes" || bv === "no") {
                       let won;
                       if (bv === "yes") {
-                        won = occurred ? true : (isCompleted ? false : "in progress");
+                        won = occurred
+                          ? true
+                          : isCompleted
+                          ? false
+                          : "in progress";
                       } else {
-                        won = isCompleted ? !occurred : (occurred ? false : "in progress");
+                        won = isCompleted
+                          ? !occurred
+                          : occurred
+                          ? false
+                          : "in progress";
                       }
                       playerData.milestones[statUpper] = {
                         bet: betValue,
@@ -9067,10 +9136,22 @@ app.get("/api/betslip", async (req, res) => {
                       let won;
                       if (bv === "yes") {
                         // If data exists, evaluate; if no data yet and game not complete, pending
-                        won = hasData ? (occurred ? true : false) : (isCompleted ? false : "in progress");
+                        won = hasData
+                          ? occurred
+                            ? true
+                            : false
+                          : isCompleted
+                          ? false
+                          : "in progress";
                       } else {
                         // bet = "no": if data exists and it's someone else, mark true; if no data yet, pending
-                        won = hasData ? (!occurred ? true : false) : (isCompleted ? true : "in progress");
+                        won = hasData
+                          ? !occurred
+                            ? true
+                            : false
+                          : isCompleted
+                          ? true
+                          : "in progress";
                       }
                       playerData.milestones[statUpper] = {
                         bet: betValue,
@@ -9104,9 +9185,17 @@ app.get("/api/betslip", async (req, res) => {
                     if (bv === "yes" || bv === "no") {
                       let won;
                       if (bv === "yes") {
-                        won = occurred ? true : (isCompleted ? false : "in progress");
+                        won = occurred
+                          ? true
+                          : isCompleted
+                          ? false
+                          : "in progress";
                       } else {
-                        won = isCompleted ? !occurred : (occurred ? false : "in progress");
+                        won = isCompleted
+                          ? !occurred
+                          : occurred
+                          ? false
+                          : "in progress";
                       }
                       playerData.milestones[statUpper] = {
                         bet: betValue,
@@ -9231,10 +9320,14 @@ app.get("/api/betslip", async (req, res) => {
                 const occurred = !!current && Number(current) > 0;
                 let won;
                 if (bv === "yes") {
-                  won = occurred ? true : (isCompleted ? false : "in progress");
+                  won = occurred ? true : isCompleted ? false : "in progress";
                 } else {
                   // bet = "no": only mark won if game is complete
-                  won = isCompleted ? !occurred : (occurred ? false : "in progress");
+                  won = isCompleted
+                    ? !occurred
+                    : occurred
+                    ? false
+                    : "in progress";
                 }
                 playerData.milestones[statUpper] = {
                   bet: betValue,
@@ -9269,12 +9362,13 @@ app.get("/api/betslip", async (req, res) => {
                       ? true
                       : false
                     : isInProgress
-                    ? isWinning ? true : "in progress"
+                    ? isWinning
+                      ? true
+                      : "in progress"
                     : "pending";
                 } else {
                   const isWinning = Number(current) <= line;
-                  if (isInProgress)
-                    won = isWinning ? "in progress" : false;
+                  if (isInProgress) won = isWinning ? "in progress" : false;
                   else {
                     won = isWinning ? true : false;
                   }
@@ -9296,7 +9390,7 @@ app.get("/api/betslip", async (req, res) => {
                 const suffix = thresholdMatch[2];
                 // If suffix is -, treat as under; otherwise treat as over (default)
                 const isOver = suffix !== "-";
-                
+
                 // For 1Q stats, check if Q1 is complete
                 let isComplete = isCompleted;
                 let isPeriodActive = !isCompleted && gameStatus?.state === "in";
@@ -9309,10 +9403,13 @@ app.get("/api/betslip", async (req, res) => {
                     gameStatus?.state,
                     isCompleted
                   );
-                  isComplete = !q1InProgress && (linescoresHome[0] !== undefined || linescoresAway[0] !== undefined);
+                  isComplete =
+                    !q1InProgress &&
+                    (linescoresHome[0] !== undefined ||
+                      linescoresAway[0] !== undefined);
                   isPeriodActive = q1InProgress;
                 }
-                
+
                 let isWinning;
                 if (isOver) {
                   isWinning = Number(current) >= threshold;
@@ -9324,9 +9421,13 @@ app.get("/api/betslip", async (req, res) => {
                   threshold: threshold,
                   current: current,
                   won: isComplete
-                    ? isWinning ? true : false
+                    ? isWinning
+                      ? true
+                      : false
                     : isPeriodActive
-                    ? isWinning ? true : "in progress"
+                    ? isWinning
+                      ? true
+                      : "in progress"
                     : "pending",
                 };
                 return;
@@ -9349,19 +9450,26 @@ app.get("/api/betslip", async (req, res) => {
                     gameStatus?.state,
                     isCompleted
                   );
-                  isComplete = !q1InProgress && (linescoresHome[0] !== undefined || linescoresAway[0] !== undefined);
+                  isComplete =
+                    !q1InProgress &&
+                    (linescoresHome[0] !== undefined ||
+                      linescoresAway[0] !== undefined);
                   isPeriodActive = q1InProgress;
                 }
-                
+
                 const isWinning = Number(current) >= threshold;
                 playerData.milestones[statUpper] = {
                   bet: betValue,
                   threshold: threshold,
                   current: current,
                   won: isComplete
-                    ? isWinning ? true : false
+                    ? isWinning
+                      ? true
+                      : false
                     : isPeriodActive
-                    ? isWinning ? true : "in progress"
+                    ? isWinning
+                      ? true
+                      : "in progress"
                     : "pending",
                 };
                 return;
