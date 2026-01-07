@@ -583,8 +583,14 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         // Helper: map a statType to short stat code based on sport
         const getShortStat = (statType, sportHint) => {
           if (!statType) return "pts";
+          
+          // Keep original stat type (lowercase) for checking maps with suffixes like _yn, _ou
+          const statOriginal = String(statType).toLowerCase();
+          
+          // Normalized version (suffixes stripped) for fallback checks
           const sRaw = normalizeStatKey(statType);
           const s = sRaw;
+          
           // NBA defaults
           const nbaMap = {
             points: "pts",
@@ -719,10 +725,15 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             return s.replace(/[^a-z0-9]/g, "_");
           }
 
-          if (sportHint === "nhl") {
+          if (sportHint === "nhl" || sportHint === "uefa") {
+            // Check original stat type FIRST (with suffixes intact) for exact matches
+            if (nhlMap[statOriginal]) return nhlMap[statOriginal];
+            
+            // Then check normalized version
             if (nhlMap[s]) return nhlMap[s];
+            
             // Check if the original statType ends with _yn to determine yes/no vs over/under
-            const isYesNo = String(statType).toLowerCase().endsWith("_yn");
+            const isYesNo = statOriginal.endsWith("_yn");
 
             if (s.includes("shot") || s.includes("shots") || s.includes("sht"))
               return "sht";
@@ -1021,7 +1032,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                   ]}
                 >
                   <Text style={[styles.tabText, { color: colors.primary }]}>
-                    {bets.length === 1 ? "STRAIGHT" : "PARLAY"}
+                    {bets.length === 1 ? "SINGLE" : "PARLAY"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1168,10 +1179,35 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
 
                     {/* Bets in this game */}
                     {group.bets.map((bet, index) => {
+                      // Helper to convert stat type based on sport BEFORE normalization
+                      const convertStatTypeForSport = (statType, sport) => {
+                        if (!statType || !sport) return statType;
+                        const sportUpper = String(sport).toUpperCase();
+                        const statLower = String(statType).toLowerCase();
+                        
+                        // Only convert for NHL or UEFA
+                        if (sportUpper === "NHL" || sportUpper === "UEFA") {
+                          // points_yn -> anytime_goals for yes/no bets
+                          if (statLower === "points_yn") {
+                            return "anytime_goals";
+                          }
+                          // points_ou -> goals for over/under bets
+                          if (statLower === "points_ou") {
+                            return "goals";
+                          }
+                        }
+                        
+                        return statType;
+                      };
+
                       // Helper to normalize stat type display (remove suffixes and format nicely)
-                      const normalizeStatTypeDisplay = (statType) => {
+                      const normalizeStatTypeDisplay = (statType, sport) => {
                         if (!statType) return "";
-                        let normalized = statType
+                        
+                        // Convert stat type based on sport FIRST
+                        let converted = convertStatTypeForSport(statType, sport);
+                        
+                        let normalized = converted
                           .replace(/_ou$/i, "")
                           .replace(/_yn$/i, "")
                           .replace(/_ml$/i, "")
@@ -1200,7 +1236,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                           bet.type === "Milestone"
                         ) {
                           const statType = bet.statType
-                            ? normalizeStatTypeDisplay(bet.statType)
+                            ? normalizeStatTypeDisplay(bet.statType, bet.sport)
                             : bet.prop?.split(" ")[0] || "";
                           return `Milestone ${statType}`;
                         }
@@ -1208,7 +1244,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                         // For alternate lines, show "Alt" with the stat type
                         if (bet.type === "alt") {
                           const statType = bet.statType
-                            ? normalizeStatTypeDisplay(bet.statType)
+                            ? normalizeStatTypeDisplay(bet.statType, bet.sport)
                             : "";
                           return `Alt ${statType}`;
                         }
@@ -1216,7 +1252,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                         // For yes/no bets, show the normalized stat type
                         if (bet.type === "yesno") {
                           const statType = bet.statType
-                            ? normalizeStatTypeDisplay(bet.statType)
+                            ? normalizeStatTypeDisplay(bet.statType, bet.sport)
                             : "";
                           return statType || "Yes/No";
                         }
@@ -1230,7 +1266,8 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                             bet.type.charAt(0).toUpperCase() +
                             bet.type.slice(1);
                           return `${capitalizedType} ${normalizeStatTypeDisplay(
-                            bet.statType
+                            bet.statType,
+                            bet.sport
                           )}`;
                         }
                         // For game lines (Spread, Total, Moneyline), just return the type

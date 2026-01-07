@@ -161,15 +161,15 @@ Betslip data:
     {
       "eventId": "401810370",
       "status": {
-        "shortDetail": "11:36 - 1st Quarter",
-        "completed": false,
-        "state": "in",
+        "shortDetail": "Final",
+        "completed": true,
+        "state": "post",
         "date": "2026-01-07T04:00Z",
         "game": {
           "homeTeam": "SAC",
           "awayTeam": "DAL",
-          "homeScore": "3",
-          "awayScore": "0"
+          "homeScore": "98",
+          "awayScore": "100"
         }
       },
       "bets": {
@@ -177,68 +177,75 @@ Betslip data:
           "bet": "210",
           "line": 210,
           "type": "over",
-          "current": 3,
-          "won": "in progress"
+          "current": 198,
+          "won": false
         },
         "moneyline": {
           "team": "DAL",
           "current": {
-            "score": "3-0",
-            "lead": "SAC"
+            "score": "98-100",
+            "lead": "DAL"
           },
-          "won": "in progress",
+          "won": true,
           "reg": {
             "request": "DAL",
-            "homeReg": 3,
-            "awayReg": 0,
-            "regWinner": "SAC",
-            "countedPeriods": 1
+            "homeReg": 98,
+            "awayReg": 100,
+            "regWinner": "DAL",
+            "countedPeriods": 4
           }
         },
         "homePoints": {
           "bet": "103",
           "line": 103,
-          "current": 3,
+          "current": 98,
           "type": "over",
-          "won": "in progress"
+          "won": false
+        },
+        "awayPoints": {
+          "bet": "129-",
+          "line": 129,
+          "current": 100,
+          "type": "under",
+          "won": true
         },
         "Q1_SP": {
           "team": "SAC",
           "line": 8.5,
-          "current": -3,
-          "won": "in progress"
+          "current": -10,
+          "won": true
         },
         "Q1_T": {
           "bet": "54",
           "line": 54,
           "type": "over",
-          "current": 3,
-          "won": "in progress"
+          "current": 60,
+          "won": true
         },
         "H1_T": {
           "bet": "119.5-",
           "line": 119.5,
           "type": "under",
-          "current": 3,
-          "won": "in progress"
+          "current": 104,
+          "won": true
         },
         "H1_SP": {
           "team": "SAC",
           "line": 10.5,
-          "current": -3,
-          "won": "in progress"
+          "current": -12,
+          "won": true
         },
         "awayPoints1H": {
           "bet": "53",
           "line": 53,
-          "current": 0,
+          "current": 46,
           "type": "over",
-          "won": "in progress"
+          "won": false
         },
         "homePoints2H": {
           "bet": "64-",
           "line": 64,
-          "current": 0,
+          "current": 40,
           "type": "under",
           "won": true
         }
@@ -247,8 +254,8 @@ Betslip data:
   ],
   "metadata": {
     "payloadSize": {
-      "bytes": 1010,
-      "kb": 0.99,
+      "bytes": 1026,
+      "kb": 1,
       "withinPushLimit": true,
       "recommendedForPush": true
     },

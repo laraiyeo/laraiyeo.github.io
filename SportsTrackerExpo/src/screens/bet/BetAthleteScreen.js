@@ -1096,81 +1096,6 @@ const BetAthleteScreen = ({ route, navigation }) => {
 
               {expandedMarkets[marketKey] && (
                 <View style={styles.marketContent}>
-                  {sport === "NHL" && (
-                    <TouchableOpacity
-                      onPress={() => {
-                        // compute derived NHL stats for last10matches and log them
-                        const recent = (last10matches || []).slice(0, 10);
-                        const derived = recent.map((m) => {
-                          const g = getMatchStatNumeric(m, "Goals") || 0;
-                          const a = getMatchStatNumeric(m, "Assists") || 0;
-                          // Shots and Shooting Percentage
-                          const shots =
-                            getMatchStatNumeric(m, "Shots") ||
-                            getMatchStatNumeric(m, "SOG") ||
-                            0;
-                          const sp =
-                            getMatchStatNumeric(m, "Shooting Percentage") ||
-                            getMatchStatNumeric(m, "Shooting %") ||
-                            0;
-                          const sogFromCalc =
-                            sp && shots ? Math.round((sp / 100) * shots) : null;
-                          const sog =
-                            getMatchStatNumeric(m, "Shots on Goal") ||
-                            getMatchStatNumeric(m, "SOG") ||
-                            (sogFromCalc != null ? sogFromCalc : 0);
-                          const pts = getMatchStatNumeric(m, "Points") || g + a;
-                          const ppg =
-                            getMatchStatNumeric(m, "Power Play Goals") ||
-                            getMatchStatNumeric(m, "PPG") ||
-                            0;
-                          const ppa =
-                            getMatchStatNumeric(m, "Power Play Assists") ||
-                            getMatchStatNumeric(m, "PPA") ||
-                            0;
-                          const pp =
-                            ppg || ppa
-                              ? ppg + ppa
-                              : getMatchStatNumeric(m, "Power Play Points") ||
-                                0;
-
-                          return {
-                            gameDate: m.gameDate,
-                            rawStats: {
-                              Goals: g,
-                              Assists: a,
-                              "Shots on Goal": sog,
-                              Shots: shots,
-                              "Shooting Percentage": sp,
-                              Points: pts,
-                              "Power-Play Points": pp,
-                            },
-                            barChartStats: {
-                              Goals: getMatchStatNumeric(m, "Goals") || 0,
-                              "Shots on Goal": sog,
-                              Assists: getMatchStatNumeric(m, "Assists") || 0,
-                              Points:
-                                getMatchStatNumeric(m, "Points") ||
-                                (getMatchStatNumeric(m, "Goals") || 0) +
-                                  (getMatchStatNumeric(m, "Assists") || 0),
-                              "Power-Play Points": pp,
-                            },
-                          };
-                        });
-                        console.log("[STATS CLICK LOG]", {
-                          market: sanitizedLabel || marketKey,
-                          derived,
-                        });
-                      }}
-                      style={{ alignSelf: "flex-end", marginBottom: 8 }}
-                    >
-                      <Text
-                        style={{ color: colors.primary, fontWeight: "700" }}
-                      >
-                        Show NHL Derived Stats
-                      </Text>
-                    </TouchableOpacity>
-                  )}
                   {/* selectors */}
                   <View
                     style={{
@@ -1852,7 +1777,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
   const darkSuffix = isDarkMode ? "-dark" : "";
 
   const headshotUrl = `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${athlete.id}.png&w=300`;
-  const teamLogoUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${team.abbreviation.toLowerCase()}.png&h=100&w=100`;
+  const teamLogoUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500/${team.abbreviation.toLowerCase()}.png&h=100&w=100`;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>

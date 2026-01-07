@@ -424,8 +424,8 @@ const BetBetsScreen = () => {
     }
 
     // For in/post games show numeric scores and bold the higher one
-    const homeNum = hs != null ? hs : 0;
-    const awayNum = as != null ? as : 0;
+    const homeNum = hs != null ? hs : "";
+    const awayNum = as != null ? as : "";
 
     return (
       <Text style={[styles.scoreText, { color: theme.text }]}>
@@ -1142,7 +1142,7 @@ const BetBetsScreen = () => {
             }}
             style={[
               styles.playerHeadshot,
-              pick.gameState !== "pre" && pick.playerColor
+              pick.playerColor
                 ? { backgroundColor: pick.playerColor + "88" }
                 : null,
             ]}
@@ -1970,6 +1970,7 @@ const BetBetsScreen = () => {
         pick.line = bet.line;
         pick.type = bet.type;
         pick.betValue = bet.betValue;
+        pick.playerColor = bet.playerColor;
 
         // Try to get current value from betslipData
         if (betslipData?.events) {
@@ -2140,13 +2141,28 @@ const BetBetsScreen = () => {
           bet.type === "Spread" ||
           bet.type?.toLowerCase().includes("spread")
         ) {
-          const periodPart = bet.period ? ` ${bet.period}` : "";
-          const typePart = bet.statType
-            ? ` ${bet.statType}`
-            : bet.type !== "Spread"
-            ? ` ${bet.type}`
-            : "";
-          pick.prop = `${bet.team} ${bet.line}${periodPart}${typePart}`;
+          // Format period context for display
+          let periodContext = "";
+          if (bet.period) {
+            const p = String(bet.period).toLowerCase();
+            if (p === "1q") periodContext = " 1st Quarter";
+            else if (p === "2q") periodContext = " 2nd Quarter";
+            else if (p === "3q") periodContext = " 3rd Quarter";
+            else if (p === "4q") periodContext = " 4th Quarter";
+            else if (p === "1h") periodContext = " 1st Half";
+            else if (p === "2h") periodContext = " 2nd Half";
+            else if (p === "1p") periodContext = " 1st Period";
+            else if (p === "2p") periodContext = " 2nd Period";
+            else if (p === "3p") periodContext = " 3rd Period";
+          }
+          
+          // Clean up type label (remove Alt markers)
+          let typeLabel = " Spread";
+          if (bet.type && bet.type !== "Spread") {
+            typeLabel = ` ${bet.type.replace(/\s*\(Alt\)/gi, "").trim()}`;
+          }
+          
+          pick.prop = `${bet.team}${periodContext}${typeLabel} ${bet.line}`;
         } else if (
           bet.type === "Moneyline" ||
           bet.type?.toLowerCase().includes("moneyline")
@@ -2859,7 +2875,12 @@ const BetBetsScreen = () => {
               let quarterOrHalfKey = null;
 
               // Period bets (NHL: P1_ML, P1_SP, P2_T, etc.)
-              if (betType.includes("1st period") || betType.includes("1p")) {
+              // Check both betType AND bet.period for period detection
+              if (
+                betType.includes("1st period") ||
+                betType.includes("1p") ||
+                bet.period === "1p"
+              ) {
                 if (betType.includes("spread")) quarterOrHalfKey = "P1_SP";
                 else if (
                   betType.includes("total") ||
@@ -2870,7 +2891,8 @@ const BetBetsScreen = () => {
                   quarterOrHalfKey = "P1_ML";
               } else if (
                 betType.includes("2nd period") ||
-                betType.includes("2p")
+                betType.includes("2p") ||
+                bet.period === "2p"
               ) {
                 if (betType.includes("spread")) quarterOrHalfKey = "P2_SP";
                 else if (
@@ -2882,7 +2904,8 @@ const BetBetsScreen = () => {
                   quarterOrHalfKey = "P2_ML";
               } else if (
                 betType.includes("3rd period") ||
-                betType.includes("3p")
+                betType.includes("3p") ||
+                bet.period === "3p"
               ) {
                 if (betType.includes("spread")) quarterOrHalfKey = "P3_SP";
                 else if (
@@ -2894,19 +2917,23 @@ const BetBetsScreen = () => {
                   quarterOrHalfKey = "P3_ML";
               }
               // Quarter bets (NBA/NFL: Q1_SP, Q1_T, etc.)
+              // Check both betType AND bet.period for quarter detection
               else if (
                 betType.includes("1st quarter") ||
-                betType.includes("1q")
+                betType.includes("1q") ||
+                bet.period === "1q"
               ) {
                 if (betType.includes("spread")) quarterOrHalfKey = "Q1_SP";
                 else if (
                   betType.includes("total") ||
                   betType.includes("over/under")
                 )
-                  quarterOrHalfKey = "Q1_T";
+                  // Only use Q1_T for game totals, not team-specific points
+                  quarterOrHalfKey = !bet.team ? "Q1_T" : null;
               } else if (
                 betType.includes("2nd quarter") ||
-                betType.includes("2q")
+                betType.includes("2q") ||
+                bet.period === "2q"
               ) {
                 if (betType.includes("spread")) quarterOrHalfKey = "Q2_SP";
                 else if (
@@ -2916,7 +2943,8 @@ const BetBetsScreen = () => {
                   quarterOrHalfKey = "Q2_T";
               } else if (
                 betType.includes("3rd quarter") ||
-                betType.includes("3q")
+                betType.includes("3q") ||
+                bet.period === "3q"
               ) {
                 if (betType.includes("spread")) quarterOrHalfKey = "Q3_SP";
                 else if (
@@ -2926,7 +2954,8 @@ const BetBetsScreen = () => {
                   quarterOrHalfKey = "Q3_T";
               } else if (
                 betType.includes("4th quarter") ||
-                betType.includes("4q")
+                betType.includes("4q") ||
+                bet.period === "4q"
               ) {
                 if (betType.includes("spread")) quarterOrHalfKey = "Q4_SP";
                 else if (
@@ -2936,18 +2965,25 @@ const BetBetsScreen = () => {
                   quarterOrHalfKey = "Q4_T";
               }
               // Half bets (H1_SP, H1_T, H2_SP, H2_T)
-              else if (betType.includes("1st half") || betType.includes("1h")) {
+              // Check both betType AND bet.period for quarter/half detection
+              else if (
+                betType.includes("1st half") ||
+                betType.includes("1h") ||
+                bet.period === "1h"
+              ) {
                 if (betType.includes("spread")) quarterOrHalfKey = "H1_SP";
                 else if (
                   betType.includes("total") ||
                   betType.includes("over/under")
                 )
-                  quarterOrHalfKey = "H1_T";
+                  // Only use H1_T for game totals, not team-specific points
+                  quarterOrHalfKey = !bet.team ? "H1_T" : null;
                 else if (betType.includes("moneyline"))
                   quarterOrHalfKey = "H1_ML";
               } else if (
                 betType.includes("2nd half") ||
-                betType.includes("2h")
+                betType.includes("2h") ||
+                bet.period === "2h"
               ) {
                 if (betType.includes("spread")) quarterOrHalfKey = "H2_SP";
                 else if (
@@ -2997,6 +3033,15 @@ const BetBetsScreen = () => {
                   }
                 } else if (quarterOrHalfKey.endsWith("_T")) {
                   // Total
+                  // Update line from payload if available
+                  const payloadLine = qhBet.line;
+                  if (typeof payloadLine === "number") {
+                    pick.line = payloadLine;
+                  } else if (payloadLine != null) {
+                    const parsed = Number(payloadLine);
+                    if (!isNaN(parsed)) pick.line = parsed;
+                  }
+
                   const cur = qhBet.current;
                   let parsed = null;
                   if (typeof cur === "number") parsed = cur;
@@ -3110,7 +3155,9 @@ const BetBetsScreen = () => {
               } else if (
                 !handled &&
                 overrideEvent.bets.totalPoints &&
-                (betType.includes("total") || betType.includes("over/under"))
+                (betType.includes("total") || betType.includes("over/under")) &&
+                !bet.team && // Only use totalPoints for game totals, not team-specific points
+                !betType.includes("points over/under") // Exclude team-specific point bets
               ) {
                 handled = true;
                 const overrideLine = overrideEvent.bets.totalPoints.line;
@@ -3351,7 +3398,15 @@ const BetBetsScreen = () => {
             bet.prop || bet.description
           } | Source: ${progressSource} | Current: ${
             pick.currentValue ?? "N/A"
-          } | Line: ${bet.line ?? "N/A"}`
+          } | Line: ${bet.line ?? "N/A"} | GameState: ${
+            pick.gameState || "null"
+          } | ShowProgressBar: ${
+            pick.currentValue !== null &&
+            typeof pick.currentValue === "number" &&
+            !isNaN(pick.currentValue) &&
+            isValidLineForProgress(pick.line) &&
+            pick.gameState !== "pre"
+          }`
         );
 
         // Log progress bar check

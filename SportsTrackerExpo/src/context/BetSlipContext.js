@@ -174,6 +174,28 @@ export const BetSlipProvider = ({ children }) => {
                 betsToRemove.push(existingBet.id);
               }
             }
+            
+            // Can't have both anytime goals (points_yn) and goals (points_ou) for same player
+            // This applies to NHL and UEFA where points_yn = anytime goals, points_ou = goals
+            if (existingBet.playerId === bet.playerId) {
+              const betSport = (bet.sport || "").toUpperCase();
+              const existingSport = (existingBet.sport || "").toUpperCase();
+              
+              // Only enforce this rule for NHL and UEFA
+              if ((betSport === "NHL" || betSport === "UEFA") &&
+                  (existingSport === "NHL" || existingSport === "UEFA")) {
+                const betStatLower = (bet.statType || "").toLowerCase();
+                const existingStatLower = (existingBet.statType || "").toLowerCase();
+                
+                // If adding points_yn, remove points_ou (and vice versa)
+                if (
+                  (betStatLower === "points_yn" && existingStatLower === "points_ou") ||
+                  (betStatLower === "points_ou" && existingStatLower === "points_yn")
+                ) {
+                  betsToRemove.push(existingBet.id);
+                }
+              }
+            }
           });
         }
 
@@ -181,39 +203,151 @@ export const BetSlipProvider = ({ children }) => {
         if (
           bet.gameId &&
           (bet.type === "Spread" ||
+            bet.type === "Spread (Alt)" ||
             bet.type === "Total" ||
-            bet.type === "Moneyline")
+            bet.type === "Moneyline" ||
+            bet.type === "Regulation Moneyline" ||
+            bet.type === "Regulation 3-Way Moneyline" ||
+            bet.type?.includes("Spread") ||
+            bet.type?.includes("Moneyline") ||
+            bet.type?.includes("Over/Under") ||
+            bet.type?.includes("Goals") ||
+            bet.type?.includes("Total"))
         ) {
           prevBets.forEach((existingBet) => {
             if (existingBet.gameId === bet.gameId) {
-              // Can't select both moneylines (both teams)
-              if (
-                bet.type === "Moneyline" &&
-                existingBet.type === "Moneyline"
-              ) {
-                betsToRemove.push(existingBet.id);
+              // Helper to extract period from bet (from period field or type name)
+              const extractPeriod = (b) => {
+                if (b.period) return b.period;
+                
+                // Extract period from type name
+                const type = b.type || "";
+                if (type.includes("1st Quarter") || type.includes("1Q")) return "1q";
+                if (type.includes("2nd Quarter") || type.includes("2Q")) return "2q";
+                if (type.includes("3rd Quarter") || type.includes("3Q")) return "3q";
+                if (type.includes("4th Quarter") || type.includes("4Q")) return "4q";
+                if (type.includes("1st Half") || type.includes("1H")) return "1h";
+                if (type.includes("2nd Half") || type.includes("2H")) return "2h";
+                if (type.includes("1st Period") || type.includes("P1")) return "1p";
+                if (type.includes("2nd Period") || type.includes("P2")) return "2p";
+                if (type.includes("3rd Period") || type.includes("P3")) return "3p";
+                if (type.includes("Regulation") || type.includes("regulation")) return "reg";
+                
+                return null; // Full game
+              };
+              
+              // Extract period info from both bets
+              const newPeriod = extractPeriod(bet);
+              const existingPeriod = extractPeriod(existingBet);
+              const samePeriod = newPeriod === existingPeriod;
+              
+              // Helper: Check bet types (including variations)
+              const isSpread = (b) => 
+                b.type === "Spread" || 
+                b.type === "Spread (Alt)" ||
+                b.type?.includes("Spread"); // Catch period-specific spreads like "1st Period Spread"
+              
+              const isTotal = (b) => 
+                b.type === "Total" || 
+                b.type?.includes("Over/Under") || 
+                b.type?.includes("Goals") ||
+                b.type?.includes("Total"); // Catch variations
+              
+              const isMoneyline = (b) => 
+                b.type === "Moneyline" || 
+                b.type === "Regulation Moneyline" || 
+                b.type === "Regulation 3-Way Moneyline" ||
+                b.type?.includes("Moneyline"); // Catch period-specific moneylines like "1st Period Moneyline"
+              
+              // MONEYLINE RESTRICTIONS (all types)
+              if (isMoneyline(bet)) {
+                // Can't select ANY moneyline with another moneyline for same period
+                // This includes regular, regulation, and 3-way
+                if (isMoneyline(existingBet) && samePeriod) {
+                  betsToRemove.push(existingBet.id);
+                }
+                
+                // Can't select with any spread (regular or alt) for same team
+                if (isSpread(existingBet) && existingBet.team === bet.team) {
+                  betsToRemove.push(existingBet.id);
+                }
               }
-
-              // Can't select both game totals (over and under)
-              if (bet.type === "Total" && existingBet.type === "Total") {
-                betsToRemove.push(existingBet.id);
+              
+              // SPREAD RESTRICTIONS (including alt spreads)
+              if (isSpread(bet)) {
+                // Can't select with ANY moneyline type for same team
+                if (isMoneyline(existingBet) && bet.team === existingBet.team) {
+                  betsToRemove.push(existingBet.id);
+                }
+                
+                // Can't select multiple spreads (regular or alt) for same period
+                if (isSpread(existingBet) && samePeriod) {
+                  betsToRemove.push(existingBet.id);
+                }
               }
-
-              // Can't select both spreads (both teams)
-              if (bet.type === "Spread" && existingBet.type === "Spread") {
-                betsToRemove.push(existingBet.id);
-              }
-
-              // Can't select spread and moneyline for same team
-              if (
-                (bet.type === "Spread" &&
-                  existingBet.type === "Moneyline" &&
-                  bet.team === existingBet.team) ||
-                (bet.type === "Moneyline" &&
-                  existingBet.type === "Spread" &&
-                  bet.team === existingBet.team)
-              ) {
-                betsToRemove.push(existingBet.id);
+              
+              // POINTS/TOTAL RESTRICTIONS (including alt points and team-specific goals)
+              if (isTotal(bet)) {
+                const newIsTeamTotal = !!bet.team;
+                const existingIsTeamTotal = !!existingBet.team;
+                
+                if (isTotal(existingBet) && samePeriod) {
+                  // Can't select multiple game totals (over/under) for same period
+                  if (!newIsTeamTotal && !existingIsTeamTotal) {
+                    betsToRemove.push(existingBet.id);
+                  }
+                  
+                  // Can't select multiple team-specific points/goals for same team/period
+                  // This includes regular and alt versions
+                  if (newIsTeamTotal && existingIsTeamTotal && bet.team === existingBet.team) {
+                    betsToRemove.push(existingBet.id);
+                  }
+                  
+                  // Special rule: If both teams' points are selected for a period,
+                  // can't select game total for that period
+                  if (newIsTeamTotal && !existingIsTeamTotal) {
+                    // Check if opposite team's points already selected
+                    const oppositeTeamPointsExists = prevBets.some(
+                      (b) =>
+                        b.gameId === bet.gameId &&
+                        isTotal(b) &&
+                        b.team &&
+                        b.team !== bet.team &&
+                        (b.period || null) === newPeriod
+                    );
+                    
+                    if (oppositeTeamPointsExists) {
+                      // Remove game total for this period
+                      betsToRemove.push(existingBet.id);
+                    }
+                  }
+                  
+                  // If adding game total, check if both team points exist
+                  if (!newIsTeamTotal && existingIsTeamTotal) {
+                    const team1Points = prevBets.find(
+                      (b) =>
+                        b.gameId === bet.gameId &&
+                        isTotal(b) &&
+                        b.team === existingBet.team &&
+                        (b.period || null) === newPeriod
+                    );
+                    
+                    const team2Points = prevBets.find(
+                      (b) =>
+                        b.gameId === bet.gameId &&
+                        isTotal(b) &&
+                        b.team &&
+                        b.team !== existingBet.team &&
+                        (b.period || null) === newPeriod
+                    );
+                    
+                    if (team1Points && team2Points) {
+                      // Can't add game total if both team points exist
+                      // Remove one team point (the existing one being checked)
+                      betsToRemove.push(existingBet.id);
+                    }
+                  }
+                }
               }
 
               // NEW RULE: Can't select a negative spread for one team and the
@@ -221,14 +355,14 @@ export const BetSlipProvider = ({ children }) => {
               // able to back LAL -3.5 and also take LAC moneyline.
               try {
                 const newIsSpreadFav =
-                  bet.type === "Spread" && Number(bet.line) < 0;
+                  isSpread(bet) && Number(bet.line) < 0;
                 const existingIsSpreadFav =
-                  existingBet.type === "Spread" && Number(existingBet.line) < 0;
+                  isSpread(existingBet) && Number(existingBet.line) < 0;
 
                 // If adding a negative spread, remove opposing moneyline
                 if (
                   newIsSpreadFav &&
-                  existingBet.type === "Moneyline" &&
+                  isMoneyline(existingBet) &&
                   existingBet.team !== bet.team
                 ) {
                   betsToRemove.push(existingBet.id);
@@ -236,7 +370,7 @@ export const BetSlipProvider = ({ children }) => {
 
                 // If adding a moneyline, remove any negative spread on the opponent
                 if (
-                  bet.type === "Moneyline" &&
+                  isMoneyline(bet) &&
                   existingIsSpreadFav &&
                   existingBet.team !== bet.team
                 ) {

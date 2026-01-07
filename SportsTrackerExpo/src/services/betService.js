@@ -1146,63 +1146,14 @@ export const claimDailyReward = async (profileId) => {
 };
 
 /**
- * Dismiss the daily reward modal for 24 hours without claiming.
- * Sets nextAvailableAt = now + 24h so the modal won't reappear.
+ * Dismiss the daily reward modal without claiming.
+ * Does NOT set a cooldown - user can still claim when they return.
  */
 export const dismissDailyReward = async (profileId) => {
   if (!profileId) return { success: false, error: "No profileId" };
-  // Try server dismiss first
-  try {
-    let authToken = null;
-    try {
-      authToken = await AsyncStorage.getItem("@bet_token");
-    } catch (e) {}
-    if (!authToken) {
-      try {
-        const { data: { session } = {} } = await supabase.auth.getSession();
-        if (session && session.access_token) authToken = session.access_token;
-      } catch (e) {}
-    }
-
-    if (authToken) {
-      const SERVER_BASE =
-        "https://laraiyeogithubio-production-f5af.up.railway.app";
-      const resp = await fetch(`${SERVER_BASE}/api/daily/dismiss`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-      if (resp.ok) {
-        const json = await resp.json().catch(() => null);
-        if (json && json.success)
-          return { success: true, nextAvailableAt: json.nextAvailableAt };
-      }
-    }
-  } catch (e) {
-    console.warn("dismissDailyReward: server attempt failed", e?.message || e);
-  }
-
-  // Fallback to local behavior
-  const key = DAILY_KEY_FOR(profileId);
-  try {
-    const raw = await AsyncStorage.getItem(key);
-    let state = raw
-      ? JSON.parse(raw)
-      : {
-          claimedDays: [false, false, false, false, false, false, false],
-          nextAvailableAt: null,
-        };
-    const now = new Date();
-    const nextAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    state.nextAvailableAt = nextAt.toISOString();
-    await AsyncStorage.setItem(key, JSON.stringify(state));
-    return { success: true, nextAvailableAt: state.nextAvailableAt };
-  } catch (e) {
-    console.error("dismissDailyReward error", e);
-    return { success: false, error: e?.message || String(e) };
-  }
+  // Simply return success - no state changes needed
+  // The modal will reappear next time if the reward is still claimable
+  return { success: true };
 };
 
 /* resetDailyRewardForTesting removed */

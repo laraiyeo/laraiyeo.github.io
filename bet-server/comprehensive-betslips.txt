@@ -115,6 +115,9 @@ Player 3052587 Bets (Kicking):
 
 Player 3052587 Bets (Defense):
 - p1_dsac=0.5+ (Sacks over 0.5 using +/- notation)
+- p1_dtt=o3.5 (Total tackles over 3.5 using o/u notation)
+- p1_dst=5+ (Solo Tackles over 5 using +/- notation)
+- p1_dat=3.5+ (Assisted Tackles over 3.5 using +/- notation)
 
 ==============================================================================
 NHL BETSLIP (gameId: 401802991_nhl, player: 3941546, team: VGK)

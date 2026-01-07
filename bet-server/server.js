@@ -991,8 +991,6 @@ function computeStatValueForGame(
       passing_attempts: /att|attempts|passing\s*att/i,
       passing_completions: /comp|completions|passing\s*comp/i,
       passing_interceptions: /int|interceptions/i,
-      passing_longestCompletion:
-        /long(est)?\b.*pass|longest.*completion|longest.*pass/i,
       passing_touchdowns: /pass(ing)?\b.*(td|touchdown)|passing.*td/i,
 
       rushing_yards: /rush(ing)?\b.*(yds|yards)|rush\s*yds|rushing\s*yards/i,
@@ -1003,12 +1001,15 @@ function computeStatValueForGame(
         /long(est)?\b.*recept|longest.*rec|longest.*reception/i,
       receiving_receptions: /rec|receptions|recs?/i,
 
-      extraPoints_kicksMade: /extra\s*point|xp|extra\s*points?/i,
+      extraPoints_kicksMade: /extra\s*point.*made|xpm|extra\s*points?\s*made/i,
       fieldGoals_made: /field\s*goal|fgm|fieldgoals?\s*made|fg\s*made/i,
       kicking_totalPoints:
         /kicking\b.*points|kicking\s*points|kicking\s*total/i,
 
       defense_sacks: /sack|sacks/i,
+      defense_combinedTackles: /total\s*tackles?|combined\s*tackles?/i,
+      defense_soloTackles: /solo\s*tackles?/i,
+      defense_assistedTackles: /assisted\s*tackles?|ast\s*tackles?/i,
 
       // generic fallbacks
       passing: /pass(ing)?\b.*(yds|yards)|pass\s*yds|passing\s*yards/i,
@@ -1958,9 +1959,37 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
       };
     });
 
+    // Find gameId from scoreboard for today's game
+    let gameId = null;
+    try {
+      // Fetch fresh scoreboard data for this sport if not already loaded
+      let sbData = scoreboardData;
+      if (!sbData || !sbData.events || sbData.events.length === 0) {
+        sbData = await fetchScoreboard(sportKey);
+      }
+      
+      if (sbData && sbData.events && team && team.id) {
+        const todaysGame = sbData.events.find((evt) => {
+          const comps = evt.competitions || [];
+          for (const comp of comps) {
+            const competitors = comp.competitors || [];
+            const hasTeam = competitors.some(
+              (c) => String(c.team?.id) === String(team.id)
+            );
+            if (hasTeam) return true;
+          }
+          return false;
+        });
+        if (todaysGame) gameId = todaysGame.id;
+      }
+    } catch (e) {
+      console.warn(`[Athlete:${sportKey}] Failed to fetch gameId:`, e?.message || e);
+    }
+
     const out = {
       athlete: athleteOut,
       team,
+      gameId,
       odds: oddsAnnotated,
       last10matches,
       h2h: h2hStyled,
@@ -5534,6 +5563,15 @@ app.get("/api/betslip", async (req, res) => {
         case "DSAC":
           regex = /sack(s)?\b|sacks/i;
           break;
+        case "DTT":
+          regex = /total\s*tackles?|combined\s*tackles?/i;
+          break;
+        case "DST":
+          regex = /solo\s*tackles?/i;
+          break;
+        case "DAT":
+          regex = /assisted\s*tackles?|ast\s*tackles?/i;
+          break;
         case "KXP":
         case "KFG":
         case "KPTS":
@@ -6263,6 +6301,49 @@ app.get("/api/betslip", async (req, res) => {
           tryGet(athleteEntry, ["athlete", "stats", "defensive", "SACKS"]) ??
           0
         );
+
+      // DTT - defensive total/combined tackles
+      if (statUpper === "DTT")
+        return (
+          readLabelIndex("DTT") ??
+          readLabelIndex("TOT") ??
+          readLabelIndex("TOTAL TACKLES") ??
+          tryGet(athleteObj, ["defensive", "TOT"]) ??
+          tryGet(athleteEntry, ["stats", "defensive", "TOT"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "defensive", "TOT"]) ??
+          0
+        );
+
+      // DST - defensive solo tackles
+      if (statUpper === "DST")
+        return (
+          readLabelIndex("DST") ??
+          readLabelIndex("SOLO") ??
+          readLabelIndex("SOLO TACKLES") ??
+          tryGet(athleteObj, ["defensive", "SOLO"]) ??
+          tryGet(athleteEntry, ["stats", "defensive", "SOLO"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "defensive", "SOLO"]) ??
+          0
+        );
+
+      // DAT - defensive assisted tackles (calculated as TOT - SOLO)
+      if (statUpper === "DAT") {
+        const tot =
+          readLabelIndex("TOT") ??
+          readLabelIndex("TOTAL TACKLES") ??
+          tryGet(athleteObj, ["defensive", "TOT"]) ??
+          tryGet(athleteEntry, ["stats", "defensive", "TOT"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "defensive", "TOT"]) ??
+          0;
+        const solo =
+          readLabelIndex("SOLO") ??
+          readLabelIndex("SOLO TACKLES") ??
+          tryGet(athleteObj, ["defensive", "SOLO"]) ??
+          tryGet(athleteEntry, ["stats", "defensive", "SOLO"]) ??
+          tryGet(athleteEntry, ["athlete", "stats", "defensive", "SOLO"]) ??
+          0;
+        return Number(tot) - Number(solo);
+      }
 
       // NHL stats (flat stats object, not nested like NFL)
       // HGL - NHL goals
@@ -9497,7 +9578,7 @@ app.get("/api/betslip", async (req, res) => {
                 if (/^1Q/.test(statUpper) && !isCompleted) {
                   // Only check Q1 completion if game is not complete
                   const q1InProgress = isPeriodInProgress(
-                    0,
+                    1,
                     linescoresHome,
                     linescoresAway,
                     gameStatus?.state,
@@ -9505,8 +9586,8 @@ app.get("/api/betslip", async (req, res) => {
                   );
                   isComplete =
                     !q1InProgress &&
-                    (linescoresHome[0] !== undefined ||
-                      linescoresAway[0] !== undefined);
+                    (linescoresHome[1] !== undefined ||
+                      linescoresAway[1] !== undefined);
                   isPeriodActive = q1InProgress;
                 }
 
@@ -9544,7 +9625,7 @@ app.get("/api/betslip", async (req, res) => {
                 if (/^1Q/.test(statUpper) && !isCompleted) {
                   // Only check Q1 completion if game is not complete
                   const q1InProgress = isPeriodInProgress(
-                    0,
+                    1,
                     linescoresHome,
                     linescoresAway,
                     gameStatus?.state,
@@ -9552,8 +9633,8 @@ app.get("/api/betslip", async (req, res) => {
                   );
                   isComplete =
                     !q1InProgress &&
-                    (linescoresHome[0] !== undefined ||
-                      linescoresAway[0] !== undefined);
+                    (linescoresHome[1] !== undefined ||
+                      linescoresAway[1] !== undefined);
                   isPeriodActive = q1InProgress;
                 }
 

@@ -11,6 +11,7 @@ import {
   PanResponder,
   Alert,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons, FontAwesome6 } from "@expo/vector-icons";
 import Svg, {
   Path,
@@ -307,7 +308,7 @@ const getTabFontSize = () => {
   return 14;
 };
 
-// Basketball Court Component for Live Play
+// Basketball Court Component for NBA
 const BasketballCourt = React.memo(
   ({ coordinate, isScoring, teamSide, teamColor, styles }) => {
     // Base court without coordinate
@@ -452,7 +453,88 @@ const BasketballCourt = React.memo(
   }
 );
 
-// NFL Field Component for Live Play
+// Hockey Rink Component for NHL
+const HockeyRink = React.memo(
+  ({ coordinate, isScoring, teamSide, teamColor, styles }) => {
+    // Helper to normalize ESPN coordinates to percentage
+    const normalizeCoordPercent = (x, y) => {
+      // ESPN coordinates: x=0-100 (left to right), y=0-100 (top to bottom)
+      // Rink is landscape, so we use x directly for left position, y for top position
+      const leftPercent = Math.max(0, Math.min(100, x));
+      const topPercent = Math.max(0, Math.min(100, y));
+      return { leftPercent, topPercent: 100 - topPercent }; // Flip Y axis
+    };
+
+    return (
+      <View style={styles.rinkContainer}>
+        {/* Rink outline */}
+        <View style={styles.rinkOutline} />
+
+        {/* Center line */}
+        <View style={styles.centerLine} />
+
+        {/* Center circle */}
+        <View style={styles.centerCircleNHL} />
+        <View style={styles.centerDot} />
+
+        {/* Left zone */}
+        <View style={styles.leftGoalLine} />
+        <View style={styles.leftGoalLineBehindCrease} />
+        <View style={styles.leftFaceoffCircleTop} />
+        <View style={styles.leftFaceoffCircleBottom} />
+        <View style={styles.leftFaceoffDotTop} />
+        <View style={styles.leftFaceoffDotBottom} />
+        <View style={styles.leftGoalCrease} />
+        <View style={styles.leftGoalCreaseOutline} />
+
+        {/* Right zone */}
+        <View style={styles.rightGoalLine} />
+        <View style={styles.rightGoalLineBehindCrease} />
+        <View style={styles.rightFaceoffCircleTop} />
+        <View style={styles.rightFaceoffCircleBottom} />
+        <View style={styles.rightFaceoffDotTop} />
+        <View style={styles.rightFaceoffDotBottom} />
+        <View style={styles.rightGoalCrease} />
+        <View style={styles.rightGoalCreaseOutline} />
+
+        {/* Neutral zone face-off dots */}
+        <View style={styles.neutralZoneDotTopLeft} />
+        <View style={styles.neutralZoneDotTopRight} />
+        <View style={styles.neutralZoneDotBottomLeft} />
+        <View style={styles.neutralZoneDotBottomRight} />
+
+        {/* Play marker */}
+        {coordinate &&
+          typeof coordinate.x === "number" &&
+          typeof coordinate.y === "number" &&
+          (() => {
+            const pct = normalizeCoordPercent(coordinate.x, coordinate.y);
+            const finalTeamColor = teamColor?.startsWith("#")
+              ? teamColor
+              : `#${teamColor || "999"}`;
+            
+            return (
+              <View
+                style={[
+                  styles.playMarker,
+                  {
+                    position: "absolute",
+                    top: `${pct.topPercent}%`,
+                    left: `${pct.leftPercent}%`,
+                    transform: [{ translateX: -6 }, { translateY: -6 }],
+                    backgroundColor: isScoring ? finalTeamColor : "white",
+                    borderColor: isScoring ? "white" : finalTeamColor,
+                  },
+                ]}
+              />
+            );
+          })()}
+      </View>
+    );
+  }
+);
+
+// NFL Field Component for NFL
 const NFLField = React.memo(
   ({
     coordinate,
@@ -849,7 +931,7 @@ const NFLField = React.memo(
 );
 
 // Player Props Tab Component - DraftKings Style
-const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
+const PropTabContent = ({ gameData, theme, colors, propTypes, gameId, navigation }) => {
   const { toggleBet, isBetSelected, removeBet, isPro } = useBetSlip();
   const { rostersData, getRosters } = useBetData();
   const oddsContext = useContext(OddsDisplayContext);
@@ -1140,10 +1222,6 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
       setSelectedPropType(availableStatIDs[0]);
     }
   }, [availableStatIDs, selectedPropType]);
-  const [selectedPlayerForStats, setSelectedPlayerForStats] = useState(null);
-  const [selectedPlayerTeamColor, setSelectedPlayerTeamColor] = useState(null);
-  const [statsPopupVisible, setStatsPopupVisible] = useState(false);
-  const [currentLine, setCurrentLine] = useState(null);
   const [showAllMilestone, setShowAllMilestone] = useState(false);
   const [showAllOU, setShowAllOU] = useState(false);
   const scrollViewRef = useRef(null);
@@ -1265,18 +1343,22 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
     return allPlayers.sort((a, b) => b.statValue - a.statValue);
   }, [rostersData, gameData, selectedPropType]);
 
-  const openPlayerStats = async (player, line, playerTeamColor) => {
+  const navigateToAthleteScreen = (player) => {
     if (!isPro) {
       Alert.alert(
         "Pro Required",
-        "Player insights are available for Pro members. Purchase Pro in Settings to unlock."
+        "Player details are available for Pro members. Purchase Pro in Settings to unlock."
       );
       return;
     }
-    setSelectedPlayerForStats(player);
-    setCurrentLine(line);
-    setSelectedPlayerTeamColor(playerTeamColor);
-    setStatsPopupVisible(true);
+    if (!navigation) {
+      console.warn("[PropTabContent] navigation prop not available");
+      return;
+    }
+    navigation.navigate("BetAthlete", {
+      athleteId: player.id,
+      sport: gameData?.sport || "NBA",
+    });
   };
 
   // Render milestone section (10+, 15+, 20+, etc)
@@ -1390,12 +1472,17 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
         {displayMatching.map(({ player, milestoneOptions }) => {
           const playerTeamColor =
             player.teamAbbr === gameData.team1Abbr ? team1Color : team2Color;
+          const rawPlayerColor =
+            player.teamAbbr === gameData.team1Abbr ? gameData.team1Color : gameData.team2Color;
           const displayName =
             player.shortName || player.name || player.fullName || player.name;
 
           return (
             <View key={player.id} style={styles.propRow}>
-              <View style={styles.propPlayerInfo}>
+              <TouchableOpacity
+                style={styles.propPlayerInfo}
+                onPress={() => navigateToAthleteScreen(player)}
+              >
                 <View
                   style={[
                     styles.propPlayerIcon,
@@ -1422,7 +1509,7 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                     #{player.jersey || ""} • {player.teamAbbr}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
 
               <ScrollView
                 horizontal
@@ -1475,6 +1562,7 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                             type: "milestone",
                             line: milestone.label,
                             odds: formattedOdds,
+                            playerColor: rawPlayerColor,
                             description: `${displayName} ${selectedPropType} ${milestone.label}`,
                           });
                       }}
@@ -1596,6 +1684,8 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
           // Get smart color for player based on their team
           const playerTeamColor =
             player.teamAbbr === gameData.team1Abbr ? team1Color : team2Color;
+          const rawPlayerColor =
+            player.teamAbbr === gameData.team1Abbr ? gameData.team1Color : gameData.team2Color;
           const displayName =
             player.shortName || player.name || player.fullName || player.name;
 
@@ -1603,7 +1693,7 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
           const playerHeader = (
             <TouchableOpacity
               style={styles.propPlayerInfo}
-              onPress={() => openPlayerStats(player, null, playerTeamColor)}
+              onPress={() => navigateToAthleteScreen(player)}
             >
               <View
                 style={[
@@ -1679,6 +1769,7 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                           betValue: "yes",
                           type: "yesno",
                           odds: formattedOdds,
+                          playerColor: rawPlayerColor,
                           description: `${displayName} ${selectedPropType} YES`,
                         });
                     }}
@@ -1799,6 +1890,7 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                           type: "over",
                           line: line.toString(),
                           odds: formattedOverOdds,
+                          playerColor: rawPlayerColor,
                           description: `${displayName} ${selectedPropType} O${line}`,
                         });
                     }}
@@ -1874,6 +1966,7 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
                           type: "under",
                           line: line.toString(),
                           odds: formattedUnderOdds,
+                          playerColor: rawPlayerColor,
                           description: `${displayName} ${selectedPropType} U${line}`,
                         });
                     }}
@@ -1978,16 +2071,6 @@ const PropTabContent = ({ gameData, theme, colors, propTypes, gameId }) => {
         {renderMilestoneSection()}
         {renderOUSection()}
       </ScrollView>
-
-      <PlayerStatsPopup
-        visible={statsPopupVisible}
-        onClose={() => setStatsPopupVisible(false)}
-        player={selectedPlayerForStats}
-        propType={selectedPropType}
-        currentLine={currentLine}
-        gameData={gameData}
-        playerTeamColor={selectedPlayerTeamColor}
-      />
     </View>
   );
 };
@@ -2118,7 +2201,7 @@ const AlternateSpreadSection = ({ gameData, theme, colors }) => {
 
 const BetGameDetailScreen = ({ navigation, route }) => {
   const { colors, theme, isDarkMode } = useTheme();
-  const { toggleBet, isBetSelected, isPro } = useBetSlip();
+  const { toggleBet, isBetSelected, isPro, setIsSlipOpen } = useBetSlip();
   const { scoreboardData } = useBetData();
   const oddsContext = useContext(OddsDisplayContext);
   const oddsDisplay = oddsContext ? oddsContext.oddsDisplay : "american";
@@ -2148,6 +2231,18 @@ const BetGameDetailScreen = ({ navigation, route }) => {
   const isBoxScoreScrolling = useRef(false);
 
   const tabFontSize = getTabFontSize();
+
+  // Force close betslip when navigating away to prevent modal overlay blocking interactions
+  useFocusEffect(
+    React.useCallback(() => {
+      // Cleanup function runs when screen loses focus
+      return () => {
+        if (setIsSlipOpen) {
+          setIsSlipOpen(false);
+        }
+      };
+    }, [setIsSlipOpen])
+  );
 
   // Pro-only component: PlayParticipants
   const PlayParticipants = ({ participants = {} }) => {
@@ -2292,11 +2387,38 @@ const BetGameDetailScreen = ({ navigation, route }) => {
               const number = m.jersey || m.number || "";
 
               const stats = summary?.stats?.[ath.id] || m.stats || {};
-              const statOrder = ["PTS", "REB", "AST", "FG", "+/-", "MIN"];
-              const statValues = statOrder.map((s) => ({
-                key: s,
-                value: stats[s] ?? stats[s.toLowerCase()] ?? "-",
-              }));
+              
+              // Sport and position-specific stat order
+              let statOrder;
+              const sportUpper = (sportToUse || "").toUpperCase();
+              
+              if (sportUpper === "NHL" || sportUpper === "HOCKEY") {
+                // NHL: Check if goalie (position G)
+                if (position.toUpperCase() === "G") {
+                  // Goalie stats: GA, SA, SV, SV%, ESSV, TOI
+                  statOrder = ["GA", "SA", "SV", "SV%", "ESSV", "TOI"];
+                } else {
+                  // Skater stats: G, A, S, HT, +/-, TOI
+                  statOrder = ["G", "A", "S", "HT", "+/-", "TOI"];
+                }
+              } else {
+                // Default NBA stats: PTS, REB, AST, FG, +/-, MIN
+                statOrder = ["PTS", "REB", "AST", "FG", "+/-", "MIN"];
+              }
+              
+              const statValues = statOrder.map((s) => {
+                let value = stats[s] ?? stats[s.toLowerCase()] ?? "-";
+                
+                // Format SV% to 2 decimals if present
+                if (s === "SV%" && value !== "-" && !isNaN(value)) {
+                  value = (parseFloat(value) * 100).toFixed(2) + "%";
+                }
+                
+                return {
+                  key: s,
+                  value: value,
+                };
+              });
 
               return (
                 <View
@@ -2761,7 +2883,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     const gameState = gameData.status; // 'pre', 'in', 'post'
 
     if (gameState === "pre") {
-      // Pre-game: Game Stats, Player Props, Game Lines
       return [
         {
           id: "stats",
@@ -2785,7 +2906,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         },
       ];
     } else if (gameState === "in") {
-      // In-game: Game Stats, Live Play
       return [
         {
           id: "stats",
@@ -2799,7 +2919,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         },
       ];
     } else {
-      // Post-game: Only Game Stats
       return [
         {
           id: "stats",
@@ -4138,6 +4257,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     const scale = width / 200;
                     // When rotated, the height becomes 150 * scale
                     const height = 150 * scale;
+                    
+                    // Debug logging
+                    console.log(`[${sportUpper}] Device width: ${width}, Scale: ${scale}, Rink/Court width: ${sportUpper === 'NHL' ? 200 : 200}`);
+                    
                     setCourtScale(scale);
                     setCourtContainerHeight(height);
                     setCourtContainerWidth(width);
@@ -4152,22 +4275,44 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       justifyContent: "center",
                     }}
                   >
-                    <BasketballCourt
-                      coordinate={undefined}
-                      isScoring={false}
-                      teamSide="home"
-                      teamColor="#000000"
-                      styles={{
-                        ...styles,
-                        courtContainer: {
-                          ...styles.courtContainer,
-                          transform: [
-                            { rotate: "90deg" },
-                            { scale: courtScale },
-                          ],
-                        },
-                      }}
-                    />
+                    {sportUpper === "NHL" ? (
+                      <>
+                        {console.log(`[NHL] Rendering HockeyRink with courtScale: ${courtScale}, containerWidth: ${courtContainerWidth}, containerHeight: ${courtContainerHeight}`)}
+                        <HockeyRink
+                          coordinate={undefined}
+                          isScoring={false}
+                          teamSide="home"
+                          teamColor="#000000"
+                          styles={{
+                            ...styles,
+                            rinkContainer: {
+                              ...styles.rinkContainer,
+                              transform: [{ scale: courtScale }],
+                            },
+                          }}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        {console.log(`[NBA] Rendering BasketballCourt with courtScale: ${courtScale}, containerWidth: ${courtContainerWidth}, containerHeight: ${courtContainerHeight}`)}
+                        <BasketballCourt
+                          coordinate={undefined}
+                          isScoring={false}
+                          teamSide="home"
+                          teamColor="#000000"
+                          styles={{
+                            ...styles,
+                            courtContainer: {
+                              ...styles.courtContainer,
+                              transform: [
+                                { rotate: "90deg" },
+                                { scale: courtScale },
+                              ],
+                            },
+                          }}
+                        />
+                      </>
+                    )}
                     {/* Home Team Logo in Center */}
                     <Image
                       source={{ uri: gameData.team2Logo }}
@@ -4466,6 +4611,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             theme={theme}
             colors={colors}
             gameId={gameData.id}
+            navigation={navigation}
           />
         );
       case "teams":
@@ -5321,7 +5467,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         const homeML = pickcenter.moneyline?.home;
 
         // Get predictor percentages
-        const homeWinPct = predictor?.homeTeam?.WIN || "50";
+        const homeWinPct = predictor?.homeTeam?.WIN || null;
         const awayWinPct = String((100 - parseFloat(homeWinPct)).toFixed(1));
 
         // Format date helper
@@ -6283,8 +6429,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 </View>
               </View>
             </View>
-
             {/* Predicted Win Section */}
+            {awayWinPct !== null && homeWinPct !== null && (
             <View style={styles.lastFiveGamesSection}>
               <Text
                 style={[
@@ -6339,6 +6485,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 </View>
               </View>
             </View>
+          )}
           </View>
         );
       default:
@@ -7419,7 +7566,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  // Live Play Styles
   miniCourtContainer: {
     width: "100%",
     justifyContent: "center",
@@ -7995,6 +8141,276 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 24,
     fontStyle: "italic",
+  },
+  // ========================================
+  // Hockey Rink Styles (for NHL)
+  // Base dimensions: 200x150
+  // ========================================
+  rinkContainer: {
+    width: 200,
+    height: 150,
+    backgroundColor: "white",
+    borderRadius: 12,
+    overflow: "hidden",
+    position: "relative",
+  },
+  rinkOutline: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    right: 4,
+    bottom: 4,
+    borderWidth: 2,
+    borderColor: "#4A90E2",
+    borderRadius: 8,
+  },
+  centerLine: {
+    position: "absolute",
+    left: "50%",
+    top: 4,
+    bottom: 4,
+    width: 2,
+    backgroundColor: "#E74C3C",
+    marginLeft: -1,
+  },
+  centerCircleNHL: {
+    position: "absolute",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "#4A90E2",
+    left: "50%",
+    top: "50%",
+    marginLeft: -20,
+    marginTop: -20,
+  },
+  centerDot: {
+    position: "absolute",
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#4A90E2",
+    left: "50%",
+    top: "50%",
+    marginLeft: -2,
+    marginTop: -2,
+  },
+  leftGoalLine: {
+    position: "absolute",
+    left: "30%",
+    top: 4,
+    bottom: 4,
+    width: 2,
+    backgroundColor: "#4A90E2",
+  },
+  leftGoalLineBehindCrease: {
+    position: "absolute",
+    left: 13,
+    top: 4,
+    bottom: 4,
+    width: 2,
+    backgroundColor: "#E74C3C",
+  },
+  leftFaceoffCircleTop: {
+    position: "absolute",
+    left: "12.5%",
+    top: "10%",
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: "#E74C3C",
+    borderRadius: 12,
+  },
+  leftFaceoffCircleBottom: {
+    position: "absolute",
+    left: "12.5%",
+    bottom: "20%",
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: "#E74C3C",
+    borderRadius: 12,
+    marginBottom: -12,
+  },
+  leftFaceoffDotTop: {
+    position: "absolute",
+    left: "12.5%",
+    top: "10%",
+    width: 3,
+    height: 3,
+    backgroundColor: "#E74C3C",
+    borderRadius: 1.5,
+    marginLeft: 10.5,
+    marginTop: 10.5,
+  },
+  leftFaceoffDotBottom: {
+    position: "absolute",
+    left: "12.5%",
+    bottom: "4%",
+    width: 3,
+    height: 3,
+    backgroundColor: "#E74C3C",
+    borderRadius: 1.5,
+    marginLeft: 10.5,
+    marginBottom: 22.5,
+  },
+  leftGoalCrease: {
+    position: "absolute",
+    left: 15,
+    top: "47.5%",
+    width: 20,
+    height: 30,
+    backgroundColor: "#87CEEB",
+    opacity: 0.3,
+    borderTopRightRadius: 22,
+    borderBottomRightRadius: 22,
+    marginTop: -11,
+  },
+  leftGoalCreaseOutline: {
+    position: "absolute",
+    left: 15,
+    top: "47.5%",
+    width: 20,
+    height: 30,
+    borderRightWidth: 2,
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: "#4A90E2",
+    borderTopRightRadius: 22,
+    borderBottomRightRadius: 22,
+    marginTop: -11,
+  },
+  rightGoalLine: {
+    position: "absolute",
+    right: "30%",
+    top: 4,
+    bottom: 4,
+    width: 2,
+    backgroundColor: "#4A90E2",
+  },
+  rightGoalLineBehindCrease: {
+    position: "absolute",
+    right: 13,
+    top: 4,
+    bottom: 4,
+    width: 2,
+    backgroundColor: "#E74C3C",
+  },
+  rightFaceoffCircleTop: {
+    position: "absolute",
+    right: "12.5%",
+    top: "10%",
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: "#E74C3C",
+    borderRadius: 12,
+  },
+  rightFaceoffCircleBottom: {
+    position: "absolute",
+    right: "12.5%",
+    bottom: "20%",
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: "#E74C3C",
+    borderRadius: 12,
+    marginBottom: -12,
+  },
+  rightFaceoffDotTop: {
+    position: "absolute",
+    right: "12.5%",
+    top: "10%",
+    width: 3,
+    height: 3,
+    backgroundColor: "#E74C3C",
+    borderRadius: 1.5,
+    marginRight: 10.5,
+    marginTop: 10.5,
+  },
+  rightFaceoffDotBottom: {
+    position: "absolute",
+    right: "12.5%",
+    bottom: "4%",
+    width: 3,
+    height: 3,
+    backgroundColor: "#E74C3C",
+    borderRadius: 1.5,
+    marginRight: 10.5,
+    marginBottom: 22.5,
+  },
+  rightGoalCrease: {
+    position: "absolute",
+    right: 15,
+    top: "47.5%",
+    width: 20,
+    height: 30,
+    backgroundColor: "#87CEEB",
+    opacity: 0.3,
+    borderTopLeftRadius: 22,
+    borderBottomLeftRadius: 22,
+    marginTop: -11,
+  },
+  rightGoalCreaseOutline: {
+    position: "absolute",
+    right: 15,
+    top: "47.5%",
+    width: 20,
+    height: 30,
+    borderLeftWidth: 2,
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: "#4A90E2",
+    borderTopLeftRadius: 22,
+    borderBottomLeftRadius: 22,
+    marginTop: -11,
+  },
+  neutralZoneDotTopLeft: {
+    position: "absolute",
+    left: "35%",
+    top: "25%",
+    width: 3,
+    height: 3,
+    backgroundColor: "#E74C3C",
+    borderRadius: 1.5,
+    marginTop: 10.5,
+  },
+  neutralZoneDotTopRight: {
+    position: "absolute",
+    right: "35%",
+    top: "25%",
+    width: 3,
+    height: 3,
+    backgroundColor: "#E74C3C",
+    borderRadius: 1.5,
+    marginTop: 10.5,
+  },
+  neutralZoneDotBottomLeft: {
+    position: "absolute",
+    left: "35%",
+    bottom: "25%",
+    width: 3,
+    height: 3,
+    backgroundColor: "#E74C3C",
+    borderRadius: 1.5,
+    marginBottom: 10.5,
+  },
+  neutralZoneDotBottomRight: {
+    position: "absolute",
+    right: "35%",
+    bottom: "25%",
+    width: 3,
+    height: 3,
+    backgroundColor: "#E74C3C",
+    borderRadius: 1.5,
+    marginBottom: 10.5,
+  },
+  playMarker: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
   },
 });
 

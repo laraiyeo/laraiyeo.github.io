@@ -286,11 +286,11 @@ const parseGameData = (events, isDarkMode = false, sport = "NBA") => {
       team1: awayTeam.team?.displayName || "Team 1",
       team1Abbr: awayTeam.team?.abbreviation || "T1",
       team1Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${team1Abbr}.png&h=200&w=200`,
-      team1Record: awayTeam.records?.[0]?.summary || null,
+      team1Record: awayTeam.record?.summary || null,
       team2: homeTeam.team?.displayName || "Team 2",
       team2Abbr: homeTeam.team?.abbreviation || "T2",
       team2Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${team2Abbr}.png&h=200&w=200`,
-      team2Record: homeTeam.records?.[0]?.summary || null,
+      team2Record: homeTeam.record?.summary || null,
       score1: awayTeam.score || 0,
       score2: homeTeam.score || 0,
       shortDetail: status.type.detail || null,
@@ -1465,7 +1465,7 @@ const BetHomeScreen = ({ navigation }) => {
               <FontAwesome6
                 name={getSportIcon(sport)}
                 size={64}
-                color={theme.textTertiary}
+                color={colors.accent}
               />
               <Text
                 style={[styles.noGamesText, { color: theme.textSecondary }]}
