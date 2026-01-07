@@ -1014,7 +1014,7 @@ const BetBetsScreen = () => {
     if (typeof line === "number") return !isNaN(line) && line !== 0;
     if (typeof line === "string") {
       // Strip symbols like +, -, and other non-numeric characters except decimal point
-      const cleaned = line.replace(/[^\d.-]/g, '');
+      const cleaned = line.replace(/[^\d.-]/g, "");
       const parsed = parseFloat(cleaned);
       return !isNaN(parsed) && parsed !== 0;
     }
@@ -1028,7 +1028,7 @@ const BetBetsScreen = () => {
       safeLine = pick.line;
     } else if (typeof pick.line === "string") {
       // Strip symbols like +, -, and other non-numeric characters except decimal point
-      const cleaned = pick.line.replace(/[^\d.-]/g, '');
+      const cleaned = pick.line.replace(/[^\d.-]/g, "");
       const parsed = parseFloat(cleaned);
       if (!isNaN(parsed) && parsed !== 0) {
         safeLine = parsed;
@@ -1552,66 +1552,96 @@ const BetBetsScreen = () => {
         const s = String(statType || "").toLowerCase();
         const sportLower = String(sport || "").toLowerCase();
         if (!s) return "PTS";
-        
+
         // Quarter-specific stats (NBA)
         if (s.includes("1q_assists") || s === "1q_assists_ou") return "1QAST";
         if (s.includes("1q_points") || s === "1q_points_ou") return "1QPTS";
         if (s.includes("1q_rebounds") || s === "1q_rebounds_ou") return "1QREB";
-        
+
         // NHL-specific stats (NHL uses "points" to mean "goals")
         if (sportLower === "nhl") {
           // Points in NHL = Goals
           if (s === "points_yn" || s.includes("points_yn")) return "GOALS";
           if (s === "points_ou" || s.includes("points_ou")) return "HGL";
-          
+
           // First/Last to score
-          if (s.includes("firsttoscore") || s.includes("first_to_score")) return "FIRSTGOAL";
-          if (s.includes("lasttoscore") || s.includes("last_to_score")) return "LASTGOAL";
-          
+          if (s.includes("firsttoscore") || s.includes("first_to_score"))
+            return "FIRSTGOAL";
+          if (s.includes("lasttoscore") || s.includes("last_to_score"))
+            return "LASTGOAL";
+
           // Power play goals+assists
           if (s.includes("powerplay") || s.includes("power_play")) return "PPP";
-          
+
           // Goals+Assists
-          if (s.includes("goals+assists") || s === "goals+assists_ou") return "GA";
-          
+          if (s.includes("goals+assists") || s === "goals+assists_ou")
+            return "GA";
+
           // Goalie saves
-          if (s.includes("goalie_saves") || s.includes("save") || s.includes("gsv")) return "GSV";
-          
+          if (
+            s.includes("goalie_saves") ||
+            s.includes("save") ||
+            s.includes("gsv")
+          )
+            return "GSV";
+
           // Shots on goal
-          if (s.includes("shots") || s.includes("shot") || s.includes("sht")) return "SHT";
-          
+          if (s.includes("shots") || s.includes("shot") || s.includes("sht"))
+            return "SHT";
+
           // Blocks for NHL
           if (s.includes("block") || s.includes("bs")) return "BS";
-          
+
           // Assists
           if (s.includes("assist") || s.includes("ast")) return "AST";
         }
-        
+
         // NBA Combination stats
-        if (s.includes("blocks+steals") || s === "blocks+steals_ou") return "BS";
-        if (s.includes("points+assists") || s === "points+assists_ou") return "PA";
-        if (s.includes("points+rebounds+assists") || s === "points+rebounds+assists_ou") return "PRA";
-        if (s.includes("points+rebounds") || s === "points+rebounds_ou") return "PR";
-        if (s.includes("rebounds+assists") || s === "rebounds+assists_ou") return "RA";
-        
+        if (s.includes("blocks+steals") || s === "blocks+steals_ou")
+          return "BS";
+        if (s.includes("points+assists") || s === "points+assists_ou")
+          return "PA";
+        if (
+          s.includes("points+rebounds+assists") ||
+          s === "points+rebounds+assists_ou"
+        )
+          return "PRA";
+        if (s.includes("points+rebounds") || s === "points+rebounds_ou")
+          return "PR";
+        if (s.includes("rebounds+assists") || s === "rebounds+assists_ou")
+          return "RA";
+
         // Milestone/Special stats
-        if (s.includes("firstbasket") || s === "firstbasket_yn") return "FIRSTBASKET";
-        if (s.includes("doubledouble") || s === "doubledouble_yn") return "2DBL";
-        if (s.includes("tripledouble") || s === "tripledouble_yn") return "3DBL";
-        if (s.includes("threepointersmade") || s === "threepointersmade_ou") return "3PM";
-        
+        if (s.includes("firstbasket") || s === "firstbasket_yn")
+          return "FIRSTBASKET";
+        if (s.includes("doubledouble") || s === "doubledouble_yn")
+          return "2DBL";
+        if (s.includes("tripledouble") || s === "tripledouble_yn")
+          return "3DBL";
+        if (s.includes("threepointersmade") || s === "threepointersmade_ou")
+          return "3PM";
+
         // NFL stats
-        if (s.includes("pass") || s.includes("pyds") || s.includes("passing")) return "PYD";
-        if (s.includes("rush") || s.includes("ryds") || s.includes("rushing")) return "RYD";
-        
+        if (s.includes("pass") || s.includes("pyds") || s.includes("passing"))
+          return "PYD";
+        if (s.includes("rush") || s.includes("ryds") || s.includes("rushing"))
+          return "RYD";
+
         // Basic stats (NBA/NFL)
-        if (s.includes("point") || s.includes("pts") || s.includes("points")) return "PTS";
+        if (s.includes("point") || s.includes("pts") || s.includes("points"))
+          return "PTS";
         if (s.includes("rebound") || s.includes("reb")) return "REB";
         if (s.includes("assist") || s.includes("ast")) return "AST";
         if (s.includes("block") || s.includes("blk")) return "BLK";
         if (s.includes("steal") || s.includes("stl")) return "STL";
-        if (s.includes("turnover") || s.includes("tur") || s.includes("to") || s === "to") return "TO";
-        
+        if (
+          s.includes("turnover") ||
+          s.includes("tur") ||
+          s.includes("to") ||
+          s === "to"
+        )
+          return "TO";
+
         // fallback: take first 3 uppercase letters
         return String(statType).toUpperCase().substring(0, 3);
       } catch (e) {
@@ -2682,7 +2712,7 @@ const BetBetsScreen = () => {
           const evtState = (overrideEvent?.status?.state || "")
             .toString()
             .toLowerCase();
-          
+
           if (overrideEvent && evtState !== "pre") {
             // Period-specific overrides (P1_SP, P2_T, etc.)
             try {
@@ -2757,10 +2787,10 @@ const BetBetsScreen = () => {
               const p = overrideEvent.bets.players.find(
                 (pp) => String(pp.id) === String(bet.playerId)
               );
-              
+
               if (p) {
                 const statKey = deriveStatKey(bet.statType, bet.sport);
-                
+
                 if (p.milestones?.[statKey]) {
                   const milestoneValue = Number(p.milestones[statKey].current);
                   if (!isNaN(milestoneValue)) {
@@ -2827,51 +2857,113 @@ const BetBetsScreen = () => {
               const betType = String(bet.type || "").toLowerCase();
               let handled = false;
               let quarterOrHalfKey = null;
-              
+
               // Period bets (NHL: P1_ML, P1_SP, P2_T, etc.)
               if (betType.includes("1st period") || betType.includes("1p")) {
                 if (betType.includes("spread")) quarterOrHalfKey = "P1_SP";
-                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "P1_T";
-                else if (betType.includes("moneyline")) quarterOrHalfKey = "P1_ML";
-              } else if (betType.includes("2nd period") || betType.includes("2p")) {
+                else if (
+                  betType.includes("total") ||
+                  betType.includes("over/under")
+                )
+                  quarterOrHalfKey = "P1_T";
+                else if (betType.includes("moneyline"))
+                  quarterOrHalfKey = "P1_ML";
+              } else if (
+                betType.includes("2nd period") ||
+                betType.includes("2p")
+              ) {
                 if (betType.includes("spread")) quarterOrHalfKey = "P2_SP";
-                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "P2_T";
-                else if (betType.includes("moneyline")) quarterOrHalfKey = "P2_ML";
-              } else if (betType.includes("3rd period") || betType.includes("3p")) {
+                else if (
+                  betType.includes("total") ||
+                  betType.includes("over/under")
+                )
+                  quarterOrHalfKey = "P2_T";
+                else if (betType.includes("moneyline"))
+                  quarterOrHalfKey = "P2_ML";
+              } else if (
+                betType.includes("3rd period") ||
+                betType.includes("3p")
+              ) {
                 if (betType.includes("spread")) quarterOrHalfKey = "P3_SP";
-                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "P3_T";
-                else if (betType.includes("moneyline")) quarterOrHalfKey = "P3_ML";
+                else if (
+                  betType.includes("total") ||
+                  betType.includes("over/under")
+                )
+                  quarterOrHalfKey = "P3_T";
+                else if (betType.includes("moneyline"))
+                  quarterOrHalfKey = "P3_ML";
               }
               // Quarter bets (NBA/NFL: Q1_SP, Q1_T, etc.)
-              else if (betType.includes("1st quarter") || betType.includes("1q")) {
+              else if (
+                betType.includes("1st quarter") ||
+                betType.includes("1q")
+              ) {
                 if (betType.includes("spread")) quarterOrHalfKey = "Q1_SP";
-                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "Q1_T";
-              } else if (betType.includes("2nd quarter") || betType.includes("2q")) {
+                else if (
+                  betType.includes("total") ||
+                  betType.includes("over/under")
+                )
+                  quarterOrHalfKey = "Q1_T";
+              } else if (
+                betType.includes("2nd quarter") ||
+                betType.includes("2q")
+              ) {
                 if (betType.includes("spread")) quarterOrHalfKey = "Q2_SP";
-                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "Q2_T";
-              } else if (betType.includes("3rd quarter") || betType.includes("3q")) {
+                else if (
+                  betType.includes("total") ||
+                  betType.includes("over/under")
+                )
+                  quarterOrHalfKey = "Q2_T";
+              } else if (
+                betType.includes("3rd quarter") ||
+                betType.includes("3q")
+              ) {
                 if (betType.includes("spread")) quarterOrHalfKey = "Q3_SP";
-                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "Q3_T";
-              } else if (betType.includes("4th quarter") || betType.includes("4q")) {
+                else if (
+                  betType.includes("total") ||
+                  betType.includes("over/under")
+                )
+                  quarterOrHalfKey = "Q3_T";
+              } else if (
+                betType.includes("4th quarter") ||
+                betType.includes("4q")
+              ) {
                 if (betType.includes("spread")) quarterOrHalfKey = "Q4_SP";
-                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "Q4_T";
+                else if (
+                  betType.includes("total") ||
+                  betType.includes("over/under")
+                )
+                  quarterOrHalfKey = "Q4_T";
               }
               // Half bets (H1_SP, H1_T, H2_SP, H2_T)
               else if (betType.includes("1st half") || betType.includes("1h")) {
                 if (betType.includes("spread")) quarterOrHalfKey = "H1_SP";
-                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "H1_T";
-                else if (betType.includes("moneyline")) quarterOrHalfKey = "H1_ML";
-              } else if (betType.includes("2nd half") || betType.includes("2h")) {
+                else if (
+                  betType.includes("total") ||
+                  betType.includes("over/under")
+                )
+                  quarterOrHalfKey = "H1_T";
+                else if (betType.includes("moneyline"))
+                  quarterOrHalfKey = "H1_ML";
+              } else if (
+                betType.includes("2nd half") ||
+                betType.includes("2h")
+              ) {
                 if (betType.includes("spread")) quarterOrHalfKey = "H2_SP";
-                else if (betType.includes("total") || betType.includes("over/under")) quarterOrHalfKey = "H2_T";
-                else if (betType.includes("moneyline")) quarterOrHalfKey = "H2_ML";
+                else if (
+                  betType.includes("total") ||
+                  betType.includes("over/under")
+                )
+                  quarterOrHalfKey = "H2_T";
+                else if (betType.includes("moneyline"))
+                  quarterOrHalfKey = "H2_ML";
               }
-              
+
               // Check for quarter/half/period bet in betslip data
               if (quarterOrHalfKey && overrideEvent.bets[quarterOrHalfKey]) {
                 handled = true;
                 const qhBet = overrideEvent.bets[quarterOrHalfKey];
-                
+
                 if (quarterOrHalfKey.endsWith("_SP")) {
                   // Spread
                   const cur = qhBet.current;
@@ -2879,11 +2971,15 @@ const BetBetsScreen = () => {
                   if (typeof cur === "number") parsed = cur;
                   else if (typeof cur === "string") {
                     const parts = cur.split("-").map((s) => Number(s.trim()));
-                    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1]))
+                    if (
+                      parts.length === 2 &&
+                      !isNaN(parts[0]) &&
+                      !isNaN(parts[1])
+                    )
                       parsed = parts[1] - parts[0];
                   } else if (cur && typeof cur === "object")
                     parsed = Number(cur.score ?? cur.current ?? NaN);
-                  
+
                   if (parsed != null && !isNaN(parsed)) {
                     pick.currentValue = Number(parsed);
                     pick.progressSource = `overrideEvent.event:${
@@ -2905,12 +3001,14 @@ const BetBetsScreen = () => {
                   let parsed = null;
                   if (typeof cur === "number") parsed = cur;
                   else if (cur && typeof cur === "object")
-                    parsed = Number(cur.score ?? cur.current ?? cur.value ?? NaN);
+                    parsed = Number(
+                      cur.score ?? cur.current ?? cur.value ?? NaN
+                    );
                   else if (cur != null) {
                     const n = Number(cur);
                     parsed = isNaN(n) ? null : n;
                   }
-                  
+
                   if (parsed != null && !isNaN(parsed)) {
                     pick.currentValue = Number(parsed);
                     pick.progressSource = `overrideEvent.event:${
@@ -2944,9 +3042,13 @@ const BetBetsScreen = () => {
                   }.bets.${quarterOrHalfKey}.won`;
                 }
               }
-              
+
               // If not handled by quarter/half/period, check generic moneyline/spread/total
-              if (!handled && overrideEvent.bets.moneyline && betType.includes("moneyline")) {
+              if (
+                !handled &&
+                overrideEvent.bets.moneyline &&
+                betType.includes("moneyline")
+              ) {
                 handled = true;
                 pick.scoreText = overrideEvent.bets.moneyline.current?.score;
                 pick.currentValue = null;
@@ -2962,7 +3064,11 @@ const BetBetsScreen = () => {
                 pick.progressWonSource = `overrideEvent.event:${
                   overrideEvent?.eventId || bet.gameId
                 }.bets.moneyline.won`;
-              } else if (!handled && overrideEvent.bets.spread && betType.includes("spread")) {
+              } else if (
+                !handled &&
+                overrideEvent.bets.spread &&
+                betType.includes("spread")
+              ) {
                 handled = true;
                 const spreadCurrent = overrideEvent.bets.spread.current;
                 const homeScore = Number(g?.homeScore) || 0;
@@ -3001,7 +3107,11 @@ const BetBetsScreen = () => {
                 if (typeof spreadLine === "number" && !isNaN(spreadLine)) {
                   pick.line = spreadLine;
                 }
-              } else if (!handled && overrideEvent.bets.totalPoints && (betType.includes("total") || betType.includes("over/under"))) {
+              } else if (
+                !handled &&
+                overrideEvent.bets.totalPoints &&
+                (betType.includes("total") || betType.includes("over/under"))
+              ) {
                 handled = true;
                 const overrideLine = overrideEvent.bets.totalPoints.line;
                 if (typeof overrideLine === "number") {
@@ -3043,128 +3153,181 @@ const BetBetsScreen = () => {
                   overrideEvent?.eventId || bet.gameId
                 }.bets.totalPoints.won`;
               }
-              
+
               // Handle team-specific points/goals if not already handled
               if (!handled) {
                 // Check for quarter/half specific team points (awayPoints1H, homePoints2H, etc.)
-                  const hasHomePoints = overrideEvent.bets.homePoints;
-                  const hasAwayPoints = overrideEvent.bets.awayPoints;
-                  const hasHomeGoals = overrideEvent.bets.homeGoals;
-                  const hasAwayGoals = overrideEvent.bets.awayGoals;
-                  
-                  // Quarter/Half specific team points
-                  let teamPointsKey = null;
-                  if (betType.includes("1st half") || betType.includes("1h")) {
-                    if (betType.includes("home") || String(bet.team).toUpperCase() === String(homeAbbrev).toUpperCase()) {
-                      teamPointsKey = "homePoints1H";
-                    } else if (betType.includes("away") || String(bet.team).toUpperCase() === String(awayAbbrev).toUpperCase()) {
-                      teamPointsKey = "awayPoints1H";
-                    }
-                  } else if (betType.includes("2nd half") || betType.includes("2h")) {
-                    if (betType.includes("home") || String(bet.team).toUpperCase() === String(homeAbbrev).toUpperCase()) {
-                      teamPointsKey = "homePoints2H";
-                    } else if (betType.includes("away") || String(bet.team).toUpperCase() === String(awayAbbrev).toUpperCase()) {
-                      teamPointsKey = "awayPoints2H";
-                    }
-                  } else if (betType.includes("1st quarter") || betType.includes("1q")) {
-                    if (betType.includes("home") || String(bet.team).toUpperCase() === String(homeAbbrev).toUpperCase()) {
-                      teamPointsKey = "homePoints1Q";
-                    } else if (betType.includes("away") || String(bet.team).toUpperCase() === String(awayAbbrev).toUpperCase()) {
-                      teamPointsKey = "awayPoints1Q";
-                    }
-                  } else if (betType.includes("2nd quarter") || betType.includes("2q")) {
-                    if (betType.includes("home") || String(bet.team).toUpperCase() === String(homeAbbrev).toUpperCase()) {
-                      teamPointsKey = "homePoints2Q";
-                    } else if (betType.includes("away") || String(bet.team).toUpperCase() === String(awayAbbrev).toUpperCase()) {
-                      teamPointsKey = "awayPoints2Q";
-                    }
+                const hasHomePoints = overrideEvent.bets.homePoints;
+                const hasAwayPoints = overrideEvent.bets.awayPoints;
+                const hasHomeGoals = overrideEvent.bets.homeGoals;
+                const hasAwayGoals = overrideEvent.bets.awayGoals;
+
+                // Quarter/Half specific team points
+                let teamPointsKey = null;
+                if (betType.includes("1st half") || betType.includes("1h")) {
+                  if (
+                    betType.includes("home") ||
+                    String(bet.team).toUpperCase() ===
+                      String(homeAbbrev).toUpperCase()
+                  ) {
+                    teamPointsKey = "homePoints1H";
+                  } else if (
+                    betType.includes("away") ||
+                    String(bet.team).toUpperCase() ===
+                      String(awayAbbrev).toUpperCase()
+                  ) {
+                    teamPointsKey = "awayPoints1H";
                   }
-                  
-                  let ptsPayload = null;
-                  let ptsSource = null;
-                  
-                  // Check for quarter/half team points first
-                  if (teamPointsKey && overrideEvent.bets[teamPointsKey]) {
-                    ptsPayload = overrideEvent.bets[teamPointsKey];
-                    ptsSource = teamPointsKey;
+                } else if (
+                  betType.includes("2nd half") ||
+                  betType.includes("2h")
+                ) {
+                  if (
+                    betType.includes("home") ||
+                    String(bet.team).toUpperCase() ===
+                      String(homeAbbrev).toUpperCase()
+                  ) {
+                    teamPointsKey = "homePoints2H";
+                  } else if (
+                    betType.includes("away") ||
+                    String(bet.team).toUpperCase() ===
+                      String(awayAbbrev).toUpperCase()
+                  ) {
+                    teamPointsKey = "awayPoints2H";
                   }
-                  // Then check for full game homePoints/awayPoints/homeGoals/awayGoals
-                  else if (
-                    hasHomePoints &&
-                    (String(bet.team).toUpperCase() === String(homeAbbrev).toUpperCase() ||
-                      betType.includes("home"))
+                } else if (
+                  betType.includes("1st quarter") ||
+                  betType.includes("1q")
+                ) {
+                  if (
+                    betType.includes("home") ||
+                    String(bet.team).toUpperCase() ===
+                      String(homeAbbrev).toUpperCase()
                   ) {
-                    ptsPayload = overrideEvent.bets.homePoints;
-                    ptsSource = "homePoints";
+                    teamPointsKey = "homePoints1Q";
                   } else if (
-                    hasAwayPoints &&
-                    (String(bet.team).toUpperCase() === String(awayAbbrev).toUpperCase() ||
-                      betType.includes("away"))
+                    betType.includes("away") ||
+                    String(bet.team).toUpperCase() ===
+                      String(awayAbbrev).toUpperCase()
                   ) {
-                    ptsPayload = overrideEvent.bets.awayPoints;
-                    ptsSource = "awayPoints";
+                    teamPointsKey = "awayPoints1Q";
+                  }
+                } else if (
+                  betType.includes("2nd quarter") ||
+                  betType.includes("2q")
+                ) {
+                  if (
+                    betType.includes("home") ||
+                    String(bet.team).toUpperCase() ===
+                      String(homeAbbrev).toUpperCase()
+                  ) {
+                    teamPointsKey = "homePoints2Q";
                   } else if (
-                    hasHomeGoals &&
-                    (String(bet.team).toUpperCase() === String(homeAbbrev).toUpperCase() ||
-                      betType.includes("home"))
+                    betType.includes("away") ||
+                    String(bet.team).toUpperCase() ===
+                      String(awayAbbrev).toUpperCase()
                   ) {
-                    ptsPayload = overrideEvent.bets.homeGoals;
-                    ptsSource = "homeGoals";
-                  } else if (
-                    hasAwayGoals &&
-                    (String(bet.team).toUpperCase() === String(awayAbbrev).toUpperCase() ||
-                      betType.includes("away"))
-                  ) {
-                    ptsPayload = overrideEvent.bets.awayGoals;
-                    ptsSource = "awayGoals";
-                  } else if (hasAwayPoints || hasHomePoints) {
-                    ptsPayload = overrideEvent.bets.awayPoints || overrideEvent.bets.homePoints;
-                    ptsSource = overrideEvent.bets.awayPoints ? "awayPoints" : "homePoints";
-                  } else if (hasAwayGoals || hasHomeGoals) {
-                    ptsPayload = overrideEvent.bets.awayGoals || overrideEvent.bets.homeGoals;
-                    ptsSource = overrideEvent.bets.awayGoals ? "awayGoals" : "homeGoals";
+                    teamPointsKey = "awayPoints2Q";
+                  }
+                }
+
+                let ptsPayload = null;
+                let ptsSource = null;
+
+                // Check for quarter/half team points first
+                if (teamPointsKey && overrideEvent.bets[teamPointsKey]) {
+                  ptsPayload = overrideEvent.bets[teamPointsKey];
+                  ptsSource = teamPointsKey;
+                }
+                // Then check for full game homePoints/awayPoints/homeGoals/awayGoals
+                else if (
+                  hasHomePoints &&
+                  (String(bet.team).toUpperCase() ===
+                    String(homeAbbrev).toUpperCase() ||
+                    betType.includes("home"))
+                ) {
+                  ptsPayload = overrideEvent.bets.homePoints;
+                  ptsSource = "homePoints";
+                } else if (
+                  hasAwayPoints &&
+                  (String(bet.team).toUpperCase() ===
+                    String(awayAbbrev).toUpperCase() ||
+                    betType.includes("away"))
+                ) {
+                  ptsPayload = overrideEvent.bets.awayPoints;
+                  ptsSource = "awayPoints";
+                } else if (
+                  hasHomeGoals &&
+                  (String(bet.team).toUpperCase() ===
+                    String(homeAbbrev).toUpperCase() ||
+                    betType.includes("home"))
+                ) {
+                  ptsPayload = overrideEvent.bets.homeGoals;
+                  ptsSource = "homeGoals";
+                } else if (
+                  hasAwayGoals &&
+                  (String(bet.team).toUpperCase() ===
+                    String(awayAbbrev).toUpperCase() ||
+                    betType.includes("away"))
+                ) {
+                  ptsPayload = overrideEvent.bets.awayGoals;
+                  ptsSource = "awayGoals";
+                } else if (hasAwayPoints || hasHomePoints) {
+                  ptsPayload =
+                    overrideEvent.bets.awayPoints ||
+                    overrideEvent.bets.homePoints;
+                  ptsSource = overrideEvent.bets.awayPoints
+                    ? "awayPoints"
+                    : "homePoints";
+                } else if (hasAwayGoals || hasHomeGoals) {
+                  ptsPayload =
+                    overrideEvent.bets.awayGoals ||
+                    overrideEvent.bets.homeGoals;
+                  ptsSource = overrideEvent.bets.awayGoals
+                    ? "awayGoals"
+                    : "homeGoals";
+                }
+
+                if (ptsPayload && ptsSource) {
+                  const payloadLine = ptsPayload.line;
+                  if (typeof payloadLine === "number") pick.line = payloadLine;
+                  else if (payloadLine != null) {
+                    const parsed = Number(payloadLine);
+                    if (!isNaN(parsed)) pick.line = parsed;
                   }
 
-                  if (ptsPayload && ptsSource) {
-                    const payloadLine = ptsPayload.line;
-                    if (typeof payloadLine === "number") pick.line = payloadLine;
-                    else if (payloadLine != null) {
-                      const parsed = Number(payloadLine);
-                      if (!isNaN(parsed)) pick.line = parsed;
-                    }
-
-                    const payloadCurrent = ptsPayload.current;
-                    let parsedCurrent = null;
-                    if (typeof payloadCurrent === "number")
-                      parsedCurrent = payloadCurrent;
-                    else if (payloadCurrent && typeof payloadCurrent === "object")
-                      parsedCurrent = Number(
-                        payloadCurrent.score ??
-                          payloadCurrent.current ??
-                          payloadCurrent.value ??
-                          NaN
-                      );
-                    else if (payloadCurrent != null) {
-                      const n = Number(payloadCurrent);
-                      parsedCurrent = isNaN(n) ? null : n;
-                    }
-                    pick.currentValue =
-                      parsedCurrent !== null && !isNaN(parsedCurrent)
-                        ? Number(parsedCurrent)
-                        : pick.currentValue;
-                    pick.progressSource = `overrideEvent.event:${
-                      overrideEvent?.eventId || bet.gameId
-                    }.bets.${ptsSource}.current`;
-                    pick.status =
-                      ptsPayload.won === true
-                        ? "winning"
-                        : ptsPayload.won === false
-                        ? "losing"
-                        : "pending";
-                    pick.progressWonSource = `overrideEvent.event:${
-                      overrideEvent?.eventId || bet.gameId
-                    }.bets.${ptsSource}.won`;
+                  const payloadCurrent = ptsPayload.current;
+                  let parsedCurrent = null;
+                  if (typeof payloadCurrent === "number")
+                    parsedCurrent = payloadCurrent;
+                  else if (payloadCurrent && typeof payloadCurrent === "object")
+                    parsedCurrent = Number(
+                      payloadCurrent.score ??
+                        payloadCurrent.current ??
+                        payloadCurrent.value ??
+                        NaN
+                    );
+                  else if (payloadCurrent != null) {
+                    const n = Number(payloadCurrent);
+                    parsedCurrent = isNaN(n) ? null : n;
                   }
+                  pick.currentValue =
+                    parsedCurrent !== null && !isNaN(parsedCurrent)
+                      ? Number(parsedCurrent)
+                      : pick.currentValue;
+                  pick.progressSource = `overrideEvent.event:${
+                    overrideEvent?.eventId || bet.gameId
+                  }.bets.${ptsSource}.current`;
+                  pick.status =
+                    ptsPayload.won === true
+                      ? "winning"
+                      : ptsPayload.won === false
+                      ? "losing"
+                      : "pending";
+                  pick.progressWonSource = `overrideEvent.event:${
+                    overrideEvent?.eventId || bet.gameId
+                  }.bets.${ptsSource}.won`;
+                }
               }
             }
           }
@@ -3181,12 +3344,19 @@ const BetBetsScreen = () => {
           String(pick.gameState || "").toLowerCase() !== "pre";
         // prefer explicit marker set when parsing values
         let progressSource = pick.progressSource || "none";
-        
+
         // Log bet progress info once per bet
-        console.log(`[Bet] ${bet.prop || bet.description} | Source: ${progressSource} | Current: ${pick.currentValue ?? 'N/A'} | Line: ${bet.line ?? 'N/A'}`);
-        
+        console.log(
+          `[Bet] ${
+            bet.prop || bet.description
+          } | Source: ${progressSource} | Current: ${
+            pick.currentValue ?? "N/A"
+          } | Line: ${bet.line ?? "N/A"}`
+        );
+
         // Log progress bar check
-        const shouldShowProgressBar = pick.currentValue !== null &&
+        const shouldShowProgressBar =
+          pick.currentValue !== null &&
           typeof pick.currentValue === "number" &&
           !isNaN(pick.currentValue) &&
           isValidLineForProgress(pick.line) &&
