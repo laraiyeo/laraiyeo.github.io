@@ -538,7 +538,7 @@ const HockeyRink = React.memo(
                     borderColor: isScoring ? finalTeamColor : "white",
                     shadowColor: "#000",
                     shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.5,
+                    shadowOpacity: 1,
                     shadowRadius: 2,
                     elevation: 5,
                   },
@@ -2439,7 +2439,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
                 // Format SV% to 2 decimals if present
                 if (s === "SV%" && value !== "-" && !isNaN(value)) {
-                  value = (parseFloat(value) * 100).toFixed(2) + "%";
+                  value = (parseFloat(value) * 100).toFixed(0) + "%";
                 }
 
                 return {

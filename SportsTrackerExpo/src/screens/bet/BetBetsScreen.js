@@ -29,6 +29,8 @@ const BetBetsScreen = () => {
   const [scoreboardData, setScoreboardData] = useState([]);
   // Live-updated betslip fetch map: ticketId -> latest fetched betslip data
   const [betslipLiveMap, setBetslipLiveMap] = useState({});
+  // Ref to hold most recent betslipLiveMap (avoids stale closures during async state updates)
+  const betslipLiveMapRef = useRef({});
   // Authoritative bets fetched from server when screen focused
   const [serverBets, setServerBets] = useState(null);
   // Timers per ticket (using setTimeout so interval can be dynamic)
@@ -564,7 +566,9 @@ const BetBetsScreen = () => {
               if (resp.ok) {
                 const json = await resp.json();
                 const authoritative = json.betslips || json.bets || json || [];
-                if (mounted) setServerBets(authoritative);
+                // Don't set serverBets here - defer until after betslipLiveMap is updated
+                // to avoid intermediate renders with mismatched state
+                // if (mounted) setServerBets(authoritative);
                 // use authoritative locally for this run
                 var authoritativeLocal = authoritative;
               } else {
@@ -649,10 +653,23 @@ const BetBetsScreen = () => {
               (ticket.betslipData && ticket.betslipData.betslip_url) ||
               null;
             const url = storedUrl || buildBetslipUrlFromTicket(ticket);
+            
+            // Log full ticket data on initial load to verify betslip_url from Supabase
+            console.log(`[BetsScreen:OnFocus:InitialLoad] Ticket ${ticket.id} data:`);
+            console.log('  - ticket.betslip_url:', ticket.betslip_url || 'MISSING');
+            console.log('  - ticket.betslipData?.betslip_url:', ticket.betslipData?.betslip_url || 'MISSING');
+            console.log('  - Will use URL:', url);
+            console.log('  - URL source:', storedUrl ? 'FROM SUPABASE' : 'BUILT FROM BETS');
+            
             if (!url) return null;
             const res = await fetch(url);
             if (!res.ok) return null;
             const data = await res.json();
+            // Only return if we got valid data
+            if (!data || typeof data !== 'object') return null;
+            // Attach betslip_url to the payload so polling can reuse it
+            data.betslip_url = url;
+            console.log(`[BetsScreen:OnFocus:Fetched] Ticket ${ticket.id}: Successfully fetched and attached betslip_url to payload:`, url);
             return { id: ticket.id, data };
           } catch (e) {
             return null;
@@ -665,8 +682,24 @@ const BetBetsScreen = () => {
         results.forEach((r) => {
           if (r && r.id) map[r.id] = r.data;
         });
-        // merge into existing map
-        setBetslipLiveMap((prev) => ({ ...prev, ...map }));
+        
+        console.log(`[BetsScreen:OnFocus] Fetched ${Object.keys(map).length} betslip payloads. Tickets:`, Object.keys(map));
+        console.log(`[BetsScreen:OnFocus] Has authoritativeLocal:`, typeof authoritativeLocal !== "undefined" && Array.isArray(authoritativeLocal), 'count:', authoritativeLocal?.length || 0);
+        
+        // Batch state updates to prevent intermediate renders with mismatched data
+        // Update betslipLiveMap and serverBets together if we have authoritative data
+        if (typeof authoritativeLocal !== "undefined" && Array.isArray(authoritativeLocal)) {
+          // Update both states in sequence to minimize render gap
+          console.log(`[BetsScreen:OnFocus] Updating betslipLiveMap with ${Object.keys(map).length} entries and setting serverBets with ${authoritativeLocal.length} tickets`);
+          betslipLiveMapRef.current = { ...betslipLiveMapRef.current, ...map };
+          setBetslipLiveMap((prev) => ({ ...prev, ...map }));
+          if (mounted) setServerBets(authoritativeLocal);
+        } else {
+          // Only update betslipLiveMap if no authoritative data
+          console.log(`[BetsScreen:OnFocus] Updating betslipLiveMap with ${Object.keys(map).length} entries (no serverBets)`);
+          betslipLiveMapRef.current = { ...betslipLiveMapRef.current, ...map };
+          setBetslipLiveMap((prev) => ({ ...prev, ...map }));
+        }
       } catch (e) {
         /* ignore */
       }
@@ -705,23 +738,48 @@ const BetBetsScreen = () => {
       const runOnceAndSchedule = async () => {
         let data = null;
         try {
-          // Determine fetch URL: prefer stored betslip_url
-          const storedUrl =
-            ticket.betslipData?.betslip_url ||
-            ticket.betslip_url ||
-            (ticket.betslipData && ticket.betslipData.betslip_url) ||
-            null;
-          const url = storedUrl || buildBetslipUrlFromTicket(ticket);
+          // CRITICAL: Only use betslip_url from betslipLiveMapRef (populated by on-focus fetch)
+          // Never build URL from ticket bets - the built URL format is incorrect
+          const latestData = betslipLiveMapRef.current[ticket.id];
+          const url = latestData?.betslip_url || null;
+          
+          // If no betslip_url in ref, defer polling until on-focus fetch completes
           if (!url) {
-            if (typeof __DEV__ !== "undefined" && __DEV__) return;
+            console.log(`[BetsScreen:Poll] No betslip_url in betslipLiveMapRef for ticket ${ticket.id}, deferring poll by 2 seconds`);
+            const handle = setTimeout(runOnceAndSchedule, 2000);
+            pollsRef.current[ticket.id] = handle;
+            return;
           }
+          
+          console.log(`[BetsScreen:Poll:Fetch] Ticket ${ticket.id}:`);
+          console.log('  - Using URL from betslipLiveMapRef:', url);
+          console.log('  - URL contains correct params:', url.includes('p1_pr') || url.includes('p1_ga') || url.includes('p1_sht') || url.includes('p2_ga') ? 'YES (milestone params found)' : 'NO (using generic pts params)');
+          console.log('  - Fetching now...');
 
           const res = await fetch(url);
+          if (!res.ok) {
+            // Don't update betslipLiveMap with failed fetches
+            return;
+          }
           data = await res.json();
           if (!mounted) return;
-          setBetslipLiveMap((prev) => ({ ...prev, [ticket.id]: data }));
+          // Only update if we got valid data (don't overwrite good data with null/undefined)
+          if (data && typeof data === 'object') {
+            console.log(`[BetsScreen:Poll:Success] Ticket ${ticket.id}:`);
+            console.log('  - Fetch successful, has events:', !!data.events, 'count:', data.events?.length || 0);
+            console.log('  - Re-attaching betslip_url to payload:', url);
+            console.log('  - Updating betslipLiveMapRef and state with fresh data');
+            // CRITICAL: Preserve betslip_url when updating with fresh data from server
+            // The server response doesn't include betslip_url, so we must add it back
+            data.betslip_url = url;
+            // Update ref immediately (synchronous) to prevent stale state during React batching
+            betslipLiveMapRef.current = { ...betslipLiveMapRef.current, [ticket.id]: data };
+            setBetslipLiveMap((prev) => ({ ...prev, [ticket.id]: data }));
+          } else {
+            console.log(`[BetsScreen:Poll] Skipping invalid data for ticket ${ticket.id}, data:`, typeof data, data === null ? 'null' : 'invalid');
+          }
         } catch (e) {
-          // ignore fetch errors; keep polling
+          // ignore fetch errors; keep polling but don't clear existing data
         }
 
         // Decide next interval based on game states for this ticket.
@@ -795,6 +853,8 @@ const BetBetsScreen = () => {
       serverBets && Array.isArray(serverBets) && serverBets.length > 0
         ? serverBets
         : submittedBets;
+    
+    console.log(`[BetsScreen:PollingEffect] Using ${ticketsToUse === serverBets ? 'serverBets' : 'submittedBets'} (${ticketsToUse?.length || 0} tickets). betslipLiveMap has ${Object.keys(betslipLiveMap).length} entries.`);
 
     try {
       const inTickets = (ticketsToUse || []).filter((t) => {
@@ -1529,12 +1589,17 @@ const BetBetsScreen = () => {
 
   // Render a submitted bet slip
   const renderSubmittedBet = (betSlip) => {
-    // Prefer live-updated fetched data when available
-    const live = betslipLiveMap[betSlip.id];
+    // Prefer live-updated fetched data when available (read from ref for most recent data)
+    const live = betslipLiveMapRef.current[betSlip.id] || betslipLiveMap[betSlip.id];
     const betslipData =
       live || betSlip.betslipData || betSlip.betslip_data || null;
     const originalBets = betSlip.bets || betSlip.bets || [];
     const amount = betSlip.amount || 0;
+    
+    // Debug: log when rendering with no betslipData
+    if (!betslipData && typeof __DEV__ !== 'undefined' && __DEV__) {
+      console.log(`[BetsScreen:Render] No betslipData for ticket ${betSlip.id}. live:`, !!live, 'betSlip.betslipData:', !!betSlip.betslipData, 'betslipLiveMap keys:', Object.keys(betslipLiveMap));
+    }
 
     // Helper: normalize gameId by stripping trailing sport suffix like _nba/_nfl
     const normalizeGameId = (g) => {

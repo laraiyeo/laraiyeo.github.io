@@ -195,9 +195,17 @@ const BetAthleteScreen = ({ route, navigation }) => {
 
   const sanitizeMarketName = (marketName) => {
     if (!marketName) return "";
-    let cleaned = marketName;
-    const first = athleteData?.athlete?.firstName || "";
-    const last = athleteData?.athlete?.lastName || "";
+    
+    // Normalize names to handle accented characters (Dončić → Doncic)
+    const normalizeText = (text) => {
+      return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    };
+    
+    // Normalize both the market name and player names for matching
+    let cleaned = normalizeText(marketName);
+    
+    const first = normalizeText(athleteData?.athlete?.firstName || "");
+    const last = normalizeText(athleteData?.athlete?.lastName || "");
     const full = `${first} ${last}`.trim();
 
     const parts = [];

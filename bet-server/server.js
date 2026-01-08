@@ -10594,14 +10594,14 @@ function startWatcherInline(betslipId) {
               String(topWon).toLowerCase() === "true")
           ) {
             newState = "won";
-            isCompleted = true;
+            // Don't set isCompleted=true: bet can be won while game still in progress
           } else if (
             topWon === false ||
             (typeof topWon === "string" &&
               String(topWon).toLowerCase() === "false")
           ) {
             newState = "lost";
-            isCompleted = true;
+            // Don't set isCompleted=true: bet can be lost while game still in progress
           }
 
           // 2) Normalized shape from betslip_url: { current: { current, won } }
@@ -10617,20 +10617,20 @@ function startWatcherInline(betslipId) {
                 String(curWon).toLowerCase() === "true")
             ) {
               newState = "won";
-              isCompleted = true;
+              // Don't set isCompleted=true: bet can be won while game still in progress
             } else if (
               curWon === false ||
               (typeof curWon === "string" &&
                 String(curWon).toLowerCase() === "false")
             ) {
               newState = "lost";
-              isCompleted = true;
+              // Don't set isCompleted=true: bet can be lost while game still in progress
             } else if (
               typeof curWon === "string" &&
               String(curWon).toLowerCase() === "in progress"
             ) {
               newState = "in progress";
-              isCompleted = false;
+              // Game is still in progress, so definitely not completed
             }
           }
 
@@ -10644,12 +10644,12 @@ function startWatcherInline(betslipId) {
               const entry = bet.overUnder[k];
               if (entry && entry.won === true) {
                 newState = "won";
-                isCompleted = true;
+                // Don't set isCompleted=true: bet can be won while game still in progress
                 break;
               }
               if (entry && entry.won === false) {
                 newState = "lost";
-                isCompleted = true;
+                // Don't set isCompleted=true: bet can be lost while game still in progress
                 break;
               }
             }
@@ -10671,7 +10671,7 @@ function startWatcherInline(betslipId) {
                     String(wonVal).toLowerCase() === "true"))
               ) {
                 newState = "won";
-                isCompleted = true;
+                // Don't set isCompleted=true: bet can be won while game still in progress
                 break;
               }
               if (
@@ -10681,7 +10681,7 @@ function startWatcherInline(betslipId) {
                     String(wonVal).toLowerCase() === "false"))
               ) {
                 newState = "lost";
-                isCompleted = true;
+                // Don't set isCompleted=true: bet can be lost while game still in progress
                 break;
               }
               if (
@@ -10690,7 +10690,7 @@ function startWatcherInline(betslipId) {
                 String(entry.won).toLowerCase() === "in progress"
               ) {
                 newState = "in progress";
-                isCompleted = false;
+                // Game is still in progress, so definitely not completed
                 break;
               }
             }
