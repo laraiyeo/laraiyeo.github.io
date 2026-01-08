@@ -3187,7 +3187,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           (p) => p.starter === true
                         );
                         secondaryGroup = athletes
-                          .filter((p) => p.starter === false || p.starter == null)
+                          .filter(
+                            (p) => p.starter === false || p.starter == null
+                          )
                           .sort((a, b) => {
                             const minA = parseInt(a.stats?.MIN || "0");
                             const minB = parseInt(b.stats?.MIN || "0");
