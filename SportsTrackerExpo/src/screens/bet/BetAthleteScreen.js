@@ -19,7 +19,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
   const oddsContext = useContext(OddsDisplayContext);
   const oddsDisplay = oddsContext ? oddsContext.oddsDisplay : "american";
 
-  const { isPro } = useBetSlip();
+  const { isPro, toggleBet, removeBet, isBetSelected } = useBetSlip();
 
   const [athleteData, setAthleteData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -31,6 +31,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
     season: {},
   });
   const [statsSelections, setStatsSelections] = useState({});
+  const [gameInfo, setGameInfo] = useState({ time: "TBD", teams: "Unknown" });
 
   useEffect(() => {
     fetchAthleteData();
@@ -129,6 +130,41 @@ const BetAthleteScreen = ({ route, navigation }) => {
       // Set first market as expanded by default
       if (data.odds && data.odds.length > 0) {
         setExpandedMarkets({ [data.odds[0].marketName]: true });
+      }
+
+      // Fetch scoreboard data to get proper game info
+      if (data.gameId) {
+        try {
+          const scoreboardResponse = await fetch(
+            `https://laraiyeogithubio-production-f5af.up.railway.app/api/scoreboard/${sport.toLowerCase()}`
+          );
+          const scoreboardData = await scoreboardResponse.json();
+
+          if (scoreboardData && scoreboardData.events) {
+            const game = scoreboardData.events.find(
+              (evt) => evt.id === data.gameId
+            );
+
+            if (game && game.competitions && game.competitions[0]) {
+              const comp = game.competitions[0];
+              const competitors = comp.competitors || [];
+              const homeTeam = competitors.find((c) => c.homeAway === "home");
+              const awayTeam = competitors.find((c) => c.homeAway === "away");
+
+              const statusDetail = game.status?.type?.detail || "TBD";
+              const team1Abbr = awayTeam?.team?.abbreviation || "Away";
+              const team2Abbr = homeTeam?.team?.abbreviation || "Home";
+
+              setGameInfo({
+                time: statusDetail,
+                teams: `${team1Abbr} @ ${team2Abbr}`,
+              });
+            }
+          }
+        } catch (scoreboardError) {
+          console.error("Error fetching scoreboard:", scoreboardError);
+          // Keep default gameInfo if scoreboard fetch fails
+        }
       }
     } catch (error) {
       console.error("Error fetching athlete data:", error);
@@ -1522,9 +1558,34 @@ const BetAthleteScreen = ({ route, navigation }) => {
     }
   };
 
-  const renderOverUnderButtons = (variants) => {
+  // Helper to format line as milestone (round up for over, down for under)
+  const formatAsMilestone = (value, isOver) => {
+    const num = parseFloat(value);
+    if (isNaN(num)) return null;
+    if (isOver) {
+      return `${Math.ceil(num)}+`;
+    } else {
+      return `${Math.floor(num)}-`;
+    }
+  };
+
+  // Check if a line should be treated as a milestone (only alt lines with decimals)
+  const shouldBeMilestone = (line, isMainLine) => {
+    // Main lines should never be milestones - they stay as over/under
+    if (isMainLine) return false;
+    // Alt lines with decimals should be milestones
+    const num = parseFloat(line);
+    return !isNaN(num) && num % 1 !== 0;
+  };
+
+  const renderOverUnderButtons = (variants, marketName, statID) => {
     const overVariant = variants.find((v) => v.sideID === "over");
     const underVariant = variants.find((v) => v.sideID === "under");
+
+    // Reconstruct proper statID with suffix based on variant type
+    const hasOverUnder = overVariant || underVariant;
+    const properStatID =
+      hasOverUnder && statID && !statID.includes("_") ? `${statID}_ou` : statID;
 
     // Extract main lines and alt lines
     const getLines = (variant) => {
@@ -1565,52 +1626,170 @@ const BetAthleteScreen = ({ route, navigation }) => {
     const overLines = getLines(overVariant);
     const underLines = getLines(underVariant);
 
+    const { athlete, team, gameId } = athleteData || {};
+    const teamColor = team?.color ? `#${team.color}` : "#666666";
+    const displayName = athlete
+      ? `${athlete.firstName} ${athlete.lastName}`
+      : "Player";
+
     return (
       <View style={styles.overUnderContainer}>
         <View style={styles.mainLinesRow}>
           {/* Over Button */}
-          {overLines.main && (
-            <View
-              style={[
-                styles.betButton,
-                { backgroundColor: theme.surfaceSecondary },
-              ]}
-            >
-              <Text
-                style={[styles.betButtonLabel, { color: theme.textSecondary }]}
-              >
-                OVER
-              </Text>
-              <Text style={[styles.betButtonValue, { color: theme.text }]}>
-                {overLines.main.line}
-              </Text>
-              <Text style={[styles.betButtonOdds, { color: colors.primary }]}>
-                {formatOdds(overLines.main.odds)}
-              </Text>
-            </View>
-          )}
+          {overLines.main &&
+            (() => {
+              const line = overLines.main.line;
+              const odds = overLines.main.odds;
+              const overBetId = `${athleteId}-${properStatID}-${line}-over`;
+              const isSelected = isBetSelected(overBetId);
+              const formattedOdds = String(odds).match(/^[+-]/)
+                ? String(odds)
+                : `+${odds}`;
+              const displayOdds = formatOdds(odds);
+
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.betButton,
+                    {
+                      backgroundColor: isSelected
+                        ? colors.primary
+                        : theme.surfaceSecondary,
+                      borderColor: colors.primary,
+                      borderWidth: 1,
+                      opacity: isPro ? 1 : 0.5,
+                    },
+                  ]}
+                  onPress={() => {
+                    if (!isPro) return;
+                    if (isSelected) {
+                      removeBet(overBetId);
+                    } else {
+                      toggleBet({
+                        id: overBetId,
+                        gameId: gameId || "unknown",
+                        sport: sport.toUpperCase(),
+                        gameInfo: gameInfo,
+                        playerId: athleteId,
+                        player: displayName,
+                        team: team?.abbreviation || "",
+                        prop: `${properStatID} O${line}`,
+                        statType: properStatID || "stat",
+                        betValue: `o${line}`,
+                        type: "over",
+                        line: line.toString(),
+                        odds: formattedOdds,
+                        playerColor: teamColor,
+                        description: `${displayName} ${properStatID} O${line}`,
+                      });
+                    }
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.betButtonLabel,
+                      { color: isSelected ? "white" : theme.textSecondary },
+                    ]}
+                  >
+                    OVER
+                  </Text>
+                  <Text
+                    style={[
+                      styles.betButtonValue,
+                      { color: isSelected ? "white" : theme.text },
+                    ]}
+                  >
+                    {line}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.betButtonOdds,
+                      { color: isSelected ? "white" : colors.primary },
+                    ]}
+                  >
+                    {displayOdds}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })()}
 
           {/* Under Button */}
-          {underLines.main && (
-            <View
-              style={[
-                styles.betButton,
-                { backgroundColor: theme.surfaceSecondary },
-              ]}
-            >
-              <Text
-                style={[styles.betButtonLabel, { color: theme.textSecondary }]}
-              >
-                UNDER
-              </Text>
-              <Text style={[styles.betButtonValue, { color: theme.text }]}>
-                {underLines.main.line}
-              </Text>
-              <Text style={[styles.betButtonOdds, { color: colors.primary }]}>
-                {formatOdds(underLines.main.odds)}
-              </Text>
-            </View>
-          )}
+          {underLines.main &&
+            (() => {
+              const line = underLines.main.line;
+              const odds = underLines.main.odds;
+              const underBetId = `${athleteId}-${properStatID}-${line}-under`;
+              const isSelected = isBetSelected(underBetId);
+              const formattedOdds = String(odds).match(/^[+-]/)
+                ? String(odds)
+                : `+${odds}`;
+              const displayOdds = formatOdds(odds);
+
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.betButton,
+                    {
+                      backgroundColor: isSelected
+                        ? colors.primary
+                        : theme.surfaceSecondary,
+                      borderColor: colors.primary,
+                      borderWidth: 1,
+                      opacity: isPro ? 1 : 0.5,
+                    },
+                  ]}
+                  onPress={() => {
+                    if (!isPro) return;
+                    if (isSelected) {
+                      removeBet(underBetId);
+                    } else {
+                      toggleBet({
+                        id: underBetId,
+                        gameId: gameId || "unknown",
+                        sport: sport.toUpperCase(),
+                        gameInfo: gameInfo,
+                        playerId: athleteId,
+                        player: displayName,
+                        team: team?.abbreviation || "",
+                        prop: `${properStatID} U${line}`,
+                        statType: properStatID || "stat",
+                        betValue: `u${line}`,
+                        type: "under",
+                        line: line.toString(),
+                        odds: formattedOdds,
+                        playerColor: teamColor,
+                        description: `${displayName} ${properStatID} U${line}`,
+                      });
+                    }
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.betButtonLabel,
+                      { color: isSelected ? "white" : theme.textSecondary },
+                    ]}
+                  >
+                    UNDER
+                  </Text>
+                  <Text
+                    style={[
+                      styles.betButtonValue,
+                      { color: isSelected ? "white" : theme.text },
+                    ]}
+                  >
+                    {line}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.betButtonOdds,
+                      { color: isSelected ? "white" : colors.primary },
+                    ]}
+                  >
+                    {displayOdds}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })()}
         </View>
 
         {/* Alt Lines */}
@@ -1635,52 +1814,156 @@ const BetAthleteScreen = ({ route, navigation }) => {
               {underLines.alts
                 .slice()
                 .reverse()
-                .map((alt, index) => (
-                  <View
-                    key={`under-${index}`}
+                .map((alt, index) => {
+                  const line = alt.line;
+                  const odds = alt.odds;
+                  const isMilestone = shouldBeMilestone(line, false);
+                  const formattedLine = isMilestone
+                    ? formatAsMilestone(line, false)
+                    : line.toString();
+                  const betType = isMilestone ? "milestone" : "under";
+                  const betValue = isMilestone ? formattedLine : `u${line}`;
+                  const underBetId = `${athleteId}-${properStatID}-${formattedLine}`;
+                  const isSelected = isBetSelected(underBetId);
+                  const formattedOdds = String(odds).match(/^[+-]/)
+                    ? String(odds)
+                    : `+${odds}`;
+                  const displayOdds = formatOdds(odds);
+
+                  return (
+                    <TouchableOpacity
+                      key={`under-${index}`}
+                      style={[
+                        styles.altLineButton,
+                        {
+                          backgroundColor: isSelected
+                            ? colors.primary
+                            : theme.surfaceSecondary,
+                          borderColor: colors.primary,
+                          borderWidth: 1,
+                          opacity: isPro ? 1 : 0.5,
+                        },
+                      ]}
+                      onPress={() => {
+                        if (!isPro) return;
+                        if (isSelected) {
+                          removeBet(underBetId);
+                        } else {
+                          toggleBet({
+                            id: underBetId,
+                            gameId: gameId || "unknown",
+                            sport: sport.toUpperCase(),
+                            gameInfo: gameInfo,
+                            playerId: athleteId,
+                            player: displayName,
+                            team: team?.abbreviation || "",
+                            prop: `${properStatID} ${formattedLine}`,
+                            statType: properStatID || "stat",
+                            betValue: betValue,
+                            type: betType,
+                            line: formattedLine,
+                            odds: formattedOdds,
+                            playerColor: teamColor,
+                            description: `${displayName} ${properStatID} ${formattedLine}`,
+                          });
+                        }
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.altLineLabel,
+                          { color: isSelected ? "white" : theme.textSecondary },
+                        ]}
+                      >
+                        U {roundAltLine(line, false)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.altLineOdds,
+                          { color: isSelected ? "white" : colors.primary },
+                        ]}
+                      >
+                        {displayOdds}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+
+              {/* Over Alt Lines */}
+              {overLines.alts.map((alt, index) => {
+                const line = alt.line;
+                const odds = alt.odds;
+                const isMilestone = shouldBeMilestone(line, false);
+                const formattedLine = isMilestone
+                  ? formatAsMilestone(line, true)
+                  : line.toString();
+                const betType = isMilestone ? "milestone" : "over";
+                const betValue = isMilestone ? formattedLine : `o${line}`;
+                const overBetId = `${athleteId}-${properStatID}-${formattedLine}`;
+                const isSelected = isBetSelected(overBetId);
+                const formattedOdds = String(odds).match(/^[+-]/)
+                  ? String(odds)
+                  : `+${odds}`;
+                const displayOdds = formatOdds(odds);
+
+                return (
+                  <TouchableOpacity
+                    key={`over-${index}`}
                     style={[
                       styles.altLineButton,
-                      { backgroundColor: theme.surfaceSecondary },
+                      {
+                        backgroundColor: isSelected
+                          ? colors.primary
+                          : theme.surfaceSecondary,
+                        borderColor: colors.primary,
+                        borderWidth: 1,
+                        opacity: isPro ? 1 : 0.5,
+                      },
                     ]}
+                    onPress={() => {
+                      if (!isPro) return;
+                      if (isSelected) {
+                        removeBet(overBetId);
+                      } else {
+                        toggleBet({
+                          id: overBetId,
+                          gameId: gameId || "unknown",
+                          sport: sport.toUpperCase(),
+                          gameInfo: gameInfo,
+                          playerId: athleteId,
+                          player: displayName,
+                          team: team?.abbreviation || "",
+                          prop: `${properStatID} ${formattedLine}`,
+                          statType: properStatID || "stat",
+                          betValue: betValue,
+                          type: betType,
+                          line: formattedLine,
+                          odds: formattedOdds,
+                          playerColor: teamColor,
+                          description: `${displayName} ${properStatID} ${formattedLine}`,
+                        });
+                      }
+                    }}
                   >
                     <Text
                       style={[
                         styles.altLineLabel,
-                        { color: theme.textSecondary },
+                        { color: isSelected ? "white" : theme.textSecondary },
                       ]}
                     >
-                      U {roundAltLine(alt.line, false)}
+                      O {roundAltLine(line, true)}
                     </Text>
                     <Text
-                      style={[styles.altLineOdds, { color: colors.primary }]}
+                      style={[
+                        styles.altLineOdds,
+                        { color: isSelected ? "white" : colors.primary },
+                      ]}
                     >
-                      {formatOdds(alt.odds)}
+                      {displayOdds}
                     </Text>
-                  </View>
-                ))}
-
-              {/* Over Alt Lines */}
-              {overLines.alts.map((alt, index) => (
-                <View
-                  key={`over-${index}`}
-                  style={[
-                    styles.altLineButton,
-                    { backgroundColor: theme.surfaceSecondary },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.altLineLabel,
-                      { color: theme.textSecondary },
-                    ]}
-                  >
-                    O {roundAltLine(alt.line, true)}
-                  </Text>
-                  <Text style={[styles.altLineOdds, { color: colors.primary }]}>
-                    {formatOdds(alt.odds)}
-                  </Text>
-                </View>
-              ))}
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
         )}
@@ -1688,10 +1971,15 @@ const BetAthleteScreen = ({ route, navigation }) => {
     );
   };
 
-  const renderYesNoButtons = (variants) => {
+  const renderYesNoButtons = (variants, marketName, statID) => {
     const yesVariant = variants.find((v) => v.sideID === "yes");
 
     if (!yesVariant?.byBookmaker) return null;
+
+    // Reconstruct proper statID with suffix based on variant type
+    const hasYesNo = yesVariant;
+    const properStatID =
+      hasYesNo && statID && !statID.includes("_") ? `${statID}_yn` : statID;
 
     // Get first available odds
     let odds = null;
@@ -1701,6 +1989,19 @@ const BetAthleteScreen = ({ route, navigation }) => {
     }
 
     if (!odds) return null;
+
+    const { athlete, team, gameId } = athleteData || {};
+    const teamColor = team?.color ? `#${team.color}` : "#666666";
+    const displayName = athlete
+      ? `${athlete.firstName} ${athlete.lastName}`
+      : "Player";
+    const yesBetId = `${athleteId}-${properStatID}-yes`;
+    const isSelected = isBetSelected(yesBetId);
+    const formattedOdds = String(odds).match(/^[+-]/)
+      ? String(odds)
+      : `+${odds}`;
+    const displayOdds = formatOdds(odds);
+
     // If there are no over/under variants in this market, make the YES button full-width like betButton
     const hasOverUnderInVariants = variants.some(
       (v) => v.sideID === "over" || v.sideID === "under"
@@ -1709,40 +2010,114 @@ const BetAthleteScreen = ({ route, navigation }) => {
     if (!hasOverUnderInVariants) {
       return (
         <View style={styles.overUnderContainer}>
-          <View
+          <TouchableOpacity
             style={[
               styles.betButton,
-              { backgroundColor: theme.surfaceSecondary },
+              {
+                backgroundColor: isSelected
+                  ? colors.primary
+                  : theme.surfaceSecondary,
+                borderColor: colors.primary,
+                borderWidth: 1,
+              },
             ]}
+            onPress={() => {
+              if (isSelected) {
+                removeBet(yesBetId);
+              } else {
+                toggleBet({
+                  id: yesBetId,
+                  gameId: gameId || "unknown",
+                  sport: sport.toUpperCase(),
+                  gameInfo: gameInfo,
+                  playerId: athleteId,
+                  player: displayName,
+                  team: team?.abbreviation || "",
+                  prop: `${properStatID} YES`,
+                  statType: properStatID || "stat",
+                  betValue: "yes",
+                  type: "yesno",
+                  odds: formattedOdds,
+                  playerColor: teamColor,
+                  description: `${displayName} ${properStatID} YES`,
+                });
+              }
+            }}
           >
             <Text
-              style={[styles.betButtonLabel, { color: theme.textSecondary }]}
+              style={[
+                styles.betButtonLabel,
+                { color: isSelected ? "white" : theme.textSecondary },
+              ]}
             >
               YES
             </Text>
-            <Text style={[styles.betButtonOdds, { color: colors.primary }]}>
-              {formatOdds(odds)}
+            <Text
+              style={[
+                styles.betButtonOdds,
+                { color: isSelected ? "white" : colors.primary },
+              ]}
+            >
+              {displayOdds}
             </Text>
-          </View>
+          </TouchableOpacity>
         </View>
       );
     }
 
     return (
       <View style={styles.yesNoContainer}>
-        <View
+        <TouchableOpacity
           style={[
             styles.yesNoButton,
-            { backgroundColor: theme.surfaceSecondary },
+            {
+              backgroundColor: isSelected
+                ? colors.primary
+                : theme.surfaceSecondary,
+              borderColor: colors.primary,
+              borderWidth: 1,
+            },
           ]}
+          onPress={() => {
+            if (isSelected) {
+              removeBet(yesBetId);
+            } else {
+              toggleBet({
+                id: yesBetId,
+                gameId: gameId || "unknown",
+                sport: sport.toUpperCase(),
+                gameInfo: gameInfo,
+                playerId: athleteId,
+                player: displayName,
+                team: team?.abbreviation || "",
+                prop: `${properStatID} YES`,
+                statType: properStatID || "stat",
+                betValue: "yes",
+                type: "yesno",
+                odds: formattedOdds,
+                playerColor: teamColor,
+                description: `${displayName} ${properStatID} YES`,
+              });
+            }
+          }}
         >
-          <Text style={[styles.betButtonLabel, { color: theme.textSecondary }]}>
+          <Text
+            style={[
+              styles.betButtonLabel,
+              { color: isSelected ? "white" : theme.textSecondary },
+            ]}
+          >
             YES
           </Text>
-          <Text style={[styles.betButtonOdds, { color: colors.primary }]}>
-            {formatOdds(odds)}
+          <Text
+            style={[
+              styles.betButtonOdds,
+              { color: isSelected ? "white" : colors.primary },
+            ]}
+          >
+            {displayOdds}
           </Text>
-        </View>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -1933,8 +2308,17 @@ const BetAthleteScreen = ({ route, navigation }) => {
                     {isExpanded && (
                       <View style={styles.marketContent}>
                         {hasOverUnder &&
-                          renderOverUnderButtons(market.variants)}
-                        {hasYesNo && renderYesNoButtons(market.variants)}
+                          renderOverUnderButtons(
+                            market.variants,
+                            market.marketName,
+                            market.statID
+                          )}
+                        {hasYesNo &&
+                          renderYesNoButtons(
+                            market.variants,
+                            market.marketName,
+                            market.statID
+                          )}
                       </View>
                     )}
                   </View>

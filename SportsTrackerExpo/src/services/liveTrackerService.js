@@ -173,7 +173,6 @@ async function initDiary(
     diaryDataBySport[inferredSport] = json;
     return diaryDataBySport[inferredSport];
   } catch (err) {
-    console.warn("liveTrackerService: initDiary error", err);
     return null;
   }
 }

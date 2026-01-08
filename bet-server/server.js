@@ -1963,7 +1963,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
     let gameId = null;
     try {
       // Fetch fresh scoreboard data for this sport if not already loaded
-      let sbData = scoreboardData;
+      let sbData = (scoreboardDataBySport && scoreboardDataBySport[sportKey]) || scoreboardData;
       if (!sbData || !sbData.events || sbData.events.length === 0) {
         sbData = await fetchScoreboard(sportKey);
       }
@@ -2334,6 +2334,8 @@ app.delete("/api/betslip/:id/watch", async (req, res) => {
 });
 
 // Data cache
+// Keep a per-sport scoreboard cache to avoid cross-sport lookups
+let scoreboardDataBySport = {};
 let scoreboardData = null;
 let summaryDataCache = {}; // { eventId: data }
 let rosterGamelogCache = {}; // { teamId: { roster, gamelogs } }
@@ -3055,10 +3057,16 @@ function transformScoreboardData(data) {
 }
 
 // Helper function to get team abbreviation from ID in scoreboard data
-function getTeamAbbreviationById(teamId) {
-  if (!scoreboardData?.events) return teamId;
+// Helper function to get team abbreviation from ID in scoreboard data
+// Accepts an optional sportKey to consult the sport-specific scoreboard cache.
+function getTeamAbbreviationById(teamId, sportKey) {
+  const sb = sportKey
+    ? (scoreboardDataBySport && scoreboardDataBySport[sportKey]) || scoreboardData
+    : scoreboardData;
 
-  for (const event of scoreboardData.events) {
+  if (!sb?.events) return teamId;
+
+  for (const event of sb.events) {
     const competitors = event.competitions?.[0]?.competitors || [];
     for (const competitor of competitors) {
       if (competitor.team?.id === teamId) {
@@ -3352,6 +3360,7 @@ function transformSummaryData(data) {
   ).toLowerCase();
   const isNFL = /football.*nfl|\bnfl\b|football/i.test(sportHint);
   const isNHL = /hockey|nhl/i.test(sportHint);
+  const transformSportKey = isNHL ? "nhl" : isNFL ? "nfl" : null;
 
   // Precompute 1Q stats and first-made-basket (athlete id + team + scoreValue + period)
   // We do this early so we can attach per-player 1Q stats when building the boxscore.
@@ -3380,7 +3389,7 @@ function transformSummaryData(data) {
                 athleteId: sid,
                 athleteName: null, // filled later after we build athleteNameById
                 teamId: play.team?.id || null,
-                team: getTeamAbbreviationById(play.team?.id),
+                team: getTeamAbbreviationById(play.team?.id, transformSportKey),
                 scoreValue: play.scoreValue,
                 period: play.period?.number || null,
               };
@@ -3460,7 +3469,7 @@ function transformSummaryData(data) {
                     athleteId: String(scorerRaw),
                     athleteName: null,
                     teamId: play.team?.id || null,
-                    team: getTeamAbbreviationById(play.team?.id),
+                    team: getTeamAbbreviationById(play.team?.id, transformSportKey),
                     period: play.period?.number || null,
                     scoreValue: play.scoreValue || null,
                     playIndex: play.sequenceNumber || null,
@@ -3478,7 +3487,7 @@ function transformSummaryData(data) {
                   athleteId: String(scorerRaw2),
                   athleteName: null,
                   teamId: play.team?.id || null,
-                  team: getTeamAbbreviationById(play.team?.id),
+                  team: getTeamAbbreviationById(play.team?.id, transformSportKey),
                   period: play.period?.number || null,
                   scoreValue: play.scoreValue || null,
                   playIndex: play.sequenceNumber || null,
@@ -4142,7 +4151,7 @@ function transformSummaryData(data) {
       clock: lastPlay.clock?.displayValue,
       scoringPlay: lastPlay.scoringPlay,
       scoreValue: lastPlay.scoreValue,
-      team: getTeamAbbreviationById(lastPlay.team?.id),
+      team: getTeamAbbreviationById(lastPlay.team?.id, transformSportKey),
       participants,
       shootingPlay: lastPlay.shootingPlay,
       coordinate: {
@@ -4450,6 +4459,8 @@ async function fetchScoreboard(sport = "nba") {
     const response = await axios.get(
       `${urls.base}/scoreboard?dates=${dateParam}`
     );
+    // store per-sport and keep a fallback reference
+    scoreboardDataBySport[sportKey] = response.data;
     scoreboardData = response.data;
 
     // Check game statuses and update scheduling

@@ -456,13 +456,22 @@ const BasketballCourt = React.memo(
 // Hockey Rink Component for NHL
 const HockeyRink = React.memo(
   ({ coordinate, isScoring, teamSide, teamColor, styles }) => {
-    // Helper to normalize ESPN coordinates to percentage
+    // Percent-based normalizer (matches GameDetails approach for NHL)
+    // Returns leftPercent (0..100) and bottomPercent (0..100)
+    // Adjusted for NHL rink proportions and ESPN coordinate system
     const normalizeCoordPercent = (x, y) => {
-      // ESPN coordinates: x=0-100 (left to right), y=0-100 (top to bottom)
-      // Rink is landscape, so we use x directly for left position, y for top position
-      const leftPercent = Math.max(0, Math.min(100, x));
-      const topPercent = Math.max(0, Math.min(100, y));
-      return { leftPercent, topPercent: 100 - topPercent }; // Flip Y axis
+      const clampedX = Math.max(-99, Math.min(99, Number(x)));
+      const clampedY = Math.max(-42, Math.min(42, Number(y)));
+
+      // ESPN coordinates: x=-99 (left) to x=99 (right), y=-42 (bottom) to y=42 (top)
+      // Map to percentages with a small margin to keep markers away from edges
+      const margin = 10; // percent margin on each side
+      const leftPercent =
+        margin + ((clampedX + 99) / (99 + 99)) * (100 - 2 * margin);
+      const bottomPercent =
+        margin + ((clampedY + 42) / (42 + 42)) * (100 - 2 * margin);
+
+      return { leftPercent, bottomPercent };
     };
 
     return (
@@ -512,6 +521,9 @@ const HockeyRink = React.memo(
             const finalTeamColor = teamColor?.startsWith("#")
               ? teamColor
               : `#${teamColor || "999"}`;
+            // Convert normalized bottomPercent to top for absolute positioning
+            const topStyle = `${100 - pct.bottomPercent}%`;
+            const leftStyle = `${pct.leftPercent}%`;
 
             return (
               <View
@@ -519,11 +531,16 @@ const HockeyRink = React.memo(
                   styles.playMarker,
                   {
                     position: "absolute",
-                    top: `${pct.topPercent}%`,
-                    left: `${pct.leftPercent}%`,
-                    transform: [{ translateX: -6 }, { translateY: -6 }],
-                    backgroundColor: isScoring ? finalTeamColor : "white",
-                    borderColor: isScoring ? "white" : finalTeamColor,
+                    top: topStyle,
+                    left: leftStyle,
+                    transform: [{ translateX: "0%" }, { translateY: "-7.5%" }],
+                    backgroundColor: finalTeamColor,
+                    borderColor: isScoring ? finalTeamColor : "white",
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.5,
+                    shadowRadius: 2,
+                    elevation: 5,
                   },
                 ]}
               />
@@ -2487,7 +2504,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       const isPlusMinus = s.key === "+/-";
                       const val = s.value == null ? "-" : String(s.value);
                       const color = isPlusMinus
-                        ? val.startsWith("+")
+                        ? val > "0"
                           ? theme.success
                           : val.startsWith("-")
                           ? theme.error
@@ -4254,6 +4271,88 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 );
               }
 
+              // NHL rink rendering - match basketball court pattern exactly
+              if (sportUpper === "NHL") {
+                const { team1Color, team2Color } = getSmartTeamColors(
+                  {
+                    team1Color: gameData.team1Color,
+                    team1AlternateColor: gameData.team1AlternateColor,
+                  },
+                  {
+                    team2Color: gameData.team2Color,
+                    team2AlternateColor: gameData.team2AlternateColor,
+                  }
+                );
+
+                return (
+                  <View
+                    style={[
+                      styles.miniCourtContainer,
+                      { height: courtContainerHeight },
+                    ]}
+                    onLayout={(event) => {
+                      const { width } = event.nativeEvent.layout;
+                      // Rink is 200px wide, 150px tall at base
+                      const scale = width / 200;
+                      const height = 150 * scale;
+
+                      setCourtScale(scale);
+                      setCourtContainerHeight(height);
+                      setCourtContainerWidth(width);
+                    }}
+                  >
+                    <View
+                      style={{
+                        position: "relative",
+                        width: courtContainerWidth,
+                        height: courtContainerHeight,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <HockeyRink
+                        coordinate={summaryData?.plays?.coordinate}
+                        isScoring={summaryData?.plays?.scoringPlay}
+                        teamSide={
+                          summaryData?.plays?.team === gameData.team2Abbr
+                            ? "home"
+                            : "away"
+                        }
+                        teamColor={
+                          summaryData?.plays?.team === gameData.team2Abbr
+                            ? team2Color
+                            : team1Color
+                        }
+                        styles={{
+                          ...styles,
+                          rinkContainer: {
+                            ...styles.rinkContainer,
+                            transform: [{ scale: courtScale }],
+                          },
+                        }}
+                      />
+                      {/* Home Team Logo in Center */}
+                      <Image
+                        source={{ uri: gameData.team2Logo }}
+                        style={{
+                          position: "absolute",
+                          width: 50 * courtScale,
+                          height: 50 * courtScale,
+                          opacity: 0.6,
+                          top: "50%",
+                          left: "50%",
+                          transform: [
+                            { translateX: -25 * courtScale },
+                            { translateY: -25 * courtScale },
+                          ],
+                        }}
+                        resizeMode="contain"
+                      />
+                    </View>
+                  </View>
+                );
+              }
+
               // Basketball court rendering
               return (
                 <View
@@ -4268,13 +4367,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     const scale = width / 200;
                     // When rotated, the height becomes 150 * scale
                     const height = 150 * scale;
-
-                    // Debug logging
-                    console.log(
-                      `[${sportUpper}] Device width: ${width}, Scale: ${scale}, Rink/Court width: ${
-                        sportUpper === "NHL" ? 200 : 200
-                      }`
-                    );
 
                     setCourtScale(scale);
                     setCourtContainerHeight(height);
@@ -4292,9 +4384,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   >
                     {sportUpper === "NHL" ? (
                       <>
-                        {console.log(
-                          `[NHL] Rendering HockeyRink with courtScale: ${courtScale}, containerWidth: ${courtContainerWidth}, containerHeight: ${courtContainerHeight}`
-                        )}
                         <HockeyRink
                           coordinate={undefined}
                           isScoring={false}
@@ -4311,9 +4400,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       </>
                     ) : (
                       <>
-                        {console.log(
-                          `[NBA] Rendering BasketballCourt with courtScale: ${courtScale}, containerWidth: ${courtContainerWidth}, containerHeight: ${courtContainerHeight}`
-                        )}
                         <BasketballCourt
                           coordinate={undefined}
                           isScoring={false}
@@ -4363,7 +4449,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       }}
                     >
                       {/* ESPN Play Coordinate Visualization (with test override support) */}
-                      {(() => {
+                      {/* Only render for NBA - NHL handles coords internally */}
+                      {sportUpper === "NBA" && (() => {
                         // Build array of plays to render. If a debug constant is set,
                         // use those test coords (can include both home and away).
                         const plays = [];
@@ -4516,6 +4603,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 top: actualY - 3.75 * courtScale,
                                 zIndex: 400,
                                 elevation: 400,
+                                shadowColor: "#000",
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 1,
+                                shadowRadius: 2 * courtScale,
+                                elevation: 5,
                               }}
                             />
                           );
@@ -8426,10 +8518,10 @@ const styles = StyleSheet.create({
     marginBottom: 10.5,
   },
   playMarker: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
   },
 });
 
