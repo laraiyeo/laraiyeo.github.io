@@ -1963,7 +1963,9 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
     let gameId = null;
     try {
       // Fetch fresh scoreboard data for this sport if not already loaded
-      let sbData = (scoreboardDataBySport && scoreboardDataBySport[sportKey]) || scoreboardData;
+      let sbData =
+        (scoreboardDataBySport && scoreboardDataBySport[sportKey]) ||
+        scoreboardData;
       if (!sbData || !sbData.events || sbData.events.length === 0) {
         sbData = await fetchScoreboard(sportKey);
       }
@@ -3061,7 +3063,8 @@ function transformScoreboardData(data) {
 // Accepts an optional sportKey to consult the sport-specific scoreboard cache.
 function getTeamAbbreviationById(teamId, sportKey) {
   const sb = sportKey
-    ? (scoreboardDataBySport && scoreboardDataBySport[sportKey]) || scoreboardData
+    ? (scoreboardDataBySport && scoreboardDataBySport[sportKey]) ||
+      scoreboardData
     : scoreboardData;
 
   if (!sb?.events) return teamId;
@@ -3469,7 +3472,10 @@ function transformSummaryData(data) {
                     athleteId: String(scorerRaw),
                     athleteName: null,
                     teamId: play.team?.id || null,
-                    team: getTeamAbbreviationById(play.team?.id, transformSportKey),
+                    team: getTeamAbbreviationById(
+                      play.team?.id,
+                      transformSportKey
+                    ),
                     period: play.period?.number || null,
                     scoreValue: play.scoreValue || null,
                     playIndex: play.sequenceNumber || null,
@@ -3487,7 +3493,10 @@ function transformSummaryData(data) {
                   athleteId: String(scorerRaw2),
                   athleteName: null,
                   teamId: play.team?.id || null,
-                  team: getTeamAbbreviationById(play.team?.id, transformSportKey),
+                  team: getTeamAbbreviationById(
+                    play.team?.id,
+                    transformSportKey
+                  ),
                   period: play.period?.number || null,
                   scoreValue: play.scoreValue || null,
                   playIndex: play.sequenceNumber || null,
