@@ -513,6 +513,32 @@ const BetAthleteScreen = ({ route, navigation }) => {
   const getMatchStatNumeric = (match, statID) => {
     if (!match || !match.stats) return 0;
     const stats = match.stats || {};
+    
+    // Helper to show what each stat would parse to
+    const parseForDisplay = (raw) => {
+      if (raw === null || raw === undefined) return 0;
+      const s = String(raw).trim();
+      if (s.includes("-")) {
+        const parts = s.split("-");
+        const n = parseFloat(parts[0]);
+        return !isNaN(n) ? n : 0;
+      }
+      const n = parseFloat(s.replace("%", ""));
+      return !isNaN(n) ? n : 0;
+    };
+    
+    const statsWithValues = {};
+    Object.keys(stats).forEach(k => {
+      statsWithValues[k] = {
+        raw: stats[k],
+        parsed: parseForDisplay(stats[k])
+      };
+    });
+    
+    console.log('[GET MATCH STAT ENTRY]', {
+      statID,
+      statsWithValues
+    });
 
     const findStat = (needle) => {
       const lk = Object.keys(stats).find((k) =>
@@ -552,8 +578,33 @@ const BetAthleteScreen = ({ route, navigation }) => {
     // This prevents "Points + Assists" from matching just the "Points" pattern
     if (statID && statID.includes("+")) {
       const parts = statID.split("+").map((p) => p.trim());
+      
+      // Check if the last part has a unit (Yards, Touchdowns, etc.) that should apply to all parts
+      // Example: "Passing + Rushing Yards" should become ["Passing Yards", "Rushing Yards"]
+      const lastPart = parts[parts.length - 1];
+      const lastPartWords = lastPart.split(/\s+/);
+      
+      // Common units in stat names
+      const units = ['yards', 'touchdowns', 'attempts', 'completions', 'receptions', 'points', 'assists', 'rebounds'];
+      const lastWord = lastPartWords[lastPartWords.length - 1]?.toLowerCase();
+      
+      let adjustedParts = parts;
+      if (parts.length > 1 && units.includes(lastWord)) {
+        // The last word is a unit - distribute it to all parts that don't have it
+        adjustedParts = parts.map((p, idx) => {
+          if (idx === parts.length - 1) return p; // Last part already has the unit
+          const pWords = p.split(/\s+/);
+          const pLastWord = pWords[pWords.length - 1]?.toLowerCase();
+          // Only add unit if this part doesn't already have a unit
+          if (!units.includes(pLastWord)) {
+            return `${p} ${lastPartWords[lastPartWords.length - 1]}`;
+          }
+          return p;
+        });
+      }
+      
       let total = 0;
-      for (const p of parts) {
+      for (const p of adjustedParts) {
         // Recursively call getMatchStatNumeric for each component
         // This allows each component to use all the stat-specific logic (NHL, NFL, NBA, etc.)
         const componentValue = getMatchStatNumeric(match, p);
@@ -592,9 +643,23 @@ const BetAthleteScreen = ({ route, navigation }) => {
     // NHL-specific explicit mappings: Goals, Shots on Goal (derived), Assists, Points, Power-Play Points
     const statKeys = Object.keys(stats || {});
     const statKeysLower = statKeys.map((k) => k.toLowerCase());
-    const looksLikeNHL = statKeysLower.some((k) =>
+    
+    // Exclude NFL kicking stats from NHL detection (field goal, extra point, FGM, kicking)
+    const hasNFLKickingStats = statKeysLower.some((k) =>
+      /field\s*goal|extra\s*point|fgm|kicking|yards/i.test(k)
+    );
+    
+    const looksLikeNHL = !hasNFLKickingStats && statKeysLower.some((k) =>
       /\bgoals?\b|\bassists?\b|\bshots?\b|shooting\b|power ?play/i.test(k)
     );
+    
+    console.log('[NHL CHECK]', {
+      statID,
+      hasNFLKickingStats,
+      looksLikeNHL,
+      statKeys
+    });
+    
     if (looksLikeNHL) {
       // Helper: find key by regex
       const findKey = (rx) => statKeys.find((k) => rx.test(k));
@@ -658,6 +723,81 @@ const BetAthleteScreen = ({ route, navigation }) => {
       }
     }
 
+    // NFL-specific explicit mappings (similar to NHL approach above)
+    const statKeysNFL = Object.keys(stats || {});
+    const findKeyNFL = (rx) => statKeysNFL.find((k) => rx.test(k));
+    
+    // Helper to find key with exact match priority
+    const findKeyNFLExact = (exactName, rx) => {
+      // Try exact match first (case-insensitive)
+      const exactMatch = statKeysNFL.find(
+        (k) => k.toLowerCase() === exactName.toLowerCase()
+      );
+      if (exactMatch) return exactMatch;
+      // Fall back to regex
+      return findKeyNFL(rx);
+    };
+    
+    // Helper to extract first number from "X-X" format (for made-attempted stats)
+    const parseFirstNumber = (raw) => {
+      if (raw === null || raw === undefined) return 0;
+      const s = String(raw).trim();
+      const m = s.match(/(-?\d+(?:\.\d+)?)/);
+      return m ? parseFloat(m[1]) : 0;
+    };
+
+    // Field Goals Made: extract first number from "X-X" format
+    console.log('[NFL CHECK - Field Goals Test]', {
+      statID,
+      testResult: /field\s*goals?\s*made/i.test(statID)
+    });
+    
+    if (/field\s*goals?\s*made/i.test(statID)) {
+      console.log('[NFL CHECK - Inside Field Goals block]');
+      const fgKey = findKeyNFLExact("Field goals made", /field\s*goals?\s*made/i);
+      console.log('[NFL CHECK - Found key]', fgKey);
+      const result = fgKey ? parseFirstNumber(stats[fgKey]) : 0;
+      console.log('[NFL STAT DEBUG - Field Goals Made]', {
+        statID,
+        foundKey: fgKey,
+        rawValue: fgKey ? stats[fgKey] : 'N/A',
+        parsedValue: result,
+        allStats: stats
+      });
+      if (fgKey) {
+        console.log('[NFL CHECK - Returning]', result);
+        return result;
+      }
+    }
+
+    // Extra Points Made: extract first number from "X-X" format
+    if (/extra\s*points?\s*made/i.test(statID)) {
+      const xpKey = findKeyNFLExact("Extra Points Made", /extra\s*points?\s*made/i);
+      const result = xpKey ? parseFirstNumber(stats[xpKey]) : 0;
+      console.log('[NFL STAT DEBUG - Extra Points Made]', {
+        statID,
+        foundKey: xpKey,
+        rawValue: xpKey ? stats[xpKey] : 'N/A',
+        parsedValue: result,
+        allStats: stats
+      });
+      if (xpKey) return result;
+    }
+
+    // Total Kicking Points: direct value
+    if (/total\s*kicking\s*points|kicking\s*total\s*points/i.test(statID)) {
+      const kpKey = findKeyNFLExact("Total Kicking Points", /total\s*kicking\s*points/i);
+      const result = kpKey ? parseMatchStatValue(stats[kpKey]) : 0;
+      console.log('[NFL STAT DEBUG - Total Kicking Points]', {
+        statID,
+        foundKey: kpKey,
+        rawValue: kpKey ? stats[kpKey] : 'N/A',
+        parsedValue: result,
+        allStats: stats
+      });
+      if (kpKey) return result;
+    }
+
     // NFL-specific mappings: prefer appropriate stat keys
     const lkStat = (regexes) => {
       for (const rx of regexes) {
@@ -668,6 +808,25 @@ const BetAthleteScreen = ({ route, navigation }) => {
     };
 
     const lower = statID ? statID.toLowerCase() : "";
+
+    // Check for exact key match first (case-insensitive) and apply appropriate parsing
+    const exactKey = Object.keys(stats).find(
+      (k) => k.toLowerCase() === lower
+    );
+    if (exactKey) {
+      const raw = stats[exactKey];
+      if (raw === null || raw === undefined) return 0;
+      const rawStr = String(raw).trim();
+      
+      // For kicking stats in "X-X" format, extract first number
+      if (/field\s*goals?\s*made|extra\s*points?\s*made/i.test(exactKey)) {
+        const m = rawStr.match(/(-?\d+(?:\.\d+)?)/);
+        return m ? parseFloat(m[1]) : 0;
+      }
+      
+      // For other stats, use normal parsing
+      return parseMatchStatValue(raw);
+    }
 
     // Explicit mapping rules (from 4.txt) to map market statIDs to match.stats keys
     const mappingRules = [
@@ -714,7 +873,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
       },
       {
         test: /field\s*goals?\s*made/i,
-        keys: ["Field Goals Made"],
+        keys: ["Field goals made"],
         firstNumber: true,
       },
       { test: /kicking\s*total\s*points/i, keys: ["Total Kicking Points"] },
@@ -722,7 +881,11 @@ const BetAthleteScreen = ({ route, navigation }) => {
 
     const getByKey = (k, opts = {}) => {
       if (!k) return 0;
-      const raw = stats[k];
+      // Case-insensitive key lookup
+      const actualKey = Object.keys(stats).find(
+        (statKey) => statKey.toLowerCase() === k.toLowerCase()
+      );
+      const raw = actualKey ? stats[actualKey] : undefined;
       if (raw === null || raw === undefined) return 0;
       if (opts.firstNumber) {
         const s = String(raw).trim();
@@ -1593,7 +1756,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
     // Reconstruct proper statID with suffix based on variant type
     const hasOverUnder = overVariant || underVariant;
     const properStatID =
-      hasOverUnder && statID && !statID.includes("_") ? `${statID}_ou` : statID;
+      hasOverUnder && statID && !statID.endsWith("_ou") && !statID.endsWith("_yn") ? `${statID}_ou` : statID;
 
     // Extract main lines and alt lines
     const getLines = (variant) => {
@@ -1665,7 +1828,6 @@ const BetAthleteScreen = ({ route, navigation }) => {
                         : theme.surfaceSecondary,
                       borderColor: colors.primary,
                       borderWidth: 1,
-                      opacity: isPro ? 1 : 0.5,
                     },
                   ]}
                   onPress={() => {
@@ -1743,7 +1905,6 @@ const BetAthleteScreen = ({ route, navigation }) => {
                         : theme.surfaceSecondary,
                       borderColor: colors.primary,
                       borderWidth: 1,
-                      opacity: isPro ? 1 : 0.5,
                     },
                   ]}
                   onPress={() => {
@@ -1849,7 +2010,6 @@ const BetAthleteScreen = ({ route, navigation }) => {
                             : theme.surfaceSecondary,
                           borderColor: colors.primary,
                           borderWidth: 1,
-                          opacity: isPro ? 1 : 0.5,
                         },
                       ]}
                       onPress={() => {
@@ -1925,7 +2085,6 @@ const BetAthleteScreen = ({ route, navigation }) => {
                           : theme.surfaceSecondary,
                         borderColor: colors.primary,
                         borderWidth: 1,
-                        opacity: isPro ? 1 : 0.5,
                       },
                     ]}
                     onPress={() => {
@@ -1987,7 +2146,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
     // Reconstruct proper statID with suffix based on variant type
     const hasYesNo = yesVariant;
     const properStatID =
-      hasYesNo && statID && !statID.includes("_") ? `${statID}_yn` : statID;
+      hasYesNo && statID && !statID.endsWith("_ou") && !statID.endsWith("_yn") ? `${statID}_yn` : statID;
 
     // Get first available odds
     let odds = null;

@@ -266,6 +266,7 @@ const BetBetsScreen = () => {
         query += `&p${playerNum}=${playerId}`;
         Object.entries(stats).forEach(([statType, betValue]) => {
           const statTypeMap = {
+            // NBA stats
             points: "pts",
             rebounds: "reb",
             assists: "ast",
@@ -274,6 +275,37 @@ const BetBetsScreen = () => {
             turnovers: "to",
             threes: "3pt",
             pra: "pra",
+            // NFL passing stats
+            passing_yards: "pyds",
+            passing_attempts: "patt",
+            passing_completions: "pcmp",
+            passing_interceptions: "pint",
+            passing_touchdowns: "ptd",
+            passing_longestcompletion: "plng",
+            "passing+rushing_yards": "pryds",
+            // NFL rushing stats
+            rushing_yards: "ryds",
+            rushing_attempts: "ratt",
+            rushing_longestrush: "rlng",
+            // NFL receiving stats
+            receiving_yards: "recyds",
+            receiving_receptions: "rrec",
+            receiving_longestreception: "reclong",
+            "rushing+receiving_yards": "rryds",
+            // NFL kicking stats
+            extrapoints_kicksmade: "kxp",
+            fieldgoals_made: "kfg",
+            kicking_totalpoints: "kpts",
+            // NFL defensive stats
+            defense_sacks: "dsac",
+            // NFL touchdown stats
+            touchdowns: "touchdown",
+            touchdowns_yn: "touchdown",
+            touchdowns_ou: "tds",
+            firsttouchdown: "firsttouchdown",
+            firsttouchdown_yn: "firsttouchdown",
+            lasttouchdown: "lasttouchdown",
+            lasttouchdown_yn: "lasttouchdown",
           };
           const shortStat = statTypeMap[statType.toLowerCase()] || "pts";
           query += `&p${playerNum}_${shortStat}=${encodeURIComponent(
@@ -1763,10 +1795,41 @@ const BetBetsScreen = () => {
           return "3PM";
 
         // NFL stats
-        if (s.includes("pass") || s.includes("pyds") || s.includes("passing"))
-          return "PYD";
-        if (s.includes("rush") || s.includes("ryds") || s.includes("rushing"))
-          return "RYD";
+        if (sportLower === "nfl") {
+          // Passing
+          if (s.includes("passing_yards")) return "PYDS";
+          if (s.includes("passing_attempts")) return "PATT";
+          if (s.includes("passing_completions")) return "PCMP";
+          if (s.includes("passing_interceptions")) return "PINT";
+          if (s.includes("passing_touchdowns")) return "PTD";
+          if (s.includes("passing_longestcompletion")) return "PLNG";
+          if (s.includes("passing+rushing_yards")) return "PRYDS";
+
+          // Rushing
+          if (s.includes("rushing_yards")) return "RYDS";
+          if (s.includes("rushing_attempts")) return "RATT";
+          if (s.includes("rushing_longestrush")) return "RLNG";
+
+          // Receiving
+          if (s.includes("receiving_yards")) return "RECYDS";
+          if (s.includes("receiving_receptions")) return "RREC";
+          if (s.includes("receiving_longestreception")) return "RECLONG";
+          if (s.includes("rushing+receiving_yards")) return "RRYDS";
+
+          // Kicking
+          if (s.includes("extrapoints_kicksmade")) return "KXP";
+          if (s.includes("fieldgoals_made")) return "KFG";
+          if (s.includes("kicking_totalpoints")) return "KPTS";
+
+          // Defense
+          if (s.includes("defense_sacks")) return "DSAC";
+
+          // Touchdowns
+          if (s.includes("touchdowns_ou")) return "TDS";
+          if (s.includes("touchdowns_yn")) return "TOUCHDOWN";
+          if (s.includes("firsttouchdown")) return "FIRSTTOUCHDOWN";
+          if (s.includes("lasttouchdown")) return "LASTTOUCHDOWN";
+        }
 
         // Basic stats (NBA/NFL)
         if (s.includes("point") || s.includes("pts") || s.includes("points"))

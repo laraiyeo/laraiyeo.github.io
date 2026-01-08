@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   PanResponder,
   Alert,
+  TextInput,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons, FontAwesome6 } from "@expo/vector-icons";
@@ -31,8 +32,6 @@ import { useBetData } from "../../context/BetDataContext";
 import BetSlip from "../../components/BetSlip";
 import PlayerStatsPopup from "../../components/PlayerStatsPopup";
 import { useGamePresence } from "../../hooks/useGamePresence";
-import LiveTrackerEmbed from "../../components/LiveTrackerEmbed";
-import LiveTrackerService from "../../services/liveTrackerService";
 import { BannerAdWrapper, DEV_BANNER_ID } from "../../services/ads";
 
 const { width } = Dimensions.get("window");
@@ -1074,6 +1073,12 @@ const PropTabContent = ({
     ) {
       return "Anytime Goals";
     }
+    if (
+      (gameData?.sport || "").toUpperCase() === "NFL" &&
+      key === "touchdowns_yn"
+    ) {
+      return "Anytime Touchdowns";
+    }
 
     const { statID, periodID } = parsePropKey(key);
     const base = formatStatLabel(statID);
@@ -1444,6 +1449,7 @@ const PropTabContent = ({
       if (!market) return;
 
       // Collect altLines only from variants that match the selected period (or lack thereof)
+      // Preserve the variant sideID so we can format under/over differently
       let altLines = [];
       (market.variants || []).forEach((v) => {
         if (periodID) {
@@ -1453,8 +1459,12 @@ const PropTabContent = ({
           if (v.periodID) return;
         }
         const dk = v.byBookmaker?.draftkings;
-        if (dk?.altLines && Array.isArray(dk.altLines))
-          altLines = altLines.concat(dk.altLines);
+        if (dk?.altLines && Array.isArray(dk.altLines)) {
+          dk.altLines.forEach((al) => {
+            // Attach sideID from the parent variant so we know if this alt is 'over' or 'under'
+            altLines.push(Object.assign({}, al, { sideID: v.sideID }));
+          });
+        }
       });
       if (!altLines || altLines.length === 0) return;
 
@@ -1467,13 +1477,34 @@ const PropTabContent = ({
           if (m) {
             const num = parseFloat(m[0]);
             if (!isNaN(num)) {
-              formattedLabel = `${Math.ceil(num)}+`;
+              const side = String(a.sideID || "").toLowerCase();
+              if (side === "under") {
+                // alt under: round down and show trailing '-'
+                formattedLabel = `${Math.floor(num)}-`;
+              } else if (side === "over") {
+                // alt over: round up and show trailing '+'
+                formattedLabel = `${Math.ceil(num)}+`;
+              } else {
+                // fallback: default to over-style
+                formattedLabel = `${Math.ceil(num)}+`;
+              }
             }
           }
           const odds = a.odds || a.price || a.payout || null;
-          return { rawLabel: raw, label: formattedLabel, odds };
+          return { rawLabel: raw, label: formattedLabel, odds, sideID: a.sideID };
         })
-        .filter((o) => o.label && o.odds);
+        .filter((o) => o.label && o.odds)
+        .sort((A, B) => {
+          // sort: alt under first, then alt over; within same side sort numerically
+          const aSide = String(A.sideID || "").toLowerCase();
+          const bSide = String(B.sideID || "").toLowerCase();
+          if (aSide === "under" && bSide !== "under") return -1;
+          if (aSide !== "under" && bSide === "under") return 1;
+          // both same side or neither: compare numeric value in label
+          const aNum = parseInt(String(A.label).match(/\d+/)?.[0] || "0");
+          const bNum = parseInt(String(B.label).match(/\d+/)?.[0] || "0");
+          return aNum - bNum;
+        });
 
       if (milestoneOptions.length > 0) {
         matchingPlayers.push({ player, milestoneOptions });
@@ -2250,10 +2281,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
   const [courtContainerHeight, setCourtContainerHeight] = useState(200);
   const [courtContainerWidth, setCourtContainerWidth] = useState(300);
 
-  // Live tracker state
-  const [liveTrackerVisible, setLiveTrackerVisible] = useState(false);
-  const [liveTrackerUuid, setLiveTrackerUuid] = useState(null);
-
   // Refs for synchronized scrolling in box score
   const boxScoreScrollRefs = useRef({});
   const isBoxScoreScrolling = useRef(false);
@@ -2539,60 +2566,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
   // Game presence tracking
   const { viewerData, isJoined } = useGamePresence(game?.id);
 
-  // Live tracker resolver effect
-  useEffect(() => {
-    let cancelled = false;
-    const resolveTracker = async () => {
-      // Prefer explicit id passed via route params
-      const provided = route?.params?.liveTrackerMatchId;
-      if (provided) {
-        setLiveTrackerUuid(provided);
-        return;
-      }
-
-      // Prefer a diary URL passed from the scoreboard; fallback to basketball diary
-      const diaryUrl =
-        route?.params?.liveTrackerDiaryUrl ||
-        LiveTrackerService.buildDiaryUrl("basketball");
-
-      // Derive team names from summaryData
-      const competition =
-        summaryData?.header?.competitions?.[0] ||
-        summaryData?.competitions?.[0] ||
-        null;
-
-      const homeName =
-        competition?.competitors?.find((c) => c.homeAway === "home")?.team
-          ?.displayName || "";
-      const awayName =
-        competition?.competitors?.find((c) => c.homeAway === "away")?.team
-          ?.displayName || "";
-
-      if (!diaryUrl || !homeName || !awayName) return;
-
-      try {
-        await LiveTrackerService.initDiary(diaryUrl);
-        const id = await LiveTrackerService.findMatchIdByTeams(
-          homeName,
-          awayName,
-          "basketball"
-        );
-        if (!cancelled && id) setLiveTrackerUuid(id);
-      } catch (e) {
-        // ignore
-      }
-    };
-
-    resolveTracker();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    summaryData,
-    route?.params?.liveTrackerMatchId,
-    route?.params?.liveTrackerDiaryUrl,
-  ]);
-
   // Fetch game summary data (initial load)
   useEffect(() => {
     const fetchGameSummary = async () => {
@@ -2606,12 +2579,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       try {
         setLoading(true);
         const url = useEventId
-          ? `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/${String(
-              sportToUse
-            ).toLowerCase()}/${useEventId}`
-          : `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/${String(
-              sportToUse
-            ).toLowerCase()}/${game.id}`;
+          ? `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/nfl/401772960`
+          : `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/nfl/401772960`;
         const response = await fetch(url);
         const data = await response.json();
         setSummaryData(data);
@@ -2953,6 +2922,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           icon: "stats-chart",
           label: "Game Stats",
         },
+        {
+          id: "quick",
+          icon: "flash",
+          label: "Live Play",
+        },
       ];
     }
   }, [gameData.status]);
@@ -3141,13 +3115,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         "fumbles",
                         "interceptions",
                         "punting",
+                        "puntreturns",
                         "kicking",
-                        "kickReturns",
+                        "kickreturns",
                         "defensive",
                       ];
                       nflOrder.forEach((key) => {
                         if (statGroups[key]) {
-                          const label =
+                          const label = key==="kickreturns" ? "Kick Returns" : key==="puntreturns" ? "Punt Returns" :
                             key.charAt(0).toUpperCase() + key.slice(1);
                           groups.push({
                             label,
@@ -4171,7 +4146,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       onLayout={(event) => {
                         const { width } = event.nativeEvent.layout;
                         // Field is 320px wide at scale 1
-                        const scale = Math.min(width / 320); // Cap at 1.5x
+                        const scale = width / 320;
                         setCourtScale(scale); // Reuse courtScale state
                       }}
                     >
@@ -4266,6 +4241,286 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 </Text>
                               </View>
                             </View>
+                          </View>
+                        );
+                      })()}
+
+                    {/* NFL Drive Participants Section */}
+                    {summaryData?.drives?.participants && Array.isArray(summaryData.drives.participants) && summaryData.drives.participants.length > 0 &&
+                      (() => {
+                        console.log('[NFL Participants] Starting render');
+                        const participants = summaryData.drives.participants;
+                        console.log('[NFL Participants] participants:', participants, 'isArray:', Array.isArray(participants));
+                        const playTypeId = summaryData.drives.type?.id;
+                        console.log('[NFL Participants] playTypeId:', playTypeId);
+
+                        // Helper function to format participant type (camelCase to Title Case)
+                        const formatParticipantType = (type) => {
+                          if (!type) return '';
+                          // Split by capital letters and join with space
+                          return type
+                            .replace(/([A-Z])/g, ' $1')
+                            .trim()
+                            .split(' ')
+                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(' ');
+                        };
+
+                        // Helper function to get player stats from boxscore (returns array of {value, label} objects)
+                        const getPlayerStats = (player, playTypeId, participantType) => {
+                          console.log('[getPlayerStats] Called with player:', player?.athlete?.id, 'playType:', playTypeId, 'participantType:', participantType);
+                          if (!summaryData?.boxscore?.players || !player?.athlete?.id) {
+                            console.log('[getPlayerStats] Missing data, returning empty array');
+                            return [];
+                          }
+
+                          console.log('[getPlayerStats] boxscore.players type:', typeof summaryData.boxscore.players, 'isArray:', Array.isArray(summaryData.boxscore.players));
+                          
+                          // Ensure players is an array
+                          if (!Array.isArray(summaryData.boxscore.players)) {
+                            console.log('[getPlayerStats] players is not an array!');
+                            return [];
+                          }
+
+                          // Find player in boxscore
+                          let playerBoxscoreData = null;
+                          for (const teamData of summaryData.boxscore.players) {
+                            console.log('[getPlayerStats] Processing team:', teamData?.team?.abbreviation);
+                            // Statistics is an object with athletes array, not an array of categories
+                            const athletes = teamData.statistics?.athletes || [];
+                            console.log('[getPlayerStats] athletes type:', typeof athletes, 'isArray:', Array.isArray(athletes), 'length:', athletes?.length);
+                            
+                            if (!Array.isArray(athletes)) {
+                              console.log('[getPlayerStats] athletes is not an array, skipping');
+                              continue;
+                            }
+                            
+                            for (const athleteData of athletes) {
+                              const athlete = athleteData.athlete;
+                              if (athlete && (athlete.id === player.athlete.id || athlete.id === player.athlete.id.toString())) {
+                                console.log('[getPlayerStats] Found matching player:', athlete.displayName);
+                                if (!playerBoxscoreData) playerBoxscoreData = {};
+                                // athleteData.stats contains all stat categories
+                                const statsObj = athleteData.stats || {};
+                                console.log('[getPlayerStats] Stats object:', statsObj);
+                                // Merge all stat categories into playerBoxscoreData
+                                Object.assign(playerBoxscoreData, statsObj);
+                              }
+                            }
+                          }
+
+                          if (!playerBoxscoreData) {
+                            console.log('[getPlayerStats] Player not found in boxscore');
+                            return [];
+                          }
+                          console.log('[getPlayerStats] playerBoxscoreData:', playerBoxscoreData);
+
+                          const stats = [];
+
+                          // Special case: Interception (type 26)
+                          if (playTypeId === "26" || playTypeId === "36") {
+                            if (participantType === "passer") {
+                              const passing = playerBoxscoreData.passing || {};
+                              if (passing.YDS) stats.push({ value: passing.YDS, label: 'YDS' });
+                              if (passing.INT) stats.push({ value: passing.INT, label: 'INT' });
+                            } else if (participantType === "passDefender") {
+                              const defensive = playerBoxscoreData.interceptions || {};
+                              if (defensive.INT) stats.push({ value: defensive.INT, label: 'INT' });
+                              if (defensive.YDS) stats.push({ value: defensive.YDS, label: 'INT YDS' });
+                            } else if (participantType === "returner") {
+                              const receiving = playerBoxscoreData.receiving || {};
+                              if (receiving.TGT) stats.push({ value: receiving.TGT, label: 'TGT' });
+                              if (receiving.YDS) stats.push({ value: receiving.YDS, label: 'YDS' });
+                            } else if (participantType === "tackler" || participantType === "assistedBy") {
+                              const defensive = playerBoxscoreData.defensive || {};
+                              if (defensive.TOT) stats.push({ value: defensive.TOT, label: 'TKL' });
+                            }
+                          }
+                          // Special case: Kickoff (type 53)
+                          else if (playTypeId === "53") {
+                            if (participantType === "returner") {
+                              const returning = playerBoxscoreData.kickreturns || {};
+                              if (returning.NO) stats.push({ value: returning.NO, label: 'RET' });
+                              if (returning.YDS) stats.push({ value: returning.YDS, label: 'YDS' });
+                            } else if (participantType === "tackler" || participantType === "assistedBy") {
+                              const defensive = playerBoxscoreData.defensive || {};
+                              if (defensive.TOT) stats.push({ value: defensive.TOT, label: 'TKL' });
+                            }
+                          } else if (playTypeId === "32") {
+                            if (participantType === "returner" || participantType === "scorer") {
+                              const returning = playerBoxscoreData.kickreturns || {};
+                              if (returning.NO) stats.push({ value: returning.NO, label: 'RET' });
+                              if (returning.YDS) stats.push({ value: returning.YDS, label: 'YDS' });
+                              if (returning.TD) stats.push({ value: returning.TD, label: 'TD' });
+                            } else if (participantType === "patScorer" || participantType === "kicker") {
+                              const kicking = playerBoxscoreData.kicking || {};
+                              if (kicking.XP) stats.push({ value: kicking.XP, label: 'XP' });
+                            }
+                          }
+                          // Special case: Punt (type 52)
+                          else if (playTypeId === "52" || playTypeId === "34") {
+                            if (participantType === "returner") {
+                              const returning = playerBoxscoreData.puntreturns || {};
+                              if (returning.NO) stats.push({ value: returning.NO, label: 'RET' });
+                              if (returning.YDS) stats.push({ value: returning.YDS, label: 'YDS' });
+                            } else if (participantType === "tackler" || participantType === "assistedBy") {
+                              const defensive = playerBoxscoreData.defensive || {};
+                              if (defensive.TOT) stats.push({ value: defensive.TOT, label: 'TKL' });
+                            } else if (participantType === "punter") {
+                              const punting = playerBoxscoreData.punting || {};
+                              if (punting.NO) stats.push({ value: punting.NO, label: 'PUNTS' });
+                              if (punting.YDS) stats.push({ value: punting.YDS, label: 'YDS' });
+                            } else if (participantType === "patScorer" || participantType === "kicker") {
+                              const kicking = playerBoxscoreData.kicking || {};
+                              if (kicking.XP) stats.push({ value: kicking.XP, label: 'XP' });
+                            }
+                          } else if (playTypeId === "29" || playTypeId === "80") {
+                            if (participantType === "fumbler" || participantType === "rusher" || participantType === "passer") {
+                              const fumbles = playerBoxscoreData.fumbles || {};
+                              if (fumbles.FUM) stats.push({ value: fumbles.FUM, label: 'FUM' });
+                            } else if (participantType === "recoverer") {
+                              const defensive = playerBoxscoreData.fumbles || {};
+                              if (defensive.REC) stats.push({ value: defensive.REC, label: 'REC' });
+                            } else if (participantType === "tackler" || participantType === "assistedBy" || participantType === "forcedBy") {
+                              const defensive = playerBoxscoreData.defensive || {};
+                              if (defensive.TOT) stats.push({ value: defensive.TOT, label: 'TKL' });
+                            }
+                          }
+                          // Special case: Sack (type 7)
+                          else if (playTypeId === "7") {
+                            if (participantType === "passer") {
+                              const passing = playerBoxscoreData.passing || {};
+                              if (passing.SACKS) stats.push({ value: passing.SACKS, label: 'SCK' });
+                              if (passing.YDS) stats.push({ value: passing.YDS, label: 'YDS' });
+                            } else if (participantType === "sackedBy" || participantType === "tackler" || participantType === "assistedBy") {
+                              const defensive = playerBoxscoreData.defensive || {};
+                              if (defensive.SACKS) stats.push({ value: defensive.SACKS, label: 'SCK' });
+                              if (defensive.TOT) stats.push({ value: defensive.TOT, label: 'TKL' });
+                            }
+                          }
+                          // Special case: Field Goal (type 59)
+                          else if (playTypeId === "59") {
+                            if (participantType === "kicker") {
+                              const kicking = playerBoxscoreData.kicking || {};
+                              if (kicking.FG) stats.push({ value: kicking.FG, label: 'FG' });
+                              if (kicking.PCT) stats.push({ value: `${kicking.PCT}%`, label: 'PCT' });
+                            }
+                          }
+                          // Regular cases
+                          else {
+                            if (participantType === "rusher") {
+                              const rushing = playerBoxscoreData.rushing || {};
+                              if (rushing.CAR) stats.push({ value: rushing.CAR, label: 'ATT' });
+                              if (rushing.YDS) stats.push({ value: rushing.YDS, label: 'YDS' });
+                              if (rushing.TD) stats.push({ value: rushing.TD, label: 'TD' });
+                            } else if (participantType === "passer") {
+                              const passing = playerBoxscoreData.passing || {};
+                              if (passing['C/ATT']) stats.push({ value: passing['C/ATT'], label: 'C/ATT' });
+                              if (passing.YDS) stats.push({ value: passing.YDS, label: 'YDS' });
+                              if (passing.TD) stats.push({ value: passing.TD, label: 'TD' });
+                            } else if (participantType === "receiver") {
+                              const receiving = playerBoxscoreData.receiving || {};
+                              if (receiving.REC) stats.push({ value: receiving.REC, label: 'REC' });
+                              if (receiving.YDS) stats.push({ value: receiving.YDS, label: 'YDS' });
+                              if (receiving.TD) stats.push({ value: receiving.TD, label: 'TD' });
+                            } else if (participantType === "assistedBy" || participantType === "tackler") {
+                              const defensive = playerBoxscoreData.defensive || {};
+                              if (defensive.TOT) stats.push({ value: defensive.TOT, label: 'TKL' });
+                            } else if (participantType === "passDefender") {
+                              const defensive = playerBoxscoreData.defensive || {};
+                              if (defensive.PD) stats.push({ value: defensive.PD, label: 'PD' });
+                            } else if (participantType === "kicker") {
+                              const kicking = playerBoxscoreData.kicking || {};
+                              if (kicking.XP) stats.push({ value: kicking.XP, label: 'XP' });
+                            } else if (participantType === "punter") {
+                              const punting = playerBoxscoreData.punting || {};
+                              if (punting.NO) stats.push({ value: punting.NO, label: 'PUNTS' });
+                              if (punting.YDS) stats.push({ value: punting.YDS, label: 'YDS' });
+                            }
+                          }
+
+                          return stats;
+                        };
+
+                        // Get team colors
+                        const { team1Color, team2Color } = getSmartTeamColors(
+                          {
+                            team1Color: gameData.team1Color,
+                            team1AlternateColor: gameData.team1AlternateColor,
+                          },
+                          {
+                            team2Color: gameData.team2Color,
+                            team2AlternateColor: gameData.team2AlternateColor,
+                          }
+                        );
+
+                        console.log('[NFL Participants] About to map', participants.length, 'participants');
+                        return (
+                          <View style={[styles.participantsSection, { borderTopColor: theme.border, marginTop: 12 }]}>
+                            <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 12 }]}>
+                              Play Participants
+                            </Text>
+                            {participants.map((participant, idx) => {
+                              console.log('[NFL Participants] Processing idx:', idx, 'participant:', participant);
+                              const athlete = participant.athlete;
+                              if (!athlete) return null;
+
+                              const playerId = athlete.id;
+                              const playerHeadshot = athlete.headshot?.href || `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${playerId}.png&w=200`;
+                              const teamAbbr = athlete.team?.abbreviation || participant.team?.abbreviation || "";
+                              const positionAbbr = athlete.position?.abbreviation || "";
+                              const shortName = athlete.shortName || athlete.displayName || "Unknown";
+                              
+                              // Determine team color based on team abbreviation
+                              const teamColor = teamAbbr === gameData.team1Abbr ? team1Color : team2Color;
+                              const teamLogo = teamAbbr === gameData.team1Abbr ? gameData.team1Logo : gameData.team2Logo;
+
+                              // Get stats for this participant
+                              const stats = getPlayerStats(participant, playTypeId, participant.type);
+                              console.log('[NFL Participants] Stats for', shortName, ':', stats, 'type:', typeof stats, 'isArray:', Array.isArray(stats));
+
+                              return (
+                                <View
+                                  key={`${playerId}-${idx}`}
+                                  style={[
+                                    styles.participantCard,
+                                    idx !== participants.length - 1 ? styles.participantBorder : null,
+                                  ]}
+                                >
+                                  <View style={styles.participantTop}>
+                                    <View style={[styles.headshotWrap, { backgroundColor: teamColor }]}>
+                                      <Image source={{ uri: playerHeadshot }} style={styles.headshot} />
+                                      {teamLogo && <Image source={{ uri: teamLogo }} style={styles.teamLogoOverlay} />}
+                                    </View>
+                                    <View style={styles.participantInfo}>
+                                      <Text style={[styles.participantName, { color: theme.text }]}>
+                                        {shortName}
+                                      </Text>
+                                      <Text style={[styles.participantMeta, { color: theme.textSecondary }]}>
+                                        {positionAbbr} • {teamAbbr} • {formatParticipantType(participant.type)}
+                                      </Text>
+                                      {(() => {
+                                        console.log('[NFL Participants] Rendering stats, isArray:', Array.isArray(stats), 'length:', stats?.length);
+                                        return Array.isArray(stats) && stats.length > 0 && (
+                                        <View style={{ flexDirection: 'row', marginTop: 8, gap: 12 }}>
+                                          {stats.map((stat, statIdx) => (
+                                            <View key={statIdx} style={{ alignItems: 'center' }}>
+                                              <Text style={[{ color: theme.text, fontSize: 18, fontWeight: 'bold' }]}>
+                                                {stat.value}
+                                              </Text>
+                                              <Text style={[{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }]}>
+                                                {stat.label}
+                                              </Text>
+                                            </View>
+                                          ))}
+                                        </View>
+                                      );
+                                      })()}
+                                    </View>
+                                  </View>
+                                </View>
+                              );
+                            })}
                           </View>
                         );
                       })()}
@@ -6653,41 +6908,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        stickyHeaderIndices={liveTrackerVisible ? [] : [1]}
+        stickyHeaderIndices={[1]}
         contentContainerStyle={
-          liveTrackerVisible
-            ? { paddingBottom: 80, marginTop: -6 }
-            : { paddingBottom: 80 }
+          { paddingBottom: 80 }
         }
       >
-        {/* Live Tracker Embed */}
-        {liveTrackerVisible
-          ? (() => {
-              const deviceWidth = Dimensions.get("window").width;
-              const formulaO = 0;
-              const homeLogo = gameData?.team2Logo;
-              const awayLogo = gameData?.team1Logo;
-              const wrapperUrl = `https://laraiye.github.io/live-sports-tracker/livetracker-test.html?uuid=${liveTrackerUuid}${
-                homeLogo ? `&home_logo=${awayLogo}` : ""
-              }${awayLogo ? `&away_logo=${homeLogo}` : ""}&reverse=1`;
-              const ratio = 0.505;
-              const initialEmbedHeight =
-                Math.round(deviceWidth * ratio) + formulaO;
-
-              return (
-                <LiveTrackerEmbed
-                  uuid={liveTrackerUuid}
-                  visible={true}
-                  inline={true}
-                  wrapperUrl={wrapperUrl}
-                  initialHeight={initialEmbedHeight}
-                  formulaO={formulaO}
-                  showHeader={false}
-                  onClose={() => setLiveTrackerVisible(false)}
-                />
-              );
-            })()
-          : null}
 
         {/* Header with Teams and Scores */}
         {(() => {
@@ -6816,34 +7041,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             </View>
           );
         })()}
-
-        {/* Tracker Button - show if we resolved a liveTracker UUID */}
-        {liveTrackerUuid && !liveTrackerVisible && (
-          <View style={{ paddingHorizontal: 16, marginVertical: 12 }}>
-            <TouchableOpacity
-              style={[
-                {
-                  backgroundColor: colors.secondary,
-                  paddingVertical: 14,
-                  paddingHorizontal: 20,
-                  borderRadius: 8,
-                  alignItems: "center",
-                  justifyContent: "center",
-                },
-              ]}
-              onPress={() => {
-                setLiveTrackerVisible(true);
-              }}
-            >
-              <Text
-                allowFontScaling={false}
-                style={{ color: "white", fontSize: 16, fontWeight: "bold" }}
-              >
-                Tracker
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
 
         {/* Sticky Tab Buttons */}
         <View
@@ -8526,6 +8723,54 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     borderWidth: 1.5,
+  },
+  // Testing controls styles
+  testControlsSection: {
+    borderTopWidth: 1,
+    paddingHorizontal: 16,
+  },
+  testLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 4,
+  },
+  horizontalScroll: {
+    flexGrow: 0,
+  },
+  typeButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 6,
+    marginHorizontal: 4,
+    borderWidth: 1,
+    minWidth: 60,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  typeButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  testInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+  },
+  testError: {
+    fontSize: 13,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  participantStatText: {
+    fontSize: 13,
+    fontWeight: "500",
   },
 });
 

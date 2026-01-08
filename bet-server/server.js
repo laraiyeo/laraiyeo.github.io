@@ -2370,7 +2370,7 @@ const ESPN_PATHS = {
 // SportGameOdds API configuration
 const SPORTSGAMEODDS_API_BASE = "https://api.sportsgameodds.com/v2/events";
 const SPORTSGAMEODDS_API_KEY =
-  process.env.SPORTSGAMEODDS_API_KEY || "09a4de43e78a93453e9143b1d4e501f0";
+  process.env.SPORTSGAMEODDS_API_KEY || "fb5cd7db7f9e18a03caa04b10b505a41";
 
 // Mapping sport slug -> leagueID for SportGameOdds
 const SGO_LEAGUE_IDS = {
@@ -2584,7 +2584,11 @@ async function fetchSGOOdds(sport = "nba") {
 
     const url = `${SPORTSGAMEODDS_API_BASE}?leagueID=${encodeURIComponent(
       leagueID
-    )}&startsAfter=2026-01-10T10:00:00Z&startsBefore=2026-01-11T10:00:00Z&ended=false&live=false&bookmakerID=draftkings&includeOpposingOdds=false&expandResults=false&includeAltLines=true&apiKey=${SPORTSGAMEODDS_API_KEY}`;
+    )}&startsAfter=${encodeURIComponent(
+      startsAfter
+    )}&startsBefore=${encodeURIComponent(
+      startsBefore
+    )}&ended=false&live=false&bookmakerID=draftkings&includeOpposingOdds=false&expandResults=false&includeAltLines=true&apiKey=${SPORTSGAMEODDS_API_KEY}`;
 
     const resp = await axios.get(url, { timeout: 20000 });
     const events = resp.data?.data || resp.data || [];
@@ -2647,7 +2651,11 @@ function getPlayerOddsFromCache(sportKey, athlete) {
           const pname = normalize(pnameRaw);
           if (!pname) continue;
           if (pname === normalizedFull) {
-            return markets;
+            // Filter out passing_longestCompletion markets
+            const filteredMarkets = Array.isArray(markets)
+              ? markets.filter(m => m && m.statID !== 'passing_longestCompletion')
+              : markets;
+            return filteredMarkets;
           }
         }
       }
@@ -2664,8 +2672,20 @@ function getPlayerOddsFromCache(sportKey, athlete) {
         const pnameRaw = playerMeta[pid] || pid || "";
         const pname = normalize(pnameRaw);
         if (!pname) continue;
-        if (normalizedFull && pname === normalizedFull) return markets;
-        if (normalizedDisplay && pname === normalizedDisplay) return markets;
+        if (normalizedFull && pname === normalizedFull) {
+          // Filter out passing_longestCompletion markets
+          const filteredMarkets = Array.isArray(markets)
+            ? markets.filter(m => m && m.statID !== 'passing_longestCompletion')
+            : markets;
+          return filteredMarkets;
+        }
+        if (normalizedDisplay && pname === normalizedDisplay) {
+          // Filter out passing_longestCompletion markets
+          const filteredMarkets = Array.isArray(markets)
+            ? markets.filter(m => m && m.statID !== 'passing_longestCompletion')
+            : markets;
+          return filteredMarkets;
+        }
       }
     }
 
@@ -4427,14 +4447,21 @@ function transformRostersData(rostersData) {
         athleteData.recentGames = recentGames;
         athleteData.averages = averages;
         // Pass opponent ID to odds generation
-        athleteData.odds = generatePlayerOdds(
+        const rawOdds = generatePlayerOdds(
           gamelog,
           opponentId ? { id: opponentId } : null
         );
+        // Filter out passing_longestCompletion markets
+        athleteData.odds = Array.isArray(rawOdds)
+          ? rawOdds.filter(m => m && m.statID !== 'passing_longestCompletion')
+          : rawOdds;
       } else if (athlete.odds) {
         // If no gamelog was fetched but odds were attached earlier (e.g. from SGO cache),
         // preserve those odds instead of attempting to index into undefined gamelogs.
-        athleteData.odds = athlete.odds;
+        // Filter out passing_longestCompletion markets
+        athleteData.odds = Array.isArray(athlete.odds)
+          ? athlete.odds.filter(m => m && m.statID !== 'passing_longestCompletion')
+          : athlete.odds;
       }
 
       return athleteData;
@@ -4464,7 +4491,7 @@ async function fetchScoreboard(sport = "nba") {
     const urls = ESPN_PATHS[sportKey] || ESPN_PATHS["nba"];
     const dateParam = getScoreboardDate();
     const response = await axios.get(
-      `${urls.base}/scoreboard?dates=20260110`
+      `${urls.base}/scoreboard?dates=${dateParam}`
     );
     // store per-sport and keep a fallback reference
     scoreboardDataBySport[sportKey] = response.data;
@@ -4967,6 +4994,28 @@ app.get("/api/odds/:sport", async (req, res) => {
   try {
     const { sport } = req.params;
     const key = String(sport || "nba").toLowerCase();
+    
+    // Helper to filter out passing_longestCompletion from events
+    const filterEvents = (events) => {
+      if (!Array.isArray(events)) return events;
+      return events.map(event => {
+        if (!event || !event.odds || !event.odds.players) return event;
+        const filteredPlayers = {};
+        for (const [playerId, markets] of Object.entries(event.odds.players)) {
+          filteredPlayers[playerId] = Array.isArray(markets)
+            ? markets.filter(m => m && m.statID !== 'passing_longestCompletion')
+            : markets;
+        }
+        return {
+          ...event,
+          odds: {
+            ...event.odds,
+            players: filteredPlayers
+          }
+        };
+      });
+    };
+    
     // If we have cached data and it's still fresh, return it immediately.
     const entry = oddsCache[key];
     if (entry && entry.data) {
@@ -4974,7 +5023,7 @@ app.get("/api/odds/:sport", async (req, res) => {
       if (age < SGO_CACHE_TTL_MS) {
         return res.json({
           lastFetched: new Date(entry.lastFetched),
-          events: entry.data,
+          events: filterEvents(entry.data),
         });
       }
 
@@ -4986,7 +5035,7 @@ app.get("/api/odds/:sport", async (req, res) => {
       }
       return res.json({
         lastFetched: new Date(entry.lastFetched),
-        events: entry.data,
+        events: filterEvents(entry.data),
         stale: true,
       });
     }
@@ -6486,17 +6535,31 @@ app.get("/api/betslip", async (req, res) => {
       }
 
       // Kicking fields
-      if (statUpper === "KXP" || statUpper === "KFG") {
+      if (statUpper === "KXP") {
+        // try strings like "1/2"
+        const raw =
+          tryGet(athleteObj, ["kicking", "XP"]) ||
+          tryGet(athleteEntry, ["stats", "kicking", "XP"]) ||
+          tryGet(athleteEntry, ["athlete", "stats", "kicking", "XP"]) ||
+          readLabelIndex("XP");
+        if (raw && String(raw).includes("/")) {
+          const nums = String(raw)
+            .split("/")
+            .map((s) => parseFloat(s))
+            .filter((n) => !isNaN(n));
+          if (nums.length >= 1) return nums[0];
+        }
+        return 0;
+      }
+
+      // Kicking fields
+      if (statUpper === "KFG") {
         // try strings like "1/2"
         const raw =
           tryGet(athleteObj, ["kicking", "FG"]) ||
-          tryGet(athleteObj, ["kicking", "XP"]) ||
           tryGet(athleteEntry, ["stats", "kicking", "FG"]) ||
-          tryGet(athleteEntry, ["stats", "kicking", "XP"]) ||
           tryGet(athleteEntry, ["athlete", "stats", "kicking", "FG"]) ||
-          tryGet(athleteEntry, ["athlete", "stats", "kicking", "XP"]) ||
-          readLabelIndex("FG") ||
-          readLabelIndex("XP");
+          readLabelIndex("FG");
         if (raw && String(raw).includes("/")) {
           const nums = String(raw)
             .split("/")

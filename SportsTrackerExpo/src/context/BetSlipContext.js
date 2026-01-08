@@ -143,9 +143,13 @@ export const BetSlipProvider = ({ children }) => {
         // PLAYER PROP RESTRICTIONS (same player, same stat)
         if (bet.playerId && bet.statType) {
           prevBets.forEach((existingBet) => {
+            // Normalize statType to lowercase for comparison to handle case inconsistencies
+            const betStatType = (bet.statType || "").toLowerCase();
+            const existingStatType = (existingBet.statType || "").toLowerCase();
+            
             if (
               existingBet.playerId === bet.playerId &&
-              existingBet.statType === bet.statType
+              existingStatType === betStatType
             ) {
               // Can't have multiple milestones for same player/stat
               if (

@@ -639,32 +639,44 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             pcmp: "pcmp",
             passing_interceptions: "pint",
             pint: "pint",
-            passing_longest: "plng",
+            passing_longestCompletion: "plng",
             plng: "plng",
             passing_tds: "ptd",
             ptd: "ptd",
+            // combined stat variants
             "passing+ rushing": "pryds",
+            "passing+rushing": "pryds",
+            "passing+rushing_yards": "pryds",
             pryds: "pryds",
             rushing_yards: "ryds",
             ryds: "ryds",
-            rushing_longest: "rlng",
+            rushing_longestRush: "rlng",
             rlng: "rlng",
             rushing_attempts: "ratt",
             ratt: "ratt",
             receiving_yards: "recyds",
+            receiving_longestReception: "reclong",
             recyds: "recyds",
-            receptions: "rrec",
+            receiving_receptions: "rrec",
             rrec: "rrec",
             rec_longest: "reclong",
             reclong: "reclong",
-            "rush+rec": "rryds",
+            "rushing+receiving": "rryds",
+            "rushing+receiving_yards": "rryds",
             rryds: "rryds",
             tds: "tds",
+            // normalize plural -> singular for yes/no mappings
             touchdowns: "touchdowns",
-            kxp: "kxp",
-            kfg: "kfg",
-            kpts: "kpts",
+            // added defensive and kicking mappings
+            defense_sacks: "dsac",
             dsac: "dsac",
+            fieldgoals_made: "kfg",
+            kfg: "kfg",
+            extrapoints_kicksmade: "kxp",
+            kxp: "kxp",
+            firsttouchdown: "firsttouchdown",
+            lasttouchdown: "lasttouchdown",
+            kpts: "kpts",
           };
 
           // NHL mappings
@@ -704,6 +716,9 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
           // choose mapping table based on sportHint
           if (sportHint === "nfl") {
             // try exact matches then substring heuristics
+
+            const isYesNo = statOriginal.endsWith("_yn");
+
             if (nflMap[s]) return nflMap[s];
             if (s.includes("pass") && s.includes("yd")) return "pyds";
             if (
@@ -721,6 +736,11 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
               if (s.includes("xp") || s.includes("kxp")) return "kxp";
               if (s.includes("fg") || s.includes("kfg")) return "kfg";
               return "kpts";
+            }
+            if (s.includes("touchdown")) return isYesNo ? "touchdowns" : "tds";
+            // Special handling: touchdowns_yn -> touchdowns, touchdowns_ou -> tds
+            if (s.includes("touchdown") || s.includes("tds")) {
+              return isYesNo ? "touchdowns" : "tds";
             }
             return s.replace(/[^a-z0-9]/g, "_");
           }
@@ -1194,6 +1214,12 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                           // points_ou -> goals for over/under bets
                           if (statLower === "points_ou") {
                             return "goals";
+                          }
+                        }
+                        if (sportUpper === "NFL") {
+                          // touchdowns_yn -> anytime_touchdowns for yes/no bets
+                          if (statLower === "touchdowns_yn") {
+                            return "anytime_touchdowns";
                           }
                         }
 
