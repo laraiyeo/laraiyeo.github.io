@@ -2370,7 +2370,7 @@ const ESPN_PATHS = {
 // SportGameOdds API configuration
 const SPORTSGAMEODDS_API_BASE = "https://api.sportsgameodds.com/v2/events";
 const SPORTSGAMEODDS_API_KEY =
-  process.env.SPORTSGAMEODDS_API_KEY || "fb5cd7db7f9e18a03caa04b10b505a41";
+  process.env.SPORTSGAMEODDS_API_KEY || "09a4de43e78a93453e9143b1d4e501f0";
 
 // Mapping sport slug -> leagueID for SportGameOdds
 const SGO_LEAGUE_IDS = {
@@ -2584,11 +2584,7 @@ async function fetchSGOOdds(sport = "nba") {
 
     const url = `${SPORTSGAMEODDS_API_BASE}?leagueID=${encodeURIComponent(
       leagueID
-    )}&startsAfter=${encodeURIComponent(
-      startsAfter
-    )}&startsBefore=${encodeURIComponent(
-      startsBefore
-    )}&ended=false&live=false&bookmakerID=draftkings&includeOpposingOdds=false&expandResults=false&includeAltLines=true&apiKey=${SPORTSGAMEODDS_API_KEY}`;
+    )}&startsAfter=2026-01-10T10:00:00Z&startsBefore=2026-01-11T10:00:00Z&ended=false&live=false&bookmakerID=draftkings&includeOpposingOdds=false&expandResults=false&includeAltLines=true&apiKey=${SPORTSGAMEODDS_API_KEY}`;
 
     const resp = await axios.get(url, { timeout: 20000 });
     const events = resp.data?.data || resp.data || [];
@@ -4468,7 +4464,7 @@ async function fetchScoreboard(sport = "nba") {
     const urls = ESPN_PATHS[sportKey] || ESPN_PATHS["nba"];
     const dateParam = getScoreboardDate();
     const response = await axios.get(
-      `${urls.base}/scoreboard?dates=${dateParam}`
+      `${urls.base}/scoreboard?dates=20260110`
     );
     // store per-sport and keep a fallback reference
     scoreboardDataBySport[sportKey] = response.data;

@@ -294,7 +294,6 @@ const Stack = createStackNavigator();
 const HomeTabNavigator = () => {
   const { theme, colors } = useTheme();
   const { isUnlocked, checkStatus } = useStreamingAccess();
-  const { showBetTab } = useAppSettings();
   const { isPro } = useBetSlip();
 
   // Refresh streaming status when this navigator comes into focus
@@ -358,7 +357,6 @@ const HomeTabNavigator = () => {
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      {(isPro || showBetTab) && (
         <Tab.Screen
           name="Picks"
           component={BetLoginScreen}
@@ -372,7 +370,6 @@ const HomeTabNavigator = () => {
             headerTitle: (props) => <HeaderTitle {...props} />,
           }}
         />
-      )}
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}

@@ -926,7 +926,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         style={[
           styles.bottomBar,
           { backgroundColor: colors.primary },
-          !isPro ? { bottom: 65, height: 60 } : isGameDetail && { height: 90 },
+          !isPro ? { height: 125 } : isGameDetail && { height: 90 },
         ]}
         onPress={openSlip}
         activeOpacity={0.9}
@@ -934,7 +934,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         <View
           style={[
             styles.bottomBarLeft,
-            !isPro ? { marginBottom: 0 } : isGameDetail && { marginBottom: 30 },
+            !isPro ? { marginBottom: 65 } : isGameDetail && { marginBottom: 30 },
           ]}
         >
           <View style={styles.betCountBadge}>
@@ -945,7 +945,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         <View
           style={[
             styles.bottomBarRight,
-            !isPro ? { marginBottom: 0 } : isGameDetail && { marginBottom: 30 },
+            !isPro ? { marginBottom: 65 } : isGameDetail && { marginBottom: 30 },
           ]}
         >
           {bets.length > 1 && (
