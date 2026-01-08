@@ -3588,6 +3588,7 @@ function transformSummaryData(data) {
             if (!athleteMap[id]) {
               athleteMap[id] = {
                 active: a.active || a.active === undefined ? a.active : null,
+                starter: a.starter || a.starter === undefined ? a.starter : null,
                 athlete: {
                   id: a.athlete?.id || null,
                   displayName:
@@ -3627,6 +3628,7 @@ function transformSummaryData(data) {
 
           const out = {
             active: entry.active,
+            starter: entry.starter,
             athlete: entry.athlete,
             ...(isNFL || isNHL ? {} : { "1Q": oneQ }),
           };
