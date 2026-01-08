@@ -2653,7 +2653,9 @@ function getPlayerOddsFromCache(sportKey, athlete) {
           if (pname === normalizedFull) {
             // Filter out passing_longestCompletion markets
             const filteredMarkets = Array.isArray(markets)
-              ? markets.filter(m => m && m.statID !== 'passing_longestCompletion')
+              ? markets.filter(
+                  (m) => m && m.statID !== "passing_longestCompletion"
+                )
               : markets;
             return filteredMarkets;
           }
@@ -2675,14 +2677,18 @@ function getPlayerOddsFromCache(sportKey, athlete) {
         if (normalizedFull && pname === normalizedFull) {
           // Filter out passing_longestCompletion markets
           const filteredMarkets = Array.isArray(markets)
-            ? markets.filter(m => m && m.statID !== 'passing_longestCompletion')
+            ? markets.filter(
+                (m) => m && m.statID !== "passing_longestCompletion"
+              )
             : markets;
           return filteredMarkets;
         }
         if (normalizedDisplay && pname === normalizedDisplay) {
           // Filter out passing_longestCompletion markets
           const filteredMarkets = Array.isArray(markets)
-            ? markets.filter(m => m && m.statID !== 'passing_longestCompletion')
+            ? markets.filter(
+                (m) => m && m.statID !== "passing_longestCompletion"
+              )
             : markets;
           return filteredMarkets;
         }
@@ -3604,7 +3610,8 @@ function transformSummaryData(data) {
             if (!athleteMap[id]) {
               athleteMap[id] = {
                 active: a.active || a.active === undefined ? a.active : null,
-                starter: a.starter || a.starter === undefined ? a.starter : null,
+                starter:
+                  a.starter || a.starter === undefined ? a.starter : null,
                 athlete: {
                   id: a.athlete?.id || null,
                   displayName:
@@ -4453,14 +4460,16 @@ function transformRostersData(rostersData) {
         );
         // Filter out passing_longestCompletion markets
         athleteData.odds = Array.isArray(rawOdds)
-          ? rawOdds.filter(m => m && m.statID !== 'passing_longestCompletion')
+          ? rawOdds.filter((m) => m && m.statID !== "passing_longestCompletion")
           : rawOdds;
       } else if (athlete.odds) {
         // If no gamelog was fetched but odds were attached earlier (e.g. from SGO cache),
         // preserve those odds instead of attempting to index into undefined gamelogs.
         // Filter out passing_longestCompletion markets
         athleteData.odds = Array.isArray(athlete.odds)
-          ? athlete.odds.filter(m => m && m.statID !== 'passing_longestCompletion')
+          ? athlete.odds.filter(
+              (m) => m && m.statID !== "passing_longestCompletion"
+            )
           : athlete.odds;
       }
 
@@ -4994,28 +5003,30 @@ app.get("/api/odds/:sport", async (req, res) => {
   try {
     const { sport } = req.params;
     const key = String(sport || "nba").toLowerCase();
-    
+
     // Helper to filter out passing_longestCompletion from events
     const filterEvents = (events) => {
       if (!Array.isArray(events)) return events;
-      return events.map(event => {
+      return events.map((event) => {
         if (!event || !event.odds || !event.odds.players) return event;
         const filteredPlayers = {};
         for (const [playerId, markets] of Object.entries(event.odds.players)) {
           filteredPlayers[playerId] = Array.isArray(markets)
-            ? markets.filter(m => m && m.statID !== 'passing_longestCompletion')
+            ? markets.filter(
+                (m) => m && m.statID !== "passing_longestCompletion"
+              )
             : markets;
         }
         return {
           ...event,
           odds: {
             ...event.odds,
-            players: filteredPlayers
-          }
+            players: filteredPlayers,
+          },
         };
       });
     };
-    
+
     // If we have cached data and it's still fresh, return it immediately.
     const entry = oddsCache[key];
     if (entry && entry.data) {

@@ -146,7 +146,7 @@ export const BetSlipProvider = ({ children }) => {
             // Normalize statType to lowercase for comparison to handle case inconsistencies
             const betStatType = (bet.statType || "").toLowerCase();
             const existingStatType = (existingBet.statType || "").toLowerCase();
-            
+
             if (
               existingBet.playerId === bet.playerId &&
               existingStatType === betStatType

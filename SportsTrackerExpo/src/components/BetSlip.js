@@ -954,7 +954,9 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         <View
           style={[
             styles.bottomBarLeft,
-            !isPro ? { marginBottom: 65 } : isGameDetail && { marginBottom: 30 },
+            !isPro
+              ? { marginBottom: 65 }
+              : isGameDetail && { marginBottom: 30 },
           ]}
         >
           <View style={styles.betCountBadge}>
@@ -965,7 +967,9 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         <View
           style={[
             styles.bottomBarRight,
-            !isPro ? { marginBottom: 65 } : isGameDetail && { marginBottom: 30 },
+            !isPro
+              ? { marginBottom: 65 }
+              : isGameDetail && { marginBottom: 30 },
           ]}
         >
           {bets.length > 1 && (

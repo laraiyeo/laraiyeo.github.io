@@ -1491,7 +1491,12 @@ const PropTabContent = ({
             }
           }
           const odds = a.odds || a.price || a.payout || null;
-          return { rawLabel: raw, label: formattedLabel, odds, sideID: a.sideID };
+          return {
+            rawLabel: raw,
+            label: formattedLabel,
+            odds,
+            sideID: a.sideID,
+          };
         })
         .filter((o) => o.label && o.odds)
         .sort((A, B) => {
@@ -3122,8 +3127,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       ];
                       nflOrder.forEach((key) => {
                         if (statGroups[key]) {
-                          const label = key==="kickreturns" ? "Kick Returns" : key==="puntreturns" ? "Punt Returns" :
-                            key.charAt(0).toUpperCase() + key.slice(1);
+                          const label =
+                            key === "kickreturns"
+                              ? "Kick Returns"
+                              : key === "puntreturns"
+                              ? "Punt Returns"
+                              : key.charAt(0).toUpperCase() + key.slice(1);
                           groups.push({
                             label,
                             players: statGroups[key],
@@ -4246,63 +4255,123 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       })()}
 
                     {/* NFL Drive Participants Section */}
-                    {summaryData?.drives?.participants && Array.isArray(summaryData.drives.participants) && summaryData.drives.participants.length > 0 &&
+                    {summaryData?.drives?.participants &&
+                      Array.isArray(summaryData.drives.participants) &&
+                      summaryData.drives.participants.length > 0 &&
                       (() => {
-                        console.log('[NFL Participants] Starting render');
+                        console.log("[NFL Participants] Starting render");
                         const participants = summaryData.drives.participants;
-                        console.log('[NFL Participants] participants:', participants, 'isArray:', Array.isArray(participants));
+                        console.log(
+                          "[NFL Participants] participants:",
+                          participants,
+                          "isArray:",
+                          Array.isArray(participants)
+                        );
                         const playTypeId = summaryData.drives.type?.id;
-                        console.log('[NFL Participants] playTypeId:', playTypeId);
+                        console.log(
+                          "[NFL Participants] playTypeId:",
+                          playTypeId
+                        );
 
                         // Helper function to format participant type (camelCase to Title Case)
                         const formatParticipantType = (type) => {
-                          if (!type) return '';
+                          if (!type) return "";
                           // Split by capital letters and join with space
                           return type
-                            .replace(/([A-Z])/g, ' $1')
+                            .replace(/([A-Z])/g, " $1")
                             .trim()
-                            .split(' ')
-                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                            .join(' ');
+                            .split(" ")
+                            .map(
+                              (word) =>
+                                word.charAt(0).toUpperCase() + word.slice(1)
+                            )
+                            .join(" ");
                         };
 
                         // Helper function to get player stats from boxscore (returns array of {value, label} objects)
-                        const getPlayerStats = (player, playTypeId, participantType) => {
-                          console.log('[getPlayerStats] Called with player:', player?.athlete?.id, 'playType:', playTypeId, 'participantType:', participantType);
-                          if (!summaryData?.boxscore?.players || !player?.athlete?.id) {
-                            console.log('[getPlayerStats] Missing data, returning empty array');
+                        const getPlayerStats = (
+                          player,
+                          playTypeId,
+                          participantType
+                        ) => {
+                          console.log(
+                            "[getPlayerStats] Called with player:",
+                            player?.athlete?.id,
+                            "playType:",
+                            playTypeId,
+                            "participantType:",
+                            participantType
+                          );
+                          if (
+                            !summaryData?.boxscore?.players ||
+                            !player?.athlete?.id
+                          ) {
+                            console.log(
+                              "[getPlayerStats] Missing data, returning empty array"
+                            );
                             return [];
                           }
 
-                          console.log('[getPlayerStats] boxscore.players type:', typeof summaryData.boxscore.players, 'isArray:', Array.isArray(summaryData.boxscore.players));
-                          
+                          console.log(
+                            "[getPlayerStats] boxscore.players type:",
+                            typeof summaryData.boxscore.players,
+                            "isArray:",
+                            Array.isArray(summaryData.boxscore.players)
+                          );
+
                           // Ensure players is an array
                           if (!Array.isArray(summaryData.boxscore.players)) {
-                            console.log('[getPlayerStats] players is not an array!');
+                            console.log(
+                              "[getPlayerStats] players is not an array!"
+                            );
                             return [];
                           }
 
                           // Find player in boxscore
                           let playerBoxscoreData = null;
                           for (const teamData of summaryData.boxscore.players) {
-                            console.log('[getPlayerStats] Processing team:', teamData?.team?.abbreviation);
+                            console.log(
+                              "[getPlayerStats] Processing team:",
+                              teamData?.team?.abbreviation
+                            );
                             // Statistics is an object with athletes array, not an array of categories
-                            const athletes = teamData.statistics?.athletes || [];
-                            console.log('[getPlayerStats] athletes type:', typeof athletes, 'isArray:', Array.isArray(athletes), 'length:', athletes?.length);
-                            
+                            const athletes =
+                              teamData.statistics?.athletes || [];
+                            console.log(
+                              "[getPlayerStats] athletes type:",
+                              typeof athletes,
+                              "isArray:",
+                              Array.isArray(athletes),
+                              "length:",
+                              athletes?.length
+                            );
+
                             if (!Array.isArray(athletes)) {
-                              console.log('[getPlayerStats] athletes is not an array, skipping');
+                              console.log(
+                                "[getPlayerStats] athletes is not an array, skipping"
+                              );
                               continue;
                             }
-                            
+
                             for (const athleteData of athletes) {
                               const athlete = athleteData.athlete;
-                              if (athlete && (athlete.id === player.athlete.id || athlete.id === player.athlete.id.toString())) {
-                                console.log('[getPlayerStats] Found matching player:', athlete.displayName);
-                                if (!playerBoxscoreData) playerBoxscoreData = {};
+                              if (
+                                athlete &&
+                                (athlete.id === player.athlete.id ||
+                                  athlete.id === player.athlete.id.toString())
+                              ) {
+                                console.log(
+                                  "[getPlayerStats] Found matching player:",
+                                  athlete.displayName
+                                );
+                                if (!playerBoxscoreData)
+                                  playerBoxscoreData = {};
                                 // athleteData.stats contains all stat categories
                                 const statsObj = athleteData.stats || {};
-                                console.log('[getPlayerStats] Stats object:', statsObj);
+                                console.log(
+                                  "[getPlayerStats] Stats object:",
+                                  statsObj
+                                );
                                 // Merge all stat categories into playerBoxscoreData
                                 Object.assign(playerBoxscoreData, statsObj);
                               }
@@ -4310,10 +4379,15 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           }
 
                           if (!playerBoxscoreData) {
-                            console.log('[getPlayerStats] Player not found in boxscore');
+                            console.log(
+                              "[getPlayerStats] Player not found in boxscore"
+                            );
                             return [];
                           }
-                          console.log('[getPlayerStats] playerBoxscoreData:', playerBoxscoreData);
+                          console.log(
+                            "[getPlayerStats] playerBoxscoreData:",
+                            playerBoxscoreData
+                          );
 
                           const stats = [];
 
@@ -4321,121 +4395,325 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           if (playTypeId === "26" || playTypeId === "36") {
                             if (participantType === "passer") {
                               const passing = playerBoxscoreData.passing || {};
-                              if (passing.YDS) stats.push({ value: passing.YDS, label: 'YDS' });
-                              if (passing.INT) stats.push({ value: passing.INT, label: 'INT' });
+                              if (passing.YDS)
+                                stats.push({
+                                  value: passing.YDS,
+                                  label: "YDS",
+                                });
+                              if (passing.INT)
+                                stats.push({
+                                  value: passing.INT,
+                                  label: "INT",
+                                });
                             } else if (participantType === "passDefender") {
-                              const defensive = playerBoxscoreData.interceptions || {};
-                              if (defensive.INT) stats.push({ value: defensive.INT, label: 'INT' });
-                              if (defensive.YDS) stats.push({ value: defensive.YDS, label: 'INT YDS' });
+                              const defensive =
+                                playerBoxscoreData.interceptions || {};
+                              if (defensive.INT)
+                                stats.push({
+                                  value: defensive.INT,
+                                  label: "INT",
+                                });
+                              if (defensive.YDS)
+                                stats.push({
+                                  value: defensive.YDS,
+                                  label: "INT YDS",
+                                });
                             } else if (participantType === "returner") {
-                              const receiving = playerBoxscoreData.receiving || {};
-                              if (receiving.TGT) stats.push({ value: receiving.TGT, label: 'TGT' });
-                              if (receiving.YDS) stats.push({ value: receiving.YDS, label: 'YDS' });
-                            } else if (participantType === "tackler" || participantType === "assistedBy") {
-                              const defensive = playerBoxscoreData.defensive || {};
-                              if (defensive.TOT) stats.push({ value: defensive.TOT, label: 'TKL' });
+                              const receiving =
+                                playerBoxscoreData.receiving || {};
+                              if (receiving.TGT)
+                                stats.push({
+                                  value: receiving.TGT,
+                                  label: "TGT",
+                                });
+                              if (receiving.YDS)
+                                stats.push({
+                                  value: receiving.YDS,
+                                  label: "YDS",
+                                });
+                            } else if (
+                              participantType === "tackler" ||
+                              participantType === "assistedBy"
+                            ) {
+                              const defensive =
+                                playerBoxscoreData.defensive || {};
+                              if (defensive.TOT)
+                                stats.push({
+                                  value: defensive.TOT,
+                                  label: "TKL",
+                                });
                             }
                           }
                           // Special case: Kickoff (type 53)
                           else if (playTypeId === "53") {
                             if (participantType === "returner") {
-                              const returning = playerBoxscoreData.kickreturns || {};
-                              if (returning.NO) stats.push({ value: returning.NO, label: 'RET' });
-                              if (returning.YDS) stats.push({ value: returning.YDS, label: 'YDS' });
-                            } else if (participantType === "tackler" || participantType === "assistedBy") {
-                              const defensive = playerBoxscoreData.defensive || {};
-                              if (defensive.TOT) stats.push({ value: defensive.TOT, label: 'TKL' });
+                              const returning =
+                                playerBoxscoreData.kickreturns || {};
+                              if (returning.NO)
+                                stats.push({
+                                  value: returning.NO,
+                                  label: "RET",
+                                });
+                              if (returning.YDS)
+                                stats.push({
+                                  value: returning.YDS,
+                                  label: "YDS",
+                                });
+                            } else if (
+                              participantType === "tackler" ||
+                              participantType === "assistedBy"
+                            ) {
+                              const defensive =
+                                playerBoxscoreData.defensive || {};
+                              if (defensive.TOT)
+                                stats.push({
+                                  value: defensive.TOT,
+                                  label: "TKL",
+                                });
                             }
                           } else if (playTypeId === "32") {
-                            if (participantType === "returner" || participantType === "scorer") {
-                              const returning = playerBoxscoreData.kickreturns || {};
-                              if (returning.NO) stats.push({ value: returning.NO, label: 'RET' });
-                              if (returning.YDS) stats.push({ value: returning.YDS, label: 'YDS' });
-                              if (returning.TD) stats.push({ value: returning.TD, label: 'TD' });
-                            } else if (participantType === "patScorer" || participantType === "kicker") {
+                            if (
+                              participantType === "returner" ||
+                              participantType === "scorer"
+                            ) {
+                              const returning =
+                                playerBoxscoreData.kickreturns || {};
+                              if (returning.NO)
+                                stats.push({
+                                  value: returning.NO,
+                                  label: "RET",
+                                });
+                              if (returning.YDS)
+                                stats.push({
+                                  value: returning.YDS,
+                                  label: "YDS",
+                                });
+                              if (returning.TD)
+                                stats.push({
+                                  value: returning.TD,
+                                  label: "TD",
+                                });
+                            } else if (
+                              participantType === "patScorer" ||
+                              participantType === "kicker"
+                            ) {
                               const kicking = playerBoxscoreData.kicking || {};
-                              if (kicking.XP) stats.push({ value: kicking.XP, label: 'XP' });
+                              if (kicking.XP)
+                                stats.push({ value: kicking.XP, label: "XP" });
                             }
                           }
                           // Special case: Punt (type 52)
                           else if (playTypeId === "52" || playTypeId === "34") {
                             if (participantType === "returner") {
-                              const returning = playerBoxscoreData.puntreturns || {};
-                              if (returning.NO) stats.push({ value: returning.NO, label: 'RET' });
-                              if (returning.YDS) stats.push({ value: returning.YDS, label: 'YDS' });
-                            } else if (participantType === "tackler" || participantType === "assistedBy") {
-                              const defensive = playerBoxscoreData.defensive || {};
-                              if (defensive.TOT) stats.push({ value: defensive.TOT, label: 'TKL' });
+                              const returning =
+                                playerBoxscoreData.puntreturns || {};
+                              if (returning.NO)
+                                stats.push({
+                                  value: returning.NO,
+                                  label: "RET",
+                                });
+                              if (returning.YDS)
+                                stats.push({
+                                  value: returning.YDS,
+                                  label: "YDS",
+                                });
+                            } else if (
+                              participantType === "tackler" ||
+                              participantType === "assistedBy"
+                            ) {
+                              const defensive =
+                                playerBoxscoreData.defensive || {};
+                              if (defensive.TOT)
+                                stats.push({
+                                  value: defensive.TOT,
+                                  label: "TKL",
+                                });
                             } else if (participantType === "punter") {
                               const punting = playerBoxscoreData.punting || {};
-                              if (punting.NO) stats.push({ value: punting.NO, label: 'PUNTS' });
-                              if (punting.YDS) stats.push({ value: punting.YDS, label: 'YDS' });
-                            } else if (participantType === "patScorer" || participantType === "kicker") {
+                              if (punting.NO)
+                                stats.push({
+                                  value: punting.NO,
+                                  label: "PUNTS",
+                                });
+                              if (punting.YDS)
+                                stats.push({
+                                  value: punting.YDS,
+                                  label: "YDS",
+                                });
+                            } else if (
+                              participantType === "patScorer" ||
+                              participantType === "kicker"
+                            ) {
                               const kicking = playerBoxscoreData.kicking || {};
-                              if (kicking.XP) stats.push({ value: kicking.XP, label: 'XP' });
+                              if (kicking.XP)
+                                stats.push({ value: kicking.XP, label: "XP" });
                             }
-                          } else if (playTypeId === "29" || playTypeId === "80") {
-                            if (participantType === "fumbler" || participantType === "rusher" || participantType === "passer") {
+                          } else if (
+                            playTypeId === "29" ||
+                            playTypeId === "80"
+                          ) {
+                            if (
+                              participantType === "fumbler" ||
+                              participantType === "rusher" ||
+                              participantType === "passer"
+                            ) {
                               const fumbles = playerBoxscoreData.fumbles || {};
-                              if (fumbles.FUM) stats.push({ value: fumbles.FUM, label: 'FUM' });
+                              if (fumbles.FUM)
+                                stats.push({
+                                  value: fumbles.FUM,
+                                  label: "FUM",
+                                });
                             } else if (participantType === "recoverer") {
-                              const defensive = playerBoxscoreData.fumbles || {};
-                              if (defensive.REC) stats.push({ value: defensive.REC, label: 'REC' });
-                            } else if (participantType === "tackler" || participantType === "assistedBy" || participantType === "forcedBy") {
-                              const defensive = playerBoxscoreData.defensive || {};
-                              if (defensive.TOT) stats.push({ value: defensive.TOT, label: 'TKL' });
+                              const defensive =
+                                playerBoxscoreData.fumbles || {};
+                              if (defensive.REC)
+                                stats.push({
+                                  value: defensive.REC,
+                                  label: "REC",
+                                });
+                            } else if (
+                              participantType === "tackler" ||
+                              participantType === "assistedBy" ||
+                              participantType === "forcedBy"
+                            ) {
+                              const defensive =
+                                playerBoxscoreData.defensive || {};
+                              if (defensive.TOT)
+                                stats.push({
+                                  value: defensive.TOT,
+                                  label: "TKL",
+                                });
                             }
                           }
                           // Special case: Sack (type 7)
                           else if (playTypeId === "7") {
                             if (participantType === "passer") {
                               const passing = playerBoxscoreData.passing || {};
-                              if (passing.SACKS) stats.push({ value: passing.SACKS, label: 'SCK' });
-                              if (passing.YDS) stats.push({ value: passing.YDS, label: 'YDS' });
-                            } else if (participantType === "sackedBy" || participantType === "tackler" || participantType === "assistedBy") {
-                              const defensive = playerBoxscoreData.defensive || {};
-                              if (defensive.SACKS) stats.push({ value: defensive.SACKS, label: 'SCK' });
-                              if (defensive.TOT) stats.push({ value: defensive.TOT, label: 'TKL' });
+                              if (passing.SACKS)
+                                stats.push({
+                                  value: passing.SACKS,
+                                  label: "SCK",
+                                });
+                              if (passing.YDS)
+                                stats.push({
+                                  value: passing.YDS,
+                                  label: "YDS",
+                                });
+                            } else if (
+                              participantType === "sackedBy" ||
+                              participantType === "tackler" ||
+                              participantType === "assistedBy"
+                            ) {
+                              const defensive =
+                                playerBoxscoreData.defensive || {};
+                              if (defensive.SACKS)
+                                stats.push({
+                                  value: defensive.SACKS,
+                                  label: "SCK",
+                                });
+                              if (defensive.TOT)
+                                stats.push({
+                                  value: defensive.TOT,
+                                  label: "TKL",
+                                });
                             }
                           }
                           // Special case: Field Goal (type 59)
                           else if (playTypeId === "59") {
                             if (participantType === "kicker") {
                               const kicking = playerBoxscoreData.kicking || {};
-                              if (kicking.FG) stats.push({ value: kicking.FG, label: 'FG' });
-                              if (kicking.PCT) stats.push({ value: `${kicking.PCT}%`, label: 'PCT' });
+                              if (kicking.FG)
+                                stats.push({ value: kicking.FG, label: "FG" });
+                              if (kicking.PCT)
+                                stats.push({
+                                  value: `${kicking.PCT}%`,
+                                  label: "PCT",
+                                });
                             }
                           }
                           // Regular cases
                           else {
                             if (participantType === "rusher") {
                               const rushing = playerBoxscoreData.rushing || {};
-                              if (rushing.CAR) stats.push({ value: rushing.CAR, label: 'ATT' });
-                              if (rushing.YDS) stats.push({ value: rushing.YDS, label: 'YDS' });
-                              if (rushing.TD) stats.push({ value: rushing.TD, label: 'TD' });
+                              if (rushing.CAR)
+                                stats.push({
+                                  value: rushing.CAR,
+                                  label: "ATT",
+                                });
+                              if (rushing.YDS)
+                                stats.push({
+                                  value: rushing.YDS,
+                                  label: "YDS",
+                                });
+                              if (rushing.TD)
+                                stats.push({ value: rushing.TD, label: "TD" });
                             } else if (participantType === "passer") {
                               const passing = playerBoxscoreData.passing || {};
-                              if (passing['C/ATT']) stats.push({ value: passing['C/ATT'], label: 'C/ATT' });
-                              if (passing.YDS) stats.push({ value: passing.YDS, label: 'YDS' });
-                              if (passing.TD) stats.push({ value: passing.TD, label: 'TD' });
+                              if (passing["C/ATT"])
+                                stats.push({
+                                  value: passing["C/ATT"],
+                                  label: "C/ATT",
+                                });
+                              if (passing.YDS)
+                                stats.push({
+                                  value: passing.YDS,
+                                  label: "YDS",
+                                });
+                              if (passing.TD)
+                                stats.push({ value: passing.TD, label: "TD" });
                             } else if (participantType === "receiver") {
-                              const receiving = playerBoxscoreData.receiving || {};
-                              if (receiving.REC) stats.push({ value: receiving.REC, label: 'REC' });
-                              if (receiving.YDS) stats.push({ value: receiving.YDS, label: 'YDS' });
-                              if (receiving.TD) stats.push({ value: receiving.TD, label: 'TD' });
-                            } else if (participantType === "assistedBy" || participantType === "tackler") {
-                              const defensive = playerBoxscoreData.defensive || {};
-                              if (defensive.TOT) stats.push({ value: defensive.TOT, label: 'TKL' });
+                              const receiving =
+                                playerBoxscoreData.receiving || {};
+                              if (receiving.REC)
+                                stats.push({
+                                  value: receiving.REC,
+                                  label: "REC",
+                                });
+                              if (receiving.YDS)
+                                stats.push({
+                                  value: receiving.YDS,
+                                  label: "YDS",
+                                });
+                              if (receiving.TD)
+                                stats.push({
+                                  value: receiving.TD,
+                                  label: "TD",
+                                });
+                            } else if (
+                              participantType === "assistedBy" ||
+                              participantType === "tackler"
+                            ) {
+                              const defensive =
+                                playerBoxscoreData.defensive || {};
+                              if (defensive.TOT)
+                                stats.push({
+                                  value: defensive.TOT,
+                                  label: "TKL",
+                                });
                             } else if (participantType === "passDefender") {
-                              const defensive = playerBoxscoreData.defensive || {};
-                              if (defensive.PD) stats.push({ value: defensive.PD, label: 'PD' });
+                              const defensive =
+                                playerBoxscoreData.defensive || {};
+                              if (defensive.PD)
+                                stats.push({
+                                  value: defensive.PD,
+                                  label: "PD",
+                                });
                             } else if (participantType === "kicker") {
                               const kicking = playerBoxscoreData.kicking || {};
-                              if (kicking.XP) stats.push({ value: kicking.XP, label: 'XP' });
+                              if (kicking.XP)
+                                stats.push({ value: kicking.XP, label: "XP" });
                             } else if (participantType === "punter") {
                               const punting = playerBoxscoreData.punting || {};
-                              if (punting.NO) stats.push({ value: punting.NO, label: 'PUNTS' });
-                              if (punting.YDS) stats.push({ value: punting.YDS, label: 'YDS' });
+                              if (punting.NO)
+                                stats.push({
+                                  value: punting.NO,
+                                  label: "PUNTS",
+                                });
+                              if (punting.YDS)
+                                stats.push({
+                                  value: punting.YDS,
+                                  label: "YDS",
+                                });
                             }
                           }
 
@@ -4454,67 +4732,178 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           }
                         );
 
-                        console.log('[NFL Participants] About to map', participants.length, 'participants');
+                        console.log(
+                          "[NFL Participants] About to map",
+                          participants.length,
+                          "participants"
+                        );
                         return (
-                          <View style={[styles.participantsSection, { borderTopColor: theme.border, marginTop: 12 }]}>
-                            <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 12 }]}>
+                          <View
+                            style={[
+                              styles.participantsSection,
+                              { borderTopColor: theme.border, marginTop: 12 },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.sectionTitle,
+                                { color: theme.text, marginBottom: 12 },
+                              ]}
+                            >
                               Play Participants
                             </Text>
                             {participants.map((participant, idx) => {
-                              console.log('[NFL Participants] Processing idx:', idx, 'participant:', participant);
+                              console.log(
+                                "[NFL Participants] Processing idx:",
+                                idx,
+                                "participant:",
+                                participant
+                              );
                               const athlete = participant.athlete;
                               if (!athlete) return null;
 
                               const playerId = athlete.id;
-                              const playerHeadshot = athlete.headshot?.href || `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${playerId}.png&w=200`;
-                              const teamAbbr = athlete.team?.abbreviation || participant.team?.abbreviation || "";
-                              const positionAbbr = athlete.position?.abbreviation || "";
-                              const shortName = athlete.shortName || athlete.displayName || "Unknown";
-                              
+                              const playerHeadshot =
+                                athlete.headshot?.href ||
+                                `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${playerId}.png&w=200`;
+                              const teamAbbr =
+                                athlete.team?.abbreviation ||
+                                participant.team?.abbreviation ||
+                                "";
+                              const positionAbbr =
+                                athlete.position?.abbreviation || "";
+                              const shortName =
+                                athlete.shortName ||
+                                athlete.displayName ||
+                                "Unknown";
+
                               // Determine team color based on team abbreviation
-                              const teamColor = teamAbbr === gameData.team1Abbr ? team1Color : team2Color;
-                              const teamLogo = teamAbbr === gameData.team1Abbr ? gameData.team1Logo : gameData.team2Logo;
+                              const teamColor =
+                                teamAbbr === gameData.team1Abbr
+                                  ? team1Color
+                                  : team2Color;
+                              const teamLogo =
+                                teamAbbr === gameData.team1Abbr
+                                  ? gameData.team1Logo
+                                  : gameData.team2Logo;
 
                               // Get stats for this participant
-                              const stats = getPlayerStats(participant, playTypeId, participant.type);
-                              console.log('[NFL Participants] Stats for', shortName, ':', stats, 'type:', typeof stats, 'isArray:', Array.isArray(stats));
+                              const stats = getPlayerStats(
+                                participant,
+                                playTypeId,
+                                participant.type
+                              );
+                              console.log(
+                                "[NFL Participants] Stats for",
+                                shortName,
+                                ":",
+                                stats,
+                                "type:",
+                                typeof stats,
+                                "isArray:",
+                                Array.isArray(stats)
+                              );
 
                               return (
                                 <View
                                   key={`${playerId}-${idx}`}
                                   style={[
                                     styles.participantCard,
-                                    idx !== participants.length - 1 ? styles.participantBorder : null,
+                                    idx !== participants.length - 1
+                                      ? styles.participantBorder
+                                      : null,
                                   ]}
                                 >
                                   <View style={styles.participantTop}>
-                                    <View style={[styles.headshotWrap, { backgroundColor: teamColor }]}>
-                                      <Image source={{ uri: playerHeadshot }} style={styles.headshot} />
-                                      {teamLogo && <Image source={{ uri: teamLogo }} style={styles.teamLogoOverlay} />}
+                                    <View
+                                      style={[
+                                        styles.headshotWrap,
+                                        { backgroundColor: teamColor },
+                                      ]}
+                                    >
+                                      <Image
+                                        source={{ uri: playerHeadshot }}
+                                        style={styles.headshot}
+                                      />
+                                      {teamLogo && (
+                                        <Image
+                                          source={{ uri: teamLogo }}
+                                          style={styles.teamLogoOverlay}
+                                        />
+                                      )}
                                     </View>
                                     <View style={styles.participantInfo}>
-                                      <Text style={[styles.participantName, { color: theme.text }]}>
+                                      <Text
+                                        style={[
+                                          styles.participantName,
+                                          { color: theme.text },
+                                        ]}
+                                      >
                                         {shortName}
                                       </Text>
-                                      <Text style={[styles.participantMeta, { color: theme.textSecondary }]}>
-                                        {positionAbbr} • {teamAbbr} • {formatParticipantType(participant.type)}
+                                      <Text
+                                        style={[
+                                          styles.participantMeta,
+                                          { color: theme.textSecondary },
+                                        ]}
+                                      >
+                                        {positionAbbr} • {teamAbbr} •{" "}
+                                        {formatParticipantType(
+                                          participant.type
+                                        )}
                                       </Text>
                                       {(() => {
-                                        console.log('[NFL Participants] Rendering stats, isArray:', Array.isArray(stats), 'length:', stats?.length);
-                                        return Array.isArray(stats) && stats.length > 0 && (
-                                        <View style={{ flexDirection: 'row', marginTop: 8, gap: 12 }}>
-                                          {stats.map((stat, statIdx) => (
-                                            <View key={statIdx} style={{ alignItems: 'center' }}>
-                                              <Text style={[{ color: theme.text, fontSize: 18, fontWeight: 'bold' }]}>
-                                                {stat.value}
-                                              </Text>
-                                              <Text style={[{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }]}>
-                                                {stat.label}
-                                              </Text>
+                                        console.log(
+                                          "[NFL Participants] Rendering stats, isArray:",
+                                          Array.isArray(stats),
+                                          "length:",
+                                          stats?.length
+                                        );
+                                        return (
+                                          Array.isArray(stats) &&
+                                          stats.length > 0 && (
+                                            <View
+                                              style={{
+                                                flexDirection: "row",
+                                                marginTop: 8,
+                                                gap: 12,
+                                              }}
+                                            >
+                                              {stats.map((stat, statIdx) => (
+                                                <View
+                                                  key={statIdx}
+                                                  style={{
+                                                    alignItems: "center",
+                                                  }}
+                                                >
+                                                  <Text
+                                                    style={[
+                                                      {
+                                                        color: theme.text,
+                                                        fontSize: 18,
+                                                        fontWeight: "bold",
+                                                      },
+                                                    ]}
+                                                  >
+                                                    {stat.value}
+                                                  </Text>
+                                                  <Text
+                                                    style={[
+                                                      {
+                                                        color:
+                                                          theme.textSecondary,
+                                                        fontSize: 11,
+                                                        marginTop: 2,
+                                                      },
+                                                    ]}
+                                                  >
+                                                    {stat.label}
+                                                  </Text>
+                                                </View>
+                                              ))}
                                             </View>
-                                          ))}
-                                        </View>
-                                      );
+                                          )
+                                        );
                                       })()}
                                     </View>
                                   </View>
@@ -6909,11 +7298,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         stickyHeaderIndices={[1]}
-        contentContainerStyle={
-          { paddingBottom: 80 }
-        }
+        contentContainerStyle={{ paddingBottom: 80 }}
       >
-
         {/* Header with Teams and Scores */}
         {(() => {
           // Get smart team colors for proper color handling
