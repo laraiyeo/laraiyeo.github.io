@@ -14,6 +14,7 @@ $$ LANGUAGE plpgsql;
 CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid NOT NULL,
   username text NOT NULL,
+  password text NULL,
   credits numeric NOT NULL DEFAULT 2500,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -29,6 +30,17 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   CONSTRAINT profiles_username_key UNIQUE (username),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users (id) ON DELETE CASCADE
 );
+
+-- Ensure legacy deployments that already added `password` manually are safe
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'password'
+  ) THEN
+    ALTER TABLE public.profiles ADD COLUMN password text NULL;
+  END IF;
+END$$;
 
 CREATE TABLE IF NOT EXISTS public.betslips (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -321,6 +333,38 @@ BEGIN
   RETURN v_betslip_id;
 END;
 $$;
+
+-- RPC: Authenticate user by username and password (bypasses RLS)
+-- Returns phone number if credentials are valid, null otherwise.
+-- This function runs with SECURITY DEFINER to bypass RLS during login.
+-- WARNING: Storing plaintext passwords is unsafe; consider hashing.
+CREATE OR REPLACE FUNCTION public.authenticate_user(uname text, pass text)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_phone text;
+  v_password text;
+BEGIN
+  -- Query the profile (bypasses RLS due to SECURITY DEFINER)
+  SELECT phone, password INTO v_phone, v_password
+  FROM public.profiles
+  WHERE username = uname
+  LIMIT 1;
+
+  -- If no profile found or password doesn't match, return null
+  IF v_phone IS NULL OR v_password IS NULL OR v_password != pass THEN
+    RETURN NULL;
+  END IF;
+
+  -- Credentials valid - return phone
+  RETURN v_phone;
+END;
+$$;
+
+-- Grant execute to anon so unauthenticated clients can call this during login
+GRANT EXECUTE ON FUNCTION public.authenticate_user(text, text) TO anon;
 
 -- Settlement RPC (atomic)
 CREATE OR REPLACE FUNCTION settle_betslip(

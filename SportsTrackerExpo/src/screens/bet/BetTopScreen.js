@@ -11,6 +11,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useTheme } from "../../context/ThemeContext";
 import { useSport } from "./BetTabNavigator";
+import { useBetSlip } from "../../context/BetSlipContext";
+import BetSlip from "../../components/BetSlip";
+import { BannerAdWrapper, DEV_BANNER_ID } from "../../services/ads";
 import { useBetData } from "../../context/BetDataContext";
 
 const BetTopScreen = ({ navigation }) => {
@@ -18,6 +21,8 @@ const BetTopScreen = ({ navigation }) => {
   const { sport } = useSport();
   const { getRosters, fetchRosters } = useBetData();
   const [searchQuery, setSearchQuery] = useState("");
+
+  const { isPro } = useBetSlip();
 
   const currentRostersData = getRosters(sport);
 
@@ -248,6 +253,9 @@ const BetTopScreen = ({ navigation }) => {
           </View>
         )}
       </ScrollView>
+
+      {!isPro && <BannerAdWrapper />}
+      <BetSlip/>
     </View>
   );
 };

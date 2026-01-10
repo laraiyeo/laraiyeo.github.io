@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
@@ -144,13 +145,22 @@ const BetLeadersScreen = () => {
   }, []);
 
   function scrollToUserAndFlash() {
-    // Locate index of the item with isYou:true or id 'leader-you'
-    const idx = data.findIndex((d) => d.isYou || d.username === "You");
-    const targetIndex =
-      idx >= 0 ? idx : data.findIndex((d) => d.rank && d.rank === 1);
-    if (targetIndex === -1) return;
-    flatRef.current?.scrollToIndex({ index: targetIndex, viewPosition: 0.5 });
-    setFlashIndex(targetIndex);
+    // Locate index of the item with isYou:true
+    const idx = data.findIndex((d) => d.isYou);
+    
+    if (idx === -1) {
+      // User not found on leaderboard
+      Alert.alert(
+        "Not on Leaderboard",
+        "You're not on the leaderboard yet. Place some bets to get started!",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    // Scroll to user and flash
+    flatRef.current?.scrollToIndex({ index: idx, viewPosition: 0.5 });
+    setFlashIndex(idx);
     flashAnim.setValue(0);
     // two quick pulses using flashAnim
     Animated.sequence([

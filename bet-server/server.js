@@ -4232,6 +4232,7 @@ function transformSummaryData(data) {
       if (combined.length > 0) {
         const lastDrive = combined[combined.length - 1];
         const driveOut = {};
+
         for (const k of Object.keys(lastDrive || {})) {
           if (k === "team") {
             driveOut.team = {
@@ -4244,6 +4245,7 @@ function transformSummaryData(data) {
           }
           if (k === "isScore") continue;
           if (k === "plays" && Array.isArray(lastDrive.plays)) {
+            // Keep full plays array (but strip heavy props)
             driveOut.plays = lastDrive.plays.map((pl) => {
               const {
                 id,
@@ -4263,6 +4265,36 @@ function transformSummaryData(data) {
           }
           driveOut[k] = lastDrive[k];
         }
+
+        // Ensure start.yardLine remains anchored to the FIRST play's start
+        // while other drive-level fields remain taken from the last drive.
+        try {
+          if (Array.isArray(lastDrive.plays) && lastDrive.plays.length > 0) {
+            const firstPlay = lastDrive.plays[0];
+            const lastPlay = lastDrive.plays[lastDrive.plays.length - 1];
+
+            // If a start object exists, override only its yardLine with the first play's start.yardLine
+            const firstYardLine = firstPlay?.start?.yardLine ?? null;
+            if (firstYardLine != null) {
+              driveOut.start = {
+                ...(driveOut.start || lastDrive.start || {}),
+                yardLine: firstYardLine,
+              };
+            } else if (driveOut.start == null && lastDrive.start) {
+              driveOut.start = lastDrive.start;
+            }
+
+            // Ensure end comes from the most recent (last) play's end when available
+            if (lastPlay?.end) {
+              driveOut.end = lastPlay.end;
+            } else if (driveOut.end == null && lastDrive.end) {
+              driveOut.end = lastDrive.end;
+            }
+          }
+        } catch (e) {
+          // keep original driveOut if something unexpected occurs
+        }
+
         transformed.drives = driveOut;
       }
     } catch (e) {

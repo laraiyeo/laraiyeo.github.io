@@ -204,12 +204,8 @@ const BetSettingsScreen = ({ navigation }) => {
 
   const infoPages = [
     {
-      title: "Player Props",
-      body: "Player props are generated from historical gamelog data and aggregated statistics. \n\n A server collects recent game stats, seasonal stats, computes rolling aggregates (last 5/10), and derives candidate prop lines from those distributions.",
-    },
-    {
-      title: "Odds Calculation",
-      body: "Odds are derived from internal probability heuristics. An internal servers maps probability of specific props to preditermined odds increments (e.g. a probability of >= 0.75 will be given -300). \n\n These odds don't reflect real-world betting lines and are for gameplay purposes only.",
+      title: "Odds and Lines",
+      body: "All odds and betting lines are retreived from DraftKings through SportsGameOdds API. There may be delays or discrepancies compared to live sportsbook lines along with some odds not being available.",
     },
     {
       title: "Credits System",
@@ -425,23 +421,41 @@ const BetSettingsScreen = ({ navigation }) => {
     let mounted = true;
     (async () => {
       try {
-        // Use our helper with the iOS SDK key (provided)
+        // Use our helper with the iOS SDK key (test key for debugging)
         const initRes = await initPurchases(
           "appl_mdoICWLxVPeKJjUzLbFUKhMrXAT",
           supabaseUserId
         );
         if (!initRes || !initRes.ok) {
-          console.warn(
-            "RevenueCat init failed or skipped",
-            initRes && initRes.error
-          );
+          console.warn("RevenueCat init failed or skipped", initRes && initRes.error);
           if (mounted) setPurchasesAvailable(false);
+          // capture debug info
+          try {
+            setDebugResult({ timestamp: new Date().toISOString(), initRes });
+          } catch (e) {}
           return;
         }
 
-        // fetch offerings via helper
-        const offerings = await getOfferings();
+        // Small delay to allow SDK to sync with RevenueCat servers
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // fetch offerings via helper with retry logic
+        let offerings = await getOfferings();
+        // Retry once if first fetch returns null (SDK still syncing)
+        if (!offerings) {
+          console.log("RevenueCat: first fetch returned null, retrying after delay...");
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          offerings = await getOfferings();
+        }
+        console.log("RevenueCat: raw offerings ->", offerings);
+        // capture offerings for debug when absent
+        if (!offerings) {
+          try {
+            setDebugResult({ timestamp: new Date().toISOString(), initRes, offerings: null, error: "no_offerings_returned" });
+          } catch (e) {}
+        }
         if (offerings) {
+          try { setDebugResult((prev) => ({ ...(prev||{}), timestamp: new Date().toISOString(), initRes, offerings })); } catch(e) {}
           // Prefer the project offering named `com.sportsheart.pro` if present
           const preferredOffering =
             (offerings.all && offerings.all["com.sportsheart.pro"]) ||
@@ -478,6 +492,9 @@ const BetSettingsScreen = ({ navigation }) => {
         }
       } catch (e) {
         console.warn("RevenueCat init error", e?.message || e);
+        try {
+          setDebugResult({ timestamp: new Date().toISOString(), error: e?.message || String(e) });
+        } catch (ee) {}
         if (mounted) setPurchasesAvailable(false);
       }
     })();
@@ -485,6 +502,45 @@ const BetSettingsScreen = ({ navigation }) => {
       mounted = false;
     };
   }, [supabaseUserId]);
+
+  // Debug helper: explicitly re-run init + getOfferings and capture detailed results
+  const fetchOfferingsDebug = async () => {
+    try {
+      setDebugLoading(true);
+      const out = { timestamp: new Date().toISOString() };
+      try {
+        const initRes = await initPurchases("appl_mdoICWLxVPeKJjUzLbFUKhMrXAT", supabaseUserId);
+        out.initRes = initRes;
+        // Small delay to allow SDK to sync
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      } catch (ie) {
+        out.initError = String(ie?.message || ie);
+      }
+      try {
+        let offerings = await getOfferings();
+        // Retry once if null
+        if (!offerings) {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          offerings = await getOfferings();
+        }
+        out.offerings = offerings;
+        if (offerings) {
+          out.preferred = (offerings.all && offerings.all["com.sportsheart.pro"]) || offerings.current || null;
+          out.availablePackages = out.preferred && out.preferred.availablePackages ? out.preferred.availablePackages.map(p => ({ id: p.identifier || p.product?.identifier, productId: p.product?.identifier, packageType: p.packageType })) : [];
+        }
+      } catch (oe) {
+        out.offeringsError = String(oe?.message || oe);
+      }
+      console.log("RevenueCat debug result:", out);
+      setDebugResult(out);
+      setDebugVisible(true);
+    } catch (e) {
+      console.warn("fetchOfferingsDebug failed", e);
+      try { setDebugResult({ timestamp: new Date().toISOString(), error: String(e) }); setDebugVisible(true); } catch (ee) {}
+    } finally {
+      setDebugLoading(false);
+    }
+  };
 
   // Purchase handlers (use Purchases SDK where available)
   const handleBuy = async (which) => {

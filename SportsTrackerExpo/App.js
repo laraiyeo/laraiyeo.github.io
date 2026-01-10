@@ -45,6 +45,7 @@ import { useStreamingAccess } from "./src/utils/streamingUtils";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   initPurchases,
+  getOfferings,
   getCustomerInfo,
   isEntitled,
 } from "./src/services/revenuecat";
@@ -1972,221 +1973,134 @@ const AppContent = () => {
   const { currentColorPalette, changeColorPalette, isDarkMode } = useTheme();
   const [showSplash, setShowSplash] = useState(true);
 
-  // Initialize Firebase Analytics
+  // Defer ALL heavy initialization until after first render
   useEffect(() => {
-    const initializeAnalytics = async () => {
-      try {
-        await analyticsService.initialize();
-      } catch (error) {
-        console.warn(
-          "Firebase Analytics initialization failed (expected in old development builds):",
-          error.message
-        );
-      }
-    };
+    // Use InteractionManager to wait until animations complete
+    const handle = require('react-native').InteractionManager.runAfterInteractions(() => {
+      // Start all background initialization tasks
+      initializeBackgroundServices();
+    });
 
-    initializeAnalytics();
+    return () => handle.cancel();
   }, []);
 
-  // Preload emotes on app startup
-  useEffect(() => {
-    const preloadEmotes = async () => {
+  const initializeBackgroundServices = async () => {
+    // Run analytics init (non-blocking)
+    analyticsService.initialize().catch(err => {
+      if (__DEV__) console.warn("Analytics init failed:", err.message);
+    });
+
+    // Preload emotes in background
+    EmoteService.getAllEmotes().catch(err => {
+      if (__DEV__) console.warn("Emote preload failed:", err);
+    });
+
+    // Initialize PresenceService
+    try {
+      PresenceService.init();
+    } catch (error) {
+      if (__DEV__) console.warn("PresenceService init failed:", error);
+    }
+
+    // Initialize RevenueCat (most expensive)
+    initializeRevenueCat();
+
+    // Initialize ads AFTER everything else (lowest priority)
+    setTimeout(() => {
+      initAds().catch(err => {
+        if (__DEV__) console.warn("Ads init failed:", err.message);
+      });
+    }, 2000);
+  };
+
+  const initializeRevenueCat = async () => {
+    try {
+      let userId = null;
       try {
-        console.log("🎭 Preloading emotes...");
-        await EmoteService.getAllEmotes();
-        console.log("🎭 Emotes preloaded successfully");
-      } catch (error) {
-        console.warn("🎭 Failed to preload emotes:", error);
-      }
-    };
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) userId = user.id;
+      } catch (e) {}
 
-    // No prefetch tasks required for home layout
-    preloadEmotes();
-  }, []);
+      const initRes = await initPurchases("appl_mdoICWLxVPeKJjUzLbFUKhMrXAT", userId);
+      
+      // Fetch offerings and customer info in parallel
+      const [offerings, customerInfo] = await Promise.allSettled([
+        getOfferings(),
+        getCustomerInfo()
+      ]);
 
-  // Initialize PresenceService for viewer tracking
-  useEffect(() => {
-    const initializePresence = async () => {
-      try {
-        console.log("👁️ App.js - Starting PresenceService initialization...");
-        PresenceService.init();
-
-        // Test the service by getting a user ID
-        const userId = await PresenceService.getUserId();
-        console.log(
-          "👁️ App.js - PresenceService initialized successfully with userId:",
-          userId
-        );
-      } catch (error) {
-        console.warn(
-          "👁️ App.js - Failed to initialize PresenceService:",
-          error
-        );
-      }
-    };
-
-    initializePresence();
-  }, []);
-
-  // Initialize RevenueCat Purchases and sync entitlement state
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        // attempt to get current supabase user id
-        let userId = null;
+      // Process entitlements if available
+      if (customerInfo.status === 'fulfilled') {
+        const entitled = isEntitled(customerInfo.value, "SportsHeart Pro");
         try {
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
-          if (user && user.id) userId = user.id;
-        } catch (e) {
-          console.warn(
-            "RevenueCat: failed to read supabase user",
-            e?.message || e
-          );
-        }
-
-        const initRes = await initPurchases(
-          "appl_mdoICWLxVPeKJjUzLbFUKhMrXAT",
-          userId
-        );
-        console.log("RevenueCat init result", initRes && initRes.ok);
-        // fetch customer info and persist entitlement quick-lookup
-        try {
-          const info = await getCustomerInfo();
-          const entitled = isEntitled(info, "SportsHeart Pro");
-          if (mounted) {
-            if (entitled) {
-              await AsyncStorage.setItem("@is_pro", "1");
-            } else {
-              await AsyncStorage.removeItem("@is_pro");
-            }
-            try {
-              if (setIsPro) setIsPro(!!entitled);
-            } catch (e) {}
+          if (entitled) {
+            await AsyncStorage.setItem("@is_pro", "1");
+          } else {
+            await AsyncStorage.removeItem("@is_pro");
           }
-        } catch (e) {
-          console.warn(
-            "RevenueCat: failed to get customer info",
-            e?.message || e
-          );
-        }
-        // Initialize mobile ads (best-effort)
-        try {
-          await initAds();
-        } catch (e) {
-          console.warn("Ads: init error", e?.message || e);
-        }
-      } catch (e) {
-        console.warn("RevenueCat initialization failed", e?.message || e);
+          if (setIsPro) setIsPro(!!entitled);
+        } catch (e) {}
       }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    } catch (e) {
+      if (__DEV__) console.warn("RevenueCat init failed:", e.message);
+    }
+  };
 
-  // On app load, fetch canonical `is_pro` from profiles and enforce theme rules
+  // Fetch pro status from profile (deferred, non-blocking)
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        // attempt to get current supabase user id
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        const userId = user?.id;
-        if (!userId) return;
-
-        // fetch profile row to read `is_pro`
-        const { data: profile, error } = await supabase
-          .from("profiles")
-          .select("id,is_pro")
-          .eq("id", userId)
-          .maybeSingle();
-        if (error) {
-          console.warn(
-            "App init: failed to read profile",
-            error.message || error
-          );
-          return;
-        }
-
-        const isPro = !!(profile && profile.is_pro);
-        try {
-          if (isPro) await AsyncStorage.setItem("@is_pro", "1");
-          else await AsyncStorage.removeItem("@is_pro");
-        } catch (e) {
-          console.warn(
-            "App init: AsyncStorage set/remove @is_pro failed",
-            e?.message || e
-          );
-        }
-
-        try {
-          if (setIsPro) setIsPro(isPro);
-        } catch (e) {
-          console.warn("App init: setIsPro failed", e?.message || e);
-        }
-
-        // If user lost Pro access while the app was closed and they had a custom palette,
-        // reset to `red` and update the app icon accordingly.
-        if (!isPro && currentColorPalette === "custom") {
-          try {
-            await changeColorPalette("red");
-            console.log(
-              "App init: reverted custom palette to red due to lost Pro"
-            );
-          } catch (e) {
-            console.warn("App init: failed to revert palette", e?.message || e);
-          }
-        }
-      } catch (e) {
-        console.warn(
-          "App init: error fetching profile is_pro",
-          e?.message || e
-        );
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
+    const handle = require('react-native').InteractionManager.runAfterInteractions(() => {
+      fetchProStatusFromProfile();
+    });
+    return () => handle.cancel();
   }, [currentColorPalette, changeColorPalette, setIsPro]);
 
-  // Check for app updates on startup
-  useEffect(() => {
-    const checkForUpdates = async () => {
+  const fetchProStatusFromProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id,is_pro")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const isPro = !!(profile?.is_pro);
+      
+      // Update state and storage
+      if (setIsPro) setIsPro(isPro);
       try {
-        // Wait for splash screen to finish before checking updates
-        setTimeout(async () => {
-          console.log("🔄 Checking for app updates...");
+        if (isPro) {
+          await AsyncStorage.setItem("@is_pro", "1");
+        } else {
+          await AsyncStorage.removeItem("@is_pro");
+        }
+      } catch (e) {}
 
-          try {
-            const updateInfo = await UpdateService.getCurrentUpdateInfo();
-            console.log("📱 Current update info:", updateInfo);
-
-            // Only check for updates if service is available
-            if (updateInfo.isEnabled) {
-              // Note: Update prompt will be handled in HomeScreen
-              await UpdateService.checkForUpdatesOnStartup();
-            } else {
-              console.log(
-                "📱 Update service not available:",
-                updateInfo.message
-              );
-            }
-          } catch (error) {
-            console.log("📱 Update check skipped:", error.message);
-          }
-        }, 3000); // Wait 3 seconds after app start
-      } catch (error) {
-        console.warn("Update check failed:", error.message);
+      // Reset custom theme if lost Pro access
+      if (!isPro && currentColorPalette === "custom") {
+        changeColorPalette("red");
+        const iconVariant = isDarkMode ? "dark_red" : "light_red";
+        const DynamicAppIcon = require("nixa-expo-dynamic-app-icon").default;
+        await DynamicAppIcon.setAppIcon(iconVariant).catch(() => {});
       }
-    };
+    } catch (e) {
+      if (__DEV__) console.warn("Failed to fetch pro status:", e.message);
+    }
+  };
 
-    checkForUpdates();
-  }, []);
+  // Check for updates (very low priority - after splash finishes)
+  useEffect(() => {
+    if (!showSplash) {
+      // Only check after splash is done
+      setTimeout(() => {
+        UpdateService.checkForUpdatesOnStartup()
+          .catch(err => {
+            if (__DEV__) console.warn("Update check failed:", err.message);
+          });
+      }, 5000); // Wait 5 seconds after splash finishes
+    }
+  }, [showSplash]);
 
   const handleSplashFinish = async () => {
     setShowSplash(false);

@@ -852,18 +852,17 @@ const NFLField = React.memo(
               drives.start.yardLine != null &&
               drives.end.yardLine != null &&
               (() => {
-                // Swap start and end per user request
-                const startPos = drives.end.yardLine;
-                const endPos = drives.start.yardLine;
+                // Determine team color - check drives.team.id first
+                const teamId = drives.team?.id || drives.end?.team?.id;
+
+                const startPos = 100 - drives.start.yardLine;
+                const endPos = 100 - drives.end.yardLine;
 
                 // Handle both directions (start -> end or end -> start)
                 const isReversed = startPos > endPos;
                 const leftPos = isReversed ? endPos : startPos;
                 const rightPos = isReversed ? startPos : endPos;
                 const widthPercent = rightPos - leftPos;
-
-                // Determine team color - check drives.team.id first
-                const teamId = drives.team?.id || drives.end?.team?.id;
                 // If teamId matches home team (team2), use team2Color, otherwise team1Color
                 const gradientColor =
                   teamId === team2Id ? team2Color : team1Color;
@@ -2584,8 +2583,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       try {
         setLoading(true);
         const url = useEventId
-          ? `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/nfl/401772960`
-          : `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/nfl/401772960`;
+          ? `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/${String(
+              sportToUse
+            ).toLowerCase()}/${useEventId}`
+          : `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/${String(
+              sportToUse
+            ).toLowerCase()}/${game.id}`;
         const response = await fetch(url);
         const data = await response.json();
         setSummaryData(data);
@@ -2926,11 +2929,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           id: "stats",
           icon: "stats-chart",
           label: "Game Stats",
-        },
-        {
-          id: "quick",
-          icon: "flash",
-          label: "Live Play",
         },
       ];
     }
@@ -3531,7 +3529,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                             },
                                           ]}
                                         >
-                                          {" "}
                                           {statKeys.map((statKey) => {
                                             const isCurrentSort =
                                               sortState?.column === statKey;
@@ -4134,6 +4131,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 },
                               ]}
                             >
+                              {(summaryData.drives?.description || summaryData.drives?.scoringType?.displayName || summaryData.drives?.end?.downDistanceText || summaryData.drives?.start?.downDistanceText) && 
                               <Text
                                 style={[
                                   styles.playText,
@@ -4142,9 +4140,21 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               >
                                 {summaryData.drives.description ||
                                   summaryData.drives.scoringType?.displayName ||
+                                  summaryData.drives.end?.downDistanceText ||
                                   summaryData.drives.start?.downDistanceText ||
                                   ""}
                               </Text>
+                              }
+                              {summaryData.drives.type?.text &&
+                              <Text
+                                style={[
+                                  styles.playText,
+                                  { color: theme.textSecondary, textAlign: "center", marginBottom: -5 },
+                                ]}
+                              >
+                                {summaryData.drives.type?.text || ""}
+                              </Text>
+                              }
                             </View>
                           </View>
                         );
@@ -4255,7 +4265,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       })()}
 
                     {/* NFL Drive Participants Section */}
-                    {summaryData?.drives?.participants &&
+                    {isPro && summaryData?.drives?.participants &&
                       Array.isArray(summaryData.drives.participants) &&
                       summaryData.drives.participants.length > 0 &&
                       (() => {

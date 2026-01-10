@@ -204,10 +204,10 @@ const BetLoginScreen = ({ navigation }) => {
         return;
       }
 
-      // Check username uniqueness in profiles
+      // Check username uniqueness in profiles (also read phone to assist recovery)
       const { data: existingUser, error: existingErr } = await supabase
         .from("profiles")
-        .select("id")
+        .select("id, phone")
         .eq("username", signupUsername)
         .maybeSingle();
 
@@ -216,7 +216,54 @@ const BetLoginScreen = ({ navigation }) => {
       }
 
       if (existingUser) {
-        Alert.alert("Signup Failed", "Username is already taken.");
+        // If a profile exists with this username, avoid creating a duplicate.
+        // If the user entered the same phone as the existing profile, attempt
+        // to sign them in (they may be trying to login but clicked Create).
+        const existingPhone = existingUser.phone || null;
+        if (existingPhone && signupPhone && String(existingPhone) === String(signupPhone)) {
+          // Attempt sign-in with provided phone/password
+          try {
+            const {
+              data: authData,
+              error: authError,
+            } = await withTimeout(
+              supabase.auth.signInWithPassword({ phone: signupPhone, password: signupPassword }),
+              8000
+            );
+            if (!authError && authData) {
+              // Treat as successful login: persist credentials and navigate
+              try {
+                await saveCredentials(signupUsername, signupPassword, signupPhone);
+              } catch (e) {}
+              try {
+                registerForPushNotifications().catch((e) =>
+                  console.warn("registerForPushNotifications (post-signin) failed", e)
+                );
+              } catch (e) {}
+              try {
+                await fetchScoreboard();
+              } catch (e) {}
+              if (fetchRosters) {
+                fetchRosters().catch(() => {});
+              }
+              InteractionManager.runAfterInteractions(() => {
+                navigation.navigate("BetMain");
+              });
+              return;
+            } else {
+              // If credentials are wrong, inform the user and suggest Login
+              const msg = authError?.message || "Invalid password";
+              Alert.alert("Signup Failed", `Username already exists. ${msg}. Try signing in instead.`);
+              return;
+            }
+          } catch (e) {
+            console.warn("Signup: attempted sign-in after existing username check failed", e);
+            Alert.alert("Signup Failed", "Username already exists. Please use Login to sign in.");
+            return;
+          }
+        }
+
+        Alert.alert("Signup Failed", "Username is already taken. Please use Login to sign in.");
         return;
       }
 
@@ -240,11 +287,13 @@ const BetLoginScreen = ({ navigation }) => {
         throw authError;
       }
 
-      // Create profile with initial credits
+      // Create profile with initial credits and store the plaintext password
+      // (NOTE: storing plaintext passwords is insecure; consider hashing)
       const { error: profileError } = await supabase.from("profiles").insert({
         id: authData.user.id,
         username: signupUsername,
         phone: signupPhone,
+        password: signupPassword,
         credits: 2500,
       });
 
@@ -468,102 +517,98 @@ const BetLoginScreen = ({ navigation }) => {
         console.warn("BetLogin: cache fast-path error", e);
       }
 
-      // If cache didn't produce a phone or sign-in, perform secure RPC lookup
+      // If cache didn't produce a phone or sign-in, authenticate via RPC
       if (!userPhone) {
-        // Secure lookup: call RPC 'get_phone_by_username' which returns only the phone
-        let rpcData = null;
         try {
-          console.time("rpc");
-          const res = await withTimeout(
-            supabase.rpc("get_phone_by_username", { uname: username }),
+          // Call secure RPC that validates credentials and returns phone (bypasses RLS)
+          const { data: authenticatedPhone, error: authErr } = await withTimeout(
+            supabase.rpc("authenticate_user", { uname: username, pass: password }),
             8000
           );
-          console.timeEnd("rpc");
-          rpcData = res.data || res;
-          console.log("BetLogin: rpc lookup result:", { rpcData });
+
+          if (authErr) {
+            console.warn("BetLogin: authenticate_user RPC error", authErr);
+            Alert.alert(
+              'Account Lookup Failed',
+              'Unable to verify username. Please create an account or enter your phone to continue.'
+            );
+            setShowPhoneForm(true);
+            setLoading(false);
+            return;
+          }
+
+          // If RPC returned null, credentials are invalid or user doesn't exist
+          if (!authenticatedPhone) {
+            Alert.alert(
+              "Login Failed",
+              "Invalid username or password. Please try again."
+            );
+            setLoading(false);
+            return;
+          }
+
+          // Credentials valid - use returned phone
+          userPhone = authenticatedPhone;
+
+          // store fresh phone in in-memory cache immediately (best-effort)
+          try {
+            PHONE_CACHE_MAP[username] = userPhone;
+          } catch (e) {}
+
+          // Persist credentials + phone cache asynchronously (non-blocking)
+          setTimeout(() => {
+            try {
+              const payload = JSON.stringify({
+                username,
+                password,
+                phone: userPhone,
+              });
+              batchSet([
+                [CRED_KEY, payload],
+                [PHONE_CACHE_KEY, JSON.stringify({ [username]: userPhone })],
+              ]).catch(() => {});
+            } catch (e) {}
+          }, 0);
+
+          // Now sign in with the phone + password (with timeout)
+          console.log("BetLogin: attempting phone sign-in with", userPhone);
+          try {
+            ({ data: authData, error: authError } = await withTimeout(
+              supabase.auth.signInWithPassword({ phone: userPhone, password }),
+              8000
+            ));
+          } catch (e) {
+            console.warn("BetLogin: signInWithPassword timed out or failed", e);
+            authError = e;
+            authData = null;
+          }
+
+          console.log("BetLogin: sign-in result:", { authData, authError });
+
+          if (authError) {
+            console.warn("BetLogin: sign-in error", authError);
+            if (
+              authError.message &&
+              (authError.message.includes("Invalid") ||
+                authError.message.includes("credentials"))
+            ) {
+              Alert.alert("Login Failed", "Invalid password. Please try again.");
+            } else {
+              Alert.alert("Login Failed", authError.message || "Failed to login");
+            }
+            setLoading(false);
+            return;
+          }
         } catch (rpcError) {
           console.warn(
-            "BetLogin: rpc lookup failed or timed out",
+            "BetLogin: profile lookup failed or timed out",
             rpcError?.message || rpcError
           );
-          throw rpcError;
-        }
-
-        // rpcData might be a scalar string, an array, or an object depending on function
-        if (!rpcData) {
           Alert.alert(
-            "Account Not Found",
-            "No account exists with that username. Please create an account."
+            'Account Lookup Failed',
+            'Unable to verify username. Please create an account or enter your phone to continue.'
           );
           setShowPhoneForm(true);
-          setLoading(false);
-          return;
-        }
-
-        if (typeof rpcData === "string") {
-          userPhone = rpcData;
-        } else if (Array.isArray(rpcData) && rpcData.length > 0) {
-          userPhone = rpcData[0];
-        } else if (rpcData.phone) {
-          userPhone = rpcData.phone;
-        }
-
-        if (!userPhone) {
-          // Profile exists but no phone stored - ask user to enter it
-          Alert.alert(
-            "Phone Required",
-            "Please enter the phone number you used to sign up."
-          );
-          setShowPhoneForm(true);
-          setLoading(false);
-          return;
-        }
-
-        // store fresh phone in in-memory cache immediately (best-effort)
-        try {
-          PHONE_CACHE_MAP[username] = userPhone;
-        } catch (e) {}
-        // Persist credentials + phone cache asynchronously (non-blocking)
-        setTimeout(() => {
-          try {
-            const payload = JSON.stringify({
-              username,
-              password,
-              phone: userPhone,
-            });
-            batchSet([
-              [CRED_KEY, payload],
-              [PHONE_CACHE_KEY, JSON.stringify({ [username]: userPhone })],
-            ]).catch(() => {});
-          } catch (e) {}
-        }, 0);
-
-        // Now sign in with the phone + password (with timeout)
-        console.log("BetLogin: attempting phone sign-in with", userPhone);
-        try {
-          ({ data: authData, error: authError } = await withTimeout(
-            supabase.auth.signInWithPassword({ phone: userPhone, password }),
-            8000
-          ));
-        } catch (e) {
-          console.warn("BetLogin: signInWithPassword timed out or failed", e);
-          authError = e;
-          authData = null;
-        }
-
-        console.log("BetLogin: sign-in result:", { authData, authError });
-
-        if (authError) {
-          console.warn("BetLogin: sign-in error", authError);
-          if (
-            authError.message &&
-            (authError.message.includes("Invalid") ||
-              authError.message.includes("credentials"))
-          ) {
-            Alert.alert("Login Failed", "Invalid password. Please try again.");
-          } else {
-            Alert.alert("Login Failed", authError.message || "Failed to login");
-          }
           setLoading(false);
           return;
         }

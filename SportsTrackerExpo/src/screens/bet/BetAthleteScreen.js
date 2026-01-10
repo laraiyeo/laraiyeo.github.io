@@ -6,11 +6,14 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import { useBetSlip } from "../../context/BetSlipContext";
+import BetSlip from "../../components/BetSlip";
+import { BannerAdWrapper, DEV_BANNER_ID } from "../../services/ads";
 import OddsDisplayContext from "../../context/OddsDisplayContext";
 
 const BetAthleteScreen = ({ route, navigation }) => {
@@ -1854,7 +1857,12 @@ const BetAthleteScreen = ({ route, navigation }) => {
                     },
                   ]}
                   onPress={() => {
-                    if (!isPro) return;
+                    if (!isPro) {
+                          Alert.alert(
+                            "Pro Required",
+                            "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
+                          );
+                          return};
                     if (isSelected) {
                       removeBet(overBetId);
                     } else {
@@ -1931,7 +1939,12 @@ const BetAthleteScreen = ({ route, navigation }) => {
                     },
                   ]}
                   onPress={() => {
-                    if (!isPro) return;
+                    if (!isPro) {
+                          Alert.alert(
+                            "Pro Required",
+                            "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
+                          );
+                          return};
                     if (isSelected) {
                       removeBet(underBetId);
                     } else {
@@ -2036,7 +2049,12 @@ const BetAthleteScreen = ({ route, navigation }) => {
                         },
                       ]}
                       onPress={() => {
-                        if (!isPro) return;
+                        if (!isPro) {
+                          Alert.alert(
+                            "Pro Required",
+                            "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
+                          );
+                          return};
                         if (isSelected) {
                           removeBet(underBetId);
                         } else {
@@ -2111,7 +2129,12 @@ const BetAthleteScreen = ({ route, navigation }) => {
                       },
                     ]}
                     onPress={() => {
-                      if (!isPro) return;
+                      if (!isPro) {
+                          Alert.alert(
+                            "Pro Required",
+                            "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
+                          );
+                          return};
                       if (isSelected) {
                         removeBet(overBetId);
                       } else {
@@ -2214,6 +2237,12 @@ const BetAthleteScreen = ({ route, navigation }) => {
               },
             ]}
             onPress={() => {
+              if (!isPro) {
+                  Alert.alert(
+                    "Pro Required",
+                    "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
+                  );
+                  return};
               if (isSelected) {
                 removeBet(yesBetId);
               } else {
@@ -2271,6 +2300,12 @@ const BetAthleteScreen = ({ route, navigation }) => {
             },
           ]}
           onPress={() => {
+            if (!isPro) {
+                Alert.alert(
+                  "Pro Required",
+                  "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
+                );
+                return};
             if (isSelected) {
               removeBet(yesBetId);
             } else {
@@ -2348,7 +2383,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScrollView>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={[styles.header, { backgroundColor: teamColorWithAlpha }]}>
           <View style={styles.headshotWrapper}>
@@ -2533,6 +2568,11 @@ const BetAthleteScreen = ({ route, navigation }) => {
           <View style={styles.gamesWrapper}>{renderGames()}</View>
         )}
       </ScrollView>
+      
+      {!isPro && <BannerAdWrapper />}
+      <BetSlip
+        isGameDetail={true}
+        />
     </View>
   );
 };
@@ -2540,6 +2580,9 @@ const BetAthleteScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 150,
   },
   loadingContainer: {
     flex: 1,
