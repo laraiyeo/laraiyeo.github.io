@@ -1858,11 +1858,12 @@ const BetAthleteScreen = ({ route, navigation }) => {
                   ]}
                   onPress={() => {
                     if (!isPro) {
-                          Alert.alert(
-                            "Pro Required",
-                            "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
-                          );
-                          return};
+                      Alert.alert(
+                        "Pro Required",
+                        "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
+                      );
+                      return;
+                    }
                     if (isSelected) {
                       removeBet(overBetId);
                     } else {
@@ -1940,11 +1941,12 @@ const BetAthleteScreen = ({ route, navigation }) => {
                   ]}
                   onPress={() => {
                     if (!isPro) {
-                          Alert.alert(
-                            "Pro Required",
-                            "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
-                          );
-                          return};
+                      Alert.alert(
+                        "Pro Required",
+                        "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
+                      );
+                      return;
+                    }
                     if (isSelected) {
                       removeBet(underBetId);
                     } else {
@@ -2054,7 +2056,8 @@ const BetAthleteScreen = ({ route, navigation }) => {
                             "Pro Required",
                             "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
                           );
-                          return};
+                          return;
+                        }
                         if (isSelected) {
                           removeBet(underBetId);
                         } else {
@@ -2130,11 +2133,12 @@ const BetAthleteScreen = ({ route, navigation }) => {
                     ]}
                     onPress={() => {
                       if (!isPro) {
-                          Alert.alert(
-                            "Pro Required",
-                            "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
-                          );
-                          return};
+                        Alert.alert(
+                          "Pro Required",
+                          "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
+                        );
+                        return;
+                      }
                       if (isSelected) {
                         removeBet(overBetId);
                       } else {
@@ -2238,11 +2242,12 @@ const BetAthleteScreen = ({ route, navigation }) => {
             ]}
             onPress={() => {
               if (!isPro) {
-                  Alert.alert(
-                    "Pro Required",
-                    "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
-                  );
-                  return};
+                Alert.alert(
+                  "Pro Required",
+                  "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
+                );
+                return;
+              }
               if (isSelected) {
                 removeBet(yesBetId);
               } else {
@@ -2301,11 +2306,12 @@ const BetAthleteScreen = ({ route, navigation }) => {
           ]}
           onPress={() => {
             if (!isPro) {
-                Alert.alert(
-                  "Pro Required",
-                  "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
-                );
-                return};
+              Alert.alert(
+                "Pro Required",
+                "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
+              );
+              return;
+            }
             if (isSelected) {
               removeBet(yesBetId);
             } else {
@@ -2568,11 +2574,9 @@ const BetAthleteScreen = ({ route, navigation }) => {
           <View style={styles.gamesWrapper}>{renderGames()}</View>
         )}
       </ScrollView>
-      
+
       {!isPro && <BannerAdWrapper />}
-      <BetSlip
-        isGameDetail={true}
-        />
+      <BetSlip isGameDetail={true} />
     </View>
   );
 };

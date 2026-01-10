@@ -147,7 +147,7 @@ const BetLeadersScreen = () => {
   function scrollToUserAndFlash() {
     // Locate index of the item with isYou:true
     const idx = data.findIndex((d) => d.isYou);
-    
+
     if (idx === -1) {
       // User not found on leaderboard
       Alert.alert(

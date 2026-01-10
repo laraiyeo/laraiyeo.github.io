@@ -358,19 +358,19 @@ const HomeTabNavigator = () => {
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-        <Tab.Screen
-          name="Picks"
-          component={BetLoginScreen}
-          options={{
-            title: "Picks",
-            headerShown: true,
-            headerStyle: {
-              backgroundColor: colors.primary,
-            },
-            headerTintColor: "#fff",
-            headerTitle: (props) => <HeaderTitle {...props} />,
-          }}
-        />
+      <Tab.Screen
+        name="Picks"
+        component={BetLoginScreen}
+        options={{
+          title: "Picks",
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: "#fff",
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}
@@ -1976,22 +1976,23 @@ const AppContent = () => {
   // Defer ALL heavy initialization until after first render
   useEffect(() => {
     // Use InteractionManager to wait until animations complete
-    const handle = require('react-native').InteractionManager.runAfterInteractions(() => {
-      // Start all background initialization tasks
-      initializeBackgroundServices();
-    });
+    const handle =
+      require("react-native").InteractionManager.runAfterInteractions(() => {
+        // Start all background initialization tasks
+        initializeBackgroundServices();
+      });
 
     return () => handle.cancel();
   }, []);
 
   const initializeBackgroundServices = async () => {
     // Run analytics init (non-blocking)
-    analyticsService.initialize().catch(err => {
+    analyticsService.initialize().catch((err) => {
       if (__DEV__) console.warn("Analytics init failed:", err.message);
     });
 
     // Preload emotes in background
-    EmoteService.getAllEmotes().catch(err => {
+    EmoteService.getAllEmotes().catch((err) => {
       if (__DEV__) console.warn("Emote preload failed:", err);
     });
 
@@ -2007,7 +2008,7 @@ const AppContent = () => {
 
     // Initialize ads AFTER everything else (lowest priority)
     setTimeout(() => {
-      initAds().catch(err => {
+      initAds().catch((err) => {
         if (__DEV__) console.warn("Ads init failed:", err.message);
       });
     }, 2000);
@@ -2017,20 +2018,25 @@ const AppContent = () => {
     try {
       let userId = null;
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (user?.id) userId = user.id;
       } catch (e) {}
 
-      const initRes = await initPurchases("appl_mdoICWLxVPeKJjUzLbFUKhMrXAT", userId);
-      
+      const initRes = await initPurchases(
+        "appl_mdoICWLxVPeKJjUzLbFUKhMrXAT",
+        userId
+      );
+
       // Fetch offerings and customer info in parallel
       const [offerings, customerInfo] = await Promise.allSettled([
         getOfferings(),
-        getCustomerInfo()
+        getCustomerInfo(),
       ]);
 
       // Process entitlements if available
-      if (customerInfo.status === 'fulfilled') {
+      if (customerInfo.status === "fulfilled") {
         const entitled = isEntitled(customerInfo.value, "SportsHeart Pro");
         try {
           if (entitled) {
@@ -2048,15 +2054,18 @@ const AppContent = () => {
 
   // Fetch pro status from profile (deferred, non-blocking)
   useEffect(() => {
-    const handle = require('react-native').InteractionManager.runAfterInteractions(() => {
-      fetchProStatusFromProfile();
-    });
+    const handle =
+      require("react-native").InteractionManager.runAfterInteractions(() => {
+        fetchProStatusFromProfile();
+      });
     return () => handle.cancel();
   }, [currentColorPalette, changeColorPalette, setIsPro]);
 
   const fetchProStatusFromProfile = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user?.id) return;
 
       const { data: profile } = await supabase
@@ -2065,8 +2074,8 @@ const AppContent = () => {
         .eq("id", user.id)
         .maybeSingle();
 
-      const isPro = !!(profile?.is_pro);
-      
+      const isPro = !!profile?.is_pro;
+
       // Update state and storage
       if (setIsPro) setIsPro(isPro);
       try {
@@ -2094,10 +2103,9 @@ const AppContent = () => {
     if (!showSplash) {
       // Only check after splash is done
       setTimeout(() => {
-        UpdateService.checkForUpdatesOnStartup()
-          .catch(err => {
-            if (__DEV__) console.warn("Update check failed:", err.message);
-          });
+        UpdateService.checkForUpdatesOnStartup().catch((err) => {
+          if (__DEV__) console.warn("Update check failed:", err.message);
+        });
       }, 5000); // Wait 5 seconds after splash finishes
     }
   }, [showSplash]);

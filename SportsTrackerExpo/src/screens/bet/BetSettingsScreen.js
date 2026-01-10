@@ -427,7 +427,10 @@ const BetSettingsScreen = ({ navigation }) => {
           supabaseUserId
         );
         if (!initRes || !initRes.ok) {
-          console.warn("RevenueCat init failed or skipped", initRes && initRes.error);
+          console.warn(
+            "RevenueCat init failed or skipped",
+            initRes && initRes.error
+          );
           if (mounted) setPurchasesAvailable(false);
           // capture debug info
           try {
@@ -437,25 +440,39 @@ const BetSettingsScreen = ({ navigation }) => {
         }
 
         // Small delay to allow SDK to sync with RevenueCat servers
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise((resolve) => setTimeout(resolve, 1500));
 
         // fetch offerings via helper with retry logic
         let offerings = await getOfferings();
         // Retry once if first fetch returns null (SDK still syncing)
         if (!offerings) {
-          console.log("RevenueCat: first fetch returned null, retrying after delay...");
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          console.log(
+            "RevenueCat: first fetch returned null, retrying after delay..."
+          );
+          await new Promise((resolve) => setTimeout(resolve, 1500));
           offerings = await getOfferings();
         }
         console.log("RevenueCat: raw offerings ->", offerings);
         // capture offerings for debug when absent
         if (!offerings) {
           try {
-            setDebugResult({ timestamp: new Date().toISOString(), initRes, offerings: null, error: "no_offerings_returned" });
+            setDebugResult({
+              timestamp: new Date().toISOString(),
+              initRes,
+              offerings: null,
+              error: "no_offerings_returned",
+            });
           } catch (e) {}
         }
         if (offerings) {
-          try { setDebugResult((prev) => ({ ...(prev||{}), timestamp: new Date().toISOString(), initRes, offerings })); } catch(e) {}
+          try {
+            setDebugResult((prev) => ({
+              ...(prev || {}),
+              timestamp: new Date().toISOString(),
+              initRes,
+              offerings,
+            }));
+          } catch (e) {}
           // Prefer the project offering named `com.sportsheart.pro` if present
           const preferredOffering =
             (offerings.all && offerings.all["com.sportsheart.pro"]) ||
@@ -493,7 +510,10 @@ const BetSettingsScreen = ({ navigation }) => {
       } catch (e) {
         console.warn("RevenueCat init error", e?.message || e);
         try {
-          setDebugResult({ timestamp: new Date().toISOString(), error: e?.message || String(e) });
+          setDebugResult({
+            timestamp: new Date().toISOString(),
+            error: e?.message || String(e),
+          });
         } catch (ee) {}
         if (mounted) setPurchasesAvailable(false);
       }
@@ -509,10 +529,13 @@ const BetSettingsScreen = ({ navigation }) => {
       setDebugLoading(true);
       const out = { timestamp: new Date().toISOString() };
       try {
-        const initRes = await initPurchases("appl_mdoICWLxVPeKJjUzLbFUKhMrXAT", supabaseUserId);
+        const initRes = await initPurchases(
+          "appl_mdoICWLxVPeKJjUzLbFUKhMrXAT",
+          supabaseUserId
+        );
         out.initRes = initRes;
         // Small delay to allow SDK to sync
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise((resolve) => setTimeout(resolve, 1500));
       } catch (ie) {
         out.initError = String(ie?.message || ie);
       }
@@ -520,13 +543,23 @@ const BetSettingsScreen = ({ navigation }) => {
         let offerings = await getOfferings();
         // Retry once if null
         if (!offerings) {
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          await new Promise((resolve) => setTimeout(resolve, 1500));
           offerings = await getOfferings();
         }
         out.offerings = offerings;
         if (offerings) {
-          out.preferred = (offerings.all && offerings.all["com.sportsheart.pro"]) || offerings.current || null;
-          out.availablePackages = out.preferred && out.preferred.availablePackages ? out.preferred.availablePackages.map(p => ({ id: p.identifier || p.product?.identifier, productId: p.product?.identifier, packageType: p.packageType })) : [];
+          out.preferred =
+            (offerings.all && offerings.all["com.sportsheart.pro"]) ||
+            offerings.current ||
+            null;
+          out.availablePackages =
+            out.preferred && out.preferred.availablePackages
+              ? out.preferred.availablePackages.map((p) => ({
+                  id: p.identifier || p.product?.identifier,
+                  productId: p.product?.identifier,
+                  packageType: p.packageType,
+                }))
+              : [];
         }
       } catch (oe) {
         out.offeringsError = String(oe?.message || oe);
@@ -536,7 +569,13 @@ const BetSettingsScreen = ({ navigation }) => {
       setDebugVisible(true);
     } catch (e) {
       console.warn("fetchOfferingsDebug failed", e);
-      try { setDebugResult({ timestamp: new Date().toISOString(), error: String(e) }); setDebugVisible(true); } catch (ee) {}
+      try {
+        setDebugResult({
+          timestamp: new Date().toISOString(),
+          error: String(e),
+        });
+        setDebugVisible(true);
+      } catch (ee) {}
     } finally {
       setDebugLoading(false);
     }
@@ -1868,7 +1907,14 @@ const BetSettingsScreen = ({ navigation }) => {
                   onPress={() => setDailyVisible(false)}
                   style={styles.dailySecondaryButton}
                 >
-                  <Text style={[styles.dailySecondaryText, { color: colors.primary }]}>Close</Text>
+                  <Text
+                    style={[
+                      styles.dailySecondaryText,
+                      { color: colors.primary },
+                    ]}
+                  >
+                    Close
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>

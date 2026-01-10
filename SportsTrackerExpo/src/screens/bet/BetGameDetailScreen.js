@@ -4131,30 +4131,40 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 },
                               ]}
                             >
-                              {(summaryData.drives?.description || summaryData.drives?.scoringType?.displayName || summaryData.drives?.end?.downDistanceText || summaryData.drives?.start?.downDistanceText) && 
-                              <Text
-                                style={[
-                                  styles.playText,
-                                  { color: theme.text, textAlign: "center" },
-                                ]}
-                              >
-                                {summaryData.drives.description ||
-                                  summaryData.drives.scoringType?.displayName ||
-                                  summaryData.drives.end?.downDistanceText ||
-                                  summaryData.drives.start?.downDistanceText ||
-                                  ""}
-                              </Text>
-                              }
-                              {summaryData.drives.type?.text &&
-                              <Text
-                                style={[
-                                  styles.playText,
-                                  { color: theme.textSecondary, textAlign: "center", marginBottom: -5 },
-                                ]}
-                              >
-                                {summaryData.drives.type?.text || ""}
-                              </Text>
-                              }
+                              {(summaryData.drives?.description ||
+                                summaryData.drives?.scoringType?.displayName ||
+                                summaryData.drives?.end?.downDistanceText ||
+                                summaryData.drives?.start
+                                  ?.downDistanceText) && (
+                                <Text
+                                  style={[
+                                    styles.playText,
+                                    { color: theme.text, textAlign: "center" },
+                                  ]}
+                                >
+                                  {summaryData.drives.description ||
+                                    summaryData.drives.scoringType
+                                      ?.displayName ||
+                                    summaryData.drives.end?.downDistanceText ||
+                                    summaryData.drives.start
+                                      ?.downDistanceText ||
+                                    ""}
+                                </Text>
+                              )}
+                              {summaryData.drives.type?.text && (
+                                <Text
+                                  style={[
+                                    styles.playText,
+                                    {
+                                      color: theme.textSecondary,
+                                      textAlign: "center",
+                                      marginBottom: -5,
+                                    },
+                                  ]}
+                                >
+                                  {summaryData.drives.type?.text || ""}
+                                </Text>
+                              )}
                             </View>
                           </View>
                         );
@@ -4265,7 +4275,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       })()}
 
                     {/* NFL Drive Participants Section */}
-                    {isPro && summaryData?.drives?.participants &&
+                    {isPro &&
+                      summaryData?.drives?.participants &&
                       Array.isArray(summaryData.drives.participants) &&
                       summaryData.drives.participants.length > 0 &&
                       (() => {

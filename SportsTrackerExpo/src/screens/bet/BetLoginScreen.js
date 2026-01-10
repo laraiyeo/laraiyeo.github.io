@@ -220,24 +220,35 @@ const BetLoginScreen = ({ navigation }) => {
         // If the user entered the same phone as the existing profile, attempt
         // to sign them in (they may be trying to login but clicked Create).
         const existingPhone = existingUser.phone || null;
-        if (existingPhone && signupPhone && String(existingPhone) === String(signupPhone)) {
+        if (
+          existingPhone &&
+          signupPhone &&
+          String(existingPhone) === String(signupPhone)
+        ) {
           // Attempt sign-in with provided phone/password
           try {
-            const {
-              data: authData,
-              error: authError,
-            } = await withTimeout(
-              supabase.auth.signInWithPassword({ phone: signupPhone, password: signupPassword }),
+            const { data: authData, error: authError } = await withTimeout(
+              supabase.auth.signInWithPassword({
+                phone: signupPhone,
+                password: signupPassword,
+              }),
               8000
             );
             if (!authError && authData) {
               // Treat as successful login: persist credentials and navigate
               try {
-                await saveCredentials(signupUsername, signupPassword, signupPhone);
+                await saveCredentials(
+                  signupUsername,
+                  signupPassword,
+                  signupPhone
+                );
               } catch (e) {}
               try {
                 registerForPushNotifications().catch((e) =>
-                  console.warn("registerForPushNotifications (post-signin) failed", e)
+                  console.warn(
+                    "registerForPushNotifications (post-signin) failed",
+                    e
+                  )
                 );
               } catch (e) {}
               try {
@@ -253,17 +264,29 @@ const BetLoginScreen = ({ navigation }) => {
             } else {
               // If credentials are wrong, inform the user and suggest Login
               const msg = authError?.message || "Invalid password";
-              Alert.alert("Signup Failed", `Username already exists. ${msg}. Try signing in instead.`);
+              Alert.alert(
+                "Signup Failed",
+                `Username already exists. ${msg}. Try signing in instead.`
+              );
               return;
             }
           } catch (e) {
-            console.warn("Signup: attempted sign-in after existing username check failed", e);
-            Alert.alert("Signup Failed", "Username already exists. Please use Login to sign in.");
+            console.warn(
+              "Signup: attempted sign-in after existing username check failed",
+              e
+            );
+            Alert.alert(
+              "Signup Failed",
+              "Username already exists. Please use Login to sign in."
+            );
             return;
           }
         }
 
-        Alert.alert("Signup Failed", "Username is already taken. Please use Login to sign in.");
+        Alert.alert(
+          "Signup Failed",
+          "Username is already taken. Please use Login to sign in."
+        );
         return;
       }
 
@@ -521,16 +544,20 @@ const BetLoginScreen = ({ navigation }) => {
       if (!userPhone) {
         try {
           // Call secure RPC that validates credentials and returns phone (bypasses RLS)
-          const { data: authenticatedPhone, error: authErr } = await withTimeout(
-            supabase.rpc("authenticate_user", { uname: username, pass: password }),
-            8000
-          );
+          const { data: authenticatedPhone, error: authErr } =
+            await withTimeout(
+              supabase.rpc("authenticate_user", {
+                uname: username,
+                pass: password,
+              }),
+              8000
+            );
 
           if (authErr) {
             console.warn("BetLogin: authenticate_user RPC error", authErr);
             Alert.alert(
-              'Account Lookup Failed',
-              'Unable to verify username. Please create an account or enter your phone to continue.'
+              "Account Lookup Failed",
+              "Unable to verify username. Please create an account or enter your phone to continue."
             );
             setShowPhoneForm(true);
             setLoading(false);
@@ -592,9 +619,15 @@ const BetLoginScreen = ({ navigation }) => {
               (authError.message.includes("Invalid") ||
                 authError.message.includes("credentials"))
             ) {
-              Alert.alert("Login Failed", "Invalid password. Please try again.");
+              Alert.alert(
+                "Login Failed",
+                "Invalid password. Please try again."
+              );
             } else {
-              Alert.alert("Login Failed", authError.message || "Failed to login");
+              Alert.alert(
+                "Login Failed",
+                authError.message || "Failed to login"
+              );
             }
             setLoading(false);
             return;
@@ -605,8 +638,8 @@ const BetLoginScreen = ({ navigation }) => {
             rpcError?.message || rpcError
           );
           Alert.alert(
-            'Account Lookup Failed',
-            'Unable to verify username. Please create an account or enter your phone to continue.'
+            "Account Lookup Failed",
+            "Unable to verify username. Please create an account or enter your phone to continue."
           );
           setShowPhoneForm(true);
           setLoading(false);
