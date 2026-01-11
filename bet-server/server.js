@@ -2369,8 +2369,7 @@ const ESPN_PATHS = {
 };
 // SportGameOdds API configuration
 const SPORTSGAMEODDS_API_BASE = "https://api.sportsgameodds.com/v2/events";
-const SPORTSGAMEODDS_API_KEY =
-  process.env.SPORTSGAMEODDS_API_KEY || "";
+const SPORTSGAMEODDS_API_KEY = process.env.SPORTSGAMEODDS_API_KEY || "";
 
 // Mapping sport slug -> leagueID for SportGameOdds
 const SGO_LEAGUE_IDS = {
@@ -4332,7 +4331,7 @@ function transformSummaryData(data) {
         transformed.drives = { current: driveOut };
 
         // Add `allStart` array: start.yardLine for each play in the current drives plays
-          try {
+        try {
           // Use sanitized plays for allStart and start selection
           const rawPlays = data.drives?.current?.plays || lastDrive.plays || [];
           const playsSanitized = Array.isArray(rawPlays)
@@ -4346,7 +4345,7 @@ function transformSummaryData(data) {
                 const sid = tid == null ? null : String(tid);
                 return sid !== "53" && sid !== "52";
               })
-              .map((pl) => (pl?.start?.yardLine ?? null));
+              .map((pl) => pl?.start?.yardLine ?? null);
 
             // Choose the drive-level start yardLine according to rule:
             // - If the current drive's type.id is 53 or 52, use the direct yardLine from the source
@@ -4358,7 +4357,8 @@ function transformSummaryData(data) {
               const firstAll =
                 (transformed.drives.current.allStart &&
                   transformed.drives.current.allStart.length > 0 &&
-                  transformed.drives.current.allStart[0]) || null;
+                  transformed.drives.current.allStart[0]) ||
+                null;
 
               // If type is 53 or 52, prefer the direct source yardLine
               if (currentTypeId === "53" || currentTypeId === "52") {
