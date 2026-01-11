@@ -888,7 +888,7 @@ const NFLField = React.memo(
                         <Stop
                           offset="0%"
                           stopColor={gradientColor}
-                          stopOpacity="0.35"
+                          stopOpacity="0.25"
                         />
                         <Stop
                           offset="100%"
@@ -3916,7 +3916,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         {/* 50% center line */}
                         <View
                           style={[
-                            styles.centerLine,
+                            styles.centerLineChart,
                             { borderBottomColor: theme.textSecondary + "40" },
                           ]}
                         />
@@ -8040,7 +8040,7 @@ const styles = StyleSheet.create({
     right: 0,
     borderBottomWidth: 1,
   },
-  centerLine: {
+  centerLineChart: {
     position: "absolute",
     top: "50%",
     left: 0,

@@ -2370,7 +2370,7 @@ const ESPN_PATHS = {
 // SportGameOdds API configuration
 const SPORTSGAMEODDS_API_BASE = "https://api.sportsgameodds.com/v2/events";
 const SPORTSGAMEODDS_API_KEY =
-  process.env.SPORTSGAMEODDS_API_KEY || "fb5cd7db7f9e18a03caa04b10b505a41";
+  process.env.SPORTSGAMEODDS_API_KEY || "";
 
 // Mapping sport slug -> leagueID for SportGameOdds
 const SGO_LEAGUE_IDS = {
@@ -4206,6 +4206,41 @@ function transformSummaryData(data) {
   // Drives (NFL): flatten previous/current/all structures and return the last drive
   if (isNFL && data.drives) {
     try {
+      // Helper: sanitize a play object for public output
+      const sanitizePlay = (pl) => {
+        if (!pl || typeof pl !== "object") return pl;
+        // shallow copy
+        const copy = Object.assign({}, pl);
+        // remove drive-level unwanted fields
+        if (copy.teamParticipants) delete copy.teamParticipants;
+        if (copy.wallclock) delete copy.wallclock;
+        if (copy.wallClock) delete copy.wallClock;
+        if (copy.modified) delete copy.modified;
+
+        // sanitize participants
+        if (Array.isArray(copy.participants)) {
+          copy.participants = copy.participants.map((p) => {
+            if (!p || typeof p !== "object") return p;
+            const np = Object.assign({}, p);
+            if (np.playStatistics) delete np.playStatistics;
+            if (np.uid) delete np.uid;
+            if (np.guid) delete np.guid;
+            if (np.athlete && typeof np.athlete === "object") {
+              const a = Object.assign({}, np.athlete);
+              if (a.links) delete a.links;
+              if (a.headshot) delete a.headshot;
+              if (a.status) delete a.status;
+              if (a.collegeAthlete) delete a.collegeAthlete;
+              if (a.uid) delete a.uid;
+              if (a.guid) delete a.guid;
+              np.athlete = a;
+            }
+            return np;
+          });
+        }
+
+        return copy;
+      };
       const combined = [];
       const maybeArrays = [
         data.drives.previous,
@@ -4234,6 +4269,15 @@ function transformSummaryData(data) {
         const driveOut = {};
 
         for (const k of Object.keys(lastDrive || {})) {
+          // Skip drive-level fields we don't want to expose
+          if (
+            k === "teamParticipants" ||
+            k === "wallclock" ||
+            k === "wallClock" ||
+            k === "modified"
+          )
+            continue;
+
           if (k === "team") {
             driveOut.team = {
               id: lastDrive.team?.id || null,
@@ -4243,26 +4287,15 @@ function transformSummaryData(data) {
             };
             continue;
           }
+
           if (k === "isScore") continue;
+
           if (k === "plays" && Array.isArray(lastDrive.plays)) {
-            // Keep full plays array (but strip heavy props)
-            driveOut.plays = lastDrive.plays.map((pl) => {
-              const {
-                id,
-                sequenceNumber,
-                awayScore,
-                homeScore,
-                scoringPlay,
-                priority,
-                modified,
-                wallClock,
-                teamParticipants,
-                ...rest
-              } = pl || {};
-              return rest;
-            });
+            // Build sanitized plays array for output
+            driveOut.plays = lastDrive.plays.map((pl) => sanitizePlay(pl));
             continue;
           }
+
           driveOut[k] = lastDrive[k];
         }
 
@@ -4295,7 +4328,64 @@ function transformSummaryData(data) {
           // keep original driveOut if something unexpected occurs
         }
 
-        transformed.drives = driveOut;
+        // expose driveOut under `current` to match ESPN structure
+        transformed.drives = { current: driveOut };
+
+        // Add `allStart` array: start.yardLine for each play in the current drives plays
+          try {
+          // Use sanitized plays for allStart and start selection
+          const rawPlays = data.drives?.current?.plays || lastDrive.plays || [];
+          const playsSanitized = Array.isArray(rawPlays)
+            ? rawPlays.map((pl) => sanitizePlay(pl))
+            : [];
+          if (playsSanitized.length > 0) {
+            // Exclude plays with type.id === "53" or "52" (kickoff/penalty types)
+            transformed.drives.current.allStart = playsSanitized
+              .filter((pl) => {
+                const tid = pl?.type?.id ?? null;
+                const sid = tid == null ? null : String(tid);
+                return sid !== "53" && sid !== "52";
+              })
+              .map((pl) => (pl?.start?.yardLine ?? null));
+
+            // Choose the drive-level start yardLine according to rule:
+            // - If the current drive's type.id is 53 or 52, use the direct yardLine from the source
+            // - Otherwise prefer the first element of `allStart`
+            try {
+              const currentTypeId = String(
+                data.drives?.current?.type?.id ?? lastDrive?.type?.id ?? ""
+              );
+              const firstAll =
+                (transformed.drives.current.allStart &&
+                  transformed.drives.current.allStart.length > 0 &&
+                  transformed.drives.current.allStart[0]) || null;
+
+              // If type is 53 or 52, prefer the direct source yardLine
+              if (currentTypeId === "53" || currentTypeId === "52") {
+                const directY =
+                  data.drives?.current?.start?.yardLine ??
+                  lastDrive?.start?.yardLine ??
+                  null;
+                if (directY != null) {
+                  transformed.drives.current.start = {
+                    ...(transformed.drives.current.start || {}),
+                    yardLine: directY,
+                  };
+                }
+              } else if (firstAll != null) {
+                // Use the first allStart value when available
+                transformed.drives.current.start = {
+                  ...(transformed.drives.current.start || {}),
+                  yardLine: firstAll,
+                };
+              }
+            } catch (e) {
+              /* ignore calculation errors */
+            }
+          }
+        } catch (e) {
+          /* ignore */
+        }
       }
     } catch (e) {
       /* ignore */
