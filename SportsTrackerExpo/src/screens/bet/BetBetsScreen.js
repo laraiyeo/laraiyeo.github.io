@@ -38,6 +38,62 @@ const BetBetsScreen = () => {
   const pollsRef = useRef({});
   const isFocused = useIsFocused();
 
+  const hexToRgbSafe = (hex) => {
+    if (!hex) return null;
+    const clean = String(hex).replace(/^#/, "");
+    if (clean.length !== 6) return null;
+    return {
+      r: parseInt(clean.slice(0, 2), 16),
+      g: parseInt(clean.slice(2, 4), 16),
+      b: parseInt(clean.slice(4, 6), 16),
+    };
+  };
+
+  const isColorLight = (hex) => {
+    const rgb = hexToRgbSafe(hex);
+    if (!rgb) return false;
+    const r = rgb.r / 255;
+    const g = rgb.g / 255;
+    const b = rgb.b / 255;
+    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return lum > 0.85;
+  };
+
+  const getInitials = (name) => {
+    if (!name) return "?";
+    const parts = String(name).trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "?";
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    const first = parts[0].charAt(0).toUpperCase();
+    const last = parts[parts.length - 1].charAt(0).toUpperCase();
+    return `${first}${last}`;
+  };
+
+  const HeadshotOrInitials = ({ uri, name, containerStyle, imageStyle, initialsStyle, onError }) => {
+    const [failed, setFailed] = useState(false);
+    // Determine bg color from style if provided
+    const bg = (Array.isArray(containerStyle) ? containerStyle[0] : containerStyle)?.backgroundColor || "#999";
+    const textColor = isColorLight(bg) ? "#000" : "#FFF";
+    return (
+      <View style={containerStyle}>
+        {!failed && uri ? (
+          <Image
+            source={{ uri }}
+            style={imageStyle}
+            onError={(e) => {
+              setFailed(true);
+              if (onError) onError(e);
+            }}
+          />
+        ) : (
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+            <Text style={[{ color: textColor, fontWeight: "700" }, initialsStyle]}>{getInitials(name)}</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   const clearPollForTicket = useCallback((ticketId) => {
     const handle = pollsRef.current[ticketId];
     if (handle) {
@@ -1253,24 +1309,18 @@ const BetBetsScreen = () => {
       style={[styles.pickCard, { backgroundColor: theme.surface }]}
     >
       <View style={[styles.pickHeader]}>
-        {(pick.headshot ||
-          pick.headshot_url ||
-          pick.playerHeadshot ||
-          pick.headshotUrl) && (
-          <Image
-            source={{
-              uri:
-                pick.headshot ||
-                pick.headshot_url ||
-                pick.playerHeadshot ||
-                pick.headshotUrl,
-            }}
-            style={[
+        {(pick.headshot || pick.headshot_url || pick.playerHeadshot || pick.headshotUrl) && (
+          <HeadshotOrInitials
+            uri={
+              pick.headshot || pick.headshot_url || pick.playerHeadshot || pick.headshotUrl
+            }
+            name={pick.playerName}
+            containerStyle={[
               styles.playerHeadshot,
-              pick.playerColor
-                ? { backgroundColor: pick.playerColor + "88" }
-                : null,
+              pick.playerColor ? { backgroundColor: pick.playerColor + "88" } : null,
             ]}
+            imageStyle={styles.playerHeadshot}
+            initialsStyle={{ fontSize: 14 }}
           />
         )}
         <View style={styles.pickPlayerInfo}>
@@ -1726,6 +1776,24 @@ const BetBetsScreen = () => {
           if (s.includes("assist") || s.includes("ast")) return "AST";
         }
 
+        if (sportLower === "uefa") {
+          // Points in NHL = Goals
+          if (s === "points_yn" || s.includes("points_yn")) return "GOALS";
+          if (s === "points_ou" || s.includes("points_ou")) return "UGL";
+
+          // First/Last to score
+          if (s.includes("firsttoscore") || s.includes("first_to_score"))
+            return "FIRSTGOAL";
+          if (s.includes("lasttoscore") || s.includes("last_to_score"))
+            return "LASTGOAL";
+
+          if (s.includes("combinedCards") || s === "combinedCards_yn")
+            return "CARDS";
+
+          if (s.includes("redCards") || s === "redCards_yn") return "RC";
+
+        }
+
         // NBA Combination stats
         if (s.includes("blocks+steals") || s === "blocks+steals_ou")
           return "BS";
@@ -2072,7 +2140,15 @@ const BetBetsScreen = () => {
           // special-case: points_yn -> ANYTIME GOALS
           const rawLower = raw.toLowerCase();
           if (hadYN && rawLower.includes("points")) {
-            const label = "ANYTIME GOALS";
+            const label = "ANYTIME GOAL";
+            return `${String(displayLine).toUpperCase()} ${label}`.trim();
+          }
+          if (!hadYN && rawLower.includes("points") && sportSuffix === "uefa") {
+            const label = "GOALS";
+            return `${String(displayLine).toUpperCase()} ${label}`.trim();
+          }
+          if (hadYN && rawLower.includes("combined") && sportSuffix === "uefa") {
+            const label = "ANYTIME CARD";
             return `${String(displayLine).toUpperCase()} ${label}`.trim();
           }
 
@@ -2122,7 +2198,15 @@ const BetBetsScreen = () => {
           // special-case: points_yn -> ANYTIME GOALS
           const rawLower = raw.toLowerCase();
           if (hadYN && rawLower.includes("points")) {
-            const label = "ANYTIME GOALS";
+            const label = "ANYTIME GOAL";
+            return `${String(displayLine).toUpperCase()} ${label}`.trim();
+          }
+          if (!hadYN && rawLower.includes("points") && sportSuffix === "uefa") {
+            const label = "GOALS";
+            return `${String(displayLine).toUpperCase()} ${label}`.trim();
+          }
+          if (hadYN && rawLower.includes("combined") && sportSuffix === "uefa") {
+            const label = "ANYTIME CARD";
             return `${String(displayLine).toUpperCase()} ${label}`.trim();
           }
 

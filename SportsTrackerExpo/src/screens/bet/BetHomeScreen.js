@@ -34,7 +34,7 @@ const imageCache = new Map();
 const NBA_LOGO = require("../../../assets/nba.png");
 const NFL_LOGO = require("../../../assets/nfl.png");
 const NHL_LOGO = require("../../../assets/nhl.png");
-const SOCCER_LOGO = require("../../../assets/soccer.png");
+const SOCCER_LOGO = require("../../../assets/uefa.png");
 
 // Get sport-specific logo
 const getSportLogo = (sport) => {
@@ -78,7 +78,7 @@ const getSportPath = (sport) => {
     case "NHL":
       return "nhl";
     case "UEFA":
-      return "uefa.champions";
+      return "soccer";
     default:
       return "nba";
   }
@@ -274,7 +274,13 @@ const parseGameData = (events, isDarkMode = false, sport = "NBA") => {
 
     const darkSuffix = isDarkMode ? "-dark" : "";
     const team1Abbr = (awayTeam.team?.abbreviation || "T1").toLowerCase();
+    const team1Id = awayTeam.team?.id || null;
     const team2Abbr = (homeTeam.team?.abbreviation || "T2").toLowerCase();
+    const team2Id = homeTeam.team?.id || null;
+
+    
+    const team1End = sportPath === "soccer" ? team1Id : team1Abbr;
+    const team2End = sportPath === "soccer" ? team2Id : team2Abbr;
 
     const gameData = {
       id: event.id,
@@ -285,11 +291,13 @@ const parseGameData = (events, isDarkMode = false, sport = "NBA") => {
       shortName: event.shortName,
       team1: awayTeam.team?.displayName || "Team 1",
       team1Abbr: awayTeam.team?.abbreviation || "T1",
-      team1Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${team1Abbr}.png&h=200&w=200`,
+      team1Id: awayTeam.team?.id || null,
+      team1Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${team1End}.png&h=200&w=200`,
       team1Record: awayTeam.record?.summary || null,
       team2: homeTeam.team?.displayName || "Team 2",
       team2Abbr: homeTeam.team?.abbreviation || "T2",
-      team2Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${team2Abbr}.png&h=200&w=200`,
+      team2Id: homeTeam.team?.id || null,
+      team2Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${team2End}.png&h=200&w=200`,
       team2Record: homeTeam.record?.summary || null,
       score1: awayTeam.score || 0,
       score2: homeTeam.score || 0,

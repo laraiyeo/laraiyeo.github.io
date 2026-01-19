@@ -46,7 +46,7 @@ const getSportPath = (sport) => {
     case "NHL":
       return "nhl";
     case "UEFA":
-      return "uefa.champions";
+      return "soccer";
     default:
       return "nba";
   }
@@ -67,6 +67,78 @@ const TeamLogo = React.memo(
     return prevProps.uri === nextProps.uri;
   },
 );
+
+// Helper: parse hex to RGB
+const hexToRgbSafe = (hex) => {
+  if (!hex) return null;
+  const clean = String(hex).replace(/^#/, "");
+  if (clean.length !== 6) return null;
+  return {
+    r: parseInt(clean.slice(0, 2), 16),
+    g: parseInt(clean.slice(2, 4), 16),
+    b: parseInt(clean.slice(4, 6), 16),
+  };
+};
+
+// Returns true when a hex color is light (close to white)
+const isColorLight = (hex) => {
+  const rgb = hexToRgbSafe(hex);
+  if (!rgb) return false;
+  // Relative luminance formula
+  const r = rgb.r / 255;
+  const g = rgb.g / 255;
+  const b = rgb.b / 255;
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return lum > 0.85; // tuned threshold: very light colors
+};
+
+const getInitials = (name) => {
+  if (!name) return "?";
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  const first = parts[0].charAt(0).toUpperCase();
+  const last = parts[parts.length - 1].charAt(0).toUpperCase();
+  return `${first}${last}`;
+};
+
+// Reusable headshot component: shows image when available, otherwise initials
+const HeadshotOrInitials = ({
+  uri,
+  name,
+  backgroundColor,
+  containerStyle,
+  imageStyle,
+  initialsStyle,
+  teamLogoUri,
+  teamLogoStyle,
+}) => {
+  const [failed, setFailed] = React.useState(false);
+
+  const bg = backgroundColor || "#999";
+  const textColor = isColorLight(bg) ? "black" : "white";
+
+  return (
+    <View style={[{ backgroundColor: bg }, containerStyle]}>
+      {!failed && uri ? (
+        <Image
+          source={{ uri }}
+          style={imageStyle}
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <View style={[{ justifyContent: "center", alignItems: "center" }]}>
+          <Text style={[{ color: textColor, fontWeight: "700" }, initialsStyle]}>
+            {getInitials(name)}
+          </Text>
+        </View>
+      )}
+      {teamLogoUri ? (
+        <Image source={{ uri: teamLogoUri }} style={teamLogoStyle} />
+      ) : null}
+    </View>
+  );
+};
 
 // Color similarity detection utility
 const calculateColorSimilarity = (color1, color2) => {
@@ -1073,18 +1145,36 @@ const PropTabContent = ({
   };
 
   const formatPropTypeLabel = (key) => {
-    // NHL-specific: points_yn becomes "Anytime Goals"
+    // NHL-specific: points_yn becomes "Anytime Goal"
     if (
       (gameData?.sport || "").toUpperCase() === "NHL" &&
       key === "points_yn"
     ) {
-      return "Anytime Goals";
+      return "Anytime Goal";
     }
     if (
       (gameData?.sport || "").toUpperCase() === "NFL" &&
       key === "touchdowns_yn"
     ) {
-      return "Anytime Touchdowns";
+      return "Anytime Touchdown";
+    }
+    if (
+      (gameData?.sport || "").toUpperCase() === "UEFA" &&
+      key === "combinedCards_yn"
+    ) {
+      return "Anytime Card";
+    }
+    if (
+      (gameData?.sport || "").toUpperCase() === "UEFA" &&
+      key === "points_yn"
+    ) {
+      return "Anytime Goal";
+    }
+    if (
+      (gameData?.sport || "").toUpperCase() === "UEFA" &&
+      key === "points_ou"
+    ) {
+      return "Goals";
     }
 
     const { statID, periodID } = parsePropKey(key);
@@ -1465,7 +1555,7 @@ const PropTabContent = ({
           // for full-game, prefer variants without periodID
           if (v.periodID) return;
         }
-        const dk = v.byBookmaker?.draftkings;
+        const dk = v.byBookmaker?.fanduel;
         if (dk?.altLines && Array.isArray(dk.altLines)) {
           dk.altLines.forEach((al) => {
             // Attach sideID from the parent variant so we know if this alt is 'over' or 'under'
@@ -1552,19 +1642,14 @@ const PropTabContent = ({
                 style={styles.propPlayerInfo}
                 onPress={() => navigateToAthleteScreen(player)}
               >
-                <View
-                  style={[
-                    styles.propPlayerIcon,
-                    { backgroundColor: playerTeamColor },
-                  ]}
-                >
-                  <Image
-                    source={{
-                      uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${player.id}.png&w=200`,
-                    }}
-                    style={styles.propPlayerIconImage}
-                  />
-                </View>
+                <HeadshotOrInitials
+                  uri={`https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${player.id}.png&w=200`}
+                  name={displayName}
+                  backgroundColor={playerTeamColor}
+                  containerStyle={styles.propPlayerIcon}
+                  imageStyle={styles.propPlayerIconImage}
+                  initialsStyle={{ fontSize: 14 }}
+                />
                 <View style={styles.propPlayerDetails}>
                   <Text style={[styles.propPlayerName, { color: theme.text }]}>
                     {displayName}
@@ -1766,19 +1851,14 @@ const PropTabContent = ({
               style={styles.propPlayerInfo}
               onPress={() => navigateToAthleteScreen(player)}
             >
-              <View
-                style={[
-                  styles.propPlayerIcon,
-                  { backgroundColor: playerTeamColor },
-                ]}
-              >
-                <Image
-                  source={{
-                    uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${player.id}.png&w=200`,
-                  }}
-                  style={styles.propPlayerIconImage}
-                />
-              </View>
+              <HeadshotOrInitials
+                uri={`https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${player.id}.png&w=200`}
+                name={displayName}
+                backgroundColor={playerTeamColor}
+                containerStyle={styles.propPlayerIcon}
+                imageStyle={styles.propPlayerIconImage}
+                initialsStyle={{ fontSize: 14 }}
+              />
               <View style={styles.propPlayerDetails}>
                 <Text style={[styles.propPlayerName, { color: theme.text }]}>
                   {displayName}
@@ -1793,7 +1873,7 @@ const PropTabContent = ({
           );
 
           if (yesVariant) {
-            const dk = yesVariant.byBookmaker?.draftkings || {};
+            const dk = yesVariant.byBookmaker?.fanduel || {};
             const oddsVal = dk.odds || dk.price || null;
             const betId = `${player.id}-${selectedPropType}-yes`;
             const formattedOdds =
@@ -1888,8 +1968,8 @@ const PropTabContent = ({
               (periodID ? v.periodID === periodID : !v.periodID),
           );
 
-          const dkOver = overVariant?.byBookmaker?.draftkings || {};
-          const dkUnder = underVariant?.byBookmaker?.draftkings || {};
+          const dkOver = overVariant?.byBookmaker?.fanduel || {};
+          const dkUnder = underVariant?.byBookmaker?.fanduel || {};
           const line =
             dkOver.overUnder ||
             dkUnder.overUnder ||
@@ -2337,6 +2417,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         summary.boxscore.players.forEach((teamBlock) => {
           const team = teamBlock.team || {};
           const teamAbbrev = team.abbreviation || team.displayName || null;
+          const teamId = String(team.id || team.teamId || "");
+          const logoUse = sportPath === "soccer" ? teamId : (teamAbbrev).toLowerCase();
           const athletesArr =
             (teamBlock.statistics && teamBlock.statistics.athletes) || [];
           athletesArr.forEach((entry) => {
@@ -2360,7 +2442,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             athleteMeta[aid].teamLogo =
               `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
                 isDarkMode ? "-dark" : ""
-              }/${(teamAbbrev || "").toLowerCase()}.png&h=100&w=100`;
+              }/${logoUse}.png&h=100&w=100`;
           });
         });
       }
@@ -2390,6 +2472,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     const darkSuffix = isDarkMode ? "-dark" : "";
     const awayAbbr = (awayTeamBlock.abbreviation || "").toLowerCase();
     const homeAbbr = (homeTeamBlock.abbreviation || "").toLowerCase();
+    const awayId = String(awayTeamBlock.id || awayTeamBlock.teamId || "");
+    const homeId = String(homeTeamBlock.id || homeTeamBlock.teamId || "");
+
+    const toUseAway = sportPath === "soccer" ? awayId : awayAbbr;
+    const toUseHome = sportPath === "soccer" ? homeId : homeAbbr;
 
     const headerTeamData = {
       team1Color: awayTeamBlock.color ? `#${awayTeamBlock.color}` : null,
@@ -2409,11 +2496,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
     const teamLookup = {
       [(awayTeamBlock.abbreviation || "").toUpperCase()]: {
-        logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${awayAbbr}.png&h=200&w=200`,
+        logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${toUseAway}.png&h=200&w=200`,
         color: resolvedAwayColor || colors.primary,
       },
       [(homeTeamBlock.abbreviation || "").toUpperCase()]: {
-        logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${homeAbbr}.png&h=200&w=200`,
+        logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${toUseHome}.png&h=200&w=200`,
         color: resolvedHomeColor || colors.primary,
       },
     };
@@ -2496,27 +2583,16 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   ]}
                 >
                   <View style={styles.participantTop}>
-                    <View
-                      style={[
-                        styles.headshotWrap,
-                        { backgroundColor: teamColor },
-                      ]}
-                    >
-                      {headshot ? (
-                        <Image
-                          source={{ uri: headshot }}
-                          style={styles.headshot}
-                        />
-                      ) : (
-                        <View style={styles.headshotPlaceholder} />
-                      )}
-                      {teamLogo ? (
-                        <Image
-                          source={{ uri: teamLogo }}
-                          style={styles.teamLogoOverlay}
-                        />
-                      ) : null}
-                    </View>
+                    <HeadshotOrInitials
+                      uri={headshot}
+                      name={m.displayName || ath.displayName}
+                      backgroundColor={teamColor}
+                      containerStyle={styles.headshotWrap}
+                      imageStyle={styles.headshot}
+                      initialsStyle={{ fontSize: 20 }}
+                      teamLogoUri={teamLogo}
+                      teamLogoStyle={styles.teamLogoOverlay}
+                    />
                     <View style={styles.participantInfo}>
                       <Text
                         style={[styles.participantName, { color: theme.text }]}
@@ -2787,13 +2863,18 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     const darkSuffix = isDarkMode ? "-dark" : "";
     const team1Abbr = awayTeam.team.abbreviation.toLowerCase();
     const team2Abbr = homeTeam.team.abbreviation.toLowerCase();
+    const team1Id = String(awayTeam.team.id || awayTeam.team.teamId || "");
+    const team2Id = String(homeTeam.team.id || homeTeam.team.teamId || "");
+
+    const team1Logo = sportPath === "soccer" ? team1Id : team1Abbr;
+    const team2Logo = sportPath === "soccer" ? team2Id : team2Abbr;
 
     return {
       id: summaryData.header.id,
       team1: awayTeam.team.displayName,
       team1Id: awayTeam.team.id,
       team1Abbr: awayTeam.team.abbreviation,
-      team1Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${team1Abbr}.png&h=200&w=200`,
+      team1Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${team1Logo}.png&h=200&w=200`,
       team1Color: `#${awayTeam.team.color}`,
       team1AlternateColor: awayTeam.team.alternateColor
         ? `#${awayTeam.team.alternateColor}`
@@ -2806,7 +2887,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       team2: homeTeam.team.displayName,
       team2Id: homeTeam.team.id,
       team2Abbr: homeTeam.team.abbreviation,
-      team2Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${team2Abbr}.png&h=200&w=200`,
+      team2Logo: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${darkSuffix}/${team2Logo}.png&h=200&w=200`,
       team2Color: `#${homeTeam.team.color}`,
       team2AlternateColor: homeTeam.team.alternateColor
         ? `#${homeTeam.team.alternateColor}`
@@ -3469,22 +3550,17 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                               },
                                             ]}
                                           >
-                                            <View
-                                              style={[
+                                            <HeadshotOrInitials
+                                              uri={headshotUrl}
+                                              name={player.athlete.displayName}
+                                              backgroundColor={teamSmartColor}
+                                              containerStyle={[
                                                 styles.boxScorePlayerImageContainer,
-                                                {
-                                                  backgroundColor:
-                                                    teamSmartColor,
-                                                },
+                                                { backgroundColor: teamSmartColor },
                                               ]}
-                                            >
-                                              <Image
-                                                source={{ uri: headshotUrl }}
-                                                style={
-                                                  styles.boxScorePlayerImage
-                                                }
-                                              />
-                                            </View>
+                                              imageStyle={styles.boxScorePlayerImage}
+                                              initialsStyle={{ fontSize: 14 }}
+                                            />
                                             <View
                                               style={styles.boxScorePlayerInfo}
                                             >
@@ -4848,23 +4924,16 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   ]}
                                 >
                                   <View style={styles.participantTop}>
-                                    <View
-                                      style={[
-                                        styles.headshotWrap,
-                                        { backgroundColor: teamColor },
-                                      ]}
-                                    >
-                                      <Image
-                                        source={{ uri: playerHeadshot }}
-                                        style={styles.headshot}
-                                      />
-                                      {teamLogo && (
-                                        <Image
-                                          source={{ uri: teamLogo }}
-                                          style={styles.teamLogoOverlay}
-                                        />
-                                      )}
-                                    </View>
+                                    <HeadshotOrInitials
+                                      uri={playerHeadshot}
+                                      name={shortName}
+                                      backgroundColor={teamColor}
+                                      containerStyle={styles.headshotWrap}
+                                      imageStyle={styles.headshot}
+                                      initialsStyle={{ fontSize: 20 }}
+                                      teamLogoUri={teamLogo}
+                                      teamLogoStyle={styles.teamLogoOverlay}
+                                    />
                                     <View style={styles.participantInfo}>
                                       <Text
                                         style={[
@@ -5421,6 +5490,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             return String(odds);
           };
           const teamAbbr = competitor.team?.abbreviation || "TEAM";
+          const teamId = String(competitor.team?.id || competitor.team?.teamId || "");
+
+          const toUseTeam = sportPath === "soccer" ? teamId : teamAbbr.toLowerCase();
+
           const teamName = competitor.team?.displayName || teamAbbr;
           const sgo = competitor.record?.odds?.sgo || [];
           // Compute smart team colors using both competitors (same pattern as header)
@@ -5478,7 +5551,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     competitor.team?.logo ||
                     `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
                       isDarkMode ? "-dark" : ""
-                    }/${(teamAbbr || "").toLowerCase()}.png&h=100&w=100`
+                    }/${toUseTeam}.png&h=100&w=100`
                   }
                   style={[styles.teamSmallLogo, { marginBottom: 12 }]}
                 />
@@ -5494,12 +5567,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   ? market.variants
                   : [];
 
-                // Find DraftKings variant grouping by side
+                // Find Fanduel variant grouping by side
                 const dkBySide = {};
                 variants.forEach((v) => {
                   const side = v.sideID || "none";
                   const bk =
-                    (v.byBookmaker && v.byBookmaker.draftkings) || null;
+                    (v.byBookmaker && v.byBookmaker.fanduel) || null;
                   if (bk) {
                     dkBySide[side] = dkBySide[side] || [];
                     dkBySide[side].push({ ...v, bookmaker: bk });
@@ -5514,7 +5587,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 variants.forEach((v) => {
                   const side = v.sideID || "other";
                   const bk =
-                    (v.byBookmaker && v.byBookmaker.draftkings) || null;
+                    (v.byBookmaker && v.byBookmaker.fanduel) || null;
                   const lines =
                     bk && Array.isArray(bk.altLines) ? bk.altLines : [];
                   lines.forEach((a) =>
@@ -6314,7 +6387,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   variants.forEach((v) => {
                     const side = v.sideID || v.side || "none";
                     const bk =
-                      (v.byBookmaker && v.byBookmaker.draftkings) ||
+                      (v.byBookmaker && v.byBookmaker.fanduel) ||
                       (v.byBookmaker && Object.values(v.byBookmaker)[0]) ||
                       v.bookmaker ||
                       null;
@@ -6334,7 +6407,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   variants.forEach((v) => {
                     const side = v.sideID || v.side || "other";
                     const bk =
-                      (v.byBookmaker && v.byBookmaker.draftkings) ||
+                      (v.byBookmaker && v.byBookmaker.fanduel) ||
                       (v.byBookmaker && Object.values(v.byBookmaker)[0]) ||
                       v.bookmaker ||
                       null;
@@ -7045,9 +7118,15 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   >
                     {awayTeam}
                   </Text>
-                  {[...awayTeamGames].reverse().map((game, index) => {
+                  {[...awayTeamGames].map((game, index) => {
                     const isWin = game.result === "W";
-                    const borderColor = isWin ? theme.success : theme.error;
+                    const isLoss = game.result === "L";
+                    const borderColor = isWin ? theme.success : isLoss ? theme.error : theme.warning;
+
+                    const oppAbbr = game.opponentAbbreviation || "OPP";
+                    const oppId = game.opponentId || null;
+
+                    const toUse = sportPath === "soccer" ? oppId : oppAbbr.toLowerCase();
 
                     // Format date
                     const gameDate = new Date(game.date);
@@ -7094,7 +7173,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             source={{
                               uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
                                 isDarkMode ? "-dark" : ""
-                              }/${game.opponentAbbreviation?.toLowerCase()}.png&h=100&w=100`,
+                              }/${toUse}.png&h=100&w=100`,
                             }}
                             style={styles.lastFiveGameLogo}
                           />
@@ -7113,7 +7192,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 { color: theme.textSecondary },
                               ]}
                             >
-                              {game.atVs} {game.opponentAbbreviation}
+                              {game.atVs} {oppAbbr}
                             </Text>
                           </View>
                         </View>
@@ -7132,9 +7211,15 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   >
                     {homeTeam}
                   </Text>
-                  {[...homeTeamGames].reverse().map((game, index) => {
+                  {[...homeTeamGames].map((game, index) => {
                     const isWin = game.result === "W";
-                    const borderColor = isWin ? theme.success : theme.error;
+                    const isLoss = game.result === "L";
+                    const borderColor = isWin ? theme.success : isLoss ? theme.error : theme.warning;
+
+                    const oppAbbr = game.opponentAbbreviation || "OPP";
+                    const oppId = game.opponentId || null;
+
+                    const toUse = sportPath === "soccer" ? oppId : oppAbbr.toLowerCase();
 
                     // Format date
                     const gameDate = new Date(game.date);
@@ -7186,7 +7271,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             source={{
                               uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
                                 isDarkMode ? "-dark" : ""
-                              }/${game.opponentAbbreviation?.toLowerCase()}.png&h=100&w=100`,
+                              }/${toUse}.png&h=100&w=100`,
                             }}
                             style={[
                               styles.lastFiveGameLogo,
@@ -7211,7 +7296,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 },
                               ]}
                             >
-                              {game.atVs} {game.opponentAbbreviation}
+                              {game.atVs} {oppAbbr}
                             </Text>
                           </View>
                         </View>

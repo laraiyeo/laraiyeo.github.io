@@ -768,6 +768,17 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             last_to_score: "lastgoal",
           };
 
+          const uefaMap = {
+            goals_yn: "goals",
+            goals_ou: "ugl",
+            combinedcards: "cards",
+            redcards: "rc",
+            firsttoscore: "firstgoal",
+            first_to_score: "firstgoal",
+            lasttoscore: "lastgoal",
+            last_to_score: "lastgoal",
+          };
+
           // choose mapping table based on sportHint
           if (sportHint === "nfl") {
             // try exact matches then substring heuristics
@@ -800,7 +811,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             return s.replace(/[^a-z0-9]/g, "_");
           }
 
-          if (sportHint === "nhl" || sportHint === "uefa") {
+          if (sportHint === "nhl") {
             // Check original stat type FIRST (with suffixes intact) for exact matches
             if (nhlMap[statOriginal]) return nhlMap[statOriginal];
 
@@ -821,6 +832,31 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             // Special handling: points_yn -> goals, points_ou -> hgl
             if (s.includes("point") || s.includes("pts")) {
               return isYesNo ? "goals" : "hgl";
+            }
+            return s.replace(/[^a-z0-9]/g, "_");
+          }
+
+          if (sportHint === "uefa") {
+            // Check original stat type FIRST (with suffixes intact) for exact matches
+            if (uefaMap[statOriginal]) return uefaMap[statOriginal];
+
+            // Then check normalized version
+            if (uefaMap[s]) return uefaMap[s];
+
+            // Check if the original statType ends with _yn to determine yes/no vs over/under
+            const isYesNo = statOriginal.endsWith("_yn");
+
+            if (s.includes("shot") || s.includes("shots") || s.includes("sht"))
+              return "sht";
+            if (s.includes("save")) return "gsv";
+            if (s.includes("firsttoscore") || s.includes("first_to_score"))
+              return "firstgoal";
+            if (s.includes("lasttoscore") || s.includes("last_to_score"))
+              return "lastgoal";
+            if (s.includes("goal")) return isYesNo ? "goals" : "UGL";
+            // Special handling: points_yn -> goals, points_ou -> hgl
+            if (s.includes("point") || s.includes("pts")) {
+              return isYesNo ? "goals" : "ugl";
             }
             return s.replace(/[^a-z0-9]/g, "_");
           }
@@ -1266,17 +1302,24 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                         if (sportUpper === "NHL" || sportUpper === "UEFA") {
                           // points_yn -> anytime_goals for yes/no bets
                           if (statLower === "points_yn") {
-                            return "anytime_goals";
+                            return "anytime_goal";
                           }
                           // points_ou -> goals for over/under bets
                           if (statLower === "points_ou") {
                             return "goals";
                           }
+                          if (statLower === "combinedcards_yn") {
+                            return "anytime_card";
+                          }
+                          
+                          if (statLower === "redcards_yn") {
+                            return "anytime_red_card";
+                          }
                         }
                         if (sportUpper === "NFL") {
                           // touchdowns_yn -> anytime_touchdowns for yes/no bets
                           if (statLower === "touchdowns_yn") {
-                            return "anytime_touchdowns";
+                            return "anytime_touchdown";
                           }
                         }
 

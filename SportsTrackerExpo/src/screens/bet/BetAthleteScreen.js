@@ -176,6 +176,63 @@ const BetAthleteScreen = ({ route, navigation }) => {
     }
   };
 
+  const hexToRgbSafe = (hex) => {
+    if (!hex) return null;
+    const clean = String(hex).replace(/^#/, "");
+    if (clean.length !== 6) return null;
+    return {
+      r: parseInt(clean.slice(0, 2), 16),
+      g: parseInt(clean.slice(2, 4), 16),
+      b: parseInt(clean.slice(4, 6), 16),
+    };
+  };
+
+  const isColorLight = (hex) => {
+    const rgb = hexToRgbSafe(hex);
+    if (!rgb) return false;
+    const r = rgb.r / 255;
+    const g = rgb.g / 255;
+    const b = rgb.b / 255;
+    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return lum > 0.85;
+  };
+
+  const getInitials = (name) => {
+    if (!name) return "?";
+    const parts = String(name).trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "?";
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    const first = parts[0].charAt(0).toUpperCase();
+    const last = parts[parts.length - 1].charAt(0).toUpperCase();
+    return `${first}${last}`;
+  };
+
+  const HeadshotOrInitials = ({ uri, name, containerStyle, imageStyle, initialsStyle, onError }) => {
+    const [failed, setFailed] = useState(false);
+    const bg = (containerStyle && containerStyle.backgroundColor) || teamColor;
+    const textColor = isColorLight(bg) ? "#000" : "#FFF";
+    return (
+      <View style={containerStyle}>
+        {!failed && uri ? (
+          <Image
+            source={{ uri }}
+            style={imageStyle}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            onError={(e) => {
+              setFailed(true);
+              if (onError) onError(e);
+            }}
+          />
+        ) : (
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: bg }}>
+            <Text style={[{ color: textColor, fontWeight: "700" }, initialsStyle]}>{getInitials(name)}</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   const getSportPath = (sport) => {
     switch (sport) {
       case "NBA":
@@ -185,7 +242,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
       case "NHL":
         return "nhl";
       case "UEFA":
-        return "uefa.champions";
+        return "soccer";
       default:
         return "nba";
     }
@@ -2382,10 +2439,15 @@ const BetAthleteScreen = ({ route, navigation }) => {
   const teamColor = team.color ? `#${team.color}` : "#666666";
   const teamColorWithAlpha = `${teamColor}88`;
   const sportPath = getSportPath(sport);
+  const isUEFA = sportPath === "soccer";
   const darkSuffix = isDarkMode ? "-dark" : "";
+  const teamAbbr = team.abbreviation.toLowerCase();
+  const teamId = team.id;
+
+  const toUse = sportPath === "soccer" ? teamId : teamAbbr;
 
   const headshotUrl = `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${athlete.id}.png&w=300`;
-  const teamLogoUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500/${team.abbreviation.toLowerCase()}.png&h=100&w=100`;
+  const teamLogoUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500/${toUse}.png&h=100&w=100`;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -2393,11 +2455,12 @@ const BetAthleteScreen = ({ route, navigation }) => {
         {/* Header */}
         <View style={[styles.header, { backgroundColor: teamColorWithAlpha }]}>
           <View style={styles.headshotWrapper}>
-            <Image
-              source={{ uri: headshotUrl }}
-              style={styles.headerHeadshot}
-              contentFit="cover"
-              cachePolicy="memory-disk"
+            <HeadshotOrInitials
+              uri={headshotUrl}
+              name={`${athlete.firstName || ""} ${athlete.lastName || ""}`.trim()}
+              containerStyle={{ width: 120, height: 120, borderRadius: 60, overflow: "hidden" }}
+              imageStyle={styles.headerHeadshot}
+              initialsStyle={{ fontSize: 50 }}
             />
             <Image
               source={{ uri: teamLogoUrl }}
@@ -2445,7 +2508,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
               ODDS
             </Text>
           </TouchableOpacity>
-          {isPro && (
+          {isPro && !isUEFA && (
             <TouchableOpacity
               style={[
                 styles.tab,
@@ -2471,7 +2534,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
               </Text>
             </TouchableOpacity>
           )}
-          {isPro && (
+          {isPro && !isUEFA && (
             <TouchableOpacity
               style={[
                 styles.tab,

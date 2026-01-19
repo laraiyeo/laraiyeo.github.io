@@ -64,6 +64,45 @@ const BetTopScreen = ({ navigation }) => {
     return brightness > 180;
   };
 
+  const getInitials = (name) => {
+    if (!name) return "?";
+    const parts = String(name).trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "?";
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    const first = parts[0].charAt(0).toUpperCase();
+    const last = parts[parts.length - 1].charAt(0).toUpperCase();
+    return `${first}${last}`;
+  };
+
+  const HeadshotOrInitials = ({ uri, name, containerStyle, imageStyle, initialsStyle, onError }) => {
+    const [failed, setFailed] = useState(false);
+    const bg = (containerStyle && containerStyle.backgroundColor) || "#999";
+    const textColor = isLightColor(bg) ? "#000" : "#FFF";
+
+    return (
+      <View style={containerStyle}>
+        {!failed && uri ? (
+          <Image
+            source={{ uri }}
+            style={imageStyle}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            onError={(e) => {
+              setFailed(true);
+              if (onError) onError(e);
+            }}
+          />
+        ) : (
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+            <Text style={[{ color: textColor, fontWeight: "700" }, initialsStyle]}>
+              {getInitials(name)}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   const searchResults = React.useMemo(() => {
     if (!searchQuery || searchQuery.length < 3) return [];
 
@@ -199,36 +238,37 @@ const BetTopScreen = ({ navigation }) => {
                     })
                   }
                 >
-                  <View
-                    style={[
-                      styles.headshotContainer,
-                      { backgroundColor: teamColorWithAlpha },
-                    ]}
-                  >
-                    <Image
-                      source={{ uri: headshotUrl }}
-                      style={styles.headshot}
-                      contentFit="cover"
-                      cachePolicy="memory-disk"
-                    />
-                    {player.jersey && (
                       <View
                         style={[
-                          styles.jerseyBadge,
-                          { backgroundColor: player.teamColor },
+                          styles.headshotContainer,
+                          { backgroundColor: teamColorWithAlpha },
                         ]}
                       >
-                        <Text
-                          style={[
-                            styles.jerseyText,
-                            { color: isLight ? "#000" : "#FFF" },
-                          ]}
-                        >
-                          {player.jersey}
-                        </Text>
+                        <HeadshotOrInitials
+                          uri={headshotUrl}
+                          name={player.name}
+                          containerStyle={{ width: "100%", height: "100%", borderRadius: 40, overflow: "hidden" }}
+                          imageStyle={styles.headshot}
+                          initialsStyle={{ fontSize: 35 }}
+                        />
+                        {player.jersey && (
+                          <View
+                            style={[
+                              styles.jerseyBadge,
+                              { backgroundColor: player.teamColor },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.jerseyText,
+                                { color: isLight ? "#000" : "#FFF" },
+                              ]}
+                            >
+                              {player.jersey}
+                            </Text>
+                          </View>
+                        )}
                       </View>
-                    )}
-                  </View>
 
                   <View style={styles.playerInfo}>
                     <Text
