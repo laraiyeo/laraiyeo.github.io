@@ -74,7 +74,14 @@ const BetTopScreen = ({ navigation }) => {
     return `${first}${last}`;
   };
 
-  const HeadshotOrInitials = ({ uri, name, containerStyle, imageStyle, initialsStyle, onError }) => {
+  const HeadshotOrInitials = ({
+    uri,
+    name,
+    containerStyle,
+    imageStyle,
+    initialsStyle,
+    onError,
+  }) => {
     const [failed, setFailed] = useState(false);
     const bg = (containerStyle && containerStyle.backgroundColor) || "#999";
     const textColor = isLightColor(bg) ? "#000" : "#FFF";
@@ -93,8 +100,12 @@ const BetTopScreen = ({ navigation }) => {
             }}
           />
         ) : (
-          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-            <Text style={[{ color: textColor, fontWeight: "700" }, initialsStyle]}>
+          <View
+            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+          >
+            <Text
+              style={[{ color: textColor, fontWeight: "700" }, initialsStyle]}
+            >
               {getInitials(name)}
             </Text>
           </View>
@@ -216,7 +227,7 @@ const BetTopScreen = ({ navigation }) => {
             </Text>
             {searchResults.map((player) => {
               const headshotUrl = `https://a.espncdn.com/combiner/i?img=/i/headshots/${getSportPath(
-                sport
+                sport,
               )}/players/full/${player.id}.png&w=200`;
               const teamColorWithAlpha = `${player.teamColor}88`;
               const isLight = isLightColor(player.teamColor);
@@ -238,37 +249,42 @@ const BetTopScreen = ({ navigation }) => {
                     })
                   }
                 >
+                  <View
+                    style={[
+                      styles.headshotContainer,
+                      { backgroundColor: teamColorWithAlpha },
+                    ]}
+                  >
+                    <HeadshotOrInitials
+                      uri={headshotUrl}
+                      name={player.name}
+                      containerStyle={{
+                        width: "100%",
+                        height: "100%",
+                        borderRadius: 40,
+                        overflow: "hidden",
+                      }}
+                      imageStyle={styles.headshot}
+                      initialsStyle={{ fontSize: 35 }}
+                    />
+                    {player.jersey && (
                       <View
                         style={[
-                          styles.headshotContainer,
-                          { backgroundColor: teamColorWithAlpha },
+                          styles.jerseyBadge,
+                          { backgroundColor: player.teamColor },
                         ]}
                       >
-                        <HeadshotOrInitials
-                          uri={headshotUrl}
-                          name={player.name}
-                          containerStyle={{ width: "100%", height: "100%", borderRadius: 40, overflow: "hidden" }}
-                          imageStyle={styles.headshot}
-                          initialsStyle={{ fontSize: 35 }}
-                        />
-                        {player.jersey && (
-                          <View
-                            style={[
-                              styles.jerseyBadge,
-                              { backgroundColor: player.teamColor },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.jerseyText,
-                                { color: isLight ? "#000" : "#FFF" },
-                              ]}
-                            >
-                              {player.jersey}
-                            </Text>
-                          </View>
-                        )}
+                        <Text
+                          style={[
+                            styles.jerseyText,
+                            { color: isLight ? "#000" : "#FFF" },
+                          ]}
+                        >
+                          {player.jersey}
+                        </Text>
                       </View>
+                    )}
+                  </View>
 
                   <View style={styles.playerInfo}>
                     <Text
@@ -295,7 +311,7 @@ const BetTopScreen = ({ navigation }) => {
       </ScrollView>
 
       {!isPro && <BannerAdWrapper />}
-      <BetSlip/>
+      <BetSlip />
     </View>
   );
 };

@@ -69,10 +69,19 @@ const BetBetsScreen = () => {
     return `${first}${last}`;
   };
 
-  const HeadshotOrInitials = ({ uri, name, containerStyle, imageStyle, initialsStyle, onError }) => {
+  const HeadshotOrInitials = ({
+    uri,
+    name,
+    containerStyle,
+    imageStyle,
+    initialsStyle,
+    onError,
+  }) => {
     const [failed, setFailed] = useState(false);
     // Determine bg color from style if provided
-    const bg = (Array.isArray(containerStyle) ? containerStyle[0] : containerStyle)?.backgroundColor || "#999";
+    const bg =
+      (Array.isArray(containerStyle) ? containerStyle[0] : containerStyle)
+        ?.backgroundColor || "#999";
     const textColor = isColorLight(bg) ? "#000" : "#FFF";
     return (
       <View style={containerStyle}>
@@ -86,8 +95,14 @@ const BetBetsScreen = () => {
             }}
           />
         ) : (
-          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-            <Text style={[{ color: textColor, fontWeight: "700" }, initialsStyle]}>{getInitials(name)}</Text>
+          <View
+            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+          >
+            <Text
+              style={[{ color: textColor, fontWeight: "700" }, initialsStyle]}
+            >
+              {getInitials(name)}
+            </Text>
           </View>
         )}
       </View>
@@ -1309,15 +1324,23 @@ const BetBetsScreen = () => {
       style={[styles.pickCard, { backgroundColor: theme.surface }]}
     >
       <View style={[styles.pickHeader]}>
-        {(pick.headshot || pick.headshot_url || pick.playerHeadshot || pick.headshotUrl) && (
+        {(pick.headshot ||
+          pick.headshot_url ||
+          pick.playerHeadshot ||
+          pick.headshotUrl) && (
           <HeadshotOrInitials
             uri={
-              pick.headshot || pick.headshot_url || pick.playerHeadshot || pick.headshotUrl
+              pick.headshot ||
+              pick.headshot_url ||
+              pick.playerHeadshot ||
+              pick.headshotUrl
             }
             name={pick.playerName}
             containerStyle={[
               styles.playerHeadshot,
-              pick.playerColor ? { backgroundColor: pick.playerColor + "88" } : null,
+              pick.playerColor
+                ? { backgroundColor: pick.playerColor + "88" }
+                : null,
             ]}
             imageStyle={styles.playerHeadshot}
             initialsStyle={{ fontSize: 14 }}
@@ -1791,7 +1814,6 @@ const BetBetsScreen = () => {
             return "CARDS";
 
           if (s.includes("redCards") || s === "redCards_yn") return "RC";
-
         }
 
         // NBA Combination stats
@@ -2147,7 +2169,11 @@ const BetBetsScreen = () => {
             const label = "GOALS";
             return `${String(displayLine).toUpperCase()} ${label}`.trim();
           }
-          if (hadYN && rawLower.includes("combined") && sportSuffix === "uefa") {
+          if (
+            hadYN &&
+            rawLower.includes("combined") &&
+            sportSuffix === "uefa"
+          ) {
             const label = "ANYTIME CARD";
             return `${String(displayLine).toUpperCase()} ${label}`.trim();
           }
@@ -2205,7 +2231,11 @@ const BetBetsScreen = () => {
             const label = "GOALS";
             return `${String(displayLine).toUpperCase()} ${label}`.trim();
           }
-          if (hadYN && rawLower.includes("combined") && sportSuffix === "uefa") {
+          if (
+            hadYN &&
+            rawLower.includes("combined") &&
+            sportSuffix === "uefa"
+          ) {
             const label = "ANYTIME CARD";
             return `${String(displayLine).toUpperCase()} ${label}`.trim();
           }

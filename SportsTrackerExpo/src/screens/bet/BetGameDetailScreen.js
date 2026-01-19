@@ -128,7 +128,9 @@ const HeadshotOrInitials = ({
         />
       ) : (
         <View style={[{ justifyContent: "center", alignItems: "center" }]}>
-          <Text style={[{ color: textColor, fontWeight: "700" }, initialsStyle]}>
+          <Text
+            style={[{ color: textColor, fontWeight: "700" }, initialsStyle]}
+          >
             {getInitials(name)}
           </Text>
         </View>
@@ -2418,7 +2420,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           const team = teamBlock.team || {};
           const teamAbbrev = team.abbreviation || team.displayName || null;
           const teamId = String(team.id || team.teamId || "");
-          const logoUse = sportPath === "soccer" ? teamId : (teamAbbrev).toLowerCase();
+          const logoUse =
+            sportPath === "soccer" ? teamId : teamAbbrev.toLowerCase();
           const athletesArr =
             (teamBlock.statistics && teamBlock.statistics.athletes) || [];
           athletesArr.forEach((entry) => {
@@ -3556,9 +3559,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                               backgroundColor={teamSmartColor}
                                               containerStyle={[
                                                 styles.boxScorePlayerImageContainer,
-                                                { backgroundColor: teamSmartColor },
+                                                {
+                                                  backgroundColor:
+                                                    teamSmartColor,
+                                                },
                                               ]}
-                                              imageStyle={styles.boxScorePlayerImage}
+                                              imageStyle={
+                                                styles.boxScorePlayerImage
+                                              }
                                               initialsStyle={{ fontSize: 14 }}
                                             />
                                             <View
@@ -5490,9 +5498,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             return String(odds);
           };
           const teamAbbr = competitor.team?.abbreviation || "TEAM";
-          const teamId = String(competitor.team?.id || competitor.team?.teamId || "");
+          const teamId = String(
+            competitor.team?.id || competitor.team?.teamId || "",
+          );
 
-          const toUseTeam = sportPath === "soccer" ? teamId : teamAbbr.toLowerCase();
+          const toUseTeam =
+            sportPath === "soccer" ? teamId : teamAbbr.toLowerCase();
 
           const teamName = competitor.team?.displayName || teamAbbr;
           const sgo = competitor.record?.odds?.sgo || [];
@@ -5571,8 +5582,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 const dkBySide = {};
                 variants.forEach((v) => {
                   const side = v.sideID || "none";
-                  const bk =
-                    (v.byBookmaker && v.byBookmaker.fanduel) || null;
+                  const bk = (v.byBookmaker && v.byBookmaker.fanduel) || null;
                   if (bk) {
                     dkBySide[side] = dkBySide[side] || [];
                     dkBySide[side].push({ ...v, bookmaker: bk });
@@ -5586,8 +5596,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 const collectedAlts = [];
                 variants.forEach((v) => {
                   const side = v.sideID || "other";
-                  const bk =
-                    (v.byBookmaker && v.byBookmaker.fanduel) || null;
+                  const bk = (v.byBookmaker && v.byBookmaker.fanduel) || null;
                   const lines =
                     bk && Array.isArray(bk.altLines) ? bk.altLines : [];
                   lines.forEach((a) =>
@@ -7121,12 +7130,17 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   {[...awayTeamGames].map((game, index) => {
                     const isWin = game.result === "W";
                     const isLoss = game.result === "L";
-                    const borderColor = isWin ? theme.success : isLoss ? theme.error : theme.warning;
+                    const borderColor = isWin
+                      ? theme.success
+                      : isLoss
+                        ? theme.error
+                        : theme.warning;
 
                     const oppAbbr = game.opponentAbbreviation || "OPP";
                     const oppId = game.opponentId || null;
 
-                    const toUse = sportPath === "soccer" ? oppId : oppAbbr.toLowerCase();
+                    const toUse =
+                      sportPath === "soccer" ? oppId : oppAbbr.toLowerCase();
 
                     // Format date
                     const gameDate = new Date(game.date);
@@ -7214,12 +7228,17 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   {[...homeTeamGames].map((game, index) => {
                     const isWin = game.result === "W";
                     const isLoss = game.result === "L";
-                    const borderColor = isWin ? theme.success : isLoss ? theme.error : theme.warning;
+                    const borderColor = isWin
+                      ? theme.success
+                      : isLoss
+                        ? theme.error
+                        : theme.warning;
 
                     const oppAbbr = game.opponentAbbreviation || "OPP";
                     const oppId = game.opponentId || null;
 
-                    const toUse = sportPath === "soccer" ? oppId : oppAbbr.toLowerCase();
+                    const toUse =
+                      sportPath === "soccer" ? oppId : oppAbbr.toLowerCase();
 
                     // Format date
                     const gameDate = new Date(game.date);

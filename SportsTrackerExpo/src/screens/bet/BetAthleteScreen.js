@@ -125,7 +125,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
     try {
       setLoading(true);
       const response = await fetch(
-        `https://laraiyeogithubio-production-f5af.up.railway.app/api/athlete/${sport.toLowerCase()}/${athleteId}`
+        `https://laraiyeogithubio-production-f5af.up.railway.app/api/athlete/${sport.toLowerCase()}/${athleteId}`,
       );
       const data = await response.json();
       setAthleteData(data);
@@ -139,13 +139,13 @@ const BetAthleteScreen = ({ route, navigation }) => {
       if (data.gameId) {
         try {
           const scoreboardResponse = await fetch(
-            `https://laraiyeogithubio-production-f5af.up.railway.app/api/scoreboard/${sport.toLowerCase()}`
+            `https://laraiyeogithubio-production-f5af.up.railway.app/api/scoreboard/${sport.toLowerCase()}`,
           );
           const scoreboardData = await scoreboardResponse.json();
 
           if (scoreboardData && scoreboardData.events) {
             const game = scoreboardData.events.find(
-              (evt) => evt.id === data.gameId
+              (evt) => evt.id === data.gameId,
             );
 
             if (game && game.competitions && game.competitions[0]) {
@@ -207,7 +207,14 @@ const BetAthleteScreen = ({ route, navigation }) => {
     return `${first}${last}`;
   };
 
-  const HeadshotOrInitials = ({ uri, name, containerStyle, imageStyle, initialsStyle, onError }) => {
+  const HeadshotOrInitials = ({
+    uri,
+    name,
+    containerStyle,
+    imageStyle,
+    initialsStyle,
+    onError,
+  }) => {
     const [failed, setFailed] = useState(false);
     const bg = (containerStyle && containerStyle.backgroundColor) || teamColor;
     const textColor = isColorLight(bg) ? "#000" : "#FFF";
@@ -225,8 +232,19 @@ const BetAthleteScreen = ({ route, navigation }) => {
             }}
           />
         ) : (
-          <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: bg }}>
-            <Text style={[{ color: textColor, fontWeight: "700" }, initialsStyle]}>{getInitials(name)}</Text>
+          <View
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              alignItems: "center",
+              backgroundColor: bg,
+            }}
+          >
+            <Text
+              style={[{ color: textColor, fontWeight: "700" }, initialsStyle]}
+            >
+              {getInitials(name)}
+            </Text>
           </View>
         )}
       </View>
@@ -370,7 +388,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
       expandedGameItems[sectionName] &&
       Object.prototype.hasOwnProperty.call(
         expandedGameItems[sectionName],
-        index
+        index,
       )
         ? expandedGameItems[sectionName][index]
         : index === 0;
@@ -602,7 +620,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
 
     const findStat = (needle) => {
       const lk = Object.keys(stats).find((k) =>
-        k.toLowerCase().includes(needle.toLowerCase())
+        k.toLowerCase().includes(needle.toLowerCase()),
       );
       if (!lk) return null;
       const raw = stats[lk];
@@ -692,7 +710,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
     const isThreePointersQuery = /three|3p|3-?pt|threep/i.test(statID);
     if (isThreePointersQuery) {
       const threeKey = Object.keys(stats).find((k) =>
-        /3[- ]?point|3pt|3-?point/i.test(k)
+        /3[- ]?point|3pt|3-?point/i.test(k),
       );
       if (threeKey) {
         const raw = stats[threeKey];
@@ -715,13 +733,13 @@ const BetAthleteScreen = ({ route, navigation }) => {
 
     // Exclude NFL kicking stats from NHL detection (field goal, extra point, FGM, kicking)
     const hasNFLKickingStats = statKeysLower.some((k) =>
-      /field\s*goal|extra\s*point|fgm|kicking|yards/i.test(k)
+      /field\s*goal|extra\s*point|fgm|kicking|yards/i.test(k),
     );
 
     const looksLikeNHL =
       !hasNFLKickingStats &&
       statKeysLower.some((k) =>
-        /\bgoals?\b|\bassists?\b|\bshots?\b|shooting\b|power ?play/i.test(k)
+        /\bgoals?\b|\bassists?\b|\bshots?\b|shooting\b|power ?play/i.test(k),
       );
 
     console.log("[NHL CHECK]", {
@@ -802,7 +820,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
     const findKeyNFLExact = (exactName, rx) => {
       // Try exact match first (case-insensitive)
       const exactMatch = statKeysNFL.find(
-        (k) => k.toLowerCase() === exactName.toLowerCase()
+        (k) => k.toLowerCase() === exactName.toLowerCase(),
       );
       if (exactMatch) return exactMatch;
       // Fall back to regex
@@ -827,7 +845,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
       console.log("[NFL CHECK - Inside Field Goals block]");
       const fgKey = findKeyNFLExact(
         "Field goals made",
-        /field\s*goals?\s*made/i
+        /field\s*goals?\s*made/i,
       );
       console.log("[NFL CHECK - Found key]", fgKey);
       const result = fgKey ? parseFirstNumber(stats[fgKey]) : 0;
@@ -848,7 +866,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
     if (/extra\s*points?\s*made/i.test(statID)) {
       const xpKey = findKeyNFLExact(
         "Extra Points Made",
-        /extra\s*points?\s*made/i
+        /extra\s*points?\s*made/i,
       );
       const result = xpKey ? parseFirstNumber(stats[xpKey]) : 0;
       console.log("[NFL STAT DEBUG - Extra Points Made]", {
@@ -865,7 +883,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
     if (/total\s*kicking\s*points|kicking\s*total\s*points/i.test(statID)) {
       const kpKey = findKeyNFLExact(
         "Total Kicking Points",
-        /total\s*kicking\s*points/i
+        /total\s*kicking\s*points/i,
       );
       const result = kpKey ? parseMatchStatValue(stats[kpKey]) : 0;
       console.log("[NFL STAT DEBUG - Total Kicking Points]", {
@@ -961,7 +979,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
       if (!k) return 0;
       // Case-insensitive key lookup
       const actualKey = Object.keys(stats).find(
-        (statKey) => statKey.toLowerCase() === k.toLowerCase()
+        (statKey) => statKey.toLowerCase() === k.toLowerCase(),
       );
       const raw = actualKey ? stats[actualKey] : undefined;
       if (raw === null || raw === undefined) return 0;
@@ -1012,7 +1030,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
         parseMatchStatValue(lkStat([/rush.*yard/i, /rushing.*yard/i])) || 0;
       const recv =
         parseMatchStatValue(
-          lkStat([/receiv.*yard/i, /receiving.*yard/i, /rec.*yard/i])
+          lkStat([/receiv.*yard/i, /receiving.*yard/i, /rec.*yard/i]),
         ) || 0;
       return rv + recv;
     }
@@ -1051,15 +1069,15 @@ const BetAthleteScreen = ({ route, navigation }) => {
       // Otherwise, always return the sum of non-passing TD sources (may be 0)
       const rushTD =
         parseMatchStatValue(
-          lkStat([/rush.*td/i, /rushing.*td/i, /rush.*touch/i])
+          lkStat([/rush.*td/i, /rushing.*td/i, /rush.*touch/i]),
         ) || 0;
       const recTD =
         parseMatchStatValue(
-          lkStat([/rec.*td/i, /receiv.*td/i, /receiving.*td/i, /rec.*touch/i])
+          lkStat([/rec.*td/i, /receiv.*td/i, /receiving.*td/i, /rec.*touch/i]),
         ) || 0;
       const defTD =
         parseMatchStatValue(
-          lkStat([/return.*td/i, /int.*td/i, /interception.*td/i, /def.*td/i])
+          lkStat([/return.*td/i, /int.*td/i, /interception.*td/i, /def.*td/i]),
         ) || 0;
       return rushTD + recTD + defTD;
     }
@@ -1133,13 +1151,13 @@ const BetAthleteScreen = ({ route, navigation }) => {
         const found = bookmaker.annotatedLines.find(
           (a) =>
             String(a.overUnder) === String(lineValue) ||
-            String(a.overUnder) === String(parseFloat(lineValue))
+            String(a.overUnder) === String(parseFloat(lineValue)),
         );
         if (found) return found;
       }
       // otherwise, if there's any object that contains summary-like keys, return the first that has h2hSeason or season
       const foundSummary = bookmaker.annotatedLines.find(
-        (a) => a.h2hSeason || a.season || a.l5 || a.l10
+        (a) => a.h2hSeason || a.season || a.l5 || a.l10,
       );
       if (foundSummary) return foundSummary;
       // fallback to first entry
@@ -1229,7 +1247,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
             const foundKick = recentFirstStats.find(
               (k) =>
                 k.toLowerCase().includes("kicking") &&
-                k.toLowerCase().includes("total")
+                k.toLowerCase().includes("total"),
             );
             if (foundKick) {
               statQuery = foundKick;
@@ -1246,7 +1264,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
           if (!foundExactMatch && statQueryFallback) {
             // Try exact match first
             const idx = recentFirstLower.indexOf(
-              statQueryFallback.toLowerCase()
+              statQueryFallback.toLowerCase(),
             );
             if (idx !== -1) {
               statQuery = recentFirstStats[idx];
@@ -1255,7 +1273,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
               // Try normalized version (replace hyphens/underscores with spaces)
               const normalized = statQueryFallback.replace(/[-_]/g, " ");
               const normIdx = recentFirstLower.indexOf(
-                normalized.toLowerCase()
+                normalized.toLowerCase(),
               );
               if (normIdx !== -1) {
                 statQuery = recentFirstStats[normIdx];
@@ -1272,7 +1290,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
             recentFirstLower.indexOf(String(market.statID).toLowerCase()) !== -1
           ) {
             const idx2 = recentFirstLower.indexOf(
-              String(market.statID).toLowerCase()
+              String(market.statID).toLowerCase(),
             );
             statQuery = recentFirstStats[idx2];
             foundExactMatch = true;
@@ -1573,7 +1591,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
                     {(() => {
                       const recent = (last10matches || []).slice(0, 10);
                       const matchVals = recent.map(
-                        (m) => getMatchStatNumeric(m, statQuery) || 0
+                        (m) => getMatchStatNumeric(m, statQuery) || 0,
                       );
                       const maxMatchVal = matchVals.length
                         ? Math.max(...matchVals)
@@ -1596,9 +1614,9 @@ const BetAthleteScreen = ({ route, navigation }) => {
                               Math.min(
                                 chartH,
                                 Math.round(
-                                  (1 - selectedLineNum / overallMax) * chartH
-                                )
-                              )
+                                  (1 - selectedLineNum / overallMax) * chartH,
+                                ),
+                              ),
                             )
                           : null;
                       return (
@@ -1673,7 +1691,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
                                   if (gi === 0) {
                                     const fromL10 = deriveMappingLabel(
                                       statQuery,
-                                      sanitizedLabel
+                                      sanitizedLabel,
                                     );
                                     console.log("[STATS BAR]", {
                                       sanitizedLabel,
@@ -1683,7 +1701,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
                                     });
                                   }
                                   const barH = Math.round(
-                                    (val / overallMax) * chartH
+                                    (val / overallMax) * chartH,
                                   );
                                   const selNum =
                                     selectedLine != null
@@ -1917,7 +1935,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
                     if (!isPro) {
                       Alert.alert(
                         "Pro Required",
-                        "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
+                        "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock.",
                       );
                       return;
                     }
@@ -2000,7 +2018,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
                     if (!isPro) {
                       Alert.alert(
                         "Pro Required",
-                        "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
+                        "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock.",
                       );
                       return;
                     }
@@ -2111,7 +2129,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
                         if (!isPro) {
                           Alert.alert(
                             "Pro Required",
-                            "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
+                            "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock.",
                           );
                           return;
                         }
@@ -2192,7 +2210,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
                       if (!isPro) {
                         Alert.alert(
                           "Pro Required",
-                          "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
+                          "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock.",
                         );
                         return;
                       }
@@ -2280,7 +2298,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
 
     // If there are no over/under variants in this market, make the YES button full-width like betButton
     const hasOverUnderInVariants = variants.some(
-      (v) => v.sideID === "over" || v.sideID === "under"
+      (v) => v.sideID === "over" || v.sideID === "under",
     );
 
     if (!hasOverUnderInVariants) {
@@ -2301,7 +2319,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
               if (!isPro) {
                 Alert.alert(
                   "Pro Required",
-                  "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
+                  "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock.",
                 );
                 return;
               }
@@ -2365,7 +2383,7 @@ const BetAthleteScreen = ({ route, navigation }) => {
             if (!isPro) {
               Alert.alert(
                 "Pro Required",
-                "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock."
+                "Adding Player Props from Athlete Page is for Pro members. Purchase Pro in Settings to unlock.",
               );
               return;
             }
@@ -2458,7 +2476,12 @@ const BetAthleteScreen = ({ route, navigation }) => {
             <HeadshotOrInitials
               uri={headshotUrl}
               name={`${athlete.firstName || ""} ${athlete.lastName || ""}`.trim()}
-              containerStyle={{ width: 120, height: 120, borderRadius: 60, overflow: "hidden" }}
+              containerStyle={{
+                width: 120,
+                height: 120,
+                borderRadius: 60,
+                overflow: "hidden",
+              }}
               imageStyle={styles.headerHeadshot}
               initialsStyle={{ fontSize: 50 }}
             />
@@ -2569,10 +2592,10 @@ const BetAthleteScreen = ({ route, navigation }) => {
               odds.map((market, index) => {
                 const isExpanded = expandedMarkets[market.marketName];
                 const hasOverUnder = market.variants?.some(
-                  (v) => v.sideID === "over" || v.sideID === "under"
+                  (v) => v.sideID === "over" || v.sideID === "under",
                 );
                 const hasYesNo = market.variants?.some(
-                  (v) => v.sideID === "yes"
+                  (v) => v.sideID === "yes",
                 );
 
                 return (
@@ -2607,13 +2630,13 @@ const BetAthleteScreen = ({ route, navigation }) => {
                           renderOverUnderButtons(
                             market.variants,
                             market.marketName,
-                            market.statID
+                            market.statID,
                           )}
                         {hasYesNo &&
                           renderYesNoButtons(
                             market.variants,
                             market.marketName,
-                            market.statID
+                            market.statID,
                           )}
                       </View>
                     )}
