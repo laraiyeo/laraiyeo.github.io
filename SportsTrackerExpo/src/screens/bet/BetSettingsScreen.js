@@ -205,7 +205,7 @@ const BetSettingsScreen = ({ navigation }) => {
   const infoPages = [
     {
       title: "Odds and Lines",
-      body: "All odds and betting lines are retreived from FanDuel through SportsGameOdds API. There may be delays or discrepancies compared to live sportsbook lines along with some odds not being available.",
+      body: "All odds and betting lines are retreived from FanDuel and DraftKings through SportsGameOdds API. There may be delays or discrepancies compared to live sportsbook lines along with some odds not being available.",
     },
     {
       title: "Credits System",

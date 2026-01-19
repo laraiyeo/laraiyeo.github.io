@@ -1557,7 +1557,7 @@ const PropTabContent = ({
           // for full-game, prefer variants without periodID
           if (v.periodID) return;
         }
-        const dk = v.byBookmaker?.fanduel;
+        const dk = v.byBookmaker?.fanduel || v.byBookmaker?.draftkings;
         if (dk?.altLines && Array.isArray(dk.altLines)) {
           dk.altLines.forEach((al) => {
             // Attach sideID from the parent variant so we know if this alt is 'over' or 'under'
@@ -1875,7 +1875,7 @@ const PropTabContent = ({
           );
 
           if (yesVariant) {
-            const dk = yesVariant.byBookmaker?.fanduel || {};
+            const dk = yesVariant.byBookmaker?.fanduel || yesVariant.byBookmaker?.draftkings || {};
             const oddsVal = dk.odds || dk.price || null;
             const betId = `${player.id}-${selectedPropType}-yes`;
             const formattedOdds =
@@ -1970,8 +1970,8 @@ const PropTabContent = ({
               (periodID ? v.periodID === periodID : !v.periodID),
           );
 
-          const dkOver = overVariant?.byBookmaker?.fanduel || {};
-          const dkUnder = underVariant?.byBookmaker?.fanduel || {};
+          const dkOver = overVariant?.byBookmaker?.fanduel || overVariant?.byBookmaker?.draftkings || {};
+          const dkUnder = underVariant?.byBookmaker?.fanduel || underVariant?.byBookmaker?.draftkings || {};
           const line =
             dkOver.overUnder ||
             dkUnder.overUnder ||
@@ -5582,7 +5582,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 const dkBySide = {};
                 variants.forEach((v) => {
                   const side = v.sideID || "none";
-                  const bk = (v.byBookmaker && v.byBookmaker.fanduel) || null;
+                  const bk = (v.byBookmaker && (v.byBookmaker.fanduel || v.byBookmaker.draftkings)) || null;
                   if (bk) {
                     dkBySide[side] = dkBySide[side] || [];
                     dkBySide[side].push({ ...v, bookmaker: bk });
@@ -5596,7 +5596,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 const collectedAlts = [];
                 variants.forEach((v) => {
                   const side = v.sideID || "other";
-                  const bk = (v.byBookmaker && v.byBookmaker.fanduel) || null;
+                  const bk = (v.byBookmaker && (v.byBookmaker.fanduel || v.byBookmaker.draftkings)) || null;
                   const lines =
                     bk && Array.isArray(bk.altLines) ? bk.altLines : [];
                   lines.forEach((a) =>
@@ -6396,7 +6396,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   variants.forEach((v) => {
                     const side = v.sideID || v.side || "none";
                     const bk =
-                      (v.byBookmaker && v.byBookmaker.fanduel) ||
+                      (v.byBookmaker && (v.byBookmaker.fanduel || v.byBookmaker.draftkings)) ||
                       (v.byBookmaker && Object.values(v.byBookmaker)[0]) ||
                       v.bookmaker ||
                       null;
@@ -6416,7 +6416,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   variants.forEach((v) => {
                     const side = v.sideID || v.side || "other";
                     const bk =
-                      (v.byBookmaker && v.byBookmaker.fanduel) ||
+                      (v.byBookmaker && (v.byBookmaker.fanduel || v.byBookmaker.draftkings)) ||
                       (v.byBookmaker && Object.values(v.byBookmaker)[0]) ||
                       v.bookmaker ||
                       null;
