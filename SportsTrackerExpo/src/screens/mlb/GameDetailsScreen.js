@@ -47,7 +47,7 @@ const calculateColorSimilarity = (color1, color2) => {
   const distance = Math.sqrt(
     Math.pow(rgb1.r - rgb2.r, 2) +
       Math.pow(rgb1.g - rgb2.g, 2) +
-      Math.pow(rgb1.b - rgb2.b, 2)
+      Math.pow(rgb1.b - rgb2.b, 2),
   );
 
   // Normalize distance (max distance is sqrt(3 * 255^2) ≈ 441)
@@ -206,7 +206,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   const fetchStreamsForSource = async (source, sourceId) => {
     try {
       const response = await fetch(
-        `${STREAM_API_BASE}/stream/${source}/${sourceId}`
+        `${STREAM_API_BASE}/stream/${source}/${sourceId}`,
       );
       if (!response.ok) {
         throw new Error(`API responded with status: ${response.status}`);
@@ -300,7 +300,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       const awayNormalized = normalizeTeamName(awayTeamName).toLowerCase();
 
       console.log(
-        `Normalized team names: {homeNormalized: '${homeNormalized}', awayNormalized: '${awayNormalized}'}`
+        `Normalized team names: {homeNormalized: '${homeNormalized}', awayNormalized: '${awayNormalized}'}`,
       );
 
       // Check if both teams have the same first word (city name) - this causes confusion
@@ -309,7 +309,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       const hasSameCity = homeFirstWord === awayFirstWord;
 
       console.log(
-        `Team analysis: Home first word: "${homeFirstWord}", Away first word: "${awayFirstWord}", Same city: ${hasSameCity}`
+        `Team analysis: Home first word: "${homeFirstWord}", Away first word: "${awayFirstWord}", Same city: ${hasSameCity}`,
       );
 
       let bestMatch = null;
@@ -359,7 +359,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       console.log(
         `Processing ${matchesToProcess.length} matches (${
           quickMatches.length > 0 ? "pre-filtered" : "full set"
-        })`
+        })`,
       );
 
       // Debug: Show first few matches to understand API format
@@ -370,12 +370,12 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           console.log(`  ${i + 1}. Title: "${match.title}"`);
           if (match.teams) {
             console.log(
-              `     Home: ${match.teams.home?.name}, Away: ${match.teams.away?.name}`
+              `     Home: ${match.teams.home?.name}, Away: ${match.teams.away?.name}`,
             );
           }
           if (match.sources) {
             console.log(
-              `     Sources: ${match.sources.map((s) => s.source).join(", ")}`
+              `     Sources: ${match.sources.map((s) => s.source).join(", ")}`,
             );
           }
         }
@@ -444,7 +444,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               homeParts.forEach((part) => {
                 if (
                   titleWords.some(
-                    (word) => word.includes(part) || part.includes(word)
+                    (word) => word.includes(part) || part.includes(word),
                   )
                 )
                   score += 0.4;
@@ -452,7 +452,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
               awayParts.forEach((part) => {
                 if (
                   titleWords.some(
-                    (word) => word.includes(part) || part.includes(word)
+                    (word) => word.includes(part) || part.includes(word),
                   )
                 )
                   score += 0.4;
@@ -588,7 +588,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 abbreviations[part].forEach((abbr) => {
                   if (
                     titleWords.some(
-                      (word) => word.includes(abbr) || abbr.includes(word)
+                      (word) => word.includes(abbr) || abbr.includes(word),
                     )
                   )
                     score += 0.3;
@@ -603,7 +603,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 abbreviations[part].forEach((abbr) => {
                   if (
                     titleWords.some(
-                      (word) => word.includes(abbr) || abbr.includes(word)
+                      (word) => word.includes(abbr) || abbr.includes(word),
                     )
                   )
                     score += 0.3;
@@ -623,8 +623,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         console.log(
           `Match "${match.title.substring(
             0,
-            50
-          )}..." score: ${totalScore.toFixed(2)}`
+            50,
+          )}..." score: ${totalScore.toFixed(2)}`,
         );
 
         if (totalScore > bestScore) {
@@ -634,7 +634,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           // Early exit if we find a very good match (score >= 1.0 for rough matching)
           if (bestScore >= 1.0) {
             console.log(
-              `Found excellent match with score ${bestScore}, stopping search early`
+              `Found excellent match with score ${bestScore}, stopping search early`,
             );
             break;
           }
@@ -644,20 +644,20 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       if (!bestMatch || bestScore < 0.3) {
         console.log(
           `No good matching live match found in API (best score: ${bestScore.toFixed(
-            2
-          )})`
+            2,
+          )})`,
         );
         console.log(`Searched for: ${homeNormalized} vs ${awayNormalized}`);
         console.log(
-          `Processed: ${matchesToProcess.length} matches out of ${liveMatches.length} total`
+          `Processed: ${matchesToProcess.length} matches out of ${liveMatches.length} total`,
         );
         return {};
       }
 
       console.log(
         `Found matching match: ${bestMatch.title} (score: ${bestScore.toFixed(
-          2
-        )})`
+          2,
+        )})`,
       );
 
       // Collect only the first stream from each source (like soccer does)
@@ -666,7 +666,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         try {
           const sourceStreams = await fetchStreamsForSource(
             source.source,
-            source.id
+            source.id,
           );
 
           if (sourceStreams && sourceStreams.length > 0) {
@@ -683,7 +683,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             };
             console.log(
               `Added stream for ${source.source}:`,
-              allStreams[sourceKey]
+              allStreams[sourceKey],
             );
           }
         } catch (error) {
@@ -702,7 +702,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   const generateStreamUrl = (
     awayTeamName,
     homeTeamName,
-    streamType = "alpha1"
+    streamType = "alpha1",
   ) => {
     const normalizedAway = normalizeTeamName(awayTeamName);
     const normalizedHome = normalizeTeamName(homeTeamName);
@@ -720,7 +720,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   useEffect(() => {
     console.log(
       "MLBGameDetailsScreen: Main useEffect triggered, gameId:",
-      gameId
+      gameId,
     );
 
     if (!gameId) {
@@ -743,7 +743,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       gameData?.gameData?.status?.codedGameState === "M"; // Manager challenge
     console.log(
       "MLBGameDetailsScreen: Setting up live updates, isLive:",
-      isLiveGame
+      isLiveGame,
     );
 
     if (isLiveGame) {
@@ -782,7 +782,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       "activeTab:",
       activeTab,
       "gameId:",
-      gameId
+      gameId,
     );
     if (gameData && activeTab === "plays" && gameId) {
       console.log("Loading plays data...");
@@ -917,7 +917,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
       console.log(
         "MLBGameDetailsScreen: Loading game details for gameId:",
-        gameId
+        gameId,
       );
       const data = await MLBService.getGameDetails(gameId);
 
@@ -947,7 +947,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
       console.log(
         "MLBGameDetailsScreen: Loading live data update for gameId:",
-        gameId
+        gameId,
       );
       const data = await MLBService.getGameDetails(gameId);
 
@@ -999,7 +999,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       "loadingPlays:",
       loadingPlays,
       "loadingPlaysRef:",
-      loadingPlaysRef.current
+      loadingPlaysRef.current,
     );
     if (!gameId) {
       console.log("Exiting loadPlaysData - no gameId");
@@ -1021,7 +1021,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         "Plays data received:",
         !!plays,
         plays ? Object.keys(plays).length : 0,
-        "keys"
+        "keys",
       );
       setPlaysData(plays);
       console.log("Successfully set plays data, setting loadingPlays to false");
@@ -1229,11 +1229,11 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         "Fetching game stats for player ID:",
         player.person?.id,
         "in game:",
-        gameId
+        gameId,
       );
       const gameStats = await MLBService.getPlayerGameStats(
         gameId,
-        player.person?.id
+        player.person?.id,
       );
       console.log("Game stats received:", gameStats);
 
@@ -1365,8 +1365,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   return isFavorite(espnId, "mlb")
                     ? colors.primary
                     : awayIsLosing
-                    ? theme.textSecondary
-                    : theme.text;
+                      ? theme.textSecondary
+                      : theme.text;
                 })(),
               },
             ]}
@@ -1408,7 +1408,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   ]}
                 >
                   {new Date(
-                    gameData.gameData.datetime.dateTime
+                    gameData.gameData.datetime.dateTime,
                   ).toLocaleTimeString("en-US", {
                     hour: "numeric",
                     minute: "2-digit",
@@ -1453,7 +1453,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   ]}
                 >
                   {new Date(
-                    gameData.gameData.datetime.dateTime
+                    gameData.gameData.datetime.dateTime,
                   ).toLocaleTimeString("en-US", {
                     hour: "numeric",
                     minute: "2-digit",
@@ -1477,8 +1477,8 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   return isFavorite(espnId, "mlb")
                     ? colors.primary
                     : homeIsLosing
-                    ? theme.textSecondary
-                    : theme.text;
+                      ? theme.textSecondary
+                      : theme.text;
                 })(),
               },
             ]}
@@ -1595,7 +1595,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       Alert.alert(
         "Streaming Locked",
         "Please enter the streaming code in Settings to access live streams.",
-        [{ text: "OK" }]
+        [{ text: "OK" }],
       );
       return;
     }
@@ -1636,7 +1636,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       initialUrl = generateStreamUrl(
         awayTeam.name,
         homeTeam.name,
-        initialStreamType
+        initialStreamType,
       );
       setCurrentStreamType(initialStreamType);
     }
@@ -1789,7 +1789,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   {
                     color: (() => {
                       const espnId = convertMLBIdToESPNId(
-                        awayTeam?.id?.toString()
+                        awayTeam?.id?.toString(),
                       );
                       return isFavorite(espnId, "MLB")
                         ? colors.primary
@@ -1838,7 +1838,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                     style={[styles.gameTime, { color: theme.textSecondary }]}
                   >
                     {new Date(
-                      gameData.gameData.datetime.dateTime
+                      gameData.gameData.datetime.dateTime,
                     ).toLocaleTimeString("en-US", {
                       hour: "numeric",
                       minute: "2-digit",
@@ -1857,7 +1857,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 >
                   {formatInning(
                     linescore?.currentInning,
-                    linescore?.inningState
+                    linescore?.inningState,
                   )}
                 </Text>
                 <Text
@@ -1884,7 +1884,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                     style={[styles.gameTime, { color: theme.textSecondary }]}
                   >
                     {new Date(
-                      gameData.gameData.datetime.dateTime
+                      gameData.gameData.datetime.dateTime,
                     ).toLocaleTimeString("en-US", {
                       hour: "numeric",
                       minute: "2-digit",
@@ -1925,7 +1925,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   {
                     color: (() => {
                       const espnId = convertMLBIdToESPNId(
-                        homeTeam?.id?.toString()
+                        homeTeam?.id?.toString(),
                       );
                       return isFavorite(espnId, "MLB")
                         ? colors.primary
@@ -2315,7 +2315,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             >
               {formatInning(
                 currentPlay.about.inning,
-                currentPlay.about.halfInning
+                currentPlay.about.halfInning,
               )}
             </Text>
           )}
@@ -2498,7 +2498,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             const actualBatters = (batters || [])
               .map((id) => teamStats.players?.[`ID${id}`])
               .filter(
-                (player) => player && player.position?.abbreviation !== "P"
+                (player) => player && player.position?.abbreviation !== "P",
               );
 
             // Get batting order for substitution detection (same logic as scoreboard.js)
@@ -2730,10 +2730,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       gameData.liveData.boxscore.teams.home?.teamStats?.batting || {};
 
     const awayColor = MLBService.getTeamColor(
-      awayTeam?.name || awayTeam?.team?.name
+      awayTeam?.name || awayTeam?.team?.name,
     );
     const homeColor = MLBService.getTeamColor(
-      homeTeam?.name || homeTeam?.team?.name
+      homeTeam?.name || homeTeam?.team?.name,
     );
 
     // Helper function to render stats row with bars
@@ -2873,42 +2873,42 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           {renderStatsRow(
             "At Bats",
             awayStats.atBats || 0,
-            homeStats.atBats || 0
+            homeStats.atBats || 0,
           )}
           {renderStatsRow(
             "Batting Avg",
             parseFloat(awayStats.avg || 0).toFixed(3),
-            parseFloat(homeStats.avg || 0).toFixed(3)
+            parseFloat(homeStats.avg || 0).toFixed(3),
           )}
           {renderStatsRow(
             "OPS",
             parseFloat(awayStats.ops || 0).toFixed(3),
-            parseFloat(homeStats.ops || 0).toFixed(3)
+            parseFloat(homeStats.ops || 0).toFixed(3),
           )}
           {renderStatsRow(
             "Strikeouts",
             awayStats.strikeOuts || 0,
-            homeStats.strikeOuts || 0
+            homeStats.strikeOuts || 0,
           )}
           {renderStatsRow(
             "Walks",
             awayStats.baseOnBalls || 0,
-            homeStats.baseOnBalls || 0
+            homeStats.baseOnBalls || 0,
           )}
           {renderStatsRow(
             "Left on Base",
             awayStats.leftOnBase || 0,
-            homeStats.leftOnBase || 0
+            homeStats.leftOnBase || 0,
           )}
           {renderStatsRow(
             "Home Runs",
             awayStats.homeRuns || 0,
-            homeStats.homeRuns || 0
+            homeStats.homeRuns || 0,
           )}
           {renderStatsRow(
             "Stolen Bases",
             awayStats.stolenBases || 0,
-            homeStats.stolenBases || 0
+            homeStats.stolenBases || 0,
           )}
         </View>
       </View>
@@ -2924,7 +2924,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       "playsData:",
       !!playsData,
       "playsData keys:",
-      playsData ? Object.keys(playsData) : "null"
+      playsData ? Object.keys(playsData) : "null",
     );
 
     // Show loading spinner only if we don't have data AND we're loading (not incremental)
@@ -2965,7 +2965,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     console.log(
       "Rendering plays section with",
       playsData.allPlays?.length,
-      "plays"
+      "plays",
     );
     return (
       <View style={[styles.section, { backgroundColor: theme.surface }]}>
@@ -2983,10 +2983,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
     // Get team colors from the team data or use defaults
     const awayColor = MLBService.getTeamColor(
-      awayTeam?.name || awayTeam?.team?.name
+      awayTeam?.name || awayTeam?.team?.name,
     );
     const homeColor = MLBService.getTeamColor(
-      homeTeam?.name || homeTeam?.team?.name
+      homeTeam?.name || homeTeam?.team?.name,
     );
 
     // Calculate momentum for each inning
@@ -3078,7 +3078,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     // Find max activity for scaling bars
     const maxActivity = Math.max(
       ...inningData.map((d) => Math.max(d.awayActivity, d.homeActivity)),
-      1
+      1,
     );
 
     return (
@@ -3153,10 +3153,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                         {data.inning === 1
                           ? "st"
                           : data.inning === 2
-                          ? "nd"
-                          : data.inning === 3
-                          ? "rd"
-                          : "th"}
+                            ? "nd"
+                            : data.inning === 3
+                              ? "rd"
+                              : "th"}
                       </Text>
                     </View>
 
@@ -3247,7 +3247,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     console.log(
       "renderPlayByPlay called with",
       playsData.allPlays.length,
-      "plays"
+      "plays",
     );
 
     // Show all plays, not just scoring plays - reverse to show most recent first
@@ -4445,10 +4445,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     }
 
     const awayColor = MLBService.getTeamColor(
-      awayTeam?.name || awayTeam?.team?.name
+      awayTeam?.name || awayTeam?.team?.name,
     );
     const homeColor = MLBService.getTeamColor(
-      homeTeam?.name || homeTeam?.team?.name
+      homeTeam?.name || homeTeam?.team?.name,
     );
 
     // Helper function to render stats row with bars
@@ -4588,58 +4588,58 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
             "Runs Per Game",
             parseFloat(
               (awayStats.hitting?.runs || 0) /
-                (awayStats.hitting?.gamesPlayed || 1)
+                (awayStats.hitting?.gamesPlayed || 1),
             ).toFixed(3),
             parseFloat(
               (homeStats.hitting?.runs || 0) /
-                (homeStats.hitting?.gamesPlayed || 1)
-            ).toFixed(3)
+                (homeStats.hitting?.gamesPlayed || 1),
+            ).toFixed(3),
           )}
           {renderStatsRow(
             "Hits Per Game",
             parseFloat(
               (awayStats.hitting?.hits || 0) /
-                (awayStats.hitting?.gamesPlayed || 1)
+                (awayStats.hitting?.gamesPlayed || 1),
             ).toFixed(3),
             parseFloat(
               (homeStats.hitting?.hits || 0) /
-                (homeStats.hitting?.gamesPlayed || 1)
-            ).toFixed(3)
+                (homeStats.hitting?.gamesPlayed || 1),
+            ).toFixed(3),
           )}
           {renderStatsRow(
             "Batting Avg",
             parseFloat(awayStats.hitting?.avg || 0).toFixed(3),
-            parseFloat(homeStats.hitting?.avg || 0).toFixed(3)
+            parseFloat(homeStats.hitting?.avg || 0).toFixed(3),
           )}
           {renderStatsRow(
             "OPS",
             parseFloat(awayStats.hitting?.ops || 0).toFixed(3),
-            parseFloat(homeStats.hitting?.ops || 0).toFixed(3)
+            parseFloat(homeStats.hitting?.ops || 0).toFixed(3),
           )}
           {renderStatsRow(
             "Home Runs",
             awayStats.hitting?.homeRuns || 0,
-            homeStats.hitting?.homeRuns || 0
+            homeStats.hitting?.homeRuns || 0,
           )}
           {renderStatsRow(
             "Stolen Base %",
             awayStats.hitting?.stolenBasePercentage || 0,
-            homeStats.hitting?.stolenBasePercentage || 0
+            homeStats.hitting?.stolenBasePercentage || 0,
           )}
           {renderStatsRow(
             "ERA",
             parseFloat(awayStats.pitching?.era || 0).toFixed(2),
-            parseFloat(homeStats.pitching?.era || 0).toFixed(2)
+            parseFloat(homeStats.pitching?.era || 0).toFixed(2),
           )}
           {renderStatsRow(
             "WHIP",
             parseFloat(awayStats.pitching?.whip || 0).toFixed(2),
-            parseFloat(homeStats.pitching?.whip || 0).toFixed(2)
+            parseFloat(homeStats.pitching?.whip || 0).toFixed(2),
           )}
           {renderStatsRow(
             "Strike %",
             awayStats.pitching?.strikePercentage || 0,
-            homeStats.pitching?.strikePercentage || 0
+            homeStats.pitching?.strikePercentage || 0,
           )}
         </View>
       </View>
@@ -4671,22 +4671,22 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
     // Group players by position
     const pitchers = roster.filter(
-      (player) => player.position?.abbreviation === "P"
+      (player) => player.position?.abbreviation === "P",
     );
     const catchers = roster.filter(
-      (player) => player.position?.abbreviation === "C"
+      (player) => player.position?.abbreviation === "C",
     );
     const infielders = roster.filter((player) =>
-      ["1B", "2B", "3B", "SS"].includes(player.position?.abbreviation)
+      ["1B", "2B", "3B", "SS"].includes(player.position?.abbreviation),
     );
     const outfielders = roster.filter((player) =>
-      ["LF", "CF", "RF", "OF"].includes(player.position?.abbreviation)
+      ["LF", "CF", "RF", "OF"].includes(player.position?.abbreviation),
     );
     const others = roster.filter(
       (player) =>
         !["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "OF"].includes(
-          player.position?.abbreviation
-        )
+          player.position?.abbreviation,
+        ),
     );
 
     const renderPlayerSection = (title, players, sectionKey) => {
@@ -4825,7 +4825,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
         {renderPlayerSection(
           "Outfielders",
           outfielders,
-          `${teamType}Outfielders`
+          `${teamType}Outfielders`,
         )}
         {others.length > 0 &&
           renderPlayerSection("Others", others, `${teamType}Others`)}
@@ -5465,7 +5465,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
       {/* Floating Chat Button */}
       <TouchableOpacity
-        style={[styles.floatingChatButton, { backgroundColor: colors.secondary }]}
+        style={[
+          styles.floatingChatButton,
+          { backgroundColor: colors.secondary },
+        ]}
         onPress={() => setChatModalVisible(true)}
         activeOpacity={0.8}
       >
@@ -5531,7 +5534,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                         source={{
                           uri: getTeamLogoUrl(
                             "mlb",
-                            selectedPlayer.team?.abbreviation
+                            selectedPlayer.team?.abbreviation,
                           ),
                         }}
                         style={styles.playerTeamLogo}
@@ -6128,7 +6131,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                     onShouldStartLoadWithRequest={(request) => {
                       console.log(
                         "MLB WebView navigation request:",
-                        request.url
+                        request.url,
                       );
 
                       // Allow the initial stream URL to load
@@ -6146,7 +6149,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                         "promo",
                       ];
                       const hasPopupKeywords = popupKeywords.some((keyword) =>
-                        request.url.toLowerCase().includes(keyword)
+                        request.url.toLowerCase().includes(keyword),
                       );
 
                       // Block external navigation attempts (popups trying to navigate within WebView)
@@ -6163,7 +6166,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                       if (requestDomain !== currentDomain || hasPopupKeywords) {
                         console.log(
                           "Blocked MLB popup/cross-domain navigation:",
-                          request.url
+                          request.url,
                         );
                         return false;
                       }
@@ -6175,7 +6178,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                       const { nativeEvent } = syntheticEvent;
                       console.log(
                         "Blocked MLB popup window:",
-                        nativeEvent.targetUrl
+                        nativeEvent.targetUrl,
                       );
                       // Don't open the popup - just log it
                       return false;
@@ -6295,11 +6298,11 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                   const homeTeam = gameData?.gameData?.teams?.home;
                   const awayLogo = getTeamLogoUrl(
                     "mlb",
-                    awayTeam?.abbreviation
+                    awayTeam?.abbreviation,
                   );
                   const homeLogo = getTeamLogoUrl(
                     "mlb",
-                    homeTeam?.abbreviation
+                    homeTeam?.abbreviation,
                   );
 
                   // Get ordinal suffix for inning
@@ -6594,11 +6597,11 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                               // Constrain to visualization area
                               const finalXPercent = Math.max(
                                 5,
-                                Math.min(95, xPercent)
+                                Math.min(95, xPercent),
                               );
                               const finalYPercent = Math.max(
                                 5,
-                                Math.min(95, yPercent)
+                                Math.min(95, yPercent),
                               );
 
                               // Convert percentages to pixel positions
@@ -6854,7 +6857,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                                     .map(
                                       (word) =>
                                         word.charAt(0).toUpperCase() +
-                                        word.slice(1).toLowerCase()
+                                        word.slice(1).toLowerCase(),
                                     )
                                     .join(" ")}
                                 </Text>
@@ -6865,18 +6868,18 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                     </>
                   );
                 })()}
-            {/* Footer inside the card */}
-            <View style={styles.mlbPlayerShareCardFooter}>
-              <Text
-                style={[
-                  styles.mlbPlayerShareCardFooterText,
-                  { color: theme.text },
-                ]}
-              >
-                SportsHeart{' '}
-                <Ionicons name="heart" size={18} color={colors.primary} />
-              </Text>
-            </View>
+              {/* Footer inside the card */}
+              <View style={styles.mlbPlayerShareCardFooter}>
+                <Text
+                  style={[
+                    styles.mlbPlayerShareCardFooterText,
+                    { color: theme.text },
+                  ]}
+                >
+                  SportsHeart{" "}
+                  <Ionicons name="heart" size={18} color={colors.primary} />
+                </Text>
+              </View>
             </View>
 
             {/* Action Buttons */}
@@ -7509,18 +7512,23 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                     </>
                   );
                 })()}
-            {/* Footer inside the card */}
-            <View style={[styles.mlbPlayerShareCardFooter, {marginTop: -20, paddingBottom: 10}]}>
-              <Text
+              {/* Footer inside the card */}
+              <View
                 style={[
-                  styles.mlbPlayerShareCardFooterText,
-                  { color: theme.text },
+                  styles.mlbPlayerShareCardFooter,
+                  { marginTop: -20, paddingBottom: 10 },
                 ]}
               >
-                SportsHeart{' '}
-                <Ionicons name="heart" size={18} color={colors.primary} />
-              </Text>
-            </View>
+                <Text
+                  style={[
+                    styles.mlbPlayerShareCardFooterText,
+                    { color: theme.text },
+                  ]}
+                >
+                  SportsHeart{" "}
+                  <Ionicons name="heart" size={18} color={colors.primary} />
+                </Text>
+              </View>
             </View>
 
             {/* Action Buttons */}
@@ -9882,7 +9890,7 @@ const MemoizedGameHeader = React.memo(
       prevProps.theme === nextProps.theme &&
       prevProps.isDarkMode === nextProps.isDarkMode
     );
-  }
+  },
 );
 
 const MemoizedTabNavigation = React.memo(
@@ -9903,7 +9911,7 @@ const MemoizedTabNavigation = React.memo(
       prevProps.activeTab === nextProps.activeTab &&
       prevProps.theme === nextProps.theme
     );
-  }
+  },
 );
 
 const MemoizedTabContent = React.memo(
@@ -9961,7 +9969,7 @@ const MemoizedTabContent = React.memo(
         prevProps.isDarkMode === nextProps.isDarkMode
       );
     }
-  }
+  },
 );
 
 export default MLBGameDetailsScreen;

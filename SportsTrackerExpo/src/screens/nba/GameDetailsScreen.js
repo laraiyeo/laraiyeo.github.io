@@ -65,7 +65,7 @@ const calculateColorSimilarity = (color1, color2) => {
   const distance = Math.sqrt(
     Math.pow(rgb1.r - rgb2.r, 2) +
       Math.pow(rgb1.g - rgb2.g, 2) +
-      Math.pow(rgb1.b - rgb2.b, 2)
+      Math.pow(rgb1.b - rgb2.b, 2),
   );
 
   // Normalize distance (max distance is sqrt(3 * 255^2) ≈ 441)
@@ -169,7 +169,7 @@ const TeamLogo = React.memo(
         ? next.getTeamLogoUrl("nba", next.teamAbbreviation)
         : null);
     return prevUri === nextUri && prev.size === next.size;
-  }
+  },
 );
 
 // Stable wrapper component that will receive theme context as props
@@ -302,7 +302,7 @@ const BasketballCourt = React.memo(
         </View>
       </View>
     );
-  }
+  },
 );
 
 const NBAGameDetailsScreen = ({ route }) => {
@@ -361,7 +361,7 @@ const NBAGameDetailsScreen = ({ route }) => {
         const id = await LiveTrackerService.findMatchIdByTeams(
           homeName,
           awayName,
-          "basketball"
+          "basketball",
         );
         if (!cancelled && id) setLiveTrackerUuid(id);
       } catch (e) {
@@ -437,7 +437,7 @@ const NBAGameDetailsScreen = ({ route }) => {
     const away =
       details?.boxscore?.teams?.[0] ||
       details?.header?.competitions?.[0]?.competitors?.find(
-        (c) => c.homeAway === "away"
+        (c) => c.homeAway === "away",
       );
     return away?.id || away?.team?.id || null;
   }, [details]);
@@ -450,7 +450,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       if (rawValue == null) num = 0;
       else if (typeof rawValue === "object")
         num = parseFloat(
-          rawValue.displayValue ?? rawValue.value ?? String(rawValue)
+          rawValue.displayValue ?? rawValue.value ?? String(rawValue),
         );
       else num = parseFloat(String(rawValue).replace(/[^0-9.-]/g, ""));
       if (isNaN(num) || num === 0) return theme.text;
@@ -464,7 +464,7 @@ const NBAGameDetailsScreen = ({ route }) => {
     const home =
       details?.boxscore?.teams?.[1] ||
       details?.header?.competitions?.[0]?.competitors?.find(
-        (c) => c.homeAway === "home"
+        (c) => c.homeAway === "home",
       );
     return home?.id || home?.team?.id || null;
   }, [details]);
@@ -487,7 +487,7 @@ const NBAGameDetailsScreen = ({ route }) => {
         return newOpen;
       });
     },
-    [activeTab]
+    [activeTab],
   );
 
   // Function to load more plays
@@ -495,7 +495,7 @@ const NBAGameDetailsScreen = ({ route }) => {
     if (isLoadingMorePlays || !playsData) return;
 
     console.log(
-      `[PLAYS DEBUG] Loading more plays. Current: ${visiblePlaysCount}, Total: ${playsData.length}`
+      `[PLAYS DEBUG] Loading more plays. Current: ${visiblePlaysCount}, Total: ${playsData.length}`,
     );
     setIsLoadingMorePlays(true);
 
@@ -506,8 +506,8 @@ const NBAGameDetailsScreen = ({ route }) => {
       console.log(
         `[PLAYS DEBUG] Loaded more plays. New count: ${Math.min(
           visiblePlaysCount + 30,
-          playsData.length
-        )}`
+          playsData.length,
+        )}`,
       );
     }, 100);
   }, [isLoadingMorePlays, playsData, visiblePlaysCount]);
@@ -564,7 +564,7 @@ const NBAGameDetailsScreen = ({ route }) => {
   const fetchStreamsForSource = async (source, sourceId) => {
     try {
       const response = await fetch(
-        `${STREAM_API_BASE}/stream/${source}/${sourceId}`
+        `${STREAM_API_BASE}/stream/${source}/${sourceId}`,
       );
       if (!response.ok) {
         throw new Error(`Failed to fetch streams: ${response.status}`);
@@ -610,7 +610,7 @@ const NBAGameDetailsScreen = ({ route }) => {
   const findNBAMatchStreams = async (homeTeamName, awayTeamName) => {
     try {
       console.log(
-        `Finding NBA streams for: ${awayTeamName} vs ${homeTeamName}`
+        `Finding NBA streams for: ${awayTeamName} vs ${homeTeamName}`,
       );
 
       const liveMatches = await fetchLiveMatches();
@@ -627,7 +627,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       const awayNormalized = normalizeNBATeamName(awayTeamName).toLowerCase();
 
       console.log(
-        `Normalized NBA team names: {homeNormalized: '${homeNormalized}', awayNormalized: '${awayNormalized}'}`
+        `Normalized NBA team names: {homeNormalized: '${homeNormalized}', awayNormalized: '${awayNormalized}'}`,
       );
 
       let bestMatch = null;
@@ -706,7 +706,7 @@ const NBAGameDetailsScreen = ({ route }) => {
 
       if (!bestMatch || bestScore < 0.25) {
         console.log(
-          `No good matching NBA live match found (best score: ${bestScore})`
+          `No good matching NBA live match found (best score: ${bestScore})`,
         );
         return {};
       }
@@ -714,7 +714,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       console.log(
         `Found matching NBA match: ${
           bestMatch.title || bestMatch.id
-        } (score: ${bestScore})`
+        } (score: ${bestScore})`,
       );
 
       const allStreams = {};
@@ -722,7 +722,7 @@ const NBAGameDetailsScreen = ({ route }) => {
         try {
           const sourceStreams = await fetchStreamsForSource(
             source.source,
-            source.id
+            source.id,
           );
           if (sourceStreams && sourceStreams.length > 0) {
             const firstStream = sourceStreams[0];
@@ -745,13 +745,13 @@ const NBAGameDetailsScreen = ({ route }) => {
             };
             console.log(
               `Added NBA stream for ${source.source}:`,
-              allStreams[sourceKey]
+              allStreams[sourceKey],
             );
           }
         } catch (error) {
           console.error(
             `Error fetching NBA streams for ${source.source}:`,
-            error
+            error,
           );
         }
       }
@@ -767,7 +767,7 @@ const NBAGameDetailsScreen = ({ route }) => {
   const generateNBAStreamUrl = (
     awayTeamName,
     homeTeamName,
-    streamType = "alpha"
+    streamType = "alpha",
   ) => {
     const normalizedAway = normalizeNBATeamName(awayTeamName);
     const normalizedHome = normalizeNBATeamName(homeTeamName);
@@ -789,7 +789,7 @@ const NBAGameDetailsScreen = ({ route }) => {
         Alert.alert(
           "Streaming Locked",
           "Please enter the streaming code in Settings to access live streams.",
-          [{ text: "OK" }]
+          [{ text: "OK" }],
         );
         return;
       }
@@ -807,14 +807,14 @@ const NBAGameDetailsScreen = ({ route }) => {
 
       let homeComp =
         competitors.find(
-          (c) => c.homeAway === "home" || c.side === "home" || c.isHome
+          (c) => c.homeAway === "home" || c.side === "home" || c.isHome,
         ) || null;
       let awayComp =
         competitors.find(
           (c) =>
             c.homeAway === "away" ||
             c.side === "away" ||
-            (!c.homeAway && !c.side && !c.isHome)
+            (!c.homeAway && !c.side && !c.isHome),
         ) || null;
 
       if (!homeComp && competitors.length === 2) {
@@ -886,7 +886,7 @@ const NBAGameDetailsScreen = ({ route }) => {
         initialUrl = generateNBAStreamUrl(
           awayName,
           homeName,
-          initialStreamType
+          initialStreamType,
         );
         setCurrentStreamType(initialStreamType);
       }
@@ -895,7 +895,7 @@ const NBAGameDetailsScreen = ({ route }) => {
         "openStreamModal: initialStreamType =",
         initialStreamType,
         "initialUrl =",
-        initialUrl
+        initialUrl,
       );
       setStreamUrl(initialUrl);
       setIsStreamLoading(false);
@@ -914,15 +914,15 @@ const NBAGameDetailsScreen = ({ route }) => {
       newUrl = streamData.embedUrl || streamData.url || streamData;
     } else {
       const awayTeam = details?.competitions?.[0]?.competitors?.find(
-        (comp) => !comp.homeAway || comp.homeAway === "away"
+        (comp) => !comp.homeAway || comp.homeAway === "away",
       )?.team;
       const homeTeam = details?.competitions?.[0]?.competitors?.find(
-        (comp) => comp.homeAway === "home"
+        (comp) => comp.homeAway === "home",
       )?.team;
       newUrl = generateNBAStreamUrl(
         awayTeam?.displayName || awayTeam?.name,
         homeTeam?.displayName || homeTeam?.name,
-        streamType
+        streamType,
       );
     }
     setStreamUrl(newUrl);
@@ -947,8 +947,8 @@ const NBAGameDetailsScreen = ({ route }) => {
           .catch((e) =>
             console.error(
               "Failed to fetch NBA game details after stream modal close",
-              e
-            )
+              e,
+            ),
           );
       }
     }
@@ -1154,11 +1154,11 @@ const NBAGameDetailsScreen = ({ route }) => {
         playTeamColor,
         awayLogoUri: getTeamLogoUrl(
           "nba",
-          away?.team?.abbreviation || away?.abbreviation
+          away?.team?.abbreviation || away?.abbreviation,
         ),
         homeLogoUri: getTeamLogoUrl(
           "nba",
-          home?.team?.abbreviation || home?.abbreviation
+          home?.team?.abbreviation || home?.abbreviation,
         ),
         awayAbbreviation: away?.team?.abbreviation || away?.abbreviation,
         homeAbbreviation: home?.team?.abbreviation || home?.abbreviation,
@@ -1296,7 +1296,7 @@ const NBAGameDetailsScreen = ({ route }) => {
             .map((c) => c + c)
             .join("")
         : h,
-      16
+      16,
     );
     const r = (bigint >> 16) & 255;
     const g = (bigint >> 8) & 255;
@@ -1418,7 +1418,7 @@ const NBAGameDetailsScreen = ({ route }) => {
         playerObj?.athlete?.id ||
           playerObj?.athlete?.athleteId ||
           playerObj?.athlete?.athleteid ||
-          ""
+          "",
       );
       for (const teamBox of playersBox) {
         if (!teamBox || !Array.isArray(teamBox.statistics)) continue;
@@ -1427,16 +1427,18 @@ const NBAGameDetailsScreen = ({ route }) => {
           const found = group.athletes.find(
             (a) =>
               String(
-                a?.athlete?.id || a?.athlete?.athleteId || a?.athlete?.athleteid
-              ) === athleteId
+                a?.athlete?.id ||
+                  a?.athlete?.athleteId ||
+                  a?.athlete?.athleteid,
+              ) === athleteId,
           );
           if (found) {
             return {
               labels: Array.isArray(group.labels)
                 ? group.labels.slice()
                 : Array.isArray(group.keys)
-                ? group.keys.slice()
-                : [],
+                  ? group.keys.slice()
+                  : [],
               keys: Array.isArray(group.keys) ? group.keys.slice() : null,
               groupName: group.name || "",
             };
@@ -1488,7 +1490,7 @@ const NBAGameDetailsScreen = ({ route }) => {
     homeValue,
     awayValue,
     homeColor,
-    awayColor
+    awayColor,
   ) => {
     const homeNum =
       typeof homeValue === "number" ? homeValue : parseFloat(homeValue) || 0;
@@ -1598,7 +1600,7 @@ const NBAGameDetailsScreen = ({ route }) => {
     const { homeColor, awayColor } = getSmartTeamColors(
       homeTeam,
       awayTeam,
-      colors
+      colors,
     );
 
     return (
@@ -1637,10 +1639,10 @@ const NBAGameDetailsScreen = ({ route }) => {
 
         {keyStats.map((statName) => {
           const awayStat = awayTeam?.statistics?.find(
-            (s) => s.name === statName
+            (s) => s.name === statName,
           );
           const homeStat = homeTeam?.statistics?.find(
-            (s) => s.name === statName
+            (s) => s.name === statName,
           );
 
           if (!awayStat && !homeStat) return null;
@@ -1654,7 +1656,7 @@ const NBAGameDetailsScreen = ({ route }) => {
             homeValue,
             awayValue,
             homeColor,
-            awayColor
+            awayColor,
           );
         })}
       </View>
@@ -1829,7 +1831,7 @@ const NBAGameDetailsScreen = ({ route }) => {
     const { homeColor, awayColor } = getSmartTeamColors(
       homeTeam,
       awayTeam,
-      colors
+      colors,
     );
 
     // Create a map of playId to period info
@@ -2152,13 +2154,13 @@ const NBAGameDetailsScreen = ({ route }) => {
       (series) =>
         series.type === 3 ||
         series.type === "playoffs" ||
-        (series.title && series.title.toLowerCase().includes("playoff"))
+        (series.title && series.title.toLowerCase().includes("playoff")),
     );
     const regularSeasonSeries = details.seasonseries.filter(
       (series) =>
         series.type === 2 ||
         series.type === "season" ||
-        (series.title && series.title.toLowerCase().includes("season"))
+        (series.title && series.title.toLowerCase().includes("season")),
     );
 
     // If no specific filtering works, show all series
@@ -2246,8 +2248,8 @@ const NBAGameDetailsScreen = ({ route }) => {
                       color: awayWon
                         ? colors.primary || "#4CAF50"
                         : homeWon
-                        ? theme.textSecondary
-                        : colors.primary,
+                          ? theme.textSecondary
+                          : colors.primary,
                     },
                   ]}
                 >
@@ -2261,8 +2263,8 @@ const NBAGameDetailsScreen = ({ route }) => {
                     color: awayWon
                       ? colors.primary
                       : homeWon
-                      ? theme.textSecondary
-                      : colors.primary,
+                        ? theme.textSecondary
+                        : colors.primary,
                   },
                 ]}
               >
@@ -2303,8 +2305,8 @@ const NBAGameDetailsScreen = ({ route }) => {
                       color: homeWon
                         ? colors.primary || "#4CAF50"
                         : awayWon
-                        ? theme.textSecondary
-                        : colors.primary,
+                          ? theme.textSecondary
+                          : colors.primary,
                     },
                   ]}
                 >
@@ -2329,8 +2331,8 @@ const NBAGameDetailsScreen = ({ route }) => {
                     color: homeWon
                       ? colors.primary
                       : awayWon
-                      ? theme.textSecondary
-                      : colors.primary,
+                        ? theme.textSecondary
+                        : colors.primary,
                   },
                 ]}
               >
@@ -2384,7 +2386,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                 </Text>
                 {series.events &&
                   series.events.map((event, eventIndex) =>
-                    renderGameEvent(event, eventIndex)
+                    renderGameEvent(event, eventIndex),
                   )}
               </View>
             ))}
@@ -2416,7 +2418,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                 </Text>
                 {series.events &&
                   series.events.map((event, eventIndex) =>
-                    renderGameEvent(event, eventIndex)
+                    renderGameEvent(event, eventIndex),
                   )}
               </View>
             ))}
@@ -2448,7 +2450,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                 </Text>
                 {series.events &&
                   series.events.map((event, eventIndex) =>
-                    renderGameEvent(event, eventIndex)
+                    renderGameEvent(event, eventIndex),
                   )}
               </View>
             ))}
@@ -2585,10 +2587,10 @@ const NBAGameDetailsScreen = ({ route }) => {
                           {jerseyNumber && position
                             ? `#${jerseyNumber} • ${position}`
                             : jerseyNumber
-                            ? `#${jerseyNumber}`
-                            : position
-                            ? position
-                            : ""}
+                              ? `#${jerseyNumber}`
+                              : position
+                                ? position
+                                : ""}
                         </Text>
                       </View>
 
@@ -2616,7 +2618,7 @@ const NBAGameDetailsScreen = ({ route }) => {
   // Function to render roster section (home or away)
   const renderRosterSection = (teamType) => {
     console.log(
-      `=== RENDER ROSTER SECTION CALLED FOR ${teamType.toUpperCase()} ===`
+      `=== RENDER ROSTER SECTION CALLED FOR ${teamType.toUpperCase()} ===`,
     );
 
     if (!details?.boxscore?.teams) {
@@ -2652,8 +2654,8 @@ const NBAGameDetailsScreen = ({ route }) => {
 
     console.log(
       `Game finished check: ${isGameFinished}, statusType: ${JSON.stringify(
-        statusType
-      )}`
+        statusType,
+      )}`,
     );
 
     // Check if game is scheduled (pre) - we want to show goalies, injuries and last five games
@@ -2685,7 +2687,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       const teamInjuries = (details.injuries || []).find(
         (injTeam) =>
           String(injTeam.team?.id) === String(team.team.id) ||
-          injTeam.team?.abbreviation === team.team.abbreviation
+          injTeam.team?.abbreviation === team.team.abbreviation,
       );
       const injuriesList = teamInjuries?.injuries || [];
 
@@ -2693,14 +2695,14 @@ const NBAGameDetailsScreen = ({ route }) => {
       const teamLastFive = (details.lastFiveGames || []).find(
         (l5Team) =>
           String(l5Team.team?.id) === String(team.team.id) ||
-          l5Team.team?.abbreviation === team.team.abbreviation
+          l5Team.team?.abbreviation === team.team.abbreviation,
       );
       const lastFiveEvents = teamLastFive?.events || [];
 
       // Console logs for debugging
       console.log(`=== DEBUGGING ${teamType.toUpperCase()} TEAM ===`);
       console.log(
-        `Team ID: ${team.team.id}, Team Name: ${team.team.displayName}`
+        `Team ID: ${team.team.id}, Team Name: ${team.team.displayName}`,
       );
 
       // Injuries debug
@@ -2711,7 +2713,7 @@ const NBAGameDetailsScreen = ({ route }) => {
             injury.athlete?.displayName || "Unknown"
           } | Status: ${injury.status || "Unknown"} | Details type: ${
             injury.details?.type || "Unknown"
-          }`
+          }`,
         );
       });
 
@@ -2721,7 +2723,7 @@ const NBAGameDetailsScreen = ({ route }) => {
         console.log(
           `Team Name: ${team.team.displayName} | Opponent Name: ${
             game.opponent?.displayName || "Unknown"
-          } | Score: ${game.score || "Unknown"}`
+          } | Score: ${game.score || "Unknown"}`,
         );
       });
 
@@ -2799,10 +2801,10 @@ const NBAGameDetailsScreen = ({ route }) => {
                         inj?.athlete?.position?.abbreviation
                           ? `• #${inj.athlete.jersey} • ${inj.athlete.position.abbreviation}`
                           : inj?.athlete?.jersey
-                          ? `#${inj.athlete.jersey}`
-                          : inj?.athlete?.position?.abbreviation
-                          ? inj.athlete.position.abbreviation
-                          : ""}
+                            ? `#${inj.athlete.jersey}`
+                            : inj?.athlete?.position?.abbreviation
+                              ? inj.athlete.position.abbreviation
+                              : ""}
                       </Text>
                     </View>
                     <View style={styles.injuryDetails}>
@@ -2814,8 +2816,8 @@ const NBAGameDetailsScreen = ({ route }) => {
                               inj?.status === "Out"
                                 ? "#F44336"
                                 : inj?.status === "Day-To-Day"
-                                ? "#FF9800"
-                                : theme.textSecondary,
+                                  ? "#FF9800"
+                                  : theme.textSecondary,
                           },
                         ]}
                       >
@@ -2939,7 +2941,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                             ]}
                           >
                             {new Date(
-                              game.gameDate || game.date || ""
+                              game.gameDate || game.date || "",
                             ).toLocaleDateString([], {
                               month: "short",
                               day: "numeric",
@@ -2969,8 +2971,8 @@ const NBAGameDetailsScreen = ({ route }) => {
           pb.statistics.some(
             (group) =>
               Array.isArray(group.athletes) &&
-              group.athletes.some((a) => a.active)
-          )
+              group.athletes.some((a) => a.active),
+          ),
       );
 
     const hasonCourtData =
@@ -2983,7 +2985,7 @@ const NBAGameDetailsScreen = ({ route }) => {
     console.log(
       `Has onCourt data: ${hasonCourtData}, details.onCourt length: ${
         details?.onCourt?.length || 0
-      }, hasActiveFlags: ${hasActiveFlags}`
+      }, hasActiveFlags: ${hasActiveFlags}`,
     );
 
     // Get players on court entries depending on source
@@ -2995,7 +2997,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       details.onCourt.length > 0
     ) {
       const onCourtData = details.onCourt.find(
-        (ice) => ice.teamId === team.team.id
+        (ice) => ice.teamId === team.team.id,
       );
       onCourtPlayers = onCourtData?.entries || [];
     }
@@ -3005,7 +3007,7 @@ const NBAGameDetailsScreen = ({ route }) => {
     const teamBox = playersBox.find(
       (pb) =>
         pb.team?.id === team.team.id ||
-        pb.team?.abbreviation === team.team.abbreviation
+        pb.team?.abbreviation === team.team.abbreviation,
     );
     const teamPlayers = teamBox?.statistics || [];
     const allPlayers = [];
@@ -3019,7 +3021,7 @@ const NBAGameDetailsScreen = ({ route }) => {
           const activeFlag = athlete.active === true;
           const onCourtFromEntries = onCourtPlayers.some(
             (onCourt) =>
-              String(onCourt.athleteid) === String(athlete.athlete?.id)
+              String(onCourt.athleteid) === String(athlete.athlete?.id),
           );
           allPlayers.push({
             ...athlete,
@@ -3136,7 +3138,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                   "FG",
                   "PTS",
                   "MIN",
-                ])
+                ]),
               )}
             </View>
           )}
@@ -3165,7 +3167,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                   "FG",
                   "PTS",
                   "MIN",
-                ])
+                ]),
               )}
             </View>
           )}
@@ -3280,7 +3282,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       player,
       idx,
       keyPrefix,
-      statIndices = ["FG", "PTS", "MIN"]
+      statIndices = ["FG", "PTS", "MIN"],
     ) {
       const jerseyNum = player.athlete?.jersey || "";
       const position = player.athlete?.position?.abbreviation || "";
@@ -3392,10 +3394,10 @@ const NBAGameDetailsScreen = ({ route }) => {
                   {jerseyNum && position
                     ? `#${jerseyNum} • ${position}`
                     : jerseyNum
-                    ? `#${jerseyNum}`
-                    : position
-                    ? position
-                    : ""}
+                      ? `#${jerseyNum}`
+                      : position
+                        ? position
+                        : ""}
                 </Text>
               </View>
             </View>
@@ -3458,7 +3460,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                 "FG",
                 "PTS",
                 "MIN",
-              ])
+              ]),
             )}
           </View>
         )}
@@ -3481,7 +3483,11 @@ const NBAGameDetailsScreen = ({ route }) => {
             {renderStatHeaders(["FG", "PTS", "MIN"])}
 
             {playersOnBench.map((player, idx) =>
-              renderPlayerRow(player, idx, "bench-player", ["FG", "PTS", "MIN"])
+              renderPlayerRow(player, idx, "bench-player", [
+                "FG",
+                "PTS",
+                "MIN",
+              ]),
             )}
           </View>
         )}
@@ -3506,7 +3512,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       // Only render the visible plays for performance
       const visiblePlays = playsData.slice(0, visiblePlaysCount);
       console.log(
-        `[PLAYS DEBUG] Rendering ${visiblePlays.length} of ${playsData.length} plays`
+        `[PLAYS DEBUG] Rendering ${visiblePlays.length} of ${playsData.length} plays`,
       );
 
       const renderedPlays = visiblePlays.map((p, index) => {
@@ -3727,7 +3733,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                 remaining)
               </Text>
             )}
-          </TouchableOpacity>
+          </TouchableOpacity>,
         );
       }
 
@@ -3800,8 +3806,8 @@ const NBAGameDetailsScreen = ({ route }) => {
                   color: awayIsLoser
                     ? theme.textSecondary
                     : isFavorite(awayTeamId, "nba")
-                    ? colors.primary
-                    : theme.text,
+                      ? colors.primary
+                      : theme.text,
                 },
               ]}
             >
@@ -3830,8 +3836,8 @@ const NBAGameDetailsScreen = ({ route }) => {
                   color: homeIsLoser
                     ? theme.textSecondary
                     : isFavorite(homeTeamId, "nba")
-                    ? colors.primary
-                    : theme.text,
+                      ? colors.primary
+                      : theme.text,
                 },
               ]}
             >
@@ -3895,7 +3901,7 @@ const NBAGameDetailsScreen = ({ route }) => {
     if (!teamId) {
       console.warn(
         "NBA GameDetails handleFavoriteToggle: Invalid team ID",
-        team
+        team,
       );
       return;
     }
@@ -3939,7 +3945,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                 ? `${provided}&id=${encodeURIComponent(liveTrackerUuid)}`
                 : `${provided}?id=${encodeURIComponent(liveTrackerUuid)}`
               : `${defaultWrapperBase}?id=${encodeURIComponent(
-                  liveTrackerUuid
+                  liveTrackerUuid,
                 )}`;
 
             const formulaO = route?.params?.liveTrackerFormulaO ?? 56;
@@ -3954,7 +3960,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                     home?.team?.logos?.[1]?.href ||
                       home?.team?.logo ||
                       home?.logo ||
-                      ""
+                      "",
                   )
                 : "";
             const awayLogo =
@@ -3966,12 +3972,12 @@ const NBAGameDetailsScreen = ({ route }) => {
                     away?.team?.logos?.[1]?.href ||
                       away?.team?.logo ||
                       away?.logo ||
-                      ""
+                      "",
                   )
                 : "";
 
             const wrapperUrl = `${wrapperUrlBase}&w=${encodeURIComponent(
-              deviceWidth
+              deviceWidth,
             )}&o=${encodeURIComponent(formulaO)}&sport=basketball${
               homeLogo ? `&home_logo=${awayLogo}` : ""
             }${awayLogo ? `&away_logo=${homeLogo}` : ""}&reverse=1`;
@@ -4050,8 +4056,8 @@ const NBAGameDetailsScreen = ({ route }) => {
                           color: awayIsLoser
                             ? "#999"
                             : isFavorite(awayTeamId, "nba")
-                            ? colors.primary
-                            : theme.text,
+                              ? colors.primary
+                              : theme.text,
                         },
                       ]}
                       numberOfLines={2}
@@ -4076,18 +4082,18 @@ const NBAGameDetailsScreen = ({ route }) => {
                               teamObj?.team?.timeoutsRemaining ??
                               teamObj?.statistics?.find((s) =>
                                 /timeoutsRemaining/i.test(
-                                  s?.name || s?.label || ""
-                                )
+                                  s?.name || s?.label || "",
+                                ),
                               )?.value ??
-                              0
-                          ) || 0
+                              0,
+                          ) || 0,
                         );
 
                         const foulsRaw =
                           teamObj.fouls ??
                           teamObj?.team?.fouls ??
                           teamObj?.statistics?.find((s) =>
-                            /foul/i.test(s?.name || s?.label || "")
+                            /foul/i.test(s?.name || s?.label || ""),
                           )?.value ??
                           null;
                         const bonusState =
@@ -4099,7 +4105,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                         const { homeColor, awayColor } = getSmartTeamColors(
                           home,
                           away,
-                          colors
+                          colors,
                         );
                         const teamColor = awayColor || colors.primary;
 
@@ -4161,15 +4167,15 @@ const NBAGameDetailsScreen = ({ route }) => {
                           ? awayIsWinner
                             ? colors.primary
                             : awayIsLoser
-                            ? "#999"
-                            : theme.text
+                              ? "#999"
+                              : theme.text
                           : theme.text,
                       },
                     ]}
                   >
                     {getGameStatus().isPre
                       ? ""
-                      : away?.score ?? away?.team?.score ?? "0"}
+                      : (away?.score ?? away?.team?.score ?? "0")}
                   </Text>
                   <Text
                     style={[styles.scoreDash, { color: theme.textSecondary }]}
@@ -4184,15 +4190,15 @@ const NBAGameDetailsScreen = ({ route }) => {
                           ? homeIsWinner
                             ? colors.primary
                             : homeIsLoser
-                            ? "#999"
-                            : theme.text
+                              ? "#999"
+                              : theme.text
                           : theme.text,
                       },
                     ]}
                   >
                     {getGameStatus().isPre
                       ? ""
-                      : home?.score ?? home?.team?.score ?? "0"}
+                      : (home?.score ?? home?.team?.score ?? "0")}
                   </Text>
                 </View>
                 <View
@@ -4259,8 +4265,8 @@ const NBAGameDetailsScreen = ({ route }) => {
                           color: homeIsLoser
                             ? "#999"
                             : isFavorite(homeTeamId, "nba")
-                            ? colors.primary
-                            : theme.text,
+                              ? colors.primary
+                              : theme.text,
                         },
                       ]}
                       numberOfLines={2}
@@ -4284,18 +4290,18 @@ const NBAGameDetailsScreen = ({ route }) => {
                               teamObj?.team?.timeoutsRemaining ??
                               teamObj?.statistics?.find((s) =>
                                 /timeoutsRemaining/i.test(
-                                  s?.name || s?.label || ""
-                                )
+                                  s?.name || s?.label || "",
+                                ),
                               )?.value ??
-                              0
-                          ) || 0
+                              0,
+                          ) || 0,
                         );
 
                         const foulsRaw =
                           teamObj.fouls ??
                           teamObj?.team?.fouls ??
                           teamObj?.statistics?.find((s) =>
-                            /foul/i.test(s?.name || s?.label || "")
+                            /foul/i.test(s?.name || s?.label || ""),
                           )?.value ??
                           null;
                         const bonusState =
@@ -4307,7 +4313,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                         const { homeColor, awayColor } = getSmartTeamColors(
                           home,
                           away,
-                          colors
+                          colors,
                         );
                         const teamColor = homeColor || colors.primary;
 
@@ -4592,7 +4598,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                         if (group?.athletes) {
                           const found = group.athletes.find(
                             (a) =>
-                              String(a?.athlete?.id) === String(athlete?.id)
+                              String(a?.athlete?.id) === String(athlete?.id),
                           );
                           if (found) {
                             team = teamBox.team;
@@ -4713,10 +4719,10 @@ const NBAGameDetailsScreen = ({ route }) => {
                                 {jersey && position
                                   ? `#${jersey} • ${position}`
                                   : jersey
-                                  ? `#${jersey}`
-                                  : position
-                                  ? position
-                                  : ""}
+                                    ? `#${jersey}`
+                                    : position
+                                      ? position
+                                      : ""}
                               </Text>
                             </View>
                             <View style={styles.modalTeamRow}>
@@ -4793,7 +4799,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                                     {
                                       color: getStatTextColor(
                                         keys[statIdx],
-                                        stats[statIdx]
+                                        stats[statIdx],
                                       ),
                                     },
                                   ]}
@@ -4874,7 +4880,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                               athlete?.athlete?.id ||
                                 athlete?.athlete?.athleteId ||
                                 athlete?.athlete?.athleteid ||
-                                ""
+                                "",
                             );
                             if (aid === String(scorerId)) {
                               foundPlayer = {
@@ -4980,10 +4986,10 @@ const NBAGameDetailsScreen = ({ route }) => {
                       const comp = details?.header?.competitions?.[0];
                       const competitors = comp?.competitors || [];
                       const awayC = competitors.find(
-                        (c) => c.homeAway === "away"
+                        (c) => c.homeAway === "away",
                       );
                       const homeC = competitors.find(
-                        (c) => c.homeAway === "home"
+                        (c) => c.homeAway === "home",
                       );
                       if (awayC?.team?.id === p.playTeamId) {
                         teamLogo = awayC?.team?.logo;
@@ -5442,7 +5448,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                           if (group?.athletes) {
                             const found = group.athletes.find(
                               (a) =>
-                                String(a?.athlete?.id) === String(athlete?.id)
+                                String(a?.athlete?.id) === String(athlete?.id),
                             );
                             if (found) {
                               team = teamBox.team;
@@ -5466,10 +5472,10 @@ const NBAGameDetailsScreen = ({ route }) => {
                     const competition = details?.header?.competitions?.[0];
                     const competitors = competition?.competitors || [];
                     const awayTeam = competitors.find(
-                      (c) => c.homeAway === "away"
+                      (c) => c.homeAway === "away",
                     );
                     const homeTeam = competitors.find(
-                      (c) => c.homeAway === "home"
+                      (c) => c.homeAway === "home",
                     );
                     const awayScore = awayTeam?.score || "0";
                     const homeScore = homeTeam?.score || "0";
@@ -5575,10 +5581,10 @@ const NBAGameDetailsScreen = ({ route }) => {
                                 {jersey && position
                                   ? `#${jersey} • ${position}`
                                   : jersey
-                                  ? `#${jersey}`
-                                  : position
-                                  ? position
-                                  : ""}
+                                    ? `#${jersey}`
+                                    : position
+                                      ? position
+                                      : ""}
                               </Text>
                               <View style={styles.shareCardTeamRow}>
                                 {teamLogo && (
@@ -5683,7 +5689,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                                       {
                                         color: getStatTextColor(
                                           keys[statIdx],
-                                          stats[statIdx]
+                                          stats[statIdx],
                                         ),
                                       },
                                     ]}
@@ -6013,7 +6019,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                     onShouldStartLoadWithRequest={(request) => {
                       console.log(
                         "NBA WebView navigation request:",
-                        request.url
+                        request.url,
                       );
 
                       // Allow the initial stream URL to load
@@ -6031,7 +6037,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                         "promo",
                       ];
                       const hasPopupKeywords = popupKeywords.some((keyword) =>
-                        request.url.toLowerCase().includes(keyword)
+                        request.url.toLowerCase().includes(keyword),
                       );
 
                       // Block external navigation attempts (popups trying to navigate within WebView)
@@ -6048,7 +6054,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                       if (requestDomain !== currentDomain || hasPopupKeywords) {
                         console.log(
                           "Blocked NBA popup/cross-domain navigation:",
-                          request.url
+                          request.url,
                         );
                         return false;
                       }
@@ -6060,7 +6066,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                       const { nativeEvent } = syntheticEvent;
                       console.log(
                         "Blocked NBA popup window:",
-                        nativeEvent.targetUrl
+                        nativeEvent.targetUrl,
                       );
                       // Don't open the popup - just log it
                       return false;
@@ -6120,11 +6126,11 @@ const NBAGameDetailsScreen = ({ route }) => {
                 {details
                   ? `${
                       details.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "away"
+                        (c) => c.homeAway === "away",
                       )?.team.name || "Away"
                     } vs ${
                       details.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "home"
+                        (c) => c.homeAway === "home",
                       )?.team.name || "Home"
                     }`
                   : "Chat"}

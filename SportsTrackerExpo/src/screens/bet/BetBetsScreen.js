@@ -51,7 +51,7 @@ const BetBetsScreen = () => {
     const fetchScoreboard = async () => {
       try {
         const response = await fetch(
-          "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
+          "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard",
         );
         const data = await response.json();
         setScoreboardData(data.events || []);
@@ -86,7 +86,7 @@ const BetBetsScreen = () => {
 
       const bets = ticket.bets || [];
       const finalGameIds = [...new Set(bets.map((b) => b.gameId))].filter(
-        Boolean
+        Boolean,
       );
 
       if (finalGameIds.length === 0) return null;
@@ -97,11 +97,11 @@ const BetBetsScreen = () => {
           finalGameIds
             .map((gid) => {
               const match = String(gid).match(
-                /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba|uefa)$/i
+                /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba|uefa)$/i,
               );
               return match ? match[1].toLowerCase() : null;
             })
-            .filter(Boolean)
+            .filter(Boolean),
         ),
       ];
       const isMultiSport = sports.length > 1;
@@ -203,7 +203,7 @@ const BetBetsScreen = () => {
         const sportGroups = {};
         finalGameIds.forEach((gid) => {
           const match = String(gid).match(
-            /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba|uefa)$/i
+            /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba|uefa)$/i,
           );
           const sport = match ? match[1].toLowerCase() : null;
           if (sport) {
@@ -220,7 +220,7 @@ const BetBetsScreen = () => {
                   (b) =>
                     b.gameId === gid &&
                     getPeriodSuffix(b) === periodSuffix &&
-                    matchesBetType(b, paramName)
+                    matchesBetType(b, paramName),
                 );
                 return bet ? formatBetValue(bet, paramName) : "";
               });
@@ -246,7 +246,7 @@ const BetBetsScreen = () => {
                 (b) =>
                   b.gameId === gid &&
                   getPeriodSuffix(b) === periodSuffix &&
-                  matchesBetType(b, paramName)
+                  matchesBetType(b, paramName),
               );
               return bet ? formatBetValue(bet, paramName) : "";
             });
@@ -271,7 +271,7 @@ const BetBetsScreen = () => {
           if (bet.statType) {
             playerBets[bet.playerId][bet.statType] = formatBetValue(
               bet,
-              "homePoints"
+              "homePoints",
             );
           }
         }
@@ -325,7 +325,7 @@ const BetBetsScreen = () => {
           };
           const shortStat = statTypeMap[statType.toLowerCase()] || "pts";
           query += `&p${playerNum}_${shortStat}=${encodeURIComponent(
-            String(betValue)
+            String(betValue),
           )}`;
         });
       });
@@ -596,7 +596,8 @@ const BetBetsScreen = () => {
         // Refresh persisted Supabase rows so submittedBets reflects current DB state
         let freshSubmittedRows = null;
         try {
-          if (typeof loadSubmittedBets === "function") await loadSubmittedBets();
+          if (typeof loadSubmittedBets === "function")
+            await loadSubmittedBets();
         } catch (e) {}
 
         // Also fetch fresh rows directly to avoid relying on state updates from context
@@ -626,8 +627,8 @@ const BetBetsScreen = () => {
           authoritativeLocal.length > 0
             ? authoritativeLocal
             : serverBets && Array.isArray(serverBets) && serverBets.length > 0
-            ? serverBets
-            : submittedSource;
+              ? serverBets
+              : submittedSource;
 
         // If the source doesn't include betslip_url entries, try server fetch.
         const sourceHasBetslipUrl =
@@ -635,8 +636,10 @@ const BetBetsScreen = () => {
           source.length > 0 &&
           source.every((t) =>
             Boolean(
-              t?.betslip_url || t?.betslipData?.betslip_url || t?.betslip_data?.betslip_url
-            )
+              t?.betslip_url ||
+              t?.betslipData?.betslip_url ||
+              t?.betslip_data?.betslip_url,
+            ),
           );
 
         if (!sourceHasBetslipUrl) {
@@ -653,8 +656,12 @@ const BetBetsScreen = () => {
                 });
                 if (resp.ok) {
                   const json = await resp.json();
-                  const authoritative = json.betslips || json.bets || json || [];
-                  if (Array.isArray(authoritative) && authoritative.length > 0) {
+                  const authoritative =
+                    json.betslips || json.bets || json || [];
+                  if (
+                    Array.isArray(authoritative) &&
+                    authoritative.length > 0
+                  ) {
                     authoritativeLocal = authoritative;
                     source = authoritativeLocal;
                   }
@@ -865,7 +872,7 @@ const BetBetsScreen = () => {
             const ev = scoreboardData.find(
               (g) =>
                 String(g.id) === String(gid) ||
-                g.header?.competitions?.[0]?.id === gid
+                g.header?.competitions?.[0]?.id === gid,
             );
             return (
               ev?.header?.competitions?.[0]?.status?.type?.state ||
@@ -924,7 +931,7 @@ const BetBetsScreen = () => {
             states = latest.events.map((e) =>
               (e?.status?.state || e?.status || e?.status?.type?.state || "")
                 .toString()
-                .toLowerCase()
+                .toLowerCase(),
             );
           else {
             const gameIds = [
@@ -934,7 +941,7 @@ const BetBetsScreen = () => {
               const ev = scoreboardData.find(
                 (g) =>
                   String(g.id) === String(gid) ||
-                  g.header?.competitions?.[0]?.id === gid
+                  g.header?.competitions?.[0]?.id === gid,
               );
               return (
                 ev?.header?.competitions?.[0]?.status?.type?.state ||
@@ -948,7 +955,7 @@ const BetBetsScreen = () => {
             });
           }
           return states.some((s) =>
-            ["in", "live", "inprogress", "in_progress"].includes(s)
+            ["in", "live", "inprogress", "in_progress"].includes(s),
           );
         } catch (e) {
           return false;
@@ -986,7 +993,7 @@ const BetBetsScreen = () => {
           latest.events.every(
             (e) =>
               String(e?.status?.state || e?.status || "").toLowerCase() ===
-              "post"
+              "post",
           )
         ) {
           // ensure any stray poll is cleared
@@ -1186,13 +1193,13 @@ const BetBetsScreen = () => {
     const fillColor = wonStatus
       ? "#22C55E"
       : lostStatus
-      ? "#EF4444"
-      : theme.textTertiary;
+        ? "#EF4444"
+        : theme.textTertiary;
     const indicatorBg = wonStatus
       ? "#4ade80"
       : lostStatus
-      ? "#f87171"
-      : theme.text;
+        ? "#f87171"
+        : theme.text;
     const indicatorTextColor =
       wonStatus || lostStatus ? "#000" : isDarkMode ? "#000" : "#FFF";
 
@@ -2052,7 +2059,7 @@ const BetBetsScreen = () => {
           try {
             const escapedLine = String(displayLine).replace(
               /[.*+?^${}()|[\]\\]/g,
-              "\\$&"
+              "\\$&",
             );
             raw = raw.replace(new RegExp(escapedLine, "gi"), "");
           } catch (e) {}
@@ -2078,7 +2085,7 @@ const BetBetsScreen = () => {
           // If this was a Y/N prop, prefer ALL CAPS for clarity and put bet value first
           if (hadYN) {
             return `${String(
-              displayLine
+              displayLine,
             ).toUpperCase()} ${raw.toUpperCase()}`.trim();
           }
 
@@ -2102,7 +2109,7 @@ const BetBetsScreen = () => {
           try {
             const escapedLine = String(displayLine).replace(
               /[.*+?^${}()|[\]\\]/g,
-              "\\$&"
+              "\\$&",
             );
             raw = raw.replace(new RegExp(escapedLine, "gi"), "");
           } catch (e) {}
@@ -2128,7 +2135,7 @@ const BetBetsScreen = () => {
           // If this was a Y/N prop, prefer ALL CAPS for clarity and put bet value first
           if (hadYN) {
             return `${String(
-              displayLine
+              displayLine,
             ).toUpperCase()} ${raw.toUpperCase()}`.trim();
           }
 
@@ -2139,10 +2146,10 @@ const BetBetsScreen = () => {
           bet.type === "milestone"
             ? formatMilestoneProp(bet)
             : bet.type === "over" ||
-              bet.type === "under" ||
-              bet.type === "yesno"
-            ? formatOverUnderProp(bet)
-            : bet.prop || "";
+                bet.type === "under" ||
+                bet.type === "yesno"
+              ? formatOverUnderProp(bet)
+              : bet.prop || "";
         pick.propType = bet.statType;
         // Preserve the original line value (could be "1+", "5-", "O1.5", etc.)
         // Don't convert to number here - let the progress bar function handle parsing
@@ -2166,7 +2173,7 @@ const BetBetsScreen = () => {
           });
           if (eventData?.bets?.players) {
             const playerData = eventData.bets.players.find(
-              (p) => String(p.id) === String(bet.playerId)
+              (p) => String(p.id) === String(bet.playerId),
             );
             if (playerData) {
               // Extract player color from payload for live games
@@ -2178,26 +2185,26 @@ const BetBetsScreen = () => {
               // Derive statKey using provided statType when available; otherwise
               // attempt to infer from prop/description. Pass sport hint so NFL
               // mappings return the canonical keys expected in betslip payloads.
-              const sportHint = getSportFromBet(bet) || (bet.sport || "");
+              const sportHint = getSportFromBet(bet) || bet.sport || "";
               let statKey = deriveStatKey(bet.statType, sportHint);
               if (!statKey || statKey.length === 0 || statKey === "PTS") {
                 // try to infer from prop/description or propType
                 statKey = deriveStatKey(
                   bet.prop || bet.description || bet.propType || "",
-                  sportHint
+                  sportHint,
                 );
               }
 
               // try to resolve milestone/overUnder keys with flexible casing
               const milestoneKey = resolveKeyInObject(
                 playerData.milestones,
-                statKey
+                statKey,
               );
               const ouKey = resolveKeyInObject(playerData.overUnder, statKey);
 
               if (bet.type === "milestone" && milestoneKey) {
                 pick.currentValue = Number(
-                  playerData.milestones[milestoneKey].current
+                  playerData.milestones[milestoneKey].current,
                 );
                 pick.progressSource = `betslipData.event:${
                   eventData?.eventId || bet.gameId
@@ -2215,15 +2222,13 @@ const BetBetsScreen = () => {
                   playerData.milestones[milestoneKey].won === true
                     ? "winning"
                     : playerData.milestones[milestoneKey].won === false
-                    ? "losing"
-                    : "pending";
+                      ? "losing"
+                      : "pending";
                 pick.progressWonSource = `betslipData.event:${
                   eventData?.eventId || bet.gameId
                 }.players:${playerData.id}.milestones:${milestoneKey}.won`;
               } else if (ouKey) {
-                pick.currentValue = Number(
-                  playerData.overUnder[ouKey].current
-                );
+                pick.currentValue = Number(playerData.overUnder[ouKey].current);
                 pick.progressSource = `betslipData.event:${
                   eventData?.eventId || bet.gameId
                 }.players:${playerData.id}.overUnder:${ouKey}`;
@@ -2231,8 +2236,8 @@ const BetBetsScreen = () => {
                   playerData.overUnder[ouKey].won === true
                     ? "winning"
                     : playerData.overUnder[ouKey].won === false
-                    ? "losing"
-                    : "pending";
+                      ? "losing"
+                      : "pending";
                 pick.progressWonSource = `betslipData.event:${
                   eventData?.eventId || bet.gameId
                 }.players:${playerData.id}.overUnder:${ouKey}.won`;
@@ -2246,14 +2251,14 @@ const BetBetsScreen = () => {
                   pick.line = Number(
                     playerData.milestones.PRA.threshold ??
                       playerData.milestones.PRA.bet ??
-                      pick.line
+                      pick.line,
                   );
                   pick.status =
                     playerData.milestones.PRA.won === true
                       ? "winning"
                       : playerData.milestones.PRA.won === false
-                      ? "losing"
-                      : "pending";
+                        ? "losing"
+                        : "pending";
                   pick.progressWonSource = `betslipData.event:${
                     eventData?.eventId || bet.gameId
                   }.players:${playerData.id}.milestones:PRA.won`;
@@ -2439,7 +2444,7 @@ const BetBetsScreen = () => {
           // Format special team/period bet types
           // Extract period info from type (e.g., "1st Half", "1st Quarter", "2nd Period")
           const periodMatch = bet.type.match(
-            /(1st|2nd|3rd|4th)\s+(Half|Quarter|Period)/i
+            /(1st|2nd|3rd|4th)\s+(Half|Quarter|Period)/i,
           );
           const periodPart = periodMatch ? periodMatch[0].toUpperCase() : "";
 
@@ -2619,8 +2624,8 @@ const BetBetsScreen = () => {
                       periodSpread.won === true
                         ? "winning"
                         : periodSpread.won === false
-                        ? "losing"
-                        : "pending";
+                          ? "losing"
+                          : "pending";
                     pick.progressWonSource = `betslipData.event:${
                       eventData?.eventId || bet.gameId
                     }.bets.${periodKey}_SP.won`;
@@ -2632,7 +2637,7 @@ const BetBetsScreen = () => {
                   if (typeof cur === "number") parsed = cur;
                   else if (cur && typeof cur === "object")
                     parsed = Number(
-                      cur.score ?? cur.current ?? cur.value ?? NaN
+                      cur.score ?? cur.current ?? cur.value ?? NaN,
                     );
                   else if (cur != null) {
                     const n = Number(cur);
@@ -2647,8 +2652,8 @@ const BetBetsScreen = () => {
                       periodTotal.won === true
                         ? "winning"
                         : periodTotal.won === false
-                        ? "losing"
-                        : "pending";
+                          ? "losing"
+                          : "pending";
                     pick.progressWonSource = `betslipData.event:${
                       eventData?.eventId || bet.gameId
                     }.bets.${periodKey}_T.won`;
@@ -2671,8 +2676,8 @@ const BetBetsScreen = () => {
                 eventData.bets.moneyline.current?.won === true
                   ? "winning"
                   : eventData.bets.moneyline.current?.won === false
-                  ? "losing"
-                  : "pending";
+                    ? "losing"
+                    : "pending";
               pick.progressWonSource = `betslipData.event:${
                 eventData?.eventId || bet.gameId
               }.bets.moneyline.current.won`;
@@ -2727,8 +2732,8 @@ const BetBetsScreen = () => {
                 spreadCurrent?.won === true
                   ? "winning"
                   : spreadCurrent?.won === false
-                  ? "losing"
-                  : "pending";
+                    ? "losing"
+                    : "pending";
               pick.progressWonSource = `betslipData.event:${
                 eventData?.eventId || bet.gameId
               }.bets.spread.current.won`;
@@ -2756,7 +2761,7 @@ const BetBetsScreen = () => {
                   totalCurrent.score ??
                     totalCurrent.current ??
                     totalCurrent.value ??
-                    NaN
+                    NaN,
                 );
               } else if (totalCurrent != null) {
                 const n = Number(totalCurrent);
@@ -2775,8 +2780,8 @@ const BetBetsScreen = () => {
                 eventData.bets.totalPoints.won === true
                   ? "winning"
                   : eventData.bets.totalPoints.won === false
-                  ? "losing"
-                  : "pending";
+                    ? "losing"
+                    : "pending";
               pick.progressWonSource = `betslipData.event:${
                 eventData?.eventId || bet.gameId
               }.bets.totalPoints.won`;
@@ -2829,7 +2834,7 @@ const BetBetsScreen = () => {
                     payloadCurrent.score ??
                       payloadCurrent.current ??
                       payloadCurrent.value ??
-                      NaN
+                      NaN,
                   );
                 else if (payloadCurrent != null) {
                   const n = Number(payloadCurrent);
@@ -2853,8 +2858,8 @@ const BetBetsScreen = () => {
                   ptsPayload.won === true
                     ? "winning"
                     : ptsPayload.won === false
-                    ? "losing"
-                    : "pending";
+                      ? "losing"
+                      : "pending";
                 pick.progressWonSource = `betslipData.event:${
                   eventData?.eventId || bet.gameId
                 }.bets.${ptsSource}.won`;
@@ -2953,8 +2958,8 @@ const BetBetsScreen = () => {
                       periodSpread.won === true
                         ? "winning"
                         : periodSpread.won === false
-                        ? "losing"
-                        : "pending";
+                          ? "losing"
+                          : "pending";
                     pick.progressWonSource = `overrideEvent.event:${
                       overrideEvent?.eventId || bet.gameId
                     }.bets.${periodKey}_SP.won`;
@@ -2966,7 +2971,7 @@ const BetBetsScreen = () => {
                   if (typeof cur === "number") parsed = cur;
                   else if (cur && typeof cur === "object")
                     parsed = Number(
-                      cur.score ?? cur.current ?? cur.value ?? NaN
+                      cur.score ?? cur.current ?? cur.value ?? NaN,
                     );
                   else if (cur != null) {
                     const n = Number(cur);
@@ -2981,8 +2986,8 @@ const BetBetsScreen = () => {
                       periodTotal.won === true
                         ? "winning"
                         : periodTotal.won === false
-                        ? "losing"
-                        : "pending";
+                          ? "losing"
+                          : "pending";
                     pick.progressWonSource = `overrideEvent.event:${
                       overrideEvent?.eventId || bet.gameId
                     }.bets.${periodKey}_T.won`;
@@ -2995,16 +3000,16 @@ const BetBetsScreen = () => {
             // Player-level overrides
             if (pick.playerName && overrideEvent?.bets?.players) {
               const p = overrideEvent.bets.players.find(
-                (pp) => String(pp.id) === String(bet.playerId)
+                (pp) => String(pp.id) === String(bet.playerId),
               );
 
               if (p) {
-                const sportHint = getSportFromBet(bet) || (bet.sport || "");
+                const sportHint = getSportFromBet(bet) || bet.sport || "";
                 let statKey = deriveStatKey(bet.statType, sportHint);
                 if (!statKey || statKey.length === 0 || statKey === "PTS") {
                   statKey = deriveStatKey(
                     bet.prop || bet.description || bet.propType || "",
-                    sportHint
+                    sportHint,
                   );
                 }
 
@@ -3013,7 +3018,9 @@ const BetBetsScreen = () => {
                 const ouKey = resolveKeyInObject(p.overUnder, statKey);
 
                 if (milestoneKey) {
-                  const milestoneValue = Number(p.milestones[milestoneKey].current);
+                  const milestoneValue = Number(
+                    p.milestones[milestoneKey].current,
+                  );
                   if (!isNaN(milestoneValue)) {
                     pick.currentValue = milestoneValue;
                     pick.progressSource = `overrideEvent.event:${
@@ -3023,8 +3030,8 @@ const BetBetsScreen = () => {
                       p.milestones[milestoneKey].won === true
                         ? "winning"
                         : p.milestones[milestoneKey].won === false
-                        ? "losing"
-                        : "pending";
+                          ? "losing"
+                          : "pending";
                     pick.progressWonSource = `overrideEvent.event:${
                       overrideEvent?.eventId || bet.gameId
                     }.players:${p.id}.milestones:${milestoneKey}`;
@@ -3040,8 +3047,8 @@ const BetBetsScreen = () => {
                       p.overUnder[ouKey].won === true
                         ? "winning"
                         : p.overUnder[ouKey].won === false
-                        ? "losing"
-                        : "pending";
+                          ? "losing"
+                          : "pending";
                     pick.progressWonSource = `overrideEvent.event:${
                       overrideEvent?.eventId || bet.gameId
                     }.players:${p.id}.overUnder:${ouKey}`;
@@ -3060,8 +3067,8 @@ const BetBetsScreen = () => {
                     p.milestones.PRA.won === true
                       ? "winning"
                       : p.milestones.PRA.won === false
-                      ? "losing"
-                      : "pending";
+                        ? "losing"
+                        : "pending";
                   pick.progressWonSource = `overrideEvent.event:${
                     overrideEvent?.eventId || bet.gameId
                   }.players:${p.id}.milestones:PRA.won`;
@@ -3230,8 +3237,8 @@ const BetBetsScreen = () => {
                       qhBet.won === true
                         ? "winning"
                         : qhBet.won === false
-                        ? "losing"
-                        : "pending";
+                          ? "losing"
+                          : "pending";
                     pick.progressWonSource = `overrideEvent.event:${
                       overrideEvent?.eventId || bet.gameId
                     }.bets.${quarterOrHalfKey}.won`;
@@ -3252,7 +3259,7 @@ const BetBetsScreen = () => {
                   if (typeof cur === "number") parsed = cur;
                   else if (cur && typeof cur === "object")
                     parsed = Number(
-                      cur.score ?? cur.current ?? cur.value ?? NaN
+                      cur.score ?? cur.current ?? cur.value ?? NaN,
                     );
                   else if (cur != null) {
                     const n = Number(cur);
@@ -3268,8 +3275,8 @@ const BetBetsScreen = () => {
                       qhBet.won === true
                         ? "winning"
                         : qhBet.won === false
-                        ? "losing"
-                        : "pending";
+                          ? "losing"
+                          : "pending";
                     pick.progressWonSource = `overrideEvent.event:${
                       overrideEvent?.eventId || bet.gameId
                     }.bets.${quarterOrHalfKey}.won`;
@@ -3285,8 +3292,8 @@ const BetBetsScreen = () => {
                     qhBet.won === true
                       ? "winning"
                       : qhBet.won === false
-                      ? "losing"
-                      : "pending";
+                        ? "losing"
+                        : "pending";
                   pick.progressWonSource = `overrideEvent.event:${
                     overrideEvent?.eventId || bet.gameId
                   }.bets.${quarterOrHalfKey}.won`;
@@ -3309,8 +3316,8 @@ const BetBetsScreen = () => {
                   overrideEvent.bets.moneyline.won === true
                     ? "winning"
                     : overrideEvent.bets.moneyline.won === false
-                    ? "losing"
-                    : "pending";
+                      ? "losing"
+                      : "pending";
                 pick.progressWonSource = `overrideEvent.event:${
                   overrideEvent?.eventId || bet.gameId
                 }.bets.moneyline.won`;
@@ -3348,8 +3355,8 @@ const BetBetsScreen = () => {
                   overrideEvent.bets.spread.won === true
                     ? "winning"
                     : overrideEvent.bets.spread.won === false
-                    ? "losing"
-                    : "pending";
+                      ? "losing"
+                      : "pending";
                 pick.progressWonSource = `overrideEvent.event:${
                   overrideEvent?.eventId || bet.gameId
                 }.bets.spread.won`;
@@ -3382,7 +3389,7 @@ const BetBetsScreen = () => {
                     totalCurrent.score ??
                       totalCurrent.current ??
                       totalCurrent.value ??
-                      NaN
+                      NaN,
                   );
                 else if (totalCurrent != null) {
                   const n = Number(totalCurrent);
@@ -3399,8 +3406,8 @@ const BetBetsScreen = () => {
                   overrideEvent.bets.totalPoints?.won === true
                     ? "winning"
                     : overrideEvent.bets.totalPoints?.won === false
-                    ? "losing"
-                    : "pending";
+                      ? "losing"
+                      : "pending";
                 pick.progressWonSource = `overrideEvent.event:${
                   overrideEvent?.eventId || bet.gameId
                 }.bets.totalPoints.won`;
@@ -3557,7 +3564,7 @@ const BetBetsScreen = () => {
                       payloadCurrent.score ??
                         payloadCurrent.current ??
                         payloadCurrent.value ??
-                        NaN
+                        NaN,
                     );
                   else if (payloadCurrent != null) {
                     const n = Number(payloadCurrent);
@@ -3574,8 +3581,8 @@ const BetBetsScreen = () => {
                     ptsPayload.won === true
                       ? "winning"
                       : ptsPayload.won === false
-                      ? "losing"
-                      : "pending";
+                        ? "losing"
+                        : "pending";
                   pick.progressWonSource = `overrideEvent.event:${
                     overrideEvent?.eventId || bet.gameId
                   }.bets.${ptsSource}.won`;
@@ -3594,13 +3601,19 @@ const BetBetsScreen = () => {
 
         // compute sport hint and stat key being searched for (for debugging)
         const sportHint =
-          (bet && (bet.sport || (typeof bet.gameId === "string" && bet.gameId.includes("_") && bet.gameId.split("_").pop()))) ||
+          (bet &&
+            (bet.sport ||
+              (typeof bet.gameId === "string" &&
+                bet.gameId.includes("_") &&
+                bet.gameId.split("_").pop()))) ||
           "unknown";
         const statGuess = deriveStatKey(
           bet.statType || bet.prop || bet.propType || "",
-          sportHint
+          sportHint,
         );
-        const sportDisplay = sportHint ? String(sportHint).toUpperCase() : "N/A";
+        const sportDisplay = sportHint
+          ? String(sportHint).toUpperCase()
+          : "N/A";
         const lookingFor = statGuess ? String(statGuess).toUpperCase() : "N/A";
 
         // Log bet progress info once per bet with sport/key context
@@ -3611,7 +3624,7 @@ const BetBetsScreen = () => {
             !isNaN(pick.currentValue) &&
             isValidLineForProgress(pick.line) &&
             pick.gameState !== "pre"
-          }`
+          }`,
         );
       } catch (e) {}
 
@@ -3687,8 +3700,8 @@ const BetBetsScreen = () => {
               ticketStatus === "won"
                 ? { borderWidth: 2, borderColor: "#22C55E" }
                 : ticketStatus === "lost"
-                ? { borderWidth: 2, borderColor: "#EF4444" }
-                : {},
+                  ? { borderWidth: 2, borderColor: "#EF4444" }
+                  : {},
             ]}
             onPress={() => toggleParlay(betSlip.id)}
           >
@@ -3737,8 +3750,8 @@ const BetBetsScreen = () => {
                     ticketStatus === "won"
                       ? displayedPayout
                       : ticketStatus === "lost"
-                      ? 0
-                      : potentialPayout
+                        ? 0
+                        : potentialPayout,
                   ).toLocaleString(undefined, {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
@@ -3777,8 +3790,8 @@ const BetBetsScreen = () => {
             ticketStatus === "won"
               ? { borderWidth: 2, borderColor: "#22C55E" }
               : ticketStatus === "lost"
-              ? { borderWidth: 2, borderColor: "#EF4444" }
-              : {},
+                ? { borderWidth: 2, borderColor: "#EF4444" }
+                : {},
           ]}
         >
           <View style={styles.parlayExpandedHeader}>
@@ -3847,8 +3860,8 @@ const BetBetsScreen = () => {
                   ticketStatus === "won"
                     ? displayedPayout
                     : ticketStatus === "lost"
-                    ? 0
-                    : potentialPayout
+                      ? 0
+                      : potentialPayout,
                 ).toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
@@ -3914,8 +3927,8 @@ const BetBetsScreen = () => {
               ticketStatus === "won"
                 ? { borderWidth: 2, borderColor: "#22C55E" }
                 : ticketStatus === "lost"
-                ? { borderWidth: 2, borderColor: "#EF4444" }
-                : {},
+                  ? { borderWidth: 2, borderColor: "#EF4444" }
+                  : {},
             ]}
             onPress={() => toggleParlay(betSlip.id)}
           >
@@ -3970,8 +3983,8 @@ const BetBetsScreen = () => {
                     ticketStatus === "won"
                       ? displayedPayout
                       : ticketStatus === "lost"
-                      ? 0
-                      : potentialPayout
+                        ? 0
+                        : potentialPayout,
                   ).toLocaleString(undefined, {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
@@ -4010,8 +4023,8 @@ const BetBetsScreen = () => {
             ticketStatus === "won"
               ? { borderWidth: 2, borderColor: "#22C55E" }
               : ticketStatus === "lost"
-              ? { borderWidth: 2, borderColor: "#EF4444" }
-              : {},
+                ? { borderWidth: 2, borderColor: "#EF4444" }
+                : {},
           ]}
         >
           <View style={styles.parlayExpandedHeader}>
@@ -4087,8 +4100,8 @@ const BetBetsScreen = () => {
                   ticketStatus === "won"
                     ? displayedPayout
                     : ticketStatus === "lost"
-                    ? 0
-                    : potentialPayout
+                      ? 0
+                      : potentialPayout,
                 ).toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
@@ -4148,8 +4161,8 @@ const BetBetsScreen = () => {
             ticketStatus === "won"
               ? { borderWidth: 2, borderColor: "#22C55E" }
               : ticketStatus === "lost"
-              ? { borderWidth: 2, borderColor: "#EF4444" }
-              : {},
+                ? { borderWidth: 2, borderColor: "#EF4444" }
+                : {},
           ]}
           onPress={() => toggleParlay(betSlip.id)}
         >
@@ -4196,8 +4209,8 @@ const BetBetsScreen = () => {
                   ticketStatus === "won"
                     ? displayedPayout
                     : ticketStatus === "lost"
-                    ? 0
-                    : potentialPayout
+                      ? 0
+                      : potentialPayout,
                 ).toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
@@ -4256,8 +4269,8 @@ const BetBetsScreen = () => {
           ticketStatus === "won"
             ? { borderWidth: 2, borderColor: "#22C55E" }
             : ticketStatus === "lost"
-            ? { borderWidth: 2, borderColor: "#EF4444" }
-            : {},
+              ? { borderWidth: 2, borderColor: "#EF4444" }
+              : {},
         ]}
       >
         <View style={styles.parlayExpandedHeader}>
@@ -4278,10 +4291,10 @@ const BetBetsScreen = () => {
           // ensure picks for this game are sorted by their parsed start time
           picks.sort((p1, p2) => {
             const t1 = parseGameInfoTime(
-              p1.gameInfo || p1.gameInfoTeams || p1.gameInfoTime
+              p1.gameInfo || p1.gameInfoTeams || p1.gameInfoTime,
             );
             const t2 = parseGameInfoTime(
-              p2.gameInfo || p2.gameInfoTeams || p2.gameInfoTime
+              p2.gameInfo || p2.gameInfoTeams || p2.gameInfoTime,
             );
             return t1 - t2;
           });
@@ -4349,8 +4362,8 @@ const BetBetsScreen = () => {
                 ticketStatus === "won"
                   ? displayedPayout
                   : ticketStatus === "lost"
-                  ? 0
-                  : potentialPayout
+                    ? 0
+                    : potentialPayout,
               ).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,

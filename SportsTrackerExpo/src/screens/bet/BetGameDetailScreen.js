@@ -65,7 +65,7 @@ const TeamLogo = React.memo(
   (prevProps, nextProps) => {
     // Only re-render if URI actually changes
     return prevProps.uri === nextProps.uri;
-  }
+  },
 );
 
 // Color similarity detection utility
@@ -91,7 +91,7 @@ const calculateColorSimilarity = (color1, color2) => {
   const distance = Math.sqrt(
     Math.pow(rgb1.r - rgb2.r, 2) +
       Math.pow(rgb1.g - rgb2.g, 2) +
-      Math.pow(rgb1.b - rgb2.b, 2)
+      Math.pow(rgb1.b - rgb2.b, 2),
   );
 
   // Normalize distance (max distance is sqrt(3 * 255^2) ≈ 441)
@@ -105,7 +105,7 @@ const calculateColorSimilarity = (color1, color2) => {
 const getSmartTeamColors = (
   team1Data,
   team2Data,
-  colors = { primary: "#666", secondary: "#999" }
+  colors = { primary: "#666", secondary: "#999" },
 ) => {
   // team1 is away, team2 is home (matching NBA pattern)
   const safeColors = colors || { primary: "#666", secondary: "#999" };
@@ -143,7 +143,7 @@ const renderStatsRow = (
   team2Value,
   team1Color,
   team2Color,
-  theme
+  theme,
 ) => {
   // Helper to parse stat values
   const parseStatValue = (value) => {
@@ -449,7 +449,7 @@ const BasketballCourt = React.memo(
         </View>
       </View>
     );
-  }
+  },
 );
 
 // Hockey Rink Component for NHL
@@ -547,7 +547,7 @@ const HockeyRink = React.memo(
           })()}
       </View>
     );
-  }
+  },
 );
 
 // NFL Field Component for NFL
@@ -591,7 +591,7 @@ const NFLField = React.memo(
               backgroundColor: "white",
               opacity: 0.5,
             }}
-          />
+          />,
         );
 
         // Two hash marks per yard line - one below top numbers, one above bottom numbers
@@ -607,7 +607,7 @@ const NFLField = React.memo(
               backgroundColor: "white",
               marginLeft: -2 * scale,
             }}
-          />
+          />,
         );
         markers.push(
           <View
@@ -621,7 +621,7 @@ const NFLField = React.memo(
               backgroundColor: "white",
               marginLeft: -2 * scale,
             }}
-          />
+          />,
         );
 
         // Yard number labels
@@ -639,7 +639,7 @@ const NFLField = React.memo(
             }}
           >
             {yardNumbers[i]}
-          </Text>
+          </Text>,
         );
         markers.push(
           <Text
@@ -656,7 +656,7 @@ const NFLField = React.memo(
             }}
           >
             {yardNumbers[i]}
-          </Text>
+          </Text>,
         );
       }
       return markers;
@@ -678,7 +678,7 @@ const NFLField = React.memo(
               backgroundColor: "white",
               opacity: 0.4,
             }}
-          />
+          />,
         );
         marks.push(
           <View
@@ -692,7 +692,7 @@ const NFLField = React.memo(
               backgroundColor: "white",
               opacity: 0.4,
             }}
-          />
+          />,
         );
       }
       return marks;
@@ -853,7 +853,8 @@ const NFLField = React.memo(
               drives.current?.end.yardLine != null &&
               (() => {
                 // Determine team color - check drives.current?.team.id first
-                const teamId = drives.current?.team?.id || drives.current?.end?.team?.id;
+                const teamId =
+                  drives.current?.team?.id || drives.current?.end?.team?.id;
 
                 const startPos = 100 - drives.current?.start.yardLine;
                 const endPos = 100 - drives.current?.end.yardLine;
@@ -870,7 +871,7 @@ const NFLField = React.memo(
                 // Use a dynamic gradient id and Svg key so the SVG remounts
                 // when positions or color change (forces gradient/stops to update)
                 const gradId = `driveGrad-${Math.round(leftPos)}-${Math.round(
-                  rightPos
+                  rightPos,
                 )}-${String(gradientColor).replace(/[#\s]/g, "")}`;
 
                 return (
@@ -949,7 +950,7 @@ const NFLField = React.memo(
         </View>
       </View>
     );
-  }
+  },
 );
 
 // Player Props Tab Component - DraftKings Style
@@ -966,7 +967,7 @@ const PropTabContent = ({
   const oddsContext = useContext(OddsDisplayContext);
   const oddsDisplay = oddsContext ? oddsContext.oddsDisplay : "american";
   const [selectedPropType, setSelectedPropType] = useState(
-    propTypes && propTypes.length ? propTypes[0] : null
+    propTypes && propTypes.length ? propTypes[0] : null,
   );
 
   // Sport for bet objects
@@ -983,7 +984,7 @@ const PropTabContent = ({
       "gameData.sport:",
       gameData?.sport,
       "gameData.id:",
-      gameData?.id || gameData?.gameId
+      gameData?.id || gameData?.gameId,
     );
   } catch (e) {
     /* ignore */
@@ -1139,7 +1140,7 @@ const PropTabContent = ({
           typeof rostersData === "object"
         ) {
           const found = Object.keys(rostersData).find((k) =>
-            k.toLowerCase().includes((gameData?.sport || "").toLowerCase())
+            k.toLowerCase().includes((gameData?.sport || "").toLowerCase()),
           );
           if (found) {
             rosterPayload = rostersData[found];
@@ -1155,7 +1156,7 @@ const PropTabContent = ({
         "[PROP TAB LOG] roster source:",
         rosterSource,
         "rostersData keys:",
-        rostersData ? Object.keys(rostersData) : null
+        rostersData ? Object.keys(rostersData) : null,
       );
       console.log(
         "[PROP TAB LOG] rosterPayload keys:",
@@ -1165,12 +1166,12 @@ const PropTabContent = ({
         "abbrs:",
         abbrs,
         "sampleTeamAbbrs:",
-        teams.map((t) => t.abbreviation).slice(0, 6)
+        teams.map((t) => t.abbreviation).slice(0, 6),
       );
       abbrs.forEach((abbr) => {
         const team = teams.find(
           (t) =>
-            t.abbreviation === abbr || t.abbreviation === abbr.toUpperCase()
+            t.abbreviation === abbr || t.abbreviation === abbr.toUpperCase(),
         );
         if (team?.athletes) {
           team.athletes.forEach((a) => {
@@ -1181,7 +1182,7 @@ const PropTabContent = ({
                   .map((v) => v.sideID)
                   .filter(Boolean);
                 const hasOverUnder = sideIDs.some(
-                  (s) => s === "over" || s === "under"
+                  (s) => s === "over" || s === "under",
                 );
                 const hasYesNo = sideIDs.some((s) => s === "yes" || s === "no");
 
@@ -1226,12 +1227,12 @@ const PropTabContent = ({
         sport === "NBA"
           ? ["Points", "Rebounds", "Assists", "Blocks", "Turnovers", "PRA"]
           : sport === "NFL"
-          ? ["Passing Yards", "Rushing Yards", "Receptions", "Touchdowns"]
-          : ["Goals", "Assists", "Shots on Target", "Saves"];
+            ? ["Passing Yards", "Rushing Yards", "Receptions", "Touchdowns"]
+            : ["Goals", "Assists", "Shots on Target", "Saves"];
       console.log(
         "[PROP TAB LOG] no statIDs found, falling back to defaults for",
         sport,
-        defaults
+        defaults,
       );
       return defaults;
     }
@@ -1325,7 +1326,7 @@ const PropTabContent = ({
         typeof rostersData === "object"
       ) {
         const found = Object.keys(rostersData).find((k) =>
-          k.toLowerCase().includes((gameData?.sport || "").toLowerCase())
+          k.toLowerCase().includes((gameData?.sport || "").toLowerCase()),
         );
         if (found) {
           rosterPayload = rostersData[found];
@@ -1337,7 +1338,7 @@ const PropTabContent = ({
       "[PROP TAB LOG.players] roster source:",
       rosterSource,
       "rostersData keys:",
-      rostersData ? Object.keys(rostersData) : null
+      rostersData ? Object.keys(rostersData) : null,
     );
     const teams =
       rosterPayload?.teams ||
@@ -1347,12 +1348,12 @@ const PropTabContent = ({
     const team1Data = teams.find(
       (t) =>
         t.abbreviation === team1Abbr ||
-        t.abbreviation === team1Abbr?.toUpperCase()
+        t.abbreviation === team1Abbr?.toUpperCase(),
     );
     const team2Data = teams.find(
       (t) =>
         t.abbreviation === team2Abbr ||
-        t.abbreviation === team2Abbr?.toUpperCase()
+        t.abbreviation === team2Abbr?.toUpperCase(),
     );
 
     const allPlayers = [];
@@ -1382,7 +1383,7 @@ const PropTabContent = ({
     if (!isPro) {
       Alert.alert(
         "Pro Required",
-        "Player details are available for Pro members. Purchase Pro in Settings to unlock."
+        "Player details are available for Pro members. Purchase Pro in Settings to unlock.",
       );
       return;
     }
@@ -1410,7 +1411,7 @@ const PropTabContent = ({
         team2Color: gameData.team2Color,
         team2AlternateColor: gameData.team2AlternateColor,
       },
-      colors
+      colors,
     );
 
     // Build list of players that actually have milestone options (from full players list)
@@ -1420,7 +1421,7 @@ const PropTabContent = ({
 
       // Find candidate markets with matching statID
       const candidateMarkets = (player.odds || []).filter(
-        (m) => normalizeStatId(m.statID) === normalizeStatId(statID)
+        (m) => normalizeStatId(m.statID) === normalizeStatId(statID),
       );
       if (!candidateMarkets || candidateMarkets.length === 0) return;
 
@@ -1445,11 +1446,11 @@ const PropTabContent = ({
       let market = null;
       if (periodID) {
         market = filteredMarkets.find((m) =>
-          (m.variants || []).some((v) => v.periodID === periodID)
+          (m.variants || []).some((v) => v.periodID === periodID),
         );
       } else {
         market = filteredMarkets.find((m) =>
-          (m.variants || []).some((v) => !v.periodID)
+          (m.variants || []).some((v) => !v.periodID),
         );
       }
       if (!market) return;
@@ -1592,8 +1593,8 @@ const PropTabContent = ({
                     milestone.odds && String(milestone.odds).match(/^[+-]/)
                       ? String(milestone.odds)
                       : milestone.odds
-                      ? `+${milestone.odds}`
-                      : null;
+                        ? `+${milestone.odds}`
+                        : null;
                   const displayOdds = formattedOdds
                     ? formatOddsForDisplay(formattedOdds, oddsDisplay)
                     : "";
@@ -1695,7 +1696,7 @@ const PropTabContent = ({
         team2Color: gameData.team2Color,
         team2AlternateColor: gameData.team2AlternateColor,
       },
-      colors
+      colors,
     );
 
     return (
@@ -1710,7 +1711,7 @@ const PropTabContent = ({
           // Prefer a market whose variants match the requested period.
           // For full-game (no periodID) prefer a market that has variants without a period.
           const candidateMarkets = (player.odds || []).filter(
-            (m) => normalizeStatId(m.statID) === normalizeStatId(statID)
+            (m) => normalizeStatId(m.statID) === normalizeStatId(statID),
           );
 
           // Filter by marketType if specified
@@ -1733,11 +1734,11 @@ const PropTabContent = ({
           let market = null;
           if (periodID) {
             market = filteredMarkets.find((m) =>
-              (m.variants || []).some((v) => v.periodID === periodID)
+              (m.variants || []).some((v) => v.periodID === periodID),
             );
           } else {
             market = filteredMarkets.find((m) =>
-              (m.variants || []).some((v) => !v.periodID)
+              (m.variants || []).some((v) => !v.periodID),
             );
           }
           if (!market) return null;
@@ -1746,7 +1747,7 @@ const PropTabContent = ({
           const yesVariant = (market.variants || []).find(
             (v) =>
               (v.sideID === "yes" || v.sideID === "no") &&
-              (periodID ? v.periodID === periodID : !v.periodID)
+              (periodID ? v.periodID === periodID : !v.periodID),
           );
 
           // Get smart color for player based on their team
@@ -1799,8 +1800,8 @@ const PropTabContent = ({
               oddsVal && String(oddsVal).match(/^[+-]/)
                 ? String(oddsVal)
                 : oddsVal
-                ? `+${oddsVal}`
-                : null;
+                  ? `+${oddsVal}`
+                  : null;
             const displayOdds = formattedOdds
               ? formatOddsForDisplay(formattedOdds, oddsDisplay)
               : "";
@@ -1879,12 +1880,12 @@ const PropTabContent = ({
           const overVariant = (market.variants || []).find(
             (v) =>
               v.sideID === "over" &&
-              (periodID ? v.periodID === periodID : !v.periodID)
+              (periodID ? v.periodID === periodID : !v.periodID),
           );
           const underVariant = (market.variants || []).find(
             (v) =>
               v.sideID === "under" &&
-              (periodID ? v.periodID === periodID : !v.periodID)
+              (periodID ? v.periodID === periodID : !v.periodID),
           );
 
           const dkOver = overVariant?.byBookmaker?.draftkings || {};
@@ -1908,14 +1909,14 @@ const PropTabContent = ({
             overOdds && String(overOdds).match(/^[+-]/)
               ? String(overOdds)
               : overOdds
-              ? `+${overOdds}`
-              : null;
+                ? `+${overOdds}`
+                : null;
           const formattedUnderOdds =
             underOdds && String(underOdds).match(/^[+-]/)
               ? String(underOdds)
               : underOdds
-              ? `+${underOdds}`
-              : null;
+                ? `+${underOdds}`
+                : null;
           const displayOverOdds = formattedOverOdds
             ? formatOddsForDisplay(formattedOverOdds, oddsDisplay)
             : "";
@@ -2159,7 +2160,7 @@ const AlternateSpreadSection = ({ gameData, theme, colors }) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(contentOffsetX / ITEM_WIDTH);
     setSelectedSpreadIndex(
-      Math.max(0, Math.min(index, spreadOptions.length - 1))
+      Math.max(0, Math.min(index, spreadOptions.length - 1)),
     );
   };
 
@@ -2285,7 +2286,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [boxScoreRowHeights, setBoxScoreRowHeights] = useState({});
   const [collapsedBoxScoreSections, setCollapsedBoxScoreSections] = useState(
-    {}
+    {},
   );
   const [boxScoreSortState, setBoxScoreSortState] = useState({}); // { sectionKey: { column: string, direction: 'asc'|'desc'|null } }
   const [courtScale, setCourtScale] = useState(1.67);
@@ -2307,7 +2308,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           setIsSlipOpen(false);
         }
       };
-    }, [setIsSlipOpen])
+    }, [setIsSlipOpen]),
   );
 
   // Pro-only component: PlayParticipants
@@ -2321,7 +2322,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     Object.keys(participants).forEach((k) => {
       const map = participants[k] || {};
       Object.keys(map).forEach((aid) =>
-        athletes.push({ id: aid, displayName: map[aid] })
+        athletes.push({ id: aid, displayName: map[aid] }),
       );
     });
 
@@ -2340,7 +2341,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             (teamBlock.statistics && teamBlock.statistics.athletes) || [];
           athletesArr.forEach((entry) => {
             const aid = String(
-              entry.athlete?.id || entry.athlete?.athleteId || ""
+              entry.athlete?.id || entry.athlete?.athleteId || "",
             );
             if (!aid) return;
             athleteMeta[aid] = athleteMeta[aid] || {};
@@ -2351,17 +2352,15 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             athleteMeta[aid].jersey =
               entry.athlete?.jersey || athleteMeta[aid].jersey;
             athleteMeta[aid].stats = entry.stats || athleteMeta[aid].stats;
-            athleteMeta[
-              aid
-            ].headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${aid}.png&w=200`;
+            athleteMeta[aid].headshot =
+              `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${aid}.png&w=200`;
             athleteMeta[aid].team = athleteMeta[aid].team || {
               abbreviation: teamAbbrev,
             };
-            athleteMeta[
-              aid
-            ].teamLogo = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
-              isDarkMode ? "-dark" : ""
-            }/${(teamAbbrev || "").toLowerCase()}.png&h=100&w=100`;
+            athleteMeta[aid].teamLogo =
+              `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
+                isDarkMode ? "-dark" : ""
+              }/${(teamAbbrev || "").toLowerCase()}.png&h=100&w=100`;
           });
         });
       }
@@ -2421,7 +2420,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
     const participantCount = Object.values(byTeam).reduce(
       (sum, team) => sum + team.length,
-      0
+      0,
     );
 
     return (
@@ -2545,8 +2544,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         ? val > "0"
                           ? theme.success
                           : val.startsWith("-")
-                          ? theme.error
-                          : theme.text
+                            ? theme.error
+                            : theme.text
                         : theme.text;
                       return (
                         <View key={s.key} style={styles.statBubble}>
@@ -2591,10 +2590,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         setLoading(true);
         const url = useEventId
           ? `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/${String(
-              sportToUse
+              sportToUse,
             ).toLowerCase()}/${useEventId}`
           : `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/${String(
-              sportToUse
+              sportToUse,
             ).toLowerCase()}/${game.id}`;
         const response = await fetch(url);
         const data = await response.json();
@@ -2644,7 +2643,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       // Poll for 5 minutes after game ends
       // Estimate end time (game started + 2.5 hours average NBA game)
       const estimatedEndTime = new Date(
-        gameDate.getTime() + 2.5 * 60 * 60 * 1000
+        gameDate.getTime() + 2.5 * 60 * 60 * 1000,
       );
       const minutesSinceEnd = getTimeDifferenceInMinutes(estimatedEndTime, now);
       if (minutesSinceEnd <= 5 && now >= estimatedEndTime) {
@@ -2654,7 +2653,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
     if (!shouldPoll) {
       console.log(
-        "[BetGameDetail] Outside polling window, not auto-refreshing"
+        "[BetGameDetail] Outside polling window, not auto-refreshing",
       );
       return;
     }
@@ -2667,7 +2666,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             useEventId
               ? String(sportToUse).toLowerCase() + "/" + useEventId
               : String(sportToUse).toLowerCase() + "/" + game.id
-          }`
+          }`,
         );
         const data = await response.json();
         setSummaryData(data);
@@ -2687,23 +2686,23 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         } else if (newGameState === "pre" && newGameDate) {
           const minutesUntilStart = getTimeDifferenceInMinutes(
             newNow,
-            newGameDate
+            newGameDate,
           );
           shouldContinue = minutesUntilStart <= 5 && newNow < newGameDate;
         } else if (newGameState === "post" && newGameDate) {
           const estimatedEndTime = new Date(
-            newGameDate.getTime() + 2.5 * 60 * 60 * 1000
+            newGameDate.getTime() + 2.5 * 60 * 60 * 1000,
           );
           const minutesSinceEnd = getTimeDifferenceInMinutes(
             estimatedEndTime,
-            newNow
+            newNow,
           );
           shouldContinue = minutesSinceEnd <= 5 && newNow >= estimatedEndTime;
         }
 
         if (!shouldContinue) {
           console.log(
-            "[BetGameDetail] Exiting polling window, stopping auto-refresh"
+            "[BetGameDetail] Exiting polling window, stopping auto-refresh",
           );
           clearInterval(intervalId);
         }
@@ -2835,10 +2834,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     }
 
     const team1Scores = Object.values(gameData.linescores1).map((score) =>
-      parseInt(score)
+      parseInt(score),
     );
     const team2Scores = Object.values(gameData.linescores2).map((score) =>
-      parseInt(score)
+      parseInt(score),
     );
 
     return { team1Scores, team2Scores };
@@ -2849,7 +2848,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     if (!summaryData?.boxscore?.teams) return [];
 
     const teamData = summaryData.boxscore.teams.find(
-      (t) => t.team.abbreviation === teamAbbr
+      (t) => t.team.abbreviation === teamAbbr,
     );
 
     if (!teamData?.statistics) return [];
@@ -2879,15 +2878,15 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
   const team1BoxScore = useMemo(
     () => parseBoxScore(gameData.team1Abbr, gameData.status === "pre"),
-    [summaryData, gameData.team1Abbr, gameData.status]
+    [summaryData, gameData.team1Abbr, gameData.status],
   );
   const team2BoxScore = useMemo(
     () => parseBoxScore(gameData.team2Abbr, gameData.status === "pre"),
-    [summaryData, gameData.team2Abbr, gameData.status]
+    [summaryData, gameData.team2Abbr, gameData.status],
   );
   const winProbData = useMemo(
     () => summaryData?.winprobability || generateWinProbability(),
-    [summaryData]
+    [summaryData],
   );
 
   // Dynamic tabs based on game state
@@ -2990,8 +2989,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             ? "1H"
                             : "2H"
                           : gameData.sport === "NHL" && i >= 3
-                          ? `OT${i - 2}`
-                          : i + 1}
+                            ? `OT${i - 2}`
+                            : i + 1}
                       </Text>
                     ))}
                     <Text
@@ -3083,10 +3082,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     if (sportUpper === "NHL") {
                       // NHL: Split into Skaters and Goalies
                       const skaters = athletes.filter(
-                        (p) => p.athlete?.position?.toUpperCase() !== "G"
+                        (p) => p.athlete?.position?.toUpperCase() !== "G",
                       );
                       const goalies = athletes.filter(
-                        (p) => p.athlete?.position?.toUpperCase() === "G"
+                        (p) => p.athlete?.position?.toUpperCase() === "G",
                       );
                       if (skaters.length > 0) {
                         groups.push({
@@ -3136,8 +3135,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             key === "kickreturns"
                               ? "Kick Returns"
                               : key === "puntreturns"
-                              ? "Punt Returns"
-                              : key.charAt(0).toUpperCase() + key.slice(1);
+                                ? "Punt Returns"
+                                : key.charAt(0).toUpperCase() + key.slice(1);
                           groups.push({
                             label,
                             players: statGroups[key],
@@ -3164,20 +3163,20 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
                       if (isLive) {
                         primaryGroup = athletes.filter(
-                          (p) => p.active === true
+                          (p) => p.active === true,
                         );
                         secondaryGroup = athletes.filter(
-                          (p) => p.active !== true
+                          (p) => p.active !== true,
                         );
                         primaryLabel = "On Court";
                         secondaryLabel = "Bench";
                       } else {
                         primaryGroup = athletes.filter(
-                          (p) => p.starter === true
+                          (p) => p.starter === true,
                         );
                         secondaryGroup = athletes
                           .filter(
-                            (p) => p.starter === false || p.starter == null
+                            (p) => p.starter === false || p.starter == null,
                           )
                           .sort((a, b) => {
                             const minA = parseInt(a.stats?.MIN || "0");
@@ -3238,17 +3237,17 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             const playerWithStats = group.players.find(
                               (p) =>
                                 p.stats?.[group.statCategory] &&
-                                typeof p.stats[group.statCategory] === "object"
+                                typeof p.stats[group.statCategory] === "object",
                             );
                             if (playerWithStats) {
                               statKeys = Object.keys(
-                                playerWithStats.stats[group.statCategory]
+                                playerWithStats.stats[group.statCategory],
                               );
                             }
                           } else {
                             // NHL/NBA: Extract keys from top-level stats
                             const playerWithStats = group.players.find(
-                              (p) => p.stats && Object.keys(p.stats).length > 0
+                              (p) => p.stats && Object.keys(p.stats).length > 0,
                             );
                             if (playerWithStats) {
                               statKeys = Object.keys(playerWithStats.stats);
@@ -3309,10 +3308,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 : b.stats;
 
                               const valueA = parseStatValue(
-                                statsA?.[sortState.column]
+                                statsA?.[sortState.column],
                               );
                               const valueB = parseStatValue(
-                                statsB?.[sortState.column]
+                                statsB?.[sortState.column],
                               );
 
                               if (sortState.direction === "desc") {
@@ -3715,7 +3714,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   {
                     team2Color: gameData.team2Color,
                     team2AlternateColor: gameData.team2AlternateColor,
-                  }
+                  },
                 );
 
                 // Create a map of stats for easier comparison
@@ -3741,7 +3740,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     team2Value,
                     team1Color,
                     team2Color,
-                    theme
+                    theme,
                   );
                 });
               })()}
@@ -3768,7 +3767,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 {
                   team2Color: gameData.team2Color,
                   team2AlternateColor: gameData.team2AlternateColor,
-                }
+                },
               );
 
               // Parse win probability data
@@ -4010,7 +4009,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                           : ` L${x},${y}`)
                                       );
                                     },
-                                    ""
+                                    "",
                                   )}
                                   fill="none"
                                   stroke={team2Color}
@@ -4031,7 +4030,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                           : ` L${x},${y}`)
                                       );
                                     },
-                                    ""
+                                    "",
                                   )}
                                   fill="none"
                                   stroke={team1Color}
@@ -4082,7 +4081,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 {
                   team2Color: gameData.team2Color,
                   team2AlternateColor: gameData.team2AlternateColor,
-                }
+                },
               );
 
               const sportUpper = (gameData.sport || "").toUpperCase();
@@ -4110,7 +4109,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           {
                             team2Color: gameData.team2Color,
                             team2AlternateColor: gameData.team2AlternateColor,
-                          }
+                          },
                         );
 
                         // Determine which team the drive belongs to
@@ -4139,8 +4138,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               ]}
                             >
                               {(summaryData.drives.current?.description ||
-                                summaryData.drives.current?.scoringType?.displayName ||
-                                summaryData.drives.current?.end?.downDistanceText ||
+                                summaryData.drives.current?.scoringType
+                                  ?.displayName ||
+                                summaryData.drives.current?.end
+                                  ?.downDistanceText ||
                                 summaryData.drives.current?.start
                                   ?.downDistanceText) && (
                                 <Text
@@ -4152,7 +4153,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   {summaryData.drives.current?.description ||
                                     summaryData.drives.current?.scoringType
                                       ?.displayName ||
-                                    summaryData.drives.current?.end?.downDistanceText ||
+                                    summaryData.drives.current?.end
+                                      ?.downDistanceText ||
                                     summaryData.drives.current?.start
                                       ?.downDistanceText ||
                                     ""}
@@ -4227,7 +4229,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           {
                             team2Color: gameData.team2Color,
                             team2AlternateColor: gameData.team2AlternateColor,
-                          }
+                          },
                         );
 
                         // Determine which team the drive belongs to
@@ -4268,11 +4270,13 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 >
                                   {summaryData.drives.current?.period?.number &&
                                     `${ordinalSuffix(
-                                      summaryData.drives.current?.period.number
+                                      summaryData.drives.current?.period.number,
                                     )} Quarter`}
-                                  {summaryData.drives.current?.clock?.displayValue &&
+                                  {summaryData.drives.current?.clock
+                                    ?.displayValue &&
                                     ` • ${summaryData.drives.current?.clock.displayValue}`}
-                                  {summaryData.drives.current?.team?.displayName &&
+                                  {summaryData.drives.current?.team
+                                    ?.displayName &&
                                     `${summaryData.drives.current?.team.displayName}`}
                                 </Text>
                               </View>
@@ -4288,17 +4292,18 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       summaryData.drives.current?.participants.length > 0 &&
                       (() => {
                         console.log("[NFL Participants] Starting render");
-                        const participants = summaryData.drives.current?.participants;
+                        const participants =
+                          summaryData.drives.current?.participants;
                         console.log(
                           "[NFL Participants] participants:",
                           participants,
                           "isArray:",
-                          Array.isArray(participants)
+                          Array.isArray(participants),
                         );
                         const playTypeId = summaryData.drives.current?.type?.id;
                         console.log(
                           "[NFL Participants] playTypeId:",
-                          playTypeId
+                          playTypeId,
                         );
 
                         // Helper function to format participant type (camelCase to Title Case)
@@ -4311,7 +4316,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             .split(" ")
                             .map(
                               (word) =>
-                                word.charAt(0).toUpperCase() + word.slice(1)
+                                word.charAt(0).toUpperCase() + word.slice(1),
                             )
                             .join(" ");
                         };
@@ -4320,7 +4325,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         const getPlayerStats = (
                           player,
                           playTypeId,
-                          participantType
+                          participantType,
                         ) => {
                           console.log(
                             "[getPlayerStats] Called with player:",
@@ -4328,14 +4333,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             "playType:",
                             playTypeId,
                             "participantType:",
-                            participantType
+                            participantType,
                           );
                           if (
                             !summaryData?.boxscore?.players ||
                             !player?.athlete?.id
                           ) {
                             console.log(
-                              "[getPlayerStats] Missing data, returning empty array"
+                              "[getPlayerStats] Missing data, returning empty array",
                             );
                             return [];
                           }
@@ -4344,13 +4349,13 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             "[getPlayerStats] boxscore.players type:",
                             typeof summaryData.boxscore.players,
                             "isArray:",
-                            Array.isArray(summaryData.boxscore.players)
+                            Array.isArray(summaryData.boxscore.players),
                           );
 
                           // Ensure players is an array
                           if (!Array.isArray(summaryData.boxscore.players)) {
                             console.log(
-                              "[getPlayerStats] players is not an array!"
+                              "[getPlayerStats] players is not an array!",
                             );
                             return [];
                           }
@@ -4360,7 +4365,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           for (const teamData of summaryData.boxscore.players) {
                             console.log(
                               "[getPlayerStats] Processing team:",
-                              teamData?.team?.abbreviation
+                              teamData?.team?.abbreviation,
                             );
                             // Statistics is an object with athletes array, not an array of categories
                             const athletes =
@@ -4371,12 +4376,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               "isArray:",
                               Array.isArray(athletes),
                               "length:",
-                              athletes?.length
+                              athletes?.length,
                             );
 
                             if (!Array.isArray(athletes)) {
                               console.log(
-                                "[getPlayerStats] athletes is not an array, skipping"
+                                "[getPlayerStats] athletes is not an array, skipping",
                               );
                               continue;
                             }
@@ -4390,7 +4395,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               ) {
                                 console.log(
                                   "[getPlayerStats] Found matching player:",
-                                  athlete.displayName
+                                  athlete.displayName,
                                 );
                                 if (!playerBoxscoreData)
                                   playerBoxscoreData = {};
@@ -4398,7 +4403,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 const statsObj = athleteData.stats || {};
                                 console.log(
                                   "[getPlayerStats] Stats object:",
-                                  statsObj
+                                  statsObj,
                                 );
                                 // Merge all stat categories into playerBoxscoreData
                                 Object.assign(playerBoxscoreData, statsObj);
@@ -4408,13 +4413,13 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
                           if (!playerBoxscoreData) {
                             console.log(
-                              "[getPlayerStats] Player not found in boxscore"
+                              "[getPlayerStats] Player not found in boxscore",
                             );
                             return [];
                           }
                           console.log(
                             "[getPlayerStats] playerBoxscoreData:",
-                            playerBoxscoreData
+                            playerBoxscoreData,
                           );
 
                           const stats = [];
@@ -4757,13 +4762,13 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           {
                             team2Color: gameData.team2Color,
                             team2AlternateColor: gameData.team2AlternateColor,
-                          }
+                          },
                         );
 
                         console.log(
                           "[NFL Participants] About to map",
                           participants.length,
-                          "participants"
+                          "participants",
                         );
                         return (
                           <View
@@ -4785,7 +4790,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 "[NFL Participants] Processing idx:",
                                 idx,
                                 "participant:",
-                                participant
+                                participant,
                               );
                               const athlete = participant.athlete;
                               if (!athlete) return null;
@@ -4819,7 +4824,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               const stats = getPlayerStats(
                                 participant,
                                 playTypeId,
-                                participant.type
+                                participant.type,
                               );
                               console.log(
                                 "[NFL Participants] Stats for",
@@ -4829,7 +4834,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 "type:",
                                 typeof stats,
                                 "isArray:",
-                                Array.isArray(stats)
+                                Array.isArray(stats),
                               );
 
                               return (
@@ -4877,7 +4882,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                       >
                                         {positionAbbr} • {teamAbbr} •{" "}
                                         {formatParticipantType(
-                                          participant.type
+                                          participant.type,
                                         )}
                                       </Text>
                                       {(() => {
@@ -4885,7 +4890,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                           "[NFL Participants] Rendering stats, isArray:",
                                           Array.isArray(stats),
                                           "length:",
-                                          stats?.length
+                                          stats?.length,
                                         );
                                         return (
                                           Array.isArray(stats) &&
@@ -4955,7 +4960,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   {
                     team2Color: gameData.team2Color,
                     team2AlternateColor: gameData.team2AlternateColor,
-                  }
+                  },
                 );
 
                 return (
@@ -5138,8 +5143,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 typeof t.away.offsetX === "number"
                                   ? t.away.offsetX
                                   : typeof t.offsetX === "number"
-                                  ? t.offsetX
-                                  : -0.5;
+                                    ? t.offsetX
+                                    : -0.5;
                               plays.push({
                                 coordinate: {
                                   x: (t.away.x ?? t.x) + offsetX,
@@ -5156,8 +5161,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 typeof t.home.offsetX === "number"
                                   ? t.home.offsetX
                                   : typeof t.offsetX === "number"
-                                  ? t.offsetX
-                                  : 0.5;
+                                    ? t.offsetX
+                                    : 0.5;
                               plays.push({
                                 coordinate: {
                                   x: (t.home.x ?? t.x) + offsetX,
@@ -5224,11 +5229,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
                             const finalLeftPercent = Math.max(
                               2,
-                              Math.min(98, leftPercent)
+                              Math.min(98, leftPercent),
                             );
                             const finalTopPercent = Math.max(
                               1.5,
-                              Math.min(98.5, topPercent)
+                              Math.min(98.5, topPercent),
                             );
 
                             // Clamp to respective sides (home/right vs away/left)
@@ -5307,7 +5312,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   {
                     team2Color: gameData.team2Color,
                     team2AlternateColor: gameData.team2AlternateColor,
-                  }
+                  },
                 );
 
                 return (
@@ -5434,7 +5439,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
               team2AlternateColor:
                 teamB?.alternateColor || teamB?.teamAlternateColor,
             },
-            colors
+            colors,
           );
           // Normalize colors to include '#' prefix when missing
           const normalizeColor = (c) => {
@@ -5513,14 +5518,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   const lines =
                     bk && Array.isArray(bk.altLines) ? bk.altLines : [];
                   lines.forEach((a) =>
-                    collectedAlts.push({ ...a, _side: side })
+                    collectedAlts.push({ ...a, _side: side }),
                   );
                 });
                 const altBySide = {
                   over: collectedAlts.filter((a) => a._side === "over"),
                   under: collectedAlts.filter((a) => a._side === "under"),
                   other: collectedAlts.filter(
-                    (a) => a._side !== "over" && a._side !== "under"
+                    (a) => a._side !== "over" && a._side !== "under",
                   ),
                 };
 
@@ -5550,14 +5555,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 borderColor: isBetSelected(
                                   `team-${teamAbbr}-ou-${statId}-${marketLabel
                                     .replace(/\s+/g, "-")
-                                    .toLowerCase()}-over`
+                                    .toLowerCase()}-over`,
                                 )
                                   ? colors.primary
                                   : teamSmartColor,
                                 backgroundColor: isBetSelected(
                                   `team-${teamAbbr}-ou-${statId}-${marketLabel
                                     .replace(/\s+/g, "-")
-                                    .toLowerCase()}-over`
+                                    .toLowerCase()}-over`,
                                 )
                                   ? colors.primary
                                   : theme.surfaceSecondary,
@@ -5586,7 +5591,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   }`,
                                   line: `O ${overVariant.bookmaker.overUnder}`,
                                   odds: ensureAmericanLocal(
-                                    overVariant.bookmaker.odds
+                                    overVariant.bookmaker.odds,
                                   ),
                                 });
                             }}
@@ -5598,7 +5603,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   color: isBetSelected(
                                     `team-${teamAbbr}-ou-${statId}-${marketLabel
                                       .replace(/\s+/g, "-")
-                                      .toLowerCase()}-over`
+                                      .toLowerCase()}-over`,
                                   )
                                     ? "#fff"
                                     : theme.text,
@@ -5614,7 +5619,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   color: isBetSelected(
                                     `team-${teamAbbr}-ou-${statId}-${marketLabel
                                       .replace(/\s+/g, "-")
-                                      .toLowerCase()}-over`
+                                      .toLowerCase()}-over`,
                                   )
                                     ? "#fff"
                                     : theme.text,
@@ -5630,7 +5635,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   color: isBetSelected(
                                     `team-${teamAbbr}-ou-${statId}-${marketLabel
                                       .replace(/\s+/g, "-")
-                                      .toLowerCase()}-over`
+                                      .toLowerCase()}-over`,
                                   )
                                     ? "#fff"
                                     : colors.primary,
@@ -5639,7 +5644,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             >
                               {formatOddsForDisplay(
                                 ensureAmericanLocal(overVariant.bookmaker.odds),
-                                oddsDisplay
+                                oddsDisplay,
                               )}
                             </Text>
                           </TouchableOpacity>
@@ -5653,14 +5658,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 borderColor: isBetSelected(
                                   `team-${teamAbbr}-ou-${statId}-${marketLabel
                                     .replace(/\s+/g, "-")
-                                    .toLowerCase()}-under`
+                                    .toLowerCase()}-under`,
                                 )
                                   ? colors.primary
                                   : teamSmartColor,
                                 backgroundColor: isBetSelected(
                                   `team-${teamAbbr}-ou-${statId}-${marketLabel
                                     .replace(/\s+/g, "-")
-                                    .toLowerCase()}-under`
+                                    .toLowerCase()}-under`,
                                 )
                                   ? colors.primary
                                   : theme.surfaceSecondary,
@@ -5689,7 +5694,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   }`,
                                   line: `U ${underVariant.bookmaker.overUnder}`,
                                   odds: ensureAmericanLocal(
-                                    underVariant.bookmaker.odds
+                                    underVariant.bookmaker.odds,
                                   ),
                                 });
                             }}
@@ -5701,7 +5706,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   color: isBetSelected(
                                     `team-${teamAbbr}-ou-${statId}-${marketLabel
                                       .replace(/\s+/g, "-")
-                                      .toLowerCase()}-under`
+                                      .toLowerCase()}-under`,
                                   )
                                     ? "#fff"
                                     : theme.text,
@@ -5717,7 +5722,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   color: isBetSelected(
                                     `team-${teamAbbr}-ou-${statId}-${marketLabel
                                       .replace(/\s+/g, "-")
-                                      .toLowerCase()}-under`
+                                      .toLowerCase()}-under`,
                                   )
                                     ? "#fff"
                                     : theme.text,
@@ -5733,7 +5738,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   color: isBetSelected(
                                     `team-${teamAbbr}-ou-${statId}-${marketLabel
                                       .replace(/\s+/g, "-")
-                                      .toLowerCase()}-under`
+                                      .toLowerCase()}-under`,
                                   )
                                     ? "#fff"
                                     : colors.primary,
@@ -5742,9 +5747,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             >
                               {formatOddsForDisplay(
                                 ensureAmericanLocal(
-                                  underVariant.bookmaker.odds
+                                  underVariant.bookmaker.odds,
                                 ),
-                                oddsDisplay
+                                oddsDisplay,
                               )}
                             </Text>
                           </TouchableOpacity>
@@ -5754,7 +5759,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
                     {/* Render non-OU primary buttons (Spread/Moneyline/etc.) so alts appear below them */}
                     {Object.keys(dkBySide).filter(
-                      (s) => s !== "over" && s !== "under"
+                      (s) => s !== "over" && s !== "under",
                     ).length > 0 && (
                       <View style={{ marginTop: 8 }}>
                         <View style={styles.ouButtonsContainer}>
@@ -5840,7 +5845,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     {oddsVal
                                       ? formatOddsForDisplay(
                                           oddsVal,
-                                          oddsDisplay
+                                          oddsDisplay,
                                         )
                                       : teamAbbr}
                                   </Text>
@@ -5878,7 +5883,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     ? ""
                                     : String(Math.ceil(parseFloat(raw)));
                                 const odds = ensureAmericanLocal(
-                                  alt.odds ?? alt.odds
+                                  alt.odds ?? alt.odds,
                                 );
                                 const betId = `team-${teamAbbr}-alt-over-${marketLabel
                                   .replace(/\s+/g, "-")
@@ -5949,7 +5954,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                       {odds
                                         ? formatOddsForDisplay(
                                             odds,
-                                            oddsDisplay
+                                            oddsDisplay,
                                           )
                                         : teamAbbr}
                                     </Text>
@@ -5982,7 +5987,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   ? String(raw)
                                   : String(Math.floor(num));
                                 const odds = ensureAmericanLocal(
-                                  alt.odds ?? alt.odds
+                                  alt.odds ?? alt.odds,
                                 );
                                 const betId = `team-${teamAbbr}-alt-under-${marketLabel
                                   .replace(/\s+/g, "-")
@@ -6053,7 +6058,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                       {odds
                                         ? formatOddsForDisplay(
                                             odds,
-                                            oddsDisplay
+                                            oddsDisplay,
                                           )
                                         : teamAbbr}
                                     </Text>
@@ -6082,7 +6087,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 const displayVal =
                                   alt.spread ?? alt.line ?? alt.overUnder ?? "";
                                 const odds = ensureAmericanLocal(
-                                  alt.odds ?? alt.odds
+                                  alt.odds ?? alt.odds,
                                 );
                                 const betId = `team-${teamAbbr}-alt-other-${marketLabel
                                   .replace(/\s+/g, "-")
@@ -6153,7 +6158,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                       {odds
                                         ? formatOddsForDisplay(
                                             odds,
-                                            oddsDisplay
+                                            oddsDisplay,
                                           )
                                         : teamAbbr}
                                     </Text>
@@ -6185,7 +6190,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   ? competitors.slice().reverse()
                   : competitors;
                 return displayCompetitors.map((c, i) =>
-                  renderTeamMarkets(c, i)
+                  renderTeamMarkets(c, i),
                 );
               })()}
             </ScrollView>
@@ -6336,14 +6341,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     const lines =
                       bk && Array.isArray(bk.altLines) ? bk.altLines : [];
                     lines.forEach((a) =>
-                      collectedAlts.push({ ...a, _side: side })
+                      collectedAlts.push({ ...a, _side: side }),
                     );
                   });
                   const altBySide = {
                     over: collectedAlts.filter((a) => a._side === "over"),
                     under: collectedAlts.filter((a) => a._side === "under"),
                     other: collectedAlts.filter(
-                      (a) => a._side !== "over" && a._side !== "under"
+                      (a) => a._side !== "over" && a._side !== "under",
                     ),
                   };
 
@@ -6376,14 +6381,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   borderColor: isBetSelected(
                                     `game-${mi}-${marketLabel
                                       .replace(/\s+/g, "-")
-                                      .toLowerCase()}-ou-over`
+                                      .toLowerCase()}-ou-over`,
                                   )
                                     ? colors.primary
                                     : theme.border,
                                   backgroundColor: isBetSelected(
                                     `game-${mi}-${marketLabel
                                       .replace(/\s+/g, "-")
-                                      .toLowerCase()}-ou-over`
+                                      .toLowerCase()}-ou-over`,
                                   )
                                     ? colors.primary
                                     : theme.surfaceSecondary,
@@ -6410,7 +6415,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     description: `Over ${overVariant.bookmaker.overUnder}`,
                                     line: `O ${overVariant.bookmaker.overUnder}`,
                                     odds: ensureAmerican(
-                                      overVariant.bookmaker.odds
+                                      overVariant.bookmaker.odds,
                                     ),
                                   });
                               }}
@@ -6422,7 +6427,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     color: isBetSelected(
                                       `game-${mi}-${marketLabel
                                         .replace(/\s+/g, "-")
-                                        .toLowerCase()}-ou-over`
+                                        .toLowerCase()}-ou-over`,
                                     )
                                       ? "#fff"
                                       : theme.text,
@@ -6438,7 +6443,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     color: isBetSelected(
                                       `game-${mi}-${marketLabel
                                         .replace(/\s+/g, "-")
-                                        .toLowerCase()}-ou-over`
+                                        .toLowerCase()}-ou-over`,
                                     )
                                       ? "#fff"
                                       : theme.text,
@@ -6454,7 +6459,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     color: isBetSelected(
                                       `game-${mi}-${marketLabel
                                         .replace(/\s+/g, "-")
-                                        .toLowerCase()}-ou-over`
+                                        .toLowerCase()}-ou-over`,
                                     )
                                       ? "#fff"
                                       : colors.primary,
@@ -6463,7 +6468,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               >
                                 {formatOddsForDisplay(
                                   ensureAmerican(overVariant.bookmaker.odds),
-                                  oddsDisplay
+                                  oddsDisplay,
                                 )}
                               </Text>
                             </TouchableOpacity>
@@ -6476,14 +6481,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   borderColor: isBetSelected(
                                     `game-${mi}-${marketLabel
                                       .replace(/\s+/g, "-")
-                                      .toLowerCase()}-ou-under`
+                                      .toLowerCase()}-ou-under`,
                                   )
                                     ? colors.primary
                                     : theme.border,
                                   backgroundColor: isBetSelected(
                                     `game-${mi}-${marketLabel
                                       .replace(/\s+/g, "-")
-                                      .toLowerCase()}-ou-under`
+                                      .toLowerCase()}-ou-under`,
                                   )
                                     ? colors.primary
                                     : theme.surfaceSecondary,
@@ -6510,7 +6515,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     description: `Under ${underVariant.bookmaker.overUnder}`,
                                     line: `U ${underVariant.bookmaker.overUnder}`,
                                     odds: ensureAmerican(
-                                      underVariant.bookmaker.odds
+                                      underVariant.bookmaker.odds,
                                     ),
                                   });
                               }}
@@ -6522,7 +6527,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     color: isBetSelected(
                                       `game-${mi}-${marketLabel
                                         .replace(/\s+/g, "-")
-                                        .toLowerCase()}-ou-under`
+                                        .toLowerCase()}-ou-under`,
                                     )
                                       ? "#fff"
                                       : theme.text,
@@ -6538,7 +6543,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     color: isBetSelected(
                                       `game-${mi}-${marketLabel
                                         .replace(/\s+/g, "-")
-                                        .toLowerCase()}-ou-under`
+                                        .toLowerCase()}-ou-under`,
                                     )
                                       ? "#fff"
                                       : theme.text,
@@ -6554,7 +6559,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     color: isBetSelected(
                                       `game-${mi}-${marketLabel
                                         .replace(/\s+/g, "-")
-                                        .toLowerCase()}-ou-under`
+                                        .toLowerCase()}-ou-under`,
                                     )
                                       ? "#fff"
                                       : colors.primary,
@@ -6563,7 +6568,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               >
                                 {formatOddsForDisplay(
                                   ensureAmerican(underVariant.bookmaker.odds),
-                                  oddsDisplay
+                                  oddsDisplay,
                                 )}
                               </Text>
                             </TouchableOpacity>
@@ -6572,7 +6577,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       )}
 
                       {Object.keys(dkBySide).filter(
-                        (s) => s !== "over" && s !== "under"
+                        (s) => s !== "over" && s !== "under",
                       ).length > 0 && (
                         <View style={{ marginTop: 8 }}>
                           <View style={styles.ouButtonsContainer}>
@@ -6668,7 +6673,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                       {oddsVal
                                         ? formatOddsForDisplay(
                                             oddsVal,
-                                            oddsDisplay
+                                            oddsDisplay,
                                           )
                                         : ""}
                                     </Text>
@@ -6711,7 +6716,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                       ? ""
                                       : String(Math.ceil(parseFloat(raw)));
                                   const odds = ensureAmerican(
-                                    alt.odds ?? alt.odds
+                                    alt.odds ?? alt.odds,
                                   );
                                   const betId = `game-${mi}-${marketLabel
                                     .replace(/\s+/g, "-")
@@ -6780,7 +6785,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                         {odds
                                           ? formatOddsForDisplay(
                                               odds,
-                                              oddsDisplay
+                                              oddsDisplay,
                                             )
                                           : ""}
                                       </Text>
@@ -6822,7 +6827,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                       ? String(raw)
                                       : String(Math.floor(num));
                                     const odds = ensureAmerican(
-                                      alt.odds ?? alt.odds
+                                      alt.odds ?? alt.odds,
                                     );
                                     const betId = `game-${mi}-${marketLabel
                                       .replace(/\s+/g, "-")
@@ -6892,7 +6897,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                           {odds
                                             ? formatOddsForDisplay(
                                                 odds,
-                                                oddsDisplay
+                                                oddsDisplay,
                                               )
                                             : ""}
                                         </Text>
@@ -6929,7 +6934,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                       alt.overUnder ??
                                       "";
                                     const odds = ensureAmerican(
-                                      alt.odds ?? alt.odds
+                                      alt.odds ?? alt.odds,
                                     );
                                     const betId = `game-${mi}-${marketLabel
                                       .replace(/\s+/g, "-")
@@ -6994,7 +6999,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                           {odds
                                             ? formatOddsForDisplay(
                                                 odds,
-                                                oddsDisplay
+                                                oddsDisplay,
                                               )
                                             : ""}
                                         </Text>
@@ -7339,7 +7344,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             {
               team2Color: gameData.team2Color,
               team2AlternateColor: gameData.team2AlternateColor,
-            }
+            },
           );
 
           return (

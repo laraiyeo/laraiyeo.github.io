@@ -160,7 +160,7 @@ export const ChatProvider = ({ children }) => {
       },
       (error) => {
         console.error("Error listening to chat messages:", error);
-      }
+      },
     );
 
     setListeners((prev) => ({
