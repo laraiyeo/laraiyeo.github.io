@@ -134,7 +134,7 @@ export const getEvents = async (minStartDate = null, maxStartDate = null, take =
 };
 
 // Get live events
-export const getLiveEvents = async (take = 20) => {
+export const getLiveEvents = async (take = 75) => {
     const cacheKey = `valorant_live_events_${take}`;
     return ValorantService.getCachedData(cacheKey, async () => {
         // Get current events and filter for live ones
@@ -502,7 +502,7 @@ export const getDiscoverEvents = async (take = 1000) => {
 };
 
 // Get series data for specific date range
-export const getSeriesData = async (completed = null, minStartDate = null, maxStartDate = null, take = 25) => {
+export const getSeriesData = async (completed = null, minStartDate = null, maxStartDate = null, take = 75) => {
     try {
         let endpoint = '/series?';
         const params = [];
@@ -540,7 +540,7 @@ export const getLiveSeries = async () => {
         const minStartDate = new Date(now.getTime() - 6 * 60 * 60 * 1000); // 6 hours ago
         
         // Fetch upcoming/ongoing series
-        const data = await ribApiCall(`/series?minStartDate=${encodeURIComponent(minStartDate.toISOString())}&completed=false&take=75`);
+        const data = await ribApiCall(`/series?minStartDate=${encodeURIComponent(minStartDate.toISOString())}&completed=false&take=250`);
         
         // Filter for series that are actually live
         if (data.data) {
@@ -559,7 +559,7 @@ export const getLiveSeries = async () => {
 };
 
 // Helper function to get completed series for a specific date
-export const getCompletedSeries = async (date, take = 25) => {
+export const getCompletedSeries = async (date, take = 75) => {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
     
@@ -596,7 +596,7 @@ export const getCompletedSeries = async (date, take = 25) => {
 };
 
 // Helper function to get upcoming series for a specific date
-export const getUpcomingSeries = async (date, take = 25) => {
+export const getUpcomingSeries = async (date, take = 75) => {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
     

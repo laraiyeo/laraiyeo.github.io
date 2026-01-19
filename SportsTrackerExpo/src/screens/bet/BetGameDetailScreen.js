@@ -847,16 +847,16 @@ const NFLField = React.memo(
             {/* Drive Visualization - Gradient from Start to End */}
             {showDrive &&
               drives &&
-              drives.start &&
-              drives.end &&
-              drives.start.yardLine != null &&
-              drives.end.yardLine != null &&
+              drives.current?.start &&
+              drives.current?.end &&
+              drives.current?.start.yardLine != null &&
+              drives.current?.end.yardLine != null &&
               (() => {
-                // Determine team color - check drives.team.id first
-                const teamId = drives.team?.id || drives.end?.team?.id;
+                // Determine team color - check drives.current?.team.id first
+                const teamId = drives.current?.team?.id || drives.current?.end?.team?.id;
 
-                const startPos = 100 - drives.start.yardLine;
-                const endPos = 100 - drives.end.yardLine;
+                const startPos = 100 - drives.current?.start.yardLine;
+                const endPos = 100 - drives.current?.end.yardLine;
 
                 // Handle both directions (start -> end or end -> start)
                 const isReversed = startPos > endPos;
@@ -867,8 +867,15 @@ const NFLField = React.memo(
                 const gradientColor =
                   teamId === team2Id ? team2Color : team1Color;
 
+                // Use a dynamic gradient id and Svg key so the SVG remounts
+                // when positions or color change (forces gradient/stops to update)
+                const gradId = `driveGrad-${Math.round(leftPos)}-${Math.round(
+                  rightPos
+                )}-${String(gradientColor).replace(/[#\s]/g, "")}`;
+
                 return (
                   <Svg
+                    key={gradId}
                     style={{
                       position: "absolute",
                       left: `${leftPos}%`,
@@ -879,7 +886,7 @@ const NFLField = React.memo(
                   >
                     <Defs>
                       <LinearGradient
-                        id="driveGrad"
+                        id={gradId}
                         x1={isReversed ? "100%" : "0%"}
                         y1="0%"
                         x2={isReversed ? "0%" : "100%"}
@@ -888,7 +895,7 @@ const NFLField = React.memo(
                         <Stop
                           offset="0%"
                           stopColor={gradientColor}
-                          stopOpacity="0.25"
+                          stopOpacity="0.35"
                         />
                         <Stop
                           offset="100%"
@@ -897,7 +904,7 @@ const NFLField = React.memo(
                         />
                       </LinearGradient>
                     </Defs>
-                    <Rect width="100%" height="100%" fill="url(#driveGrad)" />
+                    <Rect width="100%" height="100%" fill={`url(#${gradId})`} />
                   </Svg>
                 );
               })()}
@@ -4092,7 +4099,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 return (
                   <View style={{ width: "100%" }}>
                     {/* Down/Distance or Scoring Type */}
-                    {summaryData?.drives &&
+                    {summaryData?.drives.current &&
                       (() => {
                         // Get smart team colors for proper color handling
                         const { team1Color, team2Color } = getSmartTeamColors(
@@ -4108,8 +4115,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
                         // Determine which team the drive belongs to
                         const driveTeamId =
-                          summaryData.drives.team?.id ||
-                          summaryData.drives.end?.team?.id;
+                          summaryData.drives.current?.team?.id ||
+                          summaryData.drives.current?.start?.team?.id;
                         const driveTeamColor =
                           driveTeamId === gameData.team2Id
                             ? team2Color
@@ -4131,10 +4138,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 },
                               ]}
                             >
-                              {(summaryData.drives?.description ||
-                                summaryData.drives?.scoringType?.displayName ||
-                                summaryData.drives?.end?.downDistanceText ||
-                                summaryData.drives?.start
+                              {(summaryData.drives.current?.description ||
+                                summaryData.drives.current?.scoringType?.displayName ||
+                                summaryData.drives.current?.end?.downDistanceText ||
+                                summaryData.drives.current?.start
                                   ?.downDistanceText) && (
                                 <Text
                                   style={[
@@ -4142,16 +4149,16 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     { color: theme.text, textAlign: "center" },
                                   ]}
                                 >
-                                  {summaryData.drives.description ||
-                                    summaryData.drives.scoringType
+                                  {summaryData.drives.current?.description ||
+                                    summaryData.drives.current?.scoringType
                                       ?.displayName ||
-                                    summaryData.drives.end?.downDistanceText ||
-                                    summaryData.drives.start
+                                    summaryData.drives.current?.end?.downDistanceText ||
+                                    summaryData.drives.current?.start
                                       ?.downDistanceText ||
                                     ""}
                                 </Text>
                               )}
-                              {summaryData.drives.type?.text && (
+                              {summaryData.drives.current?.type?.text && (
                                 <Text
                                   style={[
                                     styles.playText,
@@ -4162,7 +4169,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     },
                                   ]}
                                 >
-                                  {summaryData.drives.type?.text || ""}
+                                  {summaryData.drives.current?.type?.text || ""}
                                 </Text>
                               )}
                             </View>
@@ -4209,7 +4216,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     </View>
 
                     {/* Drive Text */}
-                    {summaryData?.drives &&
+                    {summaryData?.drives.current &&
                       (() => {
                         // Get smart team colors for proper color handling
                         const { team1Color, team2Color } = getSmartTeamColors(
@@ -4225,8 +4232,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
                         // Determine which team the drive belongs to
                         const driveTeamId =
-                          summaryData.drives.team?.id ||
-                          summaryData.drives.end?.team?.id;
+                          summaryData.drives.current?.team?.id ||
+                          summaryData.drives.current?.start?.team?.id;
                         const driveTeamColor =
                           driveTeamId === gameData.team2Id
                             ? team2Color
@@ -4249,8 +4256,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               <Text
                                 style={[styles.playText, { color: theme.text }]}
                               >
-                                {summaryData.drives.displayResult ||
-                                  summaryData.drives.text}
+                                {summaryData.drives.current?.displayResult ||
+                                  summaryData.drives.current?.text}
                               </Text>
                               <View style={styles.playMetaContainer}>
                                 <Text
@@ -4259,14 +4266,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     { color: theme.textSecondary },
                                   ]}
                                 >
-                                  {summaryData.drives.period?.number &&
+                                  {summaryData.drives.current?.period?.number &&
                                     `${ordinalSuffix(
-                                      summaryData.drives.period.number
+                                      summaryData.drives.current?.period.number
                                     )} Quarter`}
-                                  {summaryData.drives.clock?.displayValue &&
-                                    ` • ${summaryData.drives.clock.displayValue}`}
-                                  {summaryData.drives.team?.displayName &&
-                                    `${summaryData.drives.team.displayName}`}
+                                  {summaryData.drives.current?.clock?.displayValue &&
+                                    ` • ${summaryData.drives.current?.clock.displayValue}`}
+                                  {summaryData.drives.current?.team?.displayName &&
+                                    `${summaryData.drives.current?.team.displayName}`}
                                 </Text>
                               </View>
                             </View>
@@ -4276,19 +4283,19 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
                     {/* NFL Drive Participants Section */}
                     {isPro &&
-                      summaryData?.drives?.participants &&
-                      Array.isArray(summaryData.drives.participants) &&
-                      summaryData.drives.participants.length > 0 &&
+                      summaryData?.drives.current?.participants &&
+                      Array.isArray(summaryData.drives.current?.participants) &&
+                      summaryData.drives.current?.participants.length > 0 &&
                       (() => {
                         console.log("[NFL Participants] Starting render");
-                        const participants = summaryData.drives.participants;
+                        const participants = summaryData.drives.current?.participants;
                         console.log(
                           "[NFL Participants] participants:",
                           participants,
                           "isArray:",
                           Array.isArray(participants)
                         );
-                        const playTypeId = summaryData.drives.type?.id;
+                        const playTypeId = summaryData.drives.current?.type?.id;
                         console.log(
                           "[NFL Participants] playTypeId:",
                           playTypeId

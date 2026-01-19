@@ -17,6 +17,7 @@ import { useBetSlip } from "../../context/BetSlipContext";
 import BetSlip from "../../components/BetSlip";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { registerForPushNotifications } from "../../services/notificationService";
+import { getUserBetslips } from "../../services/betService";
 import { BannerAdWrapper, DEV_BANNER_ID } from "../../services/ads";
 
 const BetBetsScreen = () => {
@@ -68,6 +69,21 @@ const BetBetsScreen = () => {
   // Helper: build betslip fetch URL from a ticket (fallback when betslip_url not present)
   const buildBetslipUrlFromTicket = (ticket) => {
     try {
+      // If the ticket already contains a canonical betslip URL (from Supabase or
+      // an authoritative server), prefer and return it immediately instead of
+      // rebuilding. Check common variants used across the app/data sources.
+      const storedUrl =
+        ticket?.betslipData?.betslip_url ||
+        ticket?.betslipData?.betslipUrl ||
+        ticket?.betslip_url ||
+        ticket?.betslipUrl ||
+        ticket?.betslip_data?.betslip_url ||
+        ticket?.betslip_data?.betslipUrl ||
+        ticket?.betslip?.url ||
+        ticket?.betslip?.betslip_url ||
+        null;
+      if (storedUrl) return storedUrl;
+
       const bets = ticket.bets || [];
       const finalGameIds = [...new Set(bets.map((b) => b.gameId))].filter(
         Boolean
@@ -578,47 +594,79 @@ const BetBetsScreen = () => {
     const fetchAll = async () => {
       try {
         // Refresh persisted Supabase rows so submittedBets reflects current DB state
+        let freshSubmittedRows = null;
         try {
-          if (typeof loadSubmittedBets === "function")
-            await loadSubmittedBets();
-        } catch (e) {}
-        // First, attempt to fetch authoritative betslips from server
-        try {
-          const token = await AsyncStorage.getItem("@bet_token");
-          const base =
-            process.env.PUBLIC_API_URL ||
-            "https://laraiyeogithubio-production-f5af.up.railway.app";
-          // Only attempt server-side /api/betslips if a full absolute base URL is configured
-          if (token && base && base.length > 0) {
-            const url = base.replace(/\/$/, "") + "/api/betslips";
-            try {
-              const resp = await fetch(url, {
-                headers: { Authorization: `Bearer ${token}` },
-              });
-              if (resp.ok) {
-                const json = await resp.json();
-                const authoritative = json.betslips || json.bets || json || [];
-                // Don't set serverBets here - defer until after betslipLiveMap is updated
-                // to avoid intermediate renders with mismatched state
-                // if (mounted) setServerBets(authoritative);
-                // use authoritative locally for this run
-                var authoritativeLocal = authoritative;
-              } else {
-              }
-            } catch (innerErr) {}
-          } else {
-          }
+          if (typeof loadSubmittedBets === "function") await loadSubmittedBets();
         } catch (e) {}
 
-        // Decide which source of tickets to query for canonical payloads
-        const source =
+        // Also fetch fresh rows directly to avoid relying on state updates from context
+        try {
+          const fresh = await getUserBetslips();
+          if (fresh && fresh.success) freshSubmittedRows = fresh.betslips || [];
+        } catch (e) {
+          freshSubmittedRows = null;
+        }
+        // Server-side authoritative fetch deferred until after we select the
+        // appropriate `source` below. This avoids using stale `submittedBets`
+        // state and prevents unnecessary/invalid token requests.
+
+        // Decide which source of tickets to query for canonical payloads.
+        // We prefer authoritativeLocal (from server) then serverBets, then
+        // submittedBets from Supabase. If the chosen source lacks `betslip_url`
+        // values for all tickets, attempt a one-time server fetch for
+        // authoritative data and use that instead.
+        const submittedSource =
+          Array.isArray(freshSubmittedRows) && freshSubmittedRows.length > 0
+            ? freshSubmittedRows
+            : submittedBets;
+
+        let source =
           typeof authoritativeLocal !== "undefined" &&
           Array.isArray(authoritativeLocal) &&
           authoritativeLocal.length > 0
             ? authoritativeLocal
             : serverBets && Array.isArray(serverBets) && serverBets.length > 0
             ? serverBets
-            : submittedBets;
+            : submittedSource;
+
+        // If the source doesn't include betslip_url entries, try server fetch.
+        const sourceHasBetslipUrl =
+          Array.isArray(source) &&
+          source.length > 0 &&
+          source.every((t) =>
+            Boolean(
+              t?.betslip_url || t?.betslipData?.betslip_url || t?.betslip_data?.betslip_url
+            )
+          );
+
+        if (!sourceHasBetslipUrl) {
+          try {
+            const token = await AsyncStorage.getItem("@bet_token");
+            const base =
+              process.env.PUBLIC_API_URL ||
+              "https://laraiyeogithubio-production-f5af.up.railway.app";
+            if (token && base && base.length > 0) {
+              const url = base.replace(/\/$/, "") + "/api/betslips";
+              try {
+                const resp = await fetch(url, {
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                if (resp.ok) {
+                  const json = await resp.json();
+                  const authoritative = json.betslips || json.bets || json || [];
+                  if (Array.isArray(authoritative) && authoritative.length > 0) {
+                    authoritativeLocal = authoritative;
+                    source = authoritativeLocal;
+                  }
+                }
+              } catch (innerErr) {
+                // ignore server fetch errors
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
 
         // Log where the UI will source bets from when focused (helpful for debugging)
         try {
@@ -686,24 +734,6 @@ const BetBetsScreen = () => {
               null;
             const url = storedUrl || buildBetslipUrlFromTicket(ticket);
 
-            // Log full ticket data on initial load to verify betslip_url from Supabase
-            console.log(
-              `[BetsScreen:OnFocus:InitialLoad] Ticket ${ticket.id} data:`
-            );
-            console.log(
-              "  - ticket.betslip_url:",
-              ticket.betslip_url || "MISSING"
-            );
-            console.log(
-              "  - ticket.betslipData?.betslip_url:",
-              ticket.betslipData?.betslip_url || "MISSING"
-            );
-            console.log("  - Will use URL:", url);
-            console.log(
-              "  - URL source:",
-              storedUrl ? "FROM SUPABASE" : "BUILT FROM BETS"
-            );
-
             if (!url) return null;
             const res = await fetch(url);
             if (!res.ok) return null;
@@ -712,10 +742,6 @@ const BetBetsScreen = () => {
             if (!data || typeof data !== "object") return null;
             // Attach betslip_url to the payload so polling can reuse it
             data.betslip_url = url;
-            console.log(
-              `[BetsScreen:OnFocus:Fetched] Ticket ${ticket.id}: Successfully fetched and attached betslip_url to payload:`,
-              url
-            );
             return { id: ticket.id, data };
           } catch (e) {
             return null;
@@ -729,44 +755,16 @@ const BetBetsScreen = () => {
           if (r && r.id) map[r.id] = r.data;
         });
 
-        console.log(
-          `[BetsScreen:OnFocus] Fetched ${
-            Object.keys(map).length
-          } betslip payloads. Tickets:`,
-          Object.keys(map)
-        );
-        console.log(
-          `[BetsScreen:OnFocus] Has authoritativeLocal:`,
-          typeof authoritativeLocal !== "undefined" &&
-            Array.isArray(authoritativeLocal),
-          "count:",
-          authoritativeLocal?.length || 0
-        );
-
         // Batch state updates to prevent intermediate renders with mismatched data
         // Update betslipLiveMap and serverBets together if we have authoritative data
         if (
           typeof authoritativeLocal !== "undefined" &&
           Array.isArray(authoritativeLocal)
         ) {
-          // Update both states in sequence to minimize render gap
-          console.log(
-            `[BetsScreen:OnFocus] Updating betslipLiveMap with ${
-              Object.keys(map).length
-            } entries and setting serverBets with ${
-              authoritativeLocal.length
-            } tickets`
-          );
           betslipLiveMapRef.current = { ...betslipLiveMapRef.current, ...map };
           setBetslipLiveMap((prev) => ({ ...prev, ...map }));
           if (mounted) setServerBets(authoritativeLocal);
         } else {
-          // Only update betslipLiveMap if no authoritative data
-          console.log(
-            `[BetsScreen:OnFocus] Updating betslipLiveMap with ${
-              Object.keys(map).length
-            } entries (no serverBets)`
-          );
           betslipLiveMapRef.current = { ...betslipLiveMapRef.current, ...map };
           setBetslipLiveMap((prev) => ({ ...prev, ...map }));
         }
@@ -815,26 +813,10 @@ const BetBetsScreen = () => {
 
           // If no betslip_url in ref, defer polling until on-focus fetch completes
           if (!url) {
-            console.log(
-              `[BetsScreen:Poll] No betslip_url in betslipLiveMapRef for ticket ${ticket.id}, deferring poll by 2 seconds`
-            );
             const handle = setTimeout(runOnceAndSchedule, 2000);
             pollsRef.current[ticket.id] = handle;
             return;
           }
-
-          console.log(`[BetsScreen:Poll:Fetch] Ticket ${ticket.id}:`);
-          console.log("  - Using URL from betslipLiveMapRef:", url);
-          console.log(
-            "  - URL contains correct params:",
-            url.includes("p1_pr") ||
-              url.includes("p1_ga") ||
-              url.includes("p1_sht") ||
-              url.includes("p2_ga")
-              ? "YES (milestone params found)"
-              : "NO (using generic pts params)"
-          );
-          console.log("  - Fetching now...");
 
           const res = await fetch(url);
           if (!res.ok) {
@@ -845,17 +827,6 @@ const BetBetsScreen = () => {
           if (!mounted) return;
           // Only update if we got valid data (don't overwrite good data with null/undefined)
           if (data && typeof data === "object") {
-            console.log(`[BetsScreen:Poll:Success] Ticket ${ticket.id}:`);
-            console.log(
-              "  - Fetch successful, has events:",
-              !!data.events,
-              "count:",
-              data.events?.length || 0
-            );
-            console.log("  - Re-attaching betslip_url to payload:", url);
-            console.log(
-              "  - Updating betslipLiveMapRef and state with fresh data"
-            );
             // CRITICAL: Preserve betslip_url when updating with fresh data from server
             // The server response doesn't include betslip_url, so we must add it back
             data.betslip_url = url;
@@ -866,11 +837,6 @@ const BetBetsScreen = () => {
             };
             setBetslipLiveMap((prev) => ({ ...prev, [ticket.id]: data }));
           } else {
-            console.log(
-              `[BetsScreen:Poll] Skipping invalid data for ticket ${ticket.id}, data:`,
-              typeof data,
-              data === null ? "null" : "invalid"
-            );
           }
         } catch (e) {
           // ignore fetch errors; keep polling but don't clear existing data
@@ -947,14 +913,6 @@ const BetBetsScreen = () => {
       serverBets && Array.isArray(serverBets) && serverBets.length > 0
         ? serverBets
         : submittedBets;
-
-    console.log(
-      `[BetsScreen:PollingEffect] Using ${
-        ticketsToUse === serverBets ? "serverBets" : "submittedBets"
-      } (${ticketsToUse?.length || 0} tickets). betslipLiveMap has ${
-        Object.keys(betslipLiveMap).length
-      } entries.`
-    );
 
     try {
       const inTickets = (ticketsToUse || []).filter((t) => {
@@ -1699,14 +1657,6 @@ const BetBetsScreen = () => {
 
     // Debug: log when rendering with no betslipData
     if (!betslipData && typeof __DEV__ !== "undefined" && __DEV__) {
-      console.log(
-        `[BetsScreen:Render] No betslipData for ticket ${betSlip.id}. live:`,
-        !!live,
-        "betSlip.betslipData:",
-        !!betSlip.betslipData,
-        "betslipLiveMap keys:",
-        Object.keys(betslipLiveMap)
-      );
     }
 
     // Helper: normalize gameId by stripping trailing sport suffix like _nba/_nfl
@@ -1852,6 +1802,31 @@ const BetBetsScreen = () => {
         return String(statType || "PTS")
           .toUpperCase()
           .substring(0, 3);
+      }
+    };
+
+    // Helper: resolve a key in an object with flexible casing/formatting
+    const resolveKeyInObject = (obj, key) => {
+      try {
+        if (!obj || !key) return null;
+        const k = String(key);
+        const candidates = new Set([
+          k,
+          k.toUpperCase(),
+          k.toLowerCase(),
+          k.replace(/[^a-z0-9]/gi, ""),
+          k.replace(/[^a-z0-9]/gi, "").toUpperCase(),
+        ]);
+        for (const c of candidates) {
+          if (c && Object.prototype.hasOwnProperty.call(obj, c)) return c;
+        }
+        const lower = k.toLowerCase();
+        for (const existing of Object.keys(obj)) {
+          if (String(existing).toLowerCase() === lower) return existing;
+        }
+        return null;
+      } catch (e) {
+        return null;
       }
     };
 
@@ -2200,52 +2175,67 @@ const BetBetsScreen = () => {
                   ? playerData.color
                   : `#${playerData.color}`;
               }
-              const statKey = deriveStatKey(bet.statType);
+              // Derive statKey using provided statType when available; otherwise
+              // attempt to infer from prop/description. Pass sport hint so NFL
+              // mappings return the canonical keys expected in betslip payloads.
+              const sportHint = getSportFromBet(bet) || (bet.sport || "");
+              let statKey = deriveStatKey(bet.statType, sportHint);
+              if (!statKey || statKey.length === 0 || statKey === "PTS") {
+                // try to infer from prop/description or propType
+                statKey = deriveStatKey(
+                  bet.prop || bet.description || bet.propType || "",
+                  sportHint
+                );
+              }
 
-              if (
-                bet.type === "milestone" &&
-                playerData.milestones?.[statKey]
-              ) {
+              // try to resolve milestone/overUnder keys with flexible casing
+              const milestoneKey = resolveKeyInObject(
+                playerData.milestones,
+                statKey
+              );
+              const ouKey = resolveKeyInObject(playerData.overUnder, statKey);
+
+              if (bet.type === "milestone" && milestoneKey) {
                 pick.currentValue = Number(
-                  playerData.milestones[statKey].current
+                  playerData.milestones[milestoneKey].current
                 );
                 pick.progressSource = `betslipData.event:${
                   eventData?.eventId || bet.gameId
-                }.players:${playerData.id}.milestones:${statKey}`;
+                }.players:${playerData.id}.milestones:${milestoneKey}`;
                 // Preserve the line from milestone data or original bet.line
                 // Don't convert to number - let progress bar function handle parsing
                 const rawLine =
-                  playerData.milestones[statKey].threshold ??
-                  playerData.milestones[statKey].bet ??
+                  playerData.milestones[milestoneKey].threshold ??
+                  playerData.milestones[milestoneKey].bet ??
                   bet.betValue ??
                   bet.threshold ??
                   bet.line;
                 if (rawLine != null) pick.line = rawLine;
                 pick.status =
-                  playerData.milestones[statKey].won === true
+                  playerData.milestones[milestoneKey].won === true
                     ? "winning"
-                    : playerData.milestones[statKey].won === false
+                    : playerData.milestones[milestoneKey].won === false
                     ? "losing"
                     : "pending";
                 pick.progressWonSource = `betslipData.event:${
                   eventData?.eventId || bet.gameId
-                }.players:${playerData.id}.milestones:${statKey}.won`;
-              } else if (playerData.overUnder?.[statKey]) {
+                }.players:${playerData.id}.milestones:${milestoneKey}.won`;
+              } else if (ouKey) {
                 pick.currentValue = Number(
-                  playerData.overUnder[statKey].current
+                  playerData.overUnder[ouKey].current
                 );
                 pick.progressSource = `betslipData.event:${
                   eventData?.eventId || bet.gameId
-                }.players:${playerData.id}.overUnder:${statKey}`;
+                }.players:${playerData.id}.overUnder:${ouKey}`;
                 pick.status =
-                  playerData.overUnder[statKey].won === true
+                  playerData.overUnder[ouKey].won === true
                     ? "winning"
-                    : playerData.overUnder[statKey].won === false
+                    : playerData.overUnder[ouKey].won === false
                     ? "losing"
                     : "pending";
                 pick.progressWonSource = `betslipData.event:${
                   eventData?.eventId || bet.gameId
-                }.players:${playerData.id}.overUnder:${statKey}.won`;
+                }.players:${playerData.id}.overUnder:${ouKey}.won`;
               } else if (playerData.milestones?.PRA) {
                 // Fallback to PRA milestone when specific statKey isn't available
                 if (pick.currentValue == null || isNaN(pick.currentValue)) {
@@ -3009,41 +2999,52 @@ const BetBetsScreen = () => {
               );
 
               if (p) {
-                const statKey = deriveStatKey(bet.statType, bet.sport);
+                const sportHint = getSportFromBet(bet) || (bet.sport || "");
+                let statKey = deriveStatKey(bet.statType, sportHint);
+                if (!statKey || statKey.length === 0 || statKey === "PTS") {
+                  statKey = deriveStatKey(
+                    bet.prop || bet.description || bet.propType || "",
+                    sportHint
+                  );
+                }
 
-                if (p.milestones?.[statKey]) {
-                  const milestoneValue = Number(p.milestones[statKey].current);
+                // resolve milestone/overUnder keys in override payloads
+                const milestoneKey = resolveKeyInObject(p.milestones, statKey);
+                const ouKey = resolveKeyInObject(p.overUnder, statKey);
+
+                if (milestoneKey) {
+                  const milestoneValue = Number(p.milestones[milestoneKey].current);
                   if (!isNaN(milestoneValue)) {
                     pick.currentValue = milestoneValue;
                     pick.progressSource = `overrideEvent.event:${
                       overrideEvent?.eventId || bet.gameId
-                    }.players:${p.id}.milestones:${statKey}`;
+                    }.players:${p.id}.milestones:${milestoneKey}`;
                     pick.status =
-                      p.milestones[statKey].won === true
+                      p.milestones[milestoneKey].won === true
                         ? "winning"
-                        : p.milestones[statKey].won === false
+                        : p.milestones[milestoneKey].won === false
                         ? "losing"
                         : "pending";
                     pick.progressWonSource = `overrideEvent.event:${
                       overrideEvent?.eventId || bet.gameId
-                    }.players:${p.id}.milestones:${statKey}`;
+                    }.players:${p.id}.milestones:${milestoneKey}`;
                   }
-                } else if (p.overUnder?.[statKey]) {
-                  const overUnderValue = Number(p.overUnder[statKey].current);
+                } else if (ouKey) {
+                  const overUnderValue = Number(p.overUnder[ouKey].current);
                   if (!isNaN(overUnderValue)) {
                     pick.currentValue = overUnderValue;
                     pick.progressSource = `overrideEvent.event:${
                       overrideEvent?.eventId || bet.gameId
-                    }.players:${p.id}.overUnder:${statKey}`;
+                    }.players:${p.id}.overUnder:${ouKey}`;
                     pick.status =
-                      p.overUnder[statKey].won === true
+                      p.overUnder[ouKey].won === true
                         ? "winning"
-                        : p.overUnder[statKey].won === false
+                        : p.overUnder[ouKey].won === false
                         ? "losing"
                         : "pending";
                     pick.progressWonSource = `overrideEvent.event:${
                       overrideEvent?.eventId || bet.gameId
-                    }.players:${p.id}.overUnder:${statKey}`;
+                    }.players:${p.id}.overUnder:${ouKey}`;
                   }
                 }
                 // PRA fallback: if no statKey value found, prefer PRA milestone if present
@@ -3588,23 +3589,23 @@ const BetBetsScreen = () => {
       }
 
       try {
-        // Simple debug: show whether progress bar should render and its value/source
-        const progressEnabled =
-          pick.currentValue != null &&
-          !isNaN(pick.currentValue) &&
-          String(pick.gameState || "").toLowerCase() !== "pre";
         // prefer explicit marker set when parsing values
         let progressSource = pick.progressSource || "none";
 
-        // Log bet progress info once per bet
+        // compute sport hint and stat key being searched for (for debugging)
+        const sportHint =
+          (bet && (bet.sport || (typeof bet.gameId === "string" && bet.gameId.includes("_") && bet.gameId.split("_").pop()))) ||
+          "unknown";
+        const statGuess = deriveStatKey(
+          bet.statType || bet.prop || bet.propType || "",
+          sportHint
+        );
+        const sportDisplay = sportHint ? String(sportHint).toUpperCase() : "N/A";
+        const lookingFor = statGuess ? String(statGuess).toUpperCase() : "N/A";
+
+        // Log bet progress info once per bet with sport/key context
         console.log(
-          `[Bet] ${
-            bet.prop || bet.description
-          } | Source: ${progressSource} | Current: ${
-            pick.currentValue ?? "N/A"
-          } | Line: ${bet.line ?? "N/A"} | GameState: ${
-            pick.gameState || "null"
-          } | ShowProgressBar: ${
+          `[Bet] ${bet.prop || bet.description} | Looking For: ${lookingFor} | Sport: ${sportDisplay} | Source: ${progressSource} | Current: ${pick.currentValue ?? "N/A"} | Line: ${bet.line ?? "N/A"} | GameState: ${pick.gameState || "null"} | ShowProgressBar: ${
             pick.currentValue !== null &&
             typeof pick.currentValue === "number" &&
             !isNaN(pick.currentValue) &&
@@ -3612,14 +3613,6 @@ const BetBetsScreen = () => {
             pick.gameState !== "pre"
           }`
         );
-
-        // Log progress bar check
-        const shouldShowProgressBar =
-          pick.currentValue !== null &&
-          typeof pick.currentValue === "number" &&
-          !isNaN(pick.currentValue) &&
-          isValidLineForProgress(pick.line) &&
-          pick.gameState !== "pre";
       } catch (e) {}
 
       return pick;

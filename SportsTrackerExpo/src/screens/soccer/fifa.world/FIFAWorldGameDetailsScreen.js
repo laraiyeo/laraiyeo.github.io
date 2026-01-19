@@ -795,9 +795,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
         gameData &&
         gameData.header?.competitions?.[0]?.status?.type?.state === "in";
       if (isLive) {
-        console.log(
-          "Stream modal closed, immediately fetching FIFA game data"
-        );
+        console.log("Stream modal closed, immediately fetching FIFA game data");
         loadGameDetails(true);
       }
     }
@@ -839,7 +837,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
         setStatsData(null);
 
         // Fetch lineup data when game data is updated
-        const lineupResult = await fetchLineupData();
+        const lineupResult = await fetchLineupData(processedData);
         setLineupData(lineupResult);
         console.log("[FIFAGameDetails] Lineup data updated:", lineupResult);
 
@@ -1257,7 +1255,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
       "paris saint germain": "psg",
       "paris saint-germain": "psg",
       "tottenham hotspur": "tottenham-hotspur",
-      "tottenham": "tottenham-hotspur",
+      tottenham: "tottenham-hotspur",
       "manchester united": "manchester-united",
       "manchester city": "manchester-city",
       "real madrid": "real-madrid",
@@ -1265,20 +1263,20 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
       "bayern munich": "bayern-munich",
       "borussia dortmund": "borussia-dortmund",
       "stade rennais": "rennes",
-      "marseille": "olympique-marseille",
-      "lafc": "los-angeles-fc",
+      marseille: "olympique-marseille",
+      lafc: "los-angeles-fc",
       "sporting kansas city": "sporting-kc",
       "chicago fire fc": "chicago-fire",
       "st. louis city sc": "st-louis-city",
       "afc bournemouth": "bournemouth",
-      "bournemouth": "bournemouth",
+      bournemouth: "bournemouth",
       "west ham united": "west-ham-united",
       "west ham": "west-ham-united",
       "brighton & hove albion": "brighton",
-      "brighton": "brighton",
+      brighton: "brighton",
       "crystal palace": "crystal-palace",
       "newcastle united": "newcastle-united",
-      "newcastle": "newcastle-united",
+      newcastle: "newcastle-united",
       "wolverhampton wanderers": "wolves",
       wolves: "wolves",
       "nottingham forest": "nottingham-forest",
@@ -4594,52 +4592,60 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
   };
 
   // Fetch lineup data from ESPN lineup API (exactly like scoreboard.js)
-  const fetchLineupData = async () => {
-    if (!gameId) return { homeLineup: [], awayLineup: [] };
+  const fetchLineupData = async (sourceData = null) => {
+    if (!gameId)
+      return {
+        homeLineup: [],
+        awayLineup: [],
+        homeFormation: "4-3-3",
+        awayFormation: "4-3-3",
+      };
 
     try {
-      console.log(
-        "[FIFAGameDetails] Fetching lineup data for gameId:",
-        gameId
-      );
+      const candidate = sourceData || gameData || {};
 
-      // Use the exact same API endpoint as scoreboard.js line 424
-      const LINEUP_API_URL = `https://cdn.espn.com/core/soccer/lineups?xhr=1&gameId=${gameId}`;
-      const response = await fetch(convertToHttps(LINEUP_API_URL));
+      // The summary data includes rosters at top-level in many payloads
+      const rosters =
+        candidate?.rosters || candidate?.gamepackageJSON?.rosters || [];
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (!Array.isArray(rosters) || rosters.length === 0) {
+        console.log(
+          "[EnglandGameDetails] No rosters found in summary data for gameId:",
+          gameId
+        );
+        return {
+          homeLineup: [],
+          awayLineup: [],
+          homeFormation: "4-3-3",
+          awayFormation: "4-3-3",
+        };
       }
 
-      const data = await response.json();
-      console.log("[FIFAGameDetails] Lineup API response:", data);
-
-      // Extract rosters and formations exactly like scoreboard.js does
-      const rosters = data?.gamepackageJSON?.rosters || [];
       const homeRoster = rosters.find((r) => r.homeAway === "home");
       const awayRoster = rosters.find((r) => r.homeAway === "away");
 
       const homeLineup = homeRoster?.roster || [];
       const awayLineup = awayRoster?.roster || [];
 
-      // Extract actual formations from roster data like scoreboard.js
       const homeFormation = homeRoster?.formation || "4-3-3";
       const awayFormation = awayRoster?.formation || "4-3-3";
 
-      console.log("[FIFAGameDetails] Lineup data extracted:", {
+      console.log("[EnglandGameDetails] Extracted lineups from summary:", {
         homeLineup: homeLineup.length,
         awayLineup: awayLineup.length,
         homeFormation,
         awayFormation,
-        rosters: rosters.length,
-        homeRoster: homeRoster ? "found" : "not found",
-        awayRoster: awayRoster ? "found" : "not found",
       });
 
       return { homeLineup, awayLineup, homeFormation, awayFormation };
     } catch (error) {
-      console.error("[FIFAGameDetails] fetchLineupData error:", error);
-      return { homeLineup: [], awayLineup: [] };
+      console.error("[EnglandGameDetails] fetchLineupData error:", error);
+      return {
+        homeLineup: [],
+        awayLineup: [],
+        homeFormation: "4-3-3",
+        awayFormation: "4-3-3",
+      };
     }
   };
 
@@ -5081,9 +5087,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
   const fetchPlaysDataInternal = async ({ silent = true } = {}) => {
     // Skip if user is actively scrolling
     if (isUserScrollingRef.current) {
-      console.log(
-        "[FIFAGameDetails] skipping plays fetch - user is scrolling"
-      );
+      console.log("[FIFAGameDetails] skipping plays fetch - user is scrolling");
       return;
     }
 
@@ -5123,9 +5127,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
       const data = await response.json();
 
       if (!data.items || data.items.length === 0) {
-        console.warn(
-          "[FIFAGameDetails] No plays data available in response"
-        );
+        console.warn("[FIFAGameDetails] No plays data available in response");
         if (initialLoad) setPlaysData([]);
         // Keep lastPlaysHashRef aligned with game-level hash (so we don't repeatedly try)
         lastPlaysHashRef.current = lastUpdateHash;
@@ -6248,23 +6250,25 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                 <View style={styles.playerModalNameSection}>
                   <TouchableOpacity
                     onPress={() => {
-                      navigation.navigate("FIFAWorldPlayerPage",
-                         {  playerId: id,
-                            playerName: name,  
-                            teamId: selectedPlayer.teamId,
-                            competitionId: gameData.header?.league?.slug,
-                            sport: 'soccer'
-                          }
-                      );
+                      navigation.navigate("FIFAWorldPlayerPage", {
+                        playerId: id,
+                        playerName: name,
+                        teamId: selectedPlayer.teamId,
+                        competitionId: gameData.header?.league?.slug,
+                        sport: "soccer",
+                      });
                       setPlayerPopupVisible(false);
-                  }}
+                    }}
                   >
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.playerModalName, { color: playerNameColor }]}
-                  >
-                    {name}
-                  </Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.playerModalName,
+                        { color: playerNameColor },
+                      ]}
+                    >
+                      {name}
+                    </Text>
                   </TouchableOpacity>
                   <View style={styles.playerTeamInfo}>
                     <TeamLogoImage
@@ -7795,6 +7799,27 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                               </Text>
                             </View>
                           </View>
+                          {/* Footer inside the card */}
+                          <View style={styles.shareCardFooter}>
+                            <Text
+                              style={[
+                                styles.shareCardFooterText,
+                                {
+                                  color: textColor,
+                                  textShadowColor: "rgba(0, 0, 0, 0.8)",
+                                  textShadowOffset: { width: 1, height: 1 },
+                                  textShadowRadius: 5,
+                                },
+                              ]}
+                            >
+                              SportsHeart{" "}
+                              <Ionicons
+                                name="heart"
+                                size={18}
+                                color={colors.primary}
+                              />
+                            </Text>
+                          </View>
                         </View>
                       );
                     })()}
@@ -8430,6 +8455,10 @@ const styles = StyleSheet.create({
     borderColor: "white",
     marginTop: -6,
     marginLeft: -6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.8,
+    shadowRadius: 5,
   },
   ballEndMarker: {
     width: 8,
@@ -9664,6 +9693,15 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     transform: [{ translateX: -7 }, { translateY: -7 }],
+  },
+  shareCardFooter: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 8,
+  },
+  shareCardFooterText: {
+    fontSize: 15,
+    fontWeight: "800",
   },
 });
 

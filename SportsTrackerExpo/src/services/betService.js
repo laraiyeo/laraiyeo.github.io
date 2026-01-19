@@ -604,6 +604,10 @@ export const getUserProfile = async () => {
 
     if (error) throw error;
 
+    console.log("getUserProfile: executing profile query for", {
+      profileId,
+      authUserId: user && user.id,
+    });
     return {
       success: true,
       profile: data,
@@ -801,12 +805,29 @@ const DAILY_KEY_FOR = (profileId) => `@daily_reward_${profileId}`;
  */
 export const getDailyRewardState = async (profileId) => {
   if (!profileId) return { success: false, error: "No profileId" };
+  const key = DAILY_KEY_FOR(profileId);
   // Try server-first to get canonical state
   try {
     let authToken = null;
     try {
       authToken = await AsyncStorage.getItem("@bet_token");
     } catch (e) {}
+    // If we have a stored server token, validate it's not expired before using it
+    if (authToken) {
+      try {
+        const payload = decodeJwt(authToken);
+        if (
+          !payload ||
+          (payload.exp && Date.now() / 1000 >= Number(payload.exp))
+        ) {
+          // stored token expired/invalid - ignore it
+          authToken = null;
+        }
+      } catch (e) {
+        authToken = null;
+      }
+    }
+
     if (!authToken) {
       try {
         const { data: { session } = {} } = await supabase.auth.getSession();
@@ -894,6 +915,17 @@ export const getDailyRewardState = async (profileId) => {
             let nextAvailableRaw =
               json.nextAvailableAt || json.daily_next_available_at || null;
 
+            // persist canonical server state locally
+            try {
+              const stateToStore = {
+                claimedDays,
+                nextAvailableAt: nextAvailableRaw,
+              };
+              await AsyncStorage.setItem(key, JSON.stringify(stateToStore));
+            } catch (e) {
+              /* ignore */
+            }
+
             return {
               success: true,
               availableDay: availableDay,
@@ -903,6 +935,17 @@ export const getDailyRewardState = async (profileId) => {
               nextAvailableAt: nextAvailableRaw,
               claimedDays,
             };
+          }
+
+          // Persist canonical server state locally so UI fallback stays in sync
+          const stateToStore = {
+            claimedDays,
+            nextAvailableAt: json.nextAvailableAt || null,
+          };
+          try {
+            await AsyncStorage.setItem(key, JSON.stringify(stateToStore));
+          } catch (e) {
+            /* ignore storage errors */
           }
 
           // Normalize nextAvailableAt and clear if it's in the past and cycle shows all unclaimed
@@ -943,6 +986,66 @@ export const getDailyRewardState = async (profileId) => {
   } catch (e) {
     console.warn("getDailyRewardState: server request failed", e?.message || e);
   }
+  // If server endpoint failed, try to reconcile with Supabase `profiles` row
+  // before falling back to purely local AsyncStorage state. This ensures
+  // stale local state (e.g. all-days-claimed) is corrected by canonical
+  // profile fields when available.
+  try {
+    try {
+      const { data: { user } = {} } = await supabase.auth.getUser();
+      const uid = user?.id || profileId;
+      if (uid) {
+        const { data: profileRow, error: profileErr } = await supabase
+          .from("profiles")
+          .select("daily_available_day,daily_claimed,daily_next_available_at")
+          .eq("id", uid)
+          .maybeSingle();
+        if (!profileErr && profileRow) {
+          const availRaw =
+            typeof profileRow.daily_available_day !== "undefined"
+              ? profileRow.daily_available_day
+              : null;
+          const availableDay = availRaw == null ? 1 : Number(availRaw) || 1;
+          const claimedFlag = !!profileRow.daily_claimed;
+
+          const claimedDays = new Array(7).fill(false);
+          for (let i = 0; i < Math.max(0, availableDay - 1) && i < 7; i++) {
+            claimedDays[i] = true;
+          }
+          if (claimedFlag) {
+            const idx = Math.min(Math.max(availableDay - 1, 0), 6);
+            claimedDays[idx] = true;
+          }
+
+          const nextAvailableAt = profileRow.daily_next_available_at || null;
+
+          // persist reconciled canonical state locally
+          try {
+            const stateToStore = {
+              claimedDays,
+              nextAvailableAt,
+            };
+            await AsyncStorage.setItem(key, JSON.stringify(stateToStore));
+          } catch (e) {
+            /* ignore storage errors */
+          }
+
+          return {
+            success: true,
+            claimedDays,
+            nextAvailableAt,
+            availableDay:
+              claimedDays.findIndex((v) => !v) === -1
+                ? null
+                : claimedDays.findIndex((v) => !v) + 1,
+            canClaim: !claimedFlag,
+          };
+        }
+      }
+    } catch (e) {
+      /* ignore profile reconciliation errors */
+    }
+  } catch (e) {}
 
   // Fallback to local AsyncStorage behavior
   try {
@@ -1002,19 +1105,46 @@ export const claimDailyReward = async (profileId) => {
     // Try calling server endpoint to claim canonical state first
     try {
       let authToken = null;
+      let tokenSource = null;
       try {
-        authToken = await AsyncStorage.getItem("@bet_token");
+        const t = await AsyncStorage.getItem("@bet_token");
+        if (t) {
+          // Validate decoded token expiry if possible; if invalid/expired,
+          // ignore and fall back to Supabase session access token.
+          let decoded = null;
+          try {
+            decoded = decodeJwt(t);
+          } catch (e) {
+            decoded = null;
+          }
+          const nowSec = Math.floor(Date.now() / 1000);
+          if (decoded && decoded.exp && Number(decoded.exp) > nowSec) {
+            authToken = t;
+            tokenSource = "server_token";
+          } else {
+            // ignore invalid/expired server token
+            authToken = null;
+            tokenSource = "server_token_expired_or_invalid";
+          }
+        }
       } catch (e) {}
       if (!authToken) {
         try {
           const { data: { session } = {} } = await supabase.auth.getSession();
-          if (session && session.access_token) authToken = session.access_token;
+          if (session && session.access_token) {
+            authToken = session.access_token;
+            tokenSource = "supabase_session";
+          }
         } catch (e) {}
       }
 
       if (authToken) {
         const SERVER_BASE =
           "https://laraiyeogithubio-production-f5af.up.railway.app";
+        console.log("claimDailyReward: calling server /api/daily/claim", {
+          profileId,
+          tokenSource: tokenSource || "unknown",
+        });
         const resp = await fetch(`${SERVER_BASE}/api/daily/claim`, {
           method: "POST",
           headers: {
@@ -1022,8 +1152,37 @@ export const claimDailyReward = async (profileId) => {
             Authorization: `Bearer ${authToken}`,
           },
         });
+        let rawText = null;
+        try {
+          rawText = await resp.text();
+        } catch (e) {}
+        let parsed = null;
+        try {
+          parsed = rawText ? JSON.parse(rawText) : null;
+        } catch (e) {
+          parsed = null;
+        }
+        console.log("claimDailyReward: server claim response", {
+          status: resp.status,
+          statusText: resp.statusText,
+          bodyText: rawText,
+          bodyJson: parsed,
+        });
+        // persist a diagnostics blob so it's available if console isn't visible
+        try {
+          await AsyncStorage.setItem(
+            `@daily_claim_last_response_${profileId}`,
+            JSON.stringify({
+              ts: new Date().toISOString(),
+              status: resp.status,
+              statusText: resp.statusText,
+              body: parsed || rawText,
+            })
+          );
+        } catch (e) {}
+
         if (resp.ok) {
-          const json = await resp.json().catch(() => null);
+          const json = parsed;
           if (json && json.success) {
             // Best-effort: update local storage to reflect canonical claim
             try {
@@ -1035,7 +1194,6 @@ export const claimDailyReward = async (profileId) => {
                   now.getTime() + 24 * 60 * 60 * 1000
                 ).toISOString(),
               };
-              // mark the appropriate day as claimed
               const dayNum = json.day || 1;
               state.claimedDays[dayNum - 1] = true;
               await AsyncStorage.setItem(key, JSON.stringify(state));
@@ -1045,6 +1203,22 @@ export const claimDailyReward = async (profileId) => {
               day: json.day,
               reward: json.reward,
               newCredits: json.user?.credits,
+              serverResponse: parsed || null,
+            };
+          }
+        } else {
+          // If server explicitly reported authorization error, allow fallback
+          if (resp.status === 401) {
+            // continue to fallback behavior (try supabase client update)
+          } else {
+            // For other server errors (eg. Not available yet / Already claimed),
+            // return the server message and do NOT attempt client-side fallback
+            const errMsg =
+              (parsed && parsed.message) || rawText || "Server error";
+            return {
+              success: false,
+              error: errMsg,
+              serverResponse: parsed || null,
             };
           }
         }
@@ -1103,18 +1277,84 @@ export const claimDailyReward = async (profileId) => {
     const newCredits = Math.round((currentCredits + reward) * 100) / 100;
 
     // Update profile credits locally via Supabase client (may be blocked by RLS)
+    // Declare outer-scope vars so we can report results later.
+    let updatedProfile = null;
+    let updateError = null;
+    let rawUpdateRes = null;
+    let refetchAfterUpdate = null;
     try {
-      const { error } = await supabase
+      // Also persist daily claim metadata so the server-side profile stays
+      // in sync with the client fallback behavior when allowed by RLS.
+      const nextAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      // compute new available day (advance by one, wrap to 1)
+      const newAvailableDay = dayNum < 7 ? dayNum + 1 : 1;
+      const updatePayload = {
+        credits: newCredits,
+        daily_claimed: true,
+        daily_claimed_at: now.toISOString(),
+        daily_next_available_at: nextAt.toISOString(),
+        daily_available_day: String(newAvailableDay),
+      };
+
+      const res = await supabase
         .from("profiles")
-        .update({ credits: newCredits })
-        .eq("id", uid);
-      if (error)
-        console.warn(
-          "claimDailyReward: failed to update credits",
-          error.message || error
+        .update(updatePayload)
+        .eq("id", uid)
+        .select()
+        .maybeSingle();
+      rawUpdateRes = res;
+      // Log full response for debugging
+      console.log("claimDailyReward: supabase update response:", {
+        uid,
+        updatePayload,
+        res,
+      });
+
+      updatedProfile = res?.data ?? null;
+      updateError = res?.error ?? null;
+      if (updateError) {
+        console.error(
+          "claimDailyReward: failed to update profile",
+          updateError.message || updateError
         );
+      }
+
+      // Fetch profile row after update to verify persisted values
+      try {
+        const refetch = await supabase
+          .from("profiles")
+          .select(
+            "id,username,credits,is_pro,daily_available_day,daily_claimed,daily_next_available_at,daily_claimed_at,updated_at"
+          )
+          .eq("id", uid)
+          .maybeSingle();
+        refetchAfterUpdate = refetch;
+        console.log("claimDailyReward: profile row after update:", {
+          uid,
+          refetch,
+        });
+        // persist supabase update diagnostics so they can be inspected later
+        try {
+          await AsyncStorage.setItem(
+            `@daily_claim_last_supabase_${profileId}`,
+            JSON.stringify({
+              ts: new Date().toISOString(),
+              uid,
+              updatePayload,
+              rawUpdateRes: rawUpdateRes || null,
+              refetchAfterUpdate: refetchAfterUpdate || null,
+            })
+          );
+        } catch (e) {}
+      } catch (e) {
+        console.warn(
+          "claimDailyReward: failed to refetch profile",
+          e?.message || e
+        );
+      }
     } catch (e) {
       console.error("claimDailyReward: update credits error", e);
+      updateError = e;
     }
 
     // Insert credit_ledger entry (best-effort)
@@ -1138,7 +1378,26 @@ export const claimDailyReward = async (profileId) => {
     state.nextAvailableAt = nextAt.toISOString();
     await AsyncStorage.setItem(key, JSON.stringify(state));
 
-    return { success: true, day: dayNum, reward, newCredits };
+    return {
+      success: true,
+      day: dayNum,
+      reward,
+      newCredits,
+      supabaseUpdate: {
+        success: !updateError,
+        error: updateError
+          ? {
+              message: updateError.message,
+              details: updateError.details,
+              hint: updateError.hint,
+            }
+          : null,
+        updatedProfile:
+          typeof updatedProfile !== "undefined" ? updatedProfile : null,
+        rawUpdateRes: rawUpdateRes || null,
+        refetchAfterUpdate: refetchAfterUpdate || null,
+      },
+    };
   } catch (e) {
     console.error("claimDailyReward error", e);
     return { success: false, error: e?.message || String(e) };

@@ -6865,6 +6865,18 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                     </>
                   );
                 })()}
+            {/* Footer inside the card */}
+            <View style={styles.mlbPlayerShareCardFooter}>
+              <Text
+                style={[
+                  styles.mlbPlayerShareCardFooterText,
+                  { color: theme.text },
+                ]}
+              >
+                SportsHeart{' '}
+                <Ionicons name="heart" size={18} color={colors.primary} />
+              </Text>
+            </View>
             </View>
 
             {/* Action Buttons */}
@@ -7497,6 +7509,18 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                     </>
                   );
                 })()}
+            {/* Footer inside the card */}
+            <View style={[styles.mlbPlayerShareCardFooter, {marginTop: -20, paddingBottom: 10}]}>
+              <Text
+                style={[
+                  styles.mlbPlayerShareCardFooterText,
+                  { color: theme.text },
+                ]}
+              >
+                SportsHeart{' '}
+                <Ionicons name="heart" size={18} color={colors.primary} />
+              </Text>
+            </View>
             </View>
 
             {/* Action Buttons */}
@@ -7916,6 +7940,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
     alignItems: "center",
+  },
+  mlbPlayerShareCardFooter: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 8,
+  },
+  mlbPlayerShareCardFooterText: {
+    fontSize: 15,
+    fontWeight: "800",
   },
   statTablePlayerCell: {
     flex: 2,

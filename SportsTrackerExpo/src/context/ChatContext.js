@@ -170,14 +170,26 @@ export const ChatProvider = ({ children }) => {
   };
 
   const unsubscribeFromChatMessages = (gameId) => {
-    if (listeners[gameId]) {
-      listeners[gameId]();
-      setListeners((prev) => {
-        const newListeners = { ...prev };
-        delete newListeners[gameId];
-        return newListeners;
-      });
+    const entry = listeners[gameId];
+    if (!entry) return;
+
+    try {
+      // Support legacy listeners stored as a function, or the newer
+      // object form { unsubscribe, onUpdate }.
+      if (typeof entry === "function") {
+        entry();
+      } else if (entry && typeof entry.unsubscribe === "function") {
+        entry.unsubscribe();
+      }
+    } catch (err) {
+      console.warn("Error while unsubscribing chat listener:", err);
     }
+
+    setListeners((prev) => {
+      const newListeners = { ...prev };
+      delete newListeners[gameId];
+      return newListeners;
+    });
   };
 
   const getChatMessages = (gameId) => {

@@ -18,6 +18,7 @@ export const BetDataProvider = ({ children }) => {
   const [rostersData, setRostersData] = useState({}); // Format: { rosters_NBA: data, rosters_NFL: data }
   const [isLoading, setIsLoading] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState({});
+  const [lastRosterFetchTime, setLastRosterFetchTime] = useState({});
   const [currentPollingMode, setCurrentPollingMode] = useState({});
   const pollingIntervalRef = useRef({});
   const fetchCounterRef = useRef(0);
@@ -254,9 +255,15 @@ export const BetDataProvider = ({ children }) => {
     [currentPollingMode]
   );
 
-  // Fetch rosters data (only fetches once per sport)
-  const fetchRosters = async (sport = "NBA") => {
+  // Fetch rosters data (only fetches once per sport). Optional `maxAgeMinutes`
+  // controls how fresh cached rosters must be before skipping a network fetch.
+  const fetchRosters = async (sport = "NBA", maxAgeMinutes = 30) => {
     const rosterKey = `rosters_${sport}`;
+    const maxAgeMs = (Number(maxAgeMinutes) || 0) * 60 * 1000;
+    const lastFetchIso = lastRosterFetchTime[sport];
+    const isFresh = lastFetchIso
+      ? Date.now() - new Date(lastFetchIso).getTime() < maxAgeMs
+      : false;
     // Helper to validate that roster payload actually contains roster entries
     const isValidRosterData = (d) => {
       if (!d || typeof d !== "object") return false;
@@ -269,14 +276,20 @@ export const BetDataProvider = ({ children }) => {
     };
 
     // If we previously fetched and validated rosters for this sport, reuse them.
+    // Only reuse cached rosters if they are still considered fresh.
     if (
       rostersFetchedRef.current.has(sport) &&
       isValidRosterData(rostersData[rosterKey])
     ) {
+      if (maxAgeMs === 0 || isFresh) {
+        console.log(
+          `[BetData ${sport}] Rosters already fetched and valid, using cached data (fresh: ${isFresh})`
+        );
+        return rostersData[rosterKey];
+      }
       console.log(
-        `[BetData ${sport}] Rosters already fetched and valid, using cached data`
+        `[BetData ${sport}] Rosters cached but stale (last fetch: ${lastFetchIso}); will refetch`
       );
-      return rostersData[rosterKey];
     }
 
     // If state already has data but it's not valid (e.g. placeholder error), clear it and attempt fresh fetch
@@ -333,6 +346,17 @@ export const BetDataProvider = ({ children }) => {
 
       setRostersData((prev) => ({ ...prev, [rosterKey]: data }));
       rostersFetchedRef.current.add(sport);
+      // Record when rosters were fetched so callers can respect `maxAgeMinutes`.
+      try {
+        const nowIso = new Date().toISOString();
+        setLastRosterFetchTime((prev) => ({ ...prev, [sport]: nowIso }));
+        await AsyncStorage.setItem(`bet_rosters_time_${sport}`, nowIso);
+      } catch (e) {
+        console.warn(
+          `[BetData ${sport}] Failed to persist roster fetch time:`,
+          e
+        );
+      }
 
       console.log(`[BetData ${sport}] Rosters fetched and cached`);
       // Note: Rosters data is too large for AsyncStorage, so we don't persist it
@@ -405,6 +429,24 @@ export const BetDataProvider = ({ children }) => {
             `bet_scoreboard_time_${sport}`
           );
 
+          // Load persisted roster fetch time (if any)
+          try {
+            const cachedRosterTime = await AsyncStorage.getItem(
+              `bet_rosters_time_${sport}`
+            );
+            if (cachedRosterTime) {
+              setLastRosterFetchTime((prev) => ({
+                ...prev,
+                [sport]: cachedRosterTime,
+              }));
+            }
+          } catch (e) {
+            console.warn(
+              `[BetData ${sport}] Failed to load persisted roster time:`,
+              e
+            );
+          }
+
           if (cachedScoreboard) {
             const data = JSON.parse(cachedScoreboard);
             setScoreboardData((prev) => ({ ...prev, [sport]: data }));
@@ -462,11 +504,20 @@ export const BetDataProvider = ({ children }) => {
     };
   }, []);
 
+  // Helper: returns roster age in minutes (rounded) or null if unknown
+  const getRosterAgeMinutes = (sport = "NBA") => {
+    const iso = lastRosterFetchTime[sport];
+    if (!iso) return null;
+    const diffMs = Date.now() - new Date(iso).getTime();
+    return Math.round(diffMs / (1000 * 60));
+  };
+
   const value = {
     scoreboardData,
     rostersData,
     isLoading,
     lastFetchTime,
+    lastRosterFetchTime,
     currentPollingMode,
     currentSport,
     setCurrentSport,
@@ -474,6 +525,7 @@ export const BetDataProvider = ({ children }) => {
     fetchRosters,
     fetchInitialData,
     getRosters, // Helper to get rosters for specific sport
+    getRosterAgeMinutes,
   };
 
   return (

@@ -2876,7 +2876,7 @@ const VALSeriesScreen = ({ navigation, route }) => {
                   styles.valShareCard,
                   { backgroundColor: theme.surface },
                   isCapturing
-                    ? { height: contentHeight } // auto-expanding
+                    ? { height: contentHeight + 20 } // auto-expanding
                     : { height: 400 }, // normal mode
                 ]}
               >
@@ -3834,6 +3834,27 @@ const VALSeriesScreen = ({ navigation, route }) => {
                         </View>
                       );
                     })()}
+                    {/* Footer inside the card */}
+                    <View style={styles.shareCardFooter}>
+                      <Text
+                        style={[
+                          styles.shareCardFooterText,
+                          {
+                            color: theme.text,
+                            textShadowColor: "rgba(0, 0, 0, 0.8)",
+                            textShadowOffset: { width: 1, height: 1 },
+                            textShadowRadius: 5,
+                          },
+                        ]}
+                      >
+                        SportsHeart{" "}
+                        <Ionicons
+                          name="heart"
+                          size={18}
+                          color={colors.primary}
+                        />
+                      </Text>
+                    </View>
                   </View>
                 </Container>
               </View>
@@ -4426,6 +4447,16 @@ const styles = StyleSheet.create({
     marginTop: 12,
     alignItems: "center",
     justifyContent: "center",
+  },
+  shareCardFooter: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: -12,
+    paddingBottom: 16,
+  },
+  shareCardFooterText: {
+    fontSize: 15,
+    fontWeight: "800",
   },
   valShareCardTopButtons: {
     flexDirection: "row",

@@ -2583,11 +2583,7 @@ async function fetchSGOOdds(sport = "nba") {
 
     const url = `${SPORTSGAMEODDS_API_BASE}?leagueID=${encodeURIComponent(
       leagueID
-    )}&startsAfter=${encodeURIComponent(
-      startsAfter
-    )}&startsBefore=${encodeURIComponent(
-      startsBefore
-    )}&ended=false&live=false&bookmakerID=draftkings&includeOpposingOdds=false&expandResults=false&includeAltLines=true&apiKey=${SPORTSGAMEODDS_API_KEY}`;
+    )}&startsAfter=2026-01-20T10:00:00&startsBefore=2026-01-21T10:00:00&ended=false&live=false&bookmakerID=draftkings&includeOpposingOdds=false&expandResults=false&includeAltLines=true&apiKey=${SPORTSGAMEODDS_API_KEY}`;
 
     const resp = await axios.get(url, { timeout: 20000 });
     const events = resp.data?.data || resp.data || [];
@@ -4622,7 +4618,7 @@ async function fetchScoreboard(sport = "nba") {
     const urls = ESPN_PATHS[sportKey] || ESPN_PATHS["nba"];
     const dateParam = getScoreboardDate();
     const response = await axios.get(
-      `${urls.base}/scoreboard?dates=${dateParam}`
+      `${urls.base}/scoreboard?dates=20260120`
     );
     // store per-sport and keep a fallback reference
     scoreboardDataBySport[sportKey] = response.data;

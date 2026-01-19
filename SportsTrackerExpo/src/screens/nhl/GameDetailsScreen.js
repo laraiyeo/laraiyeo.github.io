@@ -3579,7 +3579,10 @@ const NHLGameDetailsScreen = ({ route }) => {
 
           return isLive && isStreamingUnlocked ? (
             <TouchableOpacity
-              style={[styles.streamButton, { backgroundColor: colors.secondary }]}
+              style={[
+                styles.streamButton,
+                { backgroundColor: colors.secondary },
+              ]}
               onPress={openStreamModal}
             >
               <FontAwesome6
@@ -3804,7 +3807,9 @@ const NHLGameDetailsScreen = ({ route }) => {
                     }
                     const teamAbbr = team?.abbreviation || "";
                     teamName = team?.displayName || team?.name || "";
-                    teamLogo = `https://a.espncdn.com/i/teamlogos/nhl/500${isDarkMode ? "-dark" : ""}/${teamAbbr.toLowerCase()}.png`;
+                    teamLogo = `https://a.espncdn.com/i/teamlogos/nhl/500${
+                      isDarkMode ? "-dark" : ""
+                    }/${teamAbbr.toLowerCase()}.png`;
                   }
 
                   const gameDate = details?.header?.competitions?.[0]?.date;
@@ -4053,7 +4058,7 @@ const NHLGameDetailsScreen = ({ route }) => {
             </View>
           </View>
         </Modal>
-        
+
         {/* Shareable Play Copy Card Modal (for scoring plays) */}
         <Modal
           visible={!!sharePlayCard}
@@ -4128,14 +4133,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                       .slice(0, 2);
 
                     // Define stat labels we want and resolve indices from boxscore metadata
-                    const statLabels = [
-                      "G",
-                      "A",
-                      "S",
-                      "TOI",
-                      "HT",
-                      "BS",
-                    ];
+                    const statLabels = ["G", "A", "S", "TOI", "HT", "BS"];
                     let statValues = statLabels.map(() => "-");
                     if (foundPlayer) {
                       const meta = findPlayerStatsMeta(foundPlayer) || {};
@@ -4340,7 +4338,8 @@ const NHLGameDetailsScreen = ({ route }) => {
                                       x: p.coordX,
                                       y: p.coordY,
                                       color:
-                                        ensureHexColor(p.playTeamColor) || "#999",
+                                        ensureHexColor(p.playTeamColor) ||
+                                        "#999",
                                     }
                                   : null
                               )}
@@ -4501,6 +4500,24 @@ const NHLGameDetailsScreen = ({ route }) => {
                       </View>
                     );
                   })()}
+
+                {/* Footer inside the card */}
+                <View style={styles.shareCardFooter}>
+                  <Text
+                    style={[
+                      styles.shareCardFooterText,
+                      {
+                        color: theme.text,
+                        textShadowColor: "rgba(0, 0, 0, 0.8)",
+                        textShadowOffset: { width: 1, height: 1 },
+                        textShadowRadius: 5,
+                      },
+                    ]}
+                  >
+                    SportsHeart{" "}
+                    <Ionicons name="heart" size={18} color={colors.primary} />
+                  </Text>
+                </View>
               </View>
 
               {/* Share actions */}
@@ -4627,10 +4644,12 @@ const NHLGameDetailsScreen = ({ route }) => {
                         if (team) break;
                       }
                     }
-                    
+
                     const teamAbbr = team?.abbreviation || "";
                     teamName = team?.displayName || team?.name || "";
-                    teamLogo = `https://a.espncdn.com/i/teamlogos/nhl/500${isDarkMode ? "-dark" : ""}/${teamAbbr.toLowerCase()}.png`;
+                    teamLogo = `https://a.espncdn.com/i/teamlogos/nhl/500${
+                      isDarkMode ? "-dark" : ""
+                    }/${teamAbbr.toLowerCase()}.png`;
                     teamColor = team?.color || null;
 
                     // Get game info for score display
@@ -4896,6 +4915,24 @@ const NHLGameDetailsScreen = ({ route }) => {
                       </>
                     );
                   })()}
+
+                {/* Footer inside the card */}
+                <View style={styles.shareCardFooter}>
+                  <Text
+                    style={[
+                      styles.shareCardFooterText,
+                      {
+                        color: theme.text,
+                        textShadowColor: "rgba(0, 0, 0, 0.8)",
+                        textShadowOffset: { width: 1, height: 1 },
+                        textShadowRadius: 5,
+                      },
+                    ]}
+                  >
+                    SportsHeart{" "}
+                    <Ionicons name="heart" size={18} color={colors.primary} />
+                  </Text>
+                </View>
               </View>
 
               {/* Share buttons below the card */}
@@ -5247,7 +5284,10 @@ const NHLGameDetailsScreen = ({ route }) => {
 
       {/* Floating Chat Button */}
       <TouchableOpacity
-        style={[styles.floatingChatButton, { backgroundColor: colors.secondary }]}
+        style={[
+          styles.floatingChatButton,
+          { backgroundColor: colors.secondary },
+        ]}
         onPress={() => setChatModalVisible(true)}
         activeOpacity={0.8}
       >
@@ -6409,8 +6449,8 @@ const styles = StyleSheet.create({
     elevation: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
+    shadowOpacity: 0.8,
+    shadowRadius: 3,
   },
   /* Player modal styles */
   modalOverlay: {
@@ -6959,6 +6999,15 @@ const styles = StyleSheet.create({
   },
   shareCardTeam: {
     fontSize: 13,
+  },
+  shareCardFooter: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 8,
+  },
+  shareCardFooterText: {
+    fontSize: 15,
+    fontWeight: "800",
   },
   shareCardAppLogoContainer: {
     width: 50,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   NavigationContainer,
   getFocusedRouteNameFromRoute,
@@ -1969,9 +1969,53 @@ const MainStackNavigator = () => {
 ExpoSplashScreen.preventAutoHideAsync();
 
 const AppContent = () => {
-  const { setIsPro } = useBetSlip();
+  const { setIsPro, isPro } = useBetSlip();
   const { currentColorPalette, changeColorPalette, isDarkMode } = useTheme();
   const [showSplash, setShowSplash] = useState(true);
+
+  const proInitRef = useRef(false);
+
+  // Fetch pro status from profile (made available early so revenuecat can follow)
+  const fetchProStatusFromProfile = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user?.id) return false;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id,is_pro")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const isPro = !!profile?.is_pro;
+
+      // Update state and storage
+      if (setIsPro) setIsPro(isPro);
+      try {
+        if (isPro) {
+          await AsyncStorage.setItem("@is_pro", "1");
+        } else {
+          await AsyncStorage.removeItem("@is_pro");
+        }
+      } catch (e) {}
+
+      // Reset custom theme if lost Pro access
+      if (!isPro && currentColorPalette === "custom") {
+        changeColorPalette("red");
+        const iconVariant = isDarkMode ? "dark_red" : "light_red";
+        const DynamicAppIcon = require("nixa-expo-dynamic-app-icon").default;
+        await DynamicAppIcon.setAppIcon(iconVariant).catch(() => {});
+      }
+      return isPro;
+    } catch (e) {
+      if (__DEV__) console.warn("Failed to fetch pro status:", e.message);
+      return false;
+    } finally {
+      proInitRef.current = true;
+    }
+  };
 
   // Defer ALL heavy initialization until after first render
   useEffect(() => {
@@ -2003,8 +2047,26 @@ const AppContent = () => {
       if (__DEV__) console.warn("PresenceService init failed:", error);
     }
 
-    // Initialize RevenueCat (most expensive)
-    initializeRevenueCat();
+    // Ensure we have profile / isPro information before initializing RevenueCat
+    let isProFromProfile = false;
+    try {
+      if (!proInitRef.current) {
+        isProFromProfile = await fetchProStatusFromProfile();
+      } else {
+        // If proInitRef already populated, read quick flag
+        try {
+          const v = await AsyncStorage.getItem("@is_pro");
+          isProFromProfile = v === "1";
+        } catch (e) {
+          isProFromProfile = false;
+        }
+      }
+    } catch (e) {
+      if (__DEV__) console.warn("Profile fetch before RevenueCat failed:", e);
+    }
+
+    // Initialize RevenueCat (most expensive) with profile-derived Pro flag
+    await initializeRevenueCat(isProFromProfile);
 
     // Initialize ads AFTER everything else (lowest priority)
     setTimeout(() => {
@@ -2014,8 +2076,15 @@ const AppContent = () => {
     }, 2000);
   };
 
-  const initializeRevenueCat = async () => {
+  const initializeRevenueCat = async (isProFromProfile = false) => {
     try {
+      // If profile already indicates Pro access (from provider or fetched), skip RevenueCat init.
+      if (isPro || isProFromProfile) {
+        console.log(
+          "initializeRevenueCat: skipping RevenueCat init because user is Pro from profile"
+        );
+        return;
+      }
       let userId = null;
       try {
         const {
@@ -2060,43 +2129,6 @@ const AppContent = () => {
       });
     return () => handle.cancel();
   }, [currentColorPalette, changeColorPalette, setIsPro]);
-
-  const fetchProStatusFromProfile = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user?.id) return;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id,is_pro")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      const isPro = !!profile?.is_pro;
-
-      // Update state and storage
-      if (setIsPro) setIsPro(isPro);
-      try {
-        if (isPro) {
-          await AsyncStorage.setItem("@is_pro", "1");
-        } else {
-          await AsyncStorage.removeItem("@is_pro");
-        }
-      } catch (e) {}
-
-      // Reset custom theme if lost Pro access
-      if (!isPro && currentColorPalette === "custom") {
-        changeColorPalette("red");
-        const iconVariant = isDarkMode ? "dark_red" : "light_red";
-        const DynamicAppIcon = require("nixa-expo-dynamic-app-icon").default;
-        await DynamicAppIcon.setAppIcon(iconVariant).catch(() => {});
-      }
-    } catch (e) {
-      if (__DEV__) console.warn("Failed to fetch pro status:", e.message);
-    }
-  };
 
   // Check for updates (very low priority - after splash finishes)
   useEffect(() => {

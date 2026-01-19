@@ -106,7 +106,9 @@ const EmotePicker = ({ visible, onClose, onEmoteSelect }) => {
         styles.categoryButton,
         {
           backgroundColor:
-            selectedCategory === category.key ? colors.secondary : theme.surface,
+            selectedCategory === category.key
+              ? colors.secondary
+              : theme.surface,
           borderColor: theme.border,
         },
       ]}
@@ -159,7 +161,13 @@ const EmotePicker = ({ visible, onClose, onEmoteSelect }) => {
 
           {/* Search */}
           <View
-            style={[styles.searchContainer, { backgroundColor: theme.surface }]}
+            style={[
+              styles.searchContainer,
+              {
+                backgroundColor: theme.surface,
+                borderBottomColor: theme.border,
+              },
+            ]}
           >
             <Ionicons
               name="search-outline"

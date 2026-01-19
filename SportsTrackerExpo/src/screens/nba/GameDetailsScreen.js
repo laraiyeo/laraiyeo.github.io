@@ -3426,7 +3426,7 @@ const NBAGameDetailsScreen = ({ route }) => {
           <Image
             source={{
               uri:
-                team?.team?.logo ||
+                team?.team?.logos?.[isDarkMode ? 1 : 0]?.href ||
                 getTeamLogoUrl("nba", team.team?.abbreviation),
             }}
             style={styles.rosterTeamLogo}
@@ -5310,6 +5310,23 @@ const NBAGameDetailsScreen = ({ route }) => {
                       </View>
                     );
                   })()}
+                {/* Footer inside the card */}
+                <View style={styles.shareCardFooter}>
+                  <Text
+                    style={[
+                      styles.shareCardFooterText,
+                      {
+                        color: theme.text,
+                        textShadowColor: "rgba(0, 0, 0, 0.8)",
+                        textShadowOffset: { width: 1, height: 1 },
+                        textShadowRadius: 5,
+                      },
+                    ]}
+                  >
+                    SportsHeart{" "}
+                    <Ionicons name="heart" size={18} color={colors.primary} />
+                  </Text>
+                </View>
               </View>
 
               {/* Share actions */}
@@ -5699,6 +5716,23 @@ const NBAGameDetailsScreen = ({ route }) => {
                       </>
                     );
                   })()}
+                {/* Footer inside the card */}
+                <View style={styles.shareCardFooter}>
+                  <Text
+                    style={[
+                      styles.shareCardFooterText,
+                      {
+                        color: theme.text,
+                        textShadowColor: "rgba(0, 0, 0, 0.8)",
+                        textShadowOffset: { width: 1, height: 1 },
+                        textShadowRadius: 5,
+                      },
+                    ]}
+                  >
+                    SportsHeart{" "}
+                    <Ionicons name="heart" size={18} color={colors.primary} />
+                  </Text>
+                </View>
               </View>
 
               {/* Share buttons below the card */}
@@ -7401,6 +7435,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     zIndex: 10,
     borderWidth: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.8,
+    shadowRadius: 3,
   },
   madeShotMarker: {
     borderColor: "white",
@@ -8073,7 +8111,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 8,
     justifyContent: "center",
-    marginBottom: -60,
+    marginBottom: -50,
   },
   shareCardStatBox: {
     width: "31%",
@@ -8093,6 +8131,15 @@ const styles = StyleSheet.create({
   shareCardStatBoxLabel: {
     fontSize: 11,
     textAlign: "center",
+  },
+  shareCardFooter: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 8,
+  },
+  shareCardFooterText: {
+    fontSize: 15,
+    fontWeight: "800",
   },
   shareCardActions: {
     alignItems: "center",

@@ -237,6 +237,18 @@ const BetSettingsScreen = ({ navigation }) => {
       console.log("handleClaimDaily: attempting claim", { profileId });
       const claimRes = await claimDailyReward(profileId);
       console.log("handleClaimDaily: claimDailyReward result", claimRes);
+      try {
+        const sup = claimRes?.supabaseUpdate;
+        const supMsg = sup
+          ? `${sup.success ? "Supabase write: OK" : "Supabase write: FAILED"}${
+              sup.error
+                ? `\nError: ${sup.error.message || JSON.stringify(sup.error)}`
+                : ""
+            }`
+          : "Supabase write: n/a";
+      } catch (e) {
+        console.warn("handleClaimDaily: failed to show alert", e);
+      }
       // refresh profile credits
       const refreshed = await getUserProfile();
       console.log("handleClaimDaily: refreshed profile", refreshed);
@@ -303,6 +315,7 @@ const BetSettingsScreen = ({ navigation }) => {
       }
       const state = await getDailyRewardState(profileId);
       console.log("openDailyModal: daily state from server", state);
+      console.log("openDailyModal: isPro from context", { isPro });
       try {
         const serverCan =
           state && typeof state.canClaim !== "undefined"
@@ -421,6 +434,15 @@ const BetSettingsScreen = ({ navigation }) => {
     let mounted = true;
     (async () => {
       try {
+        // If profile already grants Pro, skip RevenueCat initialization
+        if (isPro) {
+          console.log(
+            "BetSettings: skipping RevenueCat init because user is Pro from profile"
+          );
+          if (mounted) setPurchasesAvailable(false);
+          return;
+        }
+
         // Use our helper with the iOS SDK key (test key for debugging)
         const initRes = await initPurchases(
           "appl_mdoICWLxVPeKJjUzLbFUKhMrXAT",
@@ -565,6 +587,24 @@ const BetSettingsScreen = ({ navigation }) => {
         out.offeringsError = String(oe?.message || oe);
       }
       console.log("RevenueCat debug result:", out);
+      // include last daily-claim diagnostics if available
+      try {
+        const pid = profileMeta?.id || supabaseUserId || null;
+        if (pid) {
+          const respRaw = await AsyncStorage.getItem(
+            `@daily_claim_last_response_${pid}`
+          );
+          const supRaw = await AsyncStorage.getItem(
+            `@daily_claim_last_supabase_${pid}`
+          );
+          out.dailyClaimDiagnostics = {
+            serverResponse: respRaw ? JSON.parse(respRaw) : null,
+            supabaseUpdate: supRaw ? JSON.parse(supRaw) : null,
+          };
+        }
+      } catch (e) {
+        out.dailyClaimDiagnosticsError = String(e?.message || e);
+      }
       setDebugResult(out);
       setDebugVisible(true);
     } catch (e) {
@@ -601,7 +641,7 @@ const BetSettingsScreen = ({ navigation }) => {
       else if (which === "lifetime") targetPackage = lifetimePackage;
 
       if (!targetPackage) {
-        Alert.alert("Unavailable", "Selected package not available.");
+        Alert.alert("Unavailable", "Selected subscription is not available.");
         return;
       }
       // proceed to purchase
@@ -609,7 +649,7 @@ const BetSettingsScreen = ({ navigation }) => {
       console.log("Purchase result", purchaseResult);
       Alert.alert(
         "Purchase successful",
-        "Thank you — your subscription is active."
+        "Thank you — your subscription is now active."
       );
       // Refresh profile from server to pick up pro status
       try {
@@ -643,10 +683,7 @@ const BetSettingsScreen = ({ navigation }) => {
     try {
       const restored = await restorePurchases();
       console.log("Restore result", restored);
-      Alert.alert(
-        "Restore complete",
-        "Restore completed; entitlements refreshed."
-      );
+      Alert.alert("Restore complete", "Your subscription is now restored.");
       // Refresh profile after restore
       try {
         const refreshed = await getUserProfile();

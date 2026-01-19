@@ -1316,9 +1316,28 @@ const BetHomeScreen = ({ navigation }) => {
                     });
                     if (!profileIdForDaily) return;
                     setDailyLoading(true);
+                    console.log("BetHome: isPro from context", { isPro });
                     const res = await claimDailyReward(profileIdForDaily);
                     console.log("BetHome: claimDailyReward response", res);
                     setDailyLoading(false);
+                    try {
+                      const sup = res?.supabaseUpdate;
+                      const supMsg = sup
+                        ? `${
+                            sup.success
+                              ? "Supabase write: OK"
+                              : "Supabase write: FAILED"
+                          }${
+                            sup.error
+                              ? `\nError: ${
+                                  sup.error.message || JSON.stringify(sup.error)
+                                }`
+                              : ""
+                          }`
+                        : "Supabase write: n/a";
+                    } catch (e) {
+                      console.warn("BetHome: failed to show claim alert", e);
+                    }
                     if (res && res.success) {
                       const dr = await getDailyRewardState(profileIdForDaily);
                       console.log(
@@ -1372,7 +1391,14 @@ const BetHomeScreen = ({ navigation }) => {
                   }}
                   style={styles.dailySecondaryButton}
                 >
-                  <Text style={[styles.dailySecondaryText, { color: colors.primary }]}>Close</Text>
+                  <Text
+                    style={[
+                      styles.dailySecondaryText,
+                      { color: colors.primary },
+                    ]}
+                  >
+                    Close
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>

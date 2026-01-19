@@ -5429,6 +5429,24 @@ const GameDetailsScreen = ({ route }) => {
                   </Text>
                 </View>
               )}
+
+              {/* Footer inside the card */}
+              <View style={styles.shareCardFooter}>
+                <Text
+                  style={[
+                    styles.shareCardFooterText,
+                    {
+                      color: theme.text,
+                      textShadowColor: "rgba(0, 0, 0, 0.8)",
+                      textShadowOffset: { width: 1, height: 1 },
+                      textShadowRadius: 5,
+                    },
+                  ]}
+                >
+                  SportsHeart{" "}
+                  <Ionicons name="heart" size={18} color={colors.primary} />
+                </Text>
+              </View>
             </View>
 
             {/* Actions outside of modal content: Cancel + Share (matches NBA pattern) */}
@@ -6800,6 +6818,24 @@ const GameDetailsScreen = ({ route }) => {
                         </>
                       );
                     })()}
+
+                  {/* Footer inside the card */}
+                  <View style={styles.shareCardFooter}>
+                    <Text
+                      style={[
+                        styles.shareCardFooterText,
+                        {
+                          color: theme.text,
+                          textShadowColor: "rgba(0, 0, 0, 0.8)",
+                          textShadowOffset: { width: 1, height: 1 },
+                          textShadowRadius: 5,
+                        },
+                      ]}
+                    >
+                      SportsHeart{" "}
+                      <Ionicons name="heart" size={18} color={colors.primary} />
+                    </Text>
+                  </View>
                 </View>
 
                 {/* Action Buttons */}
@@ -9152,6 +9188,16 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 12,
     gap: 12,
+  },
+  shareCardFooter: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: -8,
+    paddingBottom: 16,
+  },
+  shareCardFooterText: {
+    fontSize: 15,
+    fontWeight: "800",
   },
   nflPlayShareCardButton: {
     flex: 1,

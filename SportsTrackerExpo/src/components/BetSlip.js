@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../context/ThemeContext";
 import { useBetSlip } from "../context/BetSlipContext";
+import { useBetData } from "../context/BetDataContext";
 import { useContext } from "react";
 import OddsDisplayContext from "../context/OddsDisplayContext";
 import { formatOddsForDisplay } from "../utils/odds";
@@ -38,6 +39,8 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
     submitBetSlip,
     isPro,
   } = useBetSlip();
+
+  const { fetchScoreboard } = useBetData();
 
   const oddsContext = useContext(OddsDisplayContext);
   const oddsDisplay = oddsContext ? oddsContext.oddsDisplay : "american";
@@ -136,23 +139,86 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         Boolean
       );
       console.log("Computed gameIds:", gameIds);
-      // Prevent placing bets on games that are not pre-game according to stored scoreboard
+      // Fetch scoreboard(s) for the sport(s) represented in the slip and
+      // determine live games from the fetched payloads. This handles
+      // multi-sport slips by fetching in parallel.
+      const getSportFromGameId = (gameId) => {
+        try {
+          const m = String(gameId).match(
+            /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba)$/i
+          );
+          return m ? m[1].toUpperCase() : null;
+        } catch (e) {
+          return null;
+        }
+      };
+
+      let sports = [
+        ...new Set(gameIds.map(getSportFromGameId).filter(Boolean)),
+      ];
+      if (sports.length === 0) {
+        // fallback: try to read sport from bet objects
+        const fromBets = [
+          ...new Set(bets.map((b) => b.sport).filter(Boolean)),
+        ].map((s) => String(s).toUpperCase());
+        if (fromBets.length) sports = fromBets;
+      }
+
+      // If still unknown, avoid blocking by treating as single-sport (NBA) fetch
+      if (sports.length === 0) sports = ["NBA"];
+
+      console.log("BetSlip: fetching scoreboards for sports", sports);
+      const fetchPromises = sports.map((s) =>
+        fetchScoreboard(s)
+          .then((d) => ({ sport: s, data: d }))
+          .catch((err) => ({ sport: s, data: null, err }))
+      );
+
+      const fetchResults = await Promise.all(fetchPromises);
+      const effectiveScoreboardGames = [];
+      fetchResults.forEach((res) => {
+        try {
+          if (res && res.data) {
+            const events = Array.isArray(res.data.events)
+              ? res.data.events
+              : res.data.events || [];
+            effectiveScoreboardGames.push(...events);
+            console.log(
+              `BetSlip: fetched ${events.length} events for ${res.sport}`
+            );
+          } else {
+            console.warn(`BetSlip: no scoreboard data for ${res.sport}`);
+          }
+        } catch (e) {
+          console.warn(
+            "BetSlip: error processing fetched scoreboard",
+            e?.message || e
+          );
+        }
+      });
+
+      // Determine live games using fetched events
       const liveGameIds = [];
       gameIds.forEach((gid) => {
         const sg =
-          scoreboardGames && typeof scoreboardGames.find === "function"
-            ? scoreboardGames.find(
+          Array.isArray(effectiveScoreboardGames) &&
+          typeof effectiveScoreboardGames.find === "function"
+            ? effectiveScoreboardGames.find(
                 (g) =>
                   String(g.id) === String(gid) ||
                   String(g.gameId) === String(gid) ||
+                  String(g.gamePk) === String(gid) ||
+                  g.event?.id === gid ||
                   g.header?.competitions?.[0]?.id === gid
               )
             : undefined;
         console.log(
-          "live-check: gid, scoreboardGames length, matched sg:",
+          "BetSlip live-check: gid, fetchedGames length, matched sg:",
           gid,
-          Array.isArray(scoreboardGames) ? scoreboardGames.length : 0,
-          sg
+          Array.isArray(effectiveScoreboardGames)
+            ? effectiveScoreboardGames.length
+            : 0,
+          Boolean(sg)
         );
         if (!sg) return;
         const state =
@@ -160,13 +226,13 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
           sg.status?.type?.state ||
           sg.status?.state ||
           sg.status;
-        console.log("live-check: gid state:", gid, state);
+        console.log("BetSlip live-check: gid state:", gid, state);
         if (state && state !== "pre" && state !== "scheduled") {
           liveGameIds.push(gid);
         }
       });
 
-      console.log("liveGameIds computed:", liveGameIds);
+      console.log("BetSlip liveGameIds computed:", liveGameIds);
 
       if (liveGameIds.length > 0) {
         console.log("liveGameIds > 0, will remove bets:", liveGameIds);
@@ -333,17 +399,6 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
       const finalGameIds = [...new Set(bets.map((bet) => bet.gameId))].filter(
         Boolean
       );
-
-      // Extract sport suffix from gameId (e.g., "401810365_nba" -> "nba")
-      const getSportFromGameId = (gameId) => {
-        const match = gameId.match(/_(nba|nfl|nhl|mlb|soccer|ncaa|wnba)$/i);
-        return match ? match[1].toLowerCase() : null;
-      };
-
-      // Determine if we have multiple sports in the bet slip
-      const sports = [
-        ...new Set(finalGameIds.map(getSportFromGameId).filter(Boolean)),
-      ];
       const isMultiSport = sports.length > 1;
 
       // Build query string now using normalized game ids
@@ -946,7 +1001,9 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         style={[
           styles.bottomBar,
           { backgroundColor: colors.primary },
-          !isPro ? { marginBottom: 65, height: 60 } : isGameDetail && { height: 90 },
+          !isPro
+            ? { marginBottom: 65, height: 60 }
+            : isGameDetail && { height: 90 },
         ]}
         onPress={openSlip}
         activeOpacity={0.9}
@@ -954,9 +1011,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         <View
           style={[
             styles.bottomBarLeft,
-            !isPro
-              ? { marginBottom: 0 }
-              : isGameDetail && { marginBottom: 30 },
+            !isPro ? { marginBottom: 0 } : isGameDetail && { marginBottom: 30 },
           ]}
         >
           <View style={styles.betCountBadge}>
@@ -967,9 +1022,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         <View
           style={[
             styles.bottomBarRight,
-            !isPro
-              ? { marginBottom: 0 }
-              : isGameDetail && { marginBottom: 30 },
+            !isPro ? { marginBottom: 0 } : isGameDetail && { marginBottom: 30 },
           ]}
         >
           {bets.length > 1 && (

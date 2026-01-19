@@ -390,7 +390,7 @@ const EnglandTransferScreen = ({ navigation, route }) => {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Search and Filters */}
-      <View style={[styles.searchContainer, { backgroundColor: theme.surface }]}>
+      <View style={[styles.searchContainer, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         <View style={[styles.searchInputContainer, { backgroundColor: theme.background }]}>
           <Ionicons name="search" size={20} color={theme.textSecondary} />
           <TextInput
