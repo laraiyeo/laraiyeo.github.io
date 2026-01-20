@@ -4624,7 +4624,7 @@ async function fetchScoreboard(sport = "nba") {
     const urls = ESPN_PATHS[sportKey] || ESPN_PATHS["nba"];
     const dateParam = getScoreboardDate();
     const response = await axios.get(
-      `${urls.base}/scoreboard?dates=${dateParam}`
+      `${urls.base}/scoreboard?dates=20260120`
     );
     // store per-sport and keep a fallback reference
     scoreboardDataBySport[sportKey] = response.data;
