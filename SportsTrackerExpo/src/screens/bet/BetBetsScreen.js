@@ -202,7 +202,10 @@ const BetBetsScreen = () => {
               !betType.includes("regulation")
             );
           case "moneylineReg":
-            return bet.type === "Regulation 3-Way Moneyline";
+            return (
+              bet.type === "Regulation 3-Way Moneyline" ||
+              bet.type === "3-Way Moneyline (Regulation)"
+            );
           case "spread":
             return (
               bet.type === "Spread" ||
@@ -425,6 +428,112 @@ const BetBetsScreen = () => {
   // Get live game data for a specific event ID
   const getLiveGameData = (eventId) => {
     return scoreboardData.find((event) => event.id === eventId);
+  };
+
+  // Resolve a candidate bet key from an event.bets object.
+  // Priority: 1) pick.key exact -> 2) pick.key stripped (remove home/away) -> 3) derived stat key -> 4) prop/stat direct -> 5) canonical fallbacks
+  const resolveBetsPayloadKey = (betsObj, pick, bet) => {
+    if (!betsObj) return null;
+    try {
+      const keys = Object.keys(betsObj || {});
+
+      const findExact = (k) => {
+        if (!k) return null;
+        const lower = String(k).toLowerCase();
+        return keys.find((kk) => String(kk).toLowerCase() === lower) || null;
+      };
+      const findSubstr = (k) => {
+        if (!k) return null;
+        const lower = String(k).toLowerCase();
+        return (
+          keys.find((kk) => {
+            const lkk = String(kk).toLowerCase();
+            return lkk.includes(lower) || lower.includes(lkk);
+          }) || null
+        );
+      };
+
+      // 1) pick.key
+      if (pick && pick.key) {
+        const key = pick.key;
+        const exact = findExact(key);
+        if (exact) return exact;
+
+        // substring match
+        const substr = findSubstr(key);
+        if (substr) return substr;
+
+        // 2) stripped key (remove home/away/team markers)
+        const stripped = String(key)
+          .replace(/\b(team1|team2|teamA|teamB|home|away)\b[-_]?/gi, "")
+          .replace(/(^home_|^away_|_home$|_away$)/gi, "")
+          .replace(/[-_]{2,}/g, "-")
+          .trim();
+        if (stripped && stripped !== key) {
+          const exactStripped = findExact(stripped);
+          if (exactStripped) return exactStripped;
+          const substrStripped = findSubstr(stripped);
+          if (substrStripped) return substrStripped;
+        }
+      }
+
+      // 3) derived stat key (attempt to synthesize likely payload key from statType)
+      if (bet && bet.statType) {
+        try {
+          const derived = String(bet.statType)
+            .replace(/[^a-z0-9]/gi, "")
+            .toLowerCase();
+          if (derived) {
+            const exactDerived = findExact(derived);
+            if (exactDerived) return exactDerived;
+            const substrDerived = findSubstr(derived);
+            if (substrDerived) return substrDerived;
+          }
+        } catch (e) {}
+      }
+
+      // 4) fallback to propType/statType raw
+      if (bet && bet.propType) {
+        const exact =
+          findExact(bet.propType) ||
+          findExact(String(bet.propType).replace(/\s+/g, ""));
+        if (exact) return exact;
+        const substr = findSubstr(bet.propType);
+        if (substr) return substr;
+      }
+      if (bet && bet.statType) {
+        const exact =
+          findExact(bet.statType) ||
+          findExact(String(bet.statType).replace(/\s+/g, ""));
+        if (exact) return exact;
+        const substr = findSubstr(bet.statType);
+        if (substr) return substr;
+      }
+
+      // 5) common canonical fallbacks
+      const candidates = [
+        "totalPoints",
+        "total",
+        "homePoints",
+        "awayPoints",
+        "bothScore",
+        "totalCorner",
+        "totalCards",
+        "cornerSpread",
+        "cardSpread",
+        "spread",
+        "moneyline",
+      ];
+      for (const c of candidates) {
+        const found = findExact(c);
+        if (found) return found;
+      }
+      for (const c of candidates) {
+        const found = findSubstr(c);
+        if (found) return found;
+      }
+    } catch (e) {}
+    return null;
   };
 
   // Helper to render two scores and bold the higher one (used for post-game emphasis)
@@ -814,7 +923,9 @@ const BetBetsScreen = () => {
 
             if (!url) return null;
             const res = await fetch(url);
-            if (!res.ok) return null;
+            if (!res.ok) {
+              return null;
+            }
             const data = await res.json();
             // Only return if we got valid data
             if (!data || typeof data !== "object") return null;
@@ -1339,7 +1450,11 @@ const BetBetsScreen = () => {
             containerStyle={[
               styles.playerHeadshot,
               pick.playerColor
-                ? { backgroundColor: pick.playerColor + "88" }
+                ? {
+                    backgroundColor:
+                      pick.playerColor +
+                      `${pick.sportSuffix === "uefa" ? "" : "88"}`,
+                  }
                 : null,
             ]}
             imageStyle={styles.playerHeadshot}
@@ -1730,8 +1845,42 @@ const BetBetsScreen = () => {
     // Prefer live-updated fetched data when available (read from ref for most recent data)
     const live =
       betslipLiveMapRef.current[betSlip.id] || betslipLiveMap[betSlip.id];
+
+    // Normalize various payload `won` representations into UI status
+    const normalizeWon = (w) => {
+      try {
+        if (w === true || w === "true") return "winning";
+        const s = (w == null ? "" : String(w)).toLowerCase();
+        if (s === "won" || s === "winning" || s === "true") return "winning";
+        if (s === "lost" || s === "losing" || s === "false") return "losing";
+        if (s === "pending" || s === "pending_review" || s === "open")
+          return "pending";
+        return null;
+      } catch (e) {
+        return null;
+      }
+    };
     const betslipData =
       live || betSlip.betslipData || betSlip.betslip_data || null;
+    // DEV logging: show fetched payload events and available bet keys
+    if (typeof __DEV__ !== "undefined" && __DEV__) {
+      try {
+        const src = live ? "live" : betSlip.betslipData ? "stored" : "none";
+        console.log(
+          `betslip payload for ticket ${betSlip.id} (source=${src}):`,
+        );
+        const events = (betslipData && betslipData.events) || [];
+        if (events.length === 0) console.log("  no events in payload");
+        events.forEach((ev) => {
+          try {
+            console.log(
+              `  eventId=${ev.eventId} betsKeys=`,
+              Object.keys(ev.bets || {}),
+            );
+          } catch (e) {}
+        });
+      } catch (e) {}
+    }
     const originalBets = betSlip.bets || betSlip.bets || [];
     const amount = betSlip.amount || 0;
 
@@ -1810,10 +1959,20 @@ const BetBetsScreen = () => {
           if (s.includes("lasttoscore") || s.includes("last_to_score"))
             return "LASTGOAL";
 
-          if (s.includes("combinedCards") || s === "combinedCards_yn")
+          if (s.includes("combinedcards") || s === "combinedcards_yn")
             return "CARDS";
 
-          if (s.includes("redCards") || s === "redCards_yn") return "RC";
+          if (s.includes("redcards") || s === "redcards_yn") return "RC";
+
+          if (s.includes("yellowcards") || s === "yellowcards_yn") return "YC";
+
+          if (s.includes("assists") || s === "assists_ou") return "UAST";
+
+          if (s.includes("shotsongoal") || s === "shotsongoal_ou")
+            return "USOG";
+
+          if (s.includes("shots") || s.includes("shot") || s.includes("sht"))
+            return "USHT";
         }
 
         // NBA Combination stats
@@ -1885,12 +2044,7 @@ const BetBetsScreen = () => {
         if (s.includes("assist") || s.includes("ast")) return "AST";
         if (s.includes("block") || s.includes("blk")) return "BLK";
         if (s.includes("steal") || s.includes("stl")) return "STL";
-        if (
-          s.includes("turnover") ||
-          s.includes("tur") ||
-          s.includes("to") ||
-          s === "to"
-        )
+        if (s.includes("turnover") || s.includes("tur") || s === "to")
           return "TO";
 
         // fallback: take first 3 uppercase letters
@@ -1899,6 +2053,18 @@ const BetBetsScreen = () => {
         return String(statType || "PTS")
           .toUpperCase()
           .substring(0, 3);
+      }
+    };
+
+    // Helper: remove parenthetical annotations like "(Weighted)" or "(Full Match)"
+    const stripParenthetical = (s) => {
+      try {
+        if (!s) return s;
+        return String(s)
+          .replace(/\s*\([^)]*\)/g, "")
+          .trim();
+      } catch (e) {
+        return s;
       }
     };
 
@@ -2009,6 +2175,23 @@ const BetBetsScreen = () => {
         id: bet.id,
         gameId: bet.gameId,
       };
+      // Expose a canonical key on the pick so resolvers can prefer it.
+      try {
+        // Prefer explicit bet.key; for player props, fall back to derived stat key.
+        pick.key = bet.key || null;
+        if (!pick.key && bet.playerId) {
+          try {
+            pick.key = deriveStatKey(
+              bet.statType || bet.prop || bet.propType || "",
+              bet.sport || "",
+            );
+          } catch (e) {
+            pick.key = null;
+          }
+        }
+      } catch (e) {
+        pick.key = null;
+      }
 
       // Prefer betslipData.events for game info/status/scores
       let eventData = null;
@@ -2130,6 +2313,7 @@ const BetBetsScreen = () => {
         const sportPath = sportSuffix === "uefa" ? "soccer" : sportSuffix;
         pick.headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${bet.playerId}.png&w=200`;
         pick.color = bet.playerColor || null;
+        pick.sportSuffix = sportSuffix;
 
         // Format prop text: for milestones, show "<line> <Formatted Prop>" and clean up the label
         const formatMilestoneProp = (b) => {
@@ -2444,12 +2628,141 @@ const BetBetsScreen = () => {
         bet.type?.includes("_points") ||
         bet.type?.includes("_goals") ||
         bet.type?.includes("Over/Under") ||
+        bet.type?.includes("Yes/No") ||
         bet.type?.includes("Goals")
       ) {
         const liveGame = getLiveGameData(bet.gameId);
         pick.betType = bet.type.toLowerCase();
         pick.team = bet.team;
+        // Preserve line as string/number handled elsewhere; try numeric conversion
         pick.line = Number(bet.line);
+
+        // Early-detect UEFA-style totals (corner/cards) even when bet.type isn't exactly "Total"
+        try {
+          const combinedQuick =
+            `${bet.type} ${bet.description || ""} ${bet.id || ""}`.toLowerCase();
+          const isCornerQuick = /corner/.test(combinedQuick);
+          const isCardsQuick = /card|cards/.test(combinedQuick);
+          if ((isCornerQuick || isCardsQuick) && !bet.team) {
+            // Build pick for special total and return early to avoid fallback overriding
+            if (isCornerQuick) {
+              bet.propType = bet.propType || "totalCorner";
+              pick.displayName = "GAME";
+              const linePart = String(bet.line || bet.description || "").trim();
+              pick.prop = `${linePart}${linePart ? " " : ""}TOTAL CORNERS`;
+              pick.isTotal = true;
+            } else {
+              bet.propType = bet.propType || "totalCards";
+              pick.displayName = "GAME";
+              pick.prop = `${String(bet.line || bet.description || "").trim()} TOTAL CARDS`;
+              pick.isTotal = true;
+            }
+
+            // Attach both logos for game totals
+            let awayTeam = bet.awayTeam;
+            let awayId = bet.team1Id;
+            let homeTeam = bet.homeTeam;
+            let homeId = bet.team2Id;
+            if (!awayTeam || !homeTeam) {
+              if (liveGame?.competitions?.[0]?.competitors) {
+                const competitors = liveGame.competitions[0].competitors;
+                awayTeam = competitors.find((c) => c.homeAway === "away")?.team
+                  ?.abbreviation;
+                homeTeam = competitors.find((c) => c.homeAway === "home")?.team
+                  ?.abbreviation;
+              } else if (bet.gameInfo?.teams) {
+                const teams = String(bet.gameInfo.teams || "").split(" @ ");
+                awayTeam = teams[0]?.trim();
+                homeTeam = teams[1]?.trim();
+              }
+            }
+            const sportPathQuick =
+              bet.sport === "UEFA"
+                ? "soccer"
+                : (bet.sport || "nba").toLowerCase();
+            const toUseAwayQuick =
+              bet.sport === "UEFA" ? awayId : (awayTeam || "").toLowerCase();
+            const toUseHomeQuick =
+              bet.sport === "UEFA" ? homeId : (homeTeam || "").toLowerCase();
+            pick.awayTeamLogo = awayTeam
+              ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPathQuick}/500${isDarkMode ? "-dark" : ""}/${toUseAwayQuick}.png&h=100&w=100`
+              : null;
+            pick.homeTeamLogo = homeTeam
+              ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPathQuick}/500${isDarkMode ? "-dark" : ""}/${toUseHomeQuick}.png&h=100&w=100`
+              : null;
+
+            // Try to apply live payload values for totals (totalCorner/totalCards)
+            try {
+              const targetIdQuick = normalizeGameId(bet.gameId);
+              const matches = (betslipData?.events || []).filter((e) => {
+                try {
+                  return (
+                    String(e.eventId) === targetIdQuick ||
+                    normalizeGameId(e.eventId) === targetIdQuick
+                  );
+                } catch (er) {
+                  return false;
+                }
+              });
+              if (matches.length > 0) {
+                const wantKey =
+                  bet.propType ||
+                  bet.prop ||
+                  (isCornerQuick
+                    ? "totalCorner"
+                    : isCardsQuick
+                      ? "totalCards"
+                      : null);
+                let chosen = null;
+                let chosenResolved = null;
+                for (const m of matches) {
+                  if (!m?.bets) continue;
+                  const resolved =
+                    resolveBetsPayloadKey(m.bets, pick, bet) ||
+                    (wantKey && (m.bets[wantKey] ? wantKey : null));
+                  if (resolved && m.bets[resolved]) {
+                    chosen = m;
+                    chosenResolved = resolved;
+                    break;
+                  }
+                }
+                // fallback to first match if none contain resolved key
+                if (!chosen) {
+                  chosen = matches[0];
+                  chosenResolved =
+                    resolveBetsPayloadKey(chosen.bets, pick, bet) ||
+                    (wantKey && (chosen.bets[wantKey] ? wantKey : null));
+                }
+                if (typeof __DEV__ !== "undefined" && __DEV__) {
+                  try {
+                    console.log(
+                      `DEV: totals lookup for pick ${pick.id} (pick.key=${pick.key}) -> chosenResolved=${chosenResolved} eventBets=`,
+                      Object.keys(chosen?.bets || {}),
+                    );
+                  } catch (e) {}
+                }
+
+                if (chosen && chosenResolved && chosen.bets[chosenResolved]) {
+                  const payload = chosen.bets[chosenResolved];
+                  if (payload.line != null) {
+                    const n = Number(payload.line);
+                    if (!isNaN(n)) pick.line = n;
+                  }
+                  let cur = payload.current;
+                  if (cur && typeof cur === "object")
+                    cur = Number(cur.current ?? cur.score ?? cur.value ?? NaN);
+                  else if (cur != null) cur = Number(cur);
+                  if (!isNaN(cur)) pick.currentValue = cur;
+                  pick.progressSource = `betslipData.event:${chosen.eventId || bet.gameId}.bets.${chosenResolved}.current`;
+                  pick.status = normalizeWon(payload.won) || pick.status;
+                  pick.progressWonSource = `betslipData.event:${chosen.eventId || bet.gameId}.bets.${chosenResolved}.won`;
+                }
+              }
+            } catch (e) {}
+
+            return pick;
+          }
+        } catch (e) {}
         if (
           bet.type === "Spread" ||
           bet.type?.toLowerCase().includes("spread")
@@ -2496,7 +2809,9 @@ const BetBetsScreen = () => {
               String(bet.line).toLowerCase() === "draw")
           ) {
             let awayTeam = bet.awayTeam;
+            let awayId = bet.team1Id;
             let homeTeam = bet.homeTeam;
+            let homeId = bet.team2Id;
 
             if (!awayTeam || !homeTeam) {
               if (liveGame?.competitions?.[0]?.competitors) {
@@ -2512,40 +2827,111 @@ const BetBetsScreen = () => {
               }
             }
 
-            const sportPath = (bet.sport || "nba").toLowerCase();
+            const sportPath =
+              bet.sport === "UEFA"
+                ? "soccer"
+                : (bet.sport || "nba").toLowerCase();
+
+            const toUseAway =
+              bet.sport === "UEFA" ? awayId : awayTeam.toLowerCase();
+            const toUseHome =
+              bet.sport === "UEFA" ? homeId : homeTeam.toLowerCase();
+
             pick.awayTeamLogo = awayTeam
               ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
                   isDarkMode ? "-dark" : ""
-                }/${awayTeam.toLowerCase()}.png&h=100&w=100`
+                }/${toUseAway}.png&h=100&w=100`
               : null;
             pick.homeTeamLogo = homeTeam
               ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
                   isDarkMode ? "-dark" : ""
-                }/${homeTeam.toLowerCase()}.png&h=100&w=100`
+                }/${toUseHome}.png&h=100&w=100`
               : null;
             pick.isTotal = true;
           }
         } else if (bet.type === "Total") {
-          // For Total bets: displayName = type (OVER/UNDER), prop = line period statType/type
-          pick.displayName = bet.description?.toUpperCase() || bet.type;
-          const periodPart = bet.period ? ` ${bet.period}` : "";
-          const typePart = bet.statType ? ` ${bet.statType}` : ` ${bet.type}`;
-          pick.prop = `${bet.line}${periodPart}${typePart}`;
+          // Detect UEFA special totals (corner/cards) and label appropriately
+          const combined =
+            `${bet.type} ${bet.description || ""} ${bet.id || ""}`.toLowerCase();
+          const isCorner = /corner/.test(combined);
+          const isCards = /card|cards/.test(combined);
+
+          if (isCorner) {
+            // Total corners
+            bet.propType = bet.propType || "totalCorner";
+            pick.displayName = "TOTAL CORNERS";
+            // ensure we render e.g. "3.5 TOTAL CORNERS" or "3.5 TOTAL CORNERS (HOME)"
+            const linePart = String(bet.line || "").trim();
+            pick.prop = `${linePart}${linePart ? " " : ""}TOTAL CORNERS`;
+            pick.isTotal = true;
+          } else if (isCards) {
+            // Total cards
+            bet.propType = bet.propType || "totalCards";
+            pick.displayName = "GAME";
+            pick.prop = `${String(bet.line || "").trim()} TOTAL CARDS`;
+            pick.isTotal = true;
+          } else {
+            // Generic total
+            // Strip parenthetical tokens from description/type/statType for display
+            pick.displayName = stripParenthetical(
+              (bet.description || bet.type).toUpperCase(),
+            );
+            const periodPart = bet.period
+              ? ` ${stripParenthetical(bet.period)}`
+              : "";
+            const typePart = bet.statType
+              ? ` ${stripParenthetical(bet.statType)}`
+              : ` ${stripParenthetical(bet.type)}`;
+            pick.prop =
+              `${String(bet.line || "").trim()}${periodPart}${typePart}`.trim();
+            pick.isTotal = true;
+          }
+          // If this total is actually a Yes/No style like Both Teams To Score, normalize display
+          try {
+            const combinedLower =
+              `${bet.type} ${bet.description || ""} ${bet.id || ""}`.toLowerCase();
+            if (
+              /both\s+teams/.test(combinedLower) ||
+              /both\s+to\s+score/.test(combinedLower) ||
+              /yes\/no/.test(combinedLower)
+            ) {
+              // Mark propType so progress lookup prefers the bothScore key
+              bet.propType = bet.propType || "bothScore";
+              // Use simple GAME display with Yes/No prop
+              pick.displayName = "GAME";
+              const yn = /yes/i.test(bet.line || bet.description || "")
+                ? "Yes"
+                : /no/i.test(bet.line || bet.description || "")
+                  ? "No"
+                  : bet.line || bet.description || "";
+              pick.prop =
+                String(yn).toUpperCase() === "YES" ||
+                String(yn).toUpperCase() === "NO"
+                  ? `${String(yn).charAt(0).toUpperCase()}${String(yn).slice(1).toLowerCase()}`
+                  : bet.line || bet.description || "";
+            }
+          } catch (e) {}
         } else if (bet.type === "Milestone") {
           // Milestone bets: show line period statType/type
-          pick.displayName = bet.team || "GAME";
-          const periodPart = bet.period ? ` ${bet.period}` : "";
-          const typePart = bet.statType ? ` ${bet.statType}` : ` ${bet.type}`;
-          pick.prop = `${
-            bet.line || bet.description || ""
-          }${periodPart}${typePart}`;
+          pick.displayName = stripParenthetical(bet.team) || "GAME";
+          const periodPart = bet.period
+            ? ` ${stripParenthetical(bet.period)}`
+            : "";
+          const typePart = bet.statType
+            ? ` ${stripParenthetical(bet.statType)}`
+            : ` ${stripParenthetical(bet.type)}`;
+          pick.prop =
+            `${(bet.line || bet.description || "").toString().trim()}${periodPart}${typePart}`.trim();
         } else if (bet.type === "alt") {
           // Alternate line bets: show team/line period statType/type
-          const periodPart = bet.period ? ` ${bet.period}` : "";
-          const typePart = bet.statType ? ` ${bet.statType}` : ` ${bet.type}`;
-          pick.prop = `${bet.team || ""} ${
-            bet.line || ""
-          }${periodPart}${typePart}`.trim();
+          const periodPart = bet.period
+            ? ` ${stripParenthetical(bet.period)}`
+            : "";
+          const typePart = bet.statType
+            ? ` ${stripParenthetical(bet.statType)}`
+            : ` ${stripParenthetical(bet.type)}`;
+          pick.prop =
+            `${stripParenthetical(bet.team) || ""} ${(bet.line || "").toString().trim()}${periodPart}${typePart}`.trim();
         } else if (
           bet.type?.includes("_points") ||
           bet.type?.includes("_goals") ||
@@ -2571,11 +2957,11 @@ const BetBetsScreen = () => {
 
           // Use description if available (it already includes team and line formatted nicely)
           if (bet.description && bet.description !== bet.type) {
-            parts.push(bet.description);
+            parts.push(stripParenthetical(bet.description));
           } else {
             // Otherwise build from components
-            if (bet.team) parts.push(bet.team);
-            if (bet.line) parts.push(bet.line);
+            if (bet.team) parts.push(stripParenthetical(bet.team));
+            if (bet.line) parts.push((bet.line || "").toString().trim());
           }
 
           if (periodPart) parts.push(periodPart);
@@ -2584,36 +2970,47 @@ const BetBetsScreen = () => {
           // For game totals without a stat, add "TOTAL GOALS" or "TOTAL POINTS" based on sport
           if (!bet.team && !statPart && bet.type?.includes("Over/Under")) {
             const sport = bet.sport || bet.gameId?.split("_")[1] || "";
+            const combined =
+              `${bet.type} ${bet.description || ""} ${bet.id || ""}`.toLowerCase();
             if (
               sport.toLowerCase() === "nhl" ||
-              sport.toLowerCase() === "soccer"
+              sport.toLowerCase() === "uefa"
             ) {
               parts.push("TOTAL GOALS");
             } else {
-              parts.push("TOTAL POINTS");
+              parts.push("TOTAL");
             }
           }
 
           // If we still don't have a prop, use type
-          pick.prop = parts.length > 0 ? parts.join(" ") : bet.type;
-          pick.displayName = bet.team || "GAME";
+          pick.prop = (
+            parts.length > 0 ? parts.join(" ") : stripParenthetical(bet.type)
+          ).trim();
+          pick.displayName = stripParenthetical(bet.team) || "GAME";
         } else {
           // Fallback for any other bet type
-          pick.prop =
+          pick.prop = (
             bet.description ||
             bet.type ||
-            `${bet.team || ""} ${bet.line || ""}`.trim();
-          pick.displayName = bet.team || "GAME";
+            `${stripParenthetical(bet.team) || ""} ${(bet.line || "").toString()}`
+          )
+            .toString()
+            .trim();
+          pick.displayName = stripParenthetical(bet.team) || "GAME";
         }
 
         // For Total/Over-Under bets without a team, get both team logos
         if (
-          (bet.type === "Total" || bet.type?.includes("Over/Under")) &&
+          (bet.type === "Total" ||
+            bet.type?.includes("Over/Under") ||
+            bet.type?.includes("Yes/No")) &&
           !bet.team
         ) {
           // Use team abbreviations from bet if available, otherwise extract from gameInfo
           let awayTeam = bet.awayTeam;
+          let awayId = bet.team1Id;
           let homeTeam = bet.homeTeam;
+          let homeId = bet.team2Id;
 
           if (!awayTeam || !homeTeam) {
             if (liveGame?.competitions?.[0]?.competitors) {
@@ -2630,22 +3027,33 @@ const BetBetsScreen = () => {
             }
           }
 
-          const sportPath = (bet.sport || "nba").toLowerCase();
+          const sportPath =
+            bet.sport === "UEFA"
+              ? "soccer"
+              : (bet.sport || "nba").toLowerCase();
+
+          const toUseAway =
+            bet.sport === "UEFA" ? awayId : awayTeam.toLowerCase();
+          const toUseHome =
+            bet.sport === "UEFA" ? homeId : homeTeam.toLowerCase();
+
           pick.awayTeamLogo = awayTeam
             ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
                 isDarkMode ? "-dark" : ""
-              }/${awayTeam.toLowerCase()}.png&h=100&w=100`
+              }/${toUseAway}.png&h=100&w=100`
             : null;
           pick.homeTeamLogo = homeTeam
             ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
                 isDarkMode ? "-dark" : ""
-              }/${homeTeam.toLowerCase()}.png&h=100&w=100`
+              }/${toUseHome}.png&h=100&w=100`
             : null;
           pick.isTotal = true;
         } else if (bet.type === "Milestone" && !bet.team) {
           // Milestone game totals (no team): show both team logos
           let awayTeam = bet.awayTeam;
+          let awayId = bet.team1Id;
           let homeTeam = bet.homeTeam;
+          let homeId = bet.team2Id;
 
           if (!awayTeam || !homeTeam) {
             if (liveGame?.competitions?.[0]?.competitors) {
@@ -2662,24 +3070,40 @@ const BetBetsScreen = () => {
             }
           }
 
-          const sportPath = (bet.sport || "nba").toLowerCase();
+          const sportPath =
+            bet.sport === "UEFA"
+              ? "soccer"
+              : (bet.sport || "nba").toLowerCase();
+
+          const toUseAway =
+            bet.sport === "UEFA" ? awayId : awayTeam.toLowerCase();
+          const toUseHome =
+            bet.sport === "UEFA" ? homeId : homeTeam.toLowerCase();
+
           pick.awayTeamLogo = awayTeam
             ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
                 isDarkMode ? "-dark" : ""
-              }/${awayTeam.toLowerCase()}.png&h=100&w=100`
+              }/${toUseAway}.png&h=100&w=100`
             : null;
           pick.homeTeamLogo = homeTeam
             ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
                 isDarkMode ? "-dark" : ""
-              }/${homeTeam.toLowerCase()}.png&h=100&w=100`
+              }/${toUseHome}.png&h=100&w=100`
             : null;
           pick.isTotal = true;
         } else if (bet.team) {
           // Team-specific bets (moneylines, spreads, team points/goals)
-          const sportPath = (bet.sport || "nba").toLowerCase();
+          const sportPath =
+            bet.sport === "UEFA"
+              ? "soccer"
+              : (bet.sport || "nba").toLowerCase();
+
+          const toUseTeam =
+            bet.sport === "UEFA" ? bet.teamId : bet.team.toLowerCase();
+
           pick.teamLogo = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
             isDarkMode ? "-dark" : ""
-          }/${bet.team?.toLowerCase()}.png&h=100&w=100`;
+          }/${toUseTeam}.png&h=100&w=100`;
 
           // Mark team point/goal totals as isTotal for proper rendering
           if (
@@ -2708,6 +3132,81 @@ const BetBetsScreen = () => {
             }
           });
           if (eventData?.bets) {
+            // There may be multiple event payload objects with the same eventId; prefer the one that contains the resolved key
+            let chosen = null;
+            let chosenKey = null;
+            try {
+              const targetId = normalizeGameId(bet.gameId);
+              const matches = (betslipData?.events || []).filter((e) => {
+                try {
+                  return (
+                    String(e.eventId) === targetId ||
+                    normalizeGameId(e.eventId) === targetId
+                  );
+                } catch (er) {
+                  return false;
+                }
+              });
+              let chosen = null;
+              let chosenKey = null;
+              const wantKey = bet.propType || bet.prop || null;
+              for (const m of matches) {
+                if (!m?.bets) continue;
+                const resolved =
+                  resolveBetsPayloadKey(m.bets, pick, bet) ||
+                  (wantKey && (m.bets[wantKey] ? wantKey : null));
+                if (resolved && m.bets[resolved]) {
+                  chosen = m;
+                  chosenKey = resolved;
+                  break;
+                }
+              }
+              if (!chosen && matches.length > 0) {
+                chosen = matches[0];
+                chosenKey =
+                  resolveBetsPayloadKey(chosen.bets, pick, bet) ||
+                  (wantKey && (chosen.bets[wantKey] ? wantKey : null));
+              }
+
+              if (chosen && chosenKey && chosen.bets[chosenKey]) {
+                const payload = chosen.bets[chosenKey];
+                const pl = payload.line;
+                if (typeof pl === "number") pick.line = pl;
+                else if (pl != null) {
+                  const n = Number(pl);
+                  if (!isNaN(n)) pick.line = n;
+                }
+                const cur = payload.current;
+                let parsedCur = null;
+                if (typeof cur === "number") parsedCur = cur;
+                else if (cur && typeof cur === "object")
+                  parsedCur = Number(
+                    cur.score ?? cur.current ?? cur.value ?? NaN,
+                  );
+                else if (cur != null) {
+                  const n = Number(cur);
+                  parsedCur = isNaN(n) ? null : n;
+                }
+                pick.currentValue =
+                  parsedCur !== null && !isNaN(parsedCur)
+                    ? Number(parsedCur)
+                    : pick.currentValue;
+                pick.progressSource = `betslipData.event:${chosen?.eventId || bet.gameId}.bets.${chosenKey}.current`;
+                pick.status = normalizeWon(payload.won) || pick.status;
+                pick.progressWonSource = `betslipData.event:${chosen?.eventId || bet.gameId}.bets.${chosenKey}.won`;
+              }
+            } catch (e) {}
+            // resolvedBetKey fallback: prefer chosenKey from matches, otherwise resolve against eventData
+            const resolvedBetKey =
+              chosenKey || resolveBetsPayloadKey(eventData.bets, pick, bet);
+            if (typeof __DEV__ !== "undefined" && __DEV__) {
+              try {
+                console.log(
+                  `DEV: generic lookup for pick ${pick.id} (pick.key=${pick.key}) -> resolvedBetKey=${resolvedBetKey} eventBets=`,
+                  Object.keys(eventData.bets || {}),
+                );
+              } catch (e) {}
+            }
             // Period-specific overrides (e.g. P1_SP, P2_T)
             try {
               const periodKey = normalizePeriodKey(bet.period);
@@ -2780,28 +3279,34 @@ const BetBetsScreen = () => {
             if (
               (bet.type === "Moneyline" ||
                 String(bet.type).toLowerCase().includes("moneyline")) &&
-              eventData.bets.moneyline
+              (eventData.bets.moneyline ||
+                (resolvedBetKey &&
+                  String(resolvedBetKey).toLowerCase().includes("moneyline")))
             ) {
+              const mlPayload =
+                eventData.bets.moneyline || eventData.bets[resolvedBetKey];
               // moneyline current may be a score string; do not set numeric currentValue
               // to avoid rendering a progress bar for moneyline bets. Keep a scoreText for display if needed.
-              pick.scoreText = eventData.bets.moneyline.current?.score;
+              pick.scoreText = mlPayload?.current?.score;
               pick.currentValue = null;
               pick.status =
-                eventData.bets.moneyline.current?.won === true
+                mlPayload?.current?.won === true
                   ? "winning"
-                  : eventData.bets.moneyline.current?.won === false
+                  : mlPayload?.current?.won === false
                     ? "losing"
                     : "pending";
-              pick.progressWonSource = `betslipData.event:${
-                eventData?.eventId || bet.gameId
-              }.bets.moneyline.current.won`;
+              pick.progressWonSource = `betslipData.event:${eventData?.eventId || bet.gameId}.bets.${resolvedBetKey || "moneyline"}.current.won`;
             } else if (
               (bet.type === "Spread" ||
                 String(bet.type).toLowerCase().includes("spread")) &&
-              eventData.bets.spread
+              (eventData.bets.spread ||
+                (resolvedBetKey &&
+                  String(resolvedBetKey).toLowerCase().includes("spread")))
             ) {
               // Compute current spread value using event scores so the slider bubble shows a meaningful numeric
-              const spreadCurrent = eventData.bets.spread.current;
+              const spreadPayload =
+                eventData.bets.spread || eventData.bets[resolvedBetKey];
+              const spreadCurrent = spreadPayload?.current;
               const gameInfo = eventData.status?.game;
               const homeTeam = gameInfo?.homeTeam;
               const awayTeam = gameInfo?.awayTeam;
@@ -2836,9 +3341,7 @@ const BetBetsScreen = () => {
               // Always compute diff as opponent - team for consistent visualization
               const currentSpreadValue = oppScore - teamScore;
               pick.currentValue = Number(currentSpreadValue);
-              pick.progressSource = `betslipData.event:${
-                eventData?.eventId || bet.gameId
-              }.bets.spread.current`;
+              pick.progressSource = `betslipData.event:${eventData?.eventId || bet.gameId}.bets.${resolvedBetKey || "spread"}.current`;
               // mark as spread for special visualization handling
               pick.isSpread = true;
               pick.spreadLine = lineNum;
@@ -2848,59 +3351,57 @@ const BetBetsScreen = () => {
                   : spreadCurrent?.won === false
                     ? "losing"
                     : "pending";
-              pick.progressWonSource = `betslipData.event:${
-                eventData?.eventId || bet.gameId
-              }.bets.spread.current.won`;
+              pick.progressWonSource = `betslipData.event:${eventData?.eventId || bet.gameId}.bets.${resolvedBetKey || "spread"}.current.won`;
             } else if (
               (bet.type === "Total" ||
                 String(bet.type).toLowerCase().includes("total")) &&
-              eventData.bets.totalPoints
+              (eventData.bets.totalPoints ||
+                (resolvedBetKey && /total/i.test(resolvedBetKey)))
             ) {
-              // ensure we have a numeric line to compute progress; prefer original bet.line but fall back to event payload
-              const payloadLine = eventData.bets.totalPoints.line;
-              if (typeof payloadLine === "number") {
-                pick.line = payloadLine;
-              } else if (payloadLine != null) {
-                const parsed = Number(payloadLine);
-                if (!isNaN(parsed)) pick.line = parsed;
+              // prefer payload key resolved earlier
+              const tpKey =
+                resolvedBetKey && /total/i.test(resolvedBetKey)
+                  ? resolvedBetKey
+                  : "totalPoints";
+              const payload =
+                eventData.bets[tpKey] || eventData.bets.totalPoints;
+              if (payload) {
+                const payloadLine = payload.line;
+                if (typeof payloadLine === "number") pick.line = payloadLine;
+                else if (payloadLine != null) {
+                  const parsed = Number(payloadLine);
+                  if (!isNaN(parsed)) pick.line = parsed;
+                }
+                const totalCurrent = payload.current;
+                let parsedCurrent = null;
+                if (typeof totalCurrent === "number")
+                  parsedCurrent = totalCurrent;
+                else if (totalCurrent && typeof totalCurrent === "object")
+                  parsedCurrent = Number(
+                    totalCurrent.score ??
+                      totalCurrent.current ??
+                      totalCurrent.value ??
+                      NaN,
+                  );
+                else if (totalCurrent != null) {
+                  const n = Number(totalCurrent);
+                  parsedCurrent = isNaN(n) ? null : n;
+                }
+                pick.currentValue =
+                  parsedCurrent !== null && !isNaN(parsedCurrent)
+                    ? Number(parsedCurrent)
+                    : null;
+                pick.progressSource = `betslipData.event:${eventData?.eventId || bet.gameId}.bets.${tpKey}.current`;
+                pick.status = normalizeWon(payload.won) || "pending";
+                pick.progressWonSource = `betslipData.event:${eventData?.eventId || bet.gameId}.bets.${tpKey}.won`;
               }
-
-              // totalCurrent may be a number or an object like { score: 261 } depending on source
-              const totalCurrent = eventData.bets.totalPoints.current;
-              let parsedCurrent = null;
-              if (typeof totalCurrent === "number") {
-                parsedCurrent = totalCurrent;
-              } else if (totalCurrent && typeof totalCurrent === "object") {
-                parsedCurrent = Number(
-                  totalCurrent.score ??
-                    totalCurrent.current ??
-                    totalCurrent.value ??
-                    NaN,
-                );
-              } else if (totalCurrent != null) {
-                const n = Number(totalCurrent);
-                parsedCurrent = isNaN(n) ? null : n;
-              }
-
-              pick.currentValue =
-                parsedCurrent !== null && !isNaN(parsedCurrent)
-                  ? Number(parsedCurrent)
-                  : null;
-              pick.progressSource = `betslipData.event:${
-                eventData?.eventId || bet.gameId
-              }.bets.totalPoints.current`;
-
-              pick.status =
-                eventData.bets.totalPoints.won === true
-                  ? "winning"
-                  : eventData.bets.totalPoints.won === false
-                    ? "losing"
-                    : "pending";
-              pick.progressWonSource = `betslipData.event:${
-                eventData?.eventId || bet.gameId
-              }.bets.totalPoints.won`;
             } else if (
-              (eventData.bets.awayPoints || eventData.bets.homePoints) &&
+              (eventData.bets.awayPoints ||
+                eventData.bets.homePoints ||
+                (resolvedBetKey &&
+                  /(home|away).*points|points.*home|awaypoints|homepoints/i.test(
+                    resolvedBetKey,
+                  ))) &&
               (bet.type?.toLowerCase().includes("_points") ||
                 String(bet.type).toLowerCase().includes("home") ||
                 String(bet.type).toLowerCase().includes("away"))
@@ -2910,24 +3411,29 @@ const BetBetsScreen = () => {
               const homeAbbrev = g.homeTeam || g.home || "";
               const awayAbbrev = g.awayTeam || g.away || "";
               let ptsPayload = null;
-              if (
-                eventData.bets.homePoints &&
-                (String(bet.team).toUpperCase() ===
-                  String(homeAbbrev).toUpperCase() ||
-                  String(bet.type).toLowerCase().includes("home"))
-              ) {
-                ptsPayload = eventData.bets.homePoints;
-              } else if (
-                eventData.bets.awayPoints &&
-                (String(bet.team).toUpperCase() ===
-                  String(awayAbbrev).toUpperCase() ||
-                  String(bet.type).toLowerCase().includes("away"))
-              ) {
-                ptsPayload = eventData.bets.awayPoints;
+              // if resolved key points to a specific payload use it
+              if (resolvedBetKey && eventData.bets[resolvedBetKey]) {
+                ptsPayload = eventData.bets[resolvedBetKey];
               } else {
-                // fallback: prefer awayPoints then homePoints
-                ptsPayload =
-                  eventData.bets.awayPoints || eventData.bets.homePoints;
+                if (
+                  eventData.bets.homePoints &&
+                  (String(bet.team).toUpperCase() ===
+                    String(homeAbbrev).toUpperCase() ||
+                    String(bet.type).toLowerCase().includes("home"))
+                ) {
+                  ptsPayload = eventData.bets.homePoints;
+                } else if (
+                  eventData.bets.awayPoints &&
+                  (String(bet.team).toUpperCase() ===
+                    String(awayAbbrev).toUpperCase() ||
+                    String(bet.type).toLowerCase().includes("away"))
+                ) {
+                  ptsPayload = eventData.bets.awayPoints;
+                } else {
+                  // fallback: prefer awayPoints then homePoints
+                  ptsPayload =
+                    eventData.bets.awayPoints || eventData.bets.homePoints;
+                }
               }
 
               if (ptsPayload) {
@@ -3192,6 +3698,11 @@ const BetBetsScreen = () => {
 
             // Team-level overrides (spread/total/points)
             if (!pick.playerName && overrideEvent?.bets) {
+              const resolvedOverrideKey = resolveBetsPayloadKey(
+                overrideEvent.bets,
+                pick,
+                bet,
+              );
               // First, determine bet type and check for quarter/half/period specific keys
               const g = overrideEvent.status?.game || {};
               const homeAbbrev = g.homeTeam || g.home || "";
@@ -3417,31 +3928,41 @@ const BetBetsScreen = () => {
               // If not handled by quarter/half/period, check generic moneyline/spread/total
               if (
                 !handled &&
-                overrideEvent.bets.moneyline &&
+                (overrideEvent.bets.moneyline ||
+                  (resolvedOverrideKey &&
+                    String(resolvedOverrideKey)
+                      .toLowerCase()
+                      .includes("moneyline"))) &&
                 betType.includes("moneyline")
               ) {
+                const mlPay =
+                  overrideEvent.bets.moneyline ||
+                  overrideEvent.bets[resolvedOverrideKey];
                 handled = true;
-                pick.scoreText = overrideEvent.bets.moneyline.current?.score;
+                pick.scoreText = mlPay?.current?.score || mlPay?.current;
                 pick.currentValue = null;
-                pick.progressSource = `overrideEvent.event:${
-                  overrideEvent?.eventId || bet.gameId
-                }.bets.moneyline`;
+                pick.progressSource = `overrideEvent.event:${overrideEvent?.eventId || bet.gameId}.bets.${resolvedOverrideKey || "moneyline"}`;
                 pick.status =
-                  overrideEvent.bets.moneyline.won === true
+                  mlPay?.won === true
                     ? "winning"
-                    : overrideEvent.bets.moneyline.won === false
+                    : mlPay?.won === false
                       ? "losing"
                       : "pending";
-                pick.progressWonSource = `overrideEvent.event:${
-                  overrideEvent?.eventId || bet.gameId
-                }.bets.moneyline.won`;
+                pick.progressWonSource = `overrideEvent.event:${overrideEvent?.eventId || bet.gameId}.bets.${resolvedOverrideKey || "moneyline"}.won`;
               } else if (
                 !handled &&
-                overrideEvent.bets.spread &&
+                (overrideEvent.bets.spread ||
+                  (resolvedOverrideKey &&
+                    String(resolvedOverrideKey)
+                      .toLowerCase()
+                      .includes("spread"))) &&
                 betType.includes("spread")
               ) {
                 handled = true;
-                const spreadCurrent = overrideEvent.bets.spread.current;
+                const spreadPayload =
+                  overrideEvent.bets.spread ||
+                  overrideEvent.bets[resolvedOverrideKey];
+                const spreadCurrent = spreadPayload?.current;
                 const homeScore = Number(g?.homeScore) || 0;
                 const awayScore = Number(g?.awayScore) || 0;
                 let teamScore = null;
@@ -3462,69 +3983,72 @@ const BetBetsScreen = () => {
                   oppScore = 0;
                 }
                 pick.currentValue = Number(oppScore - teamScore);
-                pick.progressSource = `overrideEvent.event:${
-                  overrideEvent?.eventId || bet.gameId
-                }.bets.spread.current`;
+                pick.progressSource = `overrideEvent.event:${overrideEvent?.eventId || bet.gameId}.bets.${resolvedOverrideKey || "spread"}.current`;
                 pick.status =
-                  overrideEvent.bets.spread.won === true
+                  spreadPayload?.won === true
                     ? "winning"
-                    : overrideEvent.bets.spread.won === false
+                    : spreadPayload?.won === false
                       ? "losing"
                       : "pending";
-                pick.progressWonSource = `overrideEvent.event:${
-                  overrideEvent?.eventId || bet.gameId
-                }.bets.spread.won`;
+                pick.progressWonSource = `overrideEvent.event:${overrideEvent?.eventId || bet.gameId}.bets.${resolvedOverrideKey || "spread"}.won`;
                 const spreadLine = overrideEvent.bets.spread.line;
                 if (typeof spreadLine === "number" && !isNaN(spreadLine)) {
                   pick.line = spreadLine;
                 }
               } else if (
                 !handled &&
-                overrideEvent.bets.totalPoints &&
-                (betType.includes("total") || betType.includes("over/under")) &&
+                (overrideEvent.bets.totalPoints ||
+                  (resolvedOverrideKey &&
+                    /total/i.test(resolvedOverrideKey))) &&
+                (betType.includes("total") ||
+                  betType.includes("over/under") ||
+                  betType.includes("yes/no")) &&
                 !bet.team && // Only use totalPoints for game totals, not team-specific points
                 !betType.includes("points over/under") // Exclude team-specific point bets
               ) {
+                const tpKey =
+                  resolvedOverrideKey && /total/i.test(resolvedOverrideKey)
+                    ? resolvedOverrideKey
+                    : "totalPoints";
+                const payload =
+                  overrideEvent.bets[tpKey] || overrideEvent.bets.totalPoints;
                 handled = true;
-                const overrideLine = overrideEvent.bets.totalPoints.line;
-                if (typeof overrideLine === "number") {
-                  pick.line = overrideLine;
-                } else if (overrideLine != null) {
-                  const parsed = Number(overrideLine);
-                  if (!isNaN(parsed)) pick.line = parsed;
+                if (payload) {
+                  const overrideLine = payload.line;
+                  if (typeof overrideLine === "number")
+                    pick.line = overrideLine;
+                  else if (overrideLine != null) {
+                    const parsed = Number(overrideLine);
+                    if (!isNaN(parsed)) pick.line = parsed;
+                  }
+                  const totalCurrent = payload.current;
+                  let parsedCurrent = null;
+                  if (typeof totalCurrent === "number")
+                    parsedCurrent = totalCurrent;
+                  else if (totalCurrent && typeof totalCurrent === "object")
+                    parsedCurrent = Number(
+                      totalCurrent.score ??
+                        totalCurrent.current ??
+                        totalCurrent.value ??
+                        NaN,
+                    );
+                  else if (totalCurrent != null) {
+                    const n = Number(totalCurrent);
+                    parsedCurrent = isNaN(n) ? null : n;
+                  }
+                  pick.currentValue =
+                    parsedCurrent !== null && !isNaN(parsedCurrent)
+                      ? Number(parsedCurrent)
+                      : pick.currentValue;
+                  pick.progressSource = `overrideEvent.event:${overrideEvent?.eventId || bet.gameId}.bets.${tpKey}.current`;
+                  pick.status =
+                    payload?.won === true
+                      ? "winning"
+                      : payload?.won === false
+                        ? "losing"
+                        : "pending";
+                  pick.progressWonSource = `overrideEvent.event:${overrideEvent?.eventId || bet.gameId}.bets.${tpKey}.won`;
                 }
-
-                const totalCurrent = overrideEvent.bets.totalPoints.current;
-                let parsedCurrent = null;
-                if (typeof totalCurrent === "number")
-                  parsedCurrent = totalCurrent;
-                else if (totalCurrent && typeof totalCurrent === "object")
-                  parsedCurrent = Number(
-                    totalCurrent.score ??
-                      totalCurrent.current ??
-                      totalCurrent.value ??
-                      NaN,
-                  );
-                else if (totalCurrent != null) {
-                  const n = Number(totalCurrent);
-                  parsedCurrent = isNaN(n) ? null : n;
-                }
-                pick.currentValue =
-                  parsedCurrent !== null && !isNaN(parsedCurrent)
-                    ? Number(parsedCurrent)
-                    : pick.currentValue;
-                pick.progressSource = `overrideEvent.event:${
-                  overrideEvent?.eventId || bet.gameId
-                }.bets.totalPoints.current`;
-                pick.status =
-                  overrideEvent.bets.totalPoints?.won === true
-                    ? "winning"
-                    : overrideEvent.bets.totalPoints?.won === false
-                      ? "losing"
-                      : "pending";
-                pick.progressWonSource = `overrideEvent.event:${
-                  overrideEvent?.eventId || bet.gameId
-                }.bets.totalPoints.won`;
               }
 
               // Handle team-specific points/goals if not already handled
@@ -3721,29 +4245,42 @@ const BetBetsScreen = () => {
                 bet.gameId.includes("_") &&
                 bet.gameId.split("_").pop()))) ||
           "unknown";
+        // Prefer explicit propType when present (e.g., totalCorner/totalCards/bothScore)
         const statGuess = deriveStatKey(
-          bet.statType || bet.prop || bet.propType || "",
+          bet.propType || bet.statType || bet.prop || "",
           sportHint,
         );
         const sportDisplay = sportHint
           ? String(sportHint).toUpperCase()
           : "N/A";
         const lookingFor = statGuess ? String(statGuess).toUpperCase() : "N/A";
-
-        // Log bet progress info once per bet with sport/key context
-        console.log(
-          `[Bet] ${bet.prop || bet.description} | Looking For: ${lookingFor} | Sport: ${sportDisplay} | Source: ${progressSource} | Current: ${pick.currentValue ?? "N/A"} | Line: ${bet.line ?? "N/A"} | GameState: ${pick.gameState || "null"} | ShowProgressBar: ${
-            pick.currentValue !== null &&
-            typeof pick.currentValue === "number" &&
-            !isNaN(pick.currentValue) &&
-            isValidLineForProgress(pick.line) &&
-            pick.gameState !== "pre"
-          }`,
-        );
       } catch (e) {}
 
       return pick;
     });
+
+    try {
+      // Lightweight per-pick summary for debugging
+      console.log(
+        `renderSubmittedBet picks summary for ${betSlip.id}:`,
+        allPicks.map((p) => {
+          const srcBet = originalBets.find((b) => b.id === p.id) || {};
+          return {
+            id: p.id,
+            key: srcBet.key || srcBet.propType || srcBet.statType || null,
+            sport:
+              srcBet.sport ||
+              String(srcBet.gameId || "")
+                .split("_")
+                .pop() ||
+              null,
+            progressSource: p.progressSource || null,
+            currentValue: p.currentValue != null ? p.currentValue : null,
+            status: p.status || null,
+          };
+        }),
+      );
+    } catch (e) {}
 
     // Calculate total odds and payout
     const calculateOdds = () => {

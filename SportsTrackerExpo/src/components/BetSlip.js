@@ -62,7 +62,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
       } catch (e) {
         console.warn(
           "Failed to fetch profile for credits display:",
-          e?.message || e
+          e?.message || e,
         );
       }
     };
@@ -74,6 +74,18 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
 
   const openSlip = () => {
     setIsSlipOpen(true);
+  };
+
+  // Detect Alt-style bets (explicit alt in type or '+'/'-' shorthand in line/description)
+  const isAltBet = (bet) => {
+    if (!bet) return false;
+    const t = String(bet.type || "").toLowerCase();
+    const line = String(bet.line || "");
+    const desc = String(bet.description || "");
+    if (t.includes("(alt)") || t.includes(" alt)")) return true;
+    if (line.includes("+") || line.includes("-")) return true;
+    if (desc.includes("+") || desc.includes("-")) return true;
+    return false;
   };
 
   const closeSlip = () => {
@@ -100,6 +112,28 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
     }
   };
 
+  // Detect UEFA special total type for a bet: 'corner', 'cards', or null
+  const getSpecialUefaTotalType = (bet) => {
+    if (!bet) return null;
+    const t = String(bet.type || "").toLowerCase();
+    const id = String(bet.id || "").toLowerCase();
+    const desc = String(bet.description || "").toLowerCase();
+    if (
+      t.includes("corner") ||
+      id.includes("corner") ||
+      desc.includes("corner")
+    )
+      return "corner";
+    if (
+      t.includes("card") ||
+      id.includes("card") ||
+      desc.includes("card") ||
+      desc.includes("cards")
+    )
+      return "cards";
+    return null;
+  };
+
   const handleConfirmBet = async () => {
     const amount = parseFloat(betAmount) || 200;
     console.log("handleConfirmBet invoked", {
@@ -120,7 +154,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             `You only have ${Number(balance).toLocaleString(undefined, {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
-            })} Credits available.`
+            })} Credits available.`,
           );
           return;
         }
@@ -130,13 +164,13 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
       // If checking balance failed, continue and let server validate
       console.warn(
         "Failed to load profile for balance check:",
-        e?.message || e
+        e?.message || e,
       );
     }
     try {
       // Build API query from bets
       const gameIds = [...new Set(bets.map((bet) => bet.gameId))].filter(
-        Boolean
+        Boolean,
       );
       console.log("Computed gameIds:", gameIds);
       // Fetch scoreboard(s) for the sport(s) represented in the slip and
@@ -145,7 +179,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
       const getSportFromGameId = (gameId) => {
         try {
           const m = String(gameId).match(
-            /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba)$/i
+            /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba)$/i,
           );
           return m ? m[1].toUpperCase() : null;
         } catch (e) {
@@ -171,7 +205,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
       const fetchPromises = sports.map((s) =>
         fetchScoreboard(s)
           .then((d) => ({ sport: s, data: d }))
-          .catch((err) => ({ sport: s, data: null, err }))
+          .catch((err) => ({ sport: s, data: null, err })),
       );
 
       const fetchResults = await Promise.all(fetchPromises);
@@ -184,7 +218,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
               : res.data.events || [];
             effectiveScoreboardGames.push(...events);
             console.log(
-              `BetSlip: fetched ${events.length} events for ${res.sport}`
+              `BetSlip: fetched ${events.length} events for ${res.sport}`,
             );
           } else {
             console.warn(`BetSlip: no scoreboard data for ${res.sport}`);
@@ -192,7 +226,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         } catch (e) {
           console.warn(
             "BetSlip: error processing fetched scoreboard",
-            e?.message || e
+            e?.message || e,
           );
         }
       });
@@ -209,7 +243,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                   String(g.gameId) === String(gid) ||
                   String(g.gamePk) === String(gid) ||
                   g.event?.id === gid ||
-                  g.header?.competitions?.[0]?.id === gid
+                  g.header?.competitions?.[0]?.id === gid,
               )
             : undefined;
         console.log(
@@ -218,7 +252,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
           Array.isArray(effectiveScoreboardGames)
             ? effectiveScoreboardGames.length
             : 0,
-          Boolean(sg)
+          Boolean(sg),
         );
         if (!sg) return;
         const state =
@@ -250,7 +284,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                 removedBetIds.forEach((id) => removeBet(id));
               },
             },
-          ]
+          ],
         );
 
         return;
@@ -279,7 +313,6 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
           if (
             s.includes("gsv") ||
             s.includes("hgl") ||
-            s.includes("sht") ||
             s.includes("shot") ||
             s.includes("shots") ||
             s.includes("save") ||
@@ -373,8 +406,8 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             periodMatch[1] === "1st"
               ? "1"
               : periodMatch[1] === "2nd"
-              ? "2"
-              : "3";
+                ? "2"
+                : "3";
           return num + "P";
         }
         if (quarterMatch) {
@@ -382,10 +415,10 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             quarterMatch[1] === "1st"
               ? "1"
               : quarterMatch[1] === "2nd"
-              ? "2"
-              : quarterMatch[1] === "3rd"
-              ? "3"
-              : "4";
+                ? "2"
+                : quarterMatch[1] === "3rd"
+                  ? "3"
+                  : "4";
           return num + "Q";
         }
         if (halfMatch) {
@@ -397,7 +430,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
 
       // Recompute gameIds after grouping (some bets may have been normalized to include sport suffix)
       const finalGameIds = [...new Set(bets.map((bet) => bet.gameId))].filter(
-        Boolean
+        Boolean,
       );
       const isMultiSport = sports.length > 1;
 
@@ -426,7 +459,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                 (b) =>
                   b.gameId === gid &&
                   getPeriodSuffix(b) === periodSuffix &&
-                  matchesBetType(b, paramName)
+                  matchesBetType(b, paramName),
               );
               return bet ? formatBetValue(bet, paramName) : "";
             });
@@ -447,7 +480,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
               (b) =>
                 b.gameId === gid &&
                 getPeriodSuffix(b) === periodSuffix &&
-                matchesBetType(b, paramName)
+                matchesBetType(b, paramName),
             );
             return bet ? formatBetValue(bet, paramName) : "";
           });
@@ -472,18 +505,78 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
               !betType.includes("regulation")
             );
           case "moneylineReg":
-            return bet.type === "Regulation 3-Way Moneyline";
+            return bet.type === "Regulation 3-Way Moneyline" || bet.type === "3-Way Moneyline (Regulation)";
           case "spread":
             return (
               bet.type === "Spread" ||
               (bet.type?.includes("(Alt)") && bet.type?.includes("Spread"))
             );
-          case "total":
+          // UEFA special spreads (cards/corner) for specific home/away params
+          case "awayCardSpread":
+            if (!bet.team) return false;
+            if (!bet.gameInfo?.teams) return false;
+            return (
+              betType.includes("card") &&
+              betType.includes("spread") &&
+              bet.gameInfo.teams.split(" @ ")[0] === bet.team
+            );
+          case "homeCardSpread":
+            if (!bet.team) return false;
+            if (!bet.gameInfo?.teams) return false;
+            return (
+              betType.includes("card") &&
+              betType.includes("spread") &&
+              bet.gameInfo.teams.split(" @ ")[1] === bet.team
+            );
+          case "awayCornerSpread":
+            if (!bet.team) return false;
+            if (!bet.gameInfo?.teams) return false;
+            return (
+              betType.includes("corner") &&
+              betType.includes("spread") &&
+              bet.gameInfo.teams.split(" @ ")[0] === bet.team
+            );
+          case "homeCornerSpread":
+            if (!bet.team) return false;
+            if (!bet.gameInfo?.teams) return false;
+            return (
+              betType.includes("corner") &&
+              betType.includes("spread") &&
+              bet.gameInfo.teams.split(" @ ")[1] === bet.team
+            );
+          case "total": {
+            const special = getSpecialUefaTotalType(bet);
             return (
               !bet.team &&
               (betType.includes("over/under") ||
                 betType.includes("total") ||
-                bet.type === "Milestone")
+                bet.type === "Milestone") &&
+              !special
+            );
+          }
+          // UEFA special totals
+          case "totalCorner":
+            return (
+              !bet.team &&
+              (betType.includes("corner") ||
+                (bet.id || "").toLowerCase().includes("corner") ||
+                (bet.description || "").toLowerCase().includes("corner"))
+            );
+          case "totalCards":
+            return (
+              !bet.team &&
+              (betType.includes("card") ||
+                (bet.id || "").toLowerCase().includes("card") ||
+                (bet.description || "").toLowerCase().includes("card"))
+            );
+          case "bothScore":
+            return (
+              !bet.team &&
+              (betType.includes("both teams") ||
+                (bet.description || "")
+                  .toLowerCase()
+                  .includes("both teams to score") ||
+                (bet.id || "").toLowerCase().includes("both"))
             );
           case "homePoints":
           case "homeGoals":
@@ -558,6 +651,50 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             return lineValue;
           }
 
+          case "totalCorner":
+          case "totalCards": {
+            // Prefer explicit O/U prefix in line if present, otherwise use description
+            let num = String(bet.line || "").replace(/^[OU]\s+/i, "");
+            num = num.replace(/[^0-9.]/g, "");
+            if (!num) return "";
+            const isOver =
+              /\bover\b/i.test(bet.description || "") ||
+              /\bO\b/i.test(bet.line || "");
+            // If this is an Alt-style line (like "7+"), return signed number (+7/-7)
+            if (isAltBet(bet)) {
+              const hasPlus =
+                /\+/i.test(bet.line || "") || /\+/i.test(bet.description || "");
+              const hasMinus =
+                /-/i.test(bet.line || "") || /-/i.test(bet.description || "");
+              const sign = hasPlus ? "+" : hasMinus ? "-" : isOver ? "+" : "+";
+              return `${sign}${num}`;
+            }
+            const prefix = isOver ? "o" : "u";
+            return `${prefix}${num}`;
+          }
+
+          case "awayCardSpread":
+          case "homeCardSpread":
+          case "awayCornerSpread":
+          case "homeCornerSpread": {
+            // Return just the signed line (e.g. +0.5, -1.5)
+            let raw = String(bet.line || "");
+            raw = raw.replace(/[OoUu]\s*/, "");
+            // Ensure a sign is present
+            if (!raw.match(/^[-+]/)) {
+              if (/over|\+/i.test(bet.description || "")) raw = `+${raw}`;
+              else if (/under|\-/i.test(bet.description || "")) raw = `-${raw}`;
+            }
+            return raw;
+          }
+
+          case "bothScore": {
+            const raw = String(bet.line || bet.description || "").toLowerCase();
+            if (raw.includes("yes")) return "yes";
+            if (raw.includes("no")) return "no";
+            return raw || "";
+          }
+
           default:
             return "";
         }
@@ -568,6 +705,17 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
       buildAlignedArray("moneylineReg");
       buildAlignedArray("spread");
       buildAlignedArray("total");
+      // UEFA-specific totals
+      buildAlignedArray("totalCorner");
+      buildAlignedArray("totalCards");
+      // Both Teams To Score (yes/no)
+      buildAlignedArray("bothScore");
+
+      // UEFA-specific spreads per side
+      buildAlignedArray("awayCardSpread");
+      buildAlignedArray("homeCardSpread");
+      buildAlignedArray("awayCornerSpread");
+      buildAlignedArray("homeCornerSpread");
 
       // For NHL use Goals, for NBA/NFL use Points
       if (isMultiSport) {
@@ -594,6 +742,15 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
           buildAlignedArray("moneyline", suffix);
           buildAlignedArray("spread", suffix);
           buildAlignedArray("total", suffix);
+          // period-specific UEFA params
+          buildAlignedArray("totalCorner", suffix);
+          buildAlignedArray("totalCards", suffix);
+          // Period-specific both teams to score
+          buildAlignedArray("bothScore", suffix);
+          buildAlignedArray("awayCardSpread", suffix);
+          buildAlignedArray("homeCardSpread", suffix);
+          buildAlignedArray("awayCornerSpread", suffix);
+          buildAlignedArray("homeCornerSpread", suffix);
 
           if (isMultiSport) {
             buildAlignedArray("homePoints", suffix);
@@ -610,7 +767,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
               buildAlignedArray("awayPoints", suffix);
             }
           }
-        }
+        },
       );
 
       // Player bets remain unchanged
@@ -771,12 +928,17 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
           const uefaMap = {
             goals_yn: "goals",
             goals_ou: "ugl",
+            points_ou: "ugl",
+            points_yn: "goals",
             combinedcards: "cards",
             redcards: "rc",
+            assists_ou: "uast",
             firsttoscore: "firstgoal",
             first_to_score: "firstgoal",
             lasttoscore: "lastgoal",
             last_to_score: "lastgoal",
+            shots_ou: "usht",
+            shots_ongoal_ou: "usog",
           };
 
           // choose mapping table based on sportHint
@@ -847,7 +1009,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             const isYesNo = statOriginal.endsWith("_yn");
 
             if (s.includes("shot") || s.includes("shots") || s.includes("sht"))
-              return "sht";
+              return "usog";
             if (s.includes("save")) return "gsv";
             if (s.includes("firsttoscore") || s.includes("first_to_score"))
               return "firstgoal";
@@ -948,7 +1110,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
 
       // Add player bet if not already added
       const existingPlayer = betsByGame[bet.gameId].players.find(
-        (p) => p.playerId === bet.playerId
+        (p) => p.playerId === bet.playerId,
       );
       if (existingPlayer) {
         // Add additional stat for this player
@@ -1180,10 +1342,10 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                     const competition = gameData.competitions[0];
                     const competitors = competition?.competitors || [];
                     const awayTeam = competitors.find(
-                      (c) => c.homeAway === "away"
+                      (c) => c.homeAway === "away",
                     );
                     const homeTeam = competitors.find(
-                      (c) => c.homeAway === "home"
+                      (c) => c.homeAway === "home",
                     );
 
                     gameHeaderInfo = {
@@ -1225,14 +1387,14 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
 
                           // Extract sport from gameId suffix (e.g., "401810365_nba" -> sport: "NBA", gameId: "401810365")
                           const sportMatch = gameId.match(
-                            /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba)$/i
+                            /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba)$/i,
                           );
                           const sport = sportMatch
                             ? sportMatch[1].toUpperCase()
                             : null;
                           const cleanGameId = gameId.replace(
                             /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba)$/i,
-                            ""
+                            "",
                           );
 
                           // Navigate even if gameData is not found - BetGameDetailScreen will handle it
@@ -1311,7 +1473,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                           if (statLower === "combinedcards_yn") {
                             return "anytime_card";
                           }
-                          
+
                           if (statLower === "redcards_yn") {
                             return "anytime_red_card";
                           }
@@ -1333,7 +1495,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                         // Convert stat type based on sport FIRST
                         let converted = convertStatTypeForSport(
                           statType,
-                          sport
+                          sport,
                         );
 
                         let normalized = converted
@@ -1349,7 +1511,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                           .split(" ")
                           .map(
                             (word) =>
-                              word.charAt(0).toUpperCase() + word.slice(1)
+                              word.charAt(0).toUpperCase() + word.slice(1),
                           )
                           .join(" ");
 
@@ -1396,13 +1558,30 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                             bet.type.slice(1);
                           return `${capitalizedType} ${normalizeStatTypeDisplay(
                             bet.statType,
-                            bet.sport
+                            bet.sport,
                           )}`;
                         }
                         // For game lines (Spread, Total, Moneyline), just return the type
-                        return (
-                          bet.type.charAt(0).toUpperCase() + bet.type.slice(1)
-                        );
+                        let typeCap =
+                          bet.type.charAt(0).toUpperCase() + bet.type.slice(1);
+                        // If this is a total with UEFA special type, show specific label
+                        const special = getSpecialUefaTotalType(bet);
+                        if (
+                          (typeCap === "Total" ||
+                            typeCap === "Over/under" ||
+                            typeCap.toLowerCase().includes("total")) &&
+                          special
+                        ) {
+                          if (special === "corner")
+                            typeCap =
+                              "TOTAL CORNER KICKS OVER/UNDER (FULL MATCH)";
+                          if (special === "cards")
+                            typeCap =
+                              "TOTAL CARDS (WEIGHTED) OVER/UNDER (FULL MATCH)";
+                        }
+                        // Append ALT marker when appropriate
+                        if (isAltBet(bet)) return `${typeCap} (ALT)`;
+                        return typeCap;
                       };
 
                       return (
@@ -1412,14 +1591,14 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                           onPress={() => {
                             try {
                               const scoreboardForGame = Array.isArray(
-                                scoreboardGames
+                                scoreboardGames,
                               )
                                 ? scoreboardGames.find(
                                     (g) =>
                                       String(g.id) === String(bet.gameId) ||
                                       String(g.gameId) === String(bet.gameId) ||
                                       g.header?.competitions?.[0]?.id ===
-                                        bet.gameId
+                                        bet.gameId,
                                   )
                                 : undefined;
                               console.log("Bet clicked", {
@@ -1428,7 +1607,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                                 bet,
                                 scoreboardForGame,
                                 scoreboardGamesCount: Array.isArray(
-                                  scoreboardGames
+                                  scoreboardGames,
                                 )
                                   ? scoreboardGames.length
                                   : 0,
@@ -1466,7 +1645,8 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                             >
                               {/* For team bets, show team/game and bet line */}
                               {bet.type.includes("Total") ||
-                              bet.type.includes("Over/Under")
+                              bet.type.includes("Over/Under") ||
+                              bet.type.includes("Yes/No")
                                 ? bet.team
                                   ? `${bet.team} • ${bet.line}`
                                   : `${
@@ -1475,27 +1655,30 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                                         : "GAME"
                                     } • ${bet.line}`
                                 : bet.type.includes("Moneyline")
-                                ? bet.team || bet.line || "DRAW"
-                                : bet.type.includes("Spread")
-                                ? `${bet.team} • ${bet.line}`
-                                : bet.type === "Milestone"
-                                ? `${
-                                    bet.team ||
-                                    (bet.period
-                                      ? bet.period.toUpperCase()
-                                      : "GAME")
-                                  } • ${bet.line || bet.betValue || ""}`
-                                : bet.type === "alt" ||
-                                  (bet.type && bet.type.includes("(Alt)"))
-                                ? `${bet.team || "TEAM"} • ${
-                                    bet.line || bet.betValue || ""
-                                  }`
-                                : `${bet.player} • ${
-                                    bet.type === "yesno" && bet.betValue
-                                      ? bet.betValue.charAt(0).toUpperCase() +
-                                        bet.betValue.slice(1)
-                                      : bet.betValue
-                                  }`}
+                                  ? bet.team || bet.line || "DRAW"
+                                  : bet.type.includes("Spread")
+                                    ? `${bet.team} • ${bet.line}`
+                                    : bet.type === "Milestone"
+                                      ? `${
+                                          bet.team ||
+                                          (bet.period
+                                            ? bet.period.toUpperCase()
+                                            : "GAME")
+                                        } • ${bet.line || bet.betValue || ""}`
+                                      : bet.type === "alt" ||
+                                          (bet.type &&
+                                            bet.type.includes("(Alt)"))
+                                        ? `${bet.team || "TEAM"} • ${
+                                            bet.line || bet.betValue || ""
+                                          }`
+                                        : `${bet.player} • ${
+                                            bet.type === "yesno" && bet.betValue
+                                              ? bet.betValue
+                                                  .charAt(0)
+                                                  .toUpperCase() +
+                                                bet.betValue.slice(1)
+                                              : bet.betValue
+                                          }`}
                             </Text>
                             <Text
                               style={[
@@ -1748,8 +1931,8 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                     backgroundColor: placingBet
                       ? "#dcdcdc"
                       : showNumpad && betAmount
-                      ? colors.primary
-                      : theme.surface,
+                        ? colors.primary
+                        : theme.surface,
                     borderColor: placingBet ? colors.primary : theme.border,
                     opacity: placingBet ? 0.95 : 1,
                   },
@@ -1764,7 +1947,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                       console.warn("handleConfirmBet error", e?.message || e);
                       Alert.alert(
                         "Bet failed",
-                        e?.message || "Failed to place bet"
+                        e?.message || "Failed to place bet",
                       );
                     } finally {
                       setPlacingBet(false);

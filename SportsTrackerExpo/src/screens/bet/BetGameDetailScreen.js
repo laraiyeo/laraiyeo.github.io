@@ -52,6 +52,99 @@ const getSportPath = (sport) => {
   }
 };
 
+// Canonical bet key mapping used by Game Detail UI and for constructing bet objects.
+// Keys roughly correspond to the keys present in betslip payloads (bets.*).
+const BET_KEY_MAP = {
+  UEFA: {
+    team: [
+      "moneyline",
+      "spread",
+      "moneyline1H",
+      "moneyline2H",
+      "homeGoals",
+      "awayGoals",
+      "cornerSpread",
+      "cardSpread",
+    ],
+    game: ["total", "bothScore", "totalCorner", "totalCards"],
+  },
+  NHL: {
+    team: [
+      "spread",
+      "moneyline",
+      "moneyline1P",
+      "spread1P",
+      "spread2P",
+      "homeGoals",
+      "awayGoals",
+      "moneylineReg",
+    ],
+    game: ["total", "total1P", "total2P"],
+  },
+  NFL: {
+    team: [
+      "spread",
+      "moneyline",
+      "moneyline1H",
+      "spread1H",
+      "moneyline1Q",
+      "spread1Q",
+      "moneyline1Q",
+      "spread1Q",
+      "moneyline2Q",
+      "spread2Q",
+      "moneyline3Q",
+      "spread3Q",
+      "moneyline4Q",
+      "spread4Q",
+      "moneyline2H",
+      "spread2H",
+      "homePoints",
+      "awayPoints",
+      "homePoints1Q",
+      "awayPoints1Q",
+      "homePoints2H",
+      "awayPoints2H",
+      "homePoints1H",
+      "awayPoints1H",
+    ],
+    game: [
+      "total",
+      "total1H",
+      "total1Q",
+      "total2Q",
+      "total3Q",
+      "total4Q",
+      "total2H",
+    ],
+  },
+  GENERIC: {
+    team: [
+      "spread",
+      "moneyline",
+      "moneyline1H",
+      "spread1H",
+      "moneyline1Q",
+      "spread1Q",
+      "moneyline2Q",
+      "spread2Q",
+      "moneyline3Q",
+      "spread3Q",
+      "moneyline4Q",
+      "spread4Q",
+      "homePoints",
+      "awayPoints",
+      "homePoints1Q",
+      "awayPoints1Q",
+      "homePoints1H",
+      "awayPoints1H",
+      "homePoints2H",
+      "awayPoints2H",
+    ],
+    game: ["total", "bothScore", "totalCorner", "totalCards", "totalPoints"],
+  },
+};
+
 // Debug for play overlay markers: set to an object to render test play markers
 // Example: { home: { x:25, y:25 }, away: { x:25, y:25 } }
 // Set to null to disable.
@@ -67,6 +160,56 @@ const TeamLogo = React.memo(
     return prevProps.uri === nextProps.uri;
   },
 );
+
+// Logo with fallback to sport icon when team logo is missing or fails
+const LogoOrSportIcon = ({
+  uri,
+  style,
+  fallbackIcon,
+  fallbackColor,
+  resizeMode = "contain",
+}) => {
+  const [failed, setFailed] = React.useState(false);
+
+  // If fallbackIcon is a string, treat it as a FontAwesome6 icon name
+  const renderFallbackIcon = () => {
+    const flattened = StyleSheet.flatten(style) || {};
+    if (typeof fallbackIcon === "string") {
+      const size = 30;
+      // Wrap icon in a View so margin/padding from `style` applies
+      const wrapperStyle = {
+        ...flattened,
+        justifyContent: "center",
+        alignItems: "center",
+      };
+      return (
+        <View style={wrapperStyle}>
+          <FontAwesome6
+            name={fallbackIcon}
+            size={size}
+            color={fallbackColor || "#999"}
+          />
+        </View>
+      );
+    }
+    return (
+      <Image source={fallbackIcon} style={style} resizeMode={resizeMode} />
+    );
+  };
+
+  if (!uri || failed) {
+    return renderFallbackIcon();
+  }
+
+  return (
+    <Image
+      source={{ uri }}
+      style={style}
+      resizeMode={resizeMode}
+      onError={() => setFailed(true)}
+    />
+  );
+};
 
 // Helper: parse hex to RGB
 const hexToRgbSafe = (hex) => {
@@ -119,7 +262,12 @@ const HeadshotOrInitials = ({
   const textColor = isColorLight(bg) ? "black" : "white";
 
   return (
-    <View style={[{ backgroundColor: bg }, containerStyle]}>
+    <View
+      style={[
+        { backgroundColor: bg, justifyContent: "center", alignItems: "center" },
+        containerStyle,
+      ]}
+    >
       {!failed && uri ? (
         <Image
           source={{ uri }}
@@ -127,13 +275,14 @@ const HeadshotOrInitials = ({
           onError={() => setFailed(true)}
         />
       ) : (
-        <View style={[{ justifyContent: "center", alignItems: "center" }]}>
-          <Text
-            style={[{ color: textColor, fontWeight: "700" }, initialsStyle]}
-          >
-            {getInitials(name)}
-          </Text>
-        </View>
+        <Text
+          style={[
+            { color: textColor, fontWeight: "700", textAlign: "center" },
+            initialsStyle,
+          ]}
+        >
+          {getInitials(name)}
+        </Text>
       )}
       {teamLogoUri ? (
         <Image source={{ uri: teamLogoUri }} style={teamLogoStyle} />
@@ -333,8 +482,10 @@ const getSportIcon = (sport) => {
       return "basketball";
     case "NFL":
       return "football";
-    case "SOCCER":
-      return "futbol";
+    case "NHL":
+      return "hockey-puck";
+    case "UEFA":
+      return "soccer-ball";
     default:
       return "basketball";
   }
@@ -1875,7 +2026,10 @@ const PropTabContent = ({
           );
 
           if (yesVariant) {
-            const dk = yesVariant.byBookmaker?.fanduel || yesVariant.byBookmaker?.draftkings || {};
+            const dk =
+              yesVariant.byBookmaker?.fanduel ||
+              yesVariant.byBookmaker?.draftkings ||
+              {};
             const oddsVal = dk.odds || dk.price || null;
             const betId = `${player.id}-${selectedPropType}-yes`;
             const formattedOdds =
@@ -1970,8 +2124,14 @@ const PropTabContent = ({
               (periodID ? v.periodID === periodID : !v.periodID),
           );
 
-          const dkOver = overVariant?.byBookmaker?.fanduel || overVariant?.byBookmaker?.draftkings || {};
-          const dkUnder = underVariant?.byBookmaker?.fanduel || underVariant?.byBookmaker?.draftkings || {};
+          const dkOver =
+            overVariant?.byBookmaker?.fanduel ||
+            overVariant?.byBookmaker?.draftkings ||
+            {};
+          const dkUnder =
+            underVariant?.byBookmaker?.fanduel ||
+            underVariant?.byBookmaker?.draftkings ||
+            {};
           const line =
             dkOver.overUnder ||
             dkUnder.overUnder ||
@@ -2556,6 +2716,15 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   // Skater stats: G, A, S, HT, +/-, TOI
                   statOrder = ["G", "A", "S", "HT", "+/-", "TOI"];
                 }
+              } else if (sportUpper === "UEFA"){
+                // NHL: Check if goalie (position G)
+                if (position.toUpperCase() === "G") {
+                  // Goalie stats: GA, SA, SV, SV%, ESSV, TOI
+                  statOrder = ["GA", "SV", "FC"];
+                } else {
+                  // Skater stats: G, A, S, HT, +/-, TOI
+                  statOrder = ["G", "A", "SH", "ST", "FC", "YC"];
+                }
               } else {
                 // Default NBA stats: PTS, REB, AST, FG, +/-, MIN
                 statOrder = ["PTS", "REB", "AST", "FG", "+/-", "MIN"];
@@ -2652,6 +2821,218 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     );
   };
 
+  // Soccer mini-field renderer (adapted from EnglandGameDetailsScreen.renderMiniField)
+  const renderSoccerMiniField = (
+    coordinate,
+    coordinate2,
+    eventType = "gen",
+    teamSide = "home",
+    teamColor = "#007bff",
+    stylesOverride = null,
+  ) => {
+    if (
+      !coordinate ||
+      coordinate.x === undefined ||
+      coordinate.y === undefined
+    ) {
+      return (
+        <View style={[styles.miniField, stylesOverride?.miniField || {}]}>
+          <View
+            style={[
+              styles.fieldContainer,
+              { backgroundColor: "#2d5a2d" },
+              stylesOverride?.fieldContainer || {},
+            ]}
+          >
+            <View style={styles.fieldOutline} />
+            <View style={styles.centerLine} />
+            <View style={styles.centerCircleMini} />
+            <View style={styles.penaltyAreaLeft} />
+            <View style={styles.penaltyAreaRight} />
+            <View style={styles.goalAreaLeft} />
+            <View style={styles.goalAreaRight} />
+            <View style={styles.goalLeft} />
+            <View style={styles.goalRight} />
+          </View>
+        </View>
+      );
+    }
+
+    const espnX = coordinate.x;
+    const espnY = coordinate.y;
+
+    let leftPercent, topPercent;
+
+    if (teamSide === "home") {
+      leftPercent = 50 + (1 - espnX) * 46;
+      topPercent = 4 + espnY * 92;
+    } else {
+      leftPercent = 4 + espnX * 46;
+      topPercent = 4 + (1 - espnY) * 92;
+    }
+
+    const finalLeftPercent = Math.max(4, Math.min(96, leftPercent));
+    const finalTopPercent = Math.max(4, Math.min(96, topPercent));
+
+    let ballEndPosition = null;
+    let secondLeftPercent = null;
+    let secondTopPercent = null;
+
+    if (
+      coordinate2 &&
+      coordinate2.x !== undefined &&
+      coordinate2.y !== undefined &&
+      !(coordinate2.x === 0 && coordinate2.y === 0)
+    ) {
+      const espnX2 = coordinate2.x;
+      const espnY2 = coordinate2.y;
+
+      let leftPercent2, topPercent2;
+      if (teamSide === "home") {
+        leftPercent2 = 50 + (1 - espnX2) * 46;
+        topPercent2 = 4 + espnY2 * 92;
+      } else {
+        leftPercent2 = 4 + espnX2 * 46;
+        topPercent2 = 4 + (1 - espnY2) * 92;
+      }
+
+      secondLeftPercent = Math.max(4, Math.min(96, leftPercent2));
+      secondTopPercent = Math.max(4, Math.min(96, topPercent2));
+
+      ballEndPosition = (
+        <View
+          style={[
+            styles.eventMarker,
+            styles.ballEndMarker,
+            {
+              left: `${secondLeftPercent}%`,
+              top: `${secondTopPercent}%`,
+              backgroundColor: teamColor.startsWith("#")
+                ? teamColor
+                : `#${teamColor}`,
+            },
+          ]}
+        />
+      );
+    }
+
+    const eventClass =
+      eventType === "goal"
+        ? "goal"
+        : eventType === "shot"
+          ? "attempt"
+          : eventType === "card"
+            ? "card"
+            : eventType === "red-card"
+              ? "red-card"
+              : eventType === "offside"
+                ? "offside"
+                : eventType === "substitution"
+                  ? "substitution"
+                  : "goal";
+
+    const finalTeamColor = teamColor.startsWith("#")
+      ? teamColor
+      : `#${teamColor}`;
+
+    const getMarkerStyle = () => {
+      const baseStyle = [styles.eventMarker];
+      switch (eventClass) {
+        case "goal":
+          return [
+            ...baseStyle,
+            styles.goalMarker,
+            { backgroundColor: finalTeamColor },
+          ];
+        case "attempt":
+          return [
+            ...baseStyle,
+            styles.shotMarker,
+            { backgroundColor: finalTeamColor },
+          ];
+        case "card":
+          return [...baseStyle, styles.cardMarker];
+        case "red-card":
+          return [...baseStyle, styles.redCardMarker];
+        case "substitution":
+          return [...baseStyle, styles.substitutionMarker];
+        case "offside":
+          return [...baseStyle, styles.offsideMarker];
+        default:
+          return [...baseStyle, { backgroundColor: finalTeamColor }];
+      }
+    };
+
+    const TrajectoryLine = () => {
+      if (
+        !ballEndPosition ||
+        secondLeftPercent === null ||
+        secondTopPercent === null
+      )
+        return null;
+
+      const FIELD_WIDTH = 180;
+      const FIELD_HEIGHT = 120;
+
+      const x1 = (finalLeftPercent / 100) * FIELD_WIDTH;
+      const y1 = (finalTopPercent / 100) * FIELD_HEIGHT;
+      const x2 = (secondLeftPercent / 100) * FIELD_WIDTH;
+      const y2 = (secondTopPercent / 100) * FIELD_HEIGHT;
+
+      return (
+        <Svg
+          width={FIELD_WIDTH}
+          height={FIELD_HEIGHT}
+          style={{ position: "absolute", left: 0, top: 0, zIndex: 8 }}
+          pointerEvents="none"
+        >
+          <Line
+            x1={x1}
+            y1={y1}
+            x2={x2}
+            y2={y2}
+            stroke={finalTeamColor}
+            strokeWidth={2}
+            strokeOpacity={0.85}
+          />
+        </Svg>
+      );
+    };
+
+    return (
+      <View style={styles.miniField}>
+        <View
+          style={[
+            styles.fieldContainer,
+            { backgroundColor: "#2d5a2d" },
+            stylesOverride?.fieldContainer || {},
+          ]}
+        >
+          <View style={styles.fieldOutline} />
+          <View style={styles.centerLine} />
+          <View style={styles.centerCircleMini} />
+          <View style={styles.penaltyAreaLeft} />
+          <View style={styles.penaltyAreaRight} />
+          <View style={styles.goalAreaLeft} />
+          <View style={styles.goalAreaRight} />
+          <View style={styles.goalLeft} />
+          <View style={styles.goalRight} />
+
+          <TrajectoryLine />
+
+          <View
+            style={[
+              ...getMarkerStyle(),
+              { left: `${finalLeftPercent}%`, top: `${finalTopPercent}%` },
+            ]}
+          />
+
+          {ballEndPosition}
+        </View>
+      </View>
+    );
+  };
+
   // Game presence tracking
   const { viewerData, isJoined } = useGamePresence(game?.id);
 
@@ -2670,10 +3051,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         const url = useEventId
           ? `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/${String(
               sportToUse,
-            ).toLowerCase()}/${useEventId}`
+            ).toLowerCase()}/757749`
           : `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/${String(
               sportToUse,
-            ).toLowerCase()}/${game.id}`;
+            ).toLowerCase()}/757749`;
         const response = await fetch(url);
         const data = await response.json();
         setSummaryData(data);
@@ -2907,6 +3288,21 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     };
   }, [summaryData, game, isDarkMode, sportToUse]);
 
+  // Resolve smart team colors for use throughout the screen (used by Predicted Win % and other UI)
+  const headerTeamData = {
+    team1Color: gameData?.team1Color || null,
+    team1AlternateColor: gameData?.team1AlternateColor || null,
+  };
+  const headerTeam2Data = {
+    team2Color: gameData?.team2Color || null,
+    team2AlternateColor: gameData?.team2AlternateColor || null,
+  };
+  const { team1Color: _resolvedTeam1Color, team2Color: _resolvedTeam2Color } =
+    getSmartTeamColors(headerTeamData, headerTeam2Data, colors);
+
+  const team1Color = _resolvedTeam1Color || colors?.primary || "#888";
+  const team2Color = _resolvedTeam2Color || colors?.secondary || "#444";
+
   const venue = useMemo(() => {
     return summaryData?.gameInfo?.venue || getRandomVenue(sportToUse);
   }, [summaryData]);
@@ -3020,6 +3416,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           icon: "stats-chart",
           label: "Game Stats",
         },
+        {
+          id: "quick",
+          icon: "flash",
+          label: "Live Play",
+        },
       ];
     }
   }, [gameData.status]);
@@ -3035,6 +3436,24 @@ const BetGameDetailScreen = ({ navigation, route }) => {
   const renderTabContent = () => {
     switch (selectedTab) {
       case "stats":
+        const predictor = summaryData?.predictor;
+        const lastFiveGames = summaryData?.lastFiveGames || [];
+
+        // Get team data
+        const awayTeam = gameData.team1Abbr;
+        const homeTeam = gameData.team2Abbr;
+
+        // Get predictor percentages
+        const homeWinPct = predictor?.homeTeam?.WIN || null;
+        const awayWinPct = String((100 - parseFloat(homeWinPct)).toFixed(1));
+
+        // Get last 5 games for each team
+        const awayTeamGames =
+          lastFiveGames.find((g) => g.team?.abbreviation === awayTeam)
+            ?.events || [];
+        const homeTeamGames =
+          lastFiveGames.find((g) => g.team?.abbreviation === homeTeam)
+            ?.events || [];
         return (
           <View style={styles.tabContent}>
             {/* Linescore - only show if not scheduled */}
@@ -3149,10 +3568,101 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             )}
 
             {/* Box Score Section - Only show for in progress or completed games */}
-            {(gameData.status === "in" || gameData.status === "post") &&
-              summaryData?.boxscore?.players && (
+            {(() => {
+              // Build boxscorePlayers: prefer summaryData.boxscore.players, fallback to boxscore.teams + rosters (UEFA payload)
+              let boxscorePlayers = null;
+              try {
+                const bs = summaryData?.boxscore;
+                if (
+                  bs?.players &&
+                  Array.isArray(bs.players) &&
+                  bs.players.length > 0
+                ) {
+                  boxscorePlayers = bs.players;
+                } else if (
+                  bs?.teams &&
+                  Array.isArray(bs.teams) &&
+                  bs.teams.length > 0
+                ) {
+                  const rosters = summaryData?.rosters || [];
+                  boxscorePlayers = bs.teams.map((teamEntry) => {
+                    const team = teamEntry.team || {};
+                    const roster = (rosters || []).find((r) => {
+                      if (!r) return false;
+                      if (
+                        r.team &&
+                        (String(r.team.id) === String(team.id) ||
+                          r.team.abbreviation === team.abbreviation)
+                      )
+                        return true;
+                      if (
+                        r.homeAway &&
+                        teamEntry.homeAway &&
+                        r.homeAway === teamEntry.homeAway
+                      )
+                        return true;
+                      return false;
+                    });
+                    const athletes = (roster?.roster || []).map((p) => {
+                      const athleteSrc = p.athlete || p.player || p;
+                      const positionVal =
+                        (p.position &&
+                          (p.position.abbreviation || p.position)) ||
+                        (athleteSrc &&
+                          (athleteSrc.position?.abbreviation ||
+                            athleteSrc.position)) ||
+                        "";
+                      return {
+                        athlete: {
+                          id:
+                            athleteSrc?.id ||
+                            athleteSrc?.athleteId ||
+                            athleteSrc?.personId ||
+                            athleteSrc?.person?.id,
+                          displayName:
+                            athleteSrc?.displayName ||
+                            athleteSrc?.name ||
+                            athleteSrc?.fullName ||
+                            athleteSrc?.shortName ||
+                            "",
+                          position: positionVal,
+                          jersey: p.jersey || athleteSrc?.jersey || "",
+                        },
+                        stats: p.stats || p.statistics || p.boxscoreStats || {},
+                        // preserve roster flags for grouping logic
+                        active: p.active,
+                        starter: p.starter,
+                        subbedIn: p.subbedIn,
+                        subbedOut: p.subbedOut,
+                      };
+                    });
+                    return {
+                      team: {
+                        id: team.id || team.teamID || team.abbreviation,
+                        abbreviation: team.abbreviation,
+                        displayName:
+                          team.displayName ||
+                          team.names?.long ||
+                          team.abbreviation,
+                      },
+                      statistics: { athletes },
+                    };
+                  });
+                }
+              } catch (e) {
+                console.warn("[BOX SCORE] build boxscorePlayers failed", e);
+              }
+
+              if (
+                !(gameData.status === "in" || gameData.status === "post") ||
+                !boxscorePlayers ||
+                boxscorePlayers.length === 0
+              )
+                return null;
+
+              return (
                 <>
-                  {summaryData.boxscore.players.map((teamData, teamIndex) => {
+                  {boxscorePlayers.map((teamData, teamIndex) => {
                     const team = teamData.team;
                     const athletes = teamData.statistics?.athletes || [];
 
@@ -3240,51 +3750,71 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           });
                         }
                       });
-                    } else {
-                      // NBA/default: On Court vs Bench (live) or Starters vs Bench (post)
-                      let primaryGroup, secondaryGroup;
-                      let primaryLabel, secondaryLabel;
+                    } else if (sportUpper === "UEFA") {
+                      // UEFA: Live = On Field, Goalkeeper(s), Bench
+                      //       Post = Starters, Goalkeeper(s), Bench
+                      const isGoalie = (p) =>
+                        String(p.athlete?.position || "").toUpperCase() === "G";
 
                       if (isLive) {
-                        primaryGroup = athletes.filter(
-                          (p) => p.active === true,
+                        const goalies = athletes.filter(isGoalie);
+                        const onField = athletes.filter((p) => {
+                          if (isGoalie(p)) return false;
+                          if (p.subbedOut === true) return false;
+                          if (p.subbedIn === true) return true;
+                          return !!p.active;
+                        });
+                        const bench = athletes.filter(
+                          (p) => !onField.includes(p) && !goalies.includes(p),
                         );
-                        secondaryGroup = athletes.filter(
-                          (p) => p.active !== true,
-                        );
-                        primaryLabel = "On Court";
-                        secondaryLabel = "Bench";
-                      } else {
-                        primaryGroup = athletes.filter(
-                          (p) => p.starter === true,
-                        );
-                        secondaryGroup = athletes
-                          .filter(
-                            (p) => p.starter === false || p.starter == null,
-                          )
-                          .sort((a, b) => {
-                            const minA = parseInt(a.stats?.MIN || "0");
-                            const minB = parseInt(b.stats?.MIN || "0");
-                            return minB - minA;
-                          });
-                        primaryLabel = "Starters";
-                        secondaryLabel = "Bench";
-                      }
 
-                      if (primaryGroup.length > 0) {
-                        groups.push({
-                          label: primaryLabel,
-                          players: primaryGroup,
-                          statCategory: null,
-                        });
+                        if (onField.length > 0)
+                          groups.push({
+                            label: "On Field",
+                            players: onField,
+                            statCategory: null,
+                          });
+                        if (goalies.length > 0)
+                          groups.push({
+                            label: "Goalkeeper",
+                            players: goalies,
+                            statCategory: null,
+                          });
+                        if (bench.length > 0)
+                          groups.push({
+                            label: "Bench",
+                            players: bench,
+                            statCategory: null,
+                          });
+                      } else {
+                        const goalies = athletes.filter(isGoalie);
+                        const starters = athletes.filter(
+                          (p) => !isGoalie(p) && p.starter === true,
+                        );
+                        const bench = athletes.filter(
+                          (p) => !starters.includes(p) && !goalies.includes(p),
+                        );
+
+                        if (starters.length > 0)
+                          groups.push({
+                            label: "Starters",
+                            players: starters,
+                            statCategory: null,
+                          });
+                        if (goalies.length > 0)
+                          groups.push({
+                            label: "Goalkeeper",
+                            players: goalies,
+                            statCategory: null,
+                          });
+                        if (bench.length > 0)
+                          groups.push({
+                            label: "Bench",
+                            players: bench,
+                            statCategory: null,
+                          });
                       }
-                      if (secondaryGroup.length > 0) {
-                        groups.push({
-                          label: secondaryLabel,
-                          players: secondaryGroup,
-                          statCategory: null,
-                        });
-                      }
+                    } else {
                     }
 
                     // Get team logo and colors based on team abbreviation
@@ -3575,7 +4105,22 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                               <Text
                                                 style={[
                                                   styles.boxScorePlayerName,
-                                                  { color: theme.text },
+                                                  {
+                                                    color:
+                                                      sportPath === "soccer"
+                                                        ? player.subbedIn ===
+                                                            true &&
+                                                          player.subbedOut ===
+                                                            false
+                                                          ? theme.success + "99"
+                                                          : player.subbedIn ===
+                                                                false &&
+                                                              player.subbedOut ===
+                                                                true
+                                                            ? theme.error + "99"
+                                                            : theme.text
+                                                        : theme.text,
+                                                  },
                                                 ]}
                                               >
                                                 {player.athlete.displayName}
@@ -3740,15 +4285,87 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     );
                   })}
                 </>
-              )}
+              );
+            })()}
+
+            {gameData.status === "pre" && (
+              <>
+                {/* Predicted Win Section */}
+                {awayWinPct !== null && homeWinPct !== null && (
+                  <View style={[styles.lastFiveGamesSection, { marginTop: 0 }]}>
+                    <Text
+                      style={[
+                        styles.gameLineSectionTitle,
+                        { color: theme.text, marginBottom: 12 },
+                      ]}
+                    >
+                      Predicted Win %
+                    </Text>
+                    <View
+                      style={[
+                        styles.gameLineTable,
+                        {
+                          backgroundColor: theme.surfaceSecondary,
+                          padding: 16,
+                        },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.bettingPercentageBar,
+                          {
+                            flexDirection:
+                              homeWinPct > awayWinPct ? "row-reverse" : "row",
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.bettingPercentageFill,
+                            {
+                              width: `${homeWinPct > awayWinPct ? homeWinPct : awayWinPct}%`,
+                              backgroundColor:
+                                homeWinPct > awayWinPct
+                                  ? team2Color
+                                  : team1Color,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <View style={styles.bettingPercentageLabels}>
+                        <Text
+                          style={[
+                            styles.bettingPercentageLabel,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {awayTeam} {awayWinPct}%
+                        </Text>
+                        <Text
+                          style={[
+                            styles.bettingPercentageLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          Win Probability
+                        </Text>
+                        <Text
+                          style={[
+                            styles.bettingPercentageLabel,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {homeWinPct}% {homeTeam}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </>
+            )}
 
             {/* Team Statistics with Bar Fills */}
-            <Text
-              style={[
-                styles.sectionTitle,
-                { color: theme.text, marginTop: 24 },
-              ]}
-            >
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
               {gameData.status === "pre"
                 ? "Season Averages"
                 : "Team Statistics"}
@@ -3829,6 +4446,245 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 });
               })()}
             </View>
+
+            {gameData.status === "pre" && (
+              <>
+                {/* Last 5 Games Section */}
+                <View style={styles.lastFiveGamesSection}>
+                  <Text
+                    style={[styles.gameLineSectionTitle, { color: theme.text }]}
+                  >
+                    Last 5 Games
+                  </Text>
+
+                  <View style={styles.lastFiveGamesContainer}>
+                    {/* Away Team Games */}
+                    <View style={styles.lastFiveGamesColumn}>
+                      <Text
+                        style={[
+                          styles.lastFiveGamesTeamTitle,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {awayTeam}
+                      </Text>
+                      {[...awayTeamGames].map((game, index) => {
+                        const isWin = game.result === "W";
+                        const isLoss = game.result === "L";
+                        const borderColor = isWin
+                          ? theme.success
+                          : isLoss
+                            ? theme.error
+                            : theme.warning;
+
+                        const oppAbbr = game.opponentAbbreviation || "OPP";
+                        const oppId = game.opponentId || null;
+
+                        const toUse =
+                          sportPath === "soccer"
+                            ? oppId
+                            : oppAbbr.toLowerCase();
+
+                        // Format date
+                        const gameDate = new Date(game.date);
+                        const months = [
+                          "Jan",
+                          "Feb",
+                          "Mar",
+                          "Apr",
+                          "May",
+                          "Jun",
+                          "Jul",
+                          "Aug",
+                          "Sep",
+                          "Oct",
+                          "Nov",
+                          "Dec",
+                        ];
+                        const formattedDate = `${
+                          months[gameDate.getMonth()]
+                        } ${gameDate.getDate()}`;
+
+                        return (
+                          <View
+                            key={game.id || index}
+                            style={[
+                              styles.lastFiveGameCard,
+                              {
+                                backgroundColor: theme.surface,
+                                borderLeftWidth: 3,
+                                borderLeftColor: borderColor,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.lastFiveGameCardDate,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {formattedDate}
+                            </Text>
+                            <View style={styles.lastFiveGameCardContent}>
+                              <LogoOrSportIcon
+                                uri={`https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
+                                  isDarkMode ? "-dark" : ""
+                                }/${toUse}.png&h=100&w=100`}
+                                fallbackIcon={getSportIcon(
+                                  game.sport ||
+                                    (sportPath === "soccer"
+                                      ? "UEFA"
+                                      : (sportPath || "").toUpperCase()),
+                                )}
+                                fallbackColor={theme.textSecondary}
+                                style={styles.lastFiveGameLogo}
+                              />
+                              <View style={styles.lastFiveGameInfo}>
+                                <Text
+                                  style={[
+                                    styles.lastFiveGameScore,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {game.score}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.lastFiveGameOpponent,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  {game.atVs} {oppAbbr}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+
+                    {/* Home Team Games */}
+                    <View style={styles.lastFiveGamesColumn}>
+                      <Text
+                        style={[
+                          styles.lastFiveGamesTeamTitle,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {homeTeam}
+                      </Text>
+                      {[...homeTeamGames].map((game, index) => {
+                        const isWin = game.result === "W";
+                        const isLoss = game.result === "L";
+                        const borderColor = isWin
+                          ? theme.success
+                          : isLoss
+                            ? theme.error
+                            : theme.warning;
+
+                        const oppAbbr = game.opponentAbbreviation || "OPP";
+                        const oppId = game.opponentId || null;
+
+                        const toUse =
+                          sportPath === "soccer"
+                            ? oppId
+                            : oppAbbr.toLowerCase();
+
+                        // Format date
+                        const gameDate = new Date(game.date);
+                        const months = [
+                          "Jan",
+                          "Feb",
+                          "Mar",
+                          "Apr",
+                          "May",
+                          "Jun",
+                          "Jul",
+                          "Aug",
+                          "Sep",
+                          "Oct",
+                          "Nov",
+                          "Dec",
+                        ];
+                        const formattedDate = `${
+                          months[gameDate.getMonth()]
+                        } ${gameDate.getDate()}`;
+
+                        return (
+                          <View
+                            key={game.id || index}
+                            style={[
+                              styles.lastFiveGameCard,
+                              {
+                                backgroundColor: theme.surface,
+                                borderRightWidth: 3,
+                                borderRightColor: borderColor,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.lastFiveGameCardDate,
+                                {
+                                  color: theme.textSecondary,
+                                  textAlign: "right",
+                                },
+                              ]}
+                            >
+                              {formattedDate}
+                            </Text>
+                            <View
+                              style={[
+                                styles.lastFiveGameCardContent,
+                                { flexDirection: "row-reverse" },
+                              ]}
+                            >
+                              <LogoOrSportIcon
+                                uri={`https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
+                                  isDarkMode ? "-dark" : ""
+                                }/${toUse}.png&h=100&w=100`}
+                                fallbackIcon={getSportIcon(
+                                  game.sport ||
+                                    (sportPath === "soccer"
+                                      ? "UEFA"
+                                      : (sportPath || "").toUpperCase()),
+                                )}
+                                fallbackColor={theme.textSecondary}
+                                style={[
+                                  styles.lastFiveGameLogo,
+                                  { marginRight: 0, marginLeft: 10 },
+                                ]}
+                              />
+                              <View style={styles.lastFiveGameInfo}>
+                                <Text
+                                  style={[
+                                    styles.lastFiveGameScore,
+                                    { color: theme.text, textAlign: "right" },
+                                  ]}
+                                >
+                                  {game.score}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.lastFiveGameOpponent,
+                                    {
+                                      color: theme.textSecondary,
+                                      textAlign: "right",
+                                    },
+                                  ]}
+                                >
+                                  {game.atVs} {oppAbbr}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                </View>
+              </>
+            )}
 
             {/* Win Probability Chart */}
             {(() => {
@@ -5138,7 +5994,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       justifyContent: "center",
                     }}
                   >
-                    {sportUpper === "NHL" ? (
+                    {sportUpper === "NHL" && (
                       <>
                         <HockeyRink
                           coordinate={undefined}
@@ -5150,25 +6006,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             rinkContainer: {
                               ...styles.rinkContainer,
                               transform: [{ scale: courtScale }],
-                            },
-                          }}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <BasketballCourt
-                          coordinate={undefined}
-                          isScoring={false}
-                          teamSide="home"
-                          teamColor="#000000"
-                          styles={{
-                            ...styles,
-                            courtContainer: {
-                              ...styles.courtContainer,
-                              transform: [
-                                { rotate: "90deg" },
-                                { scale: courtScale },
-                              ],
                             },
                           }}
                         />
@@ -5205,6 +6042,62 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       }}
                     >
                       {/* ESPN Play Coordinate Visualization (with test override support) */}
+                      {/* Soccer (UEFA): reuse England mini-field for play coordinates */}
+                      {(sportUpper === "UEFA" || sportPath === "soccer") &&
+                        (() => {
+                          const coord = summaryData?.commentary?.coordinate;
+                          const coord2 = summaryData?.commentary?.coordinate2;
+                          const playTeam = summaryData?.commentary?.team;
+                          const teamSide =
+                            playTeam === gameData?.team2Abbr ? "home" : "away";
+                          const teamColor =
+                            playTeam === gameData?.team2Abbr
+                              ? team2Color
+                              : team1Color;
+
+                          // Use NHL-style scaling: compute `courtScale` from container width
+                          // via onLayout and render the unscaled field inside the scaled container.
+                          return (
+                            <View
+                              style={{
+                                width: "100%",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                              onLayout={(event) => {
+                                const { width } = event.nativeEvent.layout;
+                                const scale = width / 200;
+                                const height = 150 * scale;
+                                setCourtScale(scale);
+                                setCourtContainerHeight(height);
+                                setCourtContainerWidth(width);
+                              }}
+                            >
+                              <View
+                                style={{
+                                  position: "relative",
+                                  width: courtContainerWidth,
+                                  height: courtContainerHeight,
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                              >
+                                {renderSoccerMiniField(
+                                  coord,
+                                  coord2,
+                                  summaryData?.commentary?.eventType || "gen",
+                                  teamSide,
+                                  teamColor,
+                                  {
+                                    miniField: {
+                                      transform: [{ scale: courtScale }],
+                                    },
+                                  },
+                                )}
+                              </View>
+                            </View>
+                          );
+                        })()}
                       {/* Only render for NBA - NHL handles coords internally */}
                       {sportUpper === "NBA" &&
                         (() => {
@@ -5578,11 +6471,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   ? market.variants
                   : [];
 
-                // Find Fanduel variant grouping by side
+                // Find fanduel variant grouping by side
                 const dkBySide = {};
                 variants.forEach((v) => {
                   const side = v.sideID || "none";
-                  const bk = (v.byBookmaker && (v.byBookmaker.fanduel || v.byBookmaker.draftkings)) || null;
+                  const bk =
+                    (v.byBookmaker &&
+                      (v.byBookmaker.fanduel || v.byBookmaker.draftkings)) ||
+                    null;
                   if (bk) {
                     dkBySide[side] = dkBySide[side] || [];
                     dkBySide[side].push({ ...v, bookmaker: bk });
@@ -5596,7 +6492,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 const collectedAlts = [];
                 variants.forEach((v) => {
                   const side = v.sideID || "other";
-                  const bk = (v.byBookmaker && (v.byBookmaker.fanduel || v.byBookmaker.draftkings)) || null;
+                  const bk =
+                    (v.byBookmaker &&
+                      (v.byBookmaker.fanduel || v.byBookmaker.draftkings)) ||
+                    null;
                   const lines =
                     bk && Array.isArray(bk.altLines) ? bk.altLines : [];
                   lines.forEach((a) =>
@@ -5667,6 +6566,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     teams: `${gameData.team1Abbr} @ ${gameData.team2Abbr}`,
                                   },
                                   team: teamAbbr,
+                                  teamId: teamId,
                                   type: marketLabel || "Total",
                                   description: `${teamAbbr} Over ${
                                     overVariant.bookmaker.overUnder || ""
@@ -5770,6 +6670,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     teams: `${gameData.team1Abbr} @ ${gameData.team2Abbr}`,
                                   },
                                   team: teamAbbr,
+                                  teamId: teamId,
                                   type: marketLabel || "Total",
                                   description: `${teamAbbr} Under ${
                                     underVariant.bookmaker.overUnder || ""
@@ -5887,6 +6788,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                           teams: `${gameData.team1Abbr} @ ${gameData.team2Abbr}`,
                                         },
                                         team: teamAbbr,
+                                        teamId: teamId,
                                         type: label,
                                         description: `${teamAbbr} ${label} ${side.toUpperCase()}`,
                                         line: displayLine,
@@ -6001,6 +6903,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                             teams: `${gameData.team1Abbr} @ ${gameData.team2Abbr}`,
                                           },
                                           team: teamAbbr,
+                                          teamId: teamId,
                                           type: marketLabel
                                             ? `${marketLabel} (Alt)`
                                             : "alt",
@@ -6105,6 +7008,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                             teams: `${gameData.team1Abbr} @ ${gameData.team2Abbr}`,
                                           },
                                           team: teamAbbr,
+                                          teamId: teamId,
                                           type: marketLabel
                                             ? `${marketLabel} (Alt)`
                                             : "alt",
@@ -6205,6 +7109,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                             teams: `${gameData.team1Abbr} @ ${gameData.team2Abbr}`,
                                           },
                                           team: teamAbbr,
+                                          teamId: teamId,
                                           type: marketLabel
                                             ? `${marketLabel} (Alt)`
                                             : "alt",
@@ -6280,8 +7185,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         );
       case "lines":
         const pickcenter = summaryData?.pickcenter;
-        const predictor = summaryData?.predictor;
-        const lastFiveGames = summaryData?.lastFiveGames || [];
 
         if (!pickcenter) {
           return (
@@ -6324,10 +7227,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           }
         };
 
-        // Get team data
-        const awayTeam = gameData.team1Abbr;
-        const homeTeam = gameData.team2Abbr;
-
         // Get spread data
         const awaySpread = pickcenter.pointSpread?.away;
         const homeSpread = pickcenter.pointSpread?.home;
@@ -6339,10 +7238,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         // Get moneyline data
         const awayML = pickcenter.moneyline?.away;
         const homeML = pickcenter.moneyline?.home;
-
-        // Get predictor percentages
-        const homeWinPct = predictor?.homeTeam?.WIN || null;
-        const awayWinPct = String((100 - parseFloat(homeWinPct)).toFixed(1));
 
         // Format date helper
         const formatGameDate = (dateString) => {
@@ -6366,14 +7261,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           } ${date.getDate()}, ${date.getFullYear()}`;
         };
 
-        // Get last 5 games for each team
-        const awayTeamGames =
-          lastFiveGames.find((g) => g.team?.abbreviation === awayTeam)
-            ?.events || [];
-        const homeTeamGames =
-          lastFiveGames.find((g) => g.team?.abbreviation === homeTeam)
-            ?.events || [];
-
         return (
           <View style={styles.tabContent}>
             <Text style={[styles.contentTitle, { color: theme.text }]}>
@@ -6396,7 +7283,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   variants.forEach((v) => {
                     const side = v.sideID || v.side || "none";
                     const bk =
-                      (v.byBookmaker && (v.byBookmaker.fanduel || v.byBookmaker.draftkings)) ||
+                      (v.byBookmaker &&
+                        (v.byBookmaker.fanduel || v.byBookmaker.draftkings)) ||
                       (v.byBookmaker && Object.values(v.byBookmaker)[0]) ||
                       v.bookmaker ||
                       null;
@@ -6416,7 +7304,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   variants.forEach((v) => {
                     const side = v.sideID || v.side || "other";
                     const bk =
-                      (v.byBookmaker && (v.byBookmaker.fanduel || v.byBookmaker.draftkings)) ||
+                      (v.byBookmaker &&
+                        (v.byBookmaker.fanduel || v.byBookmaker.draftkings)) ||
                       (v.byBookmaker && Object.values(v.byBookmaker)[0]) ||
                       v.bookmaker ||
                       null;
@@ -6493,6 +7382,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                       time: gameData.statusDetail || "TBD",
                                       teams: `${gameData.team1Abbr} @ ${gameData.team2Abbr}`,
                                     },
+                                    team1Id: gameData.team1Id,
+                                    team2Id: gameData.team2Id,
                                     type: "Total",
                                     description: `Over ${overVariant.bookmaker.overUnder}`,
                                     line: `O ${overVariant.bookmaker.overUnder}`,
@@ -6593,6 +7484,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                       time: gameData.statusDetail || "TBD",
                                       teams: `${gameData.team1Abbr} @ ${gameData.team2Abbr}`,
                                     },
+                                    team1Id: gameData.team1Id,
+                                    team2Id: gameData.team2Id,
                                     type: "Total",
                                     description: `Under ${underVariant.bookmaker.overUnder}`,
                                     line: `U ${underVariant.bookmaker.overUnder}`,
@@ -6711,6 +7604,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                               gameData.statusDetail || "TBD",
                                             teams: `${gameData.team1Abbr} @ ${gameData.team2Abbr}`,
                                           },
+                                          team1Id: gameData.team1Id,
+                                          team2Id: gameData.team2Id,
                                           type: label,
                                           description: `${label} ${side.toUpperCase()}`,
                                           line: displayLine,
@@ -6835,6 +7730,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                                 gameData.statusDetail || "TBD",
                                               teams: `${gameData.team1Abbr} @ ${gameData.team2Abbr}`,
                                             },
+                                            team1Id: gameData.team1Id,
+                                            team2Id: gameData.team2Id,
                                             type: `${marketLabel} (Alt)`,
                                             description: `${displayVal}+`,
                                             line: `${displayVal}+`,
@@ -6947,6 +7844,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                                   "TBD",
                                                 teams: `${gameData.team1Abbr} @ ${gameData.team2Abbr}`,
                                               },
+                                              team1Id: gameData.team1Id,
+                                              team2Id: gameData.team2Id,
                                               type: `${marketLabel} (Alt)`,
                                               description: `${displayVal}-`,
                                               line: `${displayVal}-`,
@@ -7107,281 +8006,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 </Text>
               )}
             </View>
-
-            {/* Last 5 Games Section */}
-            <View style={styles.lastFiveGamesSection}>
-              <Text
-                style={[styles.gameLineSectionTitle, { color: theme.text }]}
-              >
-                Last 5 Games
-              </Text>
-
-              <View style={styles.lastFiveGamesContainer}>
-                {/* Away Team Games */}
-                <View style={styles.lastFiveGamesColumn}>
-                  <Text
-                    style={[
-                      styles.lastFiveGamesTeamTitle,
-                      { color: theme.text },
-                    ]}
-                  >
-                    {awayTeam}
-                  </Text>
-                  {[...awayTeamGames].map((game, index) => {
-                    const isWin = game.result === "W";
-                    const isLoss = game.result === "L";
-                    const borderColor = isWin
-                      ? theme.success
-                      : isLoss
-                        ? theme.error
-                        : theme.warning;
-
-                    const oppAbbr = game.opponentAbbreviation || "OPP";
-                    const oppId = game.opponentId || null;
-
-                    const toUse =
-                      sportPath === "soccer" ? oppId : oppAbbr.toLowerCase();
-
-                    // Format date
-                    const gameDate = new Date(game.date);
-                    const months = [
-                      "Jan",
-                      "Feb",
-                      "Mar",
-                      "Apr",
-                      "May",
-                      "Jun",
-                      "Jul",
-                      "Aug",
-                      "Sep",
-                      "Oct",
-                      "Nov",
-                      "Dec",
-                    ];
-                    const formattedDate = `${
-                      months[gameDate.getMonth()]
-                    } ${gameDate.getDate()}`;
-
-                    return (
-                      <View
-                        key={game.id || index}
-                        style={[
-                          styles.lastFiveGameCard,
-                          {
-                            backgroundColor: theme.surface,
-                            borderLeftWidth: 3,
-                            borderLeftColor: borderColor,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.lastFiveGameCardDate,
-                            { color: theme.textSecondary },
-                          ]}
-                        >
-                          {formattedDate}
-                        </Text>
-                        <View style={styles.lastFiveGameCardContent}>
-                          <Image
-                            source={{
-                              uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
-                                isDarkMode ? "-dark" : ""
-                              }/${toUse}.png&h=100&w=100`,
-                            }}
-                            style={styles.lastFiveGameLogo}
-                          />
-                          <View style={styles.lastFiveGameInfo}>
-                            <Text
-                              style={[
-                                styles.lastFiveGameScore,
-                                { color: theme.text },
-                              ]}
-                            >
-                              {game.score}
-                            </Text>
-                            <Text
-                              style={[
-                                styles.lastFiveGameOpponent,
-                                { color: theme.textSecondary },
-                              ]}
-                            >
-                              {game.atVs} {oppAbbr}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-
-                {/* Home Team Games */}
-                <View style={styles.lastFiveGamesColumn}>
-                  <Text
-                    style={[
-                      styles.lastFiveGamesTeamTitle,
-                      { color: theme.text },
-                    ]}
-                  >
-                    {homeTeam}
-                  </Text>
-                  {[...homeTeamGames].map((game, index) => {
-                    const isWin = game.result === "W";
-                    const isLoss = game.result === "L";
-                    const borderColor = isWin
-                      ? theme.success
-                      : isLoss
-                        ? theme.error
-                        : theme.warning;
-
-                    const oppAbbr = game.opponentAbbreviation || "OPP";
-                    const oppId = game.opponentId || null;
-
-                    const toUse =
-                      sportPath === "soccer" ? oppId : oppAbbr.toLowerCase();
-
-                    // Format date
-                    const gameDate = new Date(game.date);
-                    const months = [
-                      "Jan",
-                      "Feb",
-                      "Mar",
-                      "Apr",
-                      "May",
-                      "Jun",
-                      "Jul",
-                      "Aug",
-                      "Sep",
-                      "Oct",
-                      "Nov",
-                      "Dec",
-                    ];
-                    const formattedDate = `${
-                      months[gameDate.getMonth()]
-                    } ${gameDate.getDate()}`;
-
-                    return (
-                      <View
-                        key={game.id || index}
-                        style={[
-                          styles.lastFiveGameCard,
-                          {
-                            backgroundColor: theme.surface,
-                            borderRightWidth: 3,
-                            borderRightColor: borderColor,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.lastFiveGameCardDate,
-                            { color: theme.textSecondary, textAlign: "right" },
-                          ]}
-                        >
-                          {formattedDate}
-                        </Text>
-                        <View
-                          style={[
-                            styles.lastFiveGameCardContent,
-                            { flexDirection: "row-reverse" },
-                          ]}
-                        >
-                          <Image
-                            source={{
-                              uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
-                                isDarkMode ? "-dark" : ""
-                              }/${toUse}.png&h=100&w=100`,
-                            }}
-                            style={[
-                              styles.lastFiveGameLogo,
-                              { marginRight: 0, marginLeft: 10 },
-                            ]}
-                          />
-                          <View style={styles.lastFiveGameInfo}>
-                            <Text
-                              style={[
-                                styles.lastFiveGameScore,
-                                { color: theme.text, textAlign: "right" },
-                              ]}
-                            >
-                              {game.score}
-                            </Text>
-                            <Text
-                              style={[
-                                styles.lastFiveGameOpponent,
-                                {
-                                  color: theme.textSecondary,
-                                  textAlign: "right",
-                                },
-                              ]}
-                            >
-                              {game.atVs} {oppAbbr}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            </View>
-            {/* Predicted Win Section */}
-            {awayWinPct !== null && homeWinPct !== null && (
-              <View style={styles.lastFiveGamesSection}>
-                <Text
-                  style={[
-                    styles.gameLineSectionTitle,
-                    { color: theme.text, marginBottom: 12 },
-                  ]}
-                >
-                  Predicted Win %
-                </Text>
-                <View
-                  style={[
-                    styles.gameLineTable,
-                    { backgroundColor: theme.surfaceSecondary, padding: 16 },
-                  ]}
-                >
-                  <View style={styles.bettingPercentageBar}>
-                    <View
-                      style={[
-                        styles.bettingPercentageFill,
-                        {
-                          width: `${awayWinPct}%`,
-                          backgroundColor: colors.primary,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <View style={styles.bettingPercentageLabels}>
-                    <Text
-                      style={[
-                        styles.bettingPercentageLabel,
-                        { color: theme.text },
-                      ]}
-                    >
-                      {awayTeam} {awayWinPct}%
-                    </Text>
-                    <Text
-                      style={[
-                        styles.bettingPercentageLabel,
-                        { color: theme.textSecondary },
-                      ]}
-                    >
-                      Win Probability
-                    </Text>
-                    <Text
-                      style={[
-                        styles.bettingPercentageLabel,
-                        { color: theme.text },
-                      ]}
-                    >
-                      {homeWinPct}% {homeTeam}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            )}
           </View>
         );
       default:
@@ -8666,6 +9290,7 @@ const styles = StyleSheet.create({
   },
   // Last Five Games Styles
   lastFiveGamesSection: {
+    marginTop: 24,
     marginBottom: 24,
   },
   lastFiveGamesContainer: {
@@ -8854,15 +9479,15 @@ const styles = StyleSheet.create({
     borderTopColor: "rgba(255,255,255,0.1)",
   },
   bettingPercentageBar: {
-    height: 6,
+    height: 10,
     backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 3,
+    borderRadius: 5,
     marginBottom: 8,
     overflow: "hidden",
   },
   bettingPercentageFill: {
     height: "100%",
-    borderRadius: 3,
+    borderRadius: 5,
   },
   bettingPercentageLabels: {
     flexDirection: "row",
@@ -9294,6 +9919,171 @@ const styles = StyleSheet.create({
   participantStatText: {
     fontSize: 13,
     fontWeight: "500",
+  },
+  miniFieldContainer: {
+    marginRight: 16,
+  },
+  playEventInfo: {
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    width: "100%",
+  },
+  // Landscape Mini Field styles (exact replica of web version)
+  miniField: {
+    width: 240,
+    height: 160, // Landscape orientation - wider than tall
+    marginVertical: 16,
+    alignSelf: "center",
+  },
+  fieldContainer: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#2d5a2d",
+    borderRadius: 4,
+    position: "relative",
+    overflow: "hidden",
+  },
+  fieldOutline: {
+    position: "absolute",
+    top: 2,
+    left: 2,
+    right: 2,
+    bottom: 2,
+    borderWidth: 2,
+    borderColor: "white",
+    borderRadius: 2,
+  },
+  centerLine: {
+    position: "absolute",
+    left: "50%",
+    top: 2,
+    bottom: 2,
+    width: 2,
+    backgroundColor: "white",
+    marginLeft: -1,
+  },
+  centerCircleMini: {
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    width: 40,
+    height: 40,
+    borderWidth: 2,
+    borderColor: "white",
+    borderRadius: 20,
+    marginLeft: -20,
+    marginTop: -20,
+  },
+  penaltyAreaLeft: {
+    position: "absolute",
+    left: 4,
+    top: "25%",
+    bottom: "25%",
+    width: 30,
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderColor: "white",
+  },
+  penaltyAreaRight: {
+    position: "absolute",
+    right: 4,
+    top: "25%",
+    bottom: "25%",
+    width: 30,
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderLeftWidth: 2,
+    borderColor: "white",
+  },
+  goalAreaLeft: {
+    position: "absolute",
+    left: 4,
+    top: "37.5%",
+    bottom: "37.5%",
+    width: 15,
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderColor: "white",
+  },
+  goalAreaRight: {
+    position: "absolute",
+    right: 4,
+    top: "37.5%",
+    bottom: "37.5%",
+    width: 15,
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderLeftWidth: 2,
+    borderColor: "white",
+  },
+  goalLeft: {
+    position: "absolute",
+    left: 2,
+    top: "42.5%",
+    bottom: "42.5%",
+    width: 4,
+    backgroundColor: "white",
+  },
+  goalRight: {
+    position: "absolute",
+    right: 2,
+    top: "42.5%",
+    bottom: "42.5%",
+    width: 4,
+    backgroundColor: "white",
+  },
+  eventMarker: {
+    position: "absolute",
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#ff6b35",
+    borderWidth: 2,
+    borderColor: "white",
+    marginTop: -6,
+    marginLeft: -6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.8,
+    shadowRadius: 5,
+  },
+  ballEndMarker: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: -4,
+    marginLeft: -4,
+    opacity: 0.8,
+  },
+  goalMarker: {
+    backgroundColor: "#00ff00",
+  },
+  cardMarker: {
+    backgroundColor: "#ffff00",
+  },
+  redCardMarker: {
+    backgroundColor: "#ff0000",
+  },
+  shotMarker: {
+    backgroundColor: "#ffa500",
+  },
+  substitutionMarker: {
+    backgroundColor: "#0080ff",
+  },
+  offsideMarker: {
+    backgroundColor: "#800080",
+  },
+  // Pitch rendering styles (matching scoreboard.js)
+  pitchesWrapper: {
+    marginTop: 20,
+  },
+  pitchContainer: {
+    marginBottom: 30,
+    alignItems: "center",
+    width: "100%", // Allow full width for large pitch
   },
 });
 

@@ -2369,7 +2369,7 @@ const ESPN_PATHS = {
 };
 // SportGameOdds API configuration
 const SPORTSGAMEODDS_API_BASE = "https://api.sportsgameodds.com/v2/events";
-const SPORTSGAMEODDS_API_KEY = process.env.SPORTSGAMEODDS_API_KEY || "fb5cd7db7f9e18a03caa04b10b505a41";
+const SPORTSGAMEODDS_API_KEY = process.env.SPORTSGAMEODDS_API_KEY || "";
 
 // Mapping sport slug -> leagueID for SportGameOdds
 const SGO_LEAGUE_IDS = {
@@ -2583,7 +2583,11 @@ async function fetchSGOOdds(sport = "nba") {
 
     const url = `${SPORTSGAMEODDS_API_BASE}?leagueID=${encodeURIComponent(
       leagueID
-    )}&startsAfter=2026-01-20T10:00:00&startsBefore=2026-01-21T10:00:00&ended=false&live=false&bookmakerID=fanduel,draftkings&includeOpposingOdds=false&expandResults=false&includeAltLines=true&apiKey=${SPORTSGAMEODDS_API_KEY}`;
+    )}&startsAfter=${encodeURIComponent(
+      startsAfter
+    )}&startsBefore=${encodeURIComponent(
+      startsBefore
+    )}&ended=false&live=false&bookmakerID=fanduel,draftkings&includeOpposingOdds=false&expandResults=false&includeAltLines=true&apiKey=${SPORTSGAMEODDS_API_KEY}`;
 
     const resp = await axios.get(url, { timeout: 20000 });
     const events = resp.data?.data || resp.data || [];
@@ -3860,7 +3864,7 @@ function transformSummaryData(data) {
           ? data.commentary
           : [];
         const lastComment = commentary.length
-          ? commentary[commentary.length - 1]
+          ? commentary[commentary.length - 3]
           : null;
         if (lastComment) {
           const c = Object.assign({}, lastComment || {});
@@ -4620,7 +4624,7 @@ async function fetchScoreboard(sport = "nba") {
     const urls = ESPN_PATHS[sportKey] || ESPN_PATHS["nba"];
     const dateParam = getScoreboardDate();
     const response = await axios.get(
-      `${urls.base}/scoreboard?dates=20260120`
+      `${urls.base}/scoreboard?dates=${dateParam}`
     );
     // store per-sport and keep a fallback reference
     scoreboardDataBySport[sportKey] = response.data;

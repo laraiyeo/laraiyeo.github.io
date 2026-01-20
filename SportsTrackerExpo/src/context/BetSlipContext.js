@@ -94,6 +94,167 @@ export const BetSlipProvider = ({ children }) => {
 
   // Add or remove bet from slip
   const toggleBet = useCallback((bet) => {
+    // Helper: attempt to infer a canonical bet key when not provided
+    const inferBetKey = (b) => {
+      try {
+        // Combine multiple fields into the detection string so ids/names
+        // containing keywords (e.g., "cards", "corner") are considered.
+        const s = [
+          b?.propType,
+          b?.statType,
+          b?.type,
+          b?.description,
+          b?.prop,
+          b?.id,
+          b?.name,
+          b?.selection,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toString()
+          .toLowerCase();
+        let base = null;
+
+        // Helper to detect home/away from gameInfo.teams (format: "AWAY @ HOME")
+        const detectSide = () => {
+          try {
+            const teamHint = (b?.team || b?.teamId || b?.selection || "")
+              .toString()
+              .toLowerCase();
+            const teamsStr = (b?.gameInfo?.teams || "")
+              .toString()
+              .toLowerCase();
+            if (!teamHint) return null;
+            if (teamsStr.includes("@")) {
+              const parts = teamsStr.split("@").map((p) => p.trim());
+              const awayPart = parts[0].toLowerCase();
+              const homePart = parts[1].toLowerCase();
+              if (
+                awayPart &&
+                (awayPart.includes(teamHint) ||
+                  teamHint.includes(awayPart) ||
+                  awayPart.split(" ")[0] === teamHint.split(" ")[0])
+              )
+                return "away";
+              if (
+                homePart &&
+                (homePart.includes(teamHint) ||
+                  teamHint.includes(homePart) ||
+                  homePart.split(" ")[0] === teamHint.split(" ")[0])
+              )
+                return "home";
+            }
+            // fallback to keywords in description
+            if (s.includes("home")) return "home";
+            if (s.includes("away")) return "away";
+            return null;
+          } catch (e) {
+            return null;
+          }
+        };
+
+        // Primary base detection
+        if (/both\s+teams|btts|yes\/?no/.test(s)) base = "bothScore";
+        else if (/corner/.test(s) && /total|over|under/.test(s))
+          base = "totalCorner";
+        else if (/card|cards/.test(s) && /total|over|under/.test(s))
+          base = "totalCards";
+        else if (/corner/.test(s) && /spread/.test(s)) base = "cornerSpread";
+        else if (/card|cards/.test(s) && /spread/.test(s)) base = "cardSpread";
+        else if (
+          /over\/under|over under|total points|total\b|total\s*$/i.test(s)
+        )
+          base = "totalPoints";
+        else if (/_points|points|goals/.test(s)) {
+          // prefer explicit home/away detection when team present
+          const side = detectSide();
+          if (side === "home") base = "homePoints";
+          else if (side === "away") base = "awayPoints";
+          else if (/goals/.test(s)) base = "totalPoints";
+        } else if (/spread/.test(s) || /-\d|\+\d/.test(String(b?.line || "")))
+          base = "spread";
+        else if (/moneyline|ml|3-way|3 way|draw/.test(s)) base = "moneyline";
+
+        if (!base) return null;
+
+        // If the base is one of the generic game-level types but the bet
+        // is team-specific, map to a team-scoped key (home/away)
+        try {
+          const teamSide = detectSide();
+          if (
+            teamSide &&
+            ["totalPoints", "spread", "moneyline"].includes(base)
+          ) {
+            if (base === "totalPoints")
+              base = teamSide === "home" ? "homePoints" : "awayPoints";
+            else if (base === "spread")
+              base = teamSide === "home" ? "homeSpread" : "awaySpread";
+            else if (base === "moneyline")
+              base = teamSide === "home" ? "homeMoneyline" : "awayMoneyline";
+          }
+        } catch (e) {}
+
+        // Normalize and append period suffix when present (e.g., reg -> Reg, 1q -> 1Q)
+        let rawPeriod = (b?.period || b?.periodId || "")
+          .toString()
+          .toLowerCase();
+        // If no explicit period field, detect common keywords in type/description
+        if (!rawPeriod || rawPeriod.length === 0) {
+          const typeDesc = ((b?.type || "") + " " + (b?.description || ""))
+            .toString()
+            .toLowerCase();
+          // Halves
+          if (/(?:1st|first)\s*(?:half)|\b1h\b/.test(typeDesc))
+            rawPeriod = "1h";
+          else if (/(?:2nd|second)\s*(?:half)|\b2h\b/.test(typeDesc))
+            rawPeriod = "2h";
+          // Quarters
+          else if (/(?:1st|first)\s*(?:quarter)|\b1q\b/.test(typeDesc))
+            rawPeriod = "1q";
+          else if (/(?:2nd|second)\s*(?:quarter)|\b2q\b/.test(typeDesc))
+            rawPeriod = "2q";
+          else if (/(?:3rd|third)\s*(?:quarter)|\b3q\b/.test(typeDesc))
+            rawPeriod = "3q";
+          else if (/(?:4th|fourth)\s*(?:quarter)|\b4q\b/.test(typeDesc))
+            rawPeriod = "4q";
+          // Periods (hockey etc.)
+          else if (/(?:1st|first)\s*(?:period)|\b1p\b/.test(typeDesc))
+            rawPeriod = "1p";
+          else if (/(?:2nd|second)\s*(?:period)|\b2p\b/.test(typeDesc))
+            rawPeriod = "2p";
+          else if (/(?:3rd|third)\s*(?:period)|\b3p\b/.test(typeDesc))
+            rawPeriod = "3p";
+          // Regulation keyword
+          else if (
+            typeDesc.includes("regulation") ||
+            typeDesc.includes("(regulation)") ||
+            /\breg\b/.test(typeDesc)
+          ) {
+            rawPeriod = "reg";
+          }
+        }
+        if (rawPeriod) {
+          // keep only alphanumerics for suffix
+          const normalized = rawPeriod.replace(/[^a-z0-9]/g, "");
+          if (normalized) {
+            // camel-case the suffix: digits preserved, alpha part capitalized
+            const m = normalized.match(/^(\d+)?([a-z]*)$/);
+            let suffix = normalized;
+            if (m) {
+              const num = m[1] || "";
+              const alpha = m[2] || "";
+              suffix =
+                num +
+                (alpha ? alpha.charAt(0).toUpperCase() + alpha.slice(1) : "");
+            }
+            return `${base}${suffix}`;
+          }
+        }
+
+        return base;
+      } catch (e) {}
+      return null;
+    };
     console.log("toggleBet called with:", bet);
     setBets((prevBets) => {
       console.log("Previous bets:", prevBets);
@@ -135,6 +296,13 @@ export const BetSlipProvider = ({ children }) => {
         if (prevBets.length >= 10) {
           console.log("Max pick limit reached (10)");
           return prevBets;
+        }
+
+        // Ensure canonical `key` exists on the bet so downstream consumers
+        // (e.g., ticket renderers) can resolve betslip payloads reliably.
+        if (!betToUse.key) {
+          const inferred = inferBetKey(betToUse);
+          if (inferred) betToUse.key = inferred;
         }
 
         // Find conflicting bets to remove
@@ -267,11 +435,57 @@ export const BetSlipProvider = ({ children }) => {
                 b.type === "Spread (Alt)" ||
                 b.type?.includes("Spread"); // Catch period-specific spreads like "1st Period Spread"
 
+              // Special-case: in UEFA, card spreads and corner-kicks spreads
+              // are not treated as normal game spreads for spread vs moneyline
+              // exclusivity. We still want to prevent selecting the same
+              // special spread for both teams though.
+              // Distinguish UEFA special spreads by type (cards vs corner)
+              const getSpecialUefaSpreadType = (b) => {
+                if (!b || !b.type) return null;
+                const sport = (b.sport || bet.sport || "")
+                  .toString()
+                  .toUpperCase();
+                if (sport !== "UEFA") return null;
+                const t = b.type.toLowerCase();
+                if (t.includes("cards")) return "cards";
+                if (t.includes("corner")) return "corner";
+                return null;
+              };
+
+              const isSpecialUefaSpread = (b) => !!getSpecialUefaSpreadType(b);
+
+              // Real spreads are spreads that should be mutually exclusive
+              // with moneylines etc. Exclude UEFA special spreads from this.
+              const isRealSpread = (b) =>
+                isSpread(b) && !isSpecialUefaSpread(b);
+
               const isTotal = (b) =>
                 b.type === "Total" ||
                 b.type?.includes("Over/Under") ||
                 b.type?.includes("Goals") ||
                 b.type?.includes("Total"); // Catch variations
+
+              // Detect UEFA special total types (corner vs cards) using several fields
+              const getSpecialUefaTotalType = (b) => {
+                if (!b) return null;
+                const sport = (b.sport || bet.sport || "")
+                  .toString()
+                  .toUpperCase();
+                if (sport !== "UEFA") return null;
+                const combined = (
+                  (b.type || "") +
+                  " " +
+                  (b.description || "") +
+                  " " +
+                  (b.id || "")
+                )
+                  .toString()
+                  .toLowerCase();
+                if (combined.includes("corner")) return "corner";
+                if (combined.includes("card") || combined.includes("cards"))
+                  return "cards";
+                return null;
+              };
 
               const isMoneyline = (b) =>
                 b.type === "Moneyline" ||
@@ -287,22 +501,65 @@ export const BetSlipProvider = ({ children }) => {
                   betsToRemove.push(existingBet.id);
                 }
 
-                // Can't select with any spread (regular or alt) for same team
-                if (isSpread(existingBet) && existingBet.team === bet.team) {
+                // Can't select with any REAL spread (regular or alt) for same team
+                // Note: UEFA card/corner spreads are excluded from "real" spreads
+                if (
+                  isRealSpread(existingBet) &&
+                  existingBet.team === bet.team
+                ) {
                   betsToRemove.push(existingBet.id);
                 }
               }
 
               // SPREAD RESTRICTIONS (including alt spreads)
-              if (isSpread(bet)) {
+              if (isRealSpread(bet)) {
                 // Can't select with ANY moneyline type for same team
                 if (isMoneyline(existingBet) && bet.team === existingBet.team) {
                   betsToRemove.push(existingBet.id);
                 }
 
-                // Can't select multiple spreads (regular or alt) for same period
-                if (isSpread(existingBet) && samePeriod) {
+                // Can't select multiple REAL spreads (regular or alt) for same period
+                if (isRealSpread(existingBet) && samePeriod) {
                   betsToRemove.push(existingBet.id);
+                }
+              }
+
+              // Special UEFA rule: card spreads and corner-kicks spreads
+              // should not behave like regular spreads (i.e. they can coexist
+              // with moneylines). However, you should not be able to select
+              // the same special spread for BOTH teams. Enforce that here.
+              if (
+                (bet.type || "").toString().toLowerCase().includes("cards") ||
+                (bet.type || "").toString().toLowerCase().includes("corner")
+              ) {
+                // Only apply for UEFA-sport bets
+                const betSport = (bet.sport || "").toString().toUpperCase();
+                if (betSport === "UEFA") {
+                  const newSpecialType = getSpecialUefaSpreadType(bet);
+                  const existingSpecialType =
+                    getSpecialUefaSpreadType(existingBet);
+
+                  // Only conflict when both are the same special type (cards vs corner)
+                  if (
+                    existingBet.gameId === bet.gameId &&
+                    existingSpecialType &&
+                    newSpecialType &&
+                    existingSpecialType === newSpecialType &&
+                    samePeriod
+                  ) {
+                    // If existing is the opposite team's same special spread, remove it
+                    if (
+                      existingBet.team &&
+                      bet.team &&
+                      existingBet.team !== bet.team
+                    ) {
+                      betsToRemove.push(existingBet.id);
+                    }
+                    // Also disallow duplicate same-team special spreads
+                    if (existingBet.team === bet.team) {
+                      betsToRemove.push(existingBet.id);
+                    }
+                  }
                 }
               }
 
@@ -314,7 +571,20 @@ export const BetSlipProvider = ({ children }) => {
                 if (isTotal(existingBet) && samePeriod) {
                   // Can't select multiple game totals (over/under) for same period
                   if (!newIsTeamTotal && !existingIsTeamTotal) {
-                    betsToRemove.push(existingBet.id);
+                    // Allow corner total and cards total to both be selected in UEFA
+                    const newSpecialTotal = getSpecialUefaTotalType(bet);
+                    const existingSpecialTotal =
+                      getSpecialUefaTotalType(existingBet);
+
+                    // If both are UEFA special totals and they are different (corner vs cards), allow both
+                    const bothDifferentUefaSpecials =
+                      newSpecialTotal &&
+                      existingSpecialTotal &&
+                      newSpecialTotal !== existingSpecialTotal;
+
+                    if (!bothDifferentUefaSpecials) {
+                      betsToRemove.push(existingBet.id);
+                    }
                   }
 
                   // Can't select multiple team-specific points/goals for same team/period
@@ -337,7 +607,7 @@ export const BetSlipProvider = ({ children }) => {
                         isTotal(b) &&
                         b.team &&
                         b.team !== bet.team &&
-                        (b.period || null) === newPeriod
+                        (b.period || null) === newPeriod,
                     );
 
                     if (oppositeTeamPointsExists) {
@@ -353,7 +623,7 @@ export const BetSlipProvider = ({ children }) => {
                         b.gameId === bet.gameId &&
                         isTotal(b) &&
                         b.team === existingBet.team &&
-                        (b.period || null) === newPeriod
+                        (b.period || null) === newPeriod,
                     );
 
                     const team2Points = prevBets.find(
@@ -362,7 +632,7 @@ export const BetSlipProvider = ({ children }) => {
                         isTotal(b) &&
                         b.team &&
                         b.team !== existingBet.team &&
-                        (b.period || null) === newPeriod
+                        (b.period || null) === newPeriod,
                     );
 
                     if (team1Points && team2Points) {
@@ -408,7 +678,7 @@ export const BetSlipProvider = ({ children }) => {
 
         // Remove conflicting bets
         const filteredBets = prevBets.filter(
-          (b) => !betsToRemove.includes(b.id)
+          (b) => !betsToRemove.includes(b.id),
         );
 
         // Add the new bet (use normalized betToUse)
@@ -428,7 +698,7 @@ export const BetSlipProvider = ({ children }) => {
     (betId) => {
       return bets.some((b) => b.id === betId);
     },
-    [bets]
+    [bets],
   );
 
   // Remove bet by ID
@@ -484,7 +754,7 @@ export const BetSlipProvider = ({ children }) => {
       const mult = isPro ? 2 : 1;
       return (stake * totalDecimal * mult).toFixed(2);
     },
-    [bets, isPro]
+    [bets, isPro],
   );
 
   // Group bets by game
@@ -517,6 +787,21 @@ export const BetSlipProvider = ({ children }) => {
         status: "open", // open, won, lost
         betslipData, // API response with events and bet results
       };
+      try {
+        console.log(
+          "submitBetSlip: creating local betSlip with id:",
+          betSlip.id,
+          "betsCount:",
+          betSlip.bets.length,
+          "betslipDataPresent:",
+          !!betslipData,
+        );
+        if (betslipData && betslipData.events)
+          console.log(
+            "submitBetSlip: betslipData events ids:",
+            betslipData.events.map((e) => e.eventId),
+          );
+      } catch (e) {}
 
       // Persist to backend (prefer server endpoint which enforces credits)
       const totalStake = betSlip.amount || 0;
@@ -547,7 +832,7 @@ export const BetSlipProvider = ({ children }) => {
             // pass aggregated betslip_url when present so RPC can persist it
             (betslipData && betslipData.betslip_url) || null,
             // pass the original bet object so single-leg bets match multi-leg shape
-            single
+            single,
           );
           if (rpc && rpc.success) {
             // RPC returned created betslip id; refresh profile to reflect deduction
@@ -556,13 +841,13 @@ export const BetSlipProvider = ({ children }) => {
               if (profileResp && profileResp.success && profileResp.profile) {
                 console.log(
                   "Profile refreshed after RPC bet; credits:",
-                  profileResp.profile.credits
+                  profileResp.profile.credits,
                 );
               }
             } catch (e) {
               console.warn(
                 "Failed to refresh profile after RPC bet:",
-                e?.message || e
+                e?.message || e,
               );
             }
             // Build local ticket and return
@@ -575,12 +860,12 @@ export const BetSlipProvider = ({ children }) => {
           // If RPC failed, fall through to createBetslip fallback below
           console.warn(
             "placeBet RPC failed, falling back to createBetslip:",
-            rpc?.error || rpc
+            rpc?.error || rpc,
           );
         } catch (e) {
           console.warn(
             "placeBet RPC exception, falling back to createBetslip:",
-            e?.message || e
+            e?.message || e,
           );
         }
       }
@@ -593,8 +878,12 @@ export const BetSlipProvider = ({ children }) => {
           betslipData,
         },
         totalStake,
-        potentialPayout
+        potentialPayout,
       );
+
+      try {
+        console.log("createBetslip response:", res);
+      } catch (e) {}
 
       if (!res || !res.success) {
         const errMsg = res?.error || "Failed to create betslip";
@@ -610,7 +899,7 @@ export const BetSlipProvider = ({ children }) => {
           if (profileResp && profileResp.success && profileResp.profile) {
             console.log(
               "Profile refreshed after server bet; credits:",
-              profileResp.profile.credits
+              profileResp.profile.credits,
             );
           }
         } catch (e) {
@@ -619,31 +908,31 @@ export const BetSlipProvider = ({ children }) => {
         Alert.alert(
           "Bet placed",
           `Bet placed. Credits remaining: ${Number(
-            res.creditsRemaining
+            res.creditsRemaining,
           ).toLocaleString(undefined, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
-          })}`
+          })}`,
         );
       } else if (res && res.success && res.serverCalled && res.serverFallback) {
         // Server was contacted but rejected/errored; we fell back to local DB insert
         console.warn(
           "Bet saved locally after server rejection:",
-          res.error || "server rejected request"
+          res.error || "server rejected request",
         );
         Alert.alert(
           "Bet saved locally",
-          "Server rejected the create request; ticket saved locally. Credits were NOT deducted. Please retry or contact support."
+          "Server rejected the create request; ticket saved locally. Credits were NOT deducted. Please retry or contact support.",
         );
       } else if (res && res.success && res.serverFallback) {
         // No server token available; local DB insert used
         console.warn(
           "Bet saved locally (no server token):",
-          res.error || "no server token"
+          res.error || "no server token",
         );
         Alert.alert(
           "Bet saved locally",
-          "Could not reach the server; ticket saved locally. Credits were NOT deducted."
+          "Could not reach the server; ticket saved locally. Credits were NOT deducted.",
         );
       } else if (res && !res.success) {
         console.error("submitBetSlip failed:", res.error);
@@ -651,7 +940,7 @@ export const BetSlipProvider = ({ children }) => {
       } else {
         Alert.alert(
           "Bet placed",
-          "Your bet was saved but we did not receive confirmation from the server about credits."
+          "Your bet was saved but we did not receive confirmation from the server about credits.",
         );
       }
 
@@ -660,6 +949,14 @@ export const BetSlipProvider = ({ children }) => {
       }
 
       // Add to submitted bets (local cache)
+      try {
+        console.log(
+          "Adding to submittedBets local cache, betSlip id:",
+          betSlip.id,
+          "betslipDataPresent:",
+          !!betSlip.betslipData,
+        );
+      } catch (e) {}
       setSubmittedBets((prev) => [betSlip, ...prev]);
 
       // Try to refresh persisted betslips from Supabase so newly-created
@@ -687,7 +984,7 @@ export const BetSlipProvider = ({ children }) => {
 
       return betSlip;
     },
-    [bets]
+    [bets],
   );
 
   // Load user's persisted betslips on auth/session start
@@ -719,25 +1016,36 @@ export const BetSlipProvider = ({ children }) => {
           let status = "pending";
 
           // Prefer aggregated row if available
-          const aggregatedRow = groupRows.find((r) => r.betslip_data);
+          let aggregatedRow = groupRows.find((r) => r.betslip_data);
 
           // build bets list
           if (aggregatedRow) {
+            // Parse aggregatedRow.betslip_data if it's stringified JSON (some DB rows store as text)
+            let parsedBetslipData = aggregatedRow.betslip_data;
+            if (typeof parsedBetslipData === "string") {
+              try {
+                parsedBetslipData = JSON.parse(parsedBetslipData);
+              } catch (e) {
+                // leave as string if parse fails
+              }
+            }
+
             // Use only the aggregated row's bets to avoid duplicating per-bet rows
             timestamp =
               aggregatedRow.created_at ||
-              (aggregatedRow.betslip_data &&
-                aggregatedRow.betslip_data.createdAt) ||
+              (parsedBetslipData && parsedBetslipData.createdAt) ||
               timestamp;
             status = aggregatedRow.status || status;
-            if (Array.isArray(aggregatedRow.betslip_data?.bets)) {
-              aggregatedRow.betslip_data.bets.forEach((b) => bets.push(b));
-            } else if (
-              aggregatedRow.betslip_data &&
-              aggregatedRow.betslip_data.id
-            ) {
-              bets.push(aggregatedRow.betslip_data);
+            if (Array.isArray(parsedBetslipData?.bets)) {
+              parsedBetslipData.bets.forEach((b) => bets.push(b));
+            } else if (parsedBetslipData && parsedBetslipData.id) {
+              bets.push(parsedBetslipData);
             }
+            // Replace aggregatedRow.betslip_data with parsed object for downstream use
+            aggregatedRow = {
+              ...aggregatedRow,
+              betslip_data: parsedBetslipData,
+            };
           } else {
             groupRows.forEach((row) => {
               if (!timestamp)
@@ -789,7 +1097,7 @@ export const BetSlipProvider = ({ children }) => {
           if (totalStake == null) {
             const firstRowTotal = groupRows
               .map((r) =>
-                r.total_stake != null ? parseFloat(r.total_stake) : null
+                r.total_stake != null ? parseFloat(r.total_stake) : null,
               )
               .find((v) => v != null);
             if (firstRowTotal != null) totalStake = firstRowTotal;
@@ -798,7 +1106,7 @@ export const BetSlipProvider = ({ children }) => {
           if (totalStake == null) {
             totalStake = bets.reduce(
               (s, b) => s + (parseFloat(b.amount) || 0),
-              0
+              0,
             );
           }
 
@@ -809,7 +1117,7 @@ export const BetSlipProvider = ({ children }) => {
           if (totalOdds == null) {
             const firstRowOdds = groupRows
               .map((r) =>
-                r.total_odds != null ? parseFloat(r.total_odds) : null
+                r.total_odds != null ? parseFloat(r.total_odds) : null,
               )
               .find((v) => v != null);
             if (firstRowOdds != null) totalOdds = firstRowOdds;
@@ -832,7 +1140,7 @@ export const BetSlipProvider = ({ children }) => {
               .map((r) =>
                 r.potential_payout != null
                   ? parseFloat(r.potential_payout)
-                  : null
+                  : null,
               )
               .find((v) => v != null);
             if (firstRowPayout != null) potentialPayout = firstRowPayout;
@@ -851,8 +1159,8 @@ export const BetSlipProvider = ({ children }) => {
             aggregatedRow && aggregatedRow.id
               ? aggregatedRow.id
               : groupRows[0].created_at
-              ? `ticket-${groupRows[0].created_at}`
-              : `ticket-${groupRows[0].id}`;
+                ? `ticket-${groupRows[0].created_at}`
+                : `ticket-${groupRows[0].id}`;
 
           // Expose created_at/updated_at and underlying remote row ids for
           // callers that need to reference the Supabase rows directly.
