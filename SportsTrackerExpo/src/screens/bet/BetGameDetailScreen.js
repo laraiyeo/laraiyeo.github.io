@@ -2609,6 +2609,35 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           });
         });
       }
+
+      // UEFA / other soccer feeds may supply rosters under `summary.rosters` instead
+      // of boxscore.players. Normalize that shape into athleteMeta as well so
+      // commentary.play.participants can be resolved to headshots/logos.
+      if (
+        (!athleteMeta || Object.keys(athleteMeta).length === 0) &&
+        summary?.rosters
+      ) {
+        athleteMeta = athleteMeta || {};
+        summary.rosters.forEach((teamBlock) => {
+          const team = teamBlock.team || {};
+          const teamAbbrev = team.abbreviation || team.displayName || null;
+          const teamId = String(team.id || team.teamId || "");
+          const logoUse = sportPath === "soccer" ? teamId : (teamAbbrev || "").toLowerCase();
+          const rosterArr = teamBlock.roster || teamBlock.roster || [];
+          rosterArr.forEach((entry) => {
+            const aid = String(entry?.athlete?.id || entry?.athlete?.athleteId || "");
+            if (!aid) return;
+            athleteMeta[aid] = athleteMeta[aid] || {};
+            athleteMeta[aid].displayName = entry.athlete?.displayName || athleteMeta[aid].displayName;
+            athleteMeta[aid].position = entry.position || athleteMeta[aid].position;
+            athleteMeta[aid].jersey = entry.jersey || athleteMeta[aid].jersey;
+            athleteMeta[aid].stats = entry.stats || athleteMeta[aid].stats;
+            athleteMeta[aid].headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${aid}.png&w=200`;
+            athleteMeta[aid].team = athleteMeta[aid].team || { abbreviation: teamAbbrev };
+            athleteMeta[aid].teamLogo = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${isDarkMode ? "-dark" : ""}/${logoUse}.png&h=100&w=100`;
+          });
+        });
+      }
     } catch (e) {
       // ignore build errors and fall back to provided summary.athletes
     }
@@ -2698,7 +2727,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
                   isDarkMode ? "-dark" : ""
                 }/${(team || "").toLowerCase()}.png&h=100&w=100`;
-              const position = m.position || m.pos || "";
+              let position = m.position || m.pos || "";
+              if (position && typeof position === "object") {
+                position = position.abbreviation || position.name || position.displayName || "";
+              }
+              position = position || "";
               const number = m.jersey || m.number || "";
 
               const stats = summary?.stats?.[ath.id] || m.stats || {};
@@ -2919,7 +2952,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     const eventClass =
       eventType === "goal"
         ? "goal"
-        : eventType === "shot"
+        : eventType.includes("shot")
           ? "attempt"
           : eventType === "card"
             ? "card"
@@ -2947,7 +2980,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         case "attempt":
           return [
             ...baseStyle,
-            styles.shotMarker,
+            styles.shotMarkerSoccer,
             { backgroundColor: finalTeamColor },
           ];
         case "card":
@@ -2971,8 +3004,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       )
         return null;
 
-      const FIELD_WIDTH = 180;
-      const FIELD_HEIGHT = 120;
+      const FIELD_WIDTH = 240;
+      const FIELD_HEIGHT = 160;
 
       const x1 = (finalLeftPercent / 100) * FIELD_WIDTH;
       const y1 = (finalTopPercent / 100) * FIELD_HEIGHT;
@@ -3051,10 +3084,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         const url = useEventId
           ? `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/${String(
               sportToUse,
-            ).toLowerCase()}/757749`
+            ).toLowerCase()}/${useEventId}`
           : `https://laraiyeogithubio-production-f5af.up.railway.app/api/summary/${String(
               sportToUse,
-            ).toLowerCase()}/757749`;
+            ).toLowerCase()}/${game.id}`;
         const response = await fetch(url);
         const data = await response.json();
         setSummaryData(data);
@@ -3415,11 +3448,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           id: "stats",
           icon: "stats-chart",
           label: "Game Stats",
-        },
-        {
-          id: "quick",
-          icon: "flash",
-          label: "Live Play",
         },
       ];
     }
@@ -6045,15 +6073,63 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       {/* Soccer (UEFA): reuse England mini-field for play coordinates */}
                       {(sportUpper === "UEFA" || sportPath === "soccer") &&
                         (() => {
-                          const coord = summaryData?.commentary?.coordinate;
-                          const coord2 = summaryData?.commentary?.coordinate2;
-                          const playTeam = summaryData?.commentary?.team;
-                          const teamSide =
-                            playTeam === gameData?.team2Abbr ? "home" : "away";
-                          const teamColor =
-                            playTeam === gameData?.team2Abbr
-                              ? team2Color
-                              : team1Color;
+                          // Prefer UEFA/ESPN commentary.play coordinate shape (fieldPositionX/Y)
+                          // and fall back to older `commentary.coordinate` shape.
+                          let coord = null;
+                          let coord2 = null;
+                          const commentaryPlay = summaryData?.commentary?.play || {};
+
+                          if (
+                            commentaryPlay &&
+                            commentaryPlay.fieldPositionX !== undefined &&
+                            commentaryPlay.fieldPositionY !== undefined
+                          ) {
+                            coord = {
+                              x: commentaryPlay.fieldPositionX,
+                              y: commentaryPlay.fieldPositionY,
+                            };
+
+                            if (
+                              commentaryPlay.fieldPosition2X !== undefined &&
+                              commentaryPlay.fieldPosition2Y !== undefined
+                            ) {
+                              coord2 = {
+                                x: commentaryPlay.fieldPosition2X,
+                                y: commentaryPlay.fieldPosition2Y,
+                              };
+                            }
+                          } else {
+                            coord = summaryData?.commentary?.coordinate;
+                            coord2 = summaryData?.commentary?.coordinate2;
+                          }
+
+                          // Resolve play team to an abbreviation when possible.
+                          // commentary.play.team often contains displayName (UEFA feeds).
+                          let playTeam = null;
+                          if (commentaryPlay?.team?.abbreviation) {
+                            playTeam = commentaryPlay.team.abbreviation;
+                          } else if (commentaryPlay?.team?.displayName) {
+                            // Try to find matching team in boxscore teams first
+                            const bsTeams = summaryData?.boxscore?.teams || [];
+                            const foundBs = bsTeams.find(
+                              (t) => t?.team?.displayName === commentaryPlay.team.displayName,
+                            );
+                            if (foundBs) {
+                              playTeam = foundBs.team?.abbreviation || commentaryPlay.team.displayName;
+                            } else {
+                              // Fall back to header competitors if boxscore not populated
+                              const comps = summaryData?.header?.competitions?.[0]?.competitors || [];
+                              const foundComp = comps.find(
+                                (c) => c?.team?.displayName === commentaryPlay.team.displayName || c?.team?.id === commentaryPlay.team.id,
+                              );
+                              playTeam = foundComp?.team?.abbreviation || commentaryPlay.team.displayName;
+                            }
+                          } else {
+                            playTeam = summaryData?.commentary?.team || null;
+                          }
+
+                          const teamSide = playTeam === gameData?.team2Abbr ? "home" : "away";
+                          const teamColor = playTeam === gameData?.team2Abbr ? team2Color : team1Color;
 
                           // Use NHL-style scaling: compute `courtScale` from container width
                           // via onLayout and render the unscaled field inside the scaled container.
@@ -6085,11 +6161,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 {renderSoccerMiniField(
                                   coord,
                                   coord2,
-                                  summaryData?.commentary?.eventType || "gen",
+                                  summaryData?.commentary?.play.type.text.toLowerCase() || "gen",
                                   teamSide,
                                   teamColor,
                                   {
-                                    miniField: {
+                                    fieldContainer: {
                                       transform: [{ scale: courtScale }],
                                     },
                                   },
@@ -6271,7 +6347,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
               );
             })()}
 
-            {summaryData?.plays &&
+            {(summaryData?.plays || summaryData?.commentary?.play) &&
               (() => {
                 // Get smart team colors for proper color handling
                 const { team1Color, team2Color } = getSmartTeamColors(
@@ -6285,6 +6361,45 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   },
                 );
 
+                // Normalize play source: prefer summaryData.plays, fall back to commentary.play
+                const playSource = summaryData.plays || (summaryData.commentary && summaryData.commentary.play) || {};
+
+                // Normalize team identifier: can be abbreviation or object with displayName
+                let playTeamRaw = playSource.team;
+                let playTeamIdent = playTeamRaw;
+                if (playTeamRaw && typeof playTeamRaw === "object") {
+                  playTeamIdent = playTeamRaw.abbreviation || playTeamRaw.displayName || playTeamRaw.name || playTeamRaw.id || null;
+                }
+
+                // If we only have a displayName (UEFA), try to map it to a competitor abbreviation
+                if (playTeamIdent && summaryData?.header?.competitions?.[0]) {
+                  const competitors = summaryData.header.competitions[0].competitors || [];
+                  const match = competitors.find((c) => {
+                    const t = c.team || {};
+                    return (
+                      t.abbreviation === playTeamIdent ||
+                      t.displayName === playTeamIdent ||
+                      t.shortDisplayName === playTeamIdent ||
+                      String(t.id) === String(playTeamIdent)
+                    );
+                  });
+                  if (match && match.team && match.team.abbreviation) {
+                    playTeamIdent = match.team.abbreviation;
+                  }
+                }
+
+                const borderColor = playTeamIdent
+                  ? playTeamIdent === gameData.team1Abbr
+                    ? team1Color
+                    : team2Color
+                  : theme.border;
+
+                const playText = playSource.text || "Waiting for next play...";
+                const playPeriod = playSource.period?.displayValue || playSource.period?.number;
+                const playClock = playSource.clock?.displayValue || playSource.clock || playSource.clock?.value;
+                const isScoring = !!playSource.scoringPlay;
+                const shortDesc = playSource.shortDescription;
+
                 return (
                   <View>
                     <View style={styles.playTextWrapper}>
@@ -6294,69 +6409,37 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           {
                             backgroundColor: theme.surface,
                             borderWidth: 2,
-                            borderColor: summaryData.plays.team
-                              ? summaryData.plays.team === gameData.team1Abbr
-                                ? team1Color
-                                : team2Color
-                              : theme.border,
+                            borderColor: borderColor,
                           },
                         ]}
                       >
-                        <Text style={[styles.playText, { color: theme.text }]}>
-                          {summaryData.plays.text || "Waiting for next play..."}
-                        </Text>
+                        <Text style={[styles.playText, { color: theme.text }]}>{playText}</Text>
                         <View style={styles.playMetaContainer}>
-                          <Text
-                            style={[
-                              styles.playMeta,
-                              { color: theme.textSecondary },
-                            ]}
-                          >
-                            {summaryData.plays.period?.displayValue} •{" "}
-                            {summaryData.plays.clock}
+                          <Text style={[styles.playMeta, { color: theme.textSecondary }]}>
+                            {playPeriod} • {playClock}
                           </Text>
-                          {summaryData.plays.scoringPlay &&
-                            summaryData.plays.shortDescription &&
+                          {isScoring && shortDesc && (
                             (() => {
-                              const bgColor = summaryData.plays.team
-                                ? summaryData.plays.team === gameData.team1Abbr
+                              const bgColor = playTeamIdent
+                                ? playTeamIdent === gameData.team1Abbr
                                   ? team1Color
                                   : team2Color
                                 : colors.primary;
-                              const textColor =
-                                bgColor?.toLowerCase() === "#ffffff"
-                                  ? "black"
-                                  : "white";
-
+                              const textColor = bgColor?.toLowerCase() === "#ffffff" ? "black" : "white";
                               return (
-                                <View
-                                  style={[
-                                    styles.scoringBadge,
-                                    {
-                                      backgroundColor: bgColor,
-                                    },
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.scoringBadgeText,
-                                      { color: textColor },
-                                    ]}
-                                  >
-                                    {summaryData.plays.shortDescription}
-                                  </Text>
+                                <View style={[styles.scoringBadge, { backgroundColor: bgColor }]}> 
+                                  <Text style={[styles.scoringBadgeText, { color: textColor }]}>{shortDesc}</Text>
                                 </View>
                               );
-                            })()}
+                            })()
+                          )}
                         </View>
                       </View>
 
                       {/* Play participants (pro only) - render directly under play card */}
-                      {isPro && summaryData?.plays?.participants && (
+                      {isPro && playSource?.participants && playSource.participants.length > 0 && (
                         <View style={{ marginTop: 12 }}>
-                          <PlayParticipants
-                            participants={summaryData.plays.participants}
-                          />
+                          <PlayParticipants participants={playSource.participants} />
                         </View>
                       )}
                     </View>
@@ -10067,7 +10150,7 @@ const styles = StyleSheet.create({
   redCardMarker: {
     backgroundColor: "#ff0000",
   },
-  shotMarker: {
+  shotMarkerSoccer: {
     backgroundColor: "#ffa500",
   },
   substitutionMarker: {

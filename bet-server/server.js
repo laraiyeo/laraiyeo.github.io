@@ -2369,7 +2369,7 @@ const ESPN_PATHS = {
 };
 // SportGameOdds API configuration
 const SPORTSGAMEODDS_API_BASE = "https://api.sportsgameodds.com/v2/events";
-const SPORTSGAMEODDS_API_KEY = process.env.SPORTSGAMEODDS_API_KEY || "";
+const SPORTSGAMEODDS_API_KEY = process.env.SPORTSGAMEODDS_API_KEY || "fb5cd7db7f9e18a03caa04b10b505a41";
 
 // Mapping sport slug -> leagueID for SportGameOdds
 const SGO_LEAGUE_IDS = {
@@ -3864,7 +3864,7 @@ function transformSummaryData(data) {
           ? data.commentary
           : [];
         const lastComment = commentary.length
-          ? commentary[commentary.length - 3]
+          ? commentary[commentary.length - 1]
           : null;
         if (lastComment) {
           const c = Object.assign({}, lastComment || {});
@@ -4624,7 +4624,7 @@ async function fetchScoreboard(sport = "nba") {
     const urls = ESPN_PATHS[sportKey] || ESPN_PATHS["nba"];
     const dateParam = getScoreboardDate();
     const response = await axios.get(
-      `${urls.base}/scoreboard?dates=20260120`
+      `${urls.base}/scoreboard?dates=${dateParam}`
     );
     // store per-sport and keep a fallback reference
     scoreboardDataBySport[sportKey] = response.data;
