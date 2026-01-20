@@ -3,83 +3,83 @@
     "teams": [
       {
         "team": {
-          "id": "367",
-          "abbreviation": "TOT",
-          "displayName": "Tottenham Hotspur",
-          "shortDisplayName": "Spurs",
-          "color": "ffffff",
-          "alternateColor": "9bafd8"
+          "id": "2528",
+          "abbreviation": "KAI",
+          "displayName": "Kairat Almaty",
+          "shortDisplayName": "Kairat Almaty",
+          "color": "FCEE33",
+          "alternateColor": "81c0ff"
         },
         "statistics": {
-          "Fouls": "12",
-          "Yellow Cards": "2",
+          "Fouls": "9",
+          "Yellow Cards": "1",
           "Red Cards": "0",
           "Offsides": "0",
-          "Corner Kicks": "8",
-          "Saves": "5",
-          "Possession": "53.1",
-          "SHOTS": "16",
-          "ON GOAL": "10",
-          "On Target %": "0.6",
-          "Penalty Goals": "2",
-          "Penalty Kicks Taken": "2",
-          "Accurate Passes": "293",
-          "Passes": "358",
+          "Corner Kicks": "1",
+          "Saves": "2",
+          "POSSESSION": "46.9",
+          "SHOTS": "8",
+          "ON GOAL": "2",
+          "On Target %": "0.3",
+          "Penalty Goals": "0",
+          "Penalty Kicks Taken": "0",
+          "Accurate Passes": "441",
+          "Passes": "521",
           "Pass Completion %": "0.8",
-          "Accurate Crosses": "3",
-          "Crosses": "15",
-          "Cross %": "0.2",
-          "Long Balls": "55",
-          "Accurate Long Balls": "26",
-          "Long Balls %": "0.5",
+          "Accurate Crosses": "2",
+          "Crosses": "17",
+          "Cross %": "0.1",
+          "Long Balls": "44",
+          "Accurate Long Balls": "12",
+          "Long Balls %": "0.3",
           "Blocked Shots": "4",
           "Effective Tackles": "9",
           "Tackles": "14",
           "Tackle %": "0.6",
           "Interceptions": "7",
-          "Effective Clearances": "27",
-          "Clearances": "27"
+          "Effective Clearances": "18",
+          "Clearances": "18"
         },
         "homeAway": "home"
       },
       {
         "team": {
-          "id": "494",
-          "abbreviation": "SLP",
-          "displayName": "Slavia Prague",
-          "shortDisplayName": "Slavia Prague",
-          "color": "dc1f26",
-          "alternateColor": "81c0ff"
+          "id": "570",
+          "abbreviation": "BRU",
+          "displayName": "Club Brugge",
+          "shortDisplayName": "Club Brugge",
+          "color": "0081ff",
+          "alternateColor": "ffffff"
         },
         "statistics": {
-          "Fouls": "13",
-          "Yellow Cards": "4",
+          "Fouls": "12",
+          "Yellow Cards": "0",
           "Red Cards": "0",
           "Offsides": "2",
           "Corner Kicks": "3",
-          "Saves": "8",
-          "Possession": "46.9",
-          "SHOTS": "12",
-          "ON GOAL": "5",
+          "Saves": "1",
+          "POSSESSION": "53.1",
+          "SHOTS": "17",
+          "ON GOAL": "6",
           "On Target %": "0.4",
           "Penalty Goals": "0",
           "Penalty Kicks Taken": "0",
-          "Accurate Passes": "228",
-          "Passes": "306",
-          "Pass Completion %": "0.7",
-          "Accurate Crosses": "5",
-          "Crosses": "20",
-          "Cross %": "0.3",
-          "Long Balls": "43",
-          "Accurate Long Balls": "12",
-          "Long Balls %": "0.3",
-          "Blocked Shots": "2",
-          "Effective Tackles": "17",
-          "Tackles": "30",
-          "Tackle %": "0.6",
-          "Interceptions": "10",
-          "Effective Clearances": "26",
-          "Clearances": "26"
+          "Accurate Passes": "537",
+          "Passes": "603",
+          "Pass Completion %": "0.9",
+          "Accurate Crosses": "2",
+          "Crosses": "9",
+          "Cross %": "0.2",
+          "Long Balls": "40",
+          "Accurate Long Balls": "21",
+          "Long Balls %": "0.5",
+          "Blocked Shots": "3",
+          "Effective Tackles": "7",
+          "Tackles": "13",
+          "Tackle %": "0.5",
+          "Interceptions": "7",
+          "Effective Clearances": "33",
+          "Clearances": "33"
         },
         "homeAway": "away"
       }
@@ -89,21 +89,21 @@
     {
       "homeAway": "home",
       "team": {
-        "id": "367",
-        "abbreviation": "TOT",
-        "displayName": "Tottenham Hotspur",
-        "color": "ffffff",
-        "alternateColor": "9bafd8"
+        "id": "2528",
+        "abbreviation": "KAI",
+        "displayName": "Kairat Almaty",
+        "color": "FCEE33",
+        "alternateColor": "81c0ff"
       },
       "roster": [
         {
           "active": true,
           "starter": true,
-          "jersey": "1",
+          "jersey": "77",
           "athlete": {
-            "id": "204082",
-            "lastName": "Vicario",
-            "displayName": "Guglielmo Vicario"
+            "id": "306134",
+            "lastName": "Anarbekov",
+            "displayName": "Temirlan Anarbekov"
           },
           "position": {
             "abbreviation": "G"
@@ -113,13 +113,13 @@
           "stats": {
             "APP": "1",
             "FC": "0",
-            "FA": "1",
+            "FA": "0",
             "OG": "0",
             "RC": "0",
             "SUB": "0",
             "YC": "0",
-            "GA": "0",
-            "SV": "5",
+            "GA": "4",
+            "SV": "2",
             "SHF": "0",
             "A": "0",
             "ST": "0",
@@ -130,11 +130,11 @@
         {
           "active": true,
           "starter": true,
-          "jersey": "37",
+          "jersey": "80",
           "athlete": {
-            "id": "296512",
-            "lastName": "van de Ven",
-            "displayName": "Micky van de Ven"
+            "id": "211924",
+            "lastName": "Sorokin",
+            "displayName": "Egor Sorokin"
           },
           "position": {
             "abbreviation": "CD-L"
@@ -144,12 +144,12 @@
           "stats": {
             "APP": "1",
             "FC": "1",
-            "FA": "2",
+            "FA": "0",
             "OG": "0",
             "RC": "0",
             "SUB": "0",
             "YC": "1",
-            "GA": "0",
+            "GA": "4",
             "SHF": "0",
             "A": "0",
             "OF": "0",
@@ -160,7 +160,7 @@
           "plays": [
             {
               "clock": {
-                "displayValue": "15'"
+                "displayValue": "80'"
               },
               "scoringPlay": false,
               "substitution": false,
@@ -174,11 +174,11 @@
         {
           "active": true,
           "starter": true,
-          "jersey": "17",
+          "jersey": "14",
           "athlete": {
-            "id": "96970",
-            "lastName": "Romero",
-            "displayName": "Cristian Romero"
+            "id": "140152",
+            "lastName": "Martynovich",
+            "displayName": "Alyaksandr Martynovich"
           },
           "position": {
             "abbreviation": "CD-R"
@@ -187,29 +187,29 @@
           "subbedOut": false,
           "stats": {
             "APP": "1",
-            "FC": "1",
+            "FC": "0",
             "FA": "1",
             "OG": "0",
             "RC": "0",
             "SUB": "0",
             "YC": "0",
-            "GA": "0",
+            "GA": "4",
             "SHF": "0",
             "A": "0",
             "OF": "0",
             "ST": "0",
             "G": "0",
-            "SH": "1"
+            "SH": "0"
           }
         },
         {
           "active": true,
           "starter": true,
-          "jersey": "24",
+          "jersey": "3",
           "athlete": {
-            "id": "267711",
-            "lastName": "Spence",
-            "displayName": "Djed Spence"
+            "id": "227259",
+            "lastName": "Mata",
+            "displayName": "Luis Mata"
           },
           "position": {
             "abbreviation": "LB"
@@ -218,29 +218,29 @@
           "subbedOut": false,
           "stats": {
             "APP": "1",
-            "FC": "0",
+            "FC": "1",
             "FA": "0",
             "OG": "0",
             "RC": "0",
             "SUB": "0",
             "YC": "0",
-            "GA": "0",
+            "GA": "4",
             "SHF": "0",
             "A": "0",
             "OF": "0",
-            "ST": "1",
+            "ST": "0",
             "G": "0",
-            "SH": "1"
+            "SH": "0"
           }
         },
         {
           "active": true,
           "starter": true,
-          "jersey": "23",
+          "jersey": "20",
           "athlete": {
-            "id": "268533",
-            "lastName": "Porro",
-            "displayName": "Pedro Porro"
+            "id": "287874",
+            "lastName": "Tapalov",
+            "displayName": "Erkin Tapalov"
           },
           "position": {
             "abbreviation": "RB"
@@ -249,25 +249,25 @@
           "subbedOut": true,
           "stats": {
             "APP": "1",
-            "FC": "0",
-            "FA": "2",
+            "FC": "2",
+            "FA": "0",
             "OG": "0",
             "RC": "0",
             "SUB": "0",
             "YC": "0",
-            "GA": "0",
+            "GA": "3",
             "SHF": "0",
             "A": "0",
             "OF": "0",
             "ST": "0",
             "G": "0",
-            "SH": "1"
+            "SH": "0"
           },
           "subbedOutFor": {
             "jersey": "33",
             "athlete": {
-              "id": "6327",
-              "displayName": "Ben Davies",
+              "id": "305959",
+              "displayName": "Jug Stanojev",
               "links": [
                 {
                   "language": "en-US",
@@ -276,7 +276,7 @@
                     "desktop",
                     "athlete"
                   ],
-                  "href": "https://www.espn.com/soccer/player/_/id/6327/ben-davies",
+                  "href": "https://www.espn.com/soccer/player/_/id/305959/jug-stanojev",
                   "text": "Player Card",
                   "shortText": "Player Card",
                   "isExternal": false,
@@ -288,7 +288,7 @@
           "plays": [
             {
               "clock": {
-                "displayValue": "68'"
+                "displayValue": "80'"
               },
               "scoringPlay": false,
               "substitution": true,
@@ -304,54 +304,75 @@
           "starter": true,
           "jersey": "7",
           "athlete": {
-            "id": "332962",
-            "lastName": "Simons",
-            "displayName": "Xavi Simons"
+            "id": "215728",
+            "lastName": null,
+            "displayName": "Jorginho"
           },
           "position": {
             "abbreviation": "AM"
           },
           "subbedIn": false,
-          "subbedOut": false,
+          "subbedOut": true,
           "stats": {
             "APP": "1",
-            "FC": "1",
-            "FA": "3",
+            "FC": "0",
+            "FA": "6",
             "OG": "0",
             "RC": "0",
             "SUB": "0",
             "YC": "0",
-            "GA": "0",
+            "GA": "3",
             "SHF": "0",
             "A": "0",
             "OF": "0",
-            "ST": "1",
-            "G": "1",
-            "SH": "3"
+            "ST": "0",
+            "G": "0",
+            "SH": "1"
+          },
+          "subbedOutFor": {
+            "jersey": "99",
+            "athlete": {
+              "id": "315300",
+              "displayName": "Ricardinho",
+              "links": [
+                {
+                  "language": "en-US",
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/315300/ricardinho",
+                  "text": "Player Card",
+                  "shortText": "Player Card",
+                  "isExternal": false,
+                  "isPremium": false
+                }
+              ]
+            }
           },
           "plays": [
             {
               "clock": {
-                "displayValue": "79'"
+                "displayValue": "76'"
               },
-              "scoringPlay": true,
-              "substitution": false,
+              "scoringPlay": false,
+              "substitution": true,
               "redCard": false,
               "yellowCard": false,
-              "penaltyKick": true,
-              "ownGoal": false,
-              "didScore": true
+              "penaltyKick": false,
+              "ownGoal": false
             }
           ]
         },
         {
           "active": true,
           "starter": true,
-          "jersey": "14",
+          "jersey": "4",
           "athlete": {
-            "id": "328050",
-            "lastName": "Gray",
-            "displayName": "Archie Gray"
+            "id": "336780",
+            "lastName": "Kasabulat",
+            "displayName": "Damir Kasabulat"
           },
           "position": {
             "abbreviation": "LM"
@@ -366,19 +387,19 @@
             "RC": "0",
             "SUB": "0",
             "YC": "0",
-            "GA": "0",
+            "GA": "3",
             "SHF": "0",
             "A": "0",
             "OF": "0",
             "ST": "0",
             "G": "0",
-            "SH": "1"
+            "SH": "0"
           },
           "subbedOutFor": {
-            "jersey": "29",
+            "jersey": "42",
             "athlete": {
-              "id": "297337",
-              "displayName": "Pape Matar Sarr",
+              "id": "418001",
+              "displayName": "Mukhamedali Abish",
               "links": [
                 {
                   "language": "en-US",
@@ -387,7 +408,7 @@
                     "desktop",
                     "athlete"
                   ],
-                  "href": "https://www.espn.com/soccer/player/_/id/297337/pape-matar-sarr",
+                  "href": "https://www.espn.com/soccer/player/_/id/418001/mukhamedali-abish",
                   "text": "Player Card",
                   "shortText": "Player Card",
                   "isExternal": false,
@@ -399,7 +420,7 @@
           "plays": [
             {
               "clock": {
-                "displayValue": "59'"
+                "displayValue": "80'"
               },
               "scoringPlay": false,
               "substitution": true,
@@ -413,42 +434,64 @@
         {
           "active": true,
           "starter": true,
-          "jersey": "6",
+          "jersey": "18",
           "athlete": {
-            "id": "224144",
-            "lastName": "Palhinha",
-            "displayName": "João Palhinha"
+            "id": "225494",
+            "lastName": "Glazer",
+            "displayName": "Dan Glazer"
           },
           "position": {
             "abbreviation": "RM"
           },
           "subbedIn": false,
-          "subbedOut": false,
+          "subbedOut": true,
           "stats": {
             "APP": "1",
             "FC": "2",
-            "FA": "2",
+            "FA": "0",
             "OG": "0",
             "RC": "0",
             "SUB": "0",
-            "YC": "1",
-            "GA": "0",
+            "YC": "0",
+            "GA": "3",
             "SHF": "0",
             "A": "0",
             "OF": "0",
             "ST": "0",
             "G": "0",
-            "SH": "0"
+            "SH": "1"
+          },
+          "subbedOutFor": {
+            "jersey": "6",
+            "athlete": {
+              "id": "322548",
+              "displayName": "Adilet Sadybekov",
+              "links": [
+                {
+                  "language": "en-US",
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/322548/adilet-sadybekov",
+                  "text": "Player Card",
+                  "shortText": "Player Card",
+                  "isExternal": false,
+                  "isPremium": false
+                }
+              ]
+            }
           },
           "plays": [
             {
               "clock": {
-                "displayValue": "40'"
+                "displayValue": "76'"
               },
               "scoringPlay": false,
-              "substitution": false,
+              "substitution": true,
               "redCard": false,
-              "yellowCard": true,
+              "yellowCard": false,
               "penaltyKick": false,
               "ownGoal": false
             }
@@ -457,11 +500,11 @@
         {
           "active": true,
           "starter": true,
-          "jersey": "9",
+          "jersey": "26",
           "athlete": {
-            "id": "156799",
-            "lastName": "Richarlison",
-            "displayName": "Richarlison"
+            "id": "352291",
+            "lastName": null,
+            "displayName": "Edmilson"
           },
           "position": {
             "abbreviation": "F"
@@ -470,607 +513,13 @@
           "subbedOut": true,
           "stats": {
             "APP": "1",
-            "FC": "2",
-            "FA": "0",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "0",
-            "YC": "0",
-            "GA": "0",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "2",
-            "G": "0",
-            "SH": "2"
-          },
-          "subbedOutFor": {
-            "jersey": "39",
-            "athlete": {
-              "id": "252971",
-              "displayName": "Randal Kolo Muani",
-              "links": [
-                {
-                  "language": "en-US",
-                  "rel": [
-                    "playercard",
-                    "desktop",
-                    "athlete"
-                  ],
-                  "href": "https://www.espn.com/soccer/player/_/id/252971/randal-kolo-muani",
-                  "text": "Player Card",
-                  "shortText": "Player Card",
-                  "isExternal": false,
-                  "isPremium": false
-                }
-              ]
-            }
-          },
-          "plays": [
-            {
-              "clock": {
-                "displayValue": "68'"
-              },
-              "scoringPlay": false,
-              "substitution": true,
-              "redCard": false,
-              "yellowCard": false,
-              "penaltyKick": false,
-              "ownGoal": false
-            }
-          ]
-        },
-        {
-          "active": true,
-          "starter": true,
-          "jersey": "28",
-          "athlete": {
-            "id": "345687",
-            "lastName": "Odobert",
-            "displayName": "Wilson Odobert"
-          },
-          "position": {
-            "abbreviation": "AM-L"
-          },
-          "subbedIn": false,
-          "subbedOut": true,
-          "stats": {
-            "APP": "1",
-            "FC": "1",
-            "FA": "0",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "0",
-            "YC": "0",
-            "GA": "0",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "1",
-            "G": "0",
-            "SH": "2"
-          },
-          "subbedOutFor": {
-            "jersey": "15",
-            "athlete": {
-              "id": "356379",
-              "displayName": "Lucas Bergvall",
-              "links": [
-                {
-                  "language": "en-US",
-                  "rel": [
-                    "playercard",
-                    "desktop",
-                    "athlete"
-                  ],
-                  "href": "https://www.espn.com/soccer/player/_/id/356379/lucas-bergvall",
-                  "text": "Player Card",
-                  "shortText": "Player Card",
-                  "isExternal": false,
-                  "isPremium": false
-                }
-              ]
-            }
-          },
-          "plays": [
-            {
-              "clock": {
-                "displayValue": "76'"
-              },
-              "scoringPlay": false,
-              "substitution": true,
-              "redCard": false,
-              "yellowCard": false,
-              "penaltyKick": false,
-              "ownGoal": false
-            }
-          ]
-        },
-        {
-          "active": true,
-          "starter": true,
-          "jersey": "20",
-          "athlete": {
-            "id": "266599",
-            "lastName": "Kudus",
-            "displayName": "Mohammed Kudus"
-          },
-          "position": {
-            "abbreviation": "AM-R"
-          },
-          "subbedIn": false,
-          "subbedOut": true,
-          "stats": {
-            "APP": "1",
-            "FC": "0",
-            "FA": "2",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "0",
-            "YC": "0",
-            "GA": "0",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "2",
-            "G": "1",
-            "SH": "2"
-          },
-          "subbedOutFor": {
-            "jersey": "11",
-            "athlete": {
-              "id": "325042",
-              "displayName": "Mathys Tel",
-              "links": [
-                {
-                  "language": "en-US",
-                  "rel": [
-                    "playercard",
-                    "desktop",
-                    "athlete"
-                  ],
-                  "href": "https://www.espn.com/soccer/player/_/id/325042/mathys-tel",
-                  "text": "Player Card",
-                  "shortText": "Player Card",
-                  "isExternal": false,
-                  "isPremium": false
-                }
-              ]
-            }
-          },
-          "plays": [
-            {
-              "clock": {
-                "displayValue": "50'"
-              },
-              "scoringPlay": true,
-              "substitution": false,
-              "redCard": false,
-              "yellowCard": false,
-              "penaltyKick": true,
-              "ownGoal": false,
-              "didScore": true
-            },
-            {
-              "clock": {
-                "displayValue": "58'"
-              },
-              "scoringPlay": false,
-              "substitution": true,
-              "redCard": false,
-              "yellowCard": false,
-              "penaltyKick": false,
-              "ownGoal": false
-            }
-          ]
-        },
-        {
-          "active": true,
-          "starter": false,
-          "jersey": "44",
-          "athlete": {
-            "id": "306012",
-            "lastName": "Scarlett",
-            "displayName": "Dane Scarlett"
-          },
-          "position": {
-            "abbreviation": "SUB"
-          },
-          "subbedIn": false,
-          "subbedOut": false,
-          "stats": {
-            "APP": "0",
             "FC": "0",
             "FA": "0",
             "OG": "0",
             "RC": "0",
             "SUB": "0",
             "YC": "0",
-            "GA": "0",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "0"
-          }
-        },
-        {
-          "active": true,
-          "starter": false,
-          "jersey": "39",
-          "athlete": {
-            "id": "252971",
-            "lastName": "Kolo Muani",
-            "displayName": "Randal Kolo Muani"
-          },
-          "position": {
-            "abbreviation": "SUB"
-          },
-          "subbedIn": true,
-          "subbedOut": false,
-          "stats": {
-            "APP": "1",
-            "FC": "0",
-            "FA": "0",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "1",
-            "YC": "0",
-            "GA": "0",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "0"
-          },
-          "subbedInFor": {
-            "jersey": "9",
-            "athlete": {
-              "id": "156799",
-              "displayName": "Richarlison",
-              "links": [
-                {
-                  "language": "en-US",
-                  "rel": [
-                    "playercard",
-                    "desktop",
-                    "athlete"
-                  ],
-                  "href": "https://www.espn.com/soccer/player/_/id/156799/richarlison",
-                  "text": "Player Card",
-                  "shortText": "Player Card",
-                  "isExternal": false,
-                  "isPremium": false
-                }
-              ]
-            }
-          },
-          "plays": [
-            {
-              "clock": {
-                "displayValue": "68'"
-              },
-              "scoringPlay": false,
-              "substitution": true,
-              "redCard": false,
-              "yellowCard": false,
-              "penaltyKick": false,
-              "ownGoal": false
-            }
-          ]
-        },
-        {
-          "active": true,
-          "starter": false,
-          "jersey": "68",
-          "athlete": {
-            "id": "395939",
-            "lastName": "Williams-Barnett",
-            "displayName": "Luca Williams-Barnett"
-          },
-          "position": {
-            "abbreviation": "SUB"
-          },
-          "subbedIn": false,
-          "subbedOut": false,
-          "stats": {
-            "APP": "0",
-            "FC": "0",
-            "FA": "0",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "0",
-            "YC": "0",
-            "GA": "0",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "0"
-          }
-        },
-        {
-          "active": true,
-          "starter": false,
-          "jersey": "11",
-          "athlete": {
-            "id": "325042",
-            "lastName": "Tel",
-            "displayName": "Mathys Tel"
-          },
-          "position": {
-            "abbreviation": "SUB"
-          },
-          "subbedIn": true,
-          "subbedOut": false,
-          "stats": {
-            "APP": "1",
-            "FC": "0",
-            "FA": "0",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "1",
-            "YC": "0",
-            "GA": "0",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "2",
-            "G": "0",
-            "SH": "2"
-          },
-          "subbedInFor": {
-            "jersey": "20",
-            "athlete": {
-              "id": "266599",
-              "displayName": "Mohammed Kudus",
-              "links": [
-                {
-                  "language": "en-US",
-                  "rel": [
-                    "playercard",
-                    "desktop",
-                    "athlete"
-                  ],
-                  "href": "https://www.espn.com/soccer/player/_/id/266599/mohammed-kudus",
-                  "text": "Player Card",
-                  "shortText": "Player Card",
-                  "isExternal": false,
-                  "isPremium": false
-                }
-              ]
-            }
-          },
-          "plays": [
-            {
-              "clock": {
-                "displayValue": "58'"
-              },
-              "scoringPlay": false,
-              "substitution": true,
-              "redCard": false,
-              "yellowCard": false,
-              "penaltyKick": false,
-              "ownGoal": false
-            }
-          ]
-        },
-        {
-          "active": true,
-          "starter": false,
-          "jersey": "52",
-          "athlete": {
-            "id": "372016",
-            "lastName": "Olusesi",
-            "displayName": "Callum Olusesi"
-          },
-          "position": {
-            "abbreviation": "SUB"
-          },
-          "subbedIn": false,
-          "subbedOut": false,
-          "stats": {
-            "APP": "0",
-            "FC": "0",
-            "FA": "0",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "0",
-            "YC": "0",
-            "GA": "0",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "0"
-          }
-        },
-        {
-          "active": true,
-          "starter": false,
-          "jersey": "15",
-          "athlete": {
-            "id": "356379",
-            "lastName": "Bergvall",
-            "displayName": "Lucas Bergvall"
-          },
-          "position": {
-            "abbreviation": "SUB"
-          },
-          "subbedIn": true,
-          "subbedOut": false,
-          "stats": {
-            "APP": "1",
-            "FC": "3",
-            "FA": "0",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "1",
-            "YC": "0",
-            "GA": "0",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "0"
-          },
-          "subbedInFor": {
-            "jersey": "28",
-            "athlete": {
-              "id": "345687",
-              "displayName": "Wilson Odobert",
-              "links": [
-                {
-                  "language": "en-US",
-                  "rel": [
-                    "playercard",
-                    "desktop",
-                    "athlete"
-                  ],
-                  "href": "https://www.espn.com/soccer/player/_/id/345687/wilson-odobert",
-                  "text": "Player Card",
-                  "shortText": "Player Card",
-                  "isExternal": false,
-                  "isPremium": false
-                }
-              ]
-            }
-          },
-          "plays": [
-            {
-              "clock": {
-                "displayValue": "76'"
-              },
-              "scoringPlay": false,
-              "substitution": true,
-              "redCard": false,
-              "yellowCard": false,
-              "penaltyKick": false,
-              "ownGoal": false
-            }
-          ]
-        },
-        {
-          "active": true,
-          "starter": false,
-          "jersey": "4",
-          "athlete": {
-            "id": "250543",
-            "lastName": "Danso",
-            "displayName": "Kevin Danso"
-          },
-          "position": {
-            "abbreviation": "SUB"
-          },
-          "subbedIn": false,
-          "subbedOut": false,
-          "stats": {
-            "APP": "0",
-            "FC": "0",
-            "FA": "0",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "0",
-            "YC": "0",
-            "GA": "0",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "0"
-          }
-        },
-        {
-          "active": true,
-          "starter": false,
-          "jersey": "30",
-          "athlete": {
-            "id": "215772",
-            "lastName": "Bentancur",
-            "displayName": "Rodrigo Bentancur"
-          },
-          "position": {
-            "abbreviation": "SUB"
-          },
-          "subbedIn": false,
-          "subbedOut": false,
-          "stats": {
-            "APP": "0",
-            "FC": "0",
-            "FA": "0",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "0",
-            "YC": "0",
-            "GA": "0",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "0"
-          }
-        },
-        {
-          "active": true,
-          "starter": false,
-          "jersey": "46",
-          "athlete": {
-            "id": "359158",
-            "lastName": "Gunter",
-            "displayName": "Luca Gunter"
-          },
-          "position": {
-            "abbreviation": "SUB"
-          },
-          "subbedIn": false,
-          "subbedOut": false,
-          "stats": {
-            "APP": "0",
-            "FC": "0",
-            "FA": "0",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "0",
-            "YC": "0",
-            "GA": "0",
-            "SV": "0",
-            "SHF": "0",
-            "A": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "0"
-          }
-        },
-        {
-          "active": true,
-          "starter": false,
-          "jersey": "29",
-          "athlete": {
-            "id": "297337",
-            "lastName": "Sarr",
-            "displayName": "Pape Matar Sarr"
-          },
-          "position": {
-            "abbreviation": "SUB"
-          },
-          "subbedIn": true,
-          "subbedOut": false,
-          "stats": {
-            "APP": "1",
-            "FC": "1",
-            "FA": "0",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "1",
-            "YC": "0",
-            "GA": "0",
+            "GA": "3",
             "SHF": "0",
             "A": "0",
             "OF": "0",
@@ -1078,11 +527,11 @@
             "G": "0",
             "SH": "1"
           },
-          "subbedInFor": {
-            "jersey": "14",
+          "subbedOutFor": {
+            "jersey": "79",
             "athlete": {
-              "id": "328050",
-              "displayName": "Archie Gray",
+              "id": "418000",
+              "displayName": "Mansur Birkurmanov",
               "links": [
                 {
                   "language": "en-US",
@@ -1091,7 +540,7 @@
                     "desktop",
                     "athlete"
                   ],
-                  "href": "https://www.espn.com/soccer/player/_/id/328050/archie-gray",
+                  "href": "https://www.espn.com/soccer/player/_/id/418000/mansur-birkurmanov",
                   "text": "Player Card",
                   "shortText": "Player Card",
                   "isExternal": false,
@@ -1103,7 +552,7 @@
           "plays": [
             {
               "clock": {
-                "displayValue": "59'"
+                "displayValue": "76'"
               },
               "scoringPlay": false,
               "substitution": true,
@@ -1116,12 +565,74 @@
         },
         {
           "active": true,
-          "starter": false,
-          "jersey": "33",
+          "starter": true,
+          "jersey": "55",
           "athlete": {
-            "id": "6327",
-            "lastName": "Davies",
-            "displayName": "Ben Davies"
+            "id": "266382",
+            "lastName": "Gromyko",
+            "displayName": "Valeri Gromyko"
+          },
+          "position": {
+            "abbreviation": "AM-L"
+          },
+          "subbedIn": false,
+          "subbedOut": false,
+          "stats": {
+            "APP": "1",
+            "FC": "1",
+            "FA": "3",
+            "OG": "0",
+            "RC": "0",
+            "SUB": "0",
+            "YC": "0",
+            "GA": "4",
+            "SHF": "0",
+            "A": "0",
+            "OF": "0",
+            "ST": "0",
+            "G": "0",
+            "SH": "0"
+          }
+        },
+        {
+          "active": true,
+          "starter": true,
+          "jersey": "24",
+          "athlete": {
+            "id": "326288",
+            "lastName": "Mrynskiy",
+            "displayName": "Aleksandr Mrynskiy"
+          },
+          "position": {
+            "abbreviation": "AM-R"
+          },
+          "subbedIn": false,
+          "subbedOut": false,
+          "stats": {
+            "APP": "1",
+            "FC": "1",
+            "FA": "0",
+            "OG": "0",
+            "RC": "0",
+            "SUB": "0",
+            "YC": "0",
+            "GA": "4",
+            "SHF": "0",
+            "A": "1",
+            "OF": "0",
+            "ST": "0",
+            "G": "0",
+            "SH": "0"
+          }
+        },
+        {
+          "active": true,
+          "starter": false,
+          "jersey": "6",
+          "athlete": {
+            "id": "322548",
+            "lastName": "Sadybekov",
+            "displayName": "Adilet Sadybekov"
           },
           "position": {
             "abbreviation": "SUB"
@@ -1136,19 +647,19 @@
             "RC": "0",
             "SUB": "1",
             "YC": "0",
-            "GA": "0",
+            "GA": "1",
             "SHF": "0",
             "A": "0",
             "OF": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "0"
+            "ST": "1",
+            "G": "1",
+            "SH": "1"
           },
           "subbedInFor": {
-            "jersey": "23",
+            "jersey": "18",
             "athlete": {
-              "id": "268533",
-              "displayName": "Pedro Porro",
+              "id": "225494",
+              "displayName": "Dan Glazer",
               "links": [
                 {
                   "language": "en-US",
@@ -1157,7 +668,7 @@
                     "desktop",
                     "athlete"
                   ],
-                  "href": "https://www.espn.com/soccer/player/_/id/268533/pedro-porro",
+                  "href": "https://www.espn.com/soccer/player/_/id/225494/dan-glazer",
                   "text": "Player Card",
                   "shortText": "Player Card",
                   "isExternal": false,
@@ -1169,7 +680,85 @@
           "plays": [
             {
               "clock": {
-                "displayValue": "68'"
+                "displayValue": "76'"
+              },
+              "scoringPlay": false,
+              "substitution": true,
+              "redCard": false,
+              "yellowCard": false,
+              "penaltyKick": false,
+              "ownGoal": false
+            },
+            {
+              "clock": {
+                "displayValue": "90'+2'"
+              },
+              "scoringPlay": true,
+              "substitution": false,
+              "redCard": false,
+              "yellowCard": false,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "didScore": true
+            }
+          ]
+        },
+        {
+          "active": true,
+          "starter": false,
+          "jersey": "42",
+          "athlete": {
+            "id": "418001",
+            "lastName": "Abish",
+            "displayName": "Mukhamedali Abish"
+          },
+          "position": {
+            "abbreviation": "SUB"
+          },
+          "subbedIn": true,
+          "subbedOut": false,
+          "stats": {
+            "APP": "1",
+            "FC": "1",
+            "FA": "0",
+            "OG": "0",
+            "RC": "0",
+            "SUB": "1",
+            "YC": "0",
+            "GA": "1",
+            "SHF": "0",
+            "A": "0",
+            "OF": "0",
+            "ST": "0",
+            "G": "0",
+            "SH": "1"
+          },
+          "subbedInFor": {
+            "jersey": "4",
+            "athlete": {
+              "id": "336780",
+              "displayName": "Damir Kasabulat",
+              "links": [
+                {
+                  "language": "en-US",
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/336780/damir-kasabulat",
+                  "text": "Player Card",
+                  "shortText": "Player Card",
+                  "isExternal": false,
+                  "isPremium": false
+                }
+              ]
+            }
+          },
+          "plays": [
+            {
+              "clock": {
+                "displayValue": "80'"
               },
               "scoringPlay": false,
               "substitution": true,
@@ -1183,11 +772,143 @@
         {
           "active": true,
           "starter": false,
-          "jersey": "31",
+          "jersey": "79",
           "athlete": {
-            "id": "324393",
-            "lastName": "Kinsky",
-            "displayName": "Antonín Kinsky"
+            "id": "418000",
+            "lastName": "Birkurmanov",
+            "displayName": "Mansur Birkurmanov"
+          },
+          "position": {
+            "abbreviation": "SUB"
+          },
+          "subbedIn": true,
+          "subbedOut": false,
+          "stats": {
+            "APP": "1",
+            "FC": "0",
+            "FA": "1",
+            "OG": "0",
+            "RC": "0",
+            "SUB": "1",
+            "YC": "0",
+            "GA": "1",
+            "SHF": "0",
+            "A": "0",
+            "OF": "0",
+            "ST": "0",
+            "G": "0",
+            "SH": "2"
+          },
+          "subbedInFor": {
+            "jersey": "26",
+            "athlete": {
+              "id": "352291",
+              "displayName": "Edmilson",
+              "links": [
+                {
+                  "language": "en-US",
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/352291/edmilson",
+                  "text": "Player Card",
+                  "shortText": "Player Card",
+                  "isExternal": false,
+                  "isPremium": false
+                }
+              ]
+            }
+          },
+          "plays": [
+            {
+              "clock": {
+                "displayValue": "76'"
+              },
+              "scoringPlay": false,
+              "substitution": true,
+              "redCard": false,
+              "yellowCard": false,
+              "penaltyKick": false,
+              "ownGoal": false
+            }
+          ]
+        },
+        {
+          "active": true,
+          "starter": false,
+          "jersey": "99",
+          "athlete": {
+            "id": "315300",
+            "lastName": "Viana Filho",
+            "displayName": "Ricardinho"
+          },
+          "position": {
+            "abbreviation": "SUB"
+          },
+          "subbedIn": true,
+          "subbedOut": false,
+          "stats": {
+            "APP": "1",
+            "FC": "0",
+            "FA": "0",
+            "OG": "0",
+            "RC": "0",
+            "SUB": "1",
+            "YC": "0",
+            "GA": "1",
+            "SHF": "0",
+            "A": "0",
+            "OF": "0",
+            "ST": "0",
+            "G": "0",
+            "SH": "1"
+          },
+          "subbedInFor": {
+            "jersey": "7",
+            "athlete": {
+              "id": "215728",
+              "displayName": "Jorginho",
+              "links": [
+                {
+                  "language": "en-US",
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/215728/jorginho",
+                  "text": "Player Card",
+                  "shortText": "Player Card",
+                  "isExternal": false,
+                  "isPremium": false
+                }
+              ]
+            }
+          },
+          "plays": [
+            {
+              "clock": {
+                "displayValue": "76'"
+              },
+              "scoringPlay": false,
+              "substitution": true,
+              "redCard": false,
+              "yellowCard": false,
+              "penaltyKick": false,
+              "ownGoal": false
+            }
+          ]
+        },
+        {
+          "active": true,
+          "starter": false,
+          "jersey": "41",
+          "athlete": {
+            "id": "415473",
+            "lastName": "Buch",
+            "displayName": "Danila Buch"
           },
           "position": {
             "abbreviation": "SUB"
@@ -1206,6 +927,196 @@
             "SV": "0",
             "SHF": "0",
             "A": "0",
+            "ST": "0",
+            "G": "0",
+            "SH": "0"
+          }
+        },
+        {
+          "active": true,
+          "starter": false,
+          "jersey": "82",
+          "athlete": {
+            "id": "406973",
+            "lastName": "Kalmurza",
+            "displayName": "Sherkhan Kalmurza"
+          },
+          "position": {
+            "abbreviation": "SUB"
+          },
+          "subbedIn": false,
+          "subbedOut": false,
+          "stats": {
+            "APP": "0",
+            "FC": "0",
+            "FA": "0",
+            "OG": "0",
+            "RC": "0",
+            "SUB": "0",
+            "YC": "0",
+            "GA": "0",
+            "SV": "0",
+            "SHF": "0",
+            "A": "0",
+            "ST": "0",
+            "G": "0",
+            "SH": "0"
+          }
+        },
+        {
+          "active": true,
+          "starter": false,
+          "jersey": "25",
+          "athlete": {
+            "id": "306131",
+            "lastName": "Shirobokov",
+            "displayName": "Aleksandr Shirobokov"
+          },
+          "position": {
+            "abbreviation": "SUB"
+          },
+          "subbedIn": false,
+          "subbedOut": false,
+          "stats": {
+            "APP": "0",
+            "FC": "0",
+            "FA": "0",
+            "OG": "0",
+            "RC": "0",
+            "SUB": "0",
+            "YC": "0",
+            "GA": "0",
+            "SHF": "0",
+            "A": "0",
+            "OF": "0",
+            "ST": "0",
+            "G": "0",
+            "SH": "0"
+          }
+        },
+        {
+          "active": true,
+          "starter": false,
+          "jersey": "89",
+          "athlete": {
+            "id": "404943",
+            "lastName": "Bagdat",
+            "displayName": "Ramazan Bagdat"
+          },
+          "position": {
+            "abbreviation": "SUB"
+          },
+          "subbedIn": false,
+          "subbedOut": false,
+          "stats": {
+            "APP": "0",
+            "FC": "0",
+            "FA": "0",
+            "OG": "0",
+            "RC": "0",
+            "SUB": "0",
+            "YC": "0",
+            "GA": "0",
+            "SHF": "0",
+            "A": "0",
+            "OF": "0",
+            "ST": "0",
+            "G": "0",
+            "SH": "0"
+          }
+        },
+        {
+          "active": true,
+          "starter": false,
+          "jersey": "33",
+          "athlete": {
+            "id": "305959",
+            "lastName": "Stanojev",
+            "displayName": "Jug Stanojev"
+          },
+          "position": {
+            "abbreviation": "SUB"
+          },
+          "subbedIn": true,
+          "subbedOut": false,
+          "stats": {
+            "APP": "1",
+            "FC": "0",
+            "FA": "0",
+            "OG": "0",
+            "RC": "0",
+            "SUB": "1",
+            "YC": "0",
+            "GA": "1",
+            "SHF": "0",
+            "A": "0",
+            "OF": "0",
+            "ST": "0",
+            "G": "0",
+            "SH": "0"
+          },
+          "subbedInFor": {
+            "jersey": "20",
+            "athlete": {
+              "id": "287874",
+              "displayName": "Erkin Tapalov",
+              "links": [
+                {
+                  "language": "en-US",
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/287874/erkin-tapalov",
+                  "text": "Player Card",
+                  "shortText": "Player Card",
+                  "isExternal": false,
+                  "isPremium": false
+                }
+              ]
+            }
+          },
+          "plays": [
+            {
+              "clock": {
+                "displayValue": "80'"
+              },
+              "scoringPlay": false,
+              "substitution": true,
+              "redCard": false,
+              "yellowCard": false,
+              "penaltyKick": false,
+              "ownGoal": false
+            }
+          ]
+        },
+        {
+          "active": true,
+          "starter": false,
+          "jersey": "47",
+          "athlete": {
+            "id": "418002",
+            "lastName": "Bazarbayev",
+            "displayName": "Amirbek Bazarbayev"
+          },
+          "position": {
+            "abbreviation": "SUB"
+          },
+          "subbedIn": false,
+          "subbedOut": false,
+          "stats": {
+            "APP": "0",
+            "FC": "0",
+            "FA": "0",
+            "OG": "0",
+            "RC": "0",
+            "SUB": "0",
+            "YC": "0",
+            "GA": "0",
+            "SHF": "0",
+            "A": "0",
+            "OF": "0",
             "ST": "0",
             "G": "0",
             "SH": "0"
@@ -1216,21 +1127,21 @@
     {
       "homeAway": "away",
       "team": {
-        "id": "494",
-        "abbreviation": "SLP",
-        "displayName": "Slavia Prague",
-        "color": "dc1f26",
-        "alternateColor": "81c0ff"
+        "id": "570",
+        "abbreviation": "BRU",
+        "displayName": "Club Brugge",
+        "color": "0081ff",
+        "alternateColor": "ffffff"
       },
       "roster": [
         {
           "active": true,
           "starter": true,
-          "jersey": "36",
+          "jersey": "29",
           "athlete": {
-            "id": "199988",
-            "lastName": "Stanek",
-            "displayName": "Jindrich Stanek"
+            "id": "202101",
+            "lastName": "Jackers",
+            "displayName": "Nordin Jackers"
           },
           "position": {
             "abbreviation": "G"
@@ -1245,8 +1156,8 @@
             "RC": "0",
             "SUB": "0",
             "YC": "0",
-            "GA": "3",
-            "SV": "8",
+            "GA": "1",
+            "SV": "1",
             "SHF": "0",
             "A": "0",
             "ST": "0",
@@ -1257,11 +1168,11 @@
         {
           "active": true,
           "starter": true,
-          "jersey": "5",
+          "jersey": "4",
           "athlete": {
-            "id": "271265",
-            "lastName": "Ogbu",
-            "displayName": "Igoh Ogbu"
+            "id": "336589",
+            "lastName": "Ordóñez",
+            "displayName": "Joel Ordóñez"
           },
           "position": {
             "abbreviation": "CD"
@@ -1270,57 +1181,89 @@
           "subbedOut": false,
           "stats": {
             "APP": "1",
-            "FC": "2",
-            "FA": "2",
+            "FC": "0",
+            "FA": "0",
             "OG": "0",
             "RC": "0",
             "SUB": "0",
-            "YC": "1",
-            "GA": "3",
+            "YC": "0",
+            "GA": "1",
             "SHF": "0",
             "A": "0",
             "OF": "0",
             "ST": "0",
             "G": "0",
             "SH": "0"
+          }
+        },
+        {
+          "active": true,
+          "starter": true,
+          "jersey": "44",
+          "athlete": {
+            "id": "191222",
+            "lastName": "Mechele",
+            "displayName": "Brandon Mechele"
+          },
+          "position": {
+            "abbreviation": "CD-L"
+          },
+          "subbedIn": false,
+          "subbedOut": false,
+          "stats": {
+            "APP": "1",
+            "FC": "4",
+            "FA": "0",
+            "OG": "0",
+            "RC": "0",
+            "SUB": "0",
+            "YC": "0",
+            "GA": "1",
+            "SHF": "0",
+            "A": "0",
+            "OF": "0",
+            "ST": "1",
+            "G": "1",
+            "SH": "1"
           },
           "plays": [
             {
               "clock": {
-                "displayValue": "28'"
+                "displayValue": "84'"
               },
-              "scoringPlay": false,
+              "scoringPlay": true,
               "substitution": false,
               "redCard": false,
-              "yellowCard": true,
+              "yellowCard": false,
               "penaltyKick": false,
-              "ownGoal": false
+              "ownGoal": false,
+              "didScore": true
             }
           ]
         },
         {
           "active": true,
           "starter": true,
-          "jersey": "4",
+          "jersey": "64",
           "athlete": {
-            "id": "290116",
-            "lastName": "Zima",
-            "displayName": "David Zima"
+            "id": "351373",
+            "lastName": "Sabbe",
+            "displayName": "Kyriani Sabbe"
           },
           "position": {
-            "abbreviation": "CD-L"
+            "abbreviation": "CD-R"
           },
           "subbedIn": false,
           "subbedOut": true,
           "stats": {
             "APP": "1",
-            "FC": "1",
-            "FA": "0",
-            "OG": "1",
+            "FC": "2",
+            "FA": "1",
+            "OG": "0",
             "RC": "0",
             "SUB": "0",
-            "YC": "1",
-            "GA": "2",
+            "YC": "0",
+            "GA": "0",
             "SHF": "0",
             "A": "0",
             "OF": "0",
@@ -1329,10 +1272,10 @@
             "SH": "0"
           },
           "subbedOutFor": {
-            "jersey": "27",
+            "jersey": "41",
             "athlete": {
-              "id": "283008",
-              "displayName": "Tomás Vlcek",
+              "id": "310023",
+              "displayName": "Hugo Siquet",
               "links": [
                 {
                   "language": "en-US",
@@ -1341,7 +1284,7 @@
                     "desktop",
                     "athlete"
                   ],
-                  "href": "https://www.espn.com/soccer/player/_/id/283008/tomas-vlcek",
+                  "href": "https://www.espn.com/soccer/player/_/id/310023/hugo-siquet",
                   "text": "Player Card",
                   "shortText": "Player Card",
                   "isExternal": false,
@@ -1353,30 +1296,7 @@
           "plays": [
             {
               "clock": {
-                "displayValue": "26'"
-              },
-              "scoringPlay": true,
-              "substitution": false,
-              "redCard": false,
-              "yellowCard": false,
-              "penaltyKick": false,
-              "ownGoal": true,
-              "didScore": true
-            },
-            {
-              "clock": {
-                "displayValue": "56'"
-              },
-              "scoringPlay": false,
-              "substitution": false,
-              "redCard": false,
-              "yellowCard": true,
-              "penaltyKick": false,
-              "ownGoal": false
-            },
-            {
-              "clock": {
-                "displayValue": "60'"
+                "displayValue": "85'"
               },
               "scoringPlay": false,
               "substitution": true,
@@ -1390,42 +1310,11 @@
         {
           "active": true,
           "starter": true,
-          "jersey": "3",
+          "jersey": "10",
           "athlete": {
-            "id": "280885",
-            "lastName": "Holes",
-            "displayName": "Tomás Holes"
-          },
-          "position": {
-            "abbreviation": "CD-R"
-          },
-          "subbedIn": false,
-          "subbedOut": false,
-          "stats": {
-            "APP": "1",
-            "FC": "0",
-            "FA": "0",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "0",
-            "YC": "0",
-            "GA": "3",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "0"
-          }
-        },
-        {
-          "active": true,
-          "starter": true,
-          "jersey": "2",
-          "athlete": {
-            "id": "370744",
-            "lastName": "Chaloupek",
-            "displayName": "Stepán Chaloupek"
+            "id": "255261",
+            "lastName": "Vetlesen",
+            "displayName": "Hugo Vetlesen"
           },
           "position": {
             "abbreviation": "CM-L"
@@ -1439,20 +1328,20 @@
             "OG": "0",
             "RC": "0",
             "SUB": "0",
-            "YC": "1",
-            "GA": "2",
+            "YC": "0",
+            "GA": "0",
             "SHF": "0",
             "A": "0",
             "OF": "0",
-            "ST": "0",
+            "ST": "1",
             "G": "0",
-            "SH": "0"
+            "SH": "2"
           },
           "subbedOutFor": {
-            "jersey": "10",
+            "jersey": "11",
             "athlete": {
-              "id": "333780",
-              "displayName": "Christos Zafeiris",
+              "id": "312758",
+              "displayName": "Cisse Sandra",
               "links": [
                 {
                   "language": "en-US",
@@ -1461,7 +1350,7 @@
                     "desktop",
                     "athlete"
                   ],
-                  "href": "https://www.espn.com/soccer/player/_/id/333780/christos-zafeiris",
+                  "href": "https://www.espn.com/soccer/player/_/id/312758/cisse-sandra",
                   "text": "Player Card",
                   "shortText": "Player Card",
                   "isExternal": false,
@@ -1473,18 +1362,7 @@
           "plays": [
             {
               "clock": {
-                "displayValue": "13'"
-              },
-              "scoringPlay": false,
-              "substitution": false,
-              "redCard": false,
-              "yellowCard": true,
-              "penaltyKick": false,
-              "ownGoal": false
-            },
-            {
-              "clock": {
-                "displayValue": "60'"
+                "displayValue": "64'"
               },
               "scoringPlay": false,
               "substitution": true,
@@ -1498,11 +1376,11 @@
         {
           "active": true,
           "starter": true,
-          "jersey": "16",
+          "jersey": "25",
           "athlete": {
-            "id": "256751",
-            "lastName": "Moses",
-            "displayName": "David Moses"
+            "id": "240109",
+            "lastName": "Stankovic",
+            "displayName": "Aleksandar Stankovic"
           },
           "position": {
             "abbreviation": "CM-R"
@@ -1512,28 +1390,42 @@
           "stats": {
             "APP": "1",
             "FC": "2",
-            "FA": "1",
+            "FA": "2",
             "OG": "0",
             "RC": "0",
             "SUB": "0",
             "YC": "0",
-            "GA": "3",
+            "GA": "1",
             "SHF": "0",
             "A": "0",
             "OF": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "1"
-          }
+            "ST": "1",
+            "G": "1",
+            "SH": "3"
+          },
+          "plays": [
+            {
+              "clock": {
+                "displayValue": "32'"
+              },
+              "scoringPlay": true,
+              "substitution": false,
+              "redCard": false,
+              "yellowCard": false,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "didScore": true
+            }
+          ]
         },
         {
           "active": true,
           "starter": true,
-          "jersey": "11",
+          "jersey": "65",
           "athlete": {
-            "id": "392578",
-            "lastName": "Sanyang",
-            "displayName": "Youssoupha Sanyang"
+            "id": "363068",
+            "lastName": "Seys",
+            "displayName": "Joaquin Seys"
           },
           "position": {
             "abbreviation": "LM"
@@ -1543,132 +1435,24 @@
           "stats": {
             "APP": "1",
             "FC": "1",
-            "FA": "1",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "0",
-            "YC": "1",
-            "GA": "3",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "1",
-            "G": "0",
-            "SH": "1"
-          },
-          "subbedOutFor": {
-            "jersey": "12",
-            "athlete": {
-              "id": "409820",
-              "displayName": "Youssoupha Mbodji",
-              "links": [
-                {
-                  "language": "en-US",
-                  "rel": [
-                    "playercard",
-                    "desktop",
-                    "athlete"
-                  ],
-                  "href": "https://www.espn.com/soccer/player/_/id/409820/youssoupha-mbodji",
-                  "text": "Player Card",
-                  "shortText": "Player Card",
-                  "isExternal": false,
-                  "isPremium": false
-                }
-              ]
-            }
-          },
-          "plays": [
-            {
-              "clock": {
-                "displayValue": "48'"
-              },
-              "scoringPlay": false,
-              "substitution": false,
-              "redCard": false,
-              "yellowCard": true,
-              "penaltyKick": false,
-              "ownGoal": false
-            },
-            {
-              "clock": {
-                "displayValue": "80'"
-              },
-              "scoringPlay": false,
-              "substitution": true,
-              "redCard": false,
-              "yellowCard": false,
-              "penaltyKick": false,
-              "ownGoal": false
-            }
-          ]
-        },
-        {
-          "active": true,
-          "starter": true,
-          "jersey": "21",
-          "athlete": {
-            "id": "343937",
-            "lastName": "Doudera",
-            "displayName": "David Doudera"
-          },
-          "position": {
-            "abbreviation": "RM"
-          },
-          "subbedIn": false,
-          "subbedOut": false,
-          "stats": {
-            "APP": "1",
-            "FC": "0",
-            "FA": "2",
+            "FA": "0",
             "OG": "0",
             "RC": "0",
             "SUB": "0",
             "YC": "0",
-            "GA": "3",
+            "GA": "0",
             "SHF": "0",
-            "A": "0",
+            "A": "1",
             "OF": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "1"
-          }
-        },
-        {
-          "active": true,
-          "starter": true,
-          "jersey": "13",
-          "athlete": {
-            "id": "343733",
-            "lastName": "Chytil",
-            "displayName": "Mojmír Chytil"
-          },
-          "position": {
-            "abbreviation": "F"
-          },
-          "subbedIn": false,
-          "subbedOut": true,
-          "stats": {
-            "APP": "1",
-            "FC": "1",
-            "FA": "1",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "0",
-            "YC": "0",
-            "GA": "2",
-            "SHF": "0",
-            "A": "0",
-            "OF": "1",
             "ST": "0",
             "G": "0",
             "SH": "0"
           },
           "subbedOutFor": {
-            "jersey": "31",
+            "jersey": "14",
             "athlete": {
-              "id": "239044",
-              "displayName": "Erik Prekop",
+              "id": "304618",
+              "displayName": "Bjorn Meijer",
               "links": [
                 {
                   "language": "en-US",
@@ -1677,7 +1461,7 @@
                     "desktop",
                     "athlete"
                   ],
-                  "href": "https://www.espn.com/soccer/player/_/id/239044/erik-prekop",
+                  "href": "https://www.espn.com/soccer/player/_/id/304618/bjorn-meijer",
                   "text": "Player Card",
                   "shortText": "Player Card",
                   "isExternal": false,
@@ -1689,7 +1473,19 @@
           "plays": [
             {
               "clock": {
-                "displayValue": "60'"
+                "displayValue": "38'"
+              },
+              "scoringPlay": true,
+              "substitution": false,
+              "redCard": false,
+              "yellowCard": false,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "didAssist": true
+            },
+            {
+              "clock": {
+                "displayValue": "78'"
               },
               "scoringPlay": false,
               "substitution": true,
@@ -1703,38 +1499,38 @@
         {
           "active": true,
           "starter": true,
-          "jersey": "23",
+          "jersey": "9",
           "athlete": {
-            "id": "249525",
-            "lastName": "Sadílek",
-            "displayName": "Michal Sadílek"
+            "id": "78836",
+            "lastName": "Forbs",
+            "displayName": "Carlos Forbs"
           },
           "position": {
-            "abbreviation": "CF-L"
+            "abbreviation": "RM"
           },
           "subbedIn": false,
           "subbedOut": true,
           "stats": {
             "APP": "1",
-            "FC": "2",
-            "FA": "1",
+            "FC": "0",
+            "FA": "0",
             "OG": "0",
             "RC": "0",
             "SUB": "0",
             "YC": "0",
-            "GA": "2",
+            "GA": "0",
             "SHF": "0",
             "A": "0",
             "OF": "0",
-            "ST": "2",
+            "ST": "1",
             "G": "0",
             "SH": "3"
           },
           "subbedOutFor": {
-            "jersey": "7",
+            "jersey": "84",
             "athlete": {
-              "id": "293919",
-              "displayName": "Muhammed-Cham Saracevic",
+              "id": "366835",
+              "displayName": "Shandre Campbell",
               "links": [
                 {
                   "language": "en-US",
@@ -1743,7 +1539,7 @@
                     "desktop",
                     "athlete"
                   ],
-                  "href": "https://www.espn.com/soccer/player/_/id/293919/muhammed-cham-saracevic",
+                  "href": "https://www.espn.com/soccer/player/_/id/366835/shandre-campbell",
                   "text": "Player Card",
                   "shortText": "Player Card",
                   "isExternal": false,
@@ -1755,7 +1551,7 @@
           "plays": [
             {
               "clock": {
-                "displayValue": "76'"
+                "displayValue": "78'"
               },
               "scoringPlay": false,
               "substitution": true,
@@ -1771,9 +1567,118 @@
           "starter": true,
           "jersey": "17",
           "athlete": {
-            "id": "294618",
-            "lastName": "Provod",
-            "displayName": "Lukás Provod"
+            "id": "360422",
+            "lastName": "Vermant",
+            "displayName": "Romeo Vermant"
+          },
+          "position": {
+            "abbreviation": "F"
+          },
+          "subbedIn": false,
+          "subbedOut": true,
+          "stats": {
+            "APP": "1",
+            "FC": "1",
+            "FA": "1",
+            "OG": "0",
+            "RC": "0",
+            "SUB": "0",
+            "YC": "0",
+            "GA": "0",
+            "SHF": "0",
+            "A": "0",
+            "OF": "0",
+            "ST": "1",
+            "G": "1",
+            "SH": "4"
+          },
+          "subbedOutFor": {
+            "jersey": "7",
+            "athlete": {
+              "id": "335201",
+              "displayName": "Nicolo Tresoldi",
+              "links": [
+                {
+                  "language": "en-US",
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/335201/nicolo-tresoldi",
+                  "text": "Player Card",
+                  "shortText": "Player Card",
+                  "isExternal": false,
+                  "isPremium": false
+                }
+              ]
+            }
+          },
+          "plays": [
+            {
+              "clock": {
+                "displayValue": "74'"
+              },
+              "scoringPlay": true,
+              "substitution": false,
+              "redCard": false,
+              "yellowCard": false,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "didScore": true
+            },
+            {
+              "clock": {
+                "displayValue": "78'"
+              },
+              "scoringPlay": false,
+              "substitution": true,
+              "redCard": false,
+              "yellowCard": false,
+              "penaltyKick": false,
+              "ownGoal": false
+            }
+          ]
+        },
+        {
+          "active": true,
+          "starter": true,
+          "jersey": "67",
+          "athlete": {
+            "id": "362875",
+            "lastName": "Diakhon",
+            "displayName": "Mamadou Diakhon"
+          },
+          "position": {
+            "abbreviation": "CF-L"
+          },
+          "subbedIn": false,
+          "subbedOut": false,
+          "stats": {
+            "APP": "1",
+            "FC": "0",
+            "FA": "3",
+            "OG": "0",
+            "RC": "0",
+            "SUB": "0",
+            "YC": "0",
+            "GA": "1",
+            "SHF": "0",
+            "A": "0",
+            "OF": "1",
+            "ST": "0",
+            "G": "0",
+            "SH": "3"
+          }
+        },
+        {
+          "active": true,
+          "starter": true,
+          "jersey": "20",
+          "athlete": {
+            "id": "193849",
+            "lastName": "Vanaken",
+            "displayName": "Hans Vanaken"
           },
           "position": {
             "abbreviation": "CF-R"
@@ -1782,95 +1687,55 @@
           "subbedOut": false,
           "stats": {
             "APP": "1",
-            "FC": "2",
-            "FA": "1",
+            "FC": "1",
+            "FA": "0",
             "OG": "0",
             "RC": "0",
             "SUB": "0",
             "YC": "0",
-            "GA": "3",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "1",
-            "G": "0",
-            "SH": "4"
-          }
-        },
-        {
-          "active": true,
-          "starter": false,
-          "jersey": "7",
-          "athlete": {
-            "id": "293919",
-            "lastName": "Saracevic",
-            "displayName": "Muhammed-Cham Saracevic"
-          },
-          "position": {
-            "abbreviation": "SUB"
-          },
-          "subbedIn": true,
-          "subbedOut": false,
-          "stats": {
-            "APP": "1",
-            "FC": "0",
-            "FA": "1",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "1",
-            "YC": "0",
             "GA": "1",
             "SHF": "0",
-            "A": "0",
+            "A": "1",
             "OF": "0",
             "ST": "1",
-            "G": "0",
+            "G": "1",
             "SH": "1"
           },
-          "subbedInFor": {
-            "jersey": "23",
-            "athlete": {
-              "id": "249525",
-              "displayName": "Michal Sadílek",
-              "links": [
-                {
-                  "language": "en-US",
-                  "rel": [
-                    "playercard",
-                    "desktop",
-                    "athlete"
-                  ],
-                  "href": "https://www.espn.com/soccer/player/_/id/249525/michal-sadilek",
-                  "text": "Player Card",
-                  "shortText": "Player Card",
-                  "isExternal": false,
-                  "isPremium": false
-                }
-              ]
-            }
-          },
           "plays": [
             {
               "clock": {
-                "displayValue": "76'"
+                "displayValue": "38'"
               },
-              "scoringPlay": false,
-              "substitution": true,
+              "scoringPlay": true,
+              "substitution": false,
               "redCard": false,
               "yellowCard": false,
               "penaltyKick": false,
-              "ownGoal": false
+              "ownGoal": false,
+              "didScore": true
+            },
+            {
+              "clock": {
+                "displayValue": "84'"
+              },
+              "scoringPlay": true,
+              "substitution": false,
+              "redCard": false,
+              "yellowCard": false,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "didAssist": true
             }
           ]
         },
         {
           "active": true,
           "starter": false,
-          "jersey": "8",
+          "jersey": "6",
           "athlete": {
-            "id": "256966",
-            "lastName": "Hashioka",
-            "displayName": "Daiki Hashioka"
+            "id": "261363",
+            "lastName": "Reis",
+            "displayName": "Ludovit Reis"
           },
           "position": {
             "abbreviation": "SUB"
@@ -1897,174 +1762,11 @@
         {
           "active": true,
           "starter": false,
-          "jersey": "25",
+          "jersey": "14",
           "athlete": {
-            "id": "257336",
-            "lastName": "Chorý",
-            "displayName": "Tomás Chorý"
-          },
-          "position": {
-            "abbreviation": "SUB"
-          },
-          "subbedIn": false,
-          "subbedOut": false,
-          "stats": {
-            "APP": "0",
-            "FC": "0",
-            "FA": "0",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "0",
-            "YC": "0",
-            "GA": "0",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "0"
-          }
-        },
-        {
-          "active": true,
-          "starter": false,
-          "jersey": "12",
-          "athlete": {
-            "id": "409820",
-            "lastName": "Mbodji",
-            "displayName": "Youssoupha Mbodji"
-          },
-          "position": {
-            "abbreviation": "SUB"
-          },
-          "subbedIn": true,
-          "subbedOut": false,
-          "stats": {
-            "APP": "1",
-            "FC": "0",
-            "FA": "0",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "1",
-            "YC": "0",
-            "GA": "0",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "0"
-          },
-          "subbedInFor": {
-            "jersey": "11",
-            "athlete": {
-              "id": "392578",
-              "displayName": "Youssoupha Sanyang",
-              "links": [
-                {
-                  "language": "en-US",
-                  "rel": [
-                    "playercard",
-                    "desktop",
-                    "athlete"
-                  ],
-                  "href": "https://www.espn.com/soccer/player/_/id/392578/youssoupha-sanyang",
-                  "text": "Player Card",
-                  "shortText": "Player Card",
-                  "isExternal": false,
-                  "isPremium": false
-                }
-              ]
-            }
-          },
-          "plays": [
-            {
-              "clock": {
-                "displayValue": "80'"
-              },
-              "scoringPlay": false,
-              "substitution": true,
-              "redCard": false,
-              "yellowCard": false,
-              "penaltyKick": false,
-              "ownGoal": false
-            }
-          ]
-        },
-        {
-          "active": true,
-          "starter": false,
-          "jersey": "31",
-          "athlete": {
-            "id": "239044",
-            "lastName": "Prekop",
-            "displayName": "Erik Prekop"
-          },
-          "position": {
-            "abbreviation": "SUB"
-          },
-          "subbedIn": true,
-          "subbedOut": false,
-          "stats": {
-            "APP": "1",
-            "FC": "1",
-            "FA": "1",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "1",
-            "YC": "0",
-            "GA": "1",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "0"
-          },
-          "subbedInFor": {
-            "jersey": "13",
-            "athlete": {
-              "id": "343733",
-              "displayName": "Mojmír Chytil",
-              "links": [
-                {
-                  "language": "en-US",
-                  "rel": [
-                    "playercard",
-                    "desktop",
-                    "athlete"
-                  ],
-                  "href": "https://www.espn.com/soccer/player/_/id/343733/mojmir-chytil",
-                  "text": "Player Card",
-                  "shortText": "Player Card",
-                  "isExternal": false,
-                  "isPremium": false
-                }
-              ]
-            }
-          },
-          "plays": [
-            {
-              "clock": {
-                "displayValue": "60'"
-              },
-              "scoringPlay": false,
-              "substitution": true,
-              "redCard": false,
-              "yellowCard": false,
-              "penaltyKick": false,
-              "ownGoal": false
-            }
-          ]
-        },
-        {
-          "active": true,
-          "starter": false,
-          "jersey": "27",
-          "athlete": {
-            "id": "283008",
-            "lastName": "Vlcek",
-            "displayName": "Tomás Vlcek"
+            "id": "304618",
+            "lastName": "Meijer",
+            "displayName": "Bjorn Meijer"
           },
           "position": {
             "abbreviation": "SUB"
@@ -2088,10 +1790,10 @@
             "SH": "0"
           },
           "subbedInFor": {
-            "jersey": "4",
+            "jersey": "65",
             "athlete": {
-              "id": "290116",
-              "displayName": "David Zima",
+              "id": "363068",
+              "displayName": "Joaquin Seys",
               "links": [
                 {
                   "language": "en-US",
@@ -2100,7 +1802,7 @@
                     "desktop",
                     "athlete"
                   ],
-                  "href": "https://www.espn.com/soccer/player/_/id/290116/david-zima",
+                  "href": "https://www.espn.com/soccer/player/_/id/363068/joaquin-seys",
                   "text": "Player Card",
                   "shortText": "Player Card",
                   "isExternal": false,
@@ -2112,7 +1814,7 @@
           "plays": [
             {
               "clock": {
-                "displayValue": "60'"
+                "displayValue": "78'"
               },
               "scoringPlay": false,
               "substitution": true,
@@ -2126,104 +1828,11 @@
         {
           "active": true,
           "starter": false,
-          "jersey": "9",
+          "jersey": "22",
           "athlete": {
-            "id": "275818",
-            "lastName": "Kusej",
-            "displayName": "Vasil Kusej"
-          },
-          "position": {
-            "abbreviation": "SUB"
-          },
-          "subbedIn": false,
-          "subbedOut": false,
-          "stats": {
-            "APP": "0",
-            "FC": "0",
-            "FA": "0",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "0",
-            "YC": "0",
-            "GA": "0",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "0"
-          }
-        },
-        {
-          "active": true,
-          "starter": false,
-          "jersey": "19",
-          "athlete": {
-            "id": "248263",
-            "lastName": "Dorley",
-            "displayName": "Oscar Dorley"
-          },
-          "position": {
-            "abbreviation": "SUB"
-          },
-          "subbedIn": false,
-          "subbedOut": false,
-          "stats": {
-            "APP": "0",
-            "FC": "0",
-            "FA": "0",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "0",
-            "YC": "0",
-            "GA": "0",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "0"
-          }
-        },
-        {
-          "active": true,
-          "starter": false,
-          "jersey": "18",
-          "athlete": {
-            "id": "176738",
-            "lastName": "Boril",
-            "displayName": "Jan Boril"
-          },
-          "position": {
-            "abbreviation": "SUB"
-          },
-          "subbedIn": false,
-          "subbedOut": false,
-          "stats": {
-            "APP": "0",
-            "FC": "0",
-            "FA": "0",
-            "OG": "0",
-            "RC": "0",
-            "SUB": "0",
-            "YC": "0",
-            "GA": "0",
-            "SHF": "0",
-            "A": "0",
-            "OF": "0",
-            "ST": "0",
-            "G": "0",
-            "SH": "0"
-          }
-        },
-        {
-          "active": true,
-          "starter": false,
-          "jersey": "35",
-          "athlete": {
-            "id": "291407",
-            "lastName": "Markovic",
-            "displayName": "Jakub Markovic"
+            "id": "99829",
+            "lastName": "Mignolet",
+            "displayName": "Simon Mignolet"
           },
           "position": {
             "abbreviation": "SUB"
@@ -2250,11 +1859,209 @@
         {
           "active": true,
           "starter": false,
-          "jersey": "26",
+          "jersey": "84",
           "athlete": {
-            "id": "175766",
-            "lastName": "Schranz",
-            "displayName": "Ivan Schranz"
+            "id": "366835",
+            "lastName": "Campbell",
+            "displayName": "Shandre Campbell"
+          },
+          "position": {
+            "abbreviation": "SUB"
+          },
+          "subbedIn": true,
+          "subbedOut": false,
+          "stats": {
+            "APP": "1",
+            "FC": "0",
+            "FA": "1",
+            "OG": "0",
+            "RC": "0",
+            "SUB": "1",
+            "YC": "0",
+            "GA": "1",
+            "SHF": "0",
+            "A": "0",
+            "OF": "0",
+            "ST": "0",
+            "G": "0",
+            "SH": "0"
+          },
+          "subbedInFor": {
+            "jersey": "9",
+            "athlete": {
+              "id": "78836",
+              "displayName": "Carlos Forbs",
+              "links": [
+                {
+                  "language": "en-US",
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/78836/carlos-forbs",
+                  "text": "Player Card",
+                  "shortText": "Player Card",
+                  "isExternal": false,
+                  "isPremium": false
+                }
+              ]
+            }
+          },
+          "plays": [
+            {
+              "clock": {
+                "displayValue": "78'"
+              },
+              "scoringPlay": false,
+              "substitution": true,
+              "redCard": false,
+              "yellowCard": false,
+              "penaltyKick": false,
+              "ownGoal": false
+            }
+          ]
+        },
+        {
+          "active": true,
+          "starter": false,
+          "jersey": "11",
+          "athlete": {
+            "id": "312758",
+            "lastName": "Sandra",
+            "displayName": "Cisse Sandra"
+          },
+          "position": {
+            "abbreviation": "SUB"
+          },
+          "subbedIn": true,
+          "subbedOut": false,
+          "stats": {
+            "APP": "1",
+            "FC": "0",
+            "FA": "0",
+            "OG": "0",
+            "RC": "0",
+            "SUB": "1",
+            "YC": "0",
+            "GA": "1",
+            "SHF": "0",
+            "A": "0",
+            "OF": "0",
+            "ST": "0",
+            "G": "0",
+            "SH": "0"
+          },
+          "subbedInFor": {
+            "jersey": "10",
+            "athlete": {
+              "id": "255261",
+              "displayName": "Hugo Vetlesen",
+              "links": [
+                {
+                  "language": "en-US",
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/255261/hugo-vetlesen",
+                  "text": "Player Card",
+                  "shortText": "Player Card",
+                  "isExternal": false,
+                  "isPremium": false
+                }
+              ]
+            }
+          },
+          "plays": [
+            {
+              "clock": {
+                "displayValue": "64'"
+              },
+              "scoringPlay": false,
+              "substitution": true,
+              "redCard": false,
+              "yellowCard": false,
+              "penaltyKick": false,
+              "ownGoal": false
+            }
+          ]
+        },
+        {
+          "active": true,
+          "starter": false,
+          "jersey": "41",
+          "athlete": {
+            "id": "310023",
+            "lastName": "Siquet",
+            "displayName": "Hugo Siquet"
+          },
+          "position": {
+            "abbreviation": "SUB"
+          },
+          "subbedIn": true,
+          "subbedOut": false,
+          "stats": {
+            "APP": "1",
+            "FC": "0",
+            "FA": "0",
+            "OG": "0",
+            "RC": "0",
+            "SUB": "1",
+            "YC": "0",
+            "GA": "1",
+            "SHF": "0",
+            "A": "0",
+            "OF": "0",
+            "ST": "0",
+            "G": "0",
+            "SH": "0"
+          },
+          "subbedInFor": {
+            "jersey": "64",
+            "athlete": {
+              "id": "351373",
+              "displayName": "Kyriani Sabbe",
+              "links": [
+                {
+                  "language": "en-US",
+                  "rel": [
+                    "playercard",
+                    "desktop",
+                    "athlete"
+                  ],
+                  "href": "https://www.espn.com/soccer/player/_/id/351373/kyriani-sabbe",
+                  "text": "Player Card",
+                  "shortText": "Player Card",
+                  "isExternal": false,
+                  "isPremium": false
+                }
+              ]
+            }
+          },
+          "plays": [
+            {
+              "clock": {
+                "displayValue": "85'"
+              },
+              "scoringPlay": false,
+              "substitution": true,
+              "redCard": false,
+              "yellowCard": false,
+              "penaltyKick": false,
+              "ownGoal": false
+            }
+          ]
+        },
+        {
+          "active": true,
+          "starter": false,
+          "jersey": "24",
+          "athlete": {
+            "id": "386578",
+            "lastName": "Osuji",
+            "displayName": "Vince Osuji"
           },
           "position": {
             "abbreviation": "SUB"
@@ -2281,11 +2088,42 @@
         {
           "active": true,
           "starter": false,
-          "jersey": "10",
+          "jersey": "81",
           "athlete": {
-            "id": "333780",
-            "lastName": "Zafeiris",
-            "displayName": "Christos Zafeiris"
+            "id": "371691",
+            "lastName": "Driessche",
+            "displayName": "Argus Driessche"
+          },
+          "position": {
+            "abbreviation": "SUB"
+          },
+          "subbedIn": false,
+          "subbedOut": false,
+          "stats": {
+            "APP": "0",
+            "FC": "0",
+            "FA": "0",
+            "OG": "0",
+            "RC": "0",
+            "SUB": "0",
+            "YC": "0",
+            "GA": "0",
+            "SV": "0",
+            "SHF": "0",
+            "A": "0",
+            "ST": "0",
+            "G": "0",
+            "SH": "0"
+          }
+        },
+        {
+          "active": true,
+          "starter": false,
+          "jersey": "7",
+          "athlete": {
+            "id": "335201",
+            "lastName": "Tresoldi",
+            "displayName": "Nicolo Tresoldi"
           },
           "position": {
             "abbreviation": "SUB"
@@ -2295,7 +2133,7 @@
           "stats": {
             "APP": "1",
             "FC": "0",
-            "FA": "0",
+            "FA": "1",
             "OG": "0",
             "RC": "0",
             "SUB": "1",
@@ -2306,13 +2144,13 @@
             "OF": "1",
             "ST": "0",
             "G": "0",
-            "SH": "1"
+            "SH": "0"
           },
           "subbedInFor": {
-            "jersey": "2",
+            "jersey": "17",
             "athlete": {
-              "id": "370744",
-              "displayName": "Stepán Chaloupek",
+              "id": "360422",
+              "displayName": "Romeo Vermant",
               "links": [
                 {
                   "language": "en-US",
@@ -2321,7 +2159,7 @@
                     "desktop",
                     "athlete"
                   ],
-                  "href": "https://www.espn.com/soccer/player/_/id/370744/stepan-chaloupek",
+                  "href": "https://www.espn.com/soccer/player/_/id/360422/romeo-vermant",
                   "text": "Player Card",
                   "shortText": "Player Card",
                   "isExternal": false,
@@ -2333,7 +2171,7 @@
           "plays": [
             {
               "clock": {
-                "displayValue": "60'"
+                "displayValue": "78'"
               },
               "scoringPlay": false,
               "substitution": true,
@@ -2348,228 +2186,660 @@
     }
   ],
   "firstGoal": {
-    "athleteId": "266599",
-    "athleteName": "Mohammed Kudus",
-    "teamId": "367",
-    "team": "Tottenham Hotspur",
-    "period": 2,
+    "athleteId": "240109",
+    "athleteName": "Aleksandar Stankovic",
+    "teamId": "570",
+    "team": "Club Brugge",
+    "period": 1,
     "scoreValue": null,
-    "playIndex": "46569364"
-  },
-  "lastGoal": {
-    "athleteId": "332962",
-    "athleteName": "Xavi Simons",
-    "teamId": "367",
-    "team": "Tottenham Hotspur",
-    "period": 2,
-    "scoreValue": null,
-    "playIndex": "46570743"
+    "playIndex": "46802392"
   },
   "commentary": {
-    "sequence": 114,
+    "sequence": 94,
     "time": {
       "value": 5400,
-      "displayValue": "90'+4'"
+      "displayValue": "90'+2'"
     },
-    "text": "Offside, Slavia Prague. Christos Zafeiris is caught offside.",
+    "text": "Goal! Kairat 1, Club Brugge 4. Adilet Sadybekov (Kairat) right footed shot from outside the box to the bottom left corner. Assisted by Aleksandr Mrynskiy with a headed pass.",
     "play": {
       "type": {
-        "id": "68",
-        "text": "Offside"
+        "id": "70",
+        "text": "Goal"
       },
-      "text": "Offside, Slavia Prague. Christos Zafeiris is caught offside.",
+      "text": "Adilet Sadybekov (Kairat Almaty) Goal at 92'",
       "period": {
         "number": 2
       },
       "clock": {
         "value": 5400,
-        "displayValue": "90'+4'"
+        "displayValue": "90'+2'"
       },
       "team": {
-        "displayName": "Slavia Prague"
+        "displayName": "Kairat Almaty"
       },
       "participants": [
         {
-          "333780": "Muhammed-Cham Saracevic"
+          "335201": "Adilet Sadybekov"
         }
       ],
-      "fieldPositionX": 0.408,
-      "fieldPositionY": 0.836,
-      "fieldPosition2X": 0.214,
-      "fieldPosition2Y": 0.697
+      "fieldPositionX": 0.508,
+      "fieldPositionY": 0.543,
+      "fieldPosition2X": 0,
+      "fieldPosition2Y": 0
     }
   },
   "firstBasket": null,
   "gameInfo": {
-    "venue": "Tottenham Hotspur Stadium"
+    "venue": "Astana Arena"
   },
   "lastFiveGames": [
     {
       "team": {
-        "id": "367",
-        "displayName": "Tottenham Hotspur",
-        "abbreviation": "TOT"
+        "id": "2528",
+        "displayName": "Kairat Almaty",
+        "abbreviation": "KAI"
       },
       "events": [
         {
-          "id": "740744",
-          "opponent": "Brentford",
-          "opponentAbbreviation": "BRE",
-          "opponentId": "337",
+          "id": "757743",
+          "opponent": "Olympiacos",
+          "opponentAbbreviation": "OLY",
+          "opponentId": "435",
           "atVs": "vs",
-          "date": "2025-12-06T15:00Z",
-          "score": "2-0",
-          "result": "W"
+          "date": "2025-12-09T15:30Z",
+          "score": "1-0",
+          "result": "L"
         },
         {
-          "id": "740729",
-          "opponent": "Newcastle United",
-          "opponentAbbreviation": "NEW",
-          "opponentId": "361",
+          "id": "757735",
+          "opponent": "F.C. København",
+          "opponentAbbreviation": "KBH",
+          "opponentId": "909",
           "atVs": "@",
-          "date": "2025-12-02T20:15Z",
-          "score": "2-2",
-          "result": "D"
+          "date": "2025-11-26T17:45Z",
+          "score": "3-2",
+          "result": "L"
         },
         {
-          "id": "740720",
-          "opponent": "Fulham",
-          "opponentAbbreviation": "FUL",
-          "opponentId": "370",
-          "atVs": "vs",
-          "date": "2025-11-29T20:00Z",
+          "id": "757722",
+          "opponent": "Internazionale",
+          "opponentAbbreviation": "INT",
+          "opponentId": "110",
+          "atVs": "@",
+          "date": "2025-11-05T20:00Z",
           "score": "2-1",
           "result": "L"
         },
         {
-          "id": "757736",
-          "opponent": "Paris Saint-Germain",
-          "opponentAbbreviation": "PSG",
-          "opponentId": "160",
-          "atVs": "@",
-          "date": "2025-11-26T20:00Z",
-          "score": "5-3",
-          "result": "L"
+          "id": "757689",
+          "opponent": "Pafos",
+          "opponentAbbreviation": "PAF",
+          "opponentId": "22281",
+          "atVs": "vs",
+          "date": "2025-10-21T16:45Z",
+          "score": "0-0",
+          "result": "D"
         },
         {
-          "id": "740714",
-          "opponent": "Arsenal",
-          "opponentAbbreviation": "ARS",
-          "opponentId": "359",
-          "atVs": "@",
-          "date": "2025-11-23T16:30Z",
-          "score": "4-1",
+          "id": "757671",
+          "opponent": "Real Madrid",
+          "opponentAbbreviation": "RMA",
+          "opponentId": "86",
+          "atVs": "vs",
+          "date": "2025-09-30T16:45Z",
+          "score": "5-0",
           "result": "L"
         }
       ]
     },
     {
       "team": {
-        "id": "494",
-        "displayName": "Slavia Prague",
-        "abbreviation": "SLP"
+        "id": "570",
+        "displayName": "Club Brugge",
+        "abbreviation": "BRU"
       },
       "events": [
         {
-          "id": "757733",
-          "opponent": "Athletic Club",
-          "opponentAbbreviation": "ATH",
-          "opponentId": "93",
+          "id": "742694",
+          "opponent": "RAAL La Louvière",
+          "opponentAbbreviation": "RLL",
+          "opponentId": "131235",
           "atVs": "vs",
-          "date": "2025-11-25T20:00Z",
-          "score": "0-0",
-          "result": "D"
+          "date": "2026-01-16T19:45Z",
+          "score": "3-2",
+          "result": "L"
         },
         {
-          "id": "757707",
+          "id": "742690",
+          "opponent": "Racing Genk",
+          "opponentAbbreviation": "GENK",
+          "opponentId": "938",
+          "atVs": "@",
+          "date": "2025-12-26T12:30Z",
+          "score": "5-3",
+          "result": "W"
+        },
+        {
+          "id": "742679",
+          "opponent": "KAA Gent",
+          "opponentAbbreviation": "GENT",
+          "opponentId": "3611",
+          "atVs": "vs",
+          "date": "2025-12-21T12:30Z",
+          "score": "2-1",
+          "result": "W"
+        },
+        {
+          "id": "742674",
+          "opponent": "Dender",
+          "opponentAbbreviation": "DEN",
+          "opponentId": "7878",
+          "atVs": "@",
+          "date": "2025-12-14T15:00Z",
+          "score": "5-1",
+          "result": "W"
+        },
+        {
+          "id": "757757",
           "opponent": "Arsenal",
           "opponentAbbreviation": "ARS",
           "opponentId": "359",
           "atVs": "vs",
-          "date": "2025-11-04T17:45Z",
+          "date": "2025-12-10T20:00Z",
           "score": "3-0",
           "result": "L"
-        },
-        {
-          "id": "757700",
-          "opponent": "Atalanta",
-          "opponentAbbreviation": "ATA",
-          "opponentId": "105",
-          "atVs": "@",
-          "date": "2025-10-22T19:00Z",
-          "score": "0-0",
-          "result": "D"
-        },
-        {
-          "id": "757678",
-          "opponent": "Internazionale",
-          "opponentAbbreviation": "INT",
-          "opponentId": "110",
-          "atVs": "@",
-          "date": "2025-09-30T19:00Z",
-          "score": "3-0",
-          "result": "L"
-        },
-        {
-          "id": "757660",
-          "opponent": "Bodo/Glimt",
-          "opponentAbbreviation": "BODO",
-          "opponentId": "2980",
-          "atVs": "vs",
-          "date": "2025-09-17T16:45Z",
-          "score": "2-2",
-          "result": "D"
         }
       ]
     }
   ],
   "pickcenter": {
-    "overUnder": 2.5,
-    "overOdds": -135,
-    "underOdds": 105,
-    "moneyline": {
-      "home": {
-        "line": -225,
-        "odds": -225
+    "all": [
+      {
+        "marketName": "3-Way Moneyline (Regulation)",
+        "statID": "points",
+        "statEntityID": "all",
+        "variants": [
+          {
+            "sideID": "draw",
+            "byBookmaker": {
+              "fanduel": {
+                "odds": "+370",
+                "available": true
+              },
+              "draftkings": {
+                "odds": "+390",
+                "available": true
+              }
+            },
+            "periodID": "reg"
+          }
+        ]
       },
-      "away": {
-        "line": 600,
-        "odds": 600
-      }
-    },
-    "pointSpread": {
-      "home": {
-
+      {
+        "marketName": "Over/Under (Full Match)",
+        "statID": "points",
+        "statEntityID": "all",
+        "variants": [
+          {
+            "sideID": "over",
+            "byBookmaker": {
+              "draftkings": {
+                "odds": "-185",
+                "overUnder": "2.5",
+                "available": false,
+                "altLines": [
+                  {
+                    "odds": "-120",
+                    "overUnder": "3"
+                  },
+                  {
+                    "odds": "+130",
+                    "overUnder": "3.5"
+                  }
+                ]
+              },
+              "fanduel": {
+                "odds": "+138",
+                "overUnder": "3.5",
+                "available": true,
+                "altLines": [
+                  {
+                    "odds": "-6000",
+                    "overUnder": "0.5"
+                  },
+                  {
+                    "odds": "-650",
+                    "overUnder": "1.5"
+                  },
+                  {
+                    "odds": "-188",
+                    "overUnder": "2.5"
+                  },
+                  {
+                    "odds": "+320",
+                    "overUnder": "4.5"
+                  },
+                  {
+                    "odds": "+760",
+                    "overUnder": "5.5"
+                  },
+                  {
+                    "odds": "+1500",
+                    "overUnder": "6.5"
+                  },
+                  {
+                    "odds": "+3000",
+                    "overUnder": "7.5"
+                  },
+                  {
+                    "odds": "+6500",
+                    "overUnder": "8.5"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "sideID": "under",
+            "byBookmaker": {
+              "draftkings": {
+                "odds": "+130",
+                "overUnder": "2.5",
+                "available": false,
+                "altLines": [
+                  {
+                    "odds": "-115",
+                    "overUnder": "3"
+                  },
+                  {
+                    "odds": "-185",
+                    "overUnder": "3.5"
+                  }
+                ]
+              },
+              "fanduel": {
+                "odds": "-170",
+                "overUnder": "3.5",
+                "available": true,
+                "altLines": [
+                  {
+                    "odds": "+1500",
+                    "overUnder": "0.5"
+                  },
+                  {
+                    "odds": "+440",
+                    "overUnder": "1.5"
+                  },
+                  {
+                    "odds": "+152",
+                    "overUnder": "2.5"
+                  },
+                  {
+                    "odds": "-430",
+                    "overUnder": "4.5"
+                  },
+                  {
+                    "odds": "-1400",
+                    "overUnder": "5.5"
+                  },
+                  {
+                    "odds": "-5000",
+                    "overUnder": "6.5"
+                  },
+                  {
+                    "odds": "-7000",
+                    "overUnder": "7.5"
+                  }
+                ]
+              }
+            }
+          }
+        ]
       },
-      "away": {
-        "line": null
-      }
-    },
-    "total": {
-      "over": {
-        "home": {
-          "line": 2.5,
-          "odds": -135
-        },
-        "away": {
-          "line": 2.5,
-          "odds": -135
-        }
+      {
+        "marketName": "1st Half 3-Way Moneyline",
+        "statID": "points",
+        "statEntityID": "all",
+        "variants": [
+          {
+            "sideID": "draw",
+            "byBookmaker": {
+              "draftkings": {
+                "odds": "+155",
+                "available": true
+              },
+              "fanduel": {
+                "odds": "+155",
+                "available": true
+              }
+            },
+            "periodID": "1h"
+          }
+        ]
       },
-      "under": {
-        "home": {
-          "line": 2.5,
-          "odds": 105
-        },
-        "away": {
-          "line": 2.5,
-          "odds": 105
-        }
+      {
+        "marketName": "1st Half Over/Under",
+        "statID": "points",
+        "statEntityID": "all",
+        "variants": [
+          {
+            "sideID": "over",
+            "byBookmaker": {
+              "fanduel": {
+                "odds": "+430",
+                "overUnder": "2.5",
+                "available": false,
+                "altLines": [
+                  {
+                    "odds": "-430",
+                    "overUnder": "0.5"
+                  },
+                  {
+                    "odds": "+124",
+                    "overUnder": "1.5"
+                  },
+                  {
+                    "odds": "+1360",
+                    "overUnder": "3.5"
+                  },
+                  {
+                    "odds": "+4600",
+                    "overUnder": "4.5"
+                  }
+                ]
+              }
+            },
+            "periodID": "1h"
+          },
+          {
+            "sideID": "under",
+            "byBookmaker": {
+              "fanduel": {
+                "odds": "-650",
+                "overUnder": "2.5",
+                "available": false,
+                "altLines": [
+                  {
+                    "odds": "+290",
+                    "overUnder": "0.5"
+                  },
+                  {
+                    "odds": "-156",
+                    "overUnder": "1.5"
+                  },
+                  {
+                    "odds": "-3000",
+                    "overUnder": "3.5"
+                  },
+                  {
+                    "odds": "-8000",
+                    "overUnder": "4.5"
+                  },
+                  {
+                    "odds": "-50000",
+                    "overUnder": "5.5"
+                  }
+                ]
+              }
+            },
+            "periodID": "1h"
+          }
+        ]
+      },
+      {
+        "marketName": "Both Teams To Score Yes/No (Full Match)",
+        "statID": "bothTeamsScored",
+        "statEntityID": "all",
+        "variants": [
+          {
+            "sideID": "no",
+            "byBookmaker": {
+              "draftkings": {
+                "odds": "+110",
+                "available": true
+              },
+              "fanduel": {
+                "odds": "+106",
+                "available": true
+              }
+            }
+          },
+          {
+            "sideID": "yes",
+            "byBookmaker": {
+              "draftkings": {
+                "odds": "-140",
+                "available": true
+              },
+              "fanduel": {
+                "odds": "-136",
+                "available": true
+              }
+            }
+          }
+        ]
+      },
+      {
+        "marketName": "2nd Half 3-Way Moneyline",
+        "statID": "points",
+        "statEntityID": "all",
+        "variants": [
+          {
+            "sideID": "draw",
+            "byBookmaker": {
+              "draftkings": {
+                "odds": "+190",
+                "available": true
+              }
+            },
+            "periodID": "2h"
+          }
+        ]
+      },
+      {
+        "marketName": "Total Corner Kicks Over/Under (Full Match)",
+        "statID": "cornerKicks",
+        "statEntityID": "all",
+        "variants": [
+          {
+            "sideID": "over",
+            "byBookmaker": {
+              "fanduel": {
+                "odds": "-132",
+                "overUnder": "8.5",
+                "available": true,
+                "altLines": [
+                  {
+                    "odds": "-3000",
+                    "overUnder": "4.5"
+                  },
+                  {
+                    "odds": "-1100",
+                    "overUnder": "5.5"
+                  },
+                  {
+                    "odds": "-480",
+                    "overUnder": "6.5"
+                  },
+                  {
+                    "odds": "-240",
+                    "overUnder": "7.5"
+                  },
+                  {
+                    "odds": "+120",
+                    "overUnder": "9.5"
+                  },
+                  {
+                    "odds": "+200",
+                    "overUnder": "10.5"
+                  },
+                  {
+                    "odds": "+340",
+                    "overUnder": "11.5"
+                  },
+                  {
+                    "odds": "+510",
+                    "overUnder": "12.5"
+                  },
+                  {
+                    "odds": "+720",
+                    "overUnder": "13.5"
+                  },
+                  {
+                    "odds": "+940",
+                    "overUnder": "14.5"
+                  },
+                  {
+                    "odds": "+1500",
+                    "overUnder": "15.5"
+                  }
+                ]
+              },
+              "draftkings": {
+                "odds": "-140",
+                "overUnder": "8.5",
+                "available": true,
+                "altLines": [
+                  {
+                    "odds": "-475",
+                    "overUnder": "6.5"
+                  },
+                  {
+                    "odds": "-245",
+                    "overUnder": "7.5"
+                  },
+                  {
+                    "odds": "+120",
+                    "overUnder": "9.5"
+                  },
+                  {
+                    "odds": "+195",
+                    "overUnder": "10.5"
+                  },
+                  {
+                    "odds": "+300",
+                    "overUnder": "11.5"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "sideID": "under",
+            "byBookmaker": {
+              "fanduel": {
+                "odds": "-102",
+                "overUnder": "8.5",
+                "available": true,
+                "altLines": [
+                  {
+                    "odds": "+850",
+                    "overUnder": "4.5"
+                  },
+                  {
+                    "odds": "+540",
+                    "overUnder": "5.5"
+                  },
+                  {
+                    "odds": "+320",
+                    "overUnder": "6.5"
+                  },
+                  {
+                    "odds": "+174",
+                    "overUnder": "7.5"
+                  },
+                  {
+                    "odds": "-160",
+                    "overUnder": "9.5"
+                  },
+                  {
+                    "odds": "-280",
+                    "overUnder": "10.5"
+                  },
+                  {
+                    "odds": "-550",
+                    "overUnder": "11.5"
+                  },
+                  {
+                    "odds": "-950",
+                    "overUnder": "12.5"
+                  },
+                  {
+                    "odds": "-1800",
+                    "overUnder": "13.5"
+                  },
+                  {
+                    "odds": "-3500",
+                    "overUnder": "14.5"
+                  },
+                  {
+                    "odds": "-6000",
+                    "overUnder": "15.5"
+                  }
+                ]
+              },
+              "draftkings": {
+                "odds": "+100",
+                "overUnder": "8.5",
+                "available": true,
+                "altLines": [
+                  {
+                    "odds": "+295",
+                    "overUnder": "6.5"
+                  },
+                  {
+                    "odds": "+170",
+                    "overUnder": "7.5"
+                  },
+                  {
+                    "odds": "-165",
+                    "overUnder": "9.5"
+                  },
+                  {
+                    "odds": "-285",
+                    "overUnder": "10.5"
+                  },
+                  {
+                    "odds": "-475",
+                    "overUnder": "11.5"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "marketName": "Total Cards (Weighted) Over/Under (Full Match)",
+        "statID": "weightedCards",
+        "statEntityID": "all",
+        "variants": [
+          {
+            "sideID": "over",
+            "byBookmaker": {
+              "draftkings": {
+                "odds": "-130",
+                "overUnder": "3.5",
+                "available": true
+              }
+            }
+          },
+          {
+            "sideID": "under",
+            "byBookmaker": {
+              "draftkings": {
+                "odds": "-110",
+                "overUnder": "3.5",
+                "available": true
+              }
+            }
+          }
+        ]
       }
-    }
+    ]
   },
   "header": {
-    "id": "757749",
+    "id": "757761",
     "season": {
       "year": 2025,
       "current": true,
@@ -2578,53 +2848,691 @@
     },
     "competitions": [
       {
-        "date": "2025-12-09T20:00Z",
+        "date": "2026-01-20T15:30Z",
         "competitors": [
           {
             "homeAway": "home",
-            "winner": true,
+            "winner": false,
             "team": {
-              "id": "367",
-              "abbreviation": "TOT",
-              "displayName": "Tottenham Hotspur",
-              "color": "ffffff",
-              "alternateColor": "9bafd8"
+              "id": "2528",
+              "abbreviation": "KAI",
+              "displayName": "Kairat Almaty",
+              "color": "FCEE33",
+              "alternateColor": "81c0ff"
             },
-            "score": "3",
+            "score": "1",
             "linescores": {
-              "1": "1",
-              "2": "2"
+              "1": "0",
+              "2": "1"
             },
             "record": {
-              "summary": "3-2-1"
+              "summary": "0-1-5",
+              "odds": {
+                "sgo": [
+                  {
+                    "marketName": "3-Way Moneyline (Regulation)",
+                    "statID": "points",
+                    "statEntityID": "home",
+                    "variants": [
+                      {
+                        "sideID": "home",
+                        "byBookmaker": {
+                          "fanduel": {
+                            "odds": "+550",
+                            "available": true
+                          },
+                          "draftkings": {
+                            "odds": "+550",
+                            "available": true
+                          }
+                        },
+                        "periodID": "reg"
+                      }
+                    ]
+                  },
+                  {
+                    "marketName": "1st Half 3-Way Moneyline",
+                    "statID": "points",
+                    "statEntityID": "home",
+                    "variants": [
+                      {
+                        "sideID": "home",
+                        "byBookmaker": {
+                          "draftkings": {
+                            "odds": "+450",
+                            "available": true
+                          },
+                          "fanduel": {
+                            "odds": "+490",
+                            "available": true
+                          }
+                        },
+                        "periodID": "1h"
+                      }
+                    ]
+                  },
+                  {
+                    "marketName": "Kairat Almaty 1st Half Goals Over/Under",
+                    "statID": "points",
+                    "statEntityID": "home",
+                    "variants": [
+                      {
+                        "sideID": "over",
+                        "byBookmaker": {
+                          "fanduel": {
+                            "odds": "+164",
+                            "overUnder": "0.5",
+                            "available": true,
+                            "altLines": [
+                              {
+                                "odds": "+1120",
+                                "overUnder": "1.5"
+                              },
+                              {
+                                "odds": "+3300",
+                                "overUnder": "2.5"
+                              }
+                            ]
+                          }
+                        },
+                        "periodID": "1h"
+                      },
+                      {
+                        "sideID": "under",
+                        "byBookmaker": {
+                          "fanduel": {
+                            "odds": "-215",
+                            "overUnder": "0.5",
+                            "available": true,
+                            "altLines": [
+                              {
+                                "odds": "-2400",
+                                "overUnder": "1.5"
+                              }
+                            ]
+                          }
+                        },
+                        "periodID": "1h"
+                      }
+                    ]
+                  },
+                  {
+                    "marketName": "Kairat Almaty Goals Over/Under (Full Match)",
+                    "statID": "points",
+                    "statEntityID": "home",
+                    "variants": [
+                      {
+                        "sideID": "over",
+                        "byBookmaker": {
+                          "draftkings": {
+                            "odds": "-195",
+                            "overUnder": "0.5",
+                            "available": true,
+                            "altLines": [
+                              {
+                                "odds": "+240",
+                                "overUnder": "1.5"
+                              },
+                              {
+                                "odds": "+750",
+                                "overUnder": "2.5"
+                              }
+                            ]
+                          },
+                          "fanduel": {
+                            "odds": "-200",
+                            "overUnder": "0.5",
+                            "available": true,
+                            "altLines": [
+                              {
+                                "odds": "+260",
+                                "overUnder": "1.5"
+                              },
+                              {
+                                "odds": "+900",
+                                "overUnder": "2.5"
+                              },
+                              {
+                                "odds": "+3000",
+                                "overUnder": "3.5"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "sideID": "under",
+                        "byBookmaker": {
+                          "draftkings": {
+                            "odds": "+135",
+                            "overUnder": "0.5",
+                            "available": true,
+                            "altLines": [
+                              {
+                                "odds": "-390",
+                                "overUnder": "1.5"
+                              },
+                              {
+                                "odds": "-3500",
+                                "overUnder": "2.5"
+                              }
+                            ]
+                          },
+                          "fanduel": {
+                            "odds": "+154",
+                            "overUnder": "0.5",
+                            "available": true,
+                            "altLines": [
+                              {
+                                "odds": "-360",
+                                "overUnder": "1.5"
+                              },
+                              {
+                                "odds": "-2500",
+                                "overUnder": "2.5"
+                              },
+                              {
+                                "odds": "-10000",
+                                "overUnder": "3.5"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "marketName": "Spread (Full Match)",
+                    "statID": "points",
+                    "statEntityID": "home",
+                    "variants": [
+                      {
+                        "sideID": "home",
+                        "byBookmaker": {
+                          "draftkings": {
+                            "odds": "-160",
+                            "spread": "+1.5",
+                            "available": true,
+                            "altLines": [
+                              {
+                                "odds": "+135",
+                                "spread": "+0.5"
+                              },
+                              {
+                                "odds": "+110",
+                                "spread": "+1"
+                              }
+                            ]
+                          },
+                          "fanduel": {
+                            "odds": "-158",
+                            "spread": "+1.5",
+                            "available": true,
+                            "altLines": [
+                              {
+                                "odds": "+3200",
+                                "spread": "-2.5"
+                              },
+                              {
+                                "odds": "+1550",
+                                "spread": "-1.5"
+                              },
+                              {
+                                "odds": "-460",
+                                "spread": "+2.5"
+                              },
+                              {
+                                "odds": "-1450",
+                                "spread": "+3.5"
+                              },
+                              {
+                                "odds": "-5000",
+                                "spread": "+4.5"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "marketName": "Moneyline (Regulation)",
+                    "statID": "points",
+                    "statEntityID": "home",
+                    "variants": [
+                      {
+                        "sideID": "home",
+                        "byBookmaker": {
+                          "draftkings": {
+                            "odds": "+400",
+                            "available": true
+                          },
+                          "fanduel": {
+                            "odds": "+430",
+                            "available": true
+                          }
+                        },
+                        "periodID": "reg"
+                      }
+                    ]
+                  },
+                  {
+                    "marketName": "2nd Half 3-Way Moneyline",
+                    "statID": "points",
+                    "statEntityID": "home",
+                    "variants": [
+                      {
+                        "sideID": "home",
+                        "byBookmaker": {
+                          "draftkings": {
+                            "odds": "+425",
+                            "available": true
+                          }
+                        },
+                        "periodID": "2h"
+                      }
+                    ]
+                  },
+                  {
+                    "marketName": "Cards (Weighted) Spread (Full Match)",
+                    "statID": "weightedCards",
+                    "statEntityID": "home",
+                    "variants": [
+                      {
+                        "sideID": "home",
+                        "byBookmaker": {
+                          "draftkings": {
+                            "odds": "-125",
+                            "spread": "-0.5",
+                            "available": true
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "marketName": "Corner Kicks Spread (Full Match)",
+                    "statID": "cornerKicks",
+                    "statEntityID": "home",
+                    "variants": [
+                      {
+                        "sideID": "home",
+                        "byBookmaker": {
+                          "draftkings": {
+                            "odds": "-115",
+                            "spread": "+1.5",
+                            "available": true
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
             }
           },
           {
             "homeAway": "away",
             "winner": false,
             "team": {
-              "id": "494",
-              "abbreviation": "SLP",
-              "displayName": "Slavia Prague",
-              "color": "dc1f26",
-              "alternateColor": "81c0ff"
+              "id": "570",
+              "abbreviation": "BRU",
+              "displayName": "Club Brugge",
+              "color": "0081ff",
+              "alternateColor": "ffffff"
             },
-            "score": "0",
+            "score": "4",
             "linescores": {
-              "1": "0",
-              "2": "0"
+              "1": "2",
+              "2": "2"
             },
             "record": {
-              "summary": "0-3-3"
+              "summary": "1-1-4",
+              "odds": {
+                "sgo": [
+                  {
+                    "marketName": "3-Way Moneyline (Regulation)",
+                    "statID": "points",
+                    "statEntityID": "away",
+                    "variants": [
+                      {
+                        "sideID": "away",
+                        "byBookmaker": {
+                          "fanduel": {
+                            "odds": "-220",
+                            "available": true
+                          },
+                          "draftkings": {
+                            "odds": "-220",
+                            "available": true
+                          }
+                        },
+                        "periodID": "reg"
+                      }
+                    ]
+                  },
+                  {
+                    "marketName": "1st Half 3-Way Moneyline",
+                    "statID": "points",
+                    "statEntityID": "away",
+                    "variants": [
+                      {
+                        "sideID": "away",
+                        "byBookmaker": {
+                          "draftkings": {
+                            "odds": "-115",
+                            "available": true
+                          },
+                          "fanduel": {
+                            "odds": "-120",
+                            "available": true
+                          }
+                        },
+                        "periodID": "1h"
+                      }
+                    ]
+                  },
+                  {
+                    "marketName": "Club Brugge KV 1st Half Goals Over/Under",
+                    "statID": "points",
+                    "statEntityID": "away",
+                    "variants": [
+                      {
+                        "sideID": "over",
+                        "byBookmaker": {
+                          "fanduel": {
+                            "odds": "-210",
+                            "overUnder": "0.5",
+                            "available": true,
+                            "altLines": [
+                              {
+                                "odds": "+250",
+                                "overUnder": "1.5"
+                              },
+                              {
+                                "odds": "+1000",
+                                "overUnder": "2.5"
+                              }
+                            ]
+                          }
+                        },
+                        "periodID": "1h"
+                      },
+                      {
+                        "sideID": "under",
+                        "byBookmaker": {
+                          "fanduel": {
+                            "odds": "+160",
+                            "overUnder": "0.5",
+                            "available": true,
+                            "altLines": [
+                              {
+                                "odds": "-360",
+                                "overUnder": "1.5"
+                              },
+                              {
+                                "odds": "-2000",
+                                "overUnder": "2.5"
+                              }
+                            ]
+                          }
+                        },
+                        "periodID": "1h"
+                      }
+                    ]
+                  },
+                  {
+                    "marketName": "Club Brugge KV Goals Over/Under (Full Match)",
+                    "statID": "points",
+                    "statEntityID": "away",
+                    "variants": [
+                      {
+                        "sideID": "over",
+                        "byBookmaker": {
+                          "draftkings": {
+                            "odds": "+130",
+                            "overUnder": "2.5",
+                            "available": true,
+                            "altLines": [
+                              {
+                                "odds": "-1600",
+                                "overUnder": "0.5"
+                              },
+                              {
+                                "odds": "-235",
+                                "overUnder": "1.5"
+                              },
+                              {
+                                "odds": "+330",
+                                "overUnder": "3.5"
+                              },
+                              {
+                                "odds": "+700",
+                                "overUnder": "4.5"
+                              }
+                            ]
+                          },
+                          "fanduel": {
+                            "odds": "+146",
+                            "overUnder": "2.5",
+                            "available": true,
+                            "altLines": [
+                              {
+                                "odds": "-1600",
+                                "overUnder": "0.5"
+                              },
+                              {
+                                "odds": "-230",
+                                "overUnder": "1.5"
+                              },
+                              {
+                                "odds": "+400",
+                                "overUnder": "3.5"
+                              },
+                              {
+                                "odds": "+1000",
+                                "overUnder": "4.5"
+                              },
+                              {
+                                "odds": "+2000",
+                                "overUnder": "5.5"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "sideID": "under",
+                        "byBookmaker": {
+                          "draftkings": {
+                            "odds": "-195",
+                            "overUnder": "2.5",
+                            "available": true,
+                            "altLines": [
+                              {
+                                "odds": "+550",
+                                "overUnder": "0.5"
+                              },
+                              {
+                                "odds": "+155",
+                                "overUnder": "1.5"
+                              },
+                              {
+                                "odds": "-600",
+                                "overUnder": "3.5"
+                              },
+                              {
+                                "odds": "-3000",
+                                "overUnder": "4.5"
+                              }
+                            ]
+                          },
+                          "fanduel": {
+                            "odds": "-188",
+                            "overUnder": "2.5",
+                            "available": true,
+                            "altLines": [
+                              {
+                                "odds": "+750",
+                                "overUnder": "0.5"
+                              },
+                              {
+                                "odds": "+176",
+                                "overUnder": "1.5"
+                              },
+                              {
+                                "odds": "-620",
+                                "overUnder": "3.5"
+                              },
+                              {
+                                "odds": "-3000",
+                                "overUnder": "4.5"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "marketName": "Spread (Full Match)",
+                    "statID": "points",
+                    "statEntityID": "away",
+                    "variants": [
+                      {
+                        "sideID": "away",
+                        "byBookmaker": {
+                          "draftkings": {
+                            "odds": "+115",
+                            "spread": "-1.5",
+                            "available": true,
+                            "altLines": [
+                              {
+                                "odds": "-150",
+                                "spread": "-1"
+                              },
+                              {
+                                "odds": "-195",
+                                "spread": "-0.5"
+                              }
+                            ]
+                          },
+                          "fanduel": {
+                            "odds": "+124",
+                            "spread": "-1.5",
+                            "available": true,
+                            "altLines": [
+                              {
+                                "odds": "+1950",
+                                "spread": "-4.5"
+                              },
+                              {
+                                "odds": "+800",
+                                "spread": "-3.5"
+                              },
+                              {
+                                "odds": "+320",
+                                "spread": "-2.5"
+                              },
+                              {
+                                "odds": "-3500",
+                                "spread": "+1.5"
+                              },
+                              {
+                                "odds": "-8000",
+                                "spread": "+2.5"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "marketName": "Moneyline (Regulation)",
+                    "statID": "points",
+                    "statEntityID": "away",
+                    "variants": [
+                      {
+                        "sideID": "away",
+                        "byBookmaker": {
+                          "draftkings": {
+                            "odds": "-600",
+                            "available": true
+                          },
+                          "fanduel": {
+                            "odds": "-600",
+                            "available": true
+                          }
+                        },
+                        "periodID": "reg"
+                      }
+                    ]
+                  },
+                  {
+                    "marketName": "2nd Half 3-Way Moneyline",
+                    "statID": "points",
+                    "statEntityID": "away",
+                    "variants": [
+                      {
+                        "sideID": "away",
+                        "byBookmaker": {
+                          "draftkings": {
+                            "odds": "-140",
+                            "available": true
+                          }
+                        },
+                        "periodID": "2h"
+                      }
+                    ]
+                  },
+                  {
+                    "marketName": "Cards (Weighted) Spread (Full Match)",
+                    "statID": "weightedCards",
+                    "statEntityID": "away",
+                    "variants": [
+                      {
+                        "sideID": "away",
+                        "byBookmaker": {
+                          "draftkings": {
+                            "odds": "-110",
+                            "spread": "+0.5",
+                            "available": true
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "marketName": "Corner Kicks Spread (Full Match)",
+                    "statID": "cornerKicks",
+                    "statEntityID": "away",
+                    "variants": [
+                      {
+                        "sideID": "away",
+                        "byBookmaker": {
+                          "draftkings": {
+                            "odds": "-120",
+                            "spread": "-1.5",
+                            "available": true
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
             }
           }
         ],
         "status": {
+          "displayClock": "90'+2'",
+          "period": 2,
           "type": {
-            "state": "post",
-            "completed": true,
-            "detail": "FT",
-            "shortDetail": "FT"
+            "state": "in",
+            "completed": false,
+            "detail": "90'+2'",
+            "shortDetail": "90'+2'"
           }
         }
       }

@@ -342,6 +342,17 @@ const LiveGameCard = React.memo(
     };
     const sportLogo = getSportLogo(game.sport);
 
+      let halfText = "";
+      if (game.period === 1) {
+        halfText = "1st Half";
+      } else if (game.period === 2) {
+        halfText = "2nd Half";
+      } else if (game.period > 2) {
+        halfText = "Extra Time";
+      } else {
+        null;
+      }
+
     return (
       <TouchableOpacity
         style={[
@@ -394,7 +405,7 @@ const LiveGameCard = React.memo(
 
         {/* Game Time/Period */}
         <Text style={[styles.liveGameTime, { color: theme.textSecondary }]}>
-          {game.shortDetail && `${game.shortDetail}`}
+          {game.shortDetail && game.sport === "UEFA" ? `${game.shortDetail} • ${halfText}` : `${game.shortDetail}`}
         </Text>
 
         {/* Teams and Score */}

@@ -248,6 +248,7 @@ const getInitials = (name) => {
 // Reusable headshot component: shows image when available, otherwise initials
 const HeadshotOrInitials = ({
   uri,
+  playerId,
   name,
   backgroundColor,
   containerStyle,
@@ -256,10 +257,18 @@ const HeadshotOrInitials = ({
   teamLogoUri,
   teamLogoStyle,
 }) => {
-  const [failed, setFailed] = React.useState(false);
+  const initialFailed = isFailedHeadshot(playerId || uri || name);
+  const [failed, setFailed] = React.useState(initialFailed);
 
   const bg = backgroundColor || "#999";
   const textColor = isColorLight(bg) ? "black" : "white";
+
+  const handleError = (e) => {
+    try {
+      markFailedHeadshot(playerId || uri || name);
+    } catch (ex) {}
+    setFailed(true);
+  };
 
   return (
     <View
@@ -269,11 +278,7 @@ const HeadshotOrInitials = ({
       ]}
     >
       {!failed && uri ? (
-        <Image
-          source={{ uri }}
-          style={imageStyle}
-          onError={() => setFailed(true)}
-        />
+        <Image source={{ uri }} style={imageStyle} onError={handleError} />
       ) : (
         <Text
           style={[
@@ -1708,7 +1713,7 @@ const PropTabContent = ({
           // for full-game, prefer variants without periodID
           if (v.periodID) return;
         }
-        const dk = v.byBookmaker?.fanduel || v.byBookmaker?.draftkings;
+        const dk = v.byBookmaker?.draftkings || v.byBookmaker?.fanduel;
         if (dk?.altLines && Array.isArray(dk.altLines)) {
           dk.altLines.forEach((al) => {
             // Attach sideID from the parent variant so we know if this alt is 'over' or 'under'
@@ -2027,8 +2032,8 @@ const PropTabContent = ({
 
           if (yesVariant) {
             const dk =
-              yesVariant.byBookmaker?.fanduel ||
               yesVariant.byBookmaker?.draftkings ||
+              yesVariant.byBookmaker?.fanduel ||
               {};
             const oddsVal = dk.odds || dk.price || null;
             const betId = `${player.id}-${selectedPropType}-yes`;
@@ -2125,12 +2130,12 @@ const PropTabContent = ({
           );
 
           const dkOver =
-            overVariant?.byBookmaker?.fanduel ||
             overVariant?.byBookmaker?.draftkings ||
+            overVariant?.byBookmaker?.fanduel ||
             {};
           const dkUnder =
-            underVariant?.byBookmaker?.fanduel ||
             underVariant?.byBookmaker?.draftkings ||
+            underVariant?.byBookmaker?.fanduel ||
             {};
           const line =
             dkOver.overUnder ||
@@ -2512,6 +2517,8 @@ const AlternateSpreadSection = ({ gameData, theme, colors }) => {
   );
 };
 
+import { isFailedHeadshot, markFailedHeadshot } from "../../utils/failedHeadshots";
+
 const BetGameDetailScreen = ({ navigation, route }) => {
   const { colors, theme, isDarkMode } = useTheme();
   const { toggleBet, isBetSelected, isPro, setIsSlipOpen } = useBetSlip();
@@ -2538,6 +2545,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
   // Refs for synchronized scrolling in box score
   const boxScoreScrollRefs = useRef({});
   const isBoxScoreScrolling = useRef(false);
+  // Keep track of participant ids we've already rendered to avoid duplicate keys
+  const playParticipantsSeen = useRef(new Set());
 
   const tabFontSize = getTabFontSize();
 
@@ -2559,14 +2568,92 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     if (!participants || Object.keys(participants).length === 0) return null;
     const summary = summaryData || {};
 
-    // flatten participants map to array
+    // flatten participants map to array (dedupe by athlete id)
     const athletes = [];
+    // clear seen ids for each render of this component
+    playParticipantsSeen.current.clear();
     Object.keys(participants).forEach((k) => {
       const map = participants[k] || {};
-      Object.keys(map).forEach((aid) =>
-        athletes.push({ id: aid, displayName: map[aid] }),
-      );
+      Object.keys(map).forEach((aid) => {
+        const idStr = String(aid || "");
+        if (!idStr) return;
+        if (playParticipantsSeen.current.has(idStr)) return;
+        playParticipantsSeen.current.add(idStr);
+        athletes.push({ id: idStr, displayName: map[aid] });
+      });
     });
+
+    // Helper: robustly find athlete meta from summary rosters/boxscore
+    const findAthleteMetaById = (searchId) => {
+      if (!searchId) return null;
+      const idStr = String(searchId);
+      try {
+        // Prefer summary.rosters (UEFA/soccer)
+        if (summary?.rosters && Array.isArray(summary.rosters)) {
+          for (const teamBlock of summary.rosters) {
+            const rosterArr = teamBlock.roster || [];
+            const team = teamBlock.team || {};
+            const teamAbbrev = team.abbreviation || team.displayName || null;
+            const teamId = String(team.id || team.teamId || "");
+            const logoUse = sportPath === "soccer" ? teamId : (teamAbbrev || "").toLowerCase();
+            for (const entry of rosterArr) {
+              const aid = String(entry?.athlete?.id || entry?.athlete?.athleteId || "");
+              if (!aid) continue;
+              if (aid === idStr) {
+                const meta = {};
+                meta.displayName = entry?.athlete?.displayName || entry?.displayName || null;
+                meta.position = entry?.position || entry?.athlete?.position || null;
+                meta.jersey = entry?.jersey || null;
+                meta.stats = entry?.stats || null;
+                meta.headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${aid}.png&w=200`;
+                meta.team = { abbreviation: teamAbbrev, id: teamId, displayName: team.displayName, color: team.color, alternateColor: team.alternateColor };
+                meta.teamLogo = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${isDarkMode ? "-dark" : ""}/${logoUse}.png&h=100&w=100`;
+                return meta;
+              }
+            }
+          }
+        }
+
+        // Fallback: boxscore.players structure
+        if (summary?.boxscore?.players && Array.isArray(summary.boxscore.players)) {
+          for (const teamBlock of summary.boxscore.players) {
+            const team = teamBlock.team || {};
+            const teamAbbrev = team.abbreviation || team.displayName || null;
+            const teamId = String(team.id || team.teamId || "");
+            const logoUse = sportPath === "soccer" ? teamId : (teamAbbrev || "").toLowerCase();
+            const athletesArr = (teamBlock.statistics && teamBlock.statistics.athletes) || [];
+            for (const entry of athletesArr) {
+              const aid = String(entry?.athlete?.id || entry?.athlete?.athleteId || "");
+              if (!aid) continue;
+              if (aid === idStr) {
+                const meta = {};
+                meta.displayName = entry?.athlete?.displayName || null;
+                meta.position = entry?.athlete?.position || null;
+                meta.jersey = entry?.athlete?.jersey || null;
+                meta.stats = entry?.stats || null;
+                meta.headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${aid}.png&w=200`;
+                meta.team = { abbreviation: teamAbbrev, id: teamId, displayName: team.displayName, color: team.color, alternateColor: team.alternateColor };
+                meta.teamLogo = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${isDarkMode ? "-dark" : ""}/${logoUse}.png&h=100&w=100`;
+                return meta;
+              }
+            }
+          }
+        }
+
+        // Last-resort: summary.athletes keyed map
+        if (summary?.athletes && summary.athletes[idStr]) {
+          const a = summary.athletes[idStr];
+          const meta = { ...a };
+          if (!meta.headshot) {
+            meta.headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${idStr}.png&w=200`;
+          }
+          return meta;
+        }
+      } catch (e) {
+        // ignore
+      }
+      return null;
+    };
 
     // Build athlete metadata map from summary.boxscore if available
     let athleteMeta = summary?.athletes || {};
@@ -2652,7 +2739,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     }
     const byTeam = {};
     athletes.forEach((a) => {
-      const meta = athleteMeta[a.id] || {};
+      // Prefer robust lookup via rosters/boxscore; fall back to previously-built athleteMeta
+      const found = findAthleteMetaById(a.id);
+      const meta = found || athleteMeta[a.id] || {};
       const teamAbbrev =
         (meta.team && (meta.team.abbreviation || meta.team?.abbrev)) ||
         meta.teamAbbrev ||
@@ -2731,6 +2820,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 colors.primary;
               const teamLogo =
                 (teamLookup[team] && teamLookup[team].logo) ||
+                m.teamLogo ||
                 m.team?.logo ||
                 m.team?.logoUrl ||
                 `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${
@@ -2790,9 +2880,28 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 };
               });
 
+              // Use team-prefixed key to ensure uniqueness across teams
+              const participantKey = `${team}-${ath.id}`;
+
+              // Stabilize display name used for initials/headshot to avoid flicker
+              const displayName =
+                m.displayName || ath.displayName || m.name || `#${ath.id}`;
+
+              // If headshot URL is missing or empty, or previously failed, pass null so initials remain stable
+              let headshotUri = headshot && String(headshot).trim() ? headshot : null;
+              try {
+                if (headshotUri && typeof isFailedHeadshot === "function") {
+                  if (isFailedHeadshot(ath.id) || isFailedHeadshot(participantKey) || isFailedHeadshot(headshotUri)) {
+                    headshotUri = null;
+                  }
+                }
+              } catch (e) {
+                // ignore
+              }
+
               return (
                 <View
-                  key={ath.id}
+                  key={participantKey}
                   style={[
                     styles.participantCard,
                     idx !== byTeam[team].length - 1
@@ -2802,8 +2911,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 >
                   <View style={styles.participantTop}>
                     <HeadshotOrInitials
-                      uri={headshot}
-                      name={m.displayName || ath.displayName}
+                      uri={headshotUri}
+                      playerId={ath.id}
+                      name={displayName}
                       backgroundColor={teamColor}
                       containerStyle={styles.headshotWrap}
                       imageStyle={styles.headshot}
@@ -2815,7 +2925,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       <Text
                         style={[styles.participantName, { color: theme.text }]}
                       >
-                        {ath.displayName || m.displayName || "Unknown"}
+                        {displayName}
                       </Text>
                       <Text
                         style={[
@@ -2891,7 +3001,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             ]}
           >
             <View style={styles.fieldOutline} />
-            <View style={styles.centerLine} />
+            <View style={styles.centerLineSoccer} />
             <View style={styles.centerCircleMini} />
             <View style={styles.penaltyAreaLeft} />
             <View style={styles.penaltyAreaRight} />
@@ -2973,8 +3083,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
               ? "red-card"
               : eventType === "offside"
                 ? "offside"
-                : eventType === "substitution"
-                  ? "substitution"
                   : "goal";
 
     const finalTeamColor = teamColor.startsWith("#")
@@ -3000,8 +3108,6 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           return [...baseStyle, styles.cardMarker];
         case "red-card":
           return [...baseStyle, styles.redCardMarker];
-        case "substitution":
-          return [...baseStyle, styles.substitutionMarker];
         case "offside":
           return [...baseStyle, styles.offsideMarker];
         default:
@@ -3055,7 +3161,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           ]}
         >
           <View style={styles.fieldOutline} />
-          <View style={styles.centerLine} />
+          <View style={styles.centerLineSoccer} />
           <View style={styles.centerCircleMini} />
           <View style={styles.penaltyAreaLeft} />
           <View style={styles.penaltyAreaRight} />
@@ -3299,6 +3405,19 @@ const BetGameDetailScreen = ({ navigation, route }) => {
     const team1Logo = sportPath === "soccer" ? team1Id : team1Abbr;
     const team2Logo = sportPath === "soccer" ? team2Id : team2Abbr;
 
+    let halfText = "";
+    const statusPeriod = status?.period;
+    if (statusPeriod === 1) {
+      halfText = "1st Half";
+    } else if (statusPeriod === 2) {
+      halfText = "2nd Half";
+    } else if (typeof statusPeriod === "number" && statusPeriod > 2) {
+      halfText = "Extra Time";
+    }
+
+    const statusType = status?.type || {};
+    const shortDetail = statusType?.shortDetail || "";
+
     return {
       id: summaryData.header.id,
       team1: awayTeam.team.displayName,
@@ -3327,9 +3446,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         (typeof homeTeam.record === "string" ? homeTeam.record : null),
       score2: homeTeam.score,
       linescores2: homeTeam.linescores,
-      status: status.type.state,
-      statusDetail: status.type.shortDetail,
-      completed: status.type.completed,
+      status: statusType?.state || status?.state || "pre",
+      statusDetail:
+        sportPath === "soccer"
+          ? (statusType?.state === "pre" ? `${shortDetail}` : `${shortDetail} • ${halfText}`)
+          : shortDetail,
+      completed: statusType?.completed || false,
       sport: sportToUse,
     };
   }, [summaryData, game, isDarkMode, sportToUse]);
@@ -3801,9 +3923,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                         const goalies = athletes.filter(isGoalie);
                         const onField = athletes.filter((p) => {
                           if (isGoalie(p)) return false;
-                          if (p.subbedOut === true) return false;
                           if (p.subbedIn === true) return true;
-                          return !!p.active;
+                          if (p.subbedOut === true) return false;
+                          if (p.starter === true) return true;
                         });
                         const bench = athletes.filter(
                           (p) => !onField.includes(p) && !goalies.includes(p),
@@ -6035,7 +6157,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       justifyContent: "center",
                     }}
                   >
-                    {sportUpper === "NHL" && (
+                    {sportUpper === "NHL" ? (
                       <>
                         <HockeyRink
                           coordinate={undefined}
@@ -6047,6 +6169,25 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             rinkContainer: {
                               ...styles.rinkContainer,
                               transform: [{ scale: courtScale }],
+                            },
+                          }}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <BasketballCourt
+                          coordinate={undefined}
+                          isScoring={false}
+                          teamSide="home"
+                          teamColor="#000000"
+                          styles={{
+                            ...styles,
+                            courtContainer: {
+                              ...styles.courtContainer,
+                              transform: [
+                                { rotate: "90deg" },
+                                { scale: courtScale },
+                              ],
                             },
                           }}
                         />
@@ -6190,7 +6331,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 {renderSoccerMiniField(
                                   coord,
                                   coord2,
-                                  summaryData?.commentary?.play.type.text.toLowerCase() ||
+                                  summaryData?.commentary?.play?.type?.text.toLowerCase() || summaryData?.commentary?.text ||
                                     "gen",
                                   teamSide,
                                   teamColor,
@@ -6200,6 +6341,23 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                     },
                                   },
                                 )}
+                                {/* Home Team Logo in Center */}
+                                <Image
+                                  source={{ uri: gameData.team2Logo }}
+                                  style={{
+                                    position: "absolute",
+                                    width: 40 * courtScale,
+                                    height: 40 * courtScale,
+                                    opacity: 0.6,
+                                    top: "50%",
+                                    left: "50%",
+                                    transform: [
+                                      { translateX: -20 * courtScale },
+                                      { translateY: -20 * courtScale },
+                                    ],
+                                  }}
+                                  resizeMode="contain"
+                                />
                               </View>
                             </View>
                           );
@@ -6623,13 +6781,13 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   ? market.variants
                   : [];
 
-                // Find fanduel variant grouping by side
+                // Find draftkings variant grouping by side
                 const dkBySide = {};
                 variants.forEach((v) => {
                   const side = v.sideID || "none";
                   const bk =
                     (v.byBookmaker &&
-                      (v.byBookmaker.fanduel || v.byBookmaker.draftkings)) ||
+                      (v.byBookmaker.draftkings || v.byBookmaker.fanduel)) ||
                     null;
                   if (bk) {
                     dkBySide[side] = dkBySide[side] || [];
@@ -6646,7 +6804,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   const side = v.sideID || "other";
                   const bk =
                     (v.byBookmaker &&
-                      (v.byBookmaker.fanduel || v.byBookmaker.draftkings)) ||
+                      (v.byBookmaker.draftkings || v.byBookmaker.fanduel)) ||
                     null;
                   const lines =
                     bk && Array.isArray(bk.altLines) ? bk.altLines : [];
@@ -7436,7 +7594,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     const side = v.sideID || v.side || "none";
                     const bk =
                       (v.byBookmaker &&
-                        (v.byBookmaker.fanduel || v.byBookmaker.draftkings)) ||
+                        (v.byBookmaker.draftkings || v.byBookmaker.fanduel)) ||
                       (v.byBookmaker && Object.values(v.byBookmaker)[0]) ||
                       v.bookmaker ||
                       null;
@@ -7457,7 +7615,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     const side = v.sideID || v.side || "other";
                     const bk =
                       (v.byBookmaker &&
-                        (v.byBookmaker.fanduel || v.byBookmaker.draftkings)) ||
+                        (v.byBookmaker.draftkings || v.byBookmaker.fanduel)) ||
                       (v.byBookmaker && Object.values(v.byBookmaker)[0]) ||
                       v.bookmaker ||
                       null;
@@ -10106,7 +10264,7 @@ const styles = StyleSheet.create({
     borderColor: "white",
     borderRadius: 2,
   },
-  centerLine: {
+  centerLineSoccer: {
     position: "absolute",
     left: "50%",
     top: 2,
@@ -10221,9 +10379,6 @@ const styles = StyleSheet.create({
   },
   shotMarkerSoccer: {
     backgroundColor: "#ffa500",
-  },
-  substitutionMarker: {
-    backgroundColor: "#0080ff",
   },
   offsideMarker: {
     backgroundColor: "#800080",

@@ -18,6 +18,10 @@ import BetSlip from "../../components/BetSlip";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { registerForPushNotifications } from "../../services/notificationService";
 import { getUserBetslips } from "../../services/betService";
+import {
+  isFailedHeadshot,
+  markFailedHeadshot,
+} from "../../utils/failedHeadshots";
 import { BannerAdWrapper, DEV_BANNER_ID } from "../../services/ads";
 
 const BetBetsScreen = () => {
@@ -71,17 +75,17 @@ const BetBetsScreen = () => {
 
   const HeadshotOrInitials = ({
     uri,
+    playerId,
     name,
+    backgroundColor,
     containerStyle,
     imageStyle,
     initialsStyle,
     onError,
   }) => {
-    const [failed, setFailed] = useState(false);
-    // Determine bg color from style if provided
-    const bg =
-      (Array.isArray(containerStyle) ? containerStyle[0] : containerStyle)
-        ?.backgroundColor || "#999";
+    const initialFailed = isFailedHeadshot(playerId || uri);
+    const [failed, setFailed] = useState(initialFailed);
+    const bg = backgroundColor || "#999";
     const textColor = isColorLight(bg) ? "#000" : "#FFF";
     return (
       <View style={containerStyle}>
@@ -91,6 +95,10 @@ const BetBetsScreen = () => {
             style={imageStyle}
             onError={(e) => {
               setFailed(true);
+              // persist failure in shared cache so we don't retry repeatedly
+              try {
+                markFailedHeadshot(playerId || uri);
+              } catch (ex) {}
               if (onError) onError(e);
             }}
           />
@@ -475,6 +483,40 @@ const BetBetsScreen = () => {
           const substrStripped = findSubstr(stripped);
           if (substrStripped) return substrStripped;
         }
+
+        // 2b) If pick.key contains a period suffix like '1H', '2Q', '3P' (or reversed 'H1'),
+        // prefer period-specific payload keys. Map moneyline->ML, spread->SP, total/over->T.
+        try {
+          const k = String(key || "");
+          const m1 = k.match(/([0-9]{1,2})([HPQ])/i); // e.g. '1H'
+          const m2 = k.match(/([HPQ])([0-9]{1,2})/i); // e.g. 'H1'
+          const m = m1 || m2;
+          if (m) {
+            const num = m[1];
+            const letter = m[2].toUpperCase();
+            const periodToken = `${letter}${num}`; // e.g. H1, Q2, P3
+            // decide kind
+            let kind = null;
+            if (/moneyline|ml|3-way|3way/i.test(k) || (bet && String(bet.type || "").toLowerCase().includes("moneyline"))) kind = "ML";
+            else if (/spread|sp\b|spread/i.test(k) || (bet && String(bet.type || "").toLowerCase().includes("spread"))) kind = "SP";
+            else if (/total|over|under|ou|totoal/i.test(k) || (bet && String(bet.type || "").toLowerCase().includes("total"))) kind = "T";
+            // fallback: try all three if kind not detected
+            const candidates = kind
+              ? [`${periodToken}_${kind}`, `${periodToken}${kind}`, `${periodToken}_${kind.toLowerCase()}`, `${periodToken}${kind.toLowerCase()}`]
+              : [
+                  `${periodToken}_ML`,
+                  `${periodToken}ML`,
+                  `${periodToken}_SP`,
+                  `${periodToken}SP`,
+                  `${periodToken}_T`,
+                  `${periodToken}T`,
+                ];
+            for (const cand of candidates) {
+              const found = findExact(cand) || findSubstr(cand);
+              if (found) return found;
+            }
+          }
+        } catch (e) {}
       }
 
       // 3) derived stat key (attempt to synthesize likely payload key from statType)
@@ -1440,6 +1482,7 @@ const BetBetsScreen = () => {
           pick.playerHeadshot ||
           pick.headshotUrl) && (
           <HeadshotOrInitials
+            playerId={pick.playerId}
             uri={
               pick.headshot ||
               pick.headshot_url ||
@@ -1447,6 +1490,7 @@ const BetBetsScreen = () => {
               pick.headshotUrl
             }
             name={pick.playerName}
+            backgroundColor={pick.playerColor}
             containerStyle={[
               styles.playerHeadshot,
               pick.playerColor
@@ -1871,14 +1915,6 @@ const BetBetsScreen = () => {
         );
         const events = (betslipData && betslipData.events) || [];
         if (events.length === 0) console.log("  no events in payload");
-        events.forEach((ev) => {
-          try {
-            console.log(
-              `  eventId=${ev.eventId} betsKeys=`,
-              Object.keys(ev.bets || {}),
-            );
-          } catch (e) {}
-        });
       } catch (e) {}
     }
     const originalBets = betSlip.bets || betSlip.bets || [];
@@ -2177,12 +2213,17 @@ const BetBetsScreen = () => {
       };
       // Expose a canonical key on the pick so resolvers can prefer it.
       try {
-        // Prefer explicit bet.key; for player props, fall back to derived stat key.
-        pick.key = bet.key || null;
-        if (!pick.key && bet.playerId) {
+        // If this is a team- or game-scoped pick (id starts with 'team' or 'game'),
+        // prefer the explicit `bet.key` so payload lookups match event-level keys.
+        // For other picks (typically player props), derive a stat key instead
+        // and avoid assigning the event-level `key` which causes progressSource mismatches.
+        const idStr = String(bet.id || "");
+        if (/^(team-|game-)/i.test(idStr)) {
+          pick.key = bet.key || null;
+        } else {
           try {
             pick.key = deriveStatKey(
-              bet.statType || bet.prop || bet.propType || "",
+              bet.statType || bet.prop || bet.propType || bet.id || "",
               bet.sport || "",
             );
           } catch (e) {
@@ -2311,7 +2352,9 @@ const BetBetsScreen = () => {
 
         const sportSuffix = getSportFromBet(bet) || "nba";
         const sportPath = sportSuffix === "uefa" ? "soccer" : sportSuffix;
-        pick.headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${bet.playerId}.png&w=200`;
+        const hsUrl = `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${bet.playerId}.png&w=200`;
+        // Avoid assigning headshot URL if we've previously recorded it as missing
+        pick.headshot = isFailedHeadshot(bet.playerId) ? null : hsUrl;
         pick.color = bet.playerColor || null;
         pick.sportSuffix = sportSuffix;
 
@@ -2733,14 +2776,6 @@ const BetBetsScreen = () => {
                     resolveBetsPayloadKey(chosen.bets, pick, bet) ||
                     (wantKey && (chosen.bets[wantKey] ? wantKey : null));
                 }
-                if (typeof __DEV__ !== "undefined" && __DEV__) {
-                  try {
-                    console.log(
-                      `DEV: totals lookup for pick ${pick.id} (pick.key=${pick.key}) -> chosenResolved=${chosenResolved} eventBets=`,
-                      Object.keys(chosen?.bets || {}),
-                    );
-                  } catch (e) {}
-                }
 
                 if (chosen && chosenResolved && chosen.bets[chosenResolved]) {
                   const payload = chosen.bets[chosenResolved];
@@ -2757,6 +2792,73 @@ const BetBetsScreen = () => {
                   pick.status = normalizeWon(payload.won) || pick.status;
                   pick.progressWonSource = `betslipData.event:${chosen.eventId || bet.gameId}.bets.${chosenResolved}.won`;
                 }
+              }
+            } catch (e) {}
+
+            // Fallback: if this is a player prop and we couldn't resolve a
+            // progressSource from the payload, attempt to construct one from
+            // the derived stat key so the UI can read progress where possible.
+            try {
+              if (bet.playerId && !pick.progressSource) {
+                const sportHint = getSportFromBet(bet) || bet.sport || "";
+                const statKey = deriveStatKey(
+                  bet.statType || bet.prop || bet.propType || bet.id || "",
+                  sportHint,
+                );
+                if (statKey) {
+                  // prefer overUnder path, otherwise milestones
+                  const constructed = `betslipData.event:${eventData?.eventId || bet.gameId}.players:${bet.playerId}.overUnder:${statKey}`;
+                  try {
+                    if (typeof __DEV__ !== "undefined" && __DEV__) {
+                      console.log("DEV: constructing fallback progressSource for player prop", {
+                        pickId: pick.id,
+                        pickKey: pick.key,
+                        betId: bet.id,
+                        playerId: bet.playerId,
+                        statType: bet.statType,
+                        statKey,
+                        constructed,
+                        eventId: eventData?.eventId || bet.gameId,
+                      });
+                    }
+                  } catch (e) {}
+
+                  pick.progressSource = constructed;
+                  pick.progressWonSource = `betslipData.event:${eventData?.eventId || bet.gameId}.players:${bet.playerId}.overUnder:${statKey}.won`;
+                }
+              }
+            } catch (e) {}
+
+            // DEV: if progressSource still missing, log details to help debugging
+            try {
+              if (!pick.progressSource) {
+                try {
+                  // Targeted trace for ticket the user reported
+                  if (
+                    typeof betSlip !== "undefined" &&
+                    String(betSlip.id) === "9a188305-e50f-4d57-8fe2-3fbbfe3ce172"
+                  ) {
+                    console.log("TRACE: pick missing progressSource", {
+                      ticketId: betSlip.id,
+                      pickId: pick.id,
+                      pickKey: pick.key,
+                      betId: bet.id,
+                      playerId: bet.playerId,
+                      eventId: eventData?.eventId || bet.gameId,
+                      betslipEvents:
+                        betslipData && Array.isArray(betslipData.events)
+                          ? betslipData.events.map((e) => ({
+                              eventId: e.eventId,
+                              bets: Object.keys(e.bets || {}),
+                            }))
+                          : null,
+                      matchedEventPlayers:
+                        eventData && eventData.bets && eventData.bets.players
+                          ? eventData.bets.players.map((p) => p.id)
+                          : null,
+                    });
+                  }
+                } catch (inner) {}
               }
             } catch (e) {}
 
@@ -3199,14 +3301,6 @@ const BetBetsScreen = () => {
             // resolvedBetKey fallback: prefer chosenKey from matches, otherwise resolve against eventData
             const resolvedBetKey =
               chosenKey || resolveBetsPayloadKey(eventData.bets, pick, bet);
-            if (typeof __DEV__ !== "undefined" && __DEV__) {
-              try {
-                console.log(
-                  `DEV: generic lookup for pick ${pick.id} (pick.key=${pick.key}) -> resolvedBetKey=${resolvedBetKey} eventBets=`,
-                  Object.keys(eventData.bets || {}),
-                );
-              } catch (e) {}
-            }
             // Period-specific overrides (e.g. P1_SP, P2_T)
             try {
               const periodKey = normalizePeriodKey(bet.period);
@@ -4462,7 +4556,7 @@ const BetBetsScreen = () => {
               {renderGameScoreNames(pick, liveGame, scores)}
             </View>
             <View style={styles.parlayGameStatusRow}>
-              {liveGame?.status?.type?.state === "in" && (
+              {(liveGame?.competitions[0]?.status?.type?.state || pick.gameState) === "in" && (
                 <View
                   style={[
                     styles.liveIndicator,
@@ -4695,7 +4789,7 @@ const BetBetsScreen = () => {
               {renderGameScoreNames(firstPick, liveGame, scores)}
             </View>
             <View style={styles.parlayGameStatusRow}>
-              {liveGame?.status?.type?.state === "in" && (
+              {(liveGame?.competitions[0]?.status?.type?.state || firstPick.gameState) === "in" && (
                 <View
                   style={[
                     styles.liveIndicator,
@@ -4711,7 +4805,7 @@ const BetBetsScreen = () => {
                   { color: theme.textTertiary, marginLeft: 0 },
                 ]}
               >
-                {firstPick.gameStatus || liveGame?.status?.type?.shortDetail}
+                {firstPick.gameStatus || liveGame?.competitions[0]?.status?.type?.shortDetail}
               </Text>
             </View>
           </View>
@@ -4956,7 +5050,7 @@ const BetBetsScreen = () => {
                   {renderGameScoreNames(picks[0], liveGame, scores)}
                 </View>
                 <View style={styles.parlayGameStatusRow}>
-                  {liveGame?.status?.type?.state === "in" && (
+                  {(liveGame?.competitions[0]?.status?.type?.state || picks[0].gameState) === "in" && (
                     <View
                       style={[
                         styles.liveIndicator,
@@ -4972,7 +5066,7 @@ const BetBetsScreen = () => {
                       { color: theme.textTertiary, marginLeft: 0 },
                     ]}
                   >
-                    {picks[0].gameStatus || liveGame?.status?.type?.shortDetail}
+                    {picks[0].gameStatus || liveGame?.competitions[0]?.status?.type?.shortDetail}
                   </Text>
                 </View>
               </View>

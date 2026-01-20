@@ -6229,6 +6229,27 @@ app.get("/api/betslip", async (req, res) => {
         } catch (e) {}
         return 0;
       }
+      
+      if (statUpper === "USOG")
+        return (
+          readLabelIndex("ST") ??
+          tryGet(athleteEntry, ["stats", "ST"]) ??
+          0
+        );
+
+      if (statUpper === "USHT")
+        return (
+          readLabelIndex("SH") ??
+          tryGet(athleteEntry, ["stats", "SH"]) ??
+          0
+        );
+
+      if (statUpper === "USAT")
+        return (
+          readLabelIndex("A") ??
+          tryGet(athleteEntry, ["stats", "A"]) ??
+          0
+        );
 
       // Yellow cards (YC)
       if (
@@ -7418,7 +7439,7 @@ app.get("/api/betslip", async (req, res) => {
               getParamValueForGame(qKeyNamed, gi) ||
               getParamValueForGame(qKeyQ, gi) ||
               getParamValueForGame(qKeyAlt, gi);
-            if (qVal) {
+              if (qVal) {
               // qVal expected as team abbr
               const homeQ = parseInt(homeLines[period]) || 0;
               const awayQ = parseInt(awayLines[period]) || 0;
@@ -7434,14 +7455,7 @@ app.get("/api/betslip", async (req, res) => {
               eventData.bets[`Q${period}_ML`] = {
                 bet: qVal,
                 current: `${homeQ}-${awayQ}`,
-                won:
-                  qVal === winner
-                    ? isCompleted
-                      ? true
-                      : quarterInProgress
-                      ? "in progress"
-                      : "pending"
-                    : false,
+                won: qVal === winner ? (isCompleted ? true : "pending") : false,
               };
             }
 
@@ -7483,15 +7497,7 @@ app.get("/api/betslip", async (req, res) => {
                   team: teamAbbr,
                   line: spreadLine,
                   current: qCurrentNumeric,
-                  won: isCompleted
-                    ? isWinning
-                      ? true
-                      : false
-                    : quarterInProgress
-                    ? "in progress"
-                    : isWinning
-                    ? true
-                    : false, // Period complete, evaluate result
+                  won: isCompleted ? (isWinning ? true : false) : "pending",
                 };
               }
             }
@@ -7541,22 +7547,10 @@ app.get("/api/betslip", async (req, res) => {
                 let won;
                 if (isOver) {
                   const isWinning = currentQTotal >= line;
-                  won = isCompleted
-                    ? isWinning
-                      ? true
-                      : false
-                    : quarterInProgress
-                    ? "in progress"
-                    : isWinning
-                    ? true
-                    : false; // Period complete, evaluate result
+                  won = isCompleted ? (isWinning ? true : false) : "pending";
                 } else {
-                  if (quarterInProgress)
-                    won = currentQTotal <= line ? "in progress" : false;
-                  else if (!isCompleted)
-                    won = currentQTotal <= line ? true : false;
-                  // Period complete
-                  else won = currentQTotal <= line ? true : false;
+                  const isWinning = currentQTotal <= line;
+                  won = isCompleted ? (isWinning ? true : false) : "pending";
                 }
                 eventData.bets[`Q${period}_T`] = {
                   bet: qTotalVal,
@@ -7625,27 +7619,8 @@ app.get("/api/betslip", async (req, res) => {
                   isCompleted
                 );
                 let won;
-                if (isOver) {
-                  const isWinning = current >= line;
-                  won = isCompleted
-                    ? isWinning
-                      ? true
-                      : false
-                    : quarterInProgress
-                    ? isWinning
-                      ? true
-                      : "in progress"
-                    : isWinning
-                    ? true
-                    : false; // Quarter complete, evaluate result
-                } else {
-                  const isWinning = current <= line;
-                  if (quarterInProgress)
-                    won = isWinning ? "in progress" : false;
-                  else if (!isCompleted)
-                    won = isWinning ? true : false; // Quarter complete
-                  else won = isWinning ? true : false;
-                }
+                const isWinning = isOver ? current >= line : current <= line;
+                won = isCompleted ? (isWinning ? true : false) : "pending";
                 eventData.bets[keyName] = {
                   bet: token,
                   line,
@@ -7841,26 +7816,8 @@ app.get("/api/betslip", async (req, res) => {
                   isCompleted
                 );
                 let won;
-                if (isOver) {
-                  const isWinning = currentPTotal >= line;
-                  won = isCompleted
-                    ? isWinning
-                      ? true
-                      : false
-                    : periodInProgress
-                    ? isWinning
-                      ? true
-                      : "in progress"
-                    : isWinning
-                    ? true
-                    : false; // Period complete, evaluate result
-                } else {
-                  const isWinning = currentPTotal <= line;
-                  if (periodInProgress) won = isWinning ? "in progress" : false;
-                  else if (!isCompleted)
-                    won = isWinning ? true : false; // Period complete
-                  else won = isWinning ? true : false;
-                }
+                const isWinning = isOver ? currentPTotal >= line : currentPTotal <= line;
+                won = isCompleted ? (isWinning ? true : false) : "pending";
                 eventData.bets[`P${pi}_T`] = {
                   bet: periodTVal,
                   line,
@@ -7918,25 +7875,8 @@ app.get("/api/betslip", async (req, res) => {
                   isCompleted
                 );
                 let won;
-                if (isOver) {
-                  const isWinning = score >= line;
-                  won = isCompleted
-                    ? isWinning
-                      ? true
-                      : false
-                    : periodInProgress
-                    ? isWinning
-                      ? true
-                      : "in progress"
-                    : isWinning
-                    ? true
-                    : false;
-                } else {
-                  const isWinning = score <= line;
-                  if (periodInProgress) won = isWinning ? "in progress" : false;
-                  else if (!isCompleted) won = isWinning ? true : false;
-                  else won = isWinning ? true : false;
-                }
+                const isWinning = isOver ? score >= line : score <= line;
+                won = isCompleted ? (isWinning ? true : false) : "pending";
                 eventData.bets[keyName] = {
                   bet: token,
                   line,
@@ -8023,14 +7963,7 @@ app.get("/api/betslip", async (req, res) => {
               eventData.bets[`H${halfIndex}_ML`] = {
                 bet: halfMLVal,
                 current: `${homeHalf}-${awayHalf}`,
-                won:
-                  halfMLVal === winner
-                    ? isCompleted
-                      ? true
-                      : halfInProgress
-                      ? "in progress"
-                      : "pending"
-                    : false,
+                won: halfMLVal === winner ? (isCompleted ? true : "pending") : false,
               };
             }
 
@@ -8089,26 +8022,8 @@ app.get("/api/betslip", async (req, res) => {
                   );
                 }
                 let won;
-                if (isOver) {
-                  const isWinning = currentHalfTotal >= line;
-                  won = isCompleted
-                    ? isWinning
-                      ? true
-                      : false
-                    : halfInProgress
-                    ? isWinning
-                      ? true
-                      : "in progress"
-                    : isWinning
-                    ? true
-                    : false; // Half complete, evaluate result
-                } else {
-                  const isWinning = currentHalfTotal <= line;
-                  if (halfInProgress) won = isWinning ? "in progress" : false;
-                  else if (!isCompleted)
-                    won = isWinning ? true : false; // Half complete
-                  else won = isWinning ? true : false;
-                }
+                const isWinning = isOver ? currentHalfTotal >= line : currentHalfTotal <= line;
+                won = isCompleted ? (isWinning ? true : false) : "pending";
                 eventData.bets[`H${halfIndex}_T`] = {
                   bet: halfTotalVal,
                   line,
@@ -8166,15 +8081,7 @@ app.get("/api/betslip", async (req, res) => {
                   team: teamAbbr,
                   line: spreadLine,
                   current: hCurrentNumeric,
-                  won: isCompleted
-                    ? isWinning
-                      ? true
-                      : false
-                    : halfInProgress
-                    ? "in progress"
-                    : isWinning
-                    ? true
-                    : false, // Half complete, evaluate result
+                  won: isCompleted ? (isWinning ? true : false) : "pending",
                 };
               }
             }
@@ -8316,25 +8223,8 @@ app.get("/api/betslip", async (req, res) => {
                   );
                 }
                 let won;
-                if (isOver) {
-                  const isWinning = current >= line;
-                  won = isCompleted
-                    ? isWinning
-                      ? true
-                      : false
-                    : halfInProgress
-                    ? "in progress"
-                    : "pending";
-                } else {
-                  if (isInProgress) {
-                    won = current <= line ? "in progress" : false;
-                  } else if (!isCompleted) {
-                    won = "pending";
-                  } else {
-                    const isWinning = current <= line;
-                    won = isWinning ? true : false;
-                  }
-                }
+                const isWinning = isOver ? current >= line : current <= line;
+                won = isCompleted ? (isWinning ? true : false) : "pending";
                 eventData.bets[`H${halfIndex}_TP`] =
                   eventData.bets[`H${halfIndex}_TP`] || [];
                 eventData.bets[`H${halfIndex}_TP`].push({
@@ -8559,7 +8449,7 @@ app.get("/api/betslip", async (req, res) => {
                 eventData.bets.cornerSpread = {
                   team: teamAbbr,
                   line,
-                  current: { teamCorners, oppCorners },
+                  current: (oppCorners || 0) - (teamCorners || 0),
                   won: isCompleted
                     ? isWinning
                       ? true
@@ -8596,7 +8486,7 @@ app.get("/api/betslip", async (req, res) => {
                 eventData.bets.cardSpread = {
                   team: teamAbbr,
                   line,
-                  current: { teamCards, oppCards },
+                  current: (oppCards || 0) - (teamCards || 0),
                   won: isCompleted
                     ? isWinning
                       ? true
@@ -9088,7 +8978,7 @@ app.get("/api/betslip", async (req, res) => {
               // Sum yellow + red
               const yellow = sumBoxscoreStat(/yellow/i);
               const red = sumBoxscoreStat(/red/i);
-              const totalCards = (Number(yellow) || 0) + (Number(red) || 0);
+              const totalCards = (Number(yellow) || 0) + (Number(red) || 0) * 2;
               const tkn = String(totalCardsToken || "").trim();
               console.log(
                 `[Betslip][UEFA] totalCards token raw='${String(

@@ -1,50 +1,175 @@
-[Bet] SAC +10.5 | Source: overrideEvent.event:401810370.bets.H1_SP.current | Current: -12 | Line: +10.5 | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] SAC +8.5 | Source: overrideEvent.event:401810370.bets.Q1_SP.current | Current: -10 | Line: +8.5 | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] SAC 103+ | Source: overrideEvent.event:401810370.bets.homePoints.current | Current: 98 | Line: 103+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] DAL 129- | Source: overrideEvent.event:401810370.bets.awayPoints.current | Current: 100 | Line: 129- | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] DAL Regulation 3-Way Moneyline AWAY | Source: overrideEvent.event:401810370.bets.moneyline | Current: N/A | Line: DAL | GameState: post | ShowProgressBar: false
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] DAL 53+ | Source: overrideEvent.event:401810370.bets.awayPoints1H.current | Current: 46 | Line: 53+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] SAC 64- | Source: overrideEvent.event:401810370.bets.homePoints2H.current | Current: 40 | Line: 64- | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] 210+ | Source: overrideEvent.event:401810370.bets.totalPoints.current | Current: 198 | Line: 210+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] Under 119.5 | Source: overrideEvent.event:401810370.bets.H1_T.current | Current: 104 | Line: U 119.5 | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] 54+ | Source: overrideEvent.event:401810370.bets.Q1_T.current | Current: 60 | Line: 54+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] points+rebounds_ou 15+ | Source: overrideEvent.event:401810370.players:3978.milestones:PR | Current: 23 | Line: 15+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] points+rebounds+assists_ou 20+ | Source: overrideEvent.event:401810370.players:5041939.milestones:PRA | Current: 34 | Line: 20+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] rebounds_ou U6.5 | Source: overrideEvent.event:401810370.players:4278049.overUnder:REB | Current: 13 | Line: 6.5 | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] rebounds+assists_ou O7.5 | Source: overrideEvent.event:401810370.players:3978.overUnder:RA | Current: 7 | Line: 7.5 | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] steals_ou 1+ | Source: overrideEvent.event:401810370.players:3468.milestones:STL | Current: 1 | Line: 1+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] threePointersMade_ou 1+ | Source: overrideEvent.event:401810370.players:4432582.milestones:3PM | Current: 2 | Line: 1+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] tripleDouble_yn YES | Source: overrideEvent.event:401810370.players:3468.milestones:3DBL | Current: 0 | Line: N/A | GameState: post | ShowProgressBar: false
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] DAL +16.5 | Source: overrideEvent.event:401810370.bets.spread.current | Current: -2 | Line: +16.5 | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] DAL Moneyline AWAY | Source: overrideEvent.event:401810370.bets.moneyline | Current: N/A | Line: DAL | GameState: post | ShowProgressBar: false
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] DAL 1st Half Moneyline AWAY | Source: overrideEvent.event:401810370.bets.H1_ML | Current: N/A | Line: DAL | GameState: post | ShowProgressBar: false
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] 1q_assists_ou O1.5 | Source: overrideEvent.event:401810370.players:5041939.overUnder:1QAST | Current: 4 | Line: 1.5 | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] 1q_points_ou 4+ | Source: overrideEvent.event:401810370.players:4278594.milestones:1QPTS | Current: 0 | Line: 4+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] 1q_rebounds_ou O1.5 | Source: overrideEvent.event:401810370.players:3468.overUnder:1QREB | Current: 2 | Line: 1.5 | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] assists_ou 5+ | Source: overrideEvent.event:401810370.players:3468.milestones:AST | Current: 4 | Line: 5+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] blocks_ou 1+ | Source: overrideEvent.event:401810370.players:6583.milestones:BLK | Current: 2 | Line: 1+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] blocks+steals_ou O2.5 | Source: overrideEvent.event:401810370.players:6583.overUnder:BS | Current: 0 | Line: 2.5 | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] doubleDouble_yn YES | Source: overrideEvent.event:401810370.players:6583.milestones:2DBL | Current: 1 | Line: N/A | GameState: post | ShowProgressBar: false
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] firstBasket_yn YES | Source: overrideEvent.event:401810370.players:3978.milestones:FIRSTBASKET | Current: 1 | Line: N/A | GameState: post | ShowProgressBar: false
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] points_ou 6+ | Source: overrideEvent.event:401810370.players:6475.milestones:PTS | Current: 6 | Line: 6+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] points+assists_ou 5+ | Source: overrideEvent.event:401810370.players:4278049.milestones:PA | Current: 10 | Line: 5+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] CBJ Moneyline AWAY | Source: overrideEvent.event:401803026.bets.moneyline | Current: N/A | Line: CBJ | GameState: post | ShowProgressBar: false
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] CBJ +2.5 | Source: overrideEvent.event:401803026.bets.spread.current | Current: 3 | Line: +2.5 | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] CBJ Regulation 3-Way Moneyline AWAY | Source: overrideEvent.event:401803026.bets.moneyline | Current: N/A | Line: CBJ | GameState: post | ShowProgressBar: false
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] SJ 1st Period Moneyline HOME | Source: overrideEvent.event:401803026.bets.P1_ML | Current: N/A | Line: SJ | GameState: post | ShowProgressBar: false
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] SJ 2nd Period Spread HOME | Source: overrideEvent.event:401803026.bets.P2_SP.current | Current: 0 | Line: +0.5 | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] CBJ 1st Period Spread AWAY | Source: overrideEvent.event:401803026.bets.P1_SP.current | Current: 1 | Line: -0.5 | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] CBJ 2+ | Source: overrideEvent.event:401803026.bets.awayPoints.current | Current: 2 | Line: 2+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] SJ 5- | Source: overrideEvent.event:401803026.bets.homePoints.current | Current: 5 | Line: 5- | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] 4+ | Source: overrideEvent.event:401803026.bets.totalPoints.current | Current: 7 | Line: 4+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] Under 2.5 | Source: overrideEvent.event:401803026.bets.P2_T.current | Current: 2 | Line: U 2.5 | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] points_yn YES | Source: overrideEvent.event:401803026.players:4587996.milestones:GOALS | Current: 0 | Line: N/A | GameState: post | ShowProgressBar: false
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] assists_ou 2+ | Source: overrideEvent.event:401803026.players:4587996.milestones:AST | Current: 0 | Line: 2+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] blocks_ou 1+ | Source: overrideEvent.event:401803026.players:4233618.milestones:BS | Current: 2 | Line: 1+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] firstToScore_yn YES | Source: overrideEvent.event:401803026.players:4587996.milestones:FIRSTGOAL | Current: 0 | Line: N/A | GameState: post | ShowProgressBar: false
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] goalie_saves_ou O25.5 | Source: overrideEvent.event:401803026.players:3114994.overUnder:GSV | Current: 34 | Line: 25.5 | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] points_ou O1.5 | Source: overrideEvent.event:401803026.players:4587996.overUnder:HGL | Current: 0 | Line: 1.5 | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] goals+assists_ou 1+ | Source: overrideEvent.event:401803026.players:5206628.milestones:GA | Current: 1 | Line: 1+ | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] lastToScore_yn YES | Source: overrideEvent.event:401803026.players:5206628.milestones:LASTGOAL | Current: 1 | Line: N/A | GameState: post | ShowProgressBar: false
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] powerPlay_goals+assists_ou O0.5 | Source: overrideEvent.event:401803026.players:5206628.overUnder:PPP | Current: 0 | Line: 0.5 | GameState: post | ShowProgressBar: true
-C:\live-sports-tracker\SportsTrackerExpo\src\screens\bet\BetBetsScreen.js:3380 [Bet] shots_onGoal_ou 1+ | Source: overrideEvent.event:401803026.players:5136617.milestones:SHT | Current: 3 | Line: 1+ | GameState: post | ShowProgressBar: true
+[
+  {
+    "id": "352291-combinedCards_yn-yes",
+    "key": "bothScore",
+    "odds": "+265",
+    "prop": "combinedCards_yn YES",
+    "team": "KAI",
+    "type": "yesno",
+    "sport": "UEFA",
+    "gameId": "757761_uefa",
+    "player": "Edmilson",
+    "betValue": "yes",
+    "gameInfo": {
+      "time": "1/20 - 10:30 AM EST",
+      "teams": "BRU @ KAI"
+    },
+    "playerId": "352291",
+    "statType": "combinedcards_yn",
+    "description": "Edmilson combinedCards_yn YES",
+    "playerColor": "#FCEE33"
+  },
+  {
+    "id": "303793-points_yn-yes",
+    "key": "bothScore",
+    "odds": "+135",
+    "prop": "points_yn YES",
+    "team": "BRU",
+    "type": "yesno",
+    "sport": "UEFA",
+    "gameId": "757761_uefa",
+    "player": "Christos Tzolis",
+    "betValue": "yes",
+    "gameInfo": {
+      "time": "1/20 - 10:30 AM EST",
+      "teams": "BRU @ KAI"
+    },
+    "playerId": "303793",
+    "statType": "points_yn",
+    "description": "Christos Tzolis points_yn YES",
+    "playerColor": "#0081ff"
+  },
+  {
+    "id": "team-BRU-ou-points-club-brugge-kv-1st-half-goals-over/under-over",
+    "key": "awayPoints1H",
+    "line": "O 0.5",
+    "odds": "-210",
+    "team": "BRU",
+    "type": "Club Brugge KV 1st Half Goals Over/Under",
+    "sport": "UEFA",
+    "gameId": "757761_uefa",
+    "teamId": "570",
+    "gameInfo": {
+      "time": "1/20 - 10:30 AM EST",
+      "teams": "BRU @ KAI"
+    },
+    "description": "BRU Over 0.5"
+  },
+  {
+    "id": "team-BRU-alt-under-club-brugge-kv-goals-over/under-(full-match)-points-3",
+    "key": "awayPoints",
+    "line": "4-",
+    "odds": "-3000",
+    "team": "BRU",
+    "type": "Club Brugge KV Goals Over/Under (Full Match) (Alt)",
+    "sport": "UEFA",
+    "gameId": "757761_uefa",
+    "teamId": "570",
+    "gameInfo": {
+      "time": "1/20 - 10:30 AM EST",
+      "teams": "BRU @ KAI"
+    },
+    "statType": "points",
+    "description": "BRU 4-"
+  },
+  {
+    "id": "game-6-total-corner-kicks-over/under-(full-match)-alt-over-0",
+    "key": "totalCorner",
+    "line": "7+",
+    "odds": "-475",
+    "type": "Total Corner Kicks Over/Under (Full Match) (Alt)",
+    "sport": "UEFA",
+    "gameId": "757761_uefa",
+    "period": null,
+    "team1Id": "570",
+    "team2Id": "2528",
+    "gameInfo": {
+      "time": "1/20 - 10:30 AM EST",
+      "teams": "BRU @ KAI"
+    },
+    "description": "7+"
+  },
+  {
+    "id": "game-7-total-cards-(weighted)-over/under-(full-match)-ou-over",
+    "key": "totalCards",
+    "line": "O 3.5",
+    "odds": "-130",
+    "type": "Total",
+    "sport": "UEFA",
+    "gameId": "757761_uefa",
+    "period": null,
+    "team1Id": "570",
+    "team2Id": "2528",
+    "gameInfo": {
+      "time": "1/20 - 10:30 AM EST",
+      "teams": "BRU @ KAI"
+    },
+    "description": "Over 3.5"
+  },
+  {
+    "id": "team-BRU-3-way-moneyline-(regulation)-points-away",
+    "key": "awayMoneylineReg",
+    "line": "BRU",
+    "odds": "-220",
+    "team": "BRU",
+    "type": "3-Way Moneyline (Regulation)",
+    "sport": "UEFA",
+    "gameId": "757761_uefa",
+    "teamId": "570",
+    "gameInfo": {
+      "time": "1/20 - 10:30 AM EST",
+      "teams": "BRU @ KAI"
+    },
+    "description": "BRU 3-Way Moneyline (Regulation) AWAY"
+  },
+  {
+    "id": "team-BRU-cards-(weighted)-spread-(full-match)-weightedCards-away",
+    "key": "cardSpread",
+    "line": "+0.5",
+    "odds": "-110",
+    "team": "BRU",
+    "type": "Cards (Weighted) Spread (Full Match)",
+    "sport": "UEFA",
+    "gameId": "757761_uefa",
+    "teamId": "570",
+    "gameInfo": {
+      "time": "1/20 - 10:30 AM EST",
+      "teams": "BRU @ KAI"
+    },
+    "description": "BRU Cards (Weighted) Spread (Full Match) AWAY"
+  },
+  {
+    "id": "team-KAI-corner-kicks-spread-(full-match)-cornerKicks-home",
+    "key": "cornerSpread",
+    "line": "+1.5",
+    "odds": "-115",
+    "team": "KAI",
+    "type": "Corner Kicks Spread (Full Match)",
+    "sport": "UEFA",
+    "gameId": "757761_uefa",
+    "teamId": "2528",
+    "gameInfo": {
+      "time": "1/20 - 10:30 AM EST",
+      "teams": "BRU @ KAI"
+    },
+    "description": "KAI Corner Kicks Spread (Full Match) HOME"
+  },
+  {
+    "id": "team-BRU-1st-half-3-way-moneyline-points-away",
+    "key": "awayMoneyline1H",
+    "line": "BRU",
+    "odds": "-115",
+    "team": "BRU",
+    "type": "1st Half 3-Way Moneyline",
+    "sport": "UEFA",
+    "gameId": "757761_uefa",
+    "teamId": "570",
+    "gameInfo": {
+      "time": "1/20 - 10:30 AM EST",
+      "teams": "BRU @ KAI"
+    },
+    "description": "BRU 1st Half 3-Way Moneyline AWAY"
+  }
+]
+
+https://laraiyeogithubio-production-f5af.up.railway.app/api/betslip?gameId=757761_uefa&moneylineReg=BRU&totalCorner=+7&totalCards=o3.5&cardSpread=BRU+0.5&cornerSpread=KAI+1.5&awayPoints=4-&moneyline1H=BRU&awayPoints1H=0.5+&p1=303793&p1_goals=yes&p2=352291&p2_cards=yes

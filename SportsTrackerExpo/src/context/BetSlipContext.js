@@ -165,6 +165,8 @@ export const BetSlipProvider = ({ children }) => {
           /over\/under|over under|total points|total\b|total\s*$/i.test(s)
         )
           base = "totalPoints";
+        else if (/moneyline|ml|3-way|3 way|draw/.test(s)) base = "moneyline";
+
         else if (/_points|points|goals/.test(s)) {
           // prefer explicit home/away detection when team present
           const side = detectSide();
@@ -173,7 +175,6 @@ export const BetSlipProvider = ({ children }) => {
           else if (/goals/.test(s)) base = "totalPoints";
         } else if (/spread/.test(s) || /-\d|\+\d/.test(String(b?.line || "")))
           base = "spread";
-        else if (/moneyline|ml|3-way|3 way|draw/.test(s)) base = "moneyline";
 
         if (!base) return null;
 

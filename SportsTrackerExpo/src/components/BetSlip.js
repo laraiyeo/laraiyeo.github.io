@@ -217,9 +217,22 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
               ? res.data.events
               : res.data.events || [];
             effectiveScoreboardGames.push(...events);
-            console.log(
-              `BetSlip: fetched ${events.length} events for ${res.sport}`,
-            );
+            console.log(`BetSlip: fetched ${events.length} events for ${res.sport}`);
+            try {
+              const summary = events.map((ev) => ({
+                id:
+                  ev.eventId || ev.id || ev.gameId || ev.gamePk ||
+                  (ev.header && ev.header.competitions && ev.header.competitions[0] && ev.header.competitions[0].id) || null,
+                state:
+                  ev.header?.competitions?.[0]?.status?.type?.state ||
+                  ev.status?.type?.state ||
+                  ev.event?.status?.state ||
+                  null,
+              }));
+              console.log(`BetSlip: fetched events summary for ${res.sport}:`, summary);
+            } catch (e) {
+              console.log(`BetSlip: fetched events (unable to summarize) for ${res.sport}`, events);
+            }
           } else {
             console.warn(`BetSlip: no scoreboard data for ${res.sport}`);
           }
@@ -234,17 +247,25 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
       // Determine live games using fetched events
       const liveGameIds = [];
       gameIds.forEach((gid) => {
+        // Strip trailing sport suffix (e.g. _uefa) when comparing to fetched event ids
+        const gidClean = String(gid).replace(/_(nba|nfl|nhl|mlb|soccer|ncaa|wnba|uefa)$/i, "");
         const sg =
           Array.isArray(effectiveScoreboardGames) &&
           typeof effectiveScoreboardGames.find === "function"
-            ? effectiveScoreboardGames.find(
-                (g) =>
-                  String(g.id) === String(gid) ||
-                  String(g.gameId) === String(gid) ||
-                  String(g.gamePk) === String(gid) ||
-                  g.event?.id === gid ||
-                  g.header?.competitions?.[0]?.id === gid,
-              )
+            ? effectiveScoreboardGames.find((g) => {
+                try {
+                  const candidates = [
+                    g.id,
+                    g.gameId,
+                    g.gamePk,
+                    g.event?.id,
+                    g.header?.competitions?.[0]?.id,
+                  ].map((v) => (v != null ? String(v) : null));
+                  return candidates.some((c) => c === String(gid) || c === String(gidClean));
+                } catch (e) {
+                  return false;
+                }
+              })
             : undefined;
         console.log(
           "BetSlip live-check: gid, fetchedGames length, matched sg:",
@@ -511,39 +532,13 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
               bet.type === "Spread" ||
               (bet.type?.includes("(Alt)") && bet.type?.includes("Spread"))
             );
-          // UEFA special spreads (cards/corner) for specific home/away params
-          case "awayCardSpread":
+          // UEFA special spreads (cards/corner) - use unified param (cardSpread/cornerSpread)
+          case "cardSpread":
             if (!bet.team) return false;
-            if (!bet.gameInfo?.teams) return false;
-            return (
-              betType.includes("card") &&
-              betType.includes("spread") &&
-              bet.gameInfo.teams.split(" @ ")[0] === bet.team
-            );
-          case "homeCardSpread":
+            return betType.includes("card") && betType.includes("spread");
+          case "cornerSpread":
             if (!bet.team) return false;
-            if (!bet.gameInfo?.teams) return false;
-            return (
-              betType.includes("card") &&
-              betType.includes("spread") &&
-              bet.gameInfo.teams.split(" @ ")[1] === bet.team
-            );
-          case "awayCornerSpread":
-            if (!bet.team) return false;
-            if (!bet.gameInfo?.teams) return false;
-            return (
-              betType.includes("corner") &&
-              betType.includes("spread") &&
-              bet.gameInfo.teams.split(" @ ")[0] === bet.team
-            );
-          case "homeCornerSpread":
-            if (!bet.team) return false;
-            if (!bet.gameInfo?.teams) return false;
-            return (
-              betType.includes("corner") &&
-              betType.includes("spread") &&
-              bet.gameInfo.teams.split(" @ ")[1] === bet.team
-            );
+            return betType.includes("corner") && betType.includes("spread");
           case "total": {
             const special = getSpecialUefaTotalType(bet);
             return (
@@ -673,19 +668,18 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             return `${prefix}${num}`;
           }
 
-          case "awayCardSpread":
-          case "homeCardSpread":
-          case "awayCornerSpread":
-          case "homeCornerSpread": {
-            // Return just the signed line (e.g. +0.5, -1.5)
+          case "cardSpread":
+          case "cornerSpread": {
+            // Return team-prefixed spread (e.g. BRU+0.5 or TOT-1.5)
             let raw = String(bet.line || "");
-            raw = raw.replace(/[OoUu]\s*/, "");
+            raw = raw.replace(/[OoUu]\s*/i, "");
             // Ensure a sign is present
             if (!raw.match(/^[-+]/)) {
               if (/over|\+/i.test(bet.description || "")) raw = `+${raw}`;
               else if (/under|\-/i.test(bet.description || "")) raw = `-${raw}`;
             }
-            return raw;
+            const team = bet.team || "";
+            return `${team}${raw}`;
           }
 
           case "bothScore": {
@@ -711,11 +705,9 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
       // Both Teams To Score (yes/no)
       buildAlignedArray("bothScore");
 
-      // UEFA-specific spreads per side
-      buildAlignedArray("awayCardSpread");
-      buildAlignedArray("homeCardSpread");
-      buildAlignedArray("awayCornerSpread");
-      buildAlignedArray("homeCornerSpread");
+      // UEFA-specific spreads (team-prefixed)
+      buildAlignedArray("cardSpread");
+      buildAlignedArray("cornerSpread");
 
       // For NHL use Goals, for NBA/NFL use Points
       if (isMultiSport) {
@@ -747,10 +739,9 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
           buildAlignedArray("totalCards", suffix);
           // Period-specific both teams to score
           buildAlignedArray("bothScore", suffix);
-          buildAlignedArray("awayCardSpread", suffix);
-          buildAlignedArray("homeCardSpread", suffix);
-          buildAlignedArray("awayCornerSpread", suffix);
-          buildAlignedArray("homeCornerSpread", suffix);
+          // Period-specific UEFA spreads
+          buildAlignedArray("cardSpread", suffix);
+          buildAlignedArray("cornerSpread", suffix);
 
           if (isMultiSport) {
             buildAlignedArray("homePoints", suffix);
@@ -1387,13 +1378,13 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
 
                           // Extract sport from gameId suffix (e.g., "401810365_nba" -> sport: "NBA", gameId: "401810365")
                           const sportMatch = gameId.match(
-                            /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba)$/i,
+                            /_(nba|nfl|nhl|mlb|uefa|ncaa|wnba)$/i,
                           );
                           const sport = sportMatch
                             ? sportMatch[1].toUpperCase()
                             : null;
                           const cleanGameId = gameId.replace(
-                            /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba)$/i,
+                            /_(nba|nfl|nhl|mlb|uefa|ncaa|wnba)$/i,
                             "",
                           );
 
