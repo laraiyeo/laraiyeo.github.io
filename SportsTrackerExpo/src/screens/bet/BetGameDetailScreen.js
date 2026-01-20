@@ -2622,19 +2622,28 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           const team = teamBlock.team || {};
           const teamAbbrev = team.abbreviation || team.displayName || null;
           const teamId = String(team.id || team.teamId || "");
-          const logoUse = sportPath === "soccer" ? teamId : (teamAbbrev || "").toLowerCase();
+          const logoUse =
+            sportPath === "soccer" ? teamId : (teamAbbrev || "").toLowerCase();
           const rosterArr = teamBlock.roster || teamBlock.roster || [];
           rosterArr.forEach((entry) => {
-            const aid = String(entry?.athlete?.id || entry?.athlete?.athleteId || "");
+            const aid = String(
+              entry?.athlete?.id || entry?.athlete?.athleteId || "",
+            );
             if (!aid) return;
             athleteMeta[aid] = athleteMeta[aid] || {};
-            athleteMeta[aid].displayName = entry.athlete?.displayName || athleteMeta[aid].displayName;
-            athleteMeta[aid].position = entry.position || athleteMeta[aid].position;
+            athleteMeta[aid].displayName =
+              entry.athlete?.displayName || athleteMeta[aid].displayName;
+            athleteMeta[aid].position =
+              entry.position || athleteMeta[aid].position;
             athleteMeta[aid].jersey = entry.jersey || athleteMeta[aid].jersey;
             athleteMeta[aid].stats = entry.stats || athleteMeta[aid].stats;
-            athleteMeta[aid].headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${aid}.png&w=200`;
-            athleteMeta[aid].team = athleteMeta[aid].team || { abbreviation: teamAbbrev };
-            athleteMeta[aid].teamLogo = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${isDarkMode ? "-dark" : ""}/${logoUse}.png&h=100&w=100`;
+            athleteMeta[aid].headshot =
+              `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${aid}.png&w=200`;
+            athleteMeta[aid].team = athleteMeta[aid].team || {
+              abbreviation: teamAbbrev,
+            };
+            athleteMeta[aid].teamLogo =
+              `https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sportPath}/500${isDarkMode ? "-dark" : ""}/${logoUse}.png&h=100&w=100`;
           });
         });
       }
@@ -2729,7 +2738,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 }/${(team || "").toLowerCase()}.png&h=100&w=100`;
               let position = m.position || m.pos || "";
               if (position && typeof position === "object") {
-                position = position.abbreviation || position.name || position.displayName || "";
+                position =
+                  position.abbreviation ||
+                  position.name ||
+                  position.displayName ||
+                  "";
               }
               position = position || "";
               const number = m.jersey || m.number || "";
@@ -6077,7 +6090,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           // and fall back to older `commentary.coordinate` shape.
                           let coord = null;
                           let coord2 = null;
-                          const commentaryPlay = summaryData?.commentary?.play || {};
+                          const commentaryPlay =
+                            summaryData?.commentary?.play || {};
 
                           if (
                             commentaryPlay &&
@@ -6112,24 +6126,39 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                             // Try to find matching team in boxscore teams first
                             const bsTeams = summaryData?.boxscore?.teams || [];
                             const foundBs = bsTeams.find(
-                              (t) => t?.team?.displayName === commentaryPlay.team.displayName,
+                              (t) =>
+                                t?.team?.displayName ===
+                                commentaryPlay.team.displayName,
                             );
                             if (foundBs) {
-                              playTeam = foundBs.team?.abbreviation || commentaryPlay.team.displayName;
+                              playTeam =
+                                foundBs.team?.abbreviation ||
+                                commentaryPlay.team.displayName;
                             } else {
                               // Fall back to header competitors if boxscore not populated
-                              const comps = summaryData?.header?.competitions?.[0]?.competitors || [];
+                              const comps =
+                                summaryData?.header?.competitions?.[0]
+                                  ?.competitors || [];
                               const foundComp = comps.find(
-                                (c) => c?.team?.displayName === commentaryPlay.team.displayName || c?.team?.id === commentaryPlay.team.id,
+                                (c) =>
+                                  c?.team?.displayName ===
+                                    commentaryPlay.team.displayName ||
+                                  c?.team?.id === commentaryPlay.team.id,
                               );
-                              playTeam = foundComp?.team?.abbreviation || commentaryPlay.team.displayName;
+                              playTeam =
+                                foundComp?.team?.abbreviation ||
+                                commentaryPlay.team.displayName;
                             }
                           } else {
                             playTeam = summaryData?.commentary?.team || null;
                           }
 
-                          const teamSide = playTeam === gameData?.team2Abbr ? "home" : "away";
-                          const teamColor = playTeam === gameData?.team2Abbr ? team2Color : team1Color;
+                          const teamSide =
+                            playTeam === gameData?.team2Abbr ? "home" : "away";
+                          const teamColor =
+                            playTeam === gameData?.team2Abbr
+                              ? team2Color
+                              : team1Color;
 
                           // Use NHL-style scaling: compute `courtScale` from container width
                           // via onLayout and render the unscaled field inside the scaled container.
@@ -6161,7 +6190,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 {renderSoccerMiniField(
                                   coord,
                                   coord2,
-                                  summaryData?.commentary?.play.type.text.toLowerCase() || "gen",
+                                  summaryData?.commentary?.play.type.text.toLowerCase() ||
+                                    "gen",
                                   teamSide,
                                   teamColor,
                                   {
@@ -6362,18 +6392,27 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 );
 
                 // Normalize play source: prefer summaryData.plays, fall back to commentary.play
-                const playSource = summaryData.plays || (summaryData.commentary && summaryData.commentary.play) || {};
+                const playSource =
+                  summaryData.plays ||
+                  (summaryData.commentary && summaryData.commentary.play) ||
+                  {};
 
                 // Normalize team identifier: can be abbreviation or object with displayName
                 let playTeamRaw = playSource.team;
                 let playTeamIdent = playTeamRaw;
                 if (playTeamRaw && typeof playTeamRaw === "object") {
-                  playTeamIdent = playTeamRaw.abbreviation || playTeamRaw.displayName || playTeamRaw.name || playTeamRaw.id || null;
+                  playTeamIdent =
+                    playTeamRaw.abbreviation ||
+                    playTeamRaw.displayName ||
+                    playTeamRaw.name ||
+                    playTeamRaw.id ||
+                    null;
                 }
 
                 // If we only have a displayName (UEFA), try to map it to a competitor abbreviation
                 if (playTeamIdent && summaryData?.header?.competitions?.[0]) {
-                  const competitors = summaryData.header.competitions[0].competitors || [];
+                  const competitors =
+                    summaryData.header.competitions[0].competitors || [];
                   const match = competitors.find((c) => {
                     const t = c.team || {};
                     return (
@@ -6395,8 +6434,12 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   : theme.border;
 
                 const playText = playSource.text || "Waiting for next play...";
-                const playPeriod = playSource.period?.displayValue || playSource.period?.number;
-                const playClock = playSource.clock?.displayValue || playSource.clock || playSource.clock?.value;
+                const playPeriod =
+                  playSource.period?.displayValue || playSource.period?.number;
+                const playClock =
+                  playSource.clock?.displayValue ||
+                  playSource.clock ||
+                  playSource.clock?.value;
                 const isScoring = !!playSource.scoringPlay;
                 const shortDesc = playSource.shortDescription;
 
@@ -6413,35 +6456,61 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           },
                         ]}
                       >
-                        <Text style={[styles.playText, { color: theme.text }]}>{playText}</Text>
+                        <Text style={[styles.playText, { color: theme.text }]}>
+                          {playText}
+                        </Text>
                         <View style={styles.playMetaContainer}>
-                          <Text style={[styles.playMeta, { color: theme.textSecondary }]}>
+                          <Text
+                            style={[
+                              styles.playMeta,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
                             {playPeriod} • {playClock}
                           </Text>
-                          {isScoring && shortDesc && (
+                          {isScoring &&
+                            shortDesc &&
                             (() => {
                               const bgColor = playTeamIdent
                                 ? playTeamIdent === gameData.team1Abbr
                                   ? team1Color
                                   : team2Color
                                 : colors.primary;
-                              const textColor = bgColor?.toLowerCase() === "#ffffff" ? "black" : "white";
+                              const textColor =
+                                bgColor?.toLowerCase() === "#ffffff"
+                                  ? "black"
+                                  : "white";
                               return (
-                                <View style={[styles.scoringBadge, { backgroundColor: bgColor }]}> 
-                                  <Text style={[styles.scoringBadgeText, { color: textColor }]}>{shortDesc}</Text>
+                                <View
+                                  style={[
+                                    styles.scoringBadge,
+                                    { backgroundColor: bgColor },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.scoringBadgeText,
+                                      { color: textColor },
+                                    ]}
+                                  >
+                                    {shortDesc}
+                                  </Text>
                                 </View>
                               );
-                            })()
-                          )}
+                            })()}
                         </View>
                       </View>
 
                       {/* Play participants (pro only) - render directly under play card */}
-                      {isPro && playSource?.participants && playSource.participants.length > 0 && (
-                        <View style={{ marginTop: 12 }}>
-                          <PlayParticipants participants={playSource.participants} />
-                        </View>
-                      )}
+                      {isPro &&
+                        playSource?.participants &&
+                        playSource.participants.length > 0 && (
+                          <View style={{ marginTop: 12 }}>
+                            <PlayParticipants
+                              participants={playSource.participants}
+                            />
+                          </View>
+                        )}
                     </View>
                   </View>
                 );
