@@ -2716,7 +2716,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                   // Skater stats: G, A, S, HT, +/-, TOI
                   statOrder = ["G", "A", "S", "HT", "+/-", "TOI"];
                 }
-              } else if (sportUpper === "UEFA"){
+              } else if (sportUpper === "UEFA") {
                 // NHL: Check if goalie (position G)
                 if (position.toUpperCase() === "G") {
                   // Goalie stats: GA, SA, SV, SV%, ESSV, TOI
