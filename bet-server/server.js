@@ -21,7 +21,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.\n" +
       "Create a .env file in the bet-server folder with the following values, then restart the server:\n" +
       "SUPABASE_URL=https://your-project.supabase.co\n" +
-      "SUPABASE_SERVICE_ROLE_KEY=your_service_role_key"
+      "SUPABASE_SERVICE_ROLE_KEY=your_service_role_key",
   );
   process.exit(1);
 }
@@ -46,7 +46,7 @@ async function clearBetslipNow(betslipId) {
       console.error(
         "[betslip-cleaner] failed to delete betslip",
         betslipId,
-        error
+        error,
       );
     } else {
       console.log(`[betslip-cleaner] deleted betslip ${betslipId}`);
@@ -55,7 +55,7 @@ async function clearBetslipNow(betslipId) {
     console.error(
       "[betslip-cleaner] error clearing betslip",
       betslipId,
-      e?.message || e
+      e?.message || e,
     );
   } finally {
     try {
@@ -96,8 +96,8 @@ function scheduleClearBetslip(betslip) {
     betslipCleanupTimers[id] = handle;
     console.log(
       `[betslip-cleaner] scheduled clear for ${id} in ${Math.round(
-        delay / 1000
-      )}s`
+        delay / 1000,
+      )}s`,
     );
   } catch (e) {
     console.error("[betslip-cleaner] schedule error", e?.message || e);
@@ -122,19 +122,22 @@ async function initBetslipCleaner() {
   }
 
   // Periodic sweep to remove any missed rows (runs every 15 minutes)
-  setInterval(async () => {
-    try {
-      const threshold = new Date(Date.now() - MS_IN_24H).toISOString();
-      const { error } = await supabaseAdmin
-        .from("betslips")
-        .delete()
-        .lte("created_at", threshold);
-      if (error) console.error("[betslip-cleaner] sweep delete error", error);
-      else console.log("[betslip-cleaner] sweep completed");
-    } catch (e) {
-      console.error("[betslip-cleaner] sweep failed", e?.message || e);
-    }
-  }, 15 * 60 * 1000);
+  setInterval(
+    async () => {
+      try {
+        const threshold = new Date(Date.now() - MS_IN_24H).toISOString();
+        const { error } = await supabaseAdmin
+          .from("betslips")
+          .delete()
+          .lte("created_at", threshold);
+        if (error) console.error("[betslip-cleaner] sweep delete error", error);
+        else console.log("[betslip-cleaner] sweep completed");
+      } catch (e) {
+        console.error("[betslip-cleaner] sweep failed", e?.message || e);
+      }
+    },
+    15 * 60 * 1000,
+  );
 }
 
 // Initialize cleaner asynchronously (don't block startup)
@@ -190,7 +193,7 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
           } catch (e) {
             console.warn(
               "sendPushNotification: failed to parse betslip_data",
-              e?.message || e
+              e?.message || e,
             );
           }
 
@@ -200,14 +203,14 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
                 bs.amount ||
                 (typeof bs.betslip_data === "object"
                   ? bs.betslip_data?.total_stake
-                  : NaN)
+                  : NaN),
             ) || 0;
 
           const potential = parseFloat(
             bs.potential_payout ||
               (typeof bs.betslip_data === "object"
                 ? bs.betslip_data?.potential_payout
-                : bs.potential_payout)
+                : bs.potential_payout),
           );
 
           const potentialRounded = Number.isFinite(potential)
@@ -240,7 +243,7 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
     } catch (e) {
       console.error(
         "sendPushNotification: betslip lookup/build failed",
-        e?.message || e
+        e?.message || e,
       );
     }
 
@@ -262,7 +265,7 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
     } catch (e) {
       console.warn(
         "sendPushNotification: profiles lookup failed",
-        e?.message || e
+        e?.message || e,
       );
     }
 
@@ -299,7 +302,7 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
         "No valid push tokens for user",
         userId,
         "resolvedProfileId",
-        resolvedProfileId
+        resolvedProfileId,
       );
       return;
     }
@@ -345,7 +348,7 @@ async function sendPushNotification(userId, title, bodyText, data = {}) {
     } catch (insErr) {
       console.warn(
         "push_notifications insert failed, retrying without user_id",
-        insErr?.message || insErr
+        insErr?.message || insErr,
       );
 
       await supabaseAdmin.from("push_notifications").insert({
@@ -377,7 +380,7 @@ async function broadcastToAll(title, bodyText, data = {}) {
     console.log(
       `[broadcastToAll] sending to ${
         Array.isArray(tokens) ? tokens.length : 0
-      } token(s)`
+      } token(s)`,
     );
     const messages = (tokens || []).map((t) => ({
       to: t.expo_push_token,
@@ -447,7 +450,7 @@ async function sendBetResultNotification(betslipId) {
 
     const userId = bs.user_id;
     console.log(
-      `[sendBetResultNotification] delegating -> user:${userId} betslip:${betslipId}`
+      `[sendBetResultNotification] delegating -> user:${userId} betslip:${betslipId}`,
     );
     // Only send user id and betslip reference; let centralized push handler decide message
     await sendPushNotification(userId, null, null, { betslipId });
@@ -467,7 +470,7 @@ async function manualSettleBetslip(betslipId, result) {
     if (bsErr) {
       console.error(
         `[manualSettleBetslip] failed to fetch betslip ${betslipId}`,
-        bsErr
+        bsErr,
       );
       return;
     }
@@ -496,7 +499,7 @@ async function manualSettleBetslip(betslipId, result) {
       if (profErr) {
         console.error(
           `[manualSettleBetslip] failed to read profile ${fresh.user_id}`,
-          profErr
+          profErr,
         );
       }
       const profile = (profRows && profRows[0]) || null;
@@ -504,7 +507,7 @@ async function manualSettleBetslip(betslipId, result) {
       let newCredits = currentCredits + payout;
       if (!Number.isFinite(newCredits)) newCredits = 0;
       newCredits = Number(
-        (Math.round((newCredits + Number.EPSILON) * 100) / 100).toFixed(2)
+        (Math.round((newCredits + Number.EPSILON) * 100) / 100).toFixed(2),
       );
       const { data: updProf, error: updProfErr } = await supabaseAdmin
         .from("profiles")
@@ -513,11 +516,11 @@ async function manualSettleBetslip(betslipId, result) {
       if (updProfErr) {
         console.error(
           `[manualSettleBetslip] failed to update profile ${fresh.user_id}`,
-          updProfErr
+          updProfErr,
         );
       } else {
         console.log(
-          `[manualSettleBetslip] profile ${fresh.user_id} credited -> ${newCredits}`
+          `[manualSettleBetslip] profile ${fresh.user_id} credited -> ${newCredits}`,
         );
       }
 
@@ -532,7 +535,7 @@ async function manualSettleBetslip(betslipId, result) {
       if (ledgerErr)
         console.error(
           `[manualSettleBetslip] credit_ledger insert failed`,
-          ledgerErr
+          ledgerErr,
         );
 
       const { data: bhRes, error: bhErr } = await supabaseAdmin
@@ -557,7 +560,7 @@ async function manualSettleBetslip(betslipId, result) {
       if (bhErr)
         console.error(
           `[manualSettleBetslip] bet_history (no payout) insert failed`,
-          bhErr
+          bhErr,
         );
     }
 
@@ -574,22 +577,22 @@ async function manualSettleBetslip(betslipId, result) {
     if (updBetslipErr) {
       console.error(
         `[manualSettleBetslip] failed to update betslip ${betslipId}`,
-        updBetslipErr
+        updBetslipErr,
       );
     } else {
       console.log(
         `[manualSettleBetslip] updated betslip ${betslipId}`,
-        updBetslip && updBetslip[0] ? updBetslip[0] : updBetslip
+        updBetslip && updBetslip[0] ? updBetslip[0] : updBetslip,
       );
     }
 
     console.log(
-      `[manualSettleBetslip] settled ${betslipId} -> ${result} payout=${payout}`
+      `[manualSettleBetslip] settled ${betslipId} -> ${result} payout=${payout}`,
     );
   } catch (e) {
     console.error(
       `[manualSettleBetslip] error settling ${betslipId}:`,
-      e?.message || e
+      e?.message || e,
     );
   }
 }
@@ -609,7 +612,7 @@ app.use(
         req.rawBody = null;
       }
     },
-  })
+  }),
 );
 
 // Helper: parse gamelog into recent games and season averages
@@ -625,7 +628,7 @@ function parseGamelogIntoGames(gamelog, limit = 10) {
     : Object.values(eventsObj || {});
 
   const sortedEvents = eventsArray.sort(
-    (a, b) => new Date(b.gameDate) - new Date(a.gameDate)
+    (a, b) => new Date(b.gameDate) - new Date(a.gameDate),
   );
   const seasonTypes = gamelog.seasonTypes || [];
 
@@ -768,7 +771,7 @@ function parseGamelogIntoGames(gamelog, limit = 10) {
               : [],
             eventData.opponent?.abbreviation
               ? [String(eventData.opponent.abbreviation).toUpperCase()]
-              : []
+              : [],
           );
           for (const a of abbrevs) {
             const mapped = abbrevToEventIds[a] || [];
@@ -880,7 +883,7 @@ function computeStatValueForGame(
   labels,
   statID,
   sportKey,
-  allowComposite = true
+  allowComposite = true,
 ) {
   if (!statsMap) return null;
   const normalize = (s) => String(s || "").toLowerCase();
@@ -889,10 +892,10 @@ function computeStatValueForGame(
     try {
       console.debug(
         `[computeStatValueForGame] statID=${statID} sport=${sportKey} keys=${Object.keys(
-          statsMap || {}
+          statsMap || {},
         )
           .slice(0, 50)
-          .join(",")}`
+          .join(",")}`,
       );
     } catch (e) {
       /* swallow debug errors */
@@ -922,7 +925,7 @@ function computeStatValueForGame(
       if (found > 0) {
         if (debugEnabled)
           console.debug(
-            `[computeStatValueForGame] NFL touchdowns aggregated value=${sum} foundParts=${found}`
+            `[computeStatValueForGame] NFL touchdowns aggregated value=${sum} foundParts=${found}`,
           );
         return sum;
       }
@@ -1043,7 +1046,7 @@ function computeStatValueForGame(
         if (rx.test(label)) {
           const v = statsMap[label];
           const n = Number(
-            v && typeof v === "object" && v.value !== undefined ? v.value : v
+            v && typeof v === "object" && v.value !== undefined ? v.value : v,
           );
           if (!isNaN(n) && n >= 10) cnt++;
           break;
@@ -1063,7 +1066,7 @@ function computeStatValueForGame(
         if (debugEnabled) {
           try {
             console.debug(
-              `[computeStatValueForGame] MATCH statID=${statID} sport=${sportKey} label=${label} value=${num}`
+              `[computeStatValueForGame] MATCH statID=${statID} sport=${sportKey} label=${label} value=${num}`,
             );
           } catch (e) {}
         }
@@ -1076,7 +1079,7 @@ function computeStatValueForGame(
           if (m && m[1]) {
             const parsed = parseInt(m[1], 10) || 0;
             console.log(
-              `[computeStatValueForGame] PARSE-MADE statID=${statID} label=${label} raw='${val}' made=${parsed}`
+              `[computeStatValueForGame] PARSE-MADE statID=${statID} label=${label} raw='${val}' made=${parsed}`,
             );
             return parsed;
           }
@@ -1091,7 +1094,7 @@ function computeStatValueForGame(
               const parsed2 = parseInt(m2[1], 10) || 0;
               if (debugEnabled)
                 console.debug(
-                  `[computeStatValueForGame] PARSE-MADE nested statID=${statID} label=${label} raw='${cand}' made=${parsed2}`
+                  `[computeStatValueForGame] PARSE-MADE nested statID=${statID} label=${label} raw='${cand}' made=${parsed2}`,
                 );
               return parsed2;
             }
@@ -1109,10 +1112,10 @@ function computeStatValueForGame(
     try {
       console.debug(
         `[computeStatValueForGame] NO MATCH statID=${statID} sport=${sportKey} keys=${Object.keys(
-          statsMap || {}
+          statsMap || {},
         )
           .slice(0, 50)
-          .join(",")}`
+          .join(",")}`,
       );
     } catch (e) {
       /* swallow debug errors */
@@ -1190,7 +1193,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
     } catch (e) {
       console.warn(
         `[Athlete:${sportKey}] failed to fetch gamelog for ${athleteId}:`,
-        e?.message || e
+        e?.message || e,
       );
     }
 
@@ -1202,7 +1205,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
       try {
         const gamesWithStats = Array.isArray(allGames)
           ? allGames.filter(
-              (eg) => eg && eg.stats && Object.keys(eg.stats || {}).length > 0
+              (eg) => eg && eg.stats && Object.keys(eg.stats || {}).length > 0,
             )
           : [];
         const sums = {};
@@ -1212,7 +1215,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
             const num = Number(
               typeof v === "object" && v !== null && v.value !== undefined
                 ? v.value
-                : v
+                : v,
             );
             if (!isNaN(num)) {
               sums[k] = (sums[k] || 0) + num;
@@ -1229,7 +1232,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
       } catch (e) {
         console.warn(
           `[Athlete:${sportKey}] failed to compute season averages:`,
-          e?.message || e
+          e?.message || e,
         );
         computedSeasonAverages = null;
       }
@@ -1239,7 +1242,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
       try {
         const gamesWithStats = Array.isArray(allGames)
           ? allGames.filter(
-              (eg) => eg && eg.stats && Object.keys(eg.stats || {}).length > 0
+              (eg) => eg && eg.stats && Object.keys(eg.stats || {}).length > 0,
             )
           : [];
 
@@ -1289,7 +1292,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
             const num = Number(
               typeof v === "object" && v !== null && v.value !== undefined
                 ? v.value
-                : v
+                : v,
             );
             if (!isNaN(num)) {
               sums[k] = (sums[k] || 0) + num;
@@ -1321,7 +1324,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
       } catch (e) {
         console.warn(
           `[Athlete:${sportKey}] failed to compute NHL season averages:`,
-          e?.message || e
+          e?.message || e,
         );
         computedSeasonAverages = null;
       }
@@ -1341,11 +1344,11 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
         for (const ev of sb.events) {
           const comps = ev.competitions?.[0]?.competitors || [];
           const match = comps.find(
-            (c) => String(c.team?.id) === String(team?.id)
+            (c) => String(c.team?.id) === String(team?.id),
           );
           if (match) {
             const other = comps.find(
-              (c) => String(c.team?.id) !== String(team?.id)
+              (c) => String(c.team?.id) !== String(team?.id),
             );
             if (other && other.team && other.team.id) {
               opponentId = other.team.id;
@@ -1360,7 +1363,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
     } catch (e) {
       console.warn(
         `[Athlete:${sportKey}] scoreboard lookup failed:`,
-        e?.message || e
+        e?.message || e,
       );
     }
 
@@ -1453,7 +1456,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
               if (stats) {
                 // update allGames entry
                 allGames = allGames.map((g) =>
-                  String(g.id) === eid ? Object.assign({}, g, { stats }) : g
+                  String(g.id) === eid ? Object.assign({}, g, { stats }) : g,
                 );
                 attachedAny = true;
                 if (gamelogDebug)
@@ -1467,7 +1470,8 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
             // rebuild recentGames and last10matches from updated allGames
             const recentWithStats = allGames
               .filter(
-                (eg) => eg && eg.stats && Object.keys(eg.stats || {}).length > 0
+                (eg) =>
+                  eg && eg.stats && Object.keys(eg.stats || {}).length > 0,
               )
               .sort((a, b) => new Date(b.gameDate) - new Date(a.gameDate));
             recentGames = recentWithStats.slice(0, 20);
@@ -1570,7 +1574,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
             if (!key) continue;
             if (
               /\b3\s*-?\s?pt\b|3pt|3\s*-?\s?point|3-Point|3 Point|3PT/i.test(
-                key
+                key,
               )
             ) {
               const raw = statsMap[key];
@@ -1621,8 +1625,8 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
         if (debugEnabledLocal)
           console.debug(
             `[resolveStatValue] composite statID=${statID} parts=${parts.join(
-              ","
-            )}`
+              ",",
+            )}`,
           );
         for (const part of parts) {
           // try variants
@@ -1637,21 +1641,21 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
           if (debugEnabledLocal)
             console.debug(
               `[resolveStatValue] trying part=${part} candidates=${candidates.join(
-                ","
-              )}`
+                ",",
+              )}`,
             );
           for (const c of candidates) {
             const v = computeStatValueForGame(
               statsMap,
               Object.keys(statsMap || {}),
               c,
-              sportKey
+              sportKey,
             );
             if (v !== null && !isNaN(v)) {
               partVal = Number(v);
               if (debugEnabledLocal)
                 console.debug(
-                  `[resolveStatValue] part match part=${part} candidate=${c} val=${partVal}`
+                  `[resolveStatValue] part match part=${part} candidate=${c} val=${partVal}`,
                 );
               break;
             }
@@ -1661,7 +1665,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
             foundAny = true;
           } else if (debugEnabledLocal) {
             console.debug(
-              `[resolveStatValue] no match for part=${part} statID=${statID}`
+              `[resolveStatValue] no match for part=${part} statID=${statID}`,
             );
           }
         }
@@ -1671,7 +1675,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
         statsMap,
         Object.keys(statsMap || {}),
         statID,
-        sportKey
+        sportKey,
       );
       if (debugEnabledLocal)
         console.debug(`[resolveStatValue] statID=${statID} resolved=${v}`);
@@ -1691,7 +1695,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
               if (v && v.periodID && v.periodID !== "game") return true;
               const bkEntries = Object.values(v.byBookmaker || {});
               return bkEntries.some(
-                (bk) => bk && bk.periodID && bk.periodID !== "game"
+                (bk) => bk && bk.periodID && bk.periodID !== "game",
               );
             });
             if (hasPeriodSpecific) {
@@ -1779,7 +1783,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
               const seasonGames = Array.isArray(allGames)
                 ? allGames.filter(
                     (eg) =>
-                      eg && eg.stats && Object.keys(eg.stats || {}).length > 0
+                      eg && eg.stats && Object.keys(eg.stats || {}).length > 0,
                   ).length
                 : 0;
               const seasonHits = Array.isArray(allGames)
@@ -1795,7 +1799,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
 
               const seasonH2HGames = Array.isArray(allGames)
                 ? allGames.filter(
-                    (eg) => eg && eg.opponent && matchesOpponent(eg)
+                    (eg) => eg && eg.opponent && matchesOpponent(eg),
                   ).length
                 : 0;
               const seasonH2HHits = Array.isArray(allGames)
@@ -1899,11 +1903,11 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
         };
 
         for (const [evtId, evtObj] of Object.entries(
-          gamelogDebug.resolvedByAbbrev || {}
+          gamelogDebug.resolvedByAbbrev || {},
         )) {
           try {
             const evOppAbb = String(
-              evtObj?.opponent?.abbreviation || ""
+              evtObj?.opponent?.abbreviation || "",
             ).toUpperCase();
             if (evOppAbb === targetAbb) {
               // attach stats from seasonTypes if available
@@ -1976,7 +1980,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
           for (const comp of comps) {
             const competitors = comp.competitors || [];
             const hasTeam = competitors.some(
-              (c) => String(c.team?.id) === String(team.id)
+              (c) => String(c.team?.id) === String(team.id),
             );
             if (hasTeam) return true;
           }
@@ -1987,7 +1991,7 @@ app.get("/api/athlete/:sport/:id", async (req, res) => {
     } catch (e) {
       console.warn(
         `[Athlete:${sportKey}] Failed to fetch gameId:`,
-        e?.message || e
+        e?.message || e,
       );
     }
 
@@ -2044,7 +2048,7 @@ app.post("/api/betslip", async (req, res) => {
   try {
     const base = process.env.PUBLIC_API_URL || `http://localhost:${PORT}`;
     console.log(
-      `[route-alias-forward] forwarding POST /api/betslip -> ${base}/api/betslips`
+      `[route-alias-forward] forwarding POST /api/betslip -> ${base}/api/betslips`,
     );
     const resp = await axios.post(
       `${base.replace(/\/$/, "")}/api/betslips`,
@@ -2052,13 +2056,13 @@ app.post("/api/betslip", async (req, res) => {
       {
         headers: { ...(req.headers || {}), host: undefined },
         timeout: 15000,
-      }
+      },
     );
     return res.status(resp.status).json(resp.data);
   } catch (e) {
     console.error(
       "[route-alias-forward] POST /api/betslip forward failed",
-      e?.message || e
+      e?.message || e,
     );
     if (e.response) return res.status(e.response.status).send(e.response.data);
     return res.status(500).json({ error: "forward failed" });
@@ -2075,7 +2079,7 @@ app.get("/api/daily/state", authMiddlewareInline, async (req, res) => {
     const { data: profileRow, error: selectErr } = await supabaseAdmin
       .from("profiles")
       .select(
-        "daily_available_day, daily_claimed, daily_claimed_at, daily_next_available_at"
+        "daily_available_day, daily_claimed, daily_claimed_at, daily_next_available_at",
       )
       .eq("id", userId)
       .maybeSingle();
@@ -2133,7 +2137,7 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
     const { data: profileRow, error: selectErr } = await supabaseAdmin
       .from("profiles")
       .select(
-        "credits, is_pro, daily_available_day, daily_claimed, daily_next_available_at"
+        "credits, is_pro, daily_available_day, daily_claimed, daily_next_available_at",
       )
       .eq("id", userId)
       .maybeSingle();
@@ -2170,12 +2174,12 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
         daily_claimed: true,
         daily_claimed_at: now.toISOString(),
         daily_next_available_at: new Date(
-          now.getTime() + 24 * 60 * 60 * 1000
+          now.getTime() + 24 * 60 * 60 * 1000,
         ).toISOString(),
       })
       .eq("id", userId)
       .select(
-        "id, credits, daily_available_day, daily_claimed, daily_claimed_at, daily_next_available_at"
+        "id, credits, daily_available_day, daily_claimed, daily_claimed_at, daily_next_available_at",
       )
       .maybeSingle();
     if (updateErr) throw updateErr;
@@ -2184,7 +2188,7 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
     console.log("/api/daily/claim: updated profile:", updatedProfile);
     if (!updatedProfile) {
       console.warn(
-        "/api/daily/claim: update completed but returned no row (0 rows affected)"
+        "/api/daily/claim: update completed but returned no row (0 rows affected)",
       );
     }
 
@@ -2202,7 +2206,7 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
     } catch (ledgerEx) {
       console.warn(
         "credit_ledger insert exception",
-        ledgerEx?.message || ledgerEx
+        ledgerEx?.message || ledgerEx,
       );
     }
 
@@ -2212,7 +2216,7 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
       const { data, error: verifyErr } = await supabaseAdmin
         .from("profiles")
         .select(
-          "id, credits, daily_available_day, daily_claimed, daily_claimed_at, daily_next_available_at, updated_at"
+          "id, credits, daily_available_day, daily_claimed, daily_claimed_at, daily_next_available_at, updated_at",
         )
         .eq("id", userId)
         .maybeSingle();
@@ -2222,7 +2226,7 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
         verifyRow = data;
         console.log(
           "/api/daily/claim: verify profile after update:",
-          verifyRow
+          verifyRow,
         );
         if (
           typeof verifyRow.credits !== "undefined" &&
@@ -2236,14 +2240,14 @@ app.post("/api/daily/claim", authMiddlewareInline, async (req, res) => {
         if (verifyRow.daily_claimed !== true) {
           console.warn(
             "/api/daily/claim: daily_claimed not true after update",
-            { daily_claimed: verifyRow.daily_claimed }
+            { daily_claimed: verifyRow.daily_claimed },
           );
         }
       }
     } catch (verifyEx) {
       console.warn(
         "/api/daily/claim: verify read exception",
-        verifyEx?.message || verifyEx
+        verifyEx?.message || verifyEx,
       );
     }
 
@@ -2289,7 +2293,7 @@ app.post("/api/betslip/:id/watch", async (req, res) => {
     const { id } = req.params;
     const base = process.env.PUBLIC_API_URL || `http://localhost:${PORT}`;
     console.log(
-      `[route-alias-forward] forwarding POST /api/betslip/${id}/watch -> ${base}/api/betslips/${id}/watch`
+      `[route-alias-forward] forwarding POST /api/betslip/${id}/watch -> ${base}/api/betslips/${id}/watch`,
     );
     const resp = await axios.post(
       `${base.replace(/\/$/, "")}/api/betslips/${id}/watch`,
@@ -2297,13 +2301,13 @@ app.post("/api/betslip/:id/watch", async (req, res) => {
       {
         headers: { ...(req.headers || {}), host: undefined },
         timeout: 10000,
-      }
+      },
     );
     return res.status(resp.status).json(resp.data);
   } catch (e) {
     console.error(
       "[route-alias-forward] POST /api/betslip/:id/watch forward failed",
-      e?.message || e
+      e?.message || e,
     );
     if (e.response) return res.status(e.response.status).send(e.response.data);
     return res.status(500).json({ error: "forward failed" });
@@ -2315,20 +2319,20 @@ app.delete("/api/betslip/:id/watch", async (req, res) => {
     const { id } = req.params;
     const base = process.env.PUBLIC_API_URL || `http://localhost:${PORT}`;
     console.log(
-      `[route-alias-forward] forwarding DELETE /api/betslip/${id}/watch -> ${base}/api/betslips/${id}/watch`
+      `[route-alias-forward] forwarding DELETE /api/betslip/${id}/watch -> ${base}/api/betslips/${id}/watch`,
     );
     const resp = await axios.delete(
       `${base.replace(/\/$/, "")}/api/betslips/${id}/watch`,
       {
         headers: { ...(req.headers || {}), host: undefined },
         timeout: 10000,
-      }
+      },
     );
     return res.status(resp.status).json(resp.data);
   } catch (e) {
     console.error(
       "[route-alias-forward] DELETE /api/betslip/:id/watch forward failed",
-      e?.message || e
+      e?.message || e,
     );
     if (e.response) return res.status(e.response.status).send(e.response.data);
     return res.status(500).json({ error: "forward failed" });
@@ -2369,7 +2373,8 @@ const ESPN_PATHS = {
 };
 // SportGameOdds API configuration
 const SPORTSGAMEODDS_API_BASE = "https://api.sportsgameodds.com/v2/events";
-const SPORTSGAMEODDS_API_KEY = process.env.SPORTSGAMEODDS_API_KEY || "fb5cd7db7f9e18a03caa04b10b505a41";
+const SPORTSGAMEODDS_API_KEY =
+  process.env.SPORTSGAMEODDS_API_KEY || "fb5cd7db7f9e18a03caa04b10b505a41";
 
 // Mapping sport slug -> leagueID for SportGameOdds
 const SGO_LEAGUE_IDS = {
@@ -2532,7 +2537,7 @@ function transformSGOEvent(event, sportKey = "nba") {
           if (v && v.periodID && v.periodID !== "game") return true;
           const bkEntries = Object.values(v.byBookmaker || {});
           return bkEntries.some(
-            (bk) => bk && bk.periodID && bk.periodID !== "game"
+            (bk) => bk && bk.periodID && bk.periodID !== "game",
           );
         });
         // Only skip these player markets for NFL — other sports may legitimately
@@ -2582,11 +2587,11 @@ async function fetchSGOOdds(sport = "nba") {
     const { startsAfter, startsBefore } = getSGODayRangePST();
 
     const url = `${SPORTSGAMEODDS_API_BASE}?leagueID=${encodeURIComponent(
-      leagueID
+      leagueID,
     )}&startsAfter=${encodeURIComponent(
-      startsAfter
+      startsAfter,
     )}&startsBefore=${encodeURIComponent(
-      startsBefore
+      startsBefore,
     )}&ended=false&live=false&bookmakerID=fanduel,draftkings&includeOpposingOdds=false&expandResults=false&includeAltLines=true&apiKey=${SPORTSGAMEODDS_API_KEY}`;
 
     const resp = await axios.get(url, { timeout: 20000 });
@@ -2653,7 +2658,7 @@ function getPlayerOddsFromCache(sportKey, athlete) {
             // Filter out passing_longestCompletion markets
             const filteredMarkets = Array.isArray(markets)
               ? markets.filter(
-                  (m) => m && m.statID !== "passing_longestCompletion"
+                  (m) => m && m.statID !== "passing_longestCompletion",
                 )
               : markets;
             return filteredMarkets;
@@ -2677,7 +2682,7 @@ function getPlayerOddsFromCache(sportKey, athlete) {
           // Filter out passing_longestCompletion markets
           const filteredMarkets = Array.isArray(markets)
             ? markets.filter(
-                (m) => m && m.statID !== "passing_longestCompletion"
+                (m) => m && m.statID !== "passing_longestCompletion",
               )
             : markets;
           return filteredMarkets;
@@ -2686,7 +2691,7 @@ function getPlayerOddsFromCache(sportKey, athlete) {
           // Filter out passing_longestCompletion markets
           const filteredMarkets = Array.isArray(markets)
             ? markets.filter(
-                (m) => m && m.statID !== "passing_longestCompletion"
+                (m) => m && m.statID !== "passing_longestCompletion",
               )
             : markets;
           return filteredMarkets;
@@ -2755,7 +2760,7 @@ async function fetchRostersForSport(sport = "nba") {
           } catch (e) {
             console.warn(
               `[Rosters:${sportKey}] attempted to prime SGO cache but failed:`,
-              e?.message || e
+              e?.message || e,
             );
           }
         }
@@ -2844,7 +2849,7 @@ async function fetchRostersForSport(sport = "nba") {
       } catch (e) {
         console.warn(
           `[Rosters:${sportKey}] failed to fetch roster for team ${teamId}:`,
-          e?.message || e
+          e?.message || e,
         );
       }
     }
@@ -2879,7 +2884,7 @@ function scheduleSGOOddsPolling() {
           const sgo = await fetchSGOOdds(sport).catch((e) => {
             console.error(
               `[SGO:${sport}] daily fetch failed:`,
-              e?.message || e
+              e?.message || e,
             );
             return null;
           });
@@ -2890,20 +2895,20 @@ function scheduleSGOOddsPolling() {
           await fetchRostersForSport(sport).catch((e) =>
             console.error(
               `[Rosters:${sport}] daily roster fetch failed:`,
-              e?.message || e
-            )
+              e?.message || e,
+            ),
           );
         } catch (e) {
           console.error(
             `[SGO:${sport}] daily sequence error:`,
-            e?.message || e
+            e?.message || e,
           );
         }
       }
     },
     {
       timezone: "America/Los_Angeles",
-    }
+    },
   );
 
   // NOTE: No periodic setInterval is used — the cache will persist until
@@ -3214,7 +3219,7 @@ function generatePlayerOdds(gamelog, opponentTeamData) {
   const minLength = Math.min(
     ptsValues.length,
     rebValues.length,
-    astValues.length
+    astValues.length,
   );
   for (let i = 0; i < minLength; i++) {
     praValues.push(ptsValues[i] + rebValues[i] + astValues[i]);
@@ -3312,7 +3317,7 @@ function generatePlayerOdds(gamelog, opponentTeamData) {
           tier2OverRate * adjustedTier2Weight +
           seasonOverRate * seasonWeight) *
         100
-      ).toFixed(1)
+      ).toFixed(1),
     );
     const underConfidence = parseFloat(
       (
@@ -3320,7 +3325,7 @@ function generatePlayerOdds(gamelog, opponentTeamData) {
           tier2UnderRate * adjustedTier2Weight +
           seasonUnderRate * seasonWeight) *
         100
-      ).toFixed(1)
+      ).toFixed(1),
     );
 
     odds.overUnder[category] = {
@@ -3380,7 +3385,7 @@ function transformSummaryData(data) {
     data.meta?.gp_topic ||
       data.header?.league?.slug ||
       data.header?.league?.abbreviation ||
-      ""
+      "",
   ).toLowerCase();
   const isNFL = /football.*nfl|\bnfl\b|football/i.test(sportHint);
   const isNHL = /hockey|nhl/i.test(sportHint);
@@ -3495,7 +3500,7 @@ function transformSummaryData(data) {
                     teamId: play.team?.id || null,
                     team: getTeamAbbreviationById(
                       play.team?.id,
-                      transformSportKey
+                      transformSportKey,
                     ),
                     period: play.period?.number || null,
                     scoreValue: play.scoreValue || null,
@@ -3516,7 +3521,7 @@ function transformSummaryData(data) {
                   teamId: play.team?.id || null,
                   team: getTeamAbbreviationById(
                     play.team?.id,
-                    transformSportKey
+                    transformSportKey,
                   ),
                   period: play.period?.number || null,
                   scoreValue: play.scoreValue || null,
@@ -3553,7 +3558,7 @@ function transformSummaryData(data) {
     // non-fatal
     console.warn(
       "transformSummaryData: failed computing initial 1Q or firstBasket",
-      e?.message || e
+      e?.message || e,
     );
   }
 
@@ -3582,8 +3587,8 @@ function transformSummaryData(data) {
         const categories = Array.isArray(playerTeam.statistics)
           ? playerTeam.statistics
           : playerTeam.statistics
-          ? [playerTeam.statistics]
-          : [];
+            ? [playerTeam.statistics]
+            : [];
 
         const athleteMap = {}; // id -> { athlete, active, stats: { category: { label: value } } }
 
@@ -3722,7 +3727,7 @@ function transformSummaryData(data) {
     // Non-fatal - lookup map is best-effort
     console.warn(
       "transformSummaryData: failed to build athleteNameById map",
-      e?.message || e
+      e?.message || e,
     );
   }
 
@@ -3738,8 +3743,8 @@ function transformSummaryData(data) {
         data.boxscore.rosters.length
           ? data.boxscore.rosters
           : Array.isArray(data.rosters)
-          ? data.rosters
-          : [];
+            ? data.rosters
+            : [];
       if (rawRosters && rawRosters.length) {
         transformed.rosters = rawRosters.map((r) => {
           const team = Object.assign({}, r.team || {});
@@ -3851,7 +3856,7 @@ function transformSummaryData(data) {
         const gameStateUEFA = String(
           data?.meta?.gameState ||
             data.header?.competitions?.[0]?.status?.type?.state ||
-            ""
+            "",
         ).toLowerCase();
         if (uLastGoal && gameStateUEFA === "post")
           transformed.lastGoal = uLastGoal;
@@ -3956,7 +3961,7 @@ function transformSummaryData(data) {
         (p) =>
           (p.type &&
             String(p.type.abbreviation || "").toUpperCase() === "TD") ||
-          p.scoringPlay
+          p.scoringPlay,
       );
       if (tdPlays.length > 0) {
         const first = tdPlays[0];
@@ -4141,7 +4146,7 @@ function transformSummaryData(data) {
   // WinProbability
   if (data.winprobability && data.winprobability.length > 0) {
     transformed.winprobability = data.winprobability.map(
-      (wp) => wp.homeWinPercentage
+      (wp) => wp.homeWinPercentage,
     );
   }
 
@@ -4354,7 +4359,7 @@ function transformSummaryData(data) {
             // - Otherwise prefer the first element of `allStart`
             try {
               const currentTypeId = String(
-                data.drives?.current?.type?.id ?? lastDrive?.type?.id ?? ""
+                data.drives?.current?.type?.id ?? lastDrive?.type?.id ?? "",
               );
               const firstAll =
                 (transformed.drives.current.allStart &&
@@ -4485,7 +4490,7 @@ function transformRostersData(rostersData) {
           ? events.slice()
           : Object.values(events || {});
         const sortedEvents = allEventsArray.sort(
-          (a, b) => new Date(b.gameDate) - new Date(a.gameDate)
+          (a, b) => new Date(b.gameDate) - new Date(a.gameDate),
         );
         const recentEvents = sortedEvents.slice(0, 5);
 
@@ -4509,8 +4514,8 @@ function transformRostersData(rostersData) {
                         String(displayNames[index]).trim()
                           ? String(displayNames[index])
                           : names[index] && String(names[index]).trim()
-                          ? String(names[index])
-                          : label;
+                            ? String(names[index])
+                            : label;
                       formattedStats[key] = stats[index];
                     }
                   });
@@ -4566,7 +4571,7 @@ function transformRostersData(rostersData) {
                 const rebAvg = parseFloat(formattedAverages["REB"]) || 0;
                 const astAvg = parseFloat(formattedAverages["AST"]) || 0;
                 formattedAverages["PRA"] = (ptsAvg + rebAvg + astAvg).toFixed(
-                  1
+                  1,
                 );
 
                 averages = formattedAverages;
@@ -4580,7 +4585,7 @@ function transformRostersData(rostersData) {
         // Pass opponent ID to odds generation
         const rawOdds = generatePlayerOdds(
           gamelog,
-          opponentId ? { id: opponentId } : null
+          opponentId ? { id: opponentId } : null,
         );
         // Filter out passing_longestCompletion markets
         athleteData.odds = Array.isArray(rawOdds)
@@ -4592,7 +4597,7 @@ function transformRostersData(rostersData) {
         // Filter out passing_longestCompletion markets
         athleteData.odds = Array.isArray(athlete.odds)
           ? athlete.odds.filter(
-              (m) => m && m.statID !== "passing_longestCompletion"
+              (m) => m && m.statID !== "passing_longestCompletion",
             )
           : athlete.odds;
       }
@@ -4624,7 +4629,7 @@ async function fetchScoreboard(sport = "nba") {
     const urls = ESPN_PATHS[sportKey] || ESPN_PATHS["nba"];
     const dateParam = getScoreboardDate();
     const response = await axios.get(
-      `${urls.base}/scoreboard?dates=${dateParam}`
+      `${urls.base}/scoreboard?dates=${dateParam}`,
     );
     // store per-sport and keep a fallback reference
     scoreboardDataBySport[sportKey] = response.data;
@@ -4637,7 +4642,7 @@ async function fetchScoreboard(sport = "nba") {
   } catch (error) {
     console.error(
       `[Scoreboard:${sport}] Error fetching data:`,
-      error?.message || error
+      error?.message || error,
     );
     return null;
   }
@@ -4651,7 +4656,7 @@ async function fetchSummary(eventId, sport) {
       try {
         if (scoreboardData && Array.isArray(scoreboardData.events)) {
           const ev = scoreboardData.events.find(
-            (e) => String(e.id) === String(eventId)
+            (e) => String(e.id) === String(eventId),
           );
           if (ev && ev.sport && ev.sport.slug) {
             // map slug like 'nba' or 'football' to our ESPN_PATHS keys
@@ -4684,7 +4689,7 @@ async function fetchSummary(eventId, sport) {
     if (error?.response?.status !== 404) {
       console.error(
         `[Summary] Error fetching data for event ${eventId}:`,
-        error?.message || error
+        error?.message || error,
       );
     }
     return null;
@@ -4701,8 +4706,8 @@ async function fetchTeamRoster(teamId) {
         const ev = scoreboardData.events.find((e) => {
           return (e.competitions || []).some((c) =>
             (c.competitors || []).some(
-              (comp) => String(comp.team?.id) === String(teamId)
-            )
+              (comp) => String(comp.team?.id) === String(teamId),
+            ),
           );
         });
         const slug = ev?.sport?.slug
@@ -4727,7 +4732,7 @@ async function fetchTeamRoster(teamId) {
   } catch (error) {
     console.error(
       `[Roster] Error fetching data for team ${teamId}:`,
-      error.message
+      error.message,
     );
     return null;
   }
@@ -4737,14 +4742,14 @@ async function fetchAthleteGamelog(athleteId) {
   try {
     console.log(`[Gamelog] Fetching data for athlete ${athleteId}...`);
     const response = await axios.get(
-      `${ESPN_WEB_API_URL}/athletes/${athleteId}/gamelog`
+      `${ESPN_WEB_API_URL}/athletes/${athleteId}/gamelog`,
     );
     console.log(`[Gamelog] Data fetched successfully for athlete ${athleteId}`);
     return response.data;
   } catch (error) {
     console.error(
       `[Gamelog] Error fetching data for athlete ${athleteId}:`,
-      error.message
+      error.message,
     );
     return null;
   }
@@ -4753,7 +4758,7 @@ async function fetchAthleteGamelog(athleteId) {
 async function fetchRosterAndGamelogs(teamId, opponentId = null) {
   try {
     console.log(
-      `[Roster+Gamelog] Fetching combined data for team ${teamId}...`
+      `[Roster+Gamelog] Fetching combined data for team ${teamId}...`,
     );
 
     // Fetch roster
@@ -4789,14 +4794,14 @@ async function fetchRosterAndGamelogs(teamId, opponentId = null) {
 
     rosterGamelogCache[teamId] = combinedData;
     console.log(
-      `[Roster+Gamelog] Combined data fetched successfully for team ${teamId}`
+      `[Roster+Gamelog] Combined data fetched successfully for team ${teamId}`,
     );
 
     return combinedData;
   } catch (error) {
     console.error(
       `[Roster+Gamelog] Error fetching combined data for team ${teamId}:`,
-      error.message
+      error.message,
     );
     return null;
   }
@@ -4863,7 +4868,7 @@ async function fetchAllRostersAndGamelogs() {
   } catch (error) {
     console.error(
       "[Rosters] Error fetching all rosters and gamelogs:",
-      error.message
+      error.message,
     );
     return null;
   }
@@ -4915,17 +4920,17 @@ function updateSchedulingLogic() {
   if (newPollingMode !== currentPollingMode) {
     if (newPollingMode === "fast") {
       console.log(
-        "[Scheduler] Live games or game starting soon detected. Switching to 2-second interval."
+        "[Scheduler] Live games or game starting soon detected. Switching to 2-second interval.",
       );
       startScoreboardFastPolling();
     } else if (newPollingMode === "moderate") {
       console.log(
-        "[Scheduler] Scheduled games detected. Switching to 90-second interval."
+        "[Scheduler] Scheduled games detected. Switching to 90-second interval.",
       );
       startScoreboardModeratePolling();
     } else {
       console.log(
-        "[Scheduler] No live or upcoming games. Switching to 30-minute interval."
+        "[Scheduler] No live or upcoming games. Switching to 30-minute interval.",
       );
       startScoreboardSlowPolling();
     }
@@ -4994,11 +4999,11 @@ function updateSummaryScheduling(events) {
     if (shouldFastPoll && !hasInterval) {
       currentSummaryIntervals[eventId] = setInterval(
         () => fetchSummary(eventId),
-        2000
+        2000,
       );
     } else if (!shouldFastPoll && hasInterval) {
       console.log(
-        `[Summary Scheduler] Stopping fast polling for event ${eventId}`
+        `[Summary Scheduler] Stopping fast polling for event ${eventId}`,
       );
       clearInterval(currentSummaryIntervals[eventId]);
       delete currentSummaryIntervals[eventId];
@@ -5013,12 +5018,12 @@ cron.schedule(
     console.log("[Cron] Running daily roster/gamelog update at 2:00 AM PST");
     // Refresh rosters for all supported sports at daily cron
     await Promise.all(
-      Object.keys(SGO_LEAGUE_IDS).map((sport) => fetchRostersForSport(sport))
+      Object.keys(SGO_LEAGUE_IDS).map((sport) => fetchRostersForSport(sport)),
     );
   },
   {
     timezone: "America/Los_Angeles",
-  }
+  },
 );
 
 // Game start roster/gamelog update
@@ -5045,10 +5050,10 @@ async function checkForGameStarts() {
       });
       if (!anyRecent) {
         console.log(
-          `[Game Start] Updating rosters for all sports (games starting)`
+          `[Game Start] Updating rosters for all sports (games starting)`,
         );
         await Promise.all(
-          Object.keys(SGO_LEAGUE_IDS).map((s) => fetchRostersForSport(s))
+          Object.keys(SGO_LEAGUE_IDS).map((s) => fetchRostersForSport(s)),
         );
         break;
       }
@@ -5137,7 +5142,7 @@ app.get("/api/odds/:sport", async (req, res) => {
         for (const [playerId, markets] of Object.entries(event.odds.players)) {
           filteredPlayers[playerId] = Array.isArray(markets)
             ? markets.filter(
-                (m) => m && m.statID !== "passing_longestCompletion"
+                (m) => m && m.statID !== "passing_longestCompletion",
               )
             : markets;
         }
@@ -5165,7 +5170,7 @@ app.get("/api/odds/:sport", async (req, res) => {
       // Stale: return cached immediately and trigger a background refresh (non-blocking).
       if (!entry.isFetching) {
         fetchSGOOdds(key).catch((e) =>
-          console.error("Background SGO fetch failed:", e)
+          console.error("Background SGO fetch failed:", e),
         );
       }
       return res.json({
@@ -5180,7 +5185,7 @@ app.get("/api/odds/:sport", async (req, res) => {
       oddsCache[key] = { lastFetched: 0, data: null, isFetching: false };
     if (!oddsCache[key].isFetching) {
       fetchSGOOdds(key).catch((e) =>
-        console.error("Background SGO fetch failed:", e)
+        console.error("Background SGO fetch failed:", e),
       );
     }
     return res
@@ -5248,7 +5253,7 @@ app.get("/api/summary/:sport/:eventId", async (req, res) => {
 
         // Transform and return only the filtered data (prefer freshly fetched summary)
         let transformedData = transformSummaryData(
-          newSummary || summaryDataCache[eventId]
+          newSummary || summaryDataCache[eventId],
         );
 
         // Attempt to attach SGO odds for this event (if odds cache available)
@@ -5281,20 +5286,20 @@ app.get("/api/summary/:sport/:eventId", async (req, res) => {
             };
 
             const homeName = normalize(
-              home?.team?.displayName || home?.team?.abbreviation || ""
+              home?.team?.displayName || home?.team?.abbreviation || "",
             );
             const awayName = normalize(
-              away?.team?.displayName || away?.team?.abbreviation || ""
+              away?.team?.displayName || away?.team?.abbreviation || "",
             );
 
             // build quick index
             const sgoIndexByNormalizedTeamPair = {};
             for (const ev of sgoEvents) {
               const evHome = normalize(
-                ev.teams?.home?.name || ev.teams?.home?.abbr || ""
+                ev.teams?.home?.name || ev.teams?.home?.abbr || "",
               );
               const evAway = normalize(
-                ev.teams?.away?.name || ev.teams?.away?.abbr || ""
+                ev.teams?.away?.name || ev.teams?.away?.abbr || "",
               );
               sgoIndexByNormalizedTeamPair[`${evHome}||${evAway}`] = ev;
             }
@@ -5304,10 +5309,10 @@ app.get("/api/summary/:sport/:eventId", async (req, res) => {
             if (!sgoMatch) {
               for (const ev of sgoEvents) {
                 const evHome = normalize(
-                  ev.teams?.home?.name || ev.teams?.home?.abbr || ""
+                  ev.teams?.home?.name || ev.teams?.home?.abbr || "",
                 );
                 const evAway = normalize(
-                  ev.teams?.away?.name || ev.teams?.away?.abbr || ""
+                  ev.teams?.away?.name || ev.teams?.away?.abbr || "",
                 );
                 if (
                   (evHome && evHome === homeName && evAway === awayName) ||
@@ -5351,7 +5356,7 @@ app.get("/api/summary/:sport/:eventId", async (req, res) => {
               } catch (e) {
                 console.warn(
                   `[Summary:${sportKey}] failed to attach SGO odds to event ${eventId}:`,
-                  e?.message || e
+                  e?.message || e,
                 );
               }
             } else {
@@ -5362,26 +5367,26 @@ app.get("/api/summary/:sport/:eventId", async (req, res) => {
                   .slice(0, 6)
                   .map((ev) => {
                     const nH = normalize(
-                      ev.teams?.home?.name || ev.teams?.home?.abbr || ""
+                      ev.teams?.home?.name || ev.teams?.home?.abbr || "",
                     );
                     const nA = normalize(
-                      ev.teams?.away?.name || ev.teams?.away?.abbr || ""
+                      ev.teams?.away?.name || ev.teams?.away?.abbr || "",
                     );
                     return `${nH}||${nA}`;
                   })
-                  .join(", ")}`
+                  .join(", ")}`,
               );
             }
           }
         } catch (e) {
           console.warn(
             `Error attaching SGO odds for event ${eventId}:`,
-            e?.message || e
+            e?.message || e,
           );
         }
 
         return res.json(
-          transformedData || { error: "Failed to fetch summary data" }
+          transformedData || { error: "Failed to fetch summary data" },
         );
       } catch (error) {
         return res.status(500).json({ error: error.message });
@@ -5420,10 +5425,10 @@ app.get("/api/summary/:sport/:eventId", async (req, res) => {
           console.error("Error comparing summary states", e?.message || e);
         }
         const transformedData = transformSummaryData(
-          newSummary || summaryDataCache[eventId]
+          newSummary || summaryDataCache[eventId],
         );
         return res.json(
-          transformedData || { error: "Failed to fetch summary data" }
+          transformedData || { error: "Failed to fetch summary data" },
         );
       } catch (error) {
         return res.status(500).json({ error: error.message });
@@ -5446,7 +5451,7 @@ app.get("/api/summary/:sport/:eventId", async (req, res) => {
       // Kick off a background fetch if empty
       if (!oddsCache[sportKey] || !oddsCache[sportKey].isFetching) {
         fetchSGOOdds(sportKey).catch((e) =>
-          console.error(`[SGO:${sportKey}] background prime failed:`, e)
+          console.error(`[SGO:${sportKey}] background prime failed:`, e),
         );
       }
     }
@@ -5470,10 +5475,10 @@ app.get("/api/summary/:sport/:eventId", async (req, res) => {
     const sgoIndexByNormalizedTeamPair = {};
     for (const ev of sgoEvents) {
       const homeName = normalize(
-        ev.teams?.home?.name || ev.teams?.home?.abbr || ""
+        ev.teams?.home?.name || ev.teams?.home?.abbr || "",
       );
       const awayName = normalize(
-        ev.teams?.away?.name || ev.teams?.away?.abbr || ""
+        ev.teams?.away?.name || ev.teams?.away?.abbr || "",
       );
       const key = `${homeName}||${awayName}`;
       sgoIndexByNormalizedTeamPair[key] = ev;
@@ -5489,10 +5494,10 @@ app.get("/api/summary/:sport/:eventId", async (req, res) => {
         const home = competitors.find((c) => c.homeAway === "home");
         const away = competitors.find((c) => c.homeAway === "away");
         const homeName = normalize(
-          home?.team?.displayName || home?.team?.abbreviation || ""
+          home?.team?.displayName || home?.team?.abbreviation || "",
         );
         const awayName = normalize(
-          away?.team?.displayName || away?.team?.abbreviation || ""
+          away?.team?.displayName || away?.team?.abbreviation || "",
         );
 
         // try exact pairing
@@ -5503,10 +5508,10 @@ app.get("/api/summary/:sport/:eventId", async (req, res) => {
         if (!sgoMatch) {
           for (const ev of sgoEvents) {
             const evHome = normalize(
-              ev.teams?.home?.name || ev.teams?.home?.abbr || ""
+              ev.teams?.home?.name || ev.teams?.home?.abbr || "",
             );
             const evAway = normalize(
-              ev.teams?.away?.name || ev.teams?.away?.abbr || ""
+              ev.teams?.away?.name || ev.teams?.away?.abbr || "",
             );
             if (
               (evHome && evHome === homeName && evAway === awayName) ||
@@ -5554,7 +5559,7 @@ app.get("/api/summary/:sport/:eventId", async (req, res) => {
           } catch (e) {
             console.warn(
               `[Summary:${sportKey}] failed to attach SGO odds:`,
-              e?.message || e
+              e?.message || e,
             );
           }
         }
@@ -5562,7 +5567,7 @@ app.get("/api/summary/:sport/:eventId", async (req, res) => {
         console.debug(
           `[Summary:${sportKey}] no SGO match for ${
             home?.team?.displayName || home?.team?.abbreviation
-          } vs ${away?.team?.displayName || away?.team?.abbreviation}`
+          } vs ${away?.team?.displayName || away?.team?.abbreviation}`,
         );
       }
     }
@@ -5585,14 +5590,14 @@ app.get("/api/rosters/:sport", async (req, res) => {
       if (age < SGO_CACHE_TTL_MS) {
         const transformedData = transformRostersData(entry.data);
         return res.json(
-          transformedData || { error: "Failed to fetch rosters data" }
+          transformedData || { error: "Failed to fetch rosters data" },
         );
       }
 
       // Stale: return cached immediately and trigger a background refresh (non-blocking)
       if (!entry.isFetching) {
         fetchRostersForSport(key).catch((e) =>
-          console.error("Background roster fetch failed:", e)
+          console.error("Background roster fetch failed:", e),
         );
       }
       const transformedData = transformRostersData(entry.data);
@@ -5604,7 +5609,7 @@ app.get("/api/rosters/:sport", async (req, res) => {
       rosterCache[key] = { lastFetched: 0, data: null, isFetching: false };
     if (!rosterCache[key].isFetching) {
       fetchRostersForSport(key).catch((e) =>
-        console.error("Background roster fetch failed:", e)
+        console.error("Background roster fetch failed:", e),
       );
     }
     return res
@@ -5630,7 +5635,7 @@ app.get("/api/betslip", async (req, res) => {
     // Extract sport from gameId (e.g., "401810365_nba" -> "nba")
     const getSportFromGameId = (gid) => {
       const match = String(gid || "").match(
-        /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba|uefa)$/i
+        /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba|uefa)$/i,
       );
       return match ? match[1].toLowerCase() : null;
     };
@@ -5660,7 +5665,7 @@ app.get("/api/betslip", async (req, res) => {
           // For multi-sport, find the index within this sport's games
           if (isMultiSport) {
             const sportGameIds = gameIdValues.filter(
-              (gid) => getSportFromGameId(gid) === sport
+              (gid) => getSportFromGameId(gid) === sport,
             );
             const sportIndex = sportGameIds.indexOf(gameId);
             return parts.length === 1 ? parts[0] : parts[sportIndex] || null;
@@ -5865,7 +5870,7 @@ app.get("/api/betslip", async (req, res) => {
       athleteEntry,
       labels,
       statUpper,
-      sportKeyGuess
+      sportKeyGuess,
     ) => {
       // athleteEntry shape may be { athlete: {...}, stats: [...] } or a flat athlete object
       const athleteObj = athleteEntry.athlete || athleteEntry;
@@ -5873,7 +5878,7 @@ app.get("/api/betslip", async (req, res) => {
       const readLabelIndex = (labelName) => {
         if (Array.isArray(labels) && Array.isArray(athleteEntry.stats)) {
           const idx = labels.findIndex(
-            (l) => String(l).toUpperCase() === String(labelName).toUpperCase()
+            (l) => String(l).toUpperCase() === String(labelName).toUpperCase(),
           );
           if (idx >= 0) return parseFloat(athleteEntry.stats[idx]) || 0;
         }
@@ -5946,18 +5951,18 @@ app.get("/api/betslip", async (req, res) => {
         const ast = astLabel ?? astEntry ?? astObj ?? astFlat ?? 0;
 
         console.log(
-          `[Betslip] PRA debug: ptsLabel=${ptsLabel}, ptsEntry=${ptsEntry}, ptsObj=${ptsObj}, ptsFlat=${ptsFlat}, final pts=${pts}`
+          `[Betslip] PRA debug: ptsLabel=${ptsLabel}, ptsEntry=${ptsEntry}, ptsObj=${ptsObj}, ptsFlat=${ptsFlat}, final pts=${pts}`,
         );
         console.log(
-          `[Betslip] PRA debug: rebLabel=${rebLabel}, rebEntry=${rebEntry}, rebObj=${rebObj}, rebFlat=${rebFlat}, final reb=${reb}`
+          `[Betslip] PRA debug: rebLabel=${rebLabel}, rebEntry=${rebEntry}, rebObj=${rebObj}, rebFlat=${rebFlat}, final reb=${reb}`,
         );
         console.log(
-          `[Betslip] PRA debug: astLabel=${astLabel}, astEntry=${astEntry}, astObj=${astObj}, astFlat=${astFlat}, final ast=${ast}`
+          `[Betslip] PRA debug: astLabel=${astLabel}, astEntry=${astEntry}, astObj=${astObj}, astFlat=${astFlat}, final ast=${ast}`,
         );
         console.log(
           `[Betslip] PRA calculation: pts=${pts}, reb=${reb}, ast=${ast}, sum=${
             Number(pts) + Number(reb) + Number(ast)
-          }`
+          }`,
         );
         return Number(pts) + Number(reb) + Number(ast);
       }
@@ -6036,7 +6041,7 @@ app.get("/api/betslip", async (req, res) => {
               }, periodObj=`,
               periodObj,
               "val=",
-              val
+              val,
             );
             return Number(val) || 0;
           }
@@ -6105,40 +6110,40 @@ app.get("/api/betslip", async (req, res) => {
             readLabelIndex("PTS") ??
               tryGet(athleteEntry, ["stats", "PTS"]) ??
               tryGet(athleteObj, ["stats", "PTS"]) ??
-              0
+              0,
           ) || 0;
         const reb =
           Number(
             readLabelIndex("REB") ??
               tryGet(athleteEntry, ["stats", "REB"]) ??
               tryGet(athleteObj, ["stats", "REB"]) ??
-              0
+              0,
           ) || 0;
         const ast =
           Number(
             readLabelIndex("AST") ??
               tryGet(athleteEntry, ["stats", "AST"]) ??
               tryGet(athleteObj, ["stats", "AST"]) ??
-              0
+              0,
           ) || 0;
         const stl =
           Number(
             readLabelIndex("STL") ??
               tryGet(athleteEntry, ["stats", "STL"]) ??
               tryGet(athleteObj, ["stats", "STL"]) ??
-              0
+              0,
           ) || 0;
         const blk =
           Number(
             readLabelIndex("BLK") ??
               tryGet(athleteEntry, ["stats", "BLK"]) ??
               tryGet(athleteObj, ["stats", "BLK"]) ??
-              0
+              0,
           ) || 0;
         const categories = [pts, reb, ast, stl, blk];
         const count = categories.reduce(
           (c, v) => c + (Number(v) >= 10 ? 1 : 0),
-          0
+          0,
         );
         return count >= 2 ? 1 : 0;
       }
@@ -6152,40 +6157,40 @@ app.get("/api/betslip", async (req, res) => {
             readLabelIndex("PTS") ??
               tryGet(athleteEntry, ["stats", "PTS"]) ??
               tryGet(athleteObj, ["stats", "PTS"]) ??
-              0
+              0,
           ) || 0;
         const reb =
           Number(
             readLabelIndex("REB") ??
               tryGet(athleteEntry, ["stats", "REB"]) ??
               tryGet(athleteObj, ["stats", "REB"]) ??
-              0
+              0,
           ) || 0;
         const ast =
           Number(
             readLabelIndex("AST") ??
               tryGet(athleteEntry, ["stats", "AST"]) ??
               tryGet(athleteObj, ["stats", "AST"]) ??
-              0
+              0,
           ) || 0;
         const stl =
           Number(
             readLabelIndex("STL") ??
               tryGet(athleteEntry, ["stats", "STL"]) ??
               tryGet(athleteObj, ["stats", "STL"]) ??
-              0
+              0,
           ) || 0;
         const blk =
           Number(
             readLabelIndex("BLK") ??
               tryGet(athleteEntry, ["stats", "BLK"]) ??
               tryGet(athleteObj, ["stats", "BLK"]) ??
-              0
+              0,
           ) || 0;
         const categories = [pts, reb, ast, stl, blk];
         const count = categories.reduce(
           (c, v) => c + (Number(v) >= 10 ? 1 : 0),
-          0
+          0,
         );
         return count >= 3 ? 1 : 0;
       }
@@ -6229,27 +6234,19 @@ app.get("/api/betslip", async (req, res) => {
         } catch (e) {}
         return 0;
       }
-      
+
       if (statUpper === "USOG")
         return (
-          readLabelIndex("ST") ??
-          tryGet(athleteEntry, ["stats", "ST"]) ??
-          0
+          readLabelIndex("ST") ?? tryGet(athleteEntry, ["stats", "ST"]) ?? 0
         );
 
       if (statUpper === "USHT")
         return (
-          readLabelIndex("SH") ??
-          tryGet(athleteEntry, ["stats", "SH"]) ??
-          0
+          readLabelIndex("SH") ?? tryGet(athleteEntry, ["stats", "SH"]) ?? 0
         );
 
       if (statUpper === "USAT")
-        return (
-          readLabelIndex("A") ??
-          tryGet(athleteEntry, ["stats", "A"]) ??
-          0
-        );
+        return readLabelIndex("A") ?? tryGet(athleteEntry, ["stats", "A"]) ?? 0;
 
       // Yellow cards (YC)
       if (
@@ -6740,7 +6737,7 @@ app.get("/api/betslip", async (req, res) => {
         const idx = labels.findIndex((l) =>
           String(l || "")
             .toUpperCase()
-            .includes(statUpper)
+            .includes(statUpper),
         );
         if (idx >= 0) return parseFloat(athleteEntry.stats[idx]) || 0;
       }
@@ -6785,7 +6782,7 @@ app.get("/api/betslip", async (req, res) => {
             .substring(lastUnderscore + 1)
             .toLowerCase();
           const known = Object.keys(ESPN_PATHS || {}).map((k) =>
-            String(k).toLowerCase()
+            String(k).toLowerCase(),
           );
           // also allow common short slugs if not present in ESPN_PATHS
           const extras = [
@@ -6847,11 +6844,11 @@ app.get("/api/betslip", async (req, res) => {
                     summaryData = tResp.data;
                     usedTransformedSource = true;
                     console.log(
-                      `[Betslip] Using transformed summary from ${tUrl} for game ${eventId} (token=${rawGameToken})`
+                      `[Betslip] Using transformed summary from ${tUrl} for game ${eventId} (token=${rawGameToken})`,
                     );
                     console.log(
                       `[Betslip] Transformed response has boxscore: ${!!summaryData.boxscore}, has boxscore.players: ${!!summaryData
-                        .boxscore?.players}`
+                        .boxscore?.players}`,
                     );
                     break;
                   }
@@ -6860,7 +6857,7 @@ app.get("/api/betslip", async (req, res) => {
                 console.log(
                   `[Betslip] Could not fetch transformed summary from ${tUrl} for ${eventId}: ${
                     innerErr?.message || innerErr
-                  }`
+                  }`,
                 );
                 // try next candidate
               }
@@ -6868,25 +6865,25 @@ app.get("/api/betslip", async (req, res) => {
 
             if (!usedTransformedSource) {
               const espnResponse = await axios.get(
-                `${baseUrl}/summary?event=${eventId}`
+                `${baseUrl}/summary?event=${eventId}`,
               );
               summaryData = espnResponse.data;
               console.log(
-                `[Betslip] Using ESPN raw data for game ${eventId} (token=${rawGameToken})`
+                `[Betslip] Using ESPN raw data for game ${eventId} (token=${rawGameToken})`,
               );
               console.log(
                 `[Betslip] ESPN response has boxscore: ${!!summaryData.boxscore}, has boxscore.players: ${!!summaryData
-                  .boxscore?.players}`
+                  .boxscore?.players}`,
               );
             }
           } catch (espnError) {
             console.log(
-              `[Betslip] Failed to fetch from ESPN for game ${eventId} (token=${rawGameToken}): ${espnError.message}`
+              `[Betslip] Failed to fetch from ESPN for game ${eventId} (token=${rawGameToken}): ${espnError.message}`,
             );
           }
         } catch (espnError) {
           console.log(
-            `[Betslip] Failed to fetch from ESPN for game ${eventId} (token=${rawGameToken}): ${espnError.message}`
+            `[Betslip] Failed to fetch from ESPN for game ${eventId} (token=${rawGameToken}): ${espnError.message}`,
           );
         }
 
@@ -6907,7 +6904,7 @@ app.get("/api/betslip", async (req, res) => {
           linescoresHome,
           linescoresAway,
           gameState,
-          completed
+          completed,
         ) => {
           // If game is completed, no period is in progress
           if (completed) return false;
@@ -6933,7 +6930,7 @@ app.get("/api/betslip", async (req, res) => {
               .filter((n) => !isNaN(n)),
             ...Object.keys(linescoresAway)
               .map((k) => parseInt(k))
-              .filter((n) => !isNaN(n))
+              .filter((n) => !isNaN(n)),
           );
 
           // If there are later periods with scores, this period is completed
@@ -6953,19 +6950,19 @@ app.get("/api/betslip", async (req, res) => {
             game: {
               homeTeam:
                 summaryData.header?.competitions?.[0]?.competitors?.find(
-                  (c) => c.homeAway === "home"
+                  (c) => c.homeAway === "home",
                 )?.team?.abbreviation || null,
               awayTeam:
                 summaryData.header?.competitions?.[0]?.competitors?.find(
-                  (c) => c.homeAway === "away"
+                  (c) => c.homeAway === "away",
                 )?.team?.abbreviation || null,
               homeScore:
                 summaryData.header?.competitions?.[0]?.competitors?.find(
-                  (c) => c.homeAway === "home"
+                  (c) => c.homeAway === "home",
                 )?.score || null,
               awayScore:
                 summaryData.header?.competitions?.[0]?.competitors?.find(
-                  (c) => c.homeAway === "away"
+                  (c) => c.homeAway === "away",
                 )?.score || null,
             },
           },
@@ -6989,7 +6986,7 @@ app.get("/api/betslip", async (req, res) => {
         // moneylineReg per-game token (use regulation winner across first N periods)
         const moneylineRegForThisGame = getParamValueForGame(
           "moneylineReg",
-          gi
+          gi,
         );
 
         if (moneylineForThisGame) {
@@ -6997,10 +6994,10 @@ app.get("/api/betslip", async (req, res) => {
             summaryData.header?.competitions?.[0]?.competitors || [];
 
           const betTeam = competitors.find(
-            (c) => c.team?.abbreviation === moneylineForThisGame
+            (c) => c.team?.abbreviation === moneylineForThisGame,
           );
           const opposingTeam = competitors.find(
-            (c) => c.team?.abbreviation !== moneylineForThisGame
+            (c) => c.team?.abbreviation !== moneylineForThisGame,
           );
 
           if (betTeam && opposingTeam) {
@@ -7025,8 +7022,8 @@ app.get("/api/betslip", async (req, res) => {
                     ? true
                     : false
                   : isInProgress
-                  ? "in progress"
-                  : "pending",
+                    ? "in progress"
+                    : "pending",
               };
             } else {
               eventData.bets.moneyline = {
@@ -7037,16 +7034,16 @@ app.get("/api/betslip", async (req, res) => {
                     betScore > oppScore
                       ? moneylineForThisGame
                       : betScore < oppScore
-                      ? opposingTeam.team?.abbreviation
-                      : "Tied",
+                        ? opposingTeam.team?.abbreviation
+                        : "Tied",
                 },
                 won: isCompleted
                   ? isWinning
                     ? true
                     : false
                   : isInProgress
-                  ? "in progress"
-                  : "pending",
+                    ? "in progress"
+                    : "pending",
               };
             }
           }
@@ -7109,10 +7106,10 @@ app.get("/api/betslip", async (req, res) => {
                   ? true
                   : false
                 : isInProgress
-                ? isWinning
-                  ? true
-                  : "in progress"
-                : "pending";
+                  ? isWinning
+                    ? true
+                    : "in progress"
+                  : "pending";
             } else {
               if (isInProgress) {
                 const isWinning = currentTotal <= line;
@@ -7157,14 +7154,14 @@ app.get("/api/betslip", async (req, res) => {
             const lineDisplay = String(rawLine).startsWith("+")
               ? String(rawLine)
               : spreadLine > 0
-              ? `+${spreadLine}`
-              : `${spreadLine}`;
+                ? `+${spreadLine}`
+                : `${spreadLine}`;
 
             const betTeam = competitors.find(
-              (c) => c.team?.abbreviation === teamAbbr
+              (c) => c.team?.abbreviation === teamAbbr,
             );
             const opposingTeam = competitors.find(
-              (c) => c.team?.abbreviation !== teamAbbr
+              (c) => c.team?.abbreviation !== teamAbbr,
             );
 
             if (betTeam && opposingTeam) {
@@ -7188,8 +7185,8 @@ app.get("/api/betslip", async (req, res) => {
                     ? true
                     : false
                   : isInProgress
-                  ? "in progress"
-                  : "pending",
+                    ? "in progress"
+                    : "pending",
               };
             }
           }
@@ -7227,17 +7224,17 @@ app.get("/api/betslip", async (req, res) => {
                 .sort((a, b) => a - b);
               const maxPeriods = Math.max(
                 homePeriods.length,
-                awayPeriods.length
+                awayPeriods.length,
               );
               // NBA: 4 periods, NHL: 3 periods, UEFA/Soccer: 2 periods
               const regCount =
                 maxPeriods >= 4
                   ? 4
                   : maxPeriods >= 3
-                  ? 3
-                  : maxPeriods >= 2
-                  ? 2
-                  : maxPeriods;
+                    ? 3
+                    : maxPeriods >= 2
+                      ? 2
+                      : maxPeriods;
 
               // Always process moneylineReg bet, even pre-game (regCount may be 0)
               let homeReg = 0;
@@ -7250,8 +7247,8 @@ app.get("/api/betslip", async (req, res) => {
                 homeReg > awayReg
                   ? homeAbbr
                   : awayReg > homeReg
-                  ? awayAbbr
-                  : "Draw";
+                    ? awayAbbr
+                    : "Draw";
 
               const rawReg = String(moneylineRegForThisGame).trim();
               const isDrawReg = /^(x|draw)$/i.test(rawReg);
@@ -7261,8 +7258,8 @@ app.get("/api/betslip", async (req, res) => {
                   ? true
                   : false
                 : isInProgress
-                ? "in progress"
-                : "pending";
+                  ? "in progress"
+                  : "pending";
 
               // Create or update moneyline bet with regulation data
               if (!eventData.bets.moneyline) {
@@ -7278,8 +7275,8 @@ app.get("/api/betslip", async (req, res) => {
                       homeScore > awayScore
                         ? homeAbbr
                         : awayScore > homeScore
-                        ? awayAbbr
-                        : "Tied",
+                          ? awayAbbr
+                          : "Tied",
                   },
                   won: won,
                   reg: {
@@ -7353,10 +7350,10 @@ app.get("/api/betslip", async (req, res) => {
                     ? true
                     : false
                   : isInProgress
-                  ? isWinning
-                    ? true
-                    : "in progress"
-                  : "pending";
+                    ? isWinning
+                      ? true
+                      : "in progress"
+                    : "pending";
               } else {
                 const isWinning = score <= line;
                 if (isInProgress) won = isWinning ? "in progress" : false;
@@ -7380,14 +7377,14 @@ app.get("/api/betslip", async (req, res) => {
           if (pointsToken) {
             // format: <TEAM><o|u><line>, e.g. TBo23.5
             const m = String(pointsToken).match(
-              /^([A-Z]{1,5})([ouOU])([0-9.]+)$/i
+              /^([A-Z]{1,5})([ouOU])([0-9.]+)$/i,
             );
             if (m) {
               const teamAbbr = m[1].toUpperCase();
               const isOver = m[2].toLowerCase() === "o";
               const line = parseFloat(m[3]);
               const teamCompetitor = competitors.find(
-                (c) => c.team?.abbreviation === teamAbbr
+                (c) => c.team?.abbreviation === teamAbbr,
               );
               const current = parseInt(teamCompetitor?.score) || 0;
               const isInProgress = !isCompleted && gameStatus?.state === "in";
@@ -7399,8 +7396,8 @@ app.get("/api/betslip", async (req, res) => {
                     ? true
                     : false
                   : isInProgress
-                  ? "in progress"
-                  : "pending";
+                    ? "in progress"
+                    : "pending";
               } else {
                 if (isInProgress) {
                   won = current <= line ? "in progress" : false;
@@ -7439,7 +7436,7 @@ app.get("/api/betslip", async (req, res) => {
               getParamValueForGame(qKeyNamed, gi) ||
               getParamValueForGame(qKeyQ, gi) ||
               getParamValueForGame(qKeyAlt, gi);
-              if (qVal) {
+            if (qVal) {
               // qVal expected as team abbr
               const homeQ = parseInt(homeLines[period]) || 0;
               const awayQ = parseInt(awayLines[period]) || 0;
@@ -7450,7 +7447,7 @@ app.get("/api/betslip", async (req, res) => {
                 homeLines,
                 awayLines,
                 gameStatus?.state,
-                isCompleted
+                isCompleted,
               );
               eventData.bets[`Q${period}_ML`] = {
                 bet: qVal,
@@ -7472,7 +7469,7 @@ app.get("/api/betslip", async (req, res) => {
             if (qSpVal) {
               // format similar to spread: "TB+1.5" or "TB-1.5" or "TB 1.5"
               const match = String(qSpVal).match(
-                /^([A-Z]+)[+\s]?([+-]?[0-9.]+)$/i
+                /^([A-Z]+)[+\s]?([+-]?[0-9.]+)$/i,
               );
               if (match) {
                 const teamAbbr = match[1].toUpperCase();
@@ -7488,7 +7485,7 @@ app.get("/api/betslip", async (req, res) => {
                   homeLines,
                   awayLines,
                   gameStatus?.state,
-                  isCompleted
+                  isCompleted,
                 );
                 // numeric current: opponent - team
                 const qCurrentNumeric =
@@ -7542,7 +7539,7 @@ app.get("/api/betslip", async (req, res) => {
                   homeLines,
                   awayLines,
                   gameStatus?.state,
-                  isCompleted
+                  isCompleted,
                 );
                 let won;
                 if (isOver) {
@@ -7616,7 +7613,7 @@ app.get("/api/betslip", async (req, res) => {
                   homeLines,
                   awayLines,
                   gameStatus?.state,
-                  isCompleted
+                  isCompleted,
                 );
                 let won;
                 const isWinning = isOver ? current >= line : current <= line;
@@ -7633,18 +7630,18 @@ app.get("/api/betslip", async (req, res) => {
             processQuarterTeamPoints(
               qHomePointsVal,
               "home",
-              `homePoints${period}Q`
+              `homePoints${period}Q`,
             );
             processQuarterTeamPoints(
               qAwayPointsVal,
               "away",
-              `awayPoints${period}Q`
+              `awayPoints${period}Q`,
             );
 
             // Legacy format: 1QTP=TBo23.5
             if (qPtVal) {
               const m = String(qPtVal).match(
-                /^([A-Z]{1,5})([ouOU])([0-9.]+)$/i
+                /^([A-Z]{1,5})([ouOU])([0-9.]+)$/i,
               );
               if (m) {
                 const teamAbbr = m[1].toUpperCase();
@@ -7659,7 +7656,7 @@ app.get("/api/betslip", async (req, res) => {
                   homeLines,
                   awayLines,
                   gameStatus?.state,
-                  isCompleted
+                  isCompleted,
                 );
                 let won;
                 if (isOver) {
@@ -7669,8 +7666,8 @@ app.get("/api/betslip", async (req, res) => {
                       ? true
                       : false
                     : quarterInProgress
-                    ? "in progress"
-                    : "pending";
+                      ? "in progress"
+                      : "pending";
                 } else {
                   if (quarterInProgress) {
                     won = current <= line ? "in progress" : false;
@@ -7714,14 +7711,14 @@ app.get("/api/betslip", async (req, res) => {
                 homePeriod > awayPeriod
                   ? homeAbbr
                   : awayPeriod > homePeriod
-                  ? awayAbbr
-                  : "Tied";
+                    ? awayAbbr
+                    : "Tied";
               const periodInProgress = isPeriodInProgress(
                 pi,
                 homeLines,
                 awayLines,
                 gameStatus?.state,
-                isCompleted
+                isCompleted,
               );
               eventData.bets[`P${pi}_ML`] = {
                 bet: periodMLVal,
@@ -7731,8 +7728,8 @@ app.get("/api/betslip", async (req, res) => {
                     ? isCompleted
                       ? true
                       : periodInProgress
-                      ? "in progress"
-                      : "pending"
+                        ? "in progress"
+                        : "pending"
                     : false,
               };
             }
@@ -7740,7 +7737,7 @@ app.get("/api/betslip", async (req, res) => {
             // Period spread
             if (periodSPVal) {
               const match = String(periodSPVal).match(
-                /^([A-Z]+)[+\s]?([+-]?[0-9.]+)$/i
+                /^([A-Z]+)[+\s]?([+-]?[0-9.]+)$/i,
               );
               if (match) {
                 const teamAbbr = match[1].toUpperCase();
@@ -7756,7 +7753,7 @@ app.get("/api/betslip", async (req, res) => {
                   homeLines,
                   awayLines,
                   gameStatus?.state,
-                  isCompleted
+                  isCompleted,
                 );
                 // numeric current for period spread: opponent - team
                 const pCurrentNumeric =
@@ -7772,10 +7769,10 @@ app.get("/api/betslip", async (req, res) => {
                       ? true
                       : false
                     : periodInProgress
-                    ? "in progress"
-                    : isWinning
-                    ? true
-                    : false, // Period complete, evaluate result
+                      ? "in progress"
+                      : isWinning
+                        ? true
+                        : false, // Period complete, evaluate result
                 };
               }
             }
@@ -7813,10 +7810,12 @@ app.get("/api/betslip", async (req, res) => {
                   homeLines,
                   awayLines,
                   gameStatus?.state,
-                  isCompleted
+                  isCompleted,
                 );
                 let won;
-                const isWinning = isOver ? currentPTotal >= line : currentPTotal <= line;
+                const isWinning = isOver
+                  ? currentPTotal >= line
+                  : currentPTotal <= line;
                 won = isCompleted ? (isWinning ? true : false) : "pending";
                 eventData.bets[`P${pi}_T`] = {
                   bet: periodTVal,
@@ -7872,7 +7871,7 @@ app.get("/api/betslip", async (req, res) => {
                   homeLines,
                   awayLines,
                   gameStatus?.state,
-                  isCompleted
+                  isCompleted,
                 );
                 let won;
                 const isWinning = isOver ? score >= line : score <= line;
@@ -7889,12 +7888,12 @@ app.get("/api/betslip", async (req, res) => {
             processPeriodTeamPoints(
               periodHomeVal,
               homePeriod,
-              `homePoints${pi}P`
+              `homePoints${pi}P`,
             );
             processPeriodTeamPoints(
               periodAwayVal,
               awayPeriod,
-              `awayPoints${pi}P`
+              `awayPoints${pi}P`,
             );
           }
 
@@ -7913,7 +7912,7 @@ app.get("/api/betslip", async (req, res) => {
             // Determine whether linescores represent a 2-period game (e.g., soccer halves)
             const maxPeriods = Math.max(
               Object.keys(homeLines || {}).length,
-              Object.keys(awayLines || {}).length
+              Object.keys(awayLines || {}).length,
             );
             let homeHalf = 0;
             let awayHalf = 0;
@@ -7935,8 +7934,8 @@ app.get("/api/betslip", async (req, res) => {
                 homeHalf > awayHalf
                   ? homeAbbr
                   : awayHalf > homeHalf
-                  ? awayAbbr
-                  : "Tied";
+                    ? awayAbbr
+                    : "Tied";
               // For halves in 2-period games, check if that specific period is active
               // For halves in 4-period games, check if either of the two quarters is active
               let halfInProgress = false;
@@ -7946,7 +7945,7 @@ app.get("/api/betslip", async (req, res) => {
                   homeLines,
                   awayLines,
                   gameStatus?.state,
-                  isCompleted
+                  isCompleted,
                 );
               } else {
                 // Check if either of the two periods making up this half is in progress
@@ -7956,14 +7955,19 @@ app.get("/api/betslip", async (req, res) => {
                     homeLines,
                     awayLines,
                     gameStatus?.state,
-                    isCompleted
-                  )
+                    isCompleted,
+                  ),
                 );
               }
               eventData.bets[`H${halfIndex}_ML`] = {
                 bet: halfMLVal,
                 current: `${homeHalf}-${awayHalf}`,
-                won: halfMLVal === winner ? (isCompleted ? true : "pending") : false,
+                won:
+                  halfMLVal === winner
+                    ? isCompleted
+                      ? true
+                      : "pending"
+                    : false,
               };
             }
 
@@ -8008,7 +8012,7 @@ app.get("/api/betslip", async (req, res) => {
                     homeLines,
                     awayLines,
                     gameStatus?.state,
-                    isCompleted
+                    isCompleted,
                   );
                 } else {
                   halfInProgress = periods.some((p) =>
@@ -8017,12 +8021,14 @@ app.get("/api/betslip", async (req, res) => {
                       homeLines,
                       awayLines,
                       gameStatus?.state,
-                      isCompleted
-                    )
+                      isCompleted,
+                    ),
                   );
                 }
                 let won;
-                const isWinning = isOver ? currentHalfTotal >= line : currentHalfTotal <= line;
+                const isWinning = isOver
+                  ? currentHalfTotal >= line
+                  : currentHalfTotal <= line;
                 won = isCompleted ? (isWinning ? true : false) : "pending";
                 eventData.bets[`H${halfIndex}_T`] = {
                   bet: halfTotalVal,
@@ -8040,7 +8046,7 @@ app.get("/api/betslip", async (req, res) => {
             const halfSPVal = getParamValueForGame(halfSPKey, gi);
             if (halfSPVal) {
               const match = String(halfSPVal).match(
-                /^([A-Z]+)[+\s]?([+-]?[0-9.]+)$/i
+                /^([A-Z]+)[+\s]?([+-]?[0-9.]+)$/i,
               );
               if (match) {
                 const teamAbbr = match[1].toUpperCase();
@@ -8060,7 +8066,7 @@ app.get("/api/betslip", async (req, res) => {
                     homeLines,
                     awayLines,
                     gameStatus?.state,
-                    isCompleted
+                    isCompleted,
                   );
                 } else {
                   halfInProgress = periods.some((p) =>
@@ -8069,8 +8075,8 @@ app.get("/api/betslip", async (req, res) => {
                       homeLines,
                       awayLines,
                       gameStatus?.state,
-                      isCompleted
-                    )
+                      isCompleted,
+                    ),
                   );
                 }
                 const hCurrentNumeric =
@@ -8137,7 +8143,7 @@ app.get("/api/betslip", async (req, res) => {
                     homeLines,
                     awayLines,
                     gameStatus?.state,
-                    isCompleted
+                    isCompleted,
                   );
                 } else {
                   halfInProgress = periods.some((p) =>
@@ -8146,8 +8152,8 @@ app.get("/api/betslip", async (req, res) => {
                       homeLines,
                       awayLines,
                       gameStatus?.state,
-                      isCompleted
-                    )
+                      isCompleted,
+                    ),
                   );
                 }
                 let won;
@@ -8158,12 +8164,12 @@ app.get("/api/betslip", async (req, res) => {
                       ? true
                       : false
                     : halfInProgress
-                    ? isWinning
-                      ? true
-                      : "in progress"
-                    : isWinning
-                    ? true
-                    : false; // Half complete, evaluate result
+                      ? isWinning
+                        ? true
+                        : "in progress"
+                      : isWinning
+                        ? true
+                        : false; // Half complete, evaluate result
                 } else {
                   const isWinning = current <= line;
                   if (halfInProgress) won = isWinning ? "in progress" : false;
@@ -8183,18 +8189,18 @@ app.get("/api/betslip", async (req, res) => {
             processHalfTeamPoints(
               halfHomePointsVal,
               "home",
-              `homePoints${halfIndex}H`
+              `homePoints${halfIndex}H`,
             );
             processHalfTeamPoints(
               halfAwayPointsVal,
               "away",
-              `awayPoints${halfIndex}H`
+              `awayPoints${halfIndex}H`,
             );
 
             // Legacy format: 1HTP=TBo23.5
             if (halfTPVal) {
               const m = String(halfTPVal).match(
-                /^([A-Z]{1,5})([ouOU])([0-9.]+)$/i
+                /^([A-Z]{1,5})([ouOU])([0-9.]+)$/i,
               );
               if (m) {
                 const teamAbbr = m[1].toUpperCase();
@@ -8209,7 +8215,7 @@ app.get("/api/betslip", async (req, res) => {
                     homeLines,
                     awayLines,
                     gameStatus?.state,
-                    isCompleted
+                    isCompleted,
                   );
                 } else {
                   halfInProgress = periods.some((p) =>
@@ -8218,8 +8224,8 @@ app.get("/api/betslip", async (req, res) => {
                       homeLines,
                       awayLines,
                       gameStatus?.state,
-                      isCompleted
-                    )
+                      isCompleted,
+                    ),
                   );
                 }
                 let won;
@@ -8245,11 +8251,11 @@ app.get("/api/betslip", async (req, res) => {
             if (bothScoreToken) {
               const homeScore =
                 parseInt(
-                  competitors.find((c) => c.homeAway === "home")?.score
+                  competitors.find((c) => c.homeAway === "home")?.score,
                 ) || 0;
               const awayScore =
                 parseInt(
-                  competitors.find((c) => c.homeAway === "away")?.score
+                  competitors.find((c) => c.homeAway === "away")?.score,
                 ) || 0;
               const occurred = homeScore >= 1 && awayScore >= 1;
               const tkn = String(bothScoreToken).toLowerCase();
@@ -8262,8 +8268,8 @@ app.get("/api/betslip", async (req, res) => {
                   won: isCompleted
                     ? won
                     : isInProgress
-                    ? "in progress"
-                    : "pending",
+                      ? "in progress"
+                      : "pending",
                 };
               } else {
                 eventData.bets.bothScore = {
@@ -8272,8 +8278,8 @@ app.get("/api/betslip", async (req, res) => {
                   won: isCompleted
                     ? tkn === String(occurred).toLowerCase()
                     : isInProgress
-                    ? "in progress"
-                    : "pending",
+                      ? "in progress"
+                      : "pending",
                 };
               }
             }
@@ -8324,10 +8330,10 @@ app.get("/api/betslip", async (req, res) => {
                     ? true
                     : false
                   : isInProgress
-                  ? isWinning
-                    ? true
-                    : "in progress"
-                  : "pending";
+                    ? isWinning
+                      ? true
+                      : "in progress"
+                    : "pending";
               } else {
                 const isWinning = current <= line;
                 if (isInProgress) won = isWinning ? "in progress" : false;
@@ -8398,7 +8404,7 @@ app.get("/api/betslip", async (req, res) => {
                           null;
                         return (
                           parseInt(
-                            String(raw || "0").replace(/[^0-9\-]/g, "")
+                            String(raw || "0").replace(/[^0-9\-]/g, ""),
                           ) || 0
                         );
                       }
@@ -8433,7 +8439,7 @@ app.get("/api/betslip", async (req, res) => {
             const cornerSpreadToken = getParamValueForGame("cornerSpread", gi);
             if (cornerSpreadToken) {
               const m = String(cornerSpreadToken).match(
-                /^([A-Z]{1,5})[+\s]?([+-]?[0-9.]+)$/i
+                /^([A-Z]{1,5})[+\s]?([+-]?[0-9.]+)$/i,
               );
               if (m) {
                 const teamAbbr = m[1].toUpperCase();
@@ -8455,8 +8461,8 @@ app.get("/api/betslip", async (req, res) => {
                       ? true
                       : false
                     : isInProgress
-                    ? "in progress"
-                    : "pending",
+                      ? "in progress"
+                      : "pending",
                 };
               }
             }
@@ -8464,7 +8470,7 @@ app.get("/api/betslip", async (req, res) => {
             const cardSpreadToken = getParamValueForGame("cardSpread", gi);
             if (cardSpreadToken) {
               const m = String(cardSpreadToken).match(
-                /^([A-Z]{1,5})[+\s]?([+-]?[0-9.]+)$/i
+                /^([A-Z]{1,5})[+\s]?([+-]?[0-9.]+)$/i,
               );
               if (m) {
                 const teamAbbr = m[1].toUpperCase();
@@ -8492,8 +8498,8 @@ app.get("/api/betslip", async (req, res) => {
                       ? true
                       : false
                     : isInProgress
-                    ? "in progress"
-                    : "pending",
+                      ? "in progress"
+                      : "pending",
                 };
               }
             }
@@ -8521,7 +8527,7 @@ app.get("/api/betslip", async (req, res) => {
             const athleteId = String(
               transformed.firstTouchdown.athleteId ||
                 transformed.firstTouchdown.athlete?.id ||
-                ""
+                "",
             );
             if (token === "yes" || token === "no") {
               const occurred = !!transformed.firstTouchdown;
@@ -8556,7 +8562,7 @@ app.get("/api/betslip", async (req, res) => {
             const athleteId = String(
               transformed.lastTouchdown.athleteId ||
                 transformed.lastTouchdown.athlete?.id ||
-                ""
+                "",
             );
             if (token === "yes" || token === "no") {
               const occurred = !!transformed.lastTouchdown;
@@ -8597,7 +8603,7 @@ app.get("/api/betslip", async (req, res) => {
               const athleteId = String(
                 transformed.firstBasket.athleteId ||
                   transformed.firstBasket.athlete?.id ||
-                  ""
+                  "",
               );
               const obj = {
                 bet: firstBasketToken,
@@ -8614,7 +8620,7 @@ app.get("/api/betslip", async (req, res) => {
                       : pt.statistics || {};
                     const athletes = statsBlock?.athletes || [];
                     const found = athletes.find(
-                      (a) => String(a.athlete?.id) === tokenRaw
+                      (a) => String(a.athlete?.id) === tokenRaw,
                     );
                     if (found) {
                       obj.displayName =
@@ -8628,7 +8634,7 @@ app.get("/api/betslip", async (req, res) => {
                         (t) =>
                           String(t.team?.id) === String(pt.team?.id) ||
                           String(t.team?.abbreviation) ===
-                            String(pt.team?.abbreviation)
+                            String(pt.team?.abbreviation),
                       );
                       if (teamMatch)
                         obj.color =
@@ -8645,7 +8651,7 @@ app.get("/api/betslip", async (req, res) => {
                   for (const tb of transformed.boxscore.players) {
                     const tat = tb.statistics?.athletes || [];
                     const f = tat.find(
-                      (x) => String(x.athlete?.id) === tokenRaw
+                      (x) => String(x.athlete?.id) === tokenRaw,
                     );
                     if (f) {
                       obj.displayName =
@@ -8702,11 +8708,11 @@ app.get("/api/betslip", async (req, res) => {
             getParamValueForGame(`firstGoal_${explicitSport}`, gi) ||
             getParamValueForGame(
               `firstGoal${String(explicitSport).toUpperCase()}`,
-              gi
+              gi,
             ) ||
             getParamValueForGame(
               `firstGoal_${String(explicitSport).toUpperCase()}`,
-              gi
+              gi,
             );
           if (firstGoalToken && transformed.firstGoal) {
             const token = String(firstGoalToken).toLowerCase();
@@ -8751,7 +8757,7 @@ app.get("/api/betslip", async (req, res) => {
             if (token === "yes" || token === "no") {
               const occurred = !!transformed.firstGoal;
               eventData.bets.firstGoal = buildBetObj(
-                token === "yes" ? occurred : !occurred
+                token === "yes" ? occurred : !occurred,
               );
             } else {
               const won = (team || "") === String(firstGoalToken).toUpperCase();
@@ -8765,11 +8771,11 @@ app.get("/api/betslip", async (req, res) => {
             getParamValueForGame(`lastGoal_${explicitSport}`, gi) ||
             getParamValueForGame(
               `lastGoal${String(explicitSport).toUpperCase()}`,
-              gi
+              gi,
             ) ||
             getParamValueForGame(
               `lastGoal_${String(explicitSport).toUpperCase()}`,
-              gi
+              gi,
             );
           if (lastGoalToken && transformed.lastGoal) {
             const token = String(lastGoalToken).toLowerCase();
@@ -8813,7 +8819,7 @@ app.get("/api/betslip", async (req, res) => {
             if (token === "yes" || token === "no") {
               const occurred = !!transformed.lastGoal;
               eventData.bets.lastGoal = buildLastObj(
-                token === "yes" ? occurred : !occurred
+                token === "yes" ? occurred : !occurred,
               );
             } else {
               const won = (team || "") === String(lastGoalToken).toUpperCase();
@@ -8866,7 +8872,7 @@ app.get("/api/betslip", async (req, res) => {
                               null;
                             const n =
                               parseInt(
-                                String(raw || "0").replace(/[^0-9\-]/g, "")
+                                String(raw || "0").replace(/[^0-9\-]/g, ""),
                               ) || 0;
                             sum += n;
                             found = true;
@@ -8918,15 +8924,15 @@ app.get("/api/betslip", async (req, res) => {
               const tkn = String(totalCornerToken || "").trim();
               console.log(
                 `[Betslip][UEFA] totalCorner token raw='${String(
-                  totalCornerToken
-                )}' parsed='${tkn}' totalCorners=${totalCorners}`
+                  totalCornerToken,
+                )}' parsed='${tkn}' totalCorners=${totalCorners}`,
               );
               const mOU = tkn.match(/^[ou]([0-9.]+)/i);
               const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
               const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
               const mNum = tkn.match(/^([0-9]+(?:\.[0-9]+)?)$/);
               console.log(
-                `[Betslip][UEFA] totalCorner regex mOU=${!!mOU} mPlus=${!!mPlus} mMinus=${!!mMinus} mNum=${!!mNum}`
+                `[Betslip][UEFA] totalCorner regex mOU=${!!mOU} mPlus=${!!mPlus} mMinus=${!!mMinus} mNum=${!!mNum}`,
               );
               let isOver = false;
               let line = null;
@@ -8954,8 +8960,8 @@ app.get("/api/betslip", async (req, res) => {
                       ? true
                       : false
                     : isInProgress
-                    ? "in progress"
-                    : "pending";
+                      ? "in progress"
+                      : "pending";
                 } else {
                   if (isInProgress)
                     won = totalCorners <= line ? "in progress" : false;
@@ -8982,15 +8988,15 @@ app.get("/api/betslip", async (req, res) => {
               const tkn = String(totalCardsToken || "").trim();
               console.log(
                 `[Betslip][UEFA] totalCards token raw='${String(
-                  totalCardsToken
-                )}' parsed='${tkn}' totalCards=${totalCards}`
+                  totalCardsToken,
+                )}' parsed='${tkn}' totalCards=${totalCards}`,
               );
               const mOU = tkn.match(/^[ou]([0-9.]+)/i);
               const mPlus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)\+$/);
               const mMinus = tkn.match(/^([0-9]+(?:\.[0-9]+)?)-$/);
               const mNum = tkn.match(/^([0-9]+(?:\.[0-9]+)?)$/);
               console.log(
-                `[Betslip][UEFA] totalCards regex mOU=${!!mOU} mPlus=${!!mPlus} mMinus=${!!mMinus} mNum=${!!mNum}`
+                `[Betslip][UEFA] totalCards regex mOU=${!!mOU} mPlus=${!!mPlus} mMinus=${!!mMinus} mNum=${!!mNum}`,
               );
               let isOver = false;
               let line = null;
@@ -9018,8 +9024,8 @@ app.get("/api/betslip", async (req, res) => {
                       ? true
                       : false
                     : isInProgress
-                    ? "in progress"
-                    : "pending";
+                      ? "in progress"
+                      : "pending";
                 } else {
                   if (isInProgress)
                     won = totalCards <= line ? "in progress" : false;
@@ -9044,7 +9050,7 @@ app.get("/api/betslip", async (req, res) => {
           console.log(
             `[Betslip] Additional bets processing error for ${rawGameToken}: ${
               e?.message || e
-            }`
+            }`,
           );
         }
 
@@ -9054,7 +9060,7 @@ app.get("/api/betslip", async (req, res) => {
         const players = [];
 
         console.log(
-          `[Betslip] Boxscore players count: ${boxscorePlayers.length}`
+          `[Betslip] Boxscore players count: ${boxscorePlayers.length}`,
         );
 
         Object.keys(playerBets).forEach((key) => {
@@ -9084,7 +9090,7 @@ app.get("/api/betslip", async (req, res) => {
                 : team.statistics || {};
               const athletes = statisticsData?.athletes || [];
               const athlete = athletes.find(
-                (a) => String(a.athlete?.id) === String(playerId)
+                (a) => String(a.athlete?.id) === String(playerId),
               );
               if (athlete) {
                 foundAthlete = athlete;
@@ -9097,32 +9103,32 @@ app.get("/api/betslip", async (req, res) => {
                   null;
                 console.log(
                   `[Betslip] Found athlete in boxscore.players for id=${playerId}, displayName=${playerData.name}, teamId=${foundTeamId}, stats=`,
-                  athlete.stats
+                  athlete.stats,
                 );
                 try {
                   const allTransformedAthletes = (
                     transformed?.boxscore?.players || []
                   ).flatMap((p) => p.statistics?.athletes || []);
                   const transformedMatch = allTransformedAthletes.find(
-                    (a) => String(a.athlete?.id) === String(playerId)
+                    (a) => String(a.athlete?.id) === String(playerId),
                   );
                   console.log(
                     `[Betslip] Transformed source used: ${
                       usedTransformedSource ? "true" : "false"
-                    }`
+                    }`,
                   );
                   console.log(
                     `[Betslip] Matching athlete from transformed summary (if any):`,
                     transformedMatch || "<no transformed athlete found>",
                     "\nTransformed boxscore players count:",
-                    (transformed?.boxscore?.players || []).length
+                    (transformed?.boxscore?.players || []).length,
                   );
                 } catch (e) {
                   /* non-fatal */
                 }
                 console.log(
                   `[Betslip] Found athlete 1Q data (pre-attach):`,
-                  athlete["1Q"] || athlete.athlete?.["1Q"] || null
+                  athlete["1Q"] || athlete.athlete?.["1Q"] || null,
                 );
                 // Attach per-period 1Q stats from transformed summary if available
                 try {
@@ -9134,7 +9140,7 @@ app.get("/api/betslip", async (req, res) => {
                     for (const tb of transformed.boxscore.players) {
                       const tat = tb.statistics?.athletes || [];
                       const found = tat.find(
-                        (x) => String(x.athlete?.id) === String(playerId)
+                        (x) => String(x.athlete?.id) === String(playerId),
                       );
                       if (found && found["1Q"]) {
                         // ensure resolver can find it either on top-level or under athlete
@@ -9156,12 +9162,12 @@ app.get("/api/betslip", async (req, res) => {
           // Lookup team color from boxscore.teams if we have a team ID
           if (foundTeamId && boxscoreTeams.length > 0) {
             const teamData = boxscoreTeams.find(
-              (t) => String(t.team?.id) === String(foundTeamId)
+              (t) => String(t.team?.id) === String(foundTeamId),
             );
             if (teamData && teamData.team?.color) {
               playerData.color = teamData.team.color;
               console.log(
-                `[Betslip] Found team color for player ${playerId}: ${playerData.color}`
+                `[Betslip] Found team color for player ${playerId}: ${playerData.color}`,
               );
             }
           }
@@ -9188,7 +9194,7 @@ app.get("/api/betslip", async (req, res) => {
                     if (r.team?.color) {
                       playerData.color = r.team.color;
                       console.log(
-                        `[Betslip] Found team color from roster for player ${playerId}: ${playerData.color}`
+                        `[Betslip] Found team color from roster for player ${playerId}: ${playerData.color}`,
                       );
                     }
                     // Convert stats object to labels + array for compatibility
@@ -9196,7 +9202,7 @@ app.get("/api/betslip", async (req, res) => {
                       p.stats && typeof p.stats === "object" ? p.stats : null;
                     console.log(
                       `[Betslip] Found athlete in rosters for id=${playerId}, displayName=${name}, teamColor=${playerData.color}, statsObj=`,
-                      statsObj || p.stats || p
+                      statsObj || p.stats || p,
                     );
                     if (statsObj) {
                       // Some roster stats are an array of stat objects (name, abbreviation, value)
@@ -9221,15 +9227,15 @@ app.get("/api/betslip", async (req, res) => {
                           valsArr.push(
                             rawVal !== null && rawVal !== undefined
                               ? String(rawVal)
-                              : null
+                              : null,
                           );
                         }
                         foundLabels = labelsArr;
                         foundStatsArr = valsArr;
                         console.log(
                           `[Betslip] Normalized roster stats for player ${playerId}: labels=${JSON.stringify(
-                            foundLabels
-                          )}, values=${JSON.stringify(foundStatsArr)}`
+                            foundLabels,
+                          )}, values=${JSON.stringify(foundStatsArr)}`,
                         );
                       } else {
                         foundLabels = Object.keys(statsObj || []);
@@ -9250,7 +9256,7 @@ app.get("/api/betslip", async (req, res) => {
                         for (const tb of transformed.boxscore.players) {
                           const tat = tb.statistics?.athletes || [];
                           const found = tat.find(
-                            (x) => String(x.athlete?.id) === String(playerId)
+                            (x) => String(x.athlete?.id) === String(playerId),
                           );
                           if (found && found["1Q"]) {
                             foundAthlete["1Q"] = found["1Q"];
@@ -9317,8 +9323,8 @@ app.get("/api/betslip", async (req, res) => {
                             ? true
                             : false
                           : isCompleted
-                          ? false
-                          : "in progress";
+                            ? false
+                            : "in progress";
                       } else {
                         // bet = "no": if data exists and it's someone else, mark true; if no data yet, pending
                         won = hasData
@@ -9326,8 +9332,8 @@ app.get("/api/betslip", async (req, res) => {
                             ? true
                             : false
                           : isCompleted
-                          ? true
-                          : "in progress";
+                            ? true
+                            : "in progress";
                       }
                       playerData.milestones[statUpper] = {
                         bet: betValue,
@@ -9352,14 +9358,14 @@ app.get("/api/betslip", async (req, res) => {
                         won = occurred
                           ? true
                           : isCompleted
-                          ? false
-                          : "in progress";
+                            ? false
+                            : "in progress";
                       } else {
                         won = isCompleted
                           ? !occurred
                           : occurred
-                          ? false
-                          : "in progress";
+                            ? false
+                            : "in progress";
                       }
                       playerData.milestones[statUpper] = {
                         bet: betValue,
@@ -9381,14 +9387,14 @@ app.get("/api/betslip", async (req, res) => {
                         won = occurred
                           ? true
                           : isCompleted
-                          ? false
-                          : "in progress";
+                            ? false
+                            : "in progress";
                       } else {
                         won = isCompleted
                           ? !occurred
                           : occurred
-                          ? false
-                          : "in progress";
+                            ? false
+                            : "in progress";
                       }
                       playerData.milestones[statUpper] = {
                         bet: betValue,
@@ -9431,8 +9437,8 @@ app.get("/api/betslip", async (req, res) => {
                             ? true
                             : false
                           : isCompleted
-                          ? false
-                          : "in progress";
+                            ? false
+                            : "in progress";
                       } else {
                         // bet = "no": if data exists and it's someone else, mark true; if no data yet, pending
                         won = hasData
@@ -9440,8 +9446,8 @@ app.get("/api/betslip", async (req, res) => {
                             ? true
                             : false
                           : isCompleted
-                          ? true
-                          : "in progress";
+                            ? true
+                            : "in progress";
                       }
                       playerData.milestones[statUpper] = {
                         bet: betValue,
@@ -9478,14 +9484,14 @@ app.get("/api/betslip", async (req, res) => {
                         won = occurred
                           ? true
                           : isCompleted
-                          ? false
-                          : "in progress";
+                            ? false
+                            : "in progress";
                       } else {
                         won = isCompleted
                           ? !occurred
                           : occurred
-                          ? false
-                          : "in progress";
+                            ? false
+                            : "in progress";
                       }
                       playerData.milestones[statUpper] = {
                         bet: betValue,
@@ -9538,7 +9544,7 @@ app.get("/api/betslip", async (req, res) => {
 
                 current = pts + reb + ast;
                 console.log(
-                  `[Betslip] PRA hardcoded calculation: pts=${pts}, reb=${reb}, ast=${ast}, sum=${current}`
+                  `[Betslip] PRA hardcoded calculation: pts=${pts}, reb=${reb}, ast=${ast}, sum=${current}`,
                 );
               } else if (statUpper === "PPP" || statUpper === "PP") {
                 // Power-play points (PPP / PP). Prefer explicit PP stat attached
@@ -9558,7 +9564,7 @@ app.get("/api/betslip", async (req, res) => {
                       const idx = labels.findIndex(
                         (l) =>
                           /^(PP|PPP)$/.test(String(l || "")) ||
-                          /power[- ]?play/i.test(String(l || ""))
+                          /power[- ]?play/i.test(String(l || "")),
                       );
                       if (idx >= 0) val = Number(athlete.stats[idx]) || 0;
                     }
@@ -9572,8 +9578,8 @@ app.get("/api/betslip", async (req, res) => {
                             athlete,
                             labels,
                             "PP",
-                            explicitSport || ""
-                          )
+                            explicitSport || "",
+                          ),
                         ) || 0;
                     } catch (e) {
                       val = 0;
@@ -9592,7 +9598,7 @@ app.get("/api/betslip", async (req, res) => {
                       athlete,
                       labels,
                       statUpper,
-                      explicitSport || ""
+                      explicitSport || "",
                     );
                   } catch (e) {
                     current = 0;
@@ -9601,7 +9607,7 @@ app.get("/api/betslip", async (req, res) => {
               }
 
               console.log(
-                `[Betslip] Processing bet: ${betKey}, stat: ${statUpper}, current: ${current}, betValue: ${betValue}`
+                `[Betslip] Processing bet: ${betKey}, stat: ${statUpper}, current: ${current}, betValue: ${betValue}`,
               );
 
               if (bv === "yes" || bv === "no") {
@@ -9616,8 +9622,8 @@ app.get("/api/betslip", async (req, res) => {
                   won = isCompleted
                     ? !occurred
                     : occurred
-                    ? false
-                    : "in progress";
+                      ? false
+                      : "in progress";
                 }
                 playerData.milestones[statUpper] = {
                   bet: betValue,
@@ -9636,13 +9642,13 @@ app.get("/api/betslip", async (req, res) => {
                 const isOver = mPlus
                   ? true
                   : mMinus
-                  ? false
-                  : /^o/i.test(bvStr);
+                    ? false
+                    : /^o/i.test(bvStr);
                 const line = mOU
                   ? parseFloat(mOU[1])
                   : mPlus
-                  ? parseFloat(mPlus[1])
-                  : parseFloat(mMinus[1]);
+                    ? parseFloat(mPlus[1])
+                    : parseFloat(mMinus[1]);
                 const isInProgress = !isCompleted && gameStatus?.state === "in";
                 let won;
                 if (isOver) {
@@ -9652,10 +9658,10 @@ app.get("/api/betslip", async (req, res) => {
                       ? true
                       : false
                     : isInProgress
-                    ? isWinning
-                      ? true
-                      : "in progress"
-                    : "pending";
+                      ? isWinning
+                        ? true
+                        : "in progress"
+                      : "pending";
                 } else {
                   const isWinning = Number(current) <= line;
                   if (isInProgress) won = isWinning ? "in progress" : false;
@@ -9691,7 +9697,7 @@ app.get("/api/betslip", async (req, res) => {
                     linescoresHome,
                     linescoresAway,
                     gameStatus?.state,
-                    isCompleted
+                    isCompleted,
                   );
                   isComplete =
                     !q1InProgress &&
@@ -9715,17 +9721,17 @@ app.get("/api/betslip", async (req, res) => {
                       ? true
                       : false
                     : isPeriodActive
-                    ? isWinning
-                      ? true
-                      : "in progress"
-                    : "pending",
+                      ? isWinning
+                        ? true
+                        : "in progress"
+                      : "pending",
                 };
                 return;
               }
 
               // Fallback: parse numeric threshold (treat as over)
               const threshold = parseFloat(
-                String(betValue).replace(/[^0-9.]/g, "")
+                String(betValue).replace(/[^0-9.]/g, ""),
               );
               if (!isNaN(threshold)) {
                 // For 1Q stats, check if Q1 is complete
@@ -9738,7 +9744,7 @@ app.get("/api/betslip", async (req, res) => {
                     linescoresHome,
                     linescoresAway,
                     gameStatus?.state,
-                    isCompleted
+                    isCompleted,
                   );
                   isComplete =
                     !q1InProgress &&
@@ -9757,10 +9763,10 @@ app.get("/api/betslip", async (req, res) => {
                       ? true
                       : false
                     : isPeriodActive
-                    ? isWinning
-                      ? true
-                      : "in progress"
-                    : "pending",
+                      ? isWinning
+                        ? true
+                        : "in progress"
+                      : "pending",
                 };
                 return;
               }
@@ -9785,7 +9791,7 @@ app.get("/api/betslip", async (req, res) => {
       } catch (gameError) {
         console.error(
           `[Betslip] Error processing game ${rawGameToken}:`,
-          gameError.message
+          gameError.message,
         );
       }
     }
@@ -9796,7 +9802,7 @@ app.get("/api/betslip", async (req, res) => {
     const payloadSizeKB = (payloadSizeBytes / 1024).toFixed(2);
 
     console.log(
-      `[Betslip] Payload size: ${payloadSizeBytes} bytes (${payloadSizeKB} KB)`
+      `[Betslip] Payload size: ${payloadSizeBytes} bytes (${payloadSizeKB} KB)`,
     );
 
     // Add metadata about payload size
@@ -9841,7 +9847,7 @@ app.post("/api/betslip", authMiddlewareInline, async (req, res) => {
   try {
     const localBase = `http://127.0.0.1:${PORT}`;
     console.log(
-      `[route-alias-local] forwarding POST /api/betslip -> ${localBase}/api/betslips`
+      `[route-alias-local] forwarding POST /api/betslip -> ${localBase}/api/betslips`,
     );
     const resp = await axios.post(`${localBase}/api/betslips`, req.body || {}, {
       headers: { ...(req.headers || {}), host: undefined },
@@ -9851,7 +9857,7 @@ app.post("/api/betslip", authMiddlewareInline, async (req, res) => {
   } catch (e) {
     console.error(
       "[route-alias-local] POST /api/betslip forward failed",
-      e?.message || e
+      e?.message || e,
     );
     if (e.response) return res.status(e.response.status).send(e.response.data);
     return res.status(500).json({ error: "forward failed" });
@@ -9863,7 +9869,7 @@ app.post("/api/betslip/:id/watch", authMiddlewareInline, async (req, res) => {
     const { id } = req.params;
     const localBase = `http://127.0.0.1:${PORT}`;
     console.log(
-      `[route-alias-local] forwarding POST /api/betslip/${id}/watch -> ${localBase}/api/betslips/${id}/watch`
+      `[route-alias-local] forwarding POST /api/betslip/${id}/watch -> ${localBase}/api/betslips/${id}/watch`,
     );
     const resp = await axios.post(
       `${localBase}/api/betslips/${id}/watch`,
@@ -9871,13 +9877,13 @@ app.post("/api/betslip/:id/watch", authMiddlewareInline, async (req, res) => {
       {
         headers: { ...(req.headers || {}), host: undefined },
         timeout: 15000,
-      }
+      },
     );
     return res.status(resp.status).json(resp.data);
   } catch (e) {
     console.error(
       `[route-alias-local] POST /api/betslip/:id/watch forward failed for ${req.params.id}`,
-      e?.message || e
+      e?.message || e,
     );
     if (e.response) return res.status(e.response.status).send(e.response.data);
     return res.status(500).json({ error: "forward failed" });
@@ -9889,7 +9895,7 @@ app.delete("/api/betslip/:id/watch", authMiddlewareInline, async (req, res) => {
     const { id } = req.params;
     const localBase = `http://127.0.0.1:${PORT}`;
     console.log(
-      `[route-alias-local] forwarding DELETE /api/betslip/${id}/watch -> ${localBase}/api/betslips/${id}/watch`
+      `[route-alias-local] forwarding DELETE /api/betslip/${id}/watch -> ${localBase}/api/betslips/${id}/watch`,
     );
     const resp = await axios.delete(`${localBase}/api/betslips/${id}/watch`, {
       headers: { ...(req.headers || {}), host: undefined },
@@ -9899,7 +9905,7 @@ app.delete("/api/betslip/:id/watch", authMiddlewareInline, async (req, res) => {
   } catch (e) {
     console.error(
       `[route-alias-local] DELETE /api/betslip/:id/watch forward failed for ${req.params.id}`,
-      e?.message || e
+      e?.message || e,
     );
     if (e.response) return res.status(e.response.status).send(e.response.data);
     return res.status(500).json({ error: "forward failed" });
@@ -9945,12 +9951,12 @@ async function initialize() {
   // This aligns rosters with SportGameOdds caching cadence.
   if (!rostersScoreboardInterval) {
     console.log(
-      "[Rosters Scheduler] Starting 2-hour roster refresh (aligned with SGO polling)"
+      "[Rosters Scheduler] Starting 2-hour roster refresh (aligned with SGO polling)",
     );
     rostersScoreboardInterval = setInterval(async () => {
       try {
         console.log(
-          "[Rosters Scheduler] Refreshing rosters and scoreboards..."
+          "[Rosters Scheduler] Refreshing rosters and scoreboards...",
         );
         // Refresh scoreboard (lightweight) and clear roster cache so next request
         // will rebuild (we keep this non-blocking).
@@ -9960,7 +9966,7 @@ async function initialize() {
       } catch (err) {
         console.error(
           "[Rosters Scheduler] Error refreshing rosters:",
-          err?.message || err
+          err?.message || err,
         );
       }
     }, SGO_CACHE_TTL_MS);
@@ -9975,14 +9981,14 @@ async function initialize() {
       fetchRostersForSport(sport)
         .then(() =>
           console.log(
-            `[Rosters] Initial background fetch complete for ${sport}`
-          )
+            `[Rosters] Initial background fetch complete for ${sport}`,
+          ),
         )
         .catch((e) =>
           console.warn(
             `[Rosters] Initial fetch failed for ${sport}`,
-            e?.message || e
-          )
+            e?.message || e,
+          ),
         );
     });
   } catch (e) {
@@ -10000,7 +10006,7 @@ async function initialize() {
   } catch (e) {
     console.warn(
       "Failed to initialize betslips realtime listener:",
-      e?.message || e
+      e?.message || e,
     );
   }
 
@@ -10064,7 +10070,7 @@ app.post(
       const token = jwt.sign(
         { userId: data.id, username: data.username, profileId },
         process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+        { expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
       );
       res.status(201).json({
         message: "User created",
@@ -10080,7 +10086,7 @@ app.post(
       console.error("signup error", e);
       res.status(500).json({ message: "Server error" });
     }
-  }
+  },
 );
 
 app.post("/api/auth/login", async (req, res) => {
@@ -10127,13 +10133,13 @@ app.post("/api/auth/login", async (req, res) => {
         : null;
       console.log(
         "[auth/login] no legacy users row found for username; incomingToken present=",
-        !!incomingToken
+        !!incomingToken,
       );
       if (incomingToken) {
         try {
           console.log(
             "[auth/login] attempting supabaseAdmin.auth.getUser with masked token",
-            `${String(incomingToken).slice(0, 8)}...<masked>`
+            `${String(incomingToken).slice(0, 8)}...<masked>`,
           );
           const { data: sbData, error: sbErr } =
             await supabaseAdmin.auth.getUser(incomingToken);
@@ -10155,7 +10161,7 @@ app.post("/api/auth/login", async (req, res) => {
                 {
                   prof: prof || null,
                   error: profErr ? profErr.message || profErr : null,
-                }
+                },
               );
               if (prof && prof.id) {
                 if (!process.env.JWT_SECRET)
@@ -10170,7 +10176,7 @@ app.post("/api/auth/login", async (req, res) => {
                     supabaseUserId: supabaseUser.id,
                   },
                   process.env.JWT_SECRET,
-                  { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+                  { expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
                 );
                 return res.json({
                   message: "Login successful (via Supabase token)",
@@ -10186,14 +10192,14 @@ app.post("/api/auth/login", async (req, res) => {
             } catch (profLookupErr) {
               console.error(
                 "[auth/login] error looking up profile by supabase id",
-                profLookupErr
+                profLookupErr,
               );
             }
           }
         } catch (e) {
           console.error(
             "[auth/login] error resolving supabase token",
-            e && e.message ? e.message : e
+            e && e.message ? e.message : e,
           );
         }
       }
@@ -10209,7 +10215,7 @@ app.post("/api/auth/login", async (req, res) => {
     try {
       console.log(
         "[auth/login] attempting profiles.select by username=",
-        user.username
+        user.username,
       );
       const { data: prof, error: profErr } = await supabaseAdmin
         .from("profiles")
@@ -10228,7 +10234,7 @@ app.post("/api/auth/login", async (req, res) => {
     const token = jwt.sign(
       { userId: user.id, username: user.username, profileId },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+      { expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
     );
     res.json({
       message: "Login successful",
@@ -10271,7 +10277,7 @@ async function authMiddlewareInline(req, res, next) {
       // Token was valid but didn't contain a user id we recognize; allow middleware to proceed
       // so downstream handlers can decide (they may still require a profile id and reject).
       console.warn(
-        "Auth: JWT had no userId/profileId; proceeding with null userId"
+        "Auth: JWT had no userId/profileId; proceeding with null userId",
       );
     }
     return next();
@@ -10357,7 +10363,7 @@ app.post("/api/profile/push-token", authMiddlewareInline, async (req, res) => {
         } catch (e) {
           console.warn(
             "push-token cleanup before upsert failed",
-            e?.message || e
+            e?.message || e,
           );
         }
         const { error } = await supabaseAdmin
@@ -10369,7 +10375,7 @@ app.post("/api/profile/push-token", authMiddlewareInline, async (req, res) => {
       } catch (err) {
         console.warn(
           "push_tokens upsert with profileId failed",
-          err?.message || err
+          err?.message || err,
         );
         // fallback to legacy path below
       }
@@ -10397,7 +10403,7 @@ app.post("/api/profile/push-token", authMiddlewareInline, async (req, res) => {
     } catch (upsertErr) {
       console.warn(
         "push_tokens upsert legacy failed, attempting users.push_token fallback",
-        upsertErr?.message || upsertErr
+        upsertErr?.message || upsertErr,
       );
       try {
         const { error: updErr } = await supabaseAdmin
@@ -10409,7 +10415,7 @@ app.post("/api/profile/push-token", authMiddlewareInline, async (req, res) => {
       } catch (updErr) {
         console.error(
           "push-token update users failed",
-          updErr?.message || updErr
+          updErr?.message || updErr,
         );
         throw updErr;
       }
@@ -10569,7 +10575,7 @@ function startWatcherInline(betslipId) {
         } catch (e) {
           console.warn(
             "watcher: failed to fetch betslip_url, falling back to stored data",
-            e?.message || e
+            e?.message || e,
           );
         }
       }
@@ -10577,17 +10583,17 @@ function startWatcherInline(betslipId) {
       console.log(
         `[watcher ${betslipId}] tick - bets:${betsArr.length} betslipUrl:${
           betslipUrl ? "yes" : "no"
-        }`
+        }`,
       );
       const summaries = {};
       const summaryBaseMap = {};
       for (const rawEvId of Array.from(
-        new Set(betsArr.map((b) => b.gameId || b.game_id).filter(Boolean))
+        new Set(betsArr.map((b) => b.gameId || b.game_id).filter(Boolean)),
       )) {
         // Strip _sport suffix from gameId (e.g., "401810365_nba" -> "401810365")
         const evId = String(rawEvId).replace(
           /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba|uefa)$/i,
-          ""
+          "",
         );
         try {
           // try to use sport-specific base if we can infer sport from scoreboardData
@@ -10595,7 +10601,7 @@ function startWatcherInline(betslipId) {
           try {
             if (scoreboardData && Array.isArray(scoreboardData.events)) {
               const ev = scoreboardData.events.find(
-                (x) => String(x.id) === String(evId)
+                (x) => String(x.id) === String(evId),
               );
               const slug = ev?.sport?.slug
                 ? String(ev.sport.slug).toLowerCase()
@@ -10640,8 +10646,8 @@ function startWatcherInline(betslipId) {
           if (!resp) {
             console.error(
               `summary fetch failed for event ${evId}, tried bases: ${triedBases.join(
-                ","
-              )}`
+                ",",
+              )}`,
             );
           }
         } catch (e) {
@@ -10650,8 +10656,8 @@ function startWatcherInline(betslipId) {
       }
       console.log(
         `[watcher ${betslipId}] summaries fetched: ${Object.keys(
-          summaries
-        ).join(",")}`
+          summaries,
+        ).join(",")}`,
       );
 
       const isFirstTick = Object.keys(lastStates).length === 0;
@@ -10784,7 +10790,7 @@ function startWatcherInline(betslipId) {
         } catch (e) {
           console.warn(
             "watcher: error checking stored bet flags",
-            e?.message || e
+            e?.message || e,
           );
         }
 
@@ -10906,17 +10912,17 @@ function startWatcherInline(betslipId) {
             // times from different watchers or rapid ticks.
             if (!shouldSuppressNotification(fresh.user_id, evId, "started")) {
               console.log(
-                `[watcher ${betslipId}] notify -> Game Started user:${fresh.user_id} event:${evId}`
+                `[watcher ${betslipId}] notify -> Game Started user:${fresh.user_id} event:${evId}`,
               );
               await sendPushNotification(
                 fresh.user_id,
                 `Game Started ${sportEmoji}`,
                 `${homeAbbr} vs ${awayAbbr} has now started`,
-                { betslipId: fresh.id, eventId: evId }
+                { betslipId: fresh.id, eventId: evId },
               );
             } else {
               console.log(
-                `[watcher ${betslipId}] suppressed duplicate Game Started notify -> user:${fresh.user_id} event:${evId}`
+                `[watcher ${betslipId}] suppressed duplicate Game Started notify -> user:${fresh.user_id} event:${evId}`,
               );
             }
           }
@@ -10928,17 +10934,17 @@ function startWatcherInline(betslipId) {
           if (!isFirstTick && prevRawState === "in" && newRawState === "post") {
             if (!shouldSuppressNotification(fresh.user_id, evId, "ended")) {
               console.log(
-                `[watcher ${betslipId}] notify -> Game Ended user:${fresh.user_id} event:${evId}`
+                `[watcher ${betslipId}] notify -> Game Ended user:${fresh.user_id} event:${evId}`,
               );
               await sendPushNotification(
                 fresh.user_id,
                 `Game Ended ${sportEmoji}`,
                 `${homeAbbr} ${homeScore} vs ${awayAbbr} ${awayScore} has ended`,
-                { betslipId: fresh.id, eventId: evId }
+                { betslipId: fresh.id, eventId: evId },
               );
             } else {
               console.log(
-                `[watcher ${betslipId}] suppressed duplicate Game Ended notify -> user:${fresh.user_id} event:${evId}`
+                `[watcher ${betslipId}] suppressed duplicate Game Ended notify -> user:${fresh.user_id} event:${evId}`,
               );
             }
           }
@@ -10946,8 +10952,8 @@ function startWatcherInline(betslipId) {
           lastEventStatus[evId] = isCompleted
             ? "completed"
             : isInProgress
-            ? "in progress"
-            : "scheduled";
+              ? "in progress"
+              : "scheduled";
           // Persist the raw state for next tick comparisons
           if (typeof newRawState === "string")
             lastEventRawState[evId] = newRawState;
@@ -10961,12 +10967,12 @@ function startWatcherInline(betslipId) {
             const betTeam = competitors.find(
               (c) =>
                 c.team?.abbreviation ===
-                (bet.team || bet.selection || bet.description)
+                (bet.team || bet.selection || bet.description),
             );
             const opp = competitors.find(
               (c) =>
                 c.team?.abbreviation !==
-                (bet.team || bet.selection || bet.description)
+                (bet.team || bet.selection || bet.description),
             );
             if (betTeam && opp) {
               const betScore = parseInt(betTeam.score) || 0;
@@ -10982,7 +10988,7 @@ function startWatcherInline(betslipId) {
                   bet.current?.adjustedScore || bet.current?.adjusted || null;
                 if (adjustedRaw != null) {
                   const adj = parseFloat(
-                    String(adjustedRaw).replace(/[^0-9\.-]/g, "")
+                    String(adjustedRaw).replace(/[^0-9\.-]/g, ""),
                   );
                   if (!Number.isNaN(adj)) {
                     isWinning = adj >= 0;
@@ -11011,7 +11017,7 @@ function startWatcherInline(betslipId) {
               console.log(
                 `[watcher ${betslipId}] pick:${pickKey} ${labelType} check -> team:${
                   bet.team || bet.selection || bet.description
-                } score:${betScore}-${oppScore} isWinning:${isWinning} isInProgress:${isInProgress} isCompleted:${isCompleted} -> newState:${newState}`
+                } score:${betScore}-${oppScore} isWinning:${isWinning} isInProgress:${isInProgress} isCompleted:${isCompleted} -> newState:${newState}`,
               );
             }
           }
@@ -11074,10 +11080,10 @@ function startWatcherInline(betslipId) {
         try {
           console.log(
             `[watcher ${betslipId}] pickResult -> pick:${pickKey} computed:${newState} isCompleted:${isCompleted} rawBet:${JSON.stringify(
-              bet
+              bet,
             )} summaryState:${
               summary?.header?.competitions?.[0]?.status?.type?.state
-            }`
+            }`,
           );
         } catch (e) {}
 
@@ -11090,17 +11096,17 @@ function startWatcherInline(betslipId) {
           if (!isFirstTick) {
             if (newState === "won") {
               console.log(
-                `[watcher ${betslipId}] notify -> Pick Won user:${fresh.user_id} pick:${pickKey}`
+                `[watcher ${betslipId}] notify -> Pick Won user:${fresh.user_id} pick:${pickKey}`,
               );
             }
             if (newState === "lost") {
               console.log(
-                `[watcher ${betslipId}] notify -> Pick Lost user:${fresh.user_id} pick:${pickKey}`
+                `[watcher ${betslipId}] notify -> Pick Lost user:${fresh.user_id} pick:${pickKey}`,
               );
             }
             if (newState === "in progress") {
               console.log(
-                `[watcher ${betslipId}] notify -> Pick In Progress user:${fresh.user_id} pick:${pickKey}`
+                `[watcher ${betslipId}] notify -> Pick In Progress user:${fresh.user_id} pick:${pickKey}`,
               );
             }
           }
@@ -11165,19 +11171,19 @@ function startWatcherInline(betslipId) {
             // Use DB RPC to atomically settle and record ledger/history
             const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc(
               "settle_betslip",
-              { p_betslip_id: betslipId, p_result: "lost" }
+              { p_betslip_id: betslipId, p_result: "lost" },
             );
             if (rpcErr) {
               console.error(
                 `[watcher ${betslipId}] settle_betslip RPC error`,
-                rpcErr
+                rpcErr,
               );
               // Fallback: attempt manual settlement using service role
               await manualSettleBetslip(betslipId, "lost");
             } else {
               console.log(
                 `[watcher ${betslipId}] settled (lost) via RPC for user:${fresh.user_id}`,
-                rpcRes
+                rpcRes,
               );
             }
             // Use centralized formatter to produce richer notification
@@ -11185,7 +11191,7 @@ function startWatcherInline(betslipId) {
           } catch (e) {
             console.error(
               `[watcher ${betslipId}] error while settling lost bet`,
-              e?.message || e
+              e?.message || e,
             );
           }
         }
@@ -11207,19 +11213,19 @@ function startWatcherInline(betslipId) {
           try {
             const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc(
               "settle_betslip",
-              { p_betslip_id: betslipId, p_result: newStatus }
+              { p_betslip_id: betslipId, p_result: newStatus },
             );
             if (rpcErr) {
               console.error(
                 `[watcher ${betslipId}] settle_betslip RPC error`,
-                rpcErr
+                rpcErr,
               );
               // Fallback: attempt manual settlement using service role
               await manualSettleBetslip(betslipId, newStatus);
             } else {
               console.log(
                 `[watcher ${betslipId}] settled via RPC -> ${newStatus} user:${fresh.user_id}`,
-                rpcRes
+                rpcRes,
               );
             }
             // send bet result using centralized formatter
@@ -11227,7 +11233,7 @@ function startWatcherInline(betslipId) {
           } catch (e) {
             console.error(
               `[watcher ${betslipId}] error while settling bet`,
-              e?.message || e
+              e?.message || e,
             );
           }
         }
@@ -11279,7 +11285,7 @@ function startTestNotifier(betslipId) {
         } catch (e) {
           console.warn(
             "test-notifier: failed to fetch betslip_url",
-            e?.message || e
+            e?.message || e,
           );
         }
       }
@@ -11303,7 +11309,7 @@ function startTestNotifier(betslipId) {
             console.log(
               `[testNotifier ${betslipId}] notify -> user:${
                 fresh.user_id
-              } title:${title} body:${body} player:${p.id || null}`
+              } title:${title} body:${body} player:${p.id || null}`,
             );
             await sendPushNotification(fresh.user_id, title, body, {
               betslipId,
@@ -11321,7 +11327,7 @@ function startTestNotifier(betslipId) {
             console.log(
               `[testNotifier ${betslipId}] notify -> user:${
                 fresh.user_id
-              } title:${title} body:${body} player:${p.id || null}`
+              } title:${title} body:${body} player:${p.id || null}`,
             );
             await sendPushNotification(fresh.user_id, title, body, {
               betslipId,
@@ -11360,7 +11366,7 @@ function setupBetslipRealtimeListener() {
             const id = payload?.new?.id;
             const userId = payload?.new?.user_id;
             console.log(
-              `[realtime] betslips INSERT detected id:${id} user:${userId}`
+              `[realtime] betslips INSERT detected id:${id} user:${userId}`,
             );
             if (id) {
               // Start watcher for the new betslip (startWatcherInline is idempotent)
@@ -11374,14 +11380,14 @@ function setupBetslipRealtimeListener() {
               } catch (e) {
                 console.error(
                   `[realtime] error starting watcher for ${id}`,
-                  e?.message || e
+                  e?.message || e,
                 );
               }
             }
           } catch (e) {
             console.error("[realtime] payload handling error", e?.message || e);
           }
-        }
+        },
       );
 
     // Track last poll time so fallback only picks up new rows
@@ -11398,7 +11404,7 @@ function setupBetslipRealtimeListener() {
           const lookbackMs = 60 * 60 * 1000; // 60 minutes
           const sinceTime = new Date(Date.now() - lookbackMs).toISOString();
           console.log(
-            `[realtime-fallback] initial scan for betslips since ${sinceTime}`
+            `[realtime-fallback] initial scan for betslips since ${sinceTime}`,
           );
           const { data: recentRows, error: recentErr } = await supabaseAdmin
             .from("betslips")
@@ -11409,23 +11415,23 @@ function setupBetslipRealtimeListener() {
           if (recentErr)
             return console.error(
               "[realtime-fallback] initial scan error",
-              recentErr.message || recentErr
+              recentErr.message || recentErr,
             );
           if (recentRows && recentRows.length > 0) {
             for (const r of recentRows) {
               try {
                 console.log(
-                  `[realtime-fallback] initial scan found betslip id:${r.id} created_at:${r.created_at}`
+                  `[realtime-fallback] initial scan found betslip id:${r.id} created_at:${r.created_at}`,
                 );
                 startWatcherInline(r.id);
                 if (betslipWatchers[r.id])
                   console.log(
-                    `[realtime-fallback] watcher started for ${r.id}`
+                    `[realtime-fallback] watcher started for ${r.id}`,
                   );
               } catch (e) {
                 console.error(
                   `[realtime-fallback] failed to start watcher for ${r.id} during initial scan`,
-                  e?.message || e
+                  e?.message || e,
                 );
               }
             }
@@ -11436,7 +11442,7 @@ function setupBetslipRealtimeListener() {
         } catch (e) {
           console.error(
             "[realtime-fallback] initial scan error",
-            e?.message || e
+            e?.message || e,
           );
         }
       })();
@@ -11452,23 +11458,23 @@ function setupBetslipRealtimeListener() {
           if (error)
             return console.error(
               "[realtime-fallback] query error",
-              error.message || error
+              error.message || error,
             );
           if (rows && rows.length > 0) {
             for (const r of rows) {
               try {
                 console.log(
-                  `[realtime-fallback] detected new betslip id:${r.id} created_at:${r.created_at}`
+                  `[realtime-fallback] detected new betslip id:${r.id} created_at:${r.created_at}`,
                 );
                 startWatcherInline(r.id);
                 if (betslipWatchers[r.id])
                   console.log(
-                    `[realtime-fallback] watcher started for ${r.id}`
+                    `[realtime-fallback] watcher started for ${r.id}`,
                   );
               } catch (e) {
                 console.error(
                   `[realtime-fallback] failed to start watcher for ${r.id}`,
-                  e?.message || e
+                  e?.message || e,
                 );
               }
             }
@@ -11498,7 +11504,7 @@ function setupBetslipRealtimeListener() {
           String(status).toUpperCase().includes("TIMEOUT")
         ) {
           console.warn(
-            "[realtime] subscription timed out — enabling fallback polling"
+            "[realtime] subscription timed out — enabling fallback polling",
           );
           startRealtimeFallback();
         } else {
@@ -11508,7 +11514,7 @@ function setupBetslipRealtimeListener() {
       } catch (e) {
         console.error(
           "[realtime] subscription status handler error",
-          e?.message || e
+          e?.message || e,
         );
       }
     });
@@ -11524,7 +11530,7 @@ async function seedPendingWatchers() {
     console.log("[watcher] seeding pending betslip watchers (7d lookback)");
     const lookbackDays = 7;
     const since = new Date(
-      Date.now() - lookbackDays * 24 * 60 * 60 * 1000
+      Date.now() - lookbackDays * 24 * 60 * 60 * 1000,
     ).toISOString();
     const { data: rows, error } = await supabaseAdmin
       .from("betslips")
@@ -11544,13 +11550,13 @@ async function seedPendingWatchers() {
         if (!betslipWatchers[r.id]) startWatcherInline(r.id);
         if (betslipWatchers[r.id])
           console.log(
-            `[watcher] seeded watcher for ${r.id} created_at:${r.created_at}`
+            `[watcher] seeded watcher for ${r.id} created_at:${r.created_at}`,
           );
         else console.warn(`[watcher] failed to seed watcher for ${r.id}`);
       } catch (e) {
         console.error(
           `[watcher] error seeding watcher for ${r.id}`,
-          e?.message || e
+          e?.message || e,
         );
       }
     }
@@ -11579,7 +11585,7 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
     if (!Number.isFinite(newCredits)) newCredits = 0;
     // round to 2 decimals for storage
     newCredits = Number(
-      (Math.round((newCredits + Number.EPSILON) * 100) / 100).toFixed(2)
+      (Math.round((newCredits + Number.EPSILON) * 100) / 100).toFixed(2),
     );
     const { error: updErr } = await supabaseAdmin
       .from("users")
@@ -11610,13 +11616,13 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
         });
         const totalDecimal = decimalOdds.reduce((acc, v) => acc * v, 1);
         computedPotential = Number(
-          ((totalStake || 0) * totalDecimal).toFixed(2)
+          ((totalStake || 0) * totalDecimal).toFixed(2),
         );
       }
     } catch (e) {
       console.warn(
         "[betslips] failed to compute potentialPayout server-side",
-        e?.message || e
+        e?.message || e,
       );
       computedPotential = null;
     }
@@ -11652,7 +11658,7 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
       console.log(`[betslips] watcher confirmed running for ${inserted.id}`);
     } else {
       console.warn(
-        `[betslips] watcher not found after start attempt for ${inserted.id}`
+        `[betslips] watcher not found after start attempt for ${inserted.id}`,
       );
     }
     // start minute-based test notifier automatically for this betslip (short test)
@@ -11667,7 +11673,7 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
       console.warn(
         "Failed to start test notifier for",
         inserted.id,
-        e?.message || e
+        e?.message || e,
       );
     }
     // start minute-based test notifier automatically for this betslip
@@ -11687,12 +11693,12 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
           if (first.team || first.selection || first.teamCode) {
             params.set(
               "moneyline",
-              first.team || first.selection || first.teamCode
+              first.team || first.selection || first.teamCode,
             );
           }
           betslipUrl = `${baseApi.replace(
             /\/$/,
-            ""
+            "",
           )}/api/betslip?${params.toString()}`;
         }
 
@@ -11706,21 +11712,21 @@ app.post("/api/betslips", authMiddlewareInline, async (req, res) => {
             .eq("id", inserted.id);
           inserted.betslip_data = updatedData;
           console.log(
-            `[betslips] persisted betslip_url for ${inserted.id}: ${betslipUrl}`
+            `[betslips] persisted betslip_url for ${inserted.id}: ${betslipUrl}`,
           );
         }
       } catch (e) {
         console.warn(
           "Failed to persist betslip_url for",
           inserted.id,
-          e?.message || e
+          e?.message || e,
         );
       }
     } catch (e) {
       console.warn(
         "Failed to persist betslip_url for",
         inserted.id,
-        e?.message || e
+        e?.message || e,
       );
     }
     res.status(201).json({
@@ -11792,13 +11798,13 @@ app.post("/api/debug/push-test", authMiddlewareInline, async (req, res) => {
         console.log(
           `[debug/push-test] notify -> profile:${profileId} title:${
             body.title || "Test"
-          }`
+          }`,
         );
         await sendPushNotification(
           profileId,
           body.title || "Test",
           body.body || "This is a test notification",
-          body.data || {}
+          body.data || {},
         );
         results.push({ token: t.expo_push_token, status: "sent" });
       } catch (e) {
@@ -11847,14 +11853,14 @@ app.post("/api/betslips/:id/watch", authMiddlewareInline, async (req, res) => {
     if (betslipWatchers[id]) return res.json({ message: "Already watching" });
     startWatcherInline(id);
     console.log(
-      `[api/watch] startWatcherInline called for ${id} by user ${req.userId}`
+      `[api/watch] startWatcherInline called for ${id} by user ${req.userId}`,
     );
     if (betslipWatchers[id]) {
       console.log(`[api/watch] watcher active for ${id}`);
       return res.json({ message: "Watcher started" });
     }
     console.warn(
-      `[api/watch] watcher start call returned but watcher not active for ${id}`
+      `[api/watch] watcher start call returned but watcher not active for ${id}`,
     );
     return res.status(500).json({ message: "Failed to start watcher" });
   } catch (e) {
@@ -11879,13 +11885,13 @@ app.post("/internal/debug/send-push-to-profile", async (req, res) => {
     console.log(
       `[internal/send-push-to-profile] notify -> profile:${profileId} title:${
         title || "Test"
-      }`
+      }`,
     );
     await sendPushNotification(
       profileId,
       title || "Test",
       bodyText || "Test push",
-      data || {}
+      data || {},
     );
     return res.json({ sent: true, profileId });
   } catch (e) {
@@ -11924,7 +11930,7 @@ app.post("/revenuecat/webhook", async (req, res) => {
       }
     } else if (!secret) {
       console.warn(
-        "REVENUECAT_WEBHOOK_SECRET not set; skipping signature verification"
+        "REVENUECAT_WEBHOOK_SECRET not set; skipping signature verification",
       );
     }
 
@@ -11951,7 +11957,7 @@ app.post("/revenuecat/webhook", async (req, res) => {
     } catch (e) {
       console.warn(
         "revenue_events insert failed (table may not exist)",
-        e?.message || e
+        e?.message || e,
       );
     }
 
@@ -12057,14 +12063,14 @@ app.post("/revenuecat/webhook", async (req, res) => {
         } catch (e) {
           console.warn(
             "Failed to update profile pro metadata",
-            e?.message || e
+            e?.message || e,
           );
         }
       }
     } catch (e) {
       console.warn(
         "RevenueCat webhook profile link attempt failed",
-        e?.message || e
+        e?.message || e,
       );
     }
 
@@ -12264,14 +12270,14 @@ app.delete(
       clearInterval(betslipWatchers[id].intervalId);
       delete betslipWatchers[id];
       console.log(
-        `[api/watch] stopped watcher for ${id} by user ${req.userId}`
+        `[api/watch] stopped watcher for ${id} by user ${req.userId}`,
       );
       res.json({ watching: false });
     } catch (e) {
       console.error(e);
       res.status(500).json({ message: "Server error" });
     }
-  }
+  },
 );
 
 // Start server

@@ -497,12 +497,38 @@ const BetBetsScreen = () => {
             const periodToken = `${letter}${num}`; // e.g. H1, Q2, P3
             // decide kind
             let kind = null;
-            if (/moneyline|ml|3-way|3way/i.test(k) || (bet && String(bet.type || "").toLowerCase().includes("moneyline"))) kind = "ML";
-            else if (/spread|sp\b|spread/i.test(k) || (bet && String(bet.type || "").toLowerCase().includes("spread"))) kind = "SP";
-            else if (/total|over|under|ou|totoal/i.test(k) || (bet && String(bet.type || "").toLowerCase().includes("total"))) kind = "T";
+            if (
+              /moneyline|ml|3-way|3way/i.test(k) ||
+              (bet &&
+                String(bet.type || "")
+                  .toLowerCase()
+                  .includes("moneyline"))
+            )
+              kind = "ML";
+            else if (
+              /spread|sp\b|spread/i.test(k) ||
+              (bet &&
+                String(bet.type || "")
+                  .toLowerCase()
+                  .includes("spread"))
+            )
+              kind = "SP";
+            else if (
+              /total|over|under|ou|totoal/i.test(k) ||
+              (bet &&
+                String(bet.type || "")
+                  .toLowerCase()
+                  .includes("total"))
+            )
+              kind = "T";
             // fallback: try all three if kind not detected
             const candidates = kind
-              ? [`${periodToken}_${kind}`, `${periodToken}${kind}`, `${periodToken}_${kind.toLowerCase()}`, `${periodToken}${kind.toLowerCase()}`]
+              ? [
+                  `${periodToken}_${kind}`,
+                  `${periodToken}${kind}`,
+                  `${periodToken}_${kind.toLowerCase()}`,
+                  `${periodToken}${kind.toLowerCase()}`,
+                ]
               : [
                   `${periodToken}_ML`,
                   `${periodToken}ML`,
@@ -2810,16 +2836,19 @@ const BetBetsScreen = () => {
                   const constructed = `betslipData.event:${eventData?.eventId || bet.gameId}.players:${bet.playerId}.overUnder:${statKey}`;
                   try {
                     if (typeof __DEV__ !== "undefined" && __DEV__) {
-                      console.log("DEV: constructing fallback progressSource for player prop", {
-                        pickId: pick.id,
-                        pickKey: pick.key,
-                        betId: bet.id,
-                        playerId: bet.playerId,
-                        statType: bet.statType,
-                        statKey,
-                        constructed,
-                        eventId: eventData?.eventId || bet.gameId,
-                      });
+                      console.log(
+                        "DEV: constructing fallback progressSource for player prop",
+                        {
+                          pickId: pick.id,
+                          pickKey: pick.key,
+                          betId: bet.id,
+                          playerId: bet.playerId,
+                          statType: bet.statType,
+                          statKey,
+                          constructed,
+                          eventId: eventData?.eventId || bet.gameId,
+                        },
+                      );
                     }
                   } catch (e) {}
 
@@ -2836,7 +2865,8 @@ const BetBetsScreen = () => {
                   // Targeted trace for ticket the user reported
                   if (
                     typeof betSlip !== "undefined" &&
-                    String(betSlip.id) === "9a188305-e50f-4d57-8fe2-3fbbfe3ce172"
+                    String(betSlip.id) ===
+                      "9a188305-e50f-4d57-8fe2-3fbbfe3ce172"
                   ) {
                     console.log("TRACE: pick missing progressSource", {
                       ticketId: betSlip.id,
@@ -4556,7 +4586,8 @@ const BetBetsScreen = () => {
               {renderGameScoreNames(pick, liveGame, scores)}
             </View>
             <View style={styles.parlayGameStatusRow}>
-              {(liveGame?.competitions[0]?.status?.type?.state || pick.gameState) === "in" && (
+              {(liveGame?.competitions[0]?.status?.type?.state ||
+                pick.gameState) === "in" && (
                 <View
                   style={[
                     styles.liveIndicator,
@@ -4789,7 +4820,8 @@ const BetBetsScreen = () => {
               {renderGameScoreNames(firstPick, liveGame, scores)}
             </View>
             <View style={styles.parlayGameStatusRow}>
-              {(liveGame?.competitions[0]?.status?.type?.state || firstPick.gameState) === "in" && (
+              {(liveGame?.competitions[0]?.status?.type?.state ||
+                firstPick.gameState) === "in" && (
                 <View
                   style={[
                     styles.liveIndicator,
@@ -4805,7 +4837,8 @@ const BetBetsScreen = () => {
                   { color: theme.textTertiary, marginLeft: 0 },
                 ]}
               >
-                {firstPick.gameStatus || liveGame?.competitions[0]?.status?.type?.shortDetail}
+                {firstPick.gameStatus ||
+                  liveGame?.competitions[0]?.status?.type?.shortDetail}
               </Text>
             </View>
           </View>
@@ -5050,7 +5083,8 @@ const BetBetsScreen = () => {
                   {renderGameScoreNames(picks[0], liveGame, scores)}
                 </View>
                 <View style={styles.parlayGameStatusRow}>
-                  {(liveGame?.competitions[0]?.status?.type?.state || picks[0].gameState) === "in" && (
+                  {(liveGame?.competitions[0]?.status?.type?.state ||
+                    picks[0].gameState) === "in" && (
                     <View
                       style={[
                         styles.liveIndicator,
@@ -5066,7 +5100,8 @@ const BetBetsScreen = () => {
                       { color: theme.textTertiary, marginLeft: 0 },
                     ]}
                   >
-                    {picks[0].gameStatus || liveGame?.competitions[0]?.status?.type?.shortDetail}
+                    {picks[0].gameStatus ||
+                      liveGame?.competitions[0]?.status?.type?.shortDetail}
                   </Text>
                 </View>
               </View>

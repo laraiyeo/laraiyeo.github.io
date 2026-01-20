@@ -217,21 +217,36 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
               ? res.data.events
               : res.data.events || [];
             effectiveScoreboardGames.push(...events);
-            console.log(`BetSlip: fetched ${events.length} events for ${res.sport}`);
+            console.log(
+              `BetSlip: fetched ${events.length} events for ${res.sport}`,
+            );
             try {
               const summary = events.map((ev) => ({
                 id:
-                  ev.eventId || ev.id || ev.gameId || ev.gamePk ||
-                  (ev.header && ev.header.competitions && ev.header.competitions[0] && ev.header.competitions[0].id) || null,
+                  ev.eventId ||
+                  ev.id ||
+                  ev.gameId ||
+                  ev.gamePk ||
+                  (ev.header &&
+                    ev.header.competitions &&
+                    ev.header.competitions[0] &&
+                    ev.header.competitions[0].id) ||
+                  null,
                 state:
                   ev.header?.competitions?.[0]?.status?.type?.state ||
                   ev.status?.type?.state ||
                   ev.event?.status?.state ||
                   null,
               }));
-              console.log(`BetSlip: fetched events summary for ${res.sport}:`, summary);
+              console.log(
+                `BetSlip: fetched events summary for ${res.sport}:`,
+                summary,
+              );
             } catch (e) {
-              console.log(`BetSlip: fetched events (unable to summarize) for ${res.sport}`, events);
+              console.log(
+                `BetSlip: fetched events (unable to summarize) for ${res.sport}`,
+                events,
+              );
             }
           } else {
             console.warn(`BetSlip: no scoreboard data for ${res.sport}`);
@@ -248,7 +263,10 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
       const liveGameIds = [];
       gameIds.forEach((gid) => {
         // Strip trailing sport suffix (e.g. _uefa) when comparing to fetched event ids
-        const gidClean = String(gid).replace(/_(nba|nfl|nhl|mlb|soccer|ncaa|wnba|uefa)$/i, "");
+        const gidClean = String(gid).replace(
+          /_(nba|nfl|nhl|mlb|soccer|ncaa|wnba|uefa)$/i,
+          "",
+        );
         const sg =
           Array.isArray(effectiveScoreboardGames) &&
           typeof effectiveScoreboardGames.find === "function"
@@ -261,7 +279,9 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
                     g.event?.id,
                     g.header?.competitions?.[0]?.id,
                   ].map((v) => (v != null ? String(v) : null));
-                  return candidates.some((c) => c === String(gid) || c === String(gidClean));
+                  return candidates.some(
+                    (c) => c === String(gid) || c === String(gidClean),
+                  );
                 } catch (e) {
                   return false;
                 }
@@ -526,7 +546,10 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
               !betType.includes("regulation")
             );
           case "moneylineReg":
-            return bet.type === "Regulation 3-Way Moneyline" || bet.type === "3-Way Moneyline (Regulation)";
+            return (
+              bet.type === "Regulation 3-Way Moneyline" ||
+              bet.type === "3-Way Moneyline (Regulation)"
+            );
           case "spread":
             return (
               bet.type === "Spread" ||

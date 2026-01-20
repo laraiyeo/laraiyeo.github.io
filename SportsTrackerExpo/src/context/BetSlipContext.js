@@ -166,7 +166,6 @@ export const BetSlipProvider = ({ children }) => {
         )
           base = "totalPoints";
         else if (/moneyline|ml|3-way|3 way|draw/.test(s)) base = "moneyline";
-
         else if (/_points|points|goals/.test(s)) {
           // prefer explicit home/away detection when team present
           const side = detectSide();
