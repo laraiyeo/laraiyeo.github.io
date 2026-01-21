@@ -4119,7 +4119,9 @@ const BetBetsScreen = () => {
                   let parsed = null;
                   if (typeof cur === "number") parsed = cur;
                   else if (cur && typeof cur === "object")
-                    parsed = Number(cur.current ?? cur.score ?? cur.value ?? NaN);
+                    parsed = Number(
+                      cur.current ?? cur.score ?? cur.value ?? NaN,
+                    );
                   else if (cur != null) {
                     const n = Number(cur);
                     parsed = isNaN(n) ? null : n;

@@ -47,7 +47,7 @@ export const BetDataProvider = ({ children }) => {
 
     // Get current time in PST
     const pstTime = new Date(
-      now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
+      now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }),
     );
 
     // Create a date for 2am PST today
@@ -67,7 +67,7 @@ export const BetDataProvider = ({ children }) => {
     try {
       const lastTwoAm = getLastTwoAmPST();
       const storedResetTime = await AsyncStorage.getItem(
-        "bet_roster_reset_time"
+        "bet_roster_reset_time",
       );
 
       let shouldReset = false;
@@ -85,7 +85,7 @@ export const BetDataProvider = ({ children }) => {
 
       if (shouldReset) {
         console.log(
-          "[BetData] Resetting roster data - passed 2am PST threshold"
+          "[BetData] Resetting roster data - passed 2am PST threshold",
         );
         // Clear roster data
         setRostersData({});
@@ -168,7 +168,7 @@ export const BetDataProvider = ({ children }) => {
       case "moderate":
         interval = 90000; // 90 seconds
         console.log(
-          `[BetData ${sport}] Starting MODERATE polling (90 seconds)`
+          `[BetData ${sport}] Starting MODERATE polling (90 seconds)`,
         );
         break;
       default:
@@ -199,7 +199,7 @@ export const BetDataProvider = ({ children }) => {
       try {
         const sportLower = sport.toLowerCase();
         const response = await fetch(
-          `${API_BASE_URL}/scoreboard/${sportLower}`
+          `${API_BASE_URL}/scoreboard/${sportLower}`,
         );
         const data = await response.json();
 
@@ -216,18 +216,18 @@ export const BetDataProvider = ({ children }) => {
         try {
           await AsyncStorage.setItem(
             `bet_scoreboard_data_${sport}`,
-            JSON.stringify(data)
+            JSON.stringify(data),
           );
           await AsyncStorage.setItem(
             `bet_scoreboard_time_${sport}`,
-            new Date().toISOString()
+            new Date().toISOString(),
           );
           console.log(`[BetData ${sport}] Cached scoreboard data`);
         } catch (cacheErr) {
           // AsyncStorage quota exceeded or other storage error — warn but don't fail the fetch
           console.warn(
             `[BetData ${sport}] Warning: failed to cache scoreboard data (ignored):`,
-            cacheErr
+            cacheErr,
           );
         }
 
@@ -242,7 +242,7 @@ export const BetDataProvider = ({ children }) => {
         console.error(`Error fetching scoreboard for ${sport}:`, error);
         // Try to load from cache on error
         const cachedData = await AsyncStorage.getItem(
-          `bet_scoreboard_data_${sport}`
+          `bet_scoreboard_data_${sport}`,
         );
         if (cachedData) {
           setScoreboardData((prev) => ({
@@ -253,7 +253,7 @@ export const BetDataProvider = ({ children }) => {
         return null;
       }
     },
-    [currentPollingMode]
+    [currentPollingMode],
   );
 
   // Fetch rosters data (only fetches once per sport). Optional `maxAgeMinutes`
@@ -284,19 +284,19 @@ export const BetDataProvider = ({ children }) => {
     ) {
       if (maxAgeMs === 0 || isFresh) {
         console.log(
-          `[BetData ${sport}] Rosters already fetched and valid, using cached data (fresh: ${isFresh})`
+          `[BetData ${sport}] Rosters already fetched and valid, using cached data (fresh: ${isFresh})`,
         );
         return rostersData[rosterKey];
       }
       console.log(
-        `[BetData ${sport}] Rosters cached but stale (last fetch: ${lastFetchIso}); will refetch`
+        `[BetData ${sport}] Rosters cached but stale (last fetch: ${lastFetchIso}); will refetch`,
       );
     }
 
     // If state already has data but it's not valid (e.g. placeholder error), clear it and attempt fresh fetch
     if (rostersData[rosterKey] && !isValidRosterData(rostersData[rosterKey])) {
       console.warn(
-        `[BetData ${sport}] Existing roster data invalid or placeholder; refetching`
+        `[BetData ${sport}] Existing roster data invalid or placeholder; refetching`,
       );
       // remove any stale cached reference
       try {
@@ -321,7 +321,7 @@ export const BetDataProvider = ({ children }) => {
         ) {
           const retryAfter = Number(body.retryAfterSeconds) || 30;
           console.warn(
-            `[BetData ${sport}] Roster cache not ready; will retry in ${retryAfter}s`
+            `[BetData ${sport}] Roster cache not ready; will retry in ${retryAfter}s`,
           );
           // schedule a retry but don't block — retry only once here; subsequent navigation to sport will also call fetchRosters
           setTimeout(() => {
@@ -332,7 +332,7 @@ export const BetDataProvider = ({ children }) => {
           return null;
         }
         console.error(
-          `[BetData ${sport}] Failed to fetch rosters: HTTP ${response.status}`
+          `[BetData ${sport}] Failed to fetch rosters: HTTP ${response.status}`,
         );
         return null;
       }
@@ -340,7 +340,7 @@ export const BetDataProvider = ({ children }) => {
       const data = await response.json();
       if (!isValidRosterData(data)) {
         console.warn(
-          `[BetData ${sport}] Fetched roster payload appears invalid; will not cache`
+          `[BetData ${sport}] Fetched roster payload appears invalid; will not cache`,
         );
         return null;
       }
@@ -355,10 +355,12 @@ export const BetDataProvider = ({ children }) => {
       } catch (e) {
         console.warn(
           `[BetData ${sport}] Failed to persist roster fetch time:`,
-          e
+          e,
         );
       }
-      console.log(`[BetData ${sport}] Rosters fetched and cached at ${new Date().toISOString()}`);
+      console.log(
+        `[BetData ${sport}] Rosters fetched and cached at ${new Date().toISOString()}`,
+      );
 
       // Schedule expiry/clear of roster data after maxAgeMinutes so callers can re-fetch when needed
       try {
@@ -369,19 +371,30 @@ export const BetDataProvider = ({ children }) => {
         }
         if (maxAgeMs > 0) {
           const expiryDate = new Date(Date.now() + maxAgeMs);
-          console.log(`[BetData ${sport}] Rosters will be cleared at ${expiryDate.toISOString()} (maxAge ${maxAgeMinutes}m)`);
+          console.log(
+            `[BetData ${sport}] Rosters will be cleared at ${expiryDate.toISOString()} (maxAge ${maxAgeMinutes}m)`,
+          );
           const t = setTimeout(() => {
             try {
               setRostersData((prev) => {
                 const copy = { ...prev };
-                try { delete copy[rosterKey]; } catch (e) {}
+                try {
+                  delete copy[rosterKey];
+                } catch (e) {}
                 return copy;
               });
               rostersFetchedRef.current.delete(sport);
-              try { setLastRosterFetchTime((prev) => ({ ...prev, [sport]: null })); } catch (e) {}
-              console.log(`[BetData ${sport}] Rosters expired and cleared (maxAge ${maxAgeMinutes}m)`);
+              try {
+                setLastRosterFetchTime((prev) => ({ ...prev, [sport]: null }));
+              } catch (e) {}
+              console.log(
+                `[BetData ${sport}] Rosters expired and cleared (maxAge ${maxAgeMinutes}m)`,
+              );
             } catch (e) {
-              console.warn(`[BetData ${sport}] Error clearing expired rosters:`, e);
+              console.warn(
+                `[BetData ${sport}] Error clearing expired rosters:`,
+                e,
+              );
             }
           }, maxAgeMs);
           rosterExpiryTimersRef.current[sport] = t;
@@ -453,16 +466,16 @@ export const BetDataProvider = ({ children }) => {
         // Load cached data for each sport
         for (const sport of sports) {
           const cachedScoreboard = await AsyncStorage.getItem(
-            `bet_scoreboard_data_${sport}`
+            `bet_scoreboard_data_${sport}`,
           );
           const cachedTime = await AsyncStorage.getItem(
-            `bet_scoreboard_time_${sport}`
+            `bet_scoreboard_time_${sport}`,
           );
 
           // Load persisted roster fetch time (if any)
           try {
             const cachedRosterTime = await AsyncStorage.getItem(
-              `bet_rosters_time_${sport}`
+              `bet_rosters_time_${sport}`,
             );
             if (cachedRosterTime) {
               setLastRosterFetchTime((prev) => ({
@@ -473,7 +486,7 @@ export const BetDataProvider = ({ children }) => {
           } catch (e) {
             console.warn(
               `[BetData ${sport}] Failed to load persisted roster time:`,
-              e
+              e,
             );
           }
 
@@ -511,9 +524,12 @@ export const BetDataProvider = ({ children }) => {
     loadCachedData();
 
     // Set up periodic check for roster reset (every 30 minutes)
-    rosterResetCheckIntervalRef.current = setInterval(() => {
-      checkAndResetRosters();
-    }, 30 * 60 * 1000); // Check every 30 minutes
+    rosterResetCheckIntervalRef.current = setInterval(
+      () => {
+        checkAndResetRosters();
+      },
+      30 * 60 * 1000,
+    ); // Check every 30 minutes
 
     // Cleanup on unmount
     return () => {
@@ -537,7 +553,9 @@ export const BetDataProvider = ({ children }) => {
           if (rosterExpiryTimersRef.current[s]) {
             clearTimeout(rosterExpiryTimersRef.current[s]);
             rosterExpiryTimersRef.current[s] = null;
-            console.log(`[BetData ${s}] Cleared roster expiry timer on unmount`);
+            console.log(
+              `[BetData ${s}] Cleared roster expiry timer on unmount`,
+            );
           }
         } catch (e) {}
       });

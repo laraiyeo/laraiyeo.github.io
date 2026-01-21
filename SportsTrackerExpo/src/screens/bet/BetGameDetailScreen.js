@@ -444,7 +444,11 @@ const renderStatsRow = (
           { color: theme.text },
         ]}
       >
-        {label.includes("%") ? (team1Value * 100) <= 100 ? `${(team1Value * 100).toFixed(1)}` : team1Value : team1Value}
+        {label.includes("%")
+          ? team1Value * 100 <= 100
+            ? `${(team1Value * 100).toFixed(1)}`
+            : team1Value
+          : team1Value}
       </Text>
       <View style={styles.statsBarContainer}>
         <View style={[styles.statsBar, { backgroundColor: theme.border }]}>
@@ -474,7 +478,11 @@ const renderStatsRow = (
           { color: theme.text },
         ]}
       >
-        {label.includes("%") ? (team2Value * 100) <= 100 ? `${(team2Value * 100).toFixed(1)}` : team2Value : team2Value}
+        {label.includes("%")
+          ? team2Value * 100 <= 100
+            ? `${(team2Value * 100).toFixed(1)}`
+            : team2Value
+          : team2Value}
       </Text>
     </View>
   );
@@ -702,8 +710,6 @@ const HockeyRink = React.memo(
 
       return { leftPercent, bottomPercent };
     };
-
-    
 
     return (
       <View style={styles.rinkContainer}>
@@ -2519,11 +2525,15 @@ const AlternateSpreadSection = ({ gameData, theme, colors }) => {
   );
 };
 
-import { isFailedHeadshot, markFailedHeadshot } from "../../utils/failedHeadshots";
+import {
+  isFailedHeadshot,
+  markFailedHeadshot,
+} from "../../utils/failedHeadshots";
 
 const BetGameDetailScreen = ({ navigation, route }) => {
   const { colors, theme, isDarkMode } = useTheme();
-  const { toggleBet, isBetSelected, isPro, isSlipOpen, setIsSlipOpen } = useBetSlip();
+  const { toggleBet, isBetSelected, isPro, isSlipOpen, setIsSlipOpen } =
+    useBetSlip();
   const { scoreboardData } = useBetData();
   const oddsContext = useContext(OddsDisplayContext);
   const oddsDisplay = oddsContext ? oddsContext.oddsDisplay : "american";
@@ -2593,12 +2603,13 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         if (!idStr) return;
         if (playParticipantsSeen.current.has(idStr)) return;
         playParticipantsSeen.current.add(idStr);
-          // Capture the participant-provided displayName and the play-level team if present
-          athletes.push({
-            id: idStr,
-            displayName: map[aid],
-            playTeamDisplayName: summary?.commentary?.play?.team?.displayName || null,
-          });
+        // Capture the participant-provided displayName and the play-level team if present
+        athletes.push({
+          id: idStr,
+          displayName: map[aid],
+          playTeamDisplayName:
+            summary?.commentary?.play?.team?.displayName || null,
+        });
       });
     });
 
@@ -2614,19 +2625,27 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             const team = teamBlock.team || {};
             const teamAbbrev = team.abbreviation || team.displayName || null;
             const teamId = String(team.id || team.teamId || "");
-            const logoUse = sportPath === "soccer" ? teamId : (teamAbbrev || "").toLowerCase();
+            const logoUse =
+              sportPath === "soccer"
+                ? teamId
+                : (teamAbbrev || "").toLowerCase();
             for (const entry of rosterArr) {
-              const aid = String(entry?.athlete?.id || entry?.athlete?.athleteId || "");
+              const aid = String(
+                entry?.athlete?.id || entry?.athlete?.athleteId || "",
+              );
               if (!aid) continue;
               if (aid === idStr) {
                 const meta = {};
-                meta.displayName = entry?.athlete?.displayName || entry?.displayName || null;
-                meta.position = entry?.position || entry?.athlete?.position || null;
+                meta.displayName =
+                  entry?.athlete?.displayName || entry?.displayName || null;
+                meta.position =
+                  entry?.position || entry?.athlete?.position || null;
                 meta.jersey = entry?.jersey || null;
                 meta.stats = entry?.stats || null;
                 meta.headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${aid}.png&w=200`;
                 // Normalize team info: ensure abbreviation and id are present
-                const teamAbbrNorm = team.abbreviation || team.displayName || team.name || null;
+                const teamAbbrNorm =
+                  team.abbreviation || team.displayName || team.name || null;
                 meta.team = {
                   abbreviation: teamAbbrNorm,
                   id: teamId,
@@ -2642,15 +2661,24 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         }
 
         // Fallback: boxscore.players structure
-        if (summary?.boxscore?.players && Array.isArray(summary.boxscore.players)) {
+        if (
+          summary?.boxscore?.players &&
+          Array.isArray(summary.boxscore.players)
+        ) {
           for (const teamBlock of summary.boxscore.players) {
             const team = teamBlock.team || {};
             const teamAbbrev = team.abbreviation || team.displayName || null;
             const teamId = String(team.id || team.teamId || "");
-            const logoUse = sportPath === "soccer" ? teamId : (teamAbbrev || "").toLowerCase();
-            const athletesArr = (teamBlock.statistics && teamBlock.statistics.athletes) || [];
+            const logoUse =
+              sportPath === "soccer"
+                ? teamId
+                : (teamAbbrev || "").toLowerCase();
+            const athletesArr =
+              (teamBlock.statistics && teamBlock.statistics.athletes) || [];
             for (const entry of athletesArr) {
-              const aid = String(entry?.athlete?.id || entry?.athlete?.athleteId || "");
+              const aid = String(
+                entry?.athlete?.id || entry?.athlete?.athleteId || "",
+              );
               if (!aid) continue;
               if (aid === idStr) {
                 const meta = {};
@@ -2659,7 +2687,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 meta.jersey = entry?.athlete?.jersey || null;
                 meta.stats = entry?.stats || null;
                 meta.headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/${sportPath}/players/full/${aid}.png&w=200`;
-                const teamAbbrNorm = team.abbreviation || team.displayName || team.name || null;
+                const teamAbbrNorm =
+                  team.abbreviation || team.displayName || team.name || null;
                 meta.team = {
                   abbreviation: teamAbbrNorm,
                   id: teamId,
@@ -2699,11 +2728,23 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           for (const teamBlock of summary.rosters) {
             const rosterArr = teamBlock.roster || [];
             for (const entry of rosterArr) {
-              const dn = (entry?.athlete?.displayName || entry?.displayName || "").trim().toLowerCase();
+              const dn = (
+                entry?.athlete?.displayName ||
+                entry?.displayName ||
+                ""
+              )
+                .trim()
+                .toLowerCase();
               if (!dn) continue;
-              if (dn === nameNorm || dn.includes(nameNorm) || nameNorm.includes(dn)) {
+              if (
+                dn === nameNorm ||
+                dn.includes(nameNorm) ||
+                nameNorm.includes(dn)
+              ) {
                 // reuse findAthleteMetaById by using athlete id if available
-                const aid = String(entry?.athlete?.id || entry?.athlete?.athleteId || "");
+                const aid = String(
+                  entry?.athlete?.id || entry?.athlete?.athleteId || "",
+                );
                 if (aid) return findAthleteMetaById(aid) || null;
               }
             }
@@ -2711,14 +2752,26 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         }
 
         // then search boxscore.players
-        if (summary?.boxscore?.players && Array.isArray(summary.boxscore.players)) {
+        if (
+          summary?.boxscore?.players &&
+          Array.isArray(summary.boxscore.players)
+        ) {
           for (const teamBlock of summary.boxscore.players) {
-            const athletesArr = (teamBlock.statistics && teamBlock.statistics.athletes) || [];
+            const athletesArr =
+              (teamBlock.statistics && teamBlock.statistics.athletes) || [];
             for (const entry of athletesArr) {
-              const dn = (entry?.athlete?.displayName || "").trim().toLowerCase();
+              const dn = (entry?.athlete?.displayName || "")
+                .trim()
+                .toLowerCase();
               if (!dn) continue;
-              if (dn === nameNorm || dn.includes(nameNorm) || nameNorm.includes(dn)) {
-                const aid = String(entry?.athlete?.id || entry?.athlete?.athleteId || "");
+              if (
+                dn === nameNorm ||
+                dn.includes(nameNorm) ||
+                nameNorm.includes(dn)
+              ) {
+                const aid = String(
+                  entry?.athlete?.id || entry?.athlete?.athleteId || "",
+                );
                 if (aid) return findAthleteMetaById(aid) || null;
               }
             }
@@ -2729,9 +2782,15 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         if (summary?.athletes) {
           for (const k of Object.keys(summary.athletes)) {
             const a = summary.athletes[k];
-            const dn = (a?.displayName || a?.fullName || "").trim().toLowerCase();
+            const dn = (a?.displayName || a?.fullName || "")
+              .trim()
+              .toLowerCase();
             if (!dn) continue;
-            if (dn === nameNorm || dn.includes(nameNorm) || nameNorm.includes(dn)) {
+            if (
+              dn === nameNorm ||
+              dn.includes(nameNorm) ||
+              nameNorm.includes(dn)
+            ) {
               return a;
             }
           }
@@ -2751,18 +2810,26 @@ const BetGameDetailScreen = ({ navigation, route }) => {
           for (const teamBlock of summary.rosters) {
             const rosterArr = teamBlock.roster || [];
             for (const entry of rosterArr) {
-              const aid = String(entry?.athlete?.id || entry?.athlete?.athleteId || "");
+              const aid = String(
+                entry?.athlete?.id || entry?.athlete?.athleteId || "",
+              );
               if (!aid) continue;
               if (aid === idStr) return entry;
             }
           }
         }
 
-        if (summary?.boxscore?.players && Array.isArray(summary.boxscore.players)) {
+        if (
+          summary?.boxscore?.players &&
+          Array.isArray(summary.boxscore.players)
+        ) {
           for (const teamBlock of summary.boxscore.players) {
-            const athletesArr = (teamBlock.statistics && teamBlock.statistics.athletes) || [];
+            const athletesArr =
+              (teamBlock.statistics && teamBlock.statistics.athletes) || [];
             for (const entry of athletesArr) {
-              const aid = String(entry?.athlete?.id || entry?.athlete?.athleteId || "");
+              const aid = String(
+                entry?.athlete?.id || entry?.athlete?.athleteId || "",
+              );
               if (!aid) continue;
               if (aid === idStr) return entry;
             }
@@ -2861,17 +2928,51 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       // ignore build errors and fall back to provided summary.athletes
     }
     // Safe guarded debug logs (DEV only) — keep minimal to avoid circular objects
-    if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    if (typeof __DEV__ !== "undefined" && __DEV__) {
       try {
-        console.log('[PlayParticipants] participantsKeys:', Object.keys(participants || {}).length, 'athletesCount:', athletes.length);
-        console.log('[PlayParticipants] summary.rosters:', summary?.rosters ? summary.rosters.length : 0, 'boxscore.players:', summary?.boxscore?.players ? summary.boxscore.players.length : 0, 'athleteMetaCount:', athleteMeta ? Object.keys(athleteMeta).length : 0);
+        console.log(
+          "[PlayParticipants] participantsKeys:",
+          Object.keys(participants || {}).length,
+          "athletesCount:",
+          athletes.length,
+        );
+        console.log(
+          "[PlayParticipants] summary.rosters:",
+          summary?.rosters ? summary.rosters.length : 0,
+          "boxscore.players:",
+          summary?.boxscore?.players ? summary.boxscore.players.length : 0,
+          "athleteMetaCount:",
+          athleteMeta ? Object.keys(athleteMeta).length : 0,
+        );
         athletes.forEach((a) => {
-          const found = (() => { try { return !!findAthleteMetaById(a.id); } catch (e) { return false; } })();
+          const found = (() => {
+            try {
+              return !!findAthleteMetaById(a.id);
+            } catch (e) {
+              return false;
+            }
+          })();
           const hasMeta = !!(found || (athleteMeta && athleteMeta[a.id]));
-          console.log('[PlayParticipants] athlete:', a.id, 'displayName:', a.displayName || '', 'foundVia:', found ? 'findAthleteMeta' : (athleteMeta && athleteMeta[a.id] ? 'athleteMeta' : 'none'));
+          console.log(
+            "[PlayParticipants] athlete:",
+            a.id,
+            "displayName:",
+            a.displayName || "",
+            "foundVia:",
+            found
+              ? "findAthleteMeta"
+              : athleteMeta && athleteMeta[a.id]
+                ? "athleteMeta"
+                : "none",
+          );
         });
       } catch (e) {
-        try { console.log('[PlayParticipants] debug log error', e && e.message ? e.message : e); } catch (__) {}
+        try {
+          console.log(
+            "[PlayParticipants] debug log error",
+            e && e.message ? e.message : e,
+          );
+        } catch (__) {}
       }
     }
 
@@ -2891,7 +2992,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
         } catch (__) {
           metaName = "";
         }
-        if (partName && metaName && partName.toLowerCase() !== metaName.toLowerCase()) {
+        if (
+          partName &&
+          metaName &&
+          partName.toLowerCase() !== metaName.toLowerCase()
+        ) {
           const byName = findAthleteMetaByName(partName);
           if (byName) {
             meta = byName;
@@ -2916,51 +3021,95 @@ const BetGameDetailScreen = ({ navigation, route }) => {
             return (
               (t.displayName && t.displayName === a.playTeamDisplayName) ||
               (t.abbreviation && t.abbreviation === a.playTeamDisplayName) ||
-              (t.shortDisplayName && t.shortDisplayName === a.playTeamDisplayName)
+              (t.shortDisplayName &&
+                t.shortDisplayName === a.playTeamDisplayName)
             );
           });
           if (match && match.team) {
-            teamAbbrev = (match.team.abbreviation || match.team.displayName || "").toUpperCase();
+            teamAbbrev = (
+              match.team.abbreviation ||
+              match.team.displayName ||
+              ""
+            ).toUpperCase();
           }
         }
         // If meta includes a team id, prefer matching the header away/home ids
         if (meta.team && meta.team.id) {
           const metaTeamId = String(meta.team.id || "");
           if (!teamAbbrev) {
-            if (metaTeamId === awayId) teamAbbrev = (awayTeamBlock.abbreviation || awayTeamBlock.displayName || "").toUpperCase();
-            else if (metaTeamId === homeId) teamAbbrev = (homeTeamBlock.abbreviation || homeTeamBlock.displayName || "").toUpperCase();
+            if (metaTeamId === awayId)
+              teamAbbrev = (
+                awayTeamBlock.abbreviation ||
+                awayTeamBlock.displayName ||
+                ""
+              ).toUpperCase();
+            else if (metaTeamId === homeId)
+              teamAbbrev = (
+                homeTeamBlock.abbreviation ||
+                homeTeamBlock.displayName ||
+                ""
+              ).toUpperCase();
           }
         }
       } catch (e) {}
       if (!teamAbbrev) {
-        teamAbbrev = (
-          (meta.team && (meta.team.abbreviation || meta.team?.abbrev || meta.team.displayName)) ||
+        teamAbbrev =
+          (meta.team &&
+            (meta.team.abbreviation ||
+              meta.team?.abbrev ||
+              meta.team.displayName)) ||
           meta.teamAbbrev ||
           meta.teamName ||
-          "UNK"
-        );
+          "UNK";
         teamAbbrev = String(teamAbbrev).toUpperCase();
       }
       // Compute what will be displayed for easier debugging
-      const displayNameForLog = (a.displayName || meta.displayName || meta.name || `#${a.id}`);
+      const displayNameForLog =
+        a.displayName || meta.displayName || meta.name || `#${a.id}`;
       const resolvedPosition = (meta && (meta.position || meta.pos)) || "";
       const resolvedJersey = (meta && (meta.jersey || meta.number)) || "";
       const summaryStats = summary?.stats?.[a.id] || null;
       const metaStats = meta?.stats || null;
-      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+      if (typeof __DEV__ !== "undefined" && __DEV__) {
         try {
           const rawEntry = getRawRosterEntryById(a.id);
-          const rawPosition = rawEntry?.position || (rawEntry?.athlete?.position) || null;
-          const rawJersey = rawEntry?.jersey || rawEntry?.athlete?.jersey || null;
+          const rawPosition =
+            rawEntry?.position || rawEntry?.athlete?.position || null;
+          const rawJersey =
+            rawEntry?.jersey || rawEntry?.athlete?.jersey || null;
           const rawStats = rawEntry?.stats || rawEntry?.athlete?.stats || null;
 
-          console.log('[PlayParticipants-debug] participantProvided:', { id: a.id, providedName: a.displayName || null, playTeam: a.playTeamDisplayName || null });
-          console.log('[PlayParticipants-debug] rawRosterEntry:', { position: rawPosition || null, jersey: rawJersey || null, stats: rawStats || null });
-          console.log('[PlayParticipants-debug] resolvedMeta:', { displayName: meta.displayName || null, position: resolvedPosition || null, jersey: resolvedJersey || null });
-          console.log('[PlayParticipants-debug] statsUsed:', { summaryStats: summaryStats ? summaryStats : null, metaStats: metaStats ? metaStats : null });
-          console.log('[PlayParticipants-debug] finalDisplay:', { displayName: displayNameForLog, position: resolvedPosition, jersey: resolvedJersey });
+          console.log("[PlayParticipants-debug] participantProvided:", {
+            id: a.id,
+            providedName: a.displayName || null,
+            playTeam: a.playTeamDisplayName || null,
+          });
+          console.log("[PlayParticipants-debug] rawRosterEntry:", {
+            position: rawPosition || null,
+            jersey: rawJersey || null,
+            stats: rawStats || null,
+          });
+          console.log("[PlayParticipants-debug] resolvedMeta:", {
+            displayName: meta.displayName || null,
+            position: resolvedPosition || null,
+            jersey: resolvedJersey || null,
+          });
+          console.log("[PlayParticipants-debug] statsUsed:", {
+            summaryStats: summaryStats ? summaryStats : null,
+            metaStats: metaStats ? metaStats : null,
+          });
+          console.log("[PlayParticipants-debug] finalDisplay:", {
+            displayName: displayNameForLog,
+            position: resolvedPosition,
+            jersey: resolvedJersey,
+          });
         } catch (e) {
-          try { console.log('[PlayParticipants-debug] log error', e && e.message ? e.message : e); } catch (__) {}
+          try {
+            console.log(
+              "[PlayParticipants-debug] log error",
+              e && e.message ? e.message : e,
+            );
+          } catch (__) {}
         }
       }
 
@@ -3106,10 +3255,15 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 ath.displayName || m.displayName || m.name || `#${ath.id}`;
 
               // If headshot URL is missing or empty, or previously failed, pass null so initials remain stable
-              let headshotUri = headshot && String(headshot).trim() ? headshot : null;
+              let headshotUri =
+                headshot && String(headshot).trim() ? headshot : null;
               try {
                 if (headshotUri && typeof isFailedHeadshot === "function") {
-                  if (isFailedHeadshot(ath.id) || isFailedHeadshot(participantKey) || isFailedHeadshot(headshotUri)) {
+                  if (
+                    isFailedHeadshot(ath.id) ||
+                    isFailedHeadshot(participantKey) ||
+                    isFailedHeadshot(headshotUri)
+                  ) {
                     headshotUri = null;
                   }
                 }
@@ -3301,7 +3455,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
               ? "red-card"
               : eventType === "offside"
                 ? "offside"
-                  : "goal";
+                : "goal";
 
     const finalTeamColor = teamColor.startsWith("#")
       ? teamColor
@@ -3667,7 +3821,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
       status: statusType?.state || status?.state || "pre",
       statusDetail:
         sportPath === "soccer"
-          ? (statusType?.state !== "in" ? `${shortDetail}` : `${shortDetail} • ${halfText}`)
+          ? statusType?.state !== "in"
+            ? `${shortDetail}`
+            : `${shortDetail} • ${halfText}`
           : shortDetail,
       completed: statusType?.completed || false,
       sport: sportToUse,
@@ -4893,7 +5049,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       >
                         {awayTeam}
                       </Text>
-                      {(sportPath !== "soccer" ? [...awayTeamGames].reverse() : [...awayTeamGames]).map((game, index) => {
+                      {(sportPath !== "soccer"
+                        ? [...awayTeamGames].reverse()
+                        : [...awayTeamGames]
+                      ).map((game, index) => {
                         const isWin = game.result === "W";
                         const isLoss = game.result === "L";
                         const borderColor = isWin
@@ -4998,7 +5157,10 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       >
                         {homeTeam}
                       </Text>
-                      {(sportPath !== "soccer" ? [...homeTeamGames].reverse() : [...homeTeamGames]).map((game, index) => {
+                      {(sportPath !== "soccer"
+                        ? [...homeTeamGames].reverse()
+                        : [...homeTeamGames]
+                      ).map((game, index) => {
                         const isWin = game.result === "W";
                         const isLoss = game.result === "L";
                         const borderColor = isWin
@@ -6454,7 +6616,7 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                           }}
                         />
                       </>
-                    ) : ( null )}
+                    ) : null}
                     {/* Home Team Logo in Center */}
                     <Image
                       source={{ uri: gameData.team2Logo }}
@@ -6477,12 +6639,24 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                     <View
                       style={{
                         position: "absolute",
-                        width: sportUpper === "UEFA" ? 240 * courtScale : 200 * courtScale,
-                        height: sportUpper === "UEFA" ? 160 * courtScale : 150 * courtScale,
+                        width:
+                          sportUpper === "UEFA"
+                            ? 240 * courtScale
+                            : 200 * courtScale,
+                        height:
+                          sportUpper === "UEFA"
+                            ? 160 * courtScale
+                            : 150 * courtScale,
                         top: "50%",
                         left: "50%",
-                        marginLeft: sportUpper === "UEFA" ? (-240 * courtScale) / 2 : (-200 * courtScale) / 2,
-                        marginTop: sportUpper === "UEFA" ? (-160 * courtScale) / 2 : (-150 * courtScale) / 2,
+                        marginLeft:
+                          sportUpper === "UEFA"
+                            ? (-240 * courtScale) / 2
+                            : (-200 * courtScale) / 2,
+                        marginTop:
+                          sportUpper === "UEFA"
+                            ? (-160 * courtScale) / 2
+                            : (-150 * courtScale) / 2,
                       }}
                     >
                       {/* ESPN Play Coordinate Visualization (with test override support) */}
@@ -6582,10 +6756,14 @@ const BetGameDetailScreen = ({ navigation, route }) => {
 
                                   miniFieldRenderCountRef.current =
                                     (miniFieldRenderCountRef.current || 0) + 1;
-                                  const screenWidth = Dimensions.get("window").width;
+                                  const screenWidth =
+                                    Dimensions.get("window").width;
                                   // assume ~16px horizontal padding on each side
-                                  const containerWidth = Math.max(240, Math.round(screenWidth - 32));
-                                  const scale = (containerWidth / 240) - 50; // base field width 240
+                                  const containerWidth = Math.max(
+                                    240,
+                                    Math.round(screenWidth - 32),
+                                  );
+                                  const scale = containerWidth / 240 - 50; // base field width 240
                                   const height = 160 * scale;
 
                                   const SCALE_EPS = 0.005;
@@ -6594,13 +6772,18 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                   const prevH = courtContainerHeight || 0;
                                   const prevW = courtContainerWidth || 0;
 
-                                  const willUpdateScale = Math.abs(prevScale - scale) > SCALE_EPS;
-                                  const willUpdateH = Math.abs(prevH - height) > SIZE_EPS;
-                                  const willUpdateW = Math.abs(prevW - containerWidth) > SIZE_EPS;
+                                  const willUpdateScale =
+                                    Math.abs(prevScale - scale) > SCALE_EPS;
+                                  const willUpdateH =
+                                    Math.abs(prevH - height) > SIZE_EPS;
+                                  const willUpdateW =
+                                    Math.abs(prevW - containerWidth) > SIZE_EPS;
 
                                   if (willUpdateScale) setCourtScale(scale);
-                                  if (willUpdateH) setCourtContainerHeight(height);
-                                  if (willUpdateW) setCourtContainerWidth(containerWidth);
+                                  if (willUpdateH)
+                                    setCourtContainerHeight(height);
+                                  if (willUpdateW)
+                                    setCourtContainerWidth(containerWidth);
 
                                   miniFieldInitializedRef.current = true;
 
@@ -6611,11 +6794,18 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                       containerWidth,
                                       scale,
                                       height,
-                                      willUpdate: { willUpdateScale, willUpdateW, willUpdateH },
+                                      willUpdate: {
+                                        willUpdateScale,
+                                        willUpdateW,
+                                        willUpdateH,
+                                      },
                                     },
                                   );
                                 } catch (e) {
-                                  console.error("[MiniField layout stable] failed", e);
+                                  console.error(
+                                    "[MiniField layout stable] failed",
+                                    e,
+                                  );
                                 }
                               }}
                             >
@@ -6631,7 +6821,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                                 {renderSoccerMiniField(
                                   coord,
                                   coord2,
-                                  summaryData?.commentary?.play?.type?.text.toLowerCase() || summaryData?.commentary?.text ||
+                                  summaryData?.commentary?.play?.type?.text.toLowerCase() ||
+                                    summaryData?.commentary?.text ||
                                     "gen",
                                   teamSide,
                                   teamColor,
@@ -6835,7 +7026,9 @@ const BetGameDetailScreen = ({ navigation, route }) => {
               );
             })()}
 
-            {(summaryData?.plays || summaryData?.commentary?.play || summaryData?.commentary?.text) &&
+            {(summaryData?.plays ||
+              summaryData?.commentary?.play ||
+              summaryData?.commentary?.text) &&
               (() => {
                 // Get smart team colors for proper color handling
                 const { team1Color, team2Color } = getSmartTeamColors(
@@ -6852,7 +7045,8 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                 // Normalize play source: prefer summaryData.plays, fall back to commentary.play
                 const playSource =
                   summaryData.plays ||
-                  (summaryData.commentary && (summaryData.commentary.play || summaryData.commentary)) ||
+                  (summaryData.commentary &&
+                    (summaryData.commentary.play || summaryData.commentary)) ||
                   {};
 
                 // Normalize team identifier: can be abbreviation or object with displayName
@@ -6935,7 +7129,11 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                               { color: theme.textSecondary },
                             ]}
                           >
-                            {playClock ? (gameData.sport.toUpperCase() === "UEFA" ? `${playClock} • ${halfText}` : `${playPeriod} • ${playClock}`) : null}
+                            {playClock
+                              ? gameData.sport.toUpperCase() === "UEFA"
+                                ? `${playClock} • ${halfText}`
+                                : `${playPeriod} • ${playClock}`
+                              : null}
                           </Text>
                           {isScoring &&
                             shortDesc &&
@@ -6971,14 +7169,13 @@ const BetGameDetailScreen = ({ navigation, route }) => {
                       </View>
 
                       {/* Play participants (pro only) - render directly under play card */}
-                      {isPro &&
-                        playSource?.participants && (
-                          <View style={{ marginTop: 12 }}>
-                            <PlayParticipants
-                              participants={playSource.participants}
-                            />
-                          </View>
-                        )}
+                      {isPro && playSource?.participants && (
+                        <View style={{ marginTop: 12 }}>
+                          <PlayParticipants
+                            participants={playSource.participants}
+                          />
+                        </View>
+                      )}
                     </View>
                   </View>
                 );

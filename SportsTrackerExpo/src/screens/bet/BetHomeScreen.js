@@ -223,7 +223,7 @@ const UpcomingGamesSection = React.memo(
   (prev, next) =>
     prev.games === next.games &&
     prev.theme === next.theme &&
-    prev.sport === next.sport
+    prev.sport === next.sport,
 );
 
 // Format time to EST (robust across platforms). Returns { time, period }
@@ -279,7 +279,6 @@ const parseGameData = (events, isDarkMode = false, sport = "NBA") => {
     const team2Abbr = (homeTeam.team?.abbreviation || "T2").toLowerCase();
     const team2Id = homeTeam.team?.id || null;
 
-    
     const team1End = sportPath === "soccer" ? team1Id : team1Abbr;
     const team2End = sportPath === "soccer" ? team2Id : team2Abbr;
 
@@ -343,16 +342,16 @@ const LiveGameCard = React.memo(
     };
     const sportLogo = getSportLogo(game.sport);
 
-      let halfText = "";
-      if (game.period === 1) {
-        halfText = "1st Half";
-      } else if (game.period === 2) {
-        halfText = "2nd Half";
-      } else if (game.period > 2) {
-        halfText = "Extra Time";
-      } else {
-        null;
-      }
+    let halfText = "";
+    if (game.period === 1) {
+      halfText = "1st Half";
+    } else if (game.period === 2) {
+      halfText = "2nd Half";
+    } else if (game.period > 2) {
+      halfText = "Extra Time";
+    } else {
+      null;
+    }
 
     return (
       <TouchableOpacity
@@ -413,7 +412,9 @@ const LiveGameCard = React.memo(
 
         {/* Game Time/Period */}
         <Text style={[styles.liveGameTime, { color: theme.textSecondary }]}>
-          {game.shortDetail && game.sport === "UEFA" ? `${game.shortDetail} • ${halfText}` : `${game.shortDetail}`}
+          {game.shortDetail && game.sport === "UEFA"
+            ? `${game.shortDetail} • ${halfText}`
+            : `${game.shortDetail}`}
         </Text>
 
         {/* Teams and Score */}
@@ -502,7 +503,7 @@ const LiveGameCard = React.memo(
       prevProps.game.time === nextProps.game.time &&
       prevProps.game.period === nextProps.game.period
     );
-  }
+  },
 );
 
 // Scheduled Game Row - Defined outside component
@@ -519,23 +520,23 @@ const ScheduledGameRow = React.memo(
       <TouchableOpacity
         style={styles.upcomingGameRow}
         onPress={() => {
-            console.log("[BET HOME NAV] ScheduledGameRow click", {
-              gameId: game.id,
-              gameSport: game.sport,
-            });
-            try {
-              if (typeof fetchRosters === "function") {
-                fetchRosters(game.sport).catch((e) => {
-                  console.warn("[BetHome] fetchRosters failed on click:", e);
-                });
-              }
-            } catch (e) {}
-            navigation.navigate("BetGameDetail", {
-              gameId: game.id,
-              game,
-              sport: game.sport,
-            });
-          }}
+          console.log("[BET HOME NAV] ScheduledGameRow click", {
+            gameId: game.id,
+            gameSport: game.sport,
+          });
+          try {
+            if (typeof fetchRosters === "function") {
+              fetchRosters(game.sport).catch((e) => {
+                console.warn("[BetHome] fetchRosters failed on click:", e);
+              });
+            }
+          } catch (e) {}
+          navigation.navigate("BetGameDetail", {
+            gameId: game.id,
+            game,
+            sport: game.sport,
+          });
+        }}
       >
         {/* Time */}
         <View style={styles.gameTimeContainer}>
@@ -628,7 +629,7 @@ const ScheduledGameRow = React.memo(
   (prevProps, nextProps) => {
     // Scheduled games don't change, so only re-render if ID changes
     return prevProps.game.id === nextProps.game.id;
-  }
+  },
 );
 
 // Completed Game Card - Defined outside component
@@ -793,7 +794,7 @@ const CompletedGameCard = React.memo(
   },
   (prevProps, nextProps) => {
     return prevProps.game.id === nextProps.game.id;
-  }
+  },
 );
 
 const BetHomeScreen = ({ navigation }) => {
@@ -832,7 +833,7 @@ const BetHomeScreen = ({ navigation }) => {
           if (diff <= 0) return "Available";
           const days = Math.floor(diff / (24 * 60 * 60 * 1000));
           const hours = Math.floor(
-            (diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000)
+            (diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000),
           );
           const mins = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
           const secs = Math.floor((diff % (60 * 1000)) / 1000);
@@ -984,8 +985,8 @@ const BetHomeScreen = ({ navigation }) => {
         const mode = hasLiveGames
           ? "fast"
           : scheduledGames.length
-          ? "moderate"
-          : "slow";
+            ? "moderate"
+            : "slow";
         const intervalMs =
           mode === "fast" ? 2000 : mode === "moderate" ? 90000 : 30 * 60 * 1000;
 
@@ -1004,8 +1005,8 @@ const BetHomeScreen = ({ navigation }) => {
         const mode = hasLiveGames
           ? "fast"
           : scheduledGames.length
-          ? "moderate"
-          : "slow";
+            ? "moderate"
+            : "slow";
         const desiredInterval =
           mode === "fast" ? 2000 : mode === "moderate" ? 90000 : 30 * 60 * 1000;
         const currentInterval = focusPollRef.current?.intervalMs || null;
@@ -1031,7 +1032,7 @@ const BetHomeScreen = ({ navigation }) => {
         }
         clearInterval(visibilityInterval);
       };
-    }, [hasLiveGames, scheduledGames.length, sport])
+    }, [hasLiveGames, scheduledGames.length, sport]),
   );
 
   // Load daily reward state on focus and show modal if claimable or progress exists
@@ -1085,7 +1086,7 @@ const BetHomeScreen = ({ navigation }) => {
       return () => {
         mounted = false;
       };
-    }, [])
+    }, []),
   );
 
   const onRefresh = async () => {
@@ -1310,8 +1311,8 @@ const BetHomeScreen = ({ navigation }) => {
                           ? "750.00 C"
                           : "250.00 C"
                         : isPro
-                        ? "1,500.00 C"
-                        : "1,000.00 C"}
+                          ? "1,500.00 C"
+                          : "1,000.00 C"}
                     </Text>
                     {claimed ? (
                       <View
@@ -1386,12 +1387,12 @@ const BetHomeScreen = ({ navigation }) => {
                       const dr = await getDailyRewardState(profileIdForDaily);
                       console.log(
                         "BetHome: refreshed daily state after claim",
-                        dr
+                        dr,
                       );
                       setDailyState(dr);
                       Alert.alert(
                         "Success",
-                        `You've received ${res.reward} credits.`
+                        `You've received ${res.reward} credits.`,
                       );
                       // Close modal after 3 seconds
                       setTimeout(() => {
@@ -1401,7 +1402,7 @@ const BetHomeScreen = ({ navigation }) => {
                       console.log("BetHome: claim failed", res);
                       Alert.alert(
                         "Unable to claim",
-                        res?.error || "Claim failed"
+                        res?.error || "Claim failed",
                       );
                     }
                   }}
@@ -1470,16 +1471,19 @@ const BetHomeScreen = ({ navigation }) => {
               style={styles.horizontalScroll}
               contentContainerStyle={{ paddingRight: 20 }}
             >
-              {liveGames.slice().reverse().map((game) => (
-                <LiveGameCard
-                  key={game.id}
-                  game={game}
-                  navigation={navigation}
-                  theme={theme}
-                  colors={colors}
-                  fetchRosters={fetchRosters}
-                />
-              ))}
+              {liveGames
+                .slice()
+                .reverse()
+                .map((game) => (
+                  <LiveGameCard
+                    key={game.id}
+                    game={game}
+                    navigation={navigation}
+                    theme={theme}
+                    colors={colors}
+                    fetchRosters={fetchRosters}
+                  />
+                ))}
             </ScrollView>
           </View>
         )}
@@ -1493,7 +1497,13 @@ const BetHomeScreen = ({ navigation }) => {
               </Text>
             </View>
 
-            <UpcomingGamesSection games={scheduledGames} sport={sport} navigation={navigation} theme={theme} fetchRosters={fetchRosters} />
+            <UpcomingGamesSection
+              games={scheduledGames}
+              sport={sport}
+              navigation={navigation}
+              theme={theme}
+              fetchRosters={fetchRosters}
+            />
           </View>
         )}
 

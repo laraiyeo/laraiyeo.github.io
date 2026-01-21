@@ -817,7 +817,9 @@ export const BetSlipProvider = ({ children }) => {
             const dec = o > 0 ? o / 100 + 1 : 100 / Math.abs(o) + 1;
             return acc * dec;
           }, 1);
-          potentialPayout = Number(((totalDecimal || 1) * (betSlip.amount || 0)).toFixed(2));
+          potentialPayout = Number(
+            ((totalDecimal || 1) * (betSlip.amount || 0)).toFixed(2),
+          );
         } catch (e) {
           potentialPayout = 0;
         }

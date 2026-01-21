@@ -13,7 +13,11 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useRoute, useIsFocused } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  useIsFocused,
+} from "@react-navigation/native";
 import { useTheme } from "../context/ThemeContext";
 import { useBetSlip } from "../context/BetSlipContext";
 import { useBetData } from "../context/BetDataContext";
@@ -76,12 +80,15 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
   const isFocused = useIsFocused();
 
   useEffect(() => {
-    console.log(`[BetSlip] isFocused changed => ${isFocused} (route=${route?.name || "unknown"})`);
+    console.log(
+      `[BetSlip] isFocused changed => ${isFocused} (route=${route?.name || "unknown"})`,
+    );
   }, [isFocused, route?.name]);
 
   useEffect(() => {
     console.log(`[BetSlip] mounted (route=${route?.name || "unknown"})`);
-    return () => console.log(`[BetSlip] unmounted (route=${route?.name || "unknown"})`);
+    return () =>
+      console.log(`[BetSlip] unmounted (route=${route?.name || "unknown"})`);
   }, []);
 
   useEffect(() => {
@@ -91,7 +98,9 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
   }, [isSlipOpen, route?.name]);
 
   const openSlip = () => {
-    console.log(`[BetSlip] openSlip called (route=${route?.name || "unknown"})`);
+    console.log(
+      `[BetSlip] openSlip called (route=${route?.name || "unknown"})`,
+    );
     setIsSlipOpen(true);
   };
 
@@ -108,7 +117,9 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
   };
 
   const closeSlip = () => {
-    console.log(`[BetSlip] closeSlip called (route=${route?.name || "unknown"})`);
+    console.log(
+      `[BetSlip] closeSlip called (route=${route?.name || "unknown"})`,
+    );
     setIsSlipOpen(false);
     setShowNumpad(false);
   };
@@ -1281,10 +1292,16 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
         transparent={true}
         animationType="slide"
         onRequestClose={() => {
-          console.log(`[BetSlip] Modal onRequestClose (route=${route?.name || "unknown"})`);
+          console.log(
+            `[BetSlip] Modal onRequestClose (route=${route?.name || "unknown"})`,
+          );
           closeSlip();
         }}
-        onDismiss={() => console.log(`[BetSlip] Modal onDismiss (route=${route?.name || "unknown"})`)}
+        onDismiss={() =>
+          console.log(
+            `[BetSlip] Modal onDismiss (route=${route?.name || "unknown"})`,
+          )
+        }
       >
         <View style={styles.modalOverlay}>
           <View
