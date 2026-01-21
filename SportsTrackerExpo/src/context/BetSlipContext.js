@@ -154,7 +154,10 @@ export const BetSlipProvider = ({ children }) => {
         };
 
         // Primary base detection
-        if (/both\s+teams|btts|yes\/?no/.test(s)) base = "bothScore";
+        // Map explicit both-teams/BTTS tokens to `bothScore` only. Generic
+        // `yes/no` tokens are too ambiguous (they apply to many player props)
+        // and should not be mapped here.
+        if (/\bboth\s+teams\b|\bbtts\b/.test(s)) base = "bothScore";
         else if (/corner/.test(s) && /total|over|under/.test(s))
           base = "totalCorner";
         else if (/card|cards/.test(s) && /total|over|under/.test(s))
@@ -805,17 +808,22 @@ export const BetSlipProvider = ({ children }) => {
 
       // Persist to backend (prefer server endpoint which enforces credits)
       const totalStake = betSlip.amount || 0;
-      let potentialPayout = betSlip.bets
-        ? betSlip.bets.reduce((acc, b) => {
+      // Compute potential payout by multiplying decimal odds, then apply stake.
+      let potentialPayout = 0;
+      if (betSlip.bets && betSlip.bets.length > 0) {
+        try {
+          const totalDecimal = betSlip.bets.reduce((acc, b) => {
             const o = parseInt(b.odds) || 0;
             const dec = o > 0 ? o / 100 + 1 : 100 / Math.abs(o) + 1;
-            return acc + dec * (betSlip.amount || 0);
-          }, 0)
-        : 0;
-      // If user is Pro, double the potential payout
-      if (isPro) {
-        potentialPayout = potentialPayout * 2;
+            return acc * dec;
+          }, 1);
+          potentialPayout = Number(((totalDecimal || 1) * (betSlip.amount || 0)).toFixed(2));
+        } catch (e) {
+          potentialPayout = 0;
+        }
       }
+      // If user is Pro, double the potential payout
+      if (isPro) potentialPayout = Number((potentialPayout * 2).toFixed(2));
 
       // If this is a single-leg bet, prefer the DB RPC `place_bet` which
       // atomically deducts credits and creates the betslip server-side.

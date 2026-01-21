@@ -149,7 +149,7 @@ const groupGamesByTournament = (games) => {
 
 // UpcomingGamesSection as a top-level memoized component to avoid remounts
 const UpcomingGamesSection = React.memo(
-  ({ games, navigation, theme, sport }) => {
+  ({ games, navigation, theme, sport, fetchRosters }) => {
     const groupedTournaments = groupGamesByTournament(games);
     const sportLogo = getSportLogo(sport);
 
@@ -201,6 +201,7 @@ const UpcomingGamesSection = React.memo(
                     game={game}
                     navigation={navigation}
                     theme={theme}
+                    fetchRosters={fetchRosters}
                   />
 
                   {index < group.games.length - 1 && (
@@ -332,7 +333,7 @@ const parseGameData = (events, isDarkMode = false, sport = "NBA") => {
 
 // Live Game Card - Defined outside component to prevent recreation on re-renders
 const LiveGameCard = React.memo(
-  ({ game, navigation, theme, colors }) => {
+  ({ game, navigation, theme, colors, fetchRosters }) => {
     // Get stable image sources from cache (cached outside update loop)
     const team1Source = imageCache.get(game.team1Logo) || {
       uri: game.team1Logo,
@@ -364,6 +365,13 @@ const LiveGameCard = React.memo(
             gameId: game.id,
             gameSport: game.sport,
           });
+          try {
+            if (typeof fetchRosters === "function") {
+              fetchRosters(game.sport).catch((e) => {
+                console.warn("[BetHome] fetchRosters failed on click:", e);
+              });
+            }
+          } catch (e) {}
           navigation.navigate("BetGameDetail", {
             gameId: game.id,
             game,
@@ -499,7 +507,7 @@ const LiveGameCard = React.memo(
 
 // Scheduled Game Row - Defined outside component
 const ScheduledGameRow = React.memo(
-  ({ game, navigation, theme }) => {
+  ({ game, navigation, theme, fetchRosters }) => {
     const team1Source = imageCache.get(game.team1Logo) || {
       uri: game.team1Logo,
     };
@@ -511,16 +519,23 @@ const ScheduledGameRow = React.memo(
       <TouchableOpacity
         style={styles.upcomingGameRow}
         onPress={() => {
-          console.log("[BET HOME NAV] ScheduledGameRow click", {
-            gameId: game.id,
-            gameSport: game.sport,
-          });
-          navigation.navigate("BetGameDetail", {
-            gameId: game.id,
-            game,
-            sport: game.sport,
-          });
-        }}
+            console.log("[BET HOME NAV] ScheduledGameRow click", {
+              gameId: game.id,
+              gameSport: game.sport,
+            });
+            try {
+              if (typeof fetchRosters === "function") {
+                fetchRosters(game.sport).catch((e) => {
+                  console.warn("[BetHome] fetchRosters failed on click:", e);
+                });
+              }
+            } catch (e) {}
+            navigation.navigate("BetGameDetail", {
+              gameId: game.id,
+              game,
+              sport: game.sport,
+            });
+          }}
       >
         {/* Time */}
         <View style={styles.gameTimeContainer}>
@@ -618,7 +633,7 @@ const ScheduledGameRow = React.memo(
 
 // Completed Game Card - Defined outside component
 const CompletedGameCard = React.memo(
-  ({ game, navigation, theme, colors }) => {
+  ({ game, navigation, theme, colors, fetchRosters }) => {
     const team1Source = imageCache.get(game.team1Logo) || {
       uri: game.team1Logo,
     };
@@ -644,6 +659,13 @@ const CompletedGameCard = React.memo(
             gameId: game.id,
             gameSport: game.sport,
           });
+          try {
+            if (typeof fetchRosters === "function") {
+              fetchRosters(game.sport).catch((e) => {
+                console.warn("[BetHome] fetchRosters failed on click:", e);
+              });
+            }
+          } catch (e) {}
           navigation.navigate("BetGameDetail", {
             gameId: game.id,
             game,
@@ -779,7 +801,7 @@ const BetHomeScreen = ({ navigation }) => {
   const { sport } = useSport();
   const { scoreboardData, fetchScoreboard, fetchRosters, getRosters } =
     useBetData();
-  const { isPro } = useBetSlip();
+  const { isPro, setIsSlipOpen } = useBetSlip();
 
   // Get sport-specific data
   const currentScoreboardData = scoreboardData[sport];
@@ -835,6 +857,8 @@ const BetHomeScreen = ({ navigation }) => {
       if (timer) clearInterval(timer);
     };
   }, [dailyVisible, dailyState]);
+
+  // (removed automatic clearing here — handled by screens that open the betslip)
 
   // Pre-cache images when scoreboard data arrives - only cache new logos
   useEffect(() => {
@@ -1106,7 +1130,7 @@ const BetHomeScreen = ({ navigation }) => {
     return Object.values(grouped);
   };
 
-  const UpcomingGamesSection = ({ games }) => {
+  const UpcomingGamesSection = ({ games, fetchRosters }) => {
     const groupedTournaments = groupGamesByTournament(games);
     const sportLogo = getSportLogo(sport);
 
@@ -1161,6 +1185,7 @@ const BetHomeScreen = ({ navigation }) => {
                     game={game}
                     navigation={navigation}
                     theme={theme}
+                    fetchRosters={fetchRosters}
                   />
 
                   {index < group.games.length - 1 && (
@@ -1445,13 +1470,14 @@ const BetHomeScreen = ({ navigation }) => {
               style={styles.horizontalScroll}
               contentContainerStyle={{ paddingRight: 20 }}
             >
-              {liveGames.map((game) => (
+              {liveGames.slice().reverse().map((game) => (
                 <LiveGameCard
                   key={game.id}
                   game={game}
                   navigation={navigation}
                   theme={theme}
                   colors={colors}
+                  fetchRosters={fetchRosters}
                 />
               ))}
             </ScrollView>
@@ -1467,7 +1493,7 @@ const BetHomeScreen = ({ navigation }) => {
               </Text>
             </View>
 
-            <UpcomingGamesSection games={scheduledGames} sport={sport} />
+            <UpcomingGamesSection games={scheduledGames} sport={sport} navigation={navigation} theme={theme} fetchRosters={fetchRosters} />
           </View>
         )}
 
@@ -1496,6 +1522,7 @@ const BetHomeScreen = ({ navigation }) => {
                     navigation={navigation}
                     theme={theme}
                     colors={colors}
+                    fetchRosters={fetchRosters}
                   />
                 ))}
             </ScrollView>

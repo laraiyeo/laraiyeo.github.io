@@ -1975,7 +1975,7 @@ const BetBetsScreen = () => {
         // NHL-specific stats (NHL uses "points" to mean "goals")
         if (sportLower === "nhl") {
           // Points in NHL = Goals
-          if (s === "points_yn" || s.includes("points_yn")) return "GOALS";
+          if (s === "points_yn" || s.includes("points_yn")) return "HGL";
           if (s === "points_ou" || s.includes("points_ou")) return "HGL";
 
           // First/Last to score
@@ -2030,7 +2030,7 @@ const BetBetsScreen = () => {
 
           if (s.includes("assists") || s === "assists_ou") return "UAST";
 
-          if (s.includes("shotsongoal") || s === "shotsongoal_ou")
+          if (s.includes("shots_ongoal") || s === "shots_ongoal_ou")
             return "USOG";
 
           if (s.includes("shots") || s.includes("shot") || s.includes("sht"))
@@ -2569,7 +2569,11 @@ const BetBetsScreen = () => {
               );
               const ouKey = resolveKeyInObject(playerData.overUnder, statKey);
 
-              if (bet.type === "milestone" && milestoneKey) {
+              // Accept milestone entries as progress sources for any matching
+              // player prop type (not only when bet.type === 'milestone').
+              // This covers cases like NHL `points_yn` which are stored
+              // under `milestones` (e.g. HGL) but use a yes/no bet.type.
+              if (milestoneKey) {
                 pick.currentValue = Number(
                   playerData.milestones[milestoneKey].current,
                 );
@@ -4106,7 +4110,26 @@ const BetBetsScreen = () => {
                   teamScore = Number(spreadCurrent?.adjustedScore) || 0;
                   oppScore = 0;
                 }
-                pick.currentValue = Number(oppScore - teamScore);
+                // Special-case UEFA-style card/corner spreads: payload.current is a numeric
+                // count (e.g. 2) and should be used directly. For regular spreads, compute
+                // opponent - team so visualization remains consistent.
+                const rk = String(resolvedOverrideKey || "").toLowerCase();
+                if (spreadPayload.current) {
+                  const cur = spreadPayload?.current;
+                  let parsed = null;
+                  if (typeof cur === "number") parsed = cur;
+                  else if (cur && typeof cur === "object")
+                    parsed = Number(cur.current ?? cur.score ?? cur.value ?? NaN);
+                  else if (cur != null) {
+                    const n = Number(cur);
+                    parsed = isNaN(n) ? null : n;
+                  }
+                  if (parsed !== null && !isNaN(parsed)) {
+                    pick.currentValue = Number(parsed);
+                  }
+                } else {
+                  pick.currentValue = Number(oppScore - teamScore);
+                }
                 pick.progressSource = `overrideEvent.event:${overrideEvent?.eventId || bet.gameId}.bets.${resolvedOverrideKey || "spread"}.current`;
                 pick.status =
                   spreadPayload?.won === true
@@ -4400,6 +4423,7 @@ const BetBetsScreen = () => {
               null,
             progressSource: p.progressSource || null,
             currentValue: p.currentValue != null ? p.currentValue : null,
+            line: p.line != null ? p.line : null,
             status: p.status || null,
           };
         }),

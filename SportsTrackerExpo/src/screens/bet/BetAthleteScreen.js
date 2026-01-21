@@ -300,7 +300,10 @@ const BetAthleteScreen = ({ route, navigation }) => {
     });
 
     variations.forEach((v) => {
-      const re = new RegExp(`\\b${escapeRegExp(v)}\\b`, "gi");
+      const re = new RegExp(
+        `(^|[\\s:–—-])${escapeRegExp(v)}(?=$|[\\s:–—-])`,
+        "gi"
+      );
       cleaned = cleaned.replace(re, "");
     });
 

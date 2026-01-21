@@ -24,6 +24,7 @@ export const BetDataProvider = ({ children }) => {
   const fetchCounterRef = useRef(0);
   const [currentSport, setCurrentSport] = useState("NBA");
   const rostersFetchedRef = useRef(new Set()); // Track which sports have been fetched
+  const rosterExpiryTimersRef = useRef({});
   const [lastRosterResetTime, setLastRosterResetTime] = useState(null); // Track last 2am PST reset
   const rosterResetCheckIntervalRef = useRef(null);
 
@@ -357,8 +358,37 @@ export const BetDataProvider = ({ children }) => {
           e
         );
       }
+      console.log(`[BetData ${sport}] Rosters fetched and cached at ${new Date().toISOString()}`);
 
-      console.log(`[BetData ${sport}] Rosters fetched and cached`);
+      // Schedule expiry/clear of roster data after maxAgeMinutes so callers can re-fetch when needed
+      try {
+        // Clear existing timer if present
+        if (rosterExpiryTimersRef.current[sport]) {
+          clearTimeout(rosterExpiryTimersRef.current[sport]);
+          rosterExpiryTimersRef.current[sport] = null;
+        }
+        if (maxAgeMs > 0) {
+          const expiryDate = new Date(Date.now() + maxAgeMs);
+          console.log(`[BetData ${sport}] Rosters will be cleared at ${expiryDate.toISOString()} (maxAge ${maxAgeMinutes}m)`);
+          const t = setTimeout(() => {
+            try {
+              setRostersData((prev) => {
+                const copy = { ...prev };
+                try { delete copy[rosterKey]; } catch (e) {}
+                return copy;
+              });
+              rostersFetchedRef.current.delete(sport);
+              try { setLastRosterFetchTime((prev) => ({ ...prev, [sport]: null })); } catch (e) {}
+              console.log(`[BetData ${sport}] Rosters expired and cleared (maxAge ${maxAgeMinutes}m)`);
+            } catch (e) {
+              console.warn(`[BetData ${sport}] Error clearing expired rosters:`, e);
+            }
+          }, maxAgeMs);
+          rosterExpiryTimersRef.current[sport] = t;
+        }
+      } catch (e) {
+        /* ignore scheduling errors */
+      }
       // Note: Rosters data is too large for AsyncStorage, so we don't persist it
       return data;
     } catch (error) {
@@ -500,6 +530,16 @@ export const BetDataProvider = ({ children }) => {
           pollingIntervalRef.current[sport] = null;
           console.log(`[BetData ${sport}] Polling stopped`);
         }
+      });
+      // Clear any roster expiry timers
+      Object.keys(rosterExpiryTimersRef.current || {}).forEach((s) => {
+        try {
+          if (rosterExpiryTimersRef.current[s]) {
+            clearTimeout(rosterExpiryTimersRef.current[s]);
+            rosterExpiryTimersRef.current[s] = null;
+            console.log(`[BetData ${s}] Cleared roster expiry timer on unmount`);
+          }
+        } catch (e) {}
       });
     };
   }, []);

@@ -11138,9 +11138,17 @@ function startWatcherInline(betslipId) {
             const hasBets =
               (ev.bets && Object.keys(ev.bets).length > 0) ||
               (Array.isArray(ev.bets?.players) && ev.bets.players.length > 0);
-            if (!hasBets && evId) {
-              // If we have a summary for this event and it's not completed,
-              // consider it pending and prevent premature finalization.
+            if (!hasBets) {
+              // If there are no picks for this event, treat it as pending
+              // unless we can confidently verify the event is completed.
+              // This covers the case where `event` objects in the betslip
+              // contain an empty `bets` object (parlay/sgp+ gaps).
+              if (!evId) {
+                hasPendingEmptyEvents = true;
+                break;
+              }
+              // If we have an event id, try to consult the fetched summaries
+              // and ensure the event is completed; otherwise treat as pending.
               const s = summaries[evId];
               if (!s) {
                 hasPendingEmptyEvents = true;
