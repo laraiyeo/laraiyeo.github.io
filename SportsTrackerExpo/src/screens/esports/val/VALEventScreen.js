@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../../context/ThemeContext";
@@ -27,11 +28,12 @@ import {
   getAgentImageUrl,
   getMapSampleUrl,
 } from "../../../services/valorantSeriesService";
-import { get } from "firebase/database";
+import { child, get } from "firebase/database";
 
 const VALEventScreen = ({ navigation, route }) => {
   const { eventId } = route.params;
   const { colors, theme } = useTheme();
+  const { height: WINDOW_HEIGHT } = Dimensions.get('window');
   const [event, setEvent] = useState(null);
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +43,7 @@ const VALEventScreen = ({ navigation, route }) => {
   const [activeGroups, setActiveGroups] = useState({});
   const [showMatches, setShowMatches] = useState({});
   const [selectedEventId, setSelectedEventId] = useState(null);
+  const [expandedMaps, setExpandedMaps] = useState({});
 
   // Stats data cache - stores data for each event ID
   const [statsDataCache, setStatsDataCache] = useState({});
@@ -141,7 +144,7 @@ const VALEventScreen = ({ navigation, route }) => {
 
         if (
           (childEvent.bracketJson &&
-            childEvent.bracketJson.type === "double") ||
+            (childEvent.bracketJson.type === "double" || childEvent.bracketJson.type === "triple")) ||
           (childEvent.bracketJson && childEvent.bracketJson.losers)
         ) {
           childEvent.bracketJson.losers.forEach((loserSeed) => {
@@ -170,9 +173,40 @@ const VALEventScreen = ({ navigation, route }) => {
         }
 
         if (
+          (childEvent.bracketJson &&
+            (childEvent.bracketJson.type === "triple")) ||
+          (childEvent.bracketJson && childEvent.bracketJson.middle)
+        ) {
+          childEvent.bracketJson.middle.forEach((middleSeed) => {
+            middleSeed.seeds.forEach((middle) => {
+              if (middle.teams && middle.teams.length > 0) {
+                middle.teams.forEach((middleTeam) => {
+                  if (
+                    !teamIds.has(middleTeam.id) &&
+                    middleTeam.shortName &&
+                    middleTeam.shortName !== "TBD"
+                  ) {
+                    teamIds.add(middleTeam.id);
+                    allTeams.push({
+                      id: middleTeam.id,
+                      name: middleTeam.name,
+                      shortName: middleTeam.shortName,
+                      logoUrl: middleTeam.logoUrl,
+                      countryId: middleTeam.countryId,
+                      country: middleTeam.country,
+                    });
+                  }
+                });
+              }
+            });
+          });
+        }
+
+        if (
           childEvent.bracketJson &&
           (childEvent.bracketJson.type === "double" ||
             childEvent.bracketJson.type === "single" ||
+            childEvent.bracketJson.type === "triple" ||
             childEvent.bracketJson.winners)
         ) {
           childEvent.bracketJson.winners.forEach((winnerSeed) => {
@@ -343,7 +377,7 @@ const VALEventScreen = ({ navigation, route }) => {
           });
         });
       } else if (
-        eventType === "double" &&
+        (eventType === "double" || eventType === "triple") &&
         (childEvent.bracketJson.winners || childEvent.bracketJson.losers)
       ) {
         // Playoff matches
@@ -365,6 +399,29 @@ const VALEventScreen = ({ navigation, route }) => {
                     eventName: childEvent.name || childEvent.shortName,
                     stageTitle: round.title,
                     eventType: "playoff-upper",
+                  });
+                }
+              });
+            }
+          });
+        }
+        
+        if (childEvent.bracketJson.middle) {
+          childEvent.bracketJson.middle.forEach((round) => {
+            if (round.seeds) {
+              round.seeds.forEach((match) => {
+                if (match.teams && match.teams.length >= 2) {
+                  allMatches.push({
+                    id: match.id || match.seriesId, // Include series ID
+                    team1: match.teams[0],
+                    team2: match.teams[1],
+                    team1Score: match.teams[0].score || 0,
+                    team2Score: match.teams[1].score || 0,
+                    startDate: match.startDate,
+                    completed: match.completed || false,
+                    eventName: childEvent.name || childEvent.shortName,
+                    stageTitle: round.title,
+                    eventType: "playoff-middle",
                   });
                 }
               });
@@ -2808,9 +2865,9 @@ const VALEventScreen = ({ navigation, route }) => {
 
                           {/* Playoff Bracket Content */}
                           {(childEvent.bracketJson.type === "double" ||
-                            childEvent.bracketJson.type === "single") && (
+                            childEvent.bracketJson.type === "single" || childEvent.bracketJson.type === "triple") && (
                             <View style={styles.playoffContainer}>
-                              <ScrollView
+                              <View
                                 horizontal
                                 showsHorizontalScrollIndicator={false}
                                 style={styles.bracketScrollView}
@@ -2929,12 +2986,16 @@ const VALEventScreen = ({ navigation, route }) => {
                                   const winnerBracket = computeBracketPositions(
                                     childEvent.bracketJson.winners || []
                                   );
+                                  const middleBracket = computeBracketPositions(
+                                    childEvent.bracketJson.middle || []
+                                  );
                                   const loserBracket = computeBracketPositions(
                                     childEvent.bracketJson.losers || []
                                   );
 
                                   const winnerPositions =
                                     winnerBracket.positions;
+                                  const middlePositions = middleBracket.positions;
                                   const loserPositions = loserBracket.positions;
 
                                   return (
@@ -2942,14 +3003,19 @@ const VALEventScreen = ({ navigation, route }) => {
                                       {/* Upper Bracket */}
                                       {childEvent.bracketJson.winners && (
                                         <View style={styles.bracketSection}>
-                                          <View
-                                            style={[
-                                              styles.bracketRounds,
-                                              {
-                                                position: "relative",
-                                                height: winnerBracket.maxHeight,
-                                              },
-                                            ]}
+                                          <ScrollView
+                                            horizontal={true}
+                                            nestedScrollEnabled={true}
+                                            showsHorizontalScrollIndicator={false}
+                                            style={{
+                                              position: "relative",
+                                              height: Math.min(winnerBracket.maxHeight, WINDOW_HEIGHT * 0.7),
+                                            }}
+                                            contentContainerStyle={{
+                                              flexDirection: 'row',
+                                              alignItems: 'flex-start',
+                                              paddingRight: 20,
+                                            }}
                                           >
                                             {childEvent.bracketJson.winners.map(
                                               (round, roundIndex) => (
@@ -3150,24 +3216,252 @@ const VALEventScreen = ({ navigation, route }) => {
                                                 </View>
                                               )
                                             )}
-                                          </View>
+                                          </ScrollView>
                                         </View>
                                       )}
 
+                                      {/* Middle Bracket */}
+                                      {(childEvent.bracketJson.type ===
+                                        "triple") && 
+                                        childEvent.bracketJson.middle && (
+                                          <View style={styles.bracketSection}>
+                                            <ScrollView
+                                              horizontal={true}
+                                              nestedScrollEnabled={true}
+                                              showsHorizontalScrollIndicator={false}
+                                              style={{
+                                                position: "relative",
+                                                height: Math.min(middleBracket.maxHeight, WINDOW_HEIGHT * 0.7),
+                                              }}
+                                              contentContainerStyle={{
+                                                flexDirection: 'row',
+                                                alignItems: 'flex-start',
+                                                paddingRight: 20,
+                                              }}
+                                            >
+                                              {childEvent.bracketJson.middle.map(
+                                                (round, roundIndex) => (
+                                                  <View
+                                                    key={roundIndex}
+                                                    style={styles.bracketRound}
+                                                  >
+                                                    <Text
+                                                      style={[
+                                                        styles.roundTitle,
+                                                        {
+                                                          color:
+                                                            theme.textSecondary,
+                                                        },
+                                                      ]}
+                                                    >
+                                                      {round.title}
+                                                    </Text>
+
+                                                    {round.seeds &&
+                                                      round.seeds.map(
+                                                        (match, matchIndex) => {
+                                                          const pos =
+                                                            middlePositions[
+                                                              roundIndex
+                                                            ]?.[matchIndex] || {
+                                                              top: 0,
+                                                              left: 0,
+                                                            };
+
+                                                          return (
+                                                            <TouchableOpacity
+                                                              key={matchIndex}
+                                                              style={[
+                                                                styles.bracketMatch,
+                                                                {
+                                                                  position:
+                                                                    "absolute",
+                                                                  top: pos.top,
+                                                                  left: pos.left,
+                                                                  backgroundColor:
+                                                                    theme.surface,
+                                                                },
+                                                              ]}
+                                                              onPress={() => {
+                                                                if (
+                                                                  match.teams &&
+                                                                  match.teams
+                                                                    .length >= 2
+                                                                ) {
+                                                                  navigation.navigate(
+                                                                    "VALSeries",
+                                                                    {
+                                                                      seriesId:
+                                                                        match.seriesId ||
+                                                                        match.id,
+                                                                    }
+                                                                  );
+                                                                }
+                                                              }}
+                                                              activeOpacity={
+                                                                0.7
+                                                              }
+                                                            >
+                                                              <Text
+                                                                style={[
+                                                                  styles.matchDate,
+                                                                  {
+                                                                    color:
+                                                                      theme.textSecondary,
+                                                                  },
+                                                                ]}
+                                                              >
+                                                                {match.startDate
+                                                                  ? `${new Date(
+                                                                      match.startDate
+                                                                    ).toLocaleDateString(
+                                                                      "en-US",
+                                                                      {
+                                                                        month:
+                                                                          "short",
+                                                                        day: "numeric",
+                                                                      }
+                                                                    )} • ${new Date(
+                                                                      match.startDate
+                                                                    ).toLocaleTimeString(
+                                                                      "en-US",
+                                                                      {
+                                                                        hour: "numeric",
+                                                                        minute:
+                                                                          "2-digit",
+                                                                        hour12: true,
+                                                                      }
+                                                                    )}`
+                                                                  : "TBD"}
+                                                              </Text>
+
+                                                              {match.teams &&
+                                                                match.teams.map(
+                                                                  (
+                                                                    team,
+                                                                    teamIndex
+                                                                  ) => {
+                                                                    const isWinner =
+                                                                      match.completed &&
+                                                                      team.score >
+                                                                        (match
+                                                                          .teams[
+                                                                          1 -
+                                                                            teamIndex
+                                                                        ]
+                                                                          ?.score ||
+                                                                          0);
+                                                                    const isLoser =
+                                                                      match.completed &&
+                                                                      team.score <
+                                                                        (match
+                                                                          .teams[
+                                                                          1 -
+                                                                            teamIndex
+                                                                        ]
+                                                                          ?.score ||
+                                                                          0);
+
+                                                                    return (
+                                                                      <View
+                                                                        key={
+                                                                          teamIndex
+                                                                        }
+                                                                        style={[
+                                                                          styles.bracketTeam,
+                                                                          isWinner &&
+                                                                            styles.winnerTeam,
+                                                                          isLoser &&
+                                                                            styles.loserTeam,
+                                                                        ]}
+                                                                      >
+                                                                        <Image
+                                                                          source={{
+                                                                            uri:
+                                                                              team.logoUrl ||
+                                                                              "https://i.imgur.com/BIC4pnO.webp",
+                                                                          }}
+                                                                          style={[
+                                                                            styles.bracketTeamLogo,
+                                                                            {
+                                                                              opacity:
+                                                                                isLoser
+                                                                                  ? 0.5
+                                                                                  : 1,
+                                                                            },
+                                                                          ]}
+                                                                          resizeMode="contain"
+                                                                        />
+                                                                        <Text
+                                                                          style={[
+                                                                            styles.bracketTeamName,
+                                                                            {
+                                                                              color:
+                                                                                theme.text,
+                                                                              opacity:
+                                                                                isLoser
+                                                                                  ? 0.6
+                                                                                  : 1,
+                                                                            },
+                                                                          ]}
+                                                                          numberOfLines={
+                                                                            1
+                                                                          }
+                                                                          ellipsizeMode="tail"
+                                                                        >
+                                                                          {team.shortName ||
+                                                                            team.name ||
+                                                                            "TBD"}
+                                                                        </Text>
+                                                                        <Text
+                                                                          style={[
+                                                                            styles.bracketTeamScore,
+                                                                            {
+                                                                              color:
+                                                                                theme.text,
+                                                                              opacity:
+                                                                                isLoser
+                                                                                  ? 0.6
+                                                                                  : 1,
+                                                                            },
+                                                                          ]}
+                                                                        >
+                                                                          {team.score ||
+                                                                            0}
+                                                                        </Text>
+                                                                      </View>
+                                                                    );
+                                                                  }
+                                                                )}
+                                                            </TouchableOpacity>
+                                                          );
+                                                        }
+                                                      )}
+                                                  </View>
+                                                )
+                                              )}
+                                            </ScrollView>
+                                          </View>
+                                        )}
+
                                       {/* Lower Bracket */}
-                                      {childEvent.bracketJson.type ===
-                                        "double" &&
+                                      {(childEvent.bracketJson.type ===
+                                        "double" || childEvent.bracketJson.type === "triple") && 
                                         childEvent.bracketJson.losers && (
                                           <View style={styles.bracketSection}>
-                                            <View
-                                              style={[
-                                                styles.bracketRounds,
-                                                {
-                                                  position: "relative",
-                                                  height:
-                                                    loserBracket.maxHeight,
-                                                },
-                                              ]}
+                                            <ScrollView
+                                              horizontal={true}
+                                              nestedScrollEnabled={true}
+                                              showsHorizontalScrollIndicator={false}
+                                              style={{
+                                                position: "relative",
+                                                height: Math.min(loserBracket.maxHeight, WINDOW_HEIGHT * 0.7),
+                                              }}
+                                              contentContainerStyle={{
+                                                flexDirection: 'row',
+                                                alignItems: 'flex-start',
+                                                paddingRight: 20,
+                                              }}
                                             >
                                               {childEvent.bracketJson.losers.map(
                                                 (round, roundIndex) => (
@@ -3370,13 +3664,13 @@ const VALEventScreen = ({ navigation, route }) => {
                                                   </View>
                                                 )
                                               )}
-                                            </View>
+                                            </ScrollView>
                                           </View>
                                         )}
                                     </>
                                   );
                                 })()}
-                              </ScrollView>
+                              </View>
                             </View>
                           )}
                         </View>
@@ -4495,55 +4789,84 @@ const VALEventScreen = ({ navigation, route }) => {
                           },
                           {}
                         )
-                      ).map(([mapName, comps]) => (
-                        <View key={mapName} style={styles.mapCompsSection}>
-                          <Text
-                            style={[
-                              styles.mapCompsTitle,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            {mapName}
-                          </Text>
-                          {comps.slice(0, 3).map((comp, index) => (
-                            <View
-                              key={index}
-                              style={[
-                                styles.compRow,
-                                { position: "relative", overflow: "hidden" },
-                              ]}
+                      ).map(([mapName, comps]) => {
+                        const isExpanded = !!expandedMaps[mapName];
+                        const hasMore = comps.length > 2;
+                        const displayComps = isExpanded ? comps : comps.slice(0, 2);
+                        const Wrapper = hasMore ? TouchableOpacity : View;
+
+                        return (
+                          <View key={mapName} style={styles.mapCompsSection}>
+                            <Wrapper 
+                              style={styles.mapCompsHeader}
+                              onPress={ hasMore ? () =>
+                                setExpandedMaps((prev) => ({
+                                  ...prev,
+                                  [mapName]: !prev[mapName],
+                                }))
+                              : undefined}
                             >
-                              <Image
-                                source={{ uri: getMapSampleUrl(mapName) }}
-                                style={styles.compRowMapBackground}
-                                resizeMode="cover"
-                              />
-                              <View style={styles.compRowMapOverlay} />
-                              <View style={styles.compRowContent}>
-                                <View style={styles.compAgents}>
-                                  {comp.comp.map((agentId) => (
-                                    <Image
-                                      key={agentId}
-                                      source={{
-                                        uri: getAgentImageUrl(
-                                          getAgentDisplayName(agentId)
-                                        ),
-                                      }}
-                                      style={styles.compAgentImage}
-                                      resizeMode="contain"
-                                    />
-                                  ))}
-                                </View>
-                                <Text
-                                  style={[styles.compPicks, { color: "white" }]}
+                              <Text
+                                style={[
+                                  styles.mapCompsTitle,
+                                  { color: colors.primary },
+                                ]}
+                              >
+                                {mapName}
+                              </Text>
+                              {hasMore && (
+                                <TouchableOpacity
+                                  style={styles.mapCompsToggle}
                                 >
-                                  {comp.picks} pick{comp.picks !== 1 ? "s" : ""}
-                                </Text>
+                                  <Ionicons
+                                    name={isExpanded ? "chevron-up" : "chevron-down"}
+                                    size={18}
+                                    color={colors.primary}
+                                  />
+                                </TouchableOpacity>
+                              )}
+                            </Wrapper>
+
+                            {displayComps.map((comp, index) => (
+                              <View
+                                key={comp.id || index}
+                                style={[
+                                  styles.compRow,
+                                  { position: "relative", overflow: "hidden" },
+                                ]}
+                              >
+                                <Image
+                                  source={{ uri: getMapSampleUrl(mapName) }}
+                                  style={styles.compRowMapBackground}
+                                  resizeMode="cover"
+                                />
+                                <View style={styles.compRowMapOverlay} />
+                                <View style={styles.compRowContent}>
+                                  <View style={styles.compAgents}>
+                                    {comp.comp.map((agentId) => (
+                                      <Image
+                                        key={agentId}
+                                        source={{
+                                          uri: getAgentImageUrl(
+                                            getAgentDisplayName(agentId)
+                                          ),
+                                        }}
+                                        style={styles.compAgentImage}
+                                        resizeMode="contain"
+                                      />
+                                    ))}
+                                  </View>
+                                  <Text
+                                    style={[styles.compPicks, { color: "white" }]}
+                                  >
+                                    {comp.picks} pick{comp.picks !== 1 ? "s" : ""}
+                                  </Text>
+                                </View>
                               </View>
-                            </View>
-                          ))}
-                        </View>
-                      ))}
+                            ))}
+                          </View>
+                        );
+                      })}
                     </View>
                   </View>
                 )}
@@ -4794,6 +5117,7 @@ const styles = StyleSheet.create({
   childEventsSection: {
     marginTop: 8,
     marginBottom: 16,
+    paddingHorizontal: 16,
   },
   childEventsScrollContent: {
     paddingHorizontal: 16,
@@ -5054,6 +5378,15 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 16,
     textAlign: "center",
+  },
+  mapCompsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  mapCompsToggle: {
+    padding: 6,
   },
   bracketRounds: {
     flexDirection: "row",

@@ -75,7 +75,7 @@ const getTeamLogoUrls = (teamId, isDarkMode) => {
 
 // Memoized TeamLogoImage component to prevent flickering on state changes
 const TeamLogoImage = React.memo(
-  ({ teamId, style, isScoring = false, isDarkMode }) => {
+  ({ teamId, style, isScoring = false, isDarkMode, scoringTextColor }) => {
     const [logoSource, setLogoSource] = useState(null);
     const [retryCount, setRetryCount] = useState(0);
 
@@ -84,7 +84,8 @@ const TeamLogoImage = React.memo(
         try {
           if (isScoring) {
             // For scoring plays, always use dark variant
-            const darkUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
+            const code = scoringTextColor === "#000" ? "" : "-dark";
+            const darkUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500${code}/${teamId}.png&w=200&h=200`;
             setLogoSource({ uri: darkUrl });
           } else {
             // For non-scoring, use normal dark mode logic
@@ -99,7 +100,7 @@ const TeamLogoImage = React.memo(
         setLogoSource(require("../../../../assets/soccer.png"));
       }
       setRetryCount(0);
-    }, [teamId, isDarkMode, isScoring]);
+    }, [teamId, isDarkMode, isScoring, scoringTextColor]);
 
     useEffect(() => {
       loadLogo();
@@ -148,7 +149,7 @@ const TeamLogoImage = React.memo(
         onError={handleError}
       />
     );
-  }
+  },
 );
 
 const UECLGameDetailsScreen = ({ route, navigation }) => {
@@ -205,6 +206,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
   });
   const [shareCardPlayerStats, setShareCardPlayerStats] = useState({
     goals: 0,
+    ownGoals: 0,
     assists: 0,
     shots: 0,
     shotsOnTarget: 0,
@@ -242,7 +244,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     // Use the service's enhanced logo logic with caching and fallbacks
     const logoUrl =
       await EuropaConferenceLeagueServiceEnhanced.getTeamLogoWithFallback(
-        teamId
+        teamId,
       );
     return { primaryUrl: logoUrl, fallbackUrl: logoUrl };
   };
@@ -297,7 +299,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       if (txt) return `x${txt.substring(0, 60)}`;
       return JSON.stringify({ type: play.type, team: play.team }).substring(
         0,
-        80
+        80,
       );
     }
 
@@ -374,7 +376,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           "[UECLGameDetails] incremental update: added=",
           addedCount,
           "patched=",
-          patchedCount
+          patchedCount,
         );
         return updated;
       }
@@ -384,7 +386,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           "[UECLGameDetails] incremental update: added=",
           addedCount,
           "patched=",
-          patchedCount
+          patchedCount,
         );
         return patchedPlays;
       }
@@ -404,7 +406,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
               .map((c) => c + c)
               .join("")
           : h,
-        16
+        16,
       );
       const r = (bigint >> 16) & 255;
       const g = (bigint >> 8) & 255;
@@ -442,7 +444,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     console.log(`[getTeamShootoutScore] Getting ${teamType} shootout score`);
     console.log(
       `[getTeamShootoutScore] gameData.processedShootoutScores:`,
-      gameData.processedShootoutScores
+      gameData.processedShootoutScores,
     );
 
     // Use processed shootout scores first (similar to how getTeamScore works)
@@ -453,7 +455,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           : gameData.processedShootoutScores.away;
       console.log(
         `[getTeamShootoutScore] Processed ${teamType} shootout score:`,
-        shootoutScore
+        shootoutScore,
       );
       return shootoutScore !== undefined && shootoutScore !== null
         ? shootoutScore.toString()
@@ -469,14 +471,14 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
 
     console.log(
       `[getTeamShootoutScore] Fallback - ${teamType} team score object:`,
-      team?.score
+      team?.score,
     );
 
     // Look for shootout score in the same way as regular score
     if (team?.score?.shootout !== undefined && team?.score?.shootout !== null) {
       console.log(
         `[getTeamShootoutScore] Found ${teamType} shootout in fallback:`,
-        team.score.shootout
+        team.score.shootout,
       );
       return team.score.shootout.toString();
     }
@@ -491,7 +493,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     console.log(`[hasShootout] Checking for shootout`);
     console.log(
       `[hasShootout] gameData.processedShootoutScores:`,
-      gameData.processedShootoutScores
+      gameData.processedShootoutScores,
     );
 
     // Check processed shootout scores first (similar to getTeamScore pattern)
@@ -594,7 +596,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         // Skip update if stream modal is open
         if (showStreamModal) {
           console.log(
-            "Stream modal open, skipping Europa Conference League game update"
+            "Stream modal open, skipping Europa Conference League game update",
           );
           return;
         }
@@ -625,7 +627,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       return () => {
         // no-op cleanup
       };
-    }, [gameId])
+    }, [gameId]),
   );
 
   // Enable LayoutAnimation on Android
@@ -650,7 +652,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         gameData.header?.competitions?.[0]?.status?.type?.state === "in";
       if (isLive) {
         console.log(
-          "Stream modal closed, immediately fetching Europa Conference League game data"
+          "Stream modal closed, immediately fetching Europa Conference League game data",
         );
         loadGameDetails(true);
       }
@@ -666,6 +668,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         setShareCardPlayerStats({
           goals: 0,
           assists: 0,
+          ownGoals: 0,
           shots: 0,
           shotsOnTarget: 0,
           yellowCards: 0,
@@ -686,7 +689,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
 
       // Find and fetch scorer
       const scorerParticipant = shareCardPlay.participants.find(
-        (p) => p.type === "scorer"
+        (p) => p.type === "scorer",
       );
       let scorerData = null;
 
@@ -710,7 +713,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
 
       // Find and fetch assister
       const assisterParticipant = shareCardPlay.participants.find(
-        (p) => p.type === "assister"
+        (p) => p.type === "assister",
       );
       if (assisterParticipant?.athlete?.$ref) {
         try {
@@ -777,6 +780,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                       allStats.shots ||
                       allStats.shotsTotal ||
                       0,
+                    ownGoals: allStats.ownGoals || 0,
                     shotsOnTarget:
                       allStats.shotsOnTarget ||
                       allStats.shotsOnGoal ||
@@ -793,7 +797,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
               } else {
                 console.warn(
                   "Failed to fetch player stats:",
-                  statsResponse.status
+                  statsResponse.status,
                 );
               }
             }
@@ -866,7 +870,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         const teamForColor = homeTeamData?.team || homeTeamData;
         teamColor =
           EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
-            teamForColor
+            teamForColor,
           ) || "#007bff";
       } else if (String(playTeamId) === String(awayId)) {
         scoringTeam = awayTeamData;
@@ -874,7 +878,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         const teamForColor = awayTeamData?.team || awayTeamData;
         teamColor =
           EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
-            teamForColor
+            teamForColor,
           ) || "#007bff";
       }
 
@@ -902,7 +906,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       console.log("UECL: Setting share card play with context:", enhancedPlay);
       setShareCardPlay(enhancedPlay);
     },
-    [gameData, homeTeam, awayTeam]
+    [gameData, homeTeam, awayTeam],
   );
 
   const loadGameDetails = async (silentUpdate = false) => {
@@ -915,9 +919,8 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         silentUpdate,
       });
       console.debug("[UECLGameDetails] requesting game details for", gameId);
-      const data = await EuropaConferenceLeagueServiceEnhanced.getGameDetails(
-        gameId
-      );
+      const data =
+        await EuropaConferenceLeagueServiceEnhanced.getGameDetails(gameId);
 
       // Process the data similar to soccer web logic
       const processedData = await processGameData(data);
@@ -936,7 +939,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         setLastUpdateHash(currentHash);
         console.log(
           "[UECLGameDetails] Game data updated - hash changed",
-          currentHash
+          currentHash,
         );
 
         // Clear stats data when game state changes to ensure fresh stats are fetched
@@ -981,12 +984,12 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     const [homeLogo, awayLogo] = await Promise.all([
       homeTeamId
         ? EuropaConferenceLeagueServiceEnhanced.getTeamLogoWithFallback(
-            homeTeamId
+            homeTeamId,
           )
         : null,
       awayTeamId
         ? EuropaConferenceLeagueServiceEnhanced.getTeamLogoWithFallback(
-            awayTeamId
+            awayTeamId,
           )
         : null,
     ]);
@@ -1001,7 +1004,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       if (homeCompetitor?.score?.$ref) {
         console.log("Fetching home score from:", homeCompetitor.score.$ref);
         const homeScoreResponse = await fetch(
-          convertToHttps(homeCompetitor.score.$ref)
+          convertToHttps(homeCompetitor.score.$ref),
         );
         const homeScoreData = await homeScoreResponse.json();
         console.log("Full home score data:", homeScoreData);
@@ -1011,14 +1014,14 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           "Home score fetched:",
           homeScore,
           "Shootout:",
-          homeShootoutScore
+          homeShootoutScore,
         );
       }
 
       if (awayCompetitor?.score?.$ref) {
         console.log("Fetching away score from:", awayCompetitor.score.$ref);
         const awayScoreResponse = await fetch(
-          convertToHttps(awayCompetitor.score.$ref)
+          convertToHttps(awayCompetitor.score.$ref),
         );
         const awayScoreData = await awayScoreResponse.json();
         console.log("Full away score data:", awayScoreData);
@@ -1028,7 +1031,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           "Away score fetched:",
           awayScore,
           "Shootout:",
-          awayShootoutScore
+          awayShootoutScore,
         );
       }
     } catch (error) {
@@ -1061,7 +1064,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       "Final shootout scores - Home:",
       homeShootoutScore,
       "Away:",
-      awayShootoutScore
+      awayShootoutScore,
     );
 
     // Process scorers (similar to soccer web renderScorersBox)
@@ -1130,13 +1133,14 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         const statsData = await response.json();
         console.log(
           "Player game stats response:",
-          JSON.stringify(statsData, null, 2)
+          JSON.stringify(statsData, null, 2),
         );
 
         // Parse the stats structure
         let parsedStats = {
           goals: 0,
           assists: 0,
+          ownGoals: 0,
           shots: 0,
           shotsOnTarget: 0,
           yellowCards: 0,
@@ -1172,6 +1176,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           parsedStats = {
             goals: allStats.totalGoals || 0,
             assists: allStats.goalAssists || 0,
+            ownGoals: allStats.ownGoals || 0,
             shots: allStats.totalShots || 0,
             shotsOnTarget: allStats.shotsOnTarget || 0,
             yellowCards: allStats.yellowCards || 0,
@@ -1195,7 +1200,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         console.warn(
           "Failed to fetch player game stats:",
           response.status,
-          response.statusText
+          response.statusText,
         );
         const errorText = await response.text();
         console.log("Error response body:", errorText);
@@ -1215,7 +1220,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       const animConfig = LayoutAnimation.create(
         120,
         LayoutAnimation.Types.easeInEaseOut,
-        LayoutAnimation.Properties.opacity
+        LayoutAnimation.Properties.opacity,
       );
       LayoutAnimation.configureNext(animConfig);
     } catch (e) {
@@ -1236,7 +1241,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     if (isLoadingMorePlays || !playsData) return;
 
     console.log(
-      `[PLAYS DEBUG] Loading more plays. Current: ${visiblePlaysCount}, Total: ${playsData.length}`
+      `[PLAYS DEBUG] Loading more plays. Current: ${visiblePlaysCount}, Total: ${playsData.length}`,
     );
     setIsLoadingMorePlays(true);
 
@@ -1247,8 +1252,8 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       console.log(
         `[PLAYS DEBUG] Loaded more plays. New count: ${Math.min(
           visiblePlaysCount + 30,
-          playsData.length
-        )}`
+          playsData.length,
+        )}`,
       );
     }, 100);
   }, [isLoadingMorePlays, playsData, visiblePlaysCount]);
@@ -1454,7 +1459,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     try {
       console.log(`Fetching live matches from API...`);
       const response = await fetch(
-        convertToHttps(`${STREAM_API_BASE}/matches/football`)
+        convertToHttps(`${STREAM_API_BASE}/matches/football`),
       );
 
       if (!response.ok) {
@@ -1470,7 +1475,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           ...new Set(
             allMatches
               .map((match) => match.category || match.sport)
-              .filter((category) => category)
+              .filter((category) => category),
           ),
         ];
         console.log("Available categories in API:", uniqueCategories);
@@ -1481,7 +1486,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           const match = allMatches[i];
           const categoryValue = match.category || match.sport || "undefined";
           console.log(
-            `  Match ${i + 1}: "${match.title}" - Category: "${categoryValue}"`
+            `  Match ${i + 1}: "${match.title}" - Category: "${categoryValue}"`,
           );
         }
       }
@@ -1495,7 +1500,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       console.log(
         `Filtered to ${
           matches.length
-        } soccer matches (${relevantCategories.join(" or ")})`
+        } soccer matches (${relevantCategories.join(" or ")})`,
       );
       return matches;
     } catch (error) {
@@ -1508,7 +1513,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     try {
       console.log(`Fetching streams for ${source}/${sourceId}...`);
       const response = await fetch(
-        convertToHttps(`${STREAM_API_BASE}/stream/${source}/${sourceId}`)
+        convertToHttps(`${STREAM_API_BASE}/stream/${source}/${sourceId}`),
       );
 
       if (!response.ok) {
@@ -1543,12 +1548,12 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         console.log("Trying fallback: searching all matches...");
         try {
           const allMatchesResponse = await fetch(
-            convertToHttps(`${STREAM_API_BASE}/matches/football`)
+            convertToHttps(`${STREAM_API_BASE}/matches/football`),
           );
           if (allMatchesResponse.ok) {
             const allMatchesData = await allMatchesResponse.json();
             console.log(
-              `Fallback: Found ${allMatchesData.length} total matches`
+              `Fallback: Found ${allMatchesData.length} total matches`,
             );
             // Use all matches as fallback
             matches = allMatchesData;
@@ -1576,7 +1581,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       const hasSameCity = homeFirstWord === awayFirstWord;
 
       console.log(
-        `Team analysis: Home first word: "${homeFirstWord}", Away first word: "${awayFirstWord}", Same city: ${hasSameCity}`
+        `Team analysis: Home first word: "${homeFirstWord}", Away first word: "${awayFirstWord}", Same city: ${hasSameCity}`,
       );
 
       let bestMatch = null;
@@ -1592,12 +1597,12 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
             console.log(
               `     Teams: ${match.teams.home?.name || "N/A"} vs ${
                 match.teams.away?.name || "N/A"
-              }`
+              }`,
             );
           }
           if (match.sources) {
             console.log(
-              `     Sources: ${match.sources.map((s) => s.source).join(", ")}`
+              `     Sources: ${match.sources.map((s) => s.source).join(", ")}`,
             );
           }
         }
@@ -1647,7 +1652,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       console.log(
         `Processing ${matchesToProcess.length} matches (${
           quickMatches.length > 0 ? "pre-filtered" : "full set"
-        })`
+        })`,
       );
 
       // Process the filtered matches
@@ -1717,7 +1722,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
               homeParts.forEach((part) => {
                 if (
                   titleWords.some(
-                    (word) => word.includes(part) && word.length > 2
+                    (word) => word.includes(part) && word.length > 2,
                   )
                 )
                   homeScore += 0.3;
@@ -1726,7 +1731,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
               awayParts.forEach((part) => {
                 if (
                   titleWords.some(
-                    (word) => word.includes(part) && word.length > 2
+                    (word) => word.includes(part) && word.length > 2,
                   )
                 )
                   awayScore += 0.3;
@@ -1966,7 +1971,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                     titleWords.some(
                       (word) =>
                         word === abbr ||
-                        (word.includes(abbr) && abbr.length > 3)
+                        (word.includes(abbr) && abbr.length > 3),
                     )
                   ) {
                     score += 0.2; // Reduced from 0.3
@@ -1985,7 +1990,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                     titleWords.some(
                       (word) =>
                         word === abbr ||
-                        (word.includes(abbr) && abbr.length > 3)
+                        (word.includes(abbr) && abbr.length > 3),
                     )
                   ) {
                     score += 0.2; // Reduced from 0.3
@@ -2006,8 +2011,8 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         console.log(
           `Match "${match.title.substring(
             0,
-            50
-          )}..." score: ${totalScore.toFixed(2)}`
+            50,
+          )}..." score: ${totalScore.toFixed(2)}`,
         );
 
         if (totalScore > bestScore) {
@@ -2017,7 +2022,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           // Early exit if we find a very good match (increased threshold to prevent wrong matches)
           if (bestScore >= 2.0) {
             console.log(
-              `Found excellent match with score ${bestScore}, stopping search early`
+              `Found excellent match with score ${bestScore}, stopping search early`,
             );
             break;
           }
@@ -2028,20 +2033,20 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         // Increased from 0.3 to 0.5 for stricter matching
         console.log(
           `No good matching live match found in API (best score: ${bestScore.toFixed(
-            2
-          )})`
+            2,
+          )})`,
         );
         console.log(`Searched for: ${homeNormalized} vs ${awayNormalized}`);
         console.log(
-          `Processed: ${matchesToProcess.length} matches out of ${matches.length} total`
+          `Processed: ${matchesToProcess.length} matches out of ${matches.length} total`,
         );
         return {};
       }
 
       console.log(
         `Found matching match: ${bestMatch.title} (score: ${bestScore.toFixed(
-          2
-        )})`
+          2,
+        )})`,
       );
 
       // VALIDATION: Ensure the matched game actually contains both teams with stricter checking
@@ -2097,32 +2102,32 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         awayRelevanceRatio < 0.5
       ) {
         console.log(
-          `WARNING: Matched game "${bestMatch.title}" doesn't contain both teams or isn't relevant enough!`
+          `WARNING: Matched game "${bestMatch.title}" doesn't contain both teams or isn't relevant enough!`,
         );
         console.log(`Expected: ${homeNormalized} vs ${awayNormalized}`);
         console.log(`Found in title: Home=${homeInTitle}, Away=${awayInTitle}`);
         console.log(
-          `API teams: Home="${matchedHomeTeam}", Away="${matchedAwayTeam}"`
+          `API teams: Home="${matchedHomeTeam}", Away="${matchedAwayTeam}"`,
         );
         console.log(
           `Relevance: Home=${homeRelevanceRatio.toFixed(
-            2
-          )}, Away=${awayRelevanceRatio.toFixed(2)}`
+            2,
+          )}, Away=${awayRelevanceRatio.toFixed(2)}`,
         );
 
         // Reject the match if validation fails
         console.log(
-          "Rejecting match due to validation failure - teams do not match or are not relevant"
+          "Rejecting match due to validation failure - teams do not match or are not relevant",
         );
         return {};
       } else {
         console.log(
-          `✓ Validation passed: Matched game contains both teams and is relevant`
+          `✓ Validation passed: Matched game contains both teams and is relevant`,
         );
         console.log(
           `Relevance scores: Home=${homeRelevanceRatio.toFixed(
-            2
-          )}, Away=${awayRelevanceRatio.toFixed(2)}`
+            2,
+          )}, Away=${awayRelevanceRatio.toFixed(2)}`,
         );
       }
 
@@ -2132,14 +2137,14 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       for (const source of bestMatch.sources) {
         const sourceStreams = await fetchStreamsForSource(
           source.source,
-          source.id
+          source.id,
         );
 
         // Store the first stream for each source (usually the best quality)
         if (sourceStreams.length > 0) {
           streams[source.source] = sourceStreams[0];
           console.log(
-            `Got stream for ${source.source}: ${sourceStreams[0].embedUrl}`
+            `Got stream for ${source.source}: ${sourceStreams[0].embedUrl}`,
           );
         }
       }
@@ -2328,8 +2333,8 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                     })
                   : "Scheduled"
                 : matchStatus.isPost
-                ? "Full Time"
-                : matchStatus.text}
+                  ? "Full Time"
+                  : matchStatus.text}
             </Text>
             <Text
               allowFontScaling={false}
@@ -2341,8 +2346,8 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
               {matchStatus.isPre
                 ? formatDate()
                 : matchStatus.isPost
-                ? formatDate()
-                : matchStatus.detail}
+                  ? formatDate()
+                  : matchStatus.detail}
             </Text>
           </View>
 
@@ -2586,7 +2591,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         // Compare with away team ID from gameData
         const awayTeamId =
           gameData?.header?.competitions?.[0]?.competitors?.find(
-            (c) => c.homeAway === "away"
+            (c) => c.homeAway === "away",
           )?.team?.id;
         isAwayGoal = playTeamId === awayTeamId?.toString();
       } else {
@@ -2659,17 +2664,17 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         playerName = playerName
           .replace(
             /^(Header|Left footed shot|Right footed shot|Shot|Penalty|Own Goal|Own)\s*-?\s*/i,
-            ""
+            "",
           )
           .replace(
             /\s*-\s*(Header|Head|Left footed shot|Right footed shot|Shot|Penalty|Scored|Own Goal|Own|Volley).*$/i,
-            ""
+            "",
           )
           .replace(/\s*\(.*\)$/i, "") // Remove any remaining parentheses content
           .replace(/\s*Goal\s*/gi, "") // Remove any remaining "Goal" text
           .replace(
             /\s*-\s*(Header|Head|Left footed|Right footed|Shot|Penalty|Own Goal|Own|Volley)\s*\d+.*$/i,
-            ""
+            "",
           ) // Remove goal type with time
           .trim();
       }
@@ -2848,7 +2853,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       try {
         const id = await LiveTrackerService.findMatchIdByTeams(
           homeName,
-          awayName
+          awayName,
         );
         if (!cancelled && id) setLiveTrackerUuid(id);
       } catch (e) {
@@ -2879,7 +2884,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       const formulaO = route?.params?.liveTrackerFormulaO ?? 50;
       const deviceWidth = Math.round(width || 800);
       const wrapperUrl = `${wrapperUrlBase}&w=${encodeURIComponent(
-        deviceWidth
+        deviceWidth,
       )}&o=${encodeURIComponent(formulaO)}`;
       const ratio = 0.505;
       const initialEmbedHeight = Math.round(deviceWidth * ratio) + formulaO;
@@ -2920,11 +2925,11 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     // Get team colors
     const homeColor =
       EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
-        homeTeam?.team
+        homeTeam?.team,
       );
     const awayColor =
       EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
-        awayTeam?.team
+        awayTeam?.team,
       );
 
     return (
@@ -3374,8 +3379,8 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           return Number.isFinite(parsed)
             ? parsed
             : stat.value != null
-            ? stat.value
-            : 0;
+              ? stat.value
+              : 0;
         }
       } catch (err) {
         console.log("[UECLGameDetails] getStat error:", err);
@@ -3400,11 +3405,11 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     // Ensure colors are properly formatted with # prefix
     let homeColor =
       EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
-        homeTeam?.team
+        homeTeam?.team,
       ) || "#007bff";
     let awayColor =
       EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
-        awayTeam?.team
+        awayTeam?.team,
       ) || "#28a745";
 
     // Add # prefix if missing
@@ -3634,14 +3639,14 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                       homeShotsOnGoal,
                       awayShotsOnGoal,
                       homeColor,
-                      awayColor
+                      awayColor,
                     )}
                     {renderStatsRow(
                       "Shot Attempts",
                       homeTotalShots,
                       awayTotalShots,
                       homeColor,
-                      awayColor
+                      awayColor,
                     )}
                   </>
                 );
@@ -3688,21 +3693,21 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                       homeFouls,
                       awayFouls,
                       homeColor,
-                      awayColor
+                      awayColor,
                     )}
                     {renderStatsRow(
                       "Yellow Cards",
                       homeYellow,
                       awayYellow,
                       homeColor,
-                      awayColor
+                      awayColor,
                     )}
                     {renderStatsRow(
                       "Red Cards",
                       homeRed,
                       awayRed,
                       homeColor,
-                      awayColor
+                      awayColor,
                     )}
                   </>
                 );
@@ -3741,14 +3746,14 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                       homeCorners,
                       awayCorners,
                       homeColor,
-                      awayColor
+                      awayColor,
                     )}
                     {renderStatsRow(
                       "Saves",
                       homeSaves,
                       awaySaves,
                       homeColor,
-                      awayColor
+                      awayColor,
                     )}
                   </>
                 );
@@ -3774,7 +3779,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                 homeTeam,
                 awayTeam,
                 homeLogo,
-                awayLogo
+                awayLogo,
               )}
             </View>
           </View>
@@ -3789,7 +3794,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     homeValue,
     awayValue,
     homeColor,
-    awayColor
+    awayColor,
   ) => {
     const homeNum =
       typeof homeValue === "number" ? homeValue : parseFloat(homeValue) || 0;
@@ -3855,7 +3860,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     homeTeamData,
     awayTeamData,
     homeLogoUrl,
-    awayLogoUrl
+    awayLogoUrl,
   ) => {
     if (!h2hData || h2hData.length === 0) {
       return (
@@ -4000,7 +4005,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       console.log(
         "EXTRACTING FROM LINEUP DATA:",
         teamLineup.length,
-        teamLineup
+        teamLineup,
       );
 
       const normalized = (Array.isArray(teamLineup) ? teamLineup : []).map(
@@ -4042,7 +4047,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
             plays: entry.plays, // For substitution timing
             stats: entry.stats || [], // For player statistics popup
           };
-        }
+        },
       );
 
       // Filter starters and subs like scoreboard.js does
@@ -4101,7 +4106,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           gameData.homeLogo,
           homeSubs,
           "home",
-          gameData.homeCompetitor?.team?.id
+          gameData.homeCompetitor?.team?.id,
         )}
       </View>
     );
@@ -4120,7 +4125,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       console.log(
         "AWAY EXTRACTING FROM LINEUP DATA:",
         teamLineup.length,
-        teamLineup
+        teamLineup,
       );
 
       const normalized = (Array.isArray(teamLineup) ? teamLineup : []).map(
@@ -4162,7 +4167,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
             plays: entry.plays, // For substitution timing
             stats: entry.stats || [], // For player statistics popup
           };
-        }
+        },
       );
 
       // Filter starters and subs like scoreboard.js does
@@ -4221,7 +4226,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           gameData.awayLogo,
           awaySubs,
           "away",
-          gameData.awayCompetitor?.team?.id
+          gameData.awayCompetitor?.team?.id,
         )}
       </View>
     );
@@ -4469,7 +4474,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         "Fetching stats for athlete ID:",
         athleteId,
         "team ID:",
-        teamId
+        teamId,
       );
       if (athleteId && teamId) {
         await fetchPlayerGameStats(athleteId, teamId);
@@ -4509,7 +4514,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     positionStyles,
     teamLogo,
     teamType,
-    teamId
+    teamId,
   ) => {
     console.log("renderTeamPlayers called with:", players.length, "players");
     const starters = players.filter((player) => player.starter);
@@ -4524,7 +4529,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         "Player position:",
         positionAbbr,
         "for player:",
-        player.athlete?.displayName
+        player.athlete?.displayName,
       );
       const style = positionStyles[positionAbbr] || {};
       console.log("Position style for", positionAbbr, ":", style);
@@ -4613,7 +4618,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                 "Fetching stats for sub athlete ID:",
                 athleteId,
                 "team ID:",
-                subTeamId
+                subTeamId,
               );
               if (athleteId && subTeamId) {
                 await fetchPlayerGameStats(athleteId, subTeamId);
@@ -4675,7 +4680,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     homeSubs = [],
     awaySubs = [],
     homeTeamId = null,
-    awayTeamId = null
+    awayTeamId = null,
   ) => {
     const homePositionStyles = getPositionStyles(homeFormation);
     const awayPositionStyles = getPositionStyles(awayFormation);
@@ -4706,7 +4711,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
               awayPositionStyles,
               awayLogo,
               "away",
-              awayTeamId
+              awayTeamId,
             )}
           </View>
           {renderSubstitutes(awaySubs, awayLogo, "away")}
@@ -4736,7 +4741,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
               homePositionStyles,
               homeLogo,
               "home",
-              homeTeamId
+              homeTeamId,
             )}
           </View>
           {renderSubstitutes(homeSubs, homeLogo, "home")}
@@ -4751,7 +4756,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     teamLogo,
     subs,
     teamType,
-    teamId
+    teamId,
   ) => {
     const positionStyles = getPositionStyles(formation);
 
@@ -4784,7 +4789,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
             positionStyles,
             teamLogo,
             teamType,
-            teamId
+            teamId,
           )}
         </View>
         {renderSubstitutes(subs, teamLogo, teamType)}
@@ -4812,7 +4817,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       if (!Array.isArray(rosters) || rosters.length === 0) {
         console.log(
           "[EnglandGameDetails] No rosters found in summary data for gameId:",
-          gameId
+          gameId,
         );
         return {
           homeLineup: [],
@@ -5026,13 +5031,13 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         } else {
           console.log(
             "[UECLGameDetails] core event resource responded with",
-            coreResp.status
+            coreResp.status,
           );
         }
       } catch (coreErr) {
         console.log(
           "[UECLGameDetails] Error fetching core event resource:",
-          coreErr
+          coreErr,
         );
       }
 
@@ -5057,7 +5062,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
             console.log(
               "[UECLGameDetails] statRef fetch failed",
               statRef,
-              sResp.status
+              sResp.status,
             );
             return { comp, rawText: null, parsed: null };
           }
@@ -5074,7 +5079,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           console.log(
             "[UECLGameDetails] Failed to fetch statRef for competitor",
             comp?.id,
-            err
+            err,
           );
           return { comp, rawText: null, parsed: null };
         }
@@ -5088,10 +5093,10 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
         const awayComp = coreCompetitors.find((c) => c.homeAway === "away");
 
         const homeResult = statFetchResults.find(
-          (r) => r.comp && r.comp.id === (homeComp && homeComp.id)
+          (r) => r.comp && r.comp.id === (homeComp && homeComp.id),
         );
         const awayResult = statFetchResults.find(
-          (r) => r.comp && r.comp.id === (awayComp && awayComp.id)
+          (r) => r.comp && r.comp.id === (awayComp && awayComp.id),
         );
 
         if (homeResult && homeResult.rawText) {
@@ -5119,10 +5124,10 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           const coreComp = coreCompetitors.find(
             (c) =>
               c.homeAway === homeAway ||
-              (c.team && String(c.team?.id) === String(team.team?.id))
+              (c.team && String(c.team?.id) === String(team.team?.id)),
           );
           const result = statFetchResults.find(
-            (r) => r.comp && r.comp.id === (coreComp && coreComp.id)
+            (r) => r.comp && r.comp.id === (coreComp && coreComp.id),
           );
           if (result && result.parsed) {
             // Handle the fact that splits might be an object, not an array
@@ -5143,8 +5148,8 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                         s.displayValue !== undefined
                           ? String(s.displayValue)
                           : s.value !== undefined
-                          ? String(s.value)
-                          : "",
+                            ? String(s.value)
+                            : "",
                       value: s.value,
                     });
                   });
@@ -5152,7 +5157,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
               });
               team.statistics = flattened;
               console.log(
-                `[UECLGameDetails] Processed ${flattened.length} stats from $ref for ${homeAway} team`
+                `[UECLGameDetails] Processed ${flattened.length} stats from $ref for ${homeAway} team`,
               );
             }
           }
@@ -5160,7 +5165,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       } catch (attachErr) {
         console.log(
           "[UECLGameDetails] Error attaching parsed stats to teams:",
-          attachErr
+          attachErr,
         );
       }
 
@@ -5212,8 +5217,8 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                               s.displayValue !== undefined
                                 ? String(s.displayValue)
                                 : s.value !== undefined
-                                ? String(s.value)
-                                : "",
+                                  ? String(s.value)
+                                  : "",
                             value: s.value,
                           });
                         });
@@ -5234,15 +5239,15 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
               console.log(
                 "Failed to fetch competitor statistics for team",
                 team.team?.id,
-                innerErr
+                innerErr,
               );
             }
-          })
+          }),
         );
       } catch (mapErr) {
         console.log(
           "Error while attempting to fetch competitor statistics refs:",
-          mapErr
+          mapErr,
         );
       }
 
@@ -5297,7 +5302,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     // Prevent concurrent fetches
     if (playsFetchingRef.current) {
       console.debug(
-        "[UECLGameDetails] plays fetch already in progress - skipping"
+        "[UECLGameDetails] plays fetch already in progress - skipping",
       );
       return;
     }
@@ -5352,19 +5357,19 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       if (playsHash !== lastPlaysHashRef.current) {
         console.log(
           "[UECLGameDetails] plays changed - applying incremental update",
-          { playsHash, prev: lastPlaysHashRef.current }
+          { playsHash, prev: lastPlaysHashRef.current },
         );
         updatePlaysDataIncremental(fetchedPlays);
         lastPlaysHashRef.current = playsHash;
       } else {
         console.debug(
-          "[UECLGameDetails] plays hash unchanged - skipping merge"
+          "[UECLGameDetails] plays hash unchanged - skipping merge",
         );
       }
 
       console.log(
         "[UECLGameDetails] fetchPlaysData END - items",
-        fetchedPlays.length
+        fetchedPlays.length,
       );
     } catch (error) {
       console.error("[UECLGameDetails] Error fetching plays data:", error);
@@ -5432,7 +5437,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       scrollTimeoutRef.current = setTimeout(() => {
         isUserScrollingRef.current = false;
         console.log(
-          "[UECLGameDetails] user stopped scrolling - updates will resume"
+          "[UECLGameDetails] user stopped scrolling - updates will resume",
         );
       }, 600);
     };
@@ -5494,7 +5499,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     // Only render the visible plays for performance
     const visiblePlays = playsData.slice(0, visiblePlaysCount);
     console.log(
-      `[PLAYS DEBUG] Rendering ${visiblePlays.length} of ${playsData.length} plays`
+      `[PLAYS DEBUG] Rendering ${visiblePlays.length} of ${playsData.length} plays`,
     );
 
     const renderedPlays = visiblePlays.map((play, index) => {
@@ -5572,13 +5577,13 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           teamSide = "away";
           teamColor =
             EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
-              awayTeam?.team || awayTeam
+              awayTeam?.team || awayTeam,
             ) || "#28a745";
         } else if (String(playTeamId) === String(homeId)) {
           teamSide = "home";
           teamColor =
             EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
-              homeTeam?.team || homeTeam
+              homeTeam?.team || homeTeam,
             ) || "#007bff";
         }
       }
@@ -5649,9 +5654,16 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                 <View style={styles.teamScoreDisplay}>
                   <TeamLogoImage
                     teamId={homeTeam?.team?.id}
-                    isDarkMode={isDarkMode}
+                    isDarkMode={
+                      isScoring
+                        ? scoringTextColor === "#000"
+                          ? false
+                          : true
+                        : isDarkMode
+                    }
                     style={styles.teamLogoSmall}
                     isScoring={isScoring}
+                    scoringTextColor={scoringTextColor}
                   />
                   <Text
                     allowFontScaling={false}
@@ -5665,7 +5677,10 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                 </View>
                 <Text
                   allowFontScaling={false}
-                  style={[styles.scoreSeparator, { color: theme.text }]}
+                  style={[
+                    styles.scoreSeparator,
+                    { color: isScoring ? scoringTextColor : theme.text },
+                  ]}
                 >
                   -
                 </Text>
@@ -5681,9 +5696,16 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                   </Text>
                   <TeamLogoImage
                     teamId={awayTeam?.team?.id}
-                    isDarkMode={isDarkMode}
+                    isDarkMode={
+                      isScoring
+                        ? scoringTextColor === "#000"
+                          ? false
+                          : true
+                        : isDarkMode
+                    }
                     style={styles.teamLogoSmall}
                     isScoring={isScoring}
+                    scoringTextColor={scoringTextColor}
                   />
                 </View>
               </View>
@@ -5775,7 +5797,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                         coordinate2,
                         eventType,
                         teamSide,
-                        teamColor
+                        teamColor,
                       )}
                     </View>
                   )}
@@ -5805,7 +5827,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                         allowFontScaling={false}
                         style={[
                           styles.playClock,
-                          { color: theme.textSecondary },
+                          { color: isScoring ? scoringTextColor : theme.text },
                         ]}
                       >
                         {period
@@ -5839,7 +5861,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
               Load More Plays ({playsData.length - visiblePlaysCount} remaining)
             </Text>
           )}
-        </TouchableOpacity>
+        </TouchableOpacity>,
       );
     }
 
@@ -5856,7 +5878,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     coordinate2,
     eventType = "gen",
     teamSide = "home",
-    teamColor = "#007bff"
+    teamColor = "#007bff",
   ) => {
     if (
       !coordinate ||
@@ -5960,16 +5982,16 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       eventType === "goal"
         ? "goal"
         : eventType === "shot"
-        ? "attempt"
-        : eventType === "card"
-        ? "card"
-        : eventType === "red-card"
-        ? "red-card"
-        : eventType === "offside"
-        ? "offside"
-        : eventType === "substitution"
-        ? "substitution"
-        : "goal";
+          ? "attempt"
+          : eventType === "card"
+            ? "card"
+            : eventType === "red-card"
+              ? "red-card"
+              : eventType === "offside"
+                ? "offside"
+                : eventType === "substitution"
+                  ? "substitution"
+                  : "goal";
 
     // Ensure team color has # prefix
     const finalTeamColor = teamColor.startsWith("#")
@@ -6125,7 +6147,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
           if (play.scoringPlay) {
             // For goals, find the scorer
             shooterParticipant = play.participants.find(
-              (p) => p.type === "scorer"
+              (p) => p.type === "scorer",
             );
           } else {
             // For shots, find the participant with order 1
@@ -6141,7 +6163,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
               : null;
 
             console.log(
-              `Comparing player ID ${playerId} with participant ID ${participantAthleteId}`
+              `Comparing player ID ${playerId} with participant ID ${participantAthleteId}`,
             );
 
             if (
@@ -6166,7 +6188,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                 type: play.type?.text || "",
               });
               console.log(
-                `Found shot for player: ${play.type?.text} at ${play.clock?.displayValue}`
+                `Found shot for player: ${play.type?.text} at ${play.clock?.displayValue}`,
               );
             }
           }
@@ -6175,7 +6197,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     }
 
     console.log(
-      `Found ${playerShots.length} shots for player ${player.athlete?.displayName}`
+      `Found ${playerShots.length} shots for player ${player.athlete?.displayName}`,
     );
 
     // Field dimensions
@@ -6194,7 +6216,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       const topPercent = espnX * 100; // 0% to 100% vertically
 
       console.log(
-        `Shot coordinates: ESPN(${espnX}, ${espnY}) → Screen(${leftPercent}%, ${topPercent}%)`
+        `Shot coordinates: ESPN(${espnX}, ${espnY}) → Screen(${leftPercent}%, ${topPercent}%)`,
       );
 
       return {
@@ -6219,7 +6241,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
       const topPercent2 = espnX2 * 100; // 0% to 100% vertically
 
       console.log(
-        `Shot end coordinates: ESPN(${espnX2}, ${espnY2}) → Screen(${leftPercent2}%, ${topPercent2}%)`
+        `Shot end coordinates: ESPN(${espnX2}, ${espnY2}) → Screen(${leftPercent2}%, ${topPercent2}%)`,
       );
 
       return {
@@ -6345,8 +6367,8 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     const playerNameColor = redCard
       ? theme.error
       : yellowCard
-      ? theme.warning
-      : theme.text;
+        ? theme.warning
+        : theme.text;
     const isGoalkeeper = selectedPlayer.position?.abbreviation === "G";
 
     // Get team info and color
@@ -6362,12 +6384,12 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
     if (selectedPlayer.teamType === "home") {
       teamColor =
         EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
-          homeTeamData?.team
+          homeTeamData?.team,
         ) || "#007bff";
     } else if (selectedPlayer.teamType === "away") {
       teamColor =
         EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
-          awayTeamData?.team
+          awayTeamData?.team,
         ) || "#28a745";
     }
 
@@ -7166,7 +7188,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                     onShouldStartLoadWithRequest={(request) => {
                       console.log(
                         "UECL WebView navigation request:",
-                        request.url
+                        request.url,
                       );
 
                       // Allow the initial stream URL to load
@@ -7174,7 +7196,6 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                         return true;
                       }
 
-                      // Block navigation to obvious popup/ad URLs
                       const popupKeywords = [
                         "popup",
                         "ad",
@@ -7183,39 +7204,66 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                         "redirect",
                         "promo",
                       ];
+                      const urlLower = request.url.toLowerCase();
                       const hasPopupKeywords = popupKeywords.some((keyword) =>
-                        request.url.toLowerCase().includes(keyword)
+                        urlLower.includes(keyword),
                       );
 
-                      // Block external navigation attempts (popups trying to navigate within WebView)
                       const currentDomain = new URL(
-                        availableStreams[currentStreamType]
+                        availableStreams[currentStreamType],
                       ).hostname;
                       let requestDomain = "";
                       try {
                         requestDomain = new URL(request.url).hostname;
                       } catch (e) {
+                        if (urlLower.startsWith("about:blank") || urlLower.startsWith("data:")) {
+                          return true;
+                        }
                         console.log("Invalid URL:", request.url);
                         return false;
                       }
 
-                      // Allow same-domain navigation but block cross-domain (likely popups)
-                      if (requestDomain !== currentDomain || hasPopupKeywords) {
+                      const sameRootDomain =
+                        requestDomain === currentDomain ||
+                        requestDomain.endsWith(`.${currentDomain}`) ||
+                        currentDomain.endsWith(`.${requestDomain}`);
+
+                      const allowPatterns = [
+                        "/embed/",
+                        "/embed-noads/",
+                        "/player/",
+                        ".html",
+                        ".m3u8",
+                        ".mpd",
+                        "about:blank",
+                        "data:",
+                      ];
+                      const allowIfEmbed = allowPatterns.some((p) => urlLower.includes(p));
+
+                      if (hasPopupKeywords && !allowIfEmbed) {
                         console.log(
                           "Blocked UECL popup/cross-domain navigation:",
-                          request.url
+                          request.url,
                         );
                         return false;
                       }
 
-                      return true;
+                      if (sameRootDomain || allowIfEmbed) {
+                        return true;
+                      }
+
+                      console.log(
+                        "Blocked UECL popup/cross-domain navigation:",
+                        request.url,
+                      );
+                      return false;
                     }}
                     // Handle when WebView tries to open a new window (popup)
                     onOpenWindow={(syntheticEvent) => {
                       const { nativeEvent } = syntheticEvent;
                       console.log(
                         "Blocked UECL popup window:",
-                        nativeEvent.targetUrl
+                        nativeEvent.targetUrl,
                       );
                       // Don't open the popup - just log it
                       return false;
@@ -7266,11 +7314,11 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                 {gameData
                   ? `${
                       gameData.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "home"
+                        (c) => c.homeAway === "home",
                       )?.team.name || "Home"
                     } vs ${
                       gameData.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "away"
+                        (c) => c.homeAway === "away",
                       )?.team.name || "Away"
                     }`
                   : "Chat"}
@@ -7349,7 +7397,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                     (() => {
                       console.log(
                         "Rendering goal share card modal with play data:",
-                        shareCardPlay
+                        shareCardPlay,
                       );
                       const play = shareCardPlay;
 
@@ -7373,10 +7421,10 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                           const competitors =
                             gameData.competitions[0].competitors;
                           homeTeamData = competitors.find(
-                            (c) => c.homeAway === "home"
+                            (c) => c.homeAway === "home",
                           )?.team;
                           awayTeamData = competitors.find(
-                            (c) => c.homeAway === "away"
+                            (c) => c.homeAway === "away",
                           )?.team;
                         }
 
@@ -7414,7 +7462,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                         } else if (play.participants?.length > 0) {
                           // Try to get team from scorer's team
                           const scorer = play.participants.find(
-                            (p) => p.type === "scorer"
+                            (p) => p.type === "scorer",
                           );
                           if (scorer?.athlete?.team?.id) {
                             playTeamId = scorer.athlete.team.id;
@@ -7432,6 +7480,8 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                       let scoringTeamSide = "";
                       let teamAbbr = "";
 
+                      const isOwnGoal = play.type?.id === "97" || "";
+
                       console.log("Trying to match team IDs:", {
                         playTeamId,
                         homeId,
@@ -7443,15 +7493,13 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                         scoringTeam = homeTeamData;
                         scoringTeamSide = "home";
                         teamAbbr =
-                          homeTeamData?.abbreviation ||
-                          homeTeamData?.team?.abbreviation ||
+                          `${isOwnGoal ? awayTeamData?.team?.abbreviation : homeTeamData?.team?.abbreviation}` ||
                           "HOME";
                       } else if (String(playTeamId) === String(awayId)) {
                         scoringTeam = awayTeamData;
                         scoringTeamSide = "away";
                         teamAbbr =
-                          awayTeamData?.abbreviation ||
-                          awayTeamData?.team?.abbreviation ||
+                          `${isOwnGoal ? homeTeamData?.team?.abbreviation : awayTeamData?.team?.abbreviation}` ||
                           "AWAY";
                       }
 
@@ -7483,7 +7531,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                           // Advanced fallback - parse team names from play text
                           // Format: "Goal! Manchester City 5, Burnley 1. Player..."
                           const textMatch = play.text.match(
-                            /Goal!\s+(.+?)\s+\d+,\s+(.+?)\s+\d+\./
+                            /Goal!\s+(.+?)\s+\d+,\s+(.+?)\s+\d+\./,
                           );
                           if (textMatch) {
                             const [, team1Name, team2Name] = textMatch;
@@ -7552,7 +7600,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                         // Try the existing service if context color not available
                         teamColor =
                           EuropaConferenceLeagueServiceEnhanced.getTeamColorWithAlternateLogic(
-                            scoringTeam
+                            scoringTeam,
                           ) || teamColor;
 
                         // Fallback to direct color properties
@@ -7584,7 +7632,12 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                       // Get time info
                       const period = play.period ? play.period.number || 1 : 1;
                       const clock = play.clock?.displayValue || "";
-                      const periodText = period === 1 ? "1st Half" : "2nd Half";
+                      const periodText =
+                        period === 1
+                          ? "1st Half"
+                          : period === 2
+                            ? "2nd Half"
+                            : `Extra Time`;
 
                       // Get current scores
                       const homeScore = play.homeScore || 0;
@@ -7592,9 +7645,6 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
 
                       // Determine goal type and situation
                       const playText = play.text || play.shortText || "";
-                      const isOwnGoal =
-                        play.ownGoal ||
-                        playText.toLowerCase().includes("own goal");
                       const isPenalty = playText
                         .toLowerCase()
                         .includes("penalty");
@@ -7655,7 +7705,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                                   scoringTeam?.id || scoringTeam?.team?.id
                                 }
                                 style={styles.goalCardTeamLogo}
-                                isDarkMode={true} // Always use dark logos on dark background
+                                isDarkMode={textColor === "#000" ? false : true} // Always use dark logos on dark background
                               />
                               <View style={styles.goalCardHeaderText}>
                                 <Text
@@ -7664,7 +7714,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                                     { color: textColor },
                                   ]}
                                 >
-                                  ⚽ Goal
+                                  ⚽ {isOwnGoal ? "Own Goal" : "Goal"}
                                   {goalSituation ? ` • ${goalSituation}` : ""}
                                 </Text>
                                 <Text
@@ -7673,7 +7723,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                                     { color: textColor },
                                   ]}
                                 >
-                                  {clock || periodText}
+                                  {clock} • {periodText}
                                 </Text>
                               </View>
                             </View>
@@ -7697,7 +7747,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                                   : null,
                                 "goal",
                                 scoringTeamSide,
-                                finalTeamColor
+                                finalTeamColor,
                               )
                             ) : (
                               // Default field with goal marker
@@ -7791,7 +7841,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                                   homeTeamData?.id || homeTeamData?.team?.id
                                 }
                                 style={styles.goalCardScoreLogoSmall}
-                                isDarkMode={true}
+                                isDarkMode={textColor === "#000" ? false : true}
                               />
                               <Text
                                 style={[
@@ -7806,7 +7856,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                                   awayTeamData?.id || awayTeamData?.team?.id
                                 }
                                 style={styles.goalCardScoreLogoSmall}
-                                isDarkMode={true}
+                                isDarkMode={textColor === "#000" ? false : true}
                               />
                             </View>
 
@@ -7822,7 +7872,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                                   { color: textColor },
                                 ]}
                               >
-                                GOAL
+                                {isOwnGoal ? "Own Goal" : "Goal"}
                               </Text>
                             </View>
                           </View>
@@ -7841,7 +7891,9 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                                   { color: textColor },
                                 ]}
                               >
-                                {playerStats.goals}
+                                {isOwnGoal
+                                  ? playerStats.ownGoals
+                                  : playerStats.goals}
                               </Text>
                               <Text
                                 style={[
@@ -7849,7 +7901,7 @@ const UECLGameDetailsScreen = ({ route, navigation }) => {
                                   { color: textColor },
                                 ]}
                               >
-                                Goals
+                                {isOwnGoal ? "Own Goals" : "Goals"}
                               </Text>
                             </View>
                             <View

@@ -22,7 +22,6 @@ const TeamLogo = React.memo(
     const { colors } = useTheme();
     const [imageError, setImageError] = useState(false);
 
-    console.log("[TeamLogo] render", { logoUri, opacity });
     if (!logoUri || imageError) {
       return (
         <Ionicons
@@ -299,7 +298,6 @@ const NBAScoreboardScreen = ({ navigation }) => {
         );
         if (firstGame) {
           // Log only once
-          console.log("[Scoreboard] First game retrieved:", firstGame);
           hasLoggedFirstGameRef.current = true;
         }
       }
@@ -354,7 +352,6 @@ const NBAScoreboardScreen = ({ navigation }) => {
               merged.forEach((m) => {
                 const logo = m?.homeTeam?.logo || m?.awayTeam?.logo || null;
                 if (logo && !prefetchedLogosRef.current.has(logo)) {
-                  console.log("[Scoreboard] prefetching logo", logo);
                   try {
                     if (
                       global.Image &&
@@ -508,14 +505,6 @@ const NBAScoreboardScreen = ({ navigation }) => {
     if (item.isCompleted) return "Final";
 
     const isLive = isLiveGame(item);
-    console.log("getStatusText debug:", {
-      gameId: item.id,
-      gameStatus: item.gameStatus,
-      status: item.status,
-      isCompleted: item.isCompleted,
-      isLive: isLive,
-      displayClock: item.displayClock,
-    });
 
     if (isLive) {
       // Construct live status from available fields
@@ -681,15 +670,6 @@ const NBAScoreboardScreen = ({ navigation }) => {
       item.isCompleted &&
       !isLive &&
       Number(item.homeTeam.score) > Number(item.awayTeam.score);
-
-    console.log(
-      "Home:",
-      item.homeTeam.score,
-      "Away:",
-      item.awayTeam.score,
-      "Home Winner:",
-      homeWinner
-    );
 
     return (
       <TouchableOpacity
@@ -916,7 +896,11 @@ const NBAScoreboardScreen = ({ navigation }) => {
             </View>
           </View>
           <View style={styles.gameFooterRight}>
-            <LiveViewerBadge gameId={item.id} style={styles.viewerBadge} />
+            <LiveViewerBadge
+              gameId={item.id}
+              status={{ isCompleted: item.isCompleted, status: item.status }}
+              style={styles.viewerBadge}
+            />
           </View>
         </View>
       </TouchableOpacity>

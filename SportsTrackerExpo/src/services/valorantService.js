@@ -2,7 +2,7 @@
 import { BaseCacheService } from './BaseCacheService';
 import { RibBuildIdService } from './RibBuildIdService';
 
-const RIB_API_BASE_URL = 'https://corsproxy.io/?url=https://be-prod.rib.gg/v1';
+const RIB_API_BASE_URL = 'https://be-prod.rib.gg/v1';
 
 class ValorantService extends BaseCacheService {
   // Smart live event detection for Valorant
@@ -405,10 +405,11 @@ export const formatPrizePool = (amount, currency = 'USD') => {
 };
 
 // Get discover events filtered by specific criteria
-export const getDiscoverEvents = async (take = 1000) => {
+export const getDiscoverEvents = async (take = 1250) => {
     try {
         // Get all events to work with
-        const data = await ribApiCall(`/events?minStartDate=2025-01-01T00%3A00%3A00.000Z&take=${take}`);
+        const year = new Date().getFullYear();
+        const data = await ribApiCall(`/events?minStartDate=${year}-01-01T00%3A00%3A00.000Z&take=${take}`);
         
         if (!data.data) {
             return {
@@ -532,105 +533,31 @@ export const getSeriesData = async (completed = null, minStartDate = null, maxSt
     }
 };
 
-// Helper function to get live series
-export const getLiveSeries = async () => {
-    try {
-        // Get current time to fetch series that could be live
-        const now = new Date();
-        const minStartDate = new Date(now.getTime() - 6 * 60 * 60 * 1000); // 6 hours ago
-        
-        // Fetch upcoming/ongoing series
-        const data = await ribApiCall(`/series?minStartDate=${encodeURIComponent(minStartDate.toISOString())}&completed=false&take=250`);
-        
-        // Filter for series that are actually live
-        if (data.data) {
-            const liveSeries = data.data.filter(series => series.live === true);
-            return {
-                ...data,
-                data: liveSeries
-            };
+// Fetch the Next.js `en.json` once (cached) and return the `series` array
+export const getAllSeriesNextData = async () => {
+    const cacheKey = 'rib_next_en_series_all';
+    return ValorantService.getCachedData(cacheKey, async () => {
+        try {
+            const url = await RibBuildIdService.getNextDataUrl('/en.json');
+            const response = await fetch(url, { method: 'GET' });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+            if (data && data.pageProps && Array.isArray(data.pageProps.series)) {
+                return data.pageProps.series;
+            }
+            if (data && data.pageProps && data.pageProps.series) {
+                return Array.isArray(data.pageProps.series) ? data.pageProps.series : [data.pageProps.series];
+            }
+            return [];
+        } catch (error) {
+            console.error('Error fetching Next.js en.json series data:', error);
+            return [];
         }
-        
-        return data;
-    } catch (error) {
-        console.error('Error fetching live series:', error);
-        return { data: [], meta: { start: 0, results: 0, total: 0 } };
-    }
+    }, 'live');
 };
 
-// Helper function to get completed series for a specific date
-export const getCompletedSeries = async (date, take = 75) => {
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
-    
-    try {
-        // Since API only supports minStartDate, we need to filter client-side
-        const data = await getSeriesData(
-            true,
-            startOfDay.toISOString(),
-            null, // No maxStartDate since API doesn't support it
-            take * 3 // Get more results to account for filtering
-        );
-        
-        // Filter results to only include series that start within the target day
-        if (data.data) {
-            const filteredSeries = data.data.filter(series => {
-                const seriesDate = new Date(series.startDate);
-                return seriesDate >= startOfDay && seriesDate <= endOfDay;
-            });
-            
-            return {
-                ...data,
-                data: filteredSeries.slice(0, take)
-            };
-        }
-        
-        return data;
-    } catch (error) {
-        console.error('Error fetching completed series:', error);
-        return { data: [], meta: { start: 0, results: 0, total: 0 } };
-    }
-};
-
-// Helper function to get upcoming series for a specific date
-export const getUpcomingSeries = async (date, take = 75) => {
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
-    
-    try {
-        // Since API only supports minStartDate, we need to filter client-side
-        const data = await getSeriesData(
-            false,
-            startOfDay.toISOString(),
-            null, // No maxStartDate since API doesn't support it
-            take * 3 // Get more results to account for filtering
-        );
-        
-        // Filter results to only include series that start within the target day and are not live
-        if (data.data) {
-            const filteredSeries = data.data.filter(series => {
-                const seriesDate = new Date(series.startDate);
-                return seriesDate >= startOfDay && seriesDate <= endOfDay && series.live === false;
-            });
-            
-            return {
-                ...data,
-                data: filteredSeries.slice(0, take)
-            };
-        }
-        
-        return data;
-    } catch (error) {
-        console.error('Error fetching upcoming series:', error);
-        return { data: [], meta: { start: 0, results: 0, total: 0 } };
-    }
-};
+// NOTE: getLiveSeries, getCompletedSeries, and getUpcomingSeries removed.
+// Use `getAllSeriesNextData()` and filter locally in the UI instead.
 
 // Get rankings by region
 export const getRankings = async (region = 'AMERICAS') => {
@@ -667,12 +594,14 @@ export const getTeamEarnings = async () => {
         try {
             teamEarningsFetchInProgress = true;
             console.log('Starting team earnings fetch...');
+
+            const year = new Date().getFullYear();
             
             // Define the three API calls with different offsets
             const apiCalls = [
-                'https://corsproxy.io/?url=https://api.bo3.gg/api/v1/teams/earnings?page[offset]=0&page[limit]=100&filter[tier_rank][in]=1,2,3&filter[teams.discipline_id][eq]=2&filter[end_date][gt]=2025-01-01&filter[end_date][lt]=2025-12-31',
-                'https://corsproxy.io/?url=https://api.bo3.gg/api/v1/teams/earnings?page[offset]=100&page[limit]=100&filter[tier_rank][in]=1,2,3&filter[teams.discipline_id][eq]=2&filter[end_date][gt]=2025-01-01&filter[end_date][lt]=2025-12-31',
-                'https://corsproxy.io/?url=https://api.bo3.gg/api/v1/teams/earnings?page[offset]=200&page[limit]=100&filter[tier_rank][in]=1,2,3&filter[teams.discipline_id][eq]=2&filter[end_date][gt]=2025-01-01&filter[end_date][lt]=2025-12-31'
+                `https://corsproxy.io/?url=https://api.bo3.gg/api/v1/teams/earnings?page[offset]=0&page[limit]=100&filter[tier_rank][in]=1,2,3&filter[teams.discipline_id][eq]=2&filter[end_date][gt]=${year}-01-01&filter[end_date][lt]=${year}-12-31`,
+                `https://corsproxy.io/?url=https://api.bo3.gg/api/v1/teams/earnings?page[offset]=100&page[limit]=100&filter[tier_rank][in]=1,2,3&filter[teams.discipline_id][eq]=2&filter[end_date][gt]=${year}-01-01&filter[end_date][lt]=${year}-12-31`,
+                `https://corsproxy.io/?url=https://api.bo3.gg/api/v1/teams/earnings?page[offset]=200&page[limit]=100&filter[tier_rank][in]=1,2,3&filter[teams.discipline_id][eq]=2&filter[end_date][gt]=${year}-01-01&filter[end_date][lt]=${year}-12-31`
             ];
 
             // Fetch all three endpoints concurrently

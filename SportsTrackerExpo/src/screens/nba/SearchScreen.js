@@ -122,7 +122,7 @@ const SearchScreen = ({ route, navigation }) => {
   };
 
   const renderTeamItem = (item) => {
-    const teamLogoUrl = isDarkMode ? item.logos?.[1]?.href : item.logos?.[0]?.href;
+    const teamLogoUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${isDarkMode ? "-dark" : ""}/scoreboard/${(item.abbreviation || "").toLowerCase()}.png&w=200&h=200`;
     
     return (
       <TouchableOpacity
@@ -155,9 +155,9 @@ const SearchScreen = ({ route, navigation }) => {
       >
         <Image
           source={{ 
-            uri: item.headshot?.href || `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${item.id}.png`
+            uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${item.id}.png&w=150` || `../../../assets/nba.png`
           }}
-          style={styles.playerHeadshot}
+          style={[styles.playerHeadshot, { backgroundColor: `#${item.team?.color || '000000'}` + '88' }]}
         />
         <View style={styles.playerInfo}>
           <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>

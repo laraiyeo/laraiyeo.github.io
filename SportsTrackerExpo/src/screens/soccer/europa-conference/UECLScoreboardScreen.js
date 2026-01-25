@@ -144,7 +144,7 @@ const UECLScoreboardScreen = ({ navigation, route }) => {
 
       return () => {
         console.log(
-          "UECLScoreboardScreen: Screen unfocused, clearing intervals"
+          "UECLScoreboardScreen: Screen unfocused, clearing intervals",
         );
         setIsScreenFocused(false);
         // Clear any existing interval when screen loses focus
@@ -153,7 +153,7 @@ const UECLScoreboardScreen = ({ navigation, route }) => {
           return null;
         });
       };
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
@@ -161,7 +161,7 @@ const UECLScoreboardScreen = ({ navigation, route }) => {
       "UECLScoreboardScreen: Main useEffect triggered for filter:",
       selectedDateFilter,
       "focused:",
-      isScreenFocused
+      isScreenFocused,
     );
     // Load the current filter first
     loadScoreboard();
@@ -193,7 +193,7 @@ const UECLScoreboardScreen = ({ navigation, route }) => {
   useEffect(() => {
     console.log(
       "UECLScoreboardScreen: Preload useEffect triggered, hasPreloaded:",
-      hasPreloadedRef.current
+      hasPreloadedRef.current,
     );
     // Only preload if we haven't done it before
     if (hasPreloadedRef.current) {
@@ -222,13 +222,13 @@ const UECLScoreboardScreen = ({ navigation, route }) => {
 
   const loadScoreboard = async (
     silentUpdate = false,
-    dateFilter = selectedDateFilter
+    dateFilter = selectedDateFilter,
   ) => {
     console.log(
       "UECLScoreboardScreen: loadScoreboard called - silentUpdate:",
       silentUpdate,
       "dateFilter:",
-      dateFilter
+      dateFilter,
     );
     const now = Date.now();
     const cachedData = gameCache[dateFilter];
@@ -250,9 +250,8 @@ const UECLScoreboardScreen = ({ navigation, route }) => {
       }
 
       console.log("UECLScoreboardScreen: Fetching fresh data for", dateFilter);
-      const data = await EuropaConferenceLeagueServiceEnhanced.getScoreboard(
-        dateFilter
-      );
+      const data =
+        await EuropaConferenceLeagueServiceEnhanced.getScoreboard(dateFilter);
 
       // Process games with enhanced data
       const processedGames = await Promise.all(
@@ -260,11 +259,11 @@ const UECLScoreboardScreen = ({ navigation, route }) => {
           // Get team logos
           const awayLogo =
             await EuropaConferenceLeagueServiceEnhanced.getTeamLogoWithFallback(
-              game.competitions[0]?.competitors[1]?.team?.id
+              game.competitions[0]?.competitors[1]?.team?.id,
             );
           const homeLogo =
             await EuropaConferenceLeagueServiceEnhanced.getTeamLogoWithFallback(
-              game.competitions[0]?.competitors[0]?.team?.id
+              game.competitions[0]?.competitors[0]?.team?.id,
             );
 
           return {
@@ -272,7 +271,7 @@ const UECLScoreboardScreen = ({ navigation, route }) => {
             awayLogo,
             homeLogo,
           };
-        })
+        }),
       );
 
       // Stable enhanced sorting: group by day, then by status priority (live/pre/post),
@@ -325,7 +324,7 @@ const UECLScoreboardScreen = ({ navigation, route }) => {
           awayScore: g.competitions[0]?.competitors[1]?.score,
           homeScore: g.competitions[0]?.competitors[0]?.score,
           clock: g.status?.displayClock,
-        }))
+        })),
       );
 
       // Update cache
@@ -386,7 +385,7 @@ const UECLScoreboardScreen = ({ navigation, route }) => {
     if (isCacheValid) {
       console.log(
         "UECLScoreboardScreen: Using cached data for filter change to:",
-        filter
+        filter,
       );
       setGames(cachedData);
       setLoading(false);
@@ -394,7 +393,7 @@ const UECLScoreboardScreen = ({ navigation, route }) => {
       console.log(
         "UECLScoreboardScreen: No valid cache for filter:",
         filter,
-        "- will fetch fresh data"
+        "- will fetch fresh data",
       );
     }
   };
@@ -501,7 +500,7 @@ const UECLScoreboardScreen = ({ navigation, route }) => {
       const awayName = competition?.competitors?.[1]?.team?.displayName || "";
       const matchedId = await LiveTrackerService.findMatchIdByTeams(
         homeName,
-        awayName
+        awayName,
       );
 
       navigation.navigate("UECLGameDetails", {
@@ -730,7 +729,7 @@ const UECLScoreboardScreen = ({ navigation, route }) => {
 
         {/* Live Viewer Section */}
         <View style={[styles.viewerSection, { borderTopColor: theme.border }]}>
-          <LiveViewerBadge gameId={competition.id} />
+          <LiveViewerBadge gameId={competition.id} status={matchStatus.text} />
         </View>
       </TouchableOpacity>
     );

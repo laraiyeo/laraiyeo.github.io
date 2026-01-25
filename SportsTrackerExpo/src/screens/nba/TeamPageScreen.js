@@ -1815,7 +1815,10 @@ const TeamPageScreen = ({ route, navigation }) => {
           <Text
             style={[
               styles.teamName,
-              { color: teamData?.color ? `#${teamData.color}` : theme.text },
+              { color: teamData?.color ? `#${teamData.color}` : theme.text,
+                textShadowColor: isDarkMode ? '#ffffff88' : '#00000088',
+                textShadowOffset: { width: 1, height: 0 },
+                textShadowRadius: 3},
             ]}
           >
             {teamData?.displayName || "NBA Team"}

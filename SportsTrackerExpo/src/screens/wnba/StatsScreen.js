@@ -221,9 +221,9 @@ const StatsScreen = ({ route }) => {
           {selectedType === 'ATHLETES' ? (
             <Image
               source={{ 
-                uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/wnba/players/full/${playerId}.png`
+                uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/wnba/players/full/${playerId}.png&w=200`
               }}
-              style={styles.playerHeadshot}
+              style={[styles.playerHeadshot, { backgroundColor: `#${teamData.color || '#000000'}` + '88'}]}
               defaultSource={{ uri: 'https://via.placeholder.com/50x50?text=WNBA' }}
             />
           ) : (
@@ -350,9 +350,9 @@ const StatsScreen = ({ route }) => {
         {selectedType === 'ATHLETES' ? (
           <Image
             source={{ 
-              uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/wnba/players/full/${playerId}.png`
+              uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/wnba/players/full/${playerId}.png&w=200`
             }}
-            style={styles.modalHeadshot}
+            style={[styles.modalHeadshot, { backgroundColor: `#${teamData.color || '#000000'}` + '88'}]}
             defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=WNBA' }}
           />
         ) : (

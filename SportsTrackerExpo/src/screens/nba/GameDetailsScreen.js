@@ -6027,7 +6027,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                         return true;
                       }
 
-                      // Block navigation to obvious popup/ad URLs
+                      // Keywords that often indicate popups/ads
                       const popupKeywords = [
                         "popup",
                         "ad",
@@ -6036,22 +6036,45 @@ const NBAGameDetailsScreen = ({ route }) => {
                         "redirect",
                         "promo",
                       ];
+                      const urlLower = request.url.toLowerCase();
                       const hasPopupKeywords = popupKeywords.some((keyword) =>
-                        request.url.toLowerCase().includes(keyword),
+                        urlLower.includes(keyword),
                       );
 
-                      // Block external navigation attempts (popups trying to navigate within WebView)
+                      // Determine domains and allow same root/subdomains
                       const currentDomain = new URL(streamUrl).hostname;
                       let requestDomain = "";
                       try {
                         requestDomain = new URL(request.url).hostname;
                       } catch (e) {
+                        // Allow about:blank/data: URLs used by embeds
+                        if (urlLower.startsWith("about:blank") || urlLower.startsWith("data:")) {
+                          return true;
+                        }
                         console.log("Invalid URL:", request.url);
                         return false;
                       }
 
-                      // Allow same-domain navigation but block cross-domain (likely popups)
-                      if (requestDomain !== currentDomain || hasPopupKeywords) {
+                      const sameRootDomain =
+                        requestDomain === currentDomain ||
+                        requestDomain.endsWith(`.${currentDomain}`) ||
+                        currentDomain.endsWith(`.${requestDomain}`);
+
+                      // Allow certain embed/navigation patterns even when cross-domain
+                      const allowPatterns = [
+                        "/embed/",
+                        "/embed-noads/",
+                        "/player/",
+                        ".html",
+                        ".m3u8",
+                        ".mpd",
+                        "about:blank",
+                        "data:",
+                      ];
+                      const allowIfEmbed = allowPatterns.some((p) => urlLower.includes(p));
+
+                      // Block navigation if it looks like a popup/ad and not an embed/resource
+                      if (hasPopupKeywords && !allowIfEmbed) {
                         console.log(
                           "Blocked NBA popup/cross-domain navigation:",
                           request.url,
@@ -6059,7 +6082,16 @@ const NBAGameDetailsScreen = ({ route }) => {
                         return false;
                       }
 
-                      return true;
+                      // If it's same root domain or matches known embed/resource patterns, allow
+                      if (sameRootDomain || allowIfEmbed) {
+                        return true;
+                      }
+
+                      console.log(
+                        "Blocked NBA popup/cross-domain navigation:",
+                        request.url,
+                      );
+                      return false;
                     }}
                     // Handle when WebView tries to open a new window (popup)
                     onOpenWindow={(syntheticEvent) => {

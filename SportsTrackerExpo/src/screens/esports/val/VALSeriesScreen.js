@@ -578,6 +578,7 @@ const VALSeriesScreen = ({ navigation, route }) => {
                       resizeMode="contain"
                     />
                   </TouchableOpacity>
+                  {!series.completed && !series.live ? null : (
                   <Text
                     style={[
                       styles.scoreText,
@@ -593,6 +594,7 @@ const VALSeriesScreen = ({ navigation, route }) => {
                   >
                     {series.team1Score || 0}
                   </Text>
+                  )}
                 </View>
                 {/* Team Name Below */}
                 <Text
@@ -616,13 +618,14 @@ const VALSeriesScreen = ({ navigation, route }) => {
               <Text
                 style={[styles.scoreSeparator, { color: theme.textSecondary }]}
               >
-                -
+                {!series.completed && !series.live ? "vs" : "-"}
               </Text>
 
               {/* Team 2 Complete Section */}
               <View style={styles.teamCompleteSection}>
                 {/* Score and Logo Row */}
                 <View style={styles.logoScoreRow}>
+                  {!series.completed && !series.live ? null : (
                   <Text
                     style={[
                       styles.scoreText,
@@ -638,6 +641,7 @@ const VALSeriesScreen = ({ navigation, route }) => {
                   >
                     {series.team2Score || 0}
                   </Text>
+                  )}
                   <TouchableOpacity
                     onPress={() => {
                       if (series.team2?.id) {

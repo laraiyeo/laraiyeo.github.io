@@ -3,8 +3,8 @@
 
 import { RibBuildIdService } from "./RibBuildIdService";
 
-const API_BASE_URL = "https://corsproxy.io/?url=https://www.rib.gg";
-const API_V1_BASE_URL = "https://corsproxy.io/?url=https://be-prod.rib.gg/v1";
+const API_BASE_URL = "https://www.rib.gg";
+const API_V1_BASE_URL = "https://be-prod.rib.gg/v1";
 
 export const getSeriesDetails = async (seriesId) => {
   try {

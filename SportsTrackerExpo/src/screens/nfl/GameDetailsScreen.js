@@ -7049,7 +7049,6 @@ const GameDetailsScreen = ({ route }) => {
                           return true;
                         }
 
-                        // Block navigation to obvious popup/ad URLs
                         const popupKeywords = [
                           "popup",
                           "ad",
@@ -7058,25 +7057,41 @@ const GameDetailsScreen = ({ route }) => {
                           "redirect",
                           "promo",
                         ];
+                        const urlLower = request.url.toLowerCase();
                         const hasPopupKeywords = popupKeywords.some((keyword) =>
-                          request.url.toLowerCase().includes(keyword)
+                          urlLower.includes(keyword),
                         );
 
-                        // Block external navigation attempts (popups trying to navigate within WebView)
                         const currentDomain = new URL(streamUrl).hostname;
                         let requestDomain = "";
                         try {
                           requestDomain = new URL(request.url).hostname;
                         } catch (e) {
+                          if (urlLower.startsWith("about:blank") || urlLower.startsWith("data:")) {
+                            return true;
+                          }
                           console.log("Invalid URL:", request.url);
                           return false;
                         }
 
-                        // Allow same-domain navigation but block cross-domain (likely popups)
-                        if (
-                          requestDomain !== currentDomain ||
-                          hasPopupKeywords
-                        ) {
+                        const sameRootDomain =
+                          requestDomain === currentDomain ||
+                          requestDomain.endsWith(`.${currentDomain}`) ||
+                          currentDomain.endsWith(`.${requestDomain}`);
+
+                        const allowPatterns = [
+                          "/embed/",
+                          "/embed-noads/",
+                          "/player/",
+                          ".html",
+                          ".m3u8",
+                          ".mpd",
+                          "about:blank",
+                          "data:",
+                        ];
+                        const allowIfEmbed = allowPatterns.some((p) => urlLower.includes(p));
+
+                        if (hasPopupKeywords && !allowIfEmbed) {
                           console.log(
                             "Blocked popup/cross-domain navigation:",
                             request.url
@@ -7084,7 +7099,15 @@ const GameDetailsScreen = ({ route }) => {
                           return false;
                         }
 
-                        return true;
+                        if (sameRootDomain || allowIfEmbed) {
+                          return true;
+                        }
+
+                        console.log(
+                          "Blocked popup/cross-domain navigation:",
+                          request.url
+                        );
+                        return false;
                       }}
                       // Handle when WebView tries to open a new window (popup)
                       onOpenWindow={(syntheticEvent) => {

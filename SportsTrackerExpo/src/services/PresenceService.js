@@ -7,6 +7,8 @@ import {
   push,
   onDisconnect,
   serverTimestamp,
+  runTransaction,
+  get,
 } from "firebase/database";
 import { initializeApp, getApps } from "firebase/app";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -225,7 +227,86 @@ export class PresenceService {
             })),
           };
 
-          callback(viewerData);
+          // Update stored peak for this game if current active viewers exceed it.
+          const peakRef = ref(this.database, `presence/games/${gameId}/peak`);
+
+          (async () => {
+            try {
+
+              // Log database URL if available to help diagnose rule/project mismatches
+              try {
+                const dbUrl = this.database?.app?.options?.databaseURL ||
+                  this.database?.app?.options?.databaseURL;
+              } catch (e) {
+                // ignore
+              }
+
+              // Read current peak value to inspect permissions/errors
+              let currentPeakVal = null;
+              try {
+                const peakSnap = await get(peakRef);
+                currentPeakVal = peakSnap.exists() ? peakSnap.val() : null;
+                console.log("PresenceService: current peak value:", currentPeakVal);
+              } catch (readErr) {
+                console.error(
+                  "❌ PresenceService.subscribeToGameViewers - Error reading peak before transaction:",
+                  readErr
+                );
+              }
+
+              const intendedPeak = { count: viewerCount, recordedAt: Date.now() };
+
+              const currentPeakCount = (currentPeakVal && currentPeakVal.count) || 0;
+
+              // If there's no higher peak to set, skip writes and return current peak
+              if (!(viewerCount > currentPeakCount)) {
+                // No update needed
+                callback({ ...viewerData, peak: currentPeakVal });
+                return;
+              }
+
+              // Try a direct set for debugging to capture permission errors clearly.
+              console.log("PresenceService: attempting debug set of peak:", intendedPeak);
+              try {
+                await set(peakRef, intendedPeak);
+                console.log("PresenceService: debug set succeeded");
+              } catch (setErr) {
+                console.error("❌ PresenceService: debug set failed:", {
+                  message: setErr?.message,
+                  name: setErr?.name,
+                  code: setErr?.code,
+                  stack: setErr?.stack,
+                  toString: String(setErr),
+                });
+              }
+
+              const txResult = await runTransaction(peakRef, (currentPeak) => {
+                const currentPeakCountInner = (currentPeak && currentPeak.count) || 0;
+                if (viewerCount > currentPeakCountInner) {
+                  return intendedPeak;
+                }
+                return currentPeak;
+              });
+
+              const peakVal = (txResult.snapshot && txResult.snapshot.val()) || null;
+              console.log("PresenceService: runTransaction result:", {
+                committed: txResult.committed,
+                peakVal,
+              });
+
+              // Attach peak info to the data passed back to consumers
+              callback({ ...viewerData, peak: peakVal });
+            } catch (err) {
+              // Provide rich diagnostics for permission_denied and other errors
+              try {
+              } catch (logErr) {
+                console.error("Error logging transaction error:", logErr);
+              }
+
+              // Fallback: return viewer data without peak
+              callback(viewerData);
+            }
+          })();
         },
         (error) => {
           console.error(

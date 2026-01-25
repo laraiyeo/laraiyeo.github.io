@@ -108,7 +108,7 @@ const LogoWithFallback = React.memo(
         }}
       />
     );
-  }
+  },
 );
 
 // Memoized Competition Button Component
@@ -144,7 +144,7 @@ const CompetitionButton = React.memo(
         {competition.name}
       </Text>
     </TouchableOpacity>
-  )
+  ),
 );
 
 // Team Logo component with error handling
@@ -223,7 +223,7 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
     const currentCompetition = FIFACompetitionState.getCurrentCompetition();
     console.log(
       "FIFAWorldScoreboardScreen: Initializing with shared state:",
-      currentCompetition
+      currentCompetition,
     );
     setSelectedCompetition(currentCompetition);
   }, []);
@@ -233,7 +233,7 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
     const unsubscribe = FIFACompetitionState.subscribe((newCompetition) => {
       console.log(
         "FIFAWorldScoreboardScreen: Received competition change:",
-        newCompetition
+        newCompetition,
       );
       setSelectedCompetition(newCompetition);
     });
@@ -251,7 +251,7 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
         console.log("FIFAWorldScoreboardScreen: Screen unfocused");
         setIsScreenFocused(false);
       };
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
@@ -259,7 +259,7 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
       "FIFAWorldScoreboardScreen: Loading scoreboard for competition:",
       selectedCompetition,
       "filter:",
-      selectedDateFilter
+      selectedDateFilter,
     );
     // Only load if screen is focused to avoid unnecessary loads during navigation
     if (isScreenFocused) {
@@ -276,13 +276,13 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
       console.log(
         "FIFAWorldScoreboardScreen: Fetching data for",
         selectedCompetition,
-        selectedDateFilter
+        selectedDateFilter,
       );
 
       // Use the FIFA World Cup service
       const data = await FIFAWorldServiceEnhanced.getScoreboard(
         selectedDateFilter,
-        selectedCompetition
+        selectedCompetition,
       );
 
       // Process games with enhanced data
@@ -295,7 +295,7 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
             competitionCode: game.competitionCode || selectedCompetition,
             competitionName: game.competitionName || "FIFA Competition",
           };
-        })
+        }),
       );
 
       // Stable enhanced sorting: group by day, then by status priority (live/pre/post),
@@ -335,7 +335,7 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
     } catch (error) {
       console.error(
         "FIFAWorldScoreboardScreen: Error loading scoreboard:",
-        error
+        error,
       );
       if (!silentUpdate) {
         setLoading(false);
@@ -354,11 +354,11 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
       if (filter === selectedDateFilter) return;
       console.log(
         "FIFAWorldScoreboardScreen: Changing date filter to:",
-        filter
+        filter,
       );
       setSelectedDateFilter(filter);
     },
-    [selectedDateFilter]
+    [selectedDateFilter],
   );
 
   const handleCompetitionChange = React.useCallback(
@@ -366,14 +366,14 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
       if (competitionId === selectedCompetition) return;
       console.log(
         "FIFAWorldScoreboardScreen: Changing competition to:",
-        competitionId
+        competitionId,
       );
 
       // Update both local state and shared state
       setSelectedCompetition(competitionId);
       FIFACompetitionState.setCurrentCompetition(competitionId);
     },
-    [selectedCompetition]
+    [selectedCompetition],
   );
 
   const getNoGamesMessage = (dateFilter) => {
@@ -724,7 +724,7 @@ const FIFAWorldScoreboardScreen = ({ navigation, route }) => {
             },
           ]}
         >
-          <LiveViewerBadge gameId={competition.id} />
+          <LiveViewerBadge gameId={competition.id} status={matchStatus.text} />
         </View>
       </TouchableOpacity>
     );

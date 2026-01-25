@@ -144,7 +144,7 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
 
       return () => {
         console.log(
-          "SpainScoreboardScreen: Screen unfocused, clearing intervals"
+          "SpainScoreboardScreen: Screen unfocused, clearing intervals",
         );
         setIsScreenFocused(false);
         // Clear any existing interval when screen loses focus
@@ -153,7 +153,7 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
           return null;
         });
       };
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
@@ -161,7 +161,7 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
       "SpainScoreboardScreen: Main useEffect triggered for filter:",
       selectedDateFilter,
       "focused:",
-      isScreenFocused
+      isScreenFocused,
     );
     // Load the current filter first
     loadScoreboard();
@@ -193,7 +193,7 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
   useEffect(() => {
     console.log(
       "SpainScoreboardScreen: Preload useEffect triggered, hasPreloaded:",
-      hasPreloadedRef.current
+      hasPreloadedRef.current,
     );
     // Only preload if we haven't done it before
     if (hasPreloadedRef.current) {
@@ -222,13 +222,13 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
 
   const loadScoreboard = async (
     silentUpdate = false,
-    dateFilter = selectedDateFilter
+    dateFilter = selectedDateFilter,
   ) => {
     console.log(
       "SpainScoreboardScreen: loadScoreboard called - silentUpdate:",
       silentUpdate,
       "dateFilter:",
-      dateFilter
+      dateFilter,
     );
     const now = Date.now();
     const cachedData = gameCache[dateFilter];
@@ -257,10 +257,10 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
         (data.events || []).map(async (game) => {
           // Get team logos
           const awayLogo = await SpainServiceEnhanced.getTeamLogoWithFallback(
-            game.competitions[0]?.competitors[1]?.team?.id
+            game.competitions[0]?.competitors[1]?.team?.id,
           );
           const homeLogo = await SpainServiceEnhanced.getTeamLogoWithFallback(
-            game.competitions[0]?.competitors[0]?.team?.id
+            game.competitions[0]?.competitors[0]?.team?.id,
           );
 
           return {
@@ -268,7 +268,7 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
             awayLogo,
             homeLogo,
           };
-        })
+        }),
       );
 
       // Stable enhanced sorting: group by day, then by status priority (live/pre/post),
@@ -321,7 +321,7 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
           awayScore: g.competitions[0]?.competitors[1]?.score,
           homeScore: g.competitions[0]?.competitors[0]?.score,
           clock: g.status?.displayClock,
-        }))
+        })),
       );
 
       // Update cache
@@ -382,7 +382,7 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
     if (isCacheValid) {
       console.log(
         "SpainScoreboardScreen: Using cached data for filter change to:",
-        filter
+        filter,
       );
       setGames(cachedData);
       setLoading(false);
@@ -390,7 +390,7 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
       console.log(
         "SpainScoreboardScreen: No valid cache for filter:",
         filter,
-        "- will fetch fresh data"
+        "- will fetch fresh data",
       );
     }
   };
@@ -499,11 +499,11 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
       const awayName = awayTeam?.displayName || awayTeam?.abbreviation || "";
       const matchedId = LiveTrackerService.findMatchIdByTeams(
         homeName,
-        awayName
+        awayName,
       );
       console.log(
         "SpainScoreboardScreen: matched live-tracker id ->",
-        matchedId
+        matchedId,
       );
 
       navigation.navigate("SpainGameDetails", {
@@ -740,7 +740,7 @@ const SpainScoreboardScreen = ({ navigation, route }) => {
             },
           ]}
         >
-          <LiveViewerBadge gameId={competition.id} />
+          <LiveViewerBadge gameId={competition.id} status={matchStatus.text} />
         </View>
       </TouchableOpacity>
     );

@@ -8,22 +8,35 @@ import {
   useMultipleGamePresence,
 } from "../hooks/useGamePresence";
 
-const ViewerCounter = ({ gameId, style, showIcon = true, compact = false }) => {
+const ViewerCounter = ({
+  gameId,
+  style,
+  showIcon = true,
+  compact = false,
+  preferPeak = false,
+}) => {
   const { theme, colors } = useTheme();
-  const { viewerCount, isJoined } = useGamePresence(gameId);
+  const { viewerCount, isJoined, peak } = useGamePresence(gameId);
 
   if (!gameId) return null;
 
   const formatViewerCount = (count) => {
     if (count >= 1000000) {
-      return `${(count / 1000000).toFixed(1)}M`;
+      // Format as "1.01M" with 2 decimals
+      return (count / 1000000).toFixed(2).replace(/\.00$/, '') + 'M';
     } else if (count >= 1000) {
-      return `${(count / 1000).toFixed(1)}K`;
+      // Format as "100.1K" with 1 decimal
+      return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
     }
     return count.toString();
   };
 
   if (compact) {
+    const displayCount =
+      preferPeak && (viewerCount === 0 || viewerCount == null) && peak && peak.count
+        ? peak.count
+        : viewerCount;
+
     return (
       <View style={[styles.compactContainer, style]}>
         {showIcon && (
@@ -34,7 +47,7 @@ const ViewerCounter = ({ gameId, style, showIcon = true, compact = false }) => {
           </View>
         )}
         <Text style={[styles.compactText, { color: theme.text }]}>
-          {formatViewerCount(viewerCount)}
+          {formatViewerCount(displayCount)}
         </Text>
       </View>
     );
@@ -55,27 +68,50 @@ const ViewerCounter = ({ gameId, style, showIcon = true, compact = false }) => {
       )}
       <Ionicons name="eye-outline" size={16} color={theme.textSecondary} />
       <Text style={[styles.viewerText, { color: theme.text }]}>
-        {formatViewerCount(viewerCount)}
+        {formatViewerCount(preferPeak && (viewerCount === 0 || viewerCount == null) && peak && peak.count ? peak.count : viewerCount)}
       </Text>
       <Text style={[styles.label, { color: theme.textSecondary }]}>
-        {viewerCount === 1 ? "viewer" : "viewers"}
+        {preferPeak && (viewerCount === 0 || viewerCount == null) && peak && peak.count
+          ? "peak"
+          : viewerCount === 1
+          ? "viewer"
+          : "viewers"}
       </Text>
     </View>
   );
 };
 
-const LiveViewerBadge = ({ gameId, style }) => {
+const LiveViewerBadge = ({ gameId, style, status = {} }) => {
   const { theme, colors } = useTheme();
   // Use a read-only subscription that doesn't join the game
-  const { viewerCount } = useGamePresenceReadOnly(gameId);
+  const { viewerCount, peak } = useGamePresenceReadOnly(gameId);
 
-  if (!gameId || viewerCount === 0) return null;
+  if (!gameId) return null;
+
+  // Determine game finished state from provided status (accept string or object)
+  let statusStr = "";
+  if (typeof status === "string") {
+    statusStr = status;
+  } else if (status && typeof status === "object") {
+    statusStr = String(status.status || status.state || "");
+  }
+  const isCompletedFlag = !!(status && status.isCompleted) || /final|post|completed/i.test(statusStr);
+
+  // If game is completed/finished, prefer showing peak (if present)
+  const hasPeak = peak && peak.count;
+  const shouldShowPeak = isCompletedFlag && hasPeak;
+
+  // Prefer peak for completed games even if there are live viewers.
+  const effectiveCount = shouldShowPeak ? peak.count : (viewerCount > 0 ? viewerCount : 0);
+  if (effectiveCount === 0) return null;
 
   const formatViewerCount = (count) => {
     if (count >= 1000000) {
-      return `${(count / 1000000).toFixed(count >= 10000000 ? 0 : 1)}M`;
+      // Format as "1.01M" with 2 decimals
+      return (count / 1000000).toFixed(2).replace(/\.00$/, '') + 'M';
     } else if (count >= 1000) {
-      return `${(count / 1000).toFixed(count >= 10000 ? 0 : 1)}K`;
+      // Format as "100.1K" with 1 decimal
+      return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
     }
     return count.toString();
   };
@@ -87,16 +123,16 @@ const LiveViewerBadge = ({ gameId, style }) => {
         style,
         {
           backgroundColor: theme.surface,
-          borderColor: colors.primary,
+          borderColor: shouldShowPeak ? theme.textSecondary : colors.primary,
           // Temporary: Make it highly visible for debugging
           minWidth: 40,
           minHeight: 20,
         },
       ]}
     >
-      <Ionicons name="eye" size={18} color={colors.primary} />
-      <Text style={[styles.badgeText, { color: colors.primary }]}>
-        {formatViewerCount(viewerCount)}
+      <Ionicons name="eye" size={18} color={shouldShowPeak ? theme.textSecondary : colors.primary} />
+      <Text style={[styles.badgeText, { color: shouldShowPeak ? theme.textSecondary : colors.primary }]}>
+        {formatViewerCount(effectiveCount)}
       </Text>
     </View>
   );

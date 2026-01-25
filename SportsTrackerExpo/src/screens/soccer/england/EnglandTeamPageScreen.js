@@ -597,7 +597,10 @@ const EnglandTeamPageScreen = ({ route, navigation }) => {
           style={styles.teamLogoHeader}
         />
         <View style={styles.teamInfo}>
-          <Text allowFontScaling={false} style={[styles.teamName, { color: teamColor }]}>
+          <Text allowFontScaling={false} style={[styles.teamName, { color: teamColor,
+                textShadowColor: isDarkMode ? '#ffffff88' : '#00000088',
+                textShadowOffset: { width: 1, height: 0 },
+                textShadowRadius: 3},]}>
             {teamData.displayName || teamData.name}
           </Text>
           <Text allowFontScaling={false} style={[styles.teamDivision, { color: theme.textSecondary }]}>
@@ -606,7 +609,7 @@ const EnglandTeamPageScreen = ({ route, navigation }) => {
           <View style={styles.recordContainer}>
             <View style={styles.recordRow}>
               <View style={[styles.recordItem, { marginRight: 20 }]}>
-                <Text allowFontScaling={false} style={[styles.recordValue, { color: teamColor }]}>
+                <Text allowFontScaling={false} style={[styles.recordValue, { color: theme.text }]}>
                   {teamRecord?.wins || '0'}-{teamRecord?.draws || '0'}-{teamRecord?.losses || '0'}
                 </Text>
                 <Text allowFontScaling={false} style={[styles.recordLabel, { color: theme.textSecondary }]}>
@@ -614,7 +617,7 @@ const EnglandTeamPageScreen = ({ route, navigation }) => {
                 </Text>
               </View>
               <View style={styles.recordItem}>
-                <Text allowFontScaling={false} style={[styles.recordValue, { color: teamColor }]}>
+                <Text allowFontScaling={false} style={[styles.recordValue, { color: theme.text }]}>
                   {teamRecord?.points || '0'}
                 </Text>
                 <Text allowFontScaling={false} style={[styles.recordLabel, { color: theme.textSecondary }]}>

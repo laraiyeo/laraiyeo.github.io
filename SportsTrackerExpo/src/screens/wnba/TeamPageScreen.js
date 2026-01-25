@@ -1191,7 +1191,10 @@ const TeamPageScreen = ({ route, navigation }) => {
           onError={() => console.log('Failed to load team logo')}
         />
         <View style={styles.teamInfo}>
-          <Text style={[styles.teamName, { color: teamData?.color ? `#${teamData.color}` : theme.text }]}> 
+          <Text style={[styles.teamName, { color: teamData?.color ? `#${teamData.color}` : theme.text,
+                textShadowColor: isDarkMode ? '#ffffff88' : '#00000088',
+                textShadowOffset: { width: 1, height: 0 },
+                textShadowRadius: 3},]}>
             {teamData?.displayName || 'WNBA Team'}
           </Text>
           <Text style={[styles.teamDivision, { color: theme.textSecondary }]}> 

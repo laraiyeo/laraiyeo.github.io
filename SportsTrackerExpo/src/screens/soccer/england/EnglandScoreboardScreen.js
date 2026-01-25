@@ -739,7 +739,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
 
         {/* Viewer Count Section - Bottom placement as requested */}
         <View style={[styles.viewerSection, { borderTopColor: theme.border }]}>
-          <LiveViewerBadge gameId={game.id} style={styles.viewerBadge} />
+          <LiveViewerBadge gameId={game.id} status={matchStatus.text} style={styles.viewerBadge} />
         </View>
       </TouchableOpacity>
     );

@@ -156,9 +156,9 @@ const SearchScreen = ({ route, navigation }) => {
       >
         <Image
           source={{ 
-            uri: item.headshot?.href || `https://a.espncdn.com/combiner/i?img=/i/headshots/nhl/players/full/${item.id}.png`
+            uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nhl/players/full/${item.id}.png&w=150` || '../../../assets/nhl.png'
           }}
-          style={styles.playerHeadshot}
+          style={[styles.playerHeadshot, { backgroundColor: `#${item.team?.color || '000000'}` + '88' }]}
         />
         <View style={styles.playerInfo}>
           <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>

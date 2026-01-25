@@ -622,7 +622,7 @@ const NHLScoreboardScreen = ({ navigation }) => {
                 " vs " +
                 item.homeTeam?.displayName,
             })}
-            <LiveViewerBadge gameId={item.id} style={styles.viewerBadge} />
+            <LiveViewerBadge gameId={item.id} status={item.status} style={styles.viewerBadge} />
           </View>
         </View>
       </TouchableOpacity>

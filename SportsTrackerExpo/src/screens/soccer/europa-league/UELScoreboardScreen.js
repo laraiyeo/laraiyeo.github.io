@@ -144,7 +144,7 @@ const UELScoreboardScreen = ({ navigation, route }) => {
 
       return () => {
         console.log(
-          "UELScoreboardScreen: Screen unfocused, clearing intervals"
+          "UELScoreboardScreen: Screen unfocused, clearing intervals",
         );
         setIsScreenFocused(false);
         // Clear any existing interval when screen loses focus
@@ -153,7 +153,7 @@ const UELScoreboardScreen = ({ navigation, route }) => {
           return null;
         });
       };
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
@@ -161,7 +161,7 @@ const UELScoreboardScreen = ({ navigation, route }) => {
       "UELScoreboardScreen: Main useEffect triggered for filter:",
       selectedDateFilter,
       "focused:",
-      isScreenFocused
+      isScreenFocused,
     );
     // Load the current filter first
     loadScoreboard();
@@ -193,7 +193,7 @@ const UELScoreboardScreen = ({ navigation, route }) => {
   useEffect(() => {
     console.log(
       "UELScoreboardScreen: Preload useEffect triggered, hasPreloaded:",
-      hasPreloadedRef.current
+      hasPreloadedRef.current,
     );
     // Only preload if we haven't done it before
     if (hasPreloadedRef.current) {
@@ -222,13 +222,13 @@ const UELScoreboardScreen = ({ navigation, route }) => {
 
   const loadScoreboard = async (
     silentUpdate = false,
-    dateFilter = selectedDateFilter
+    dateFilter = selectedDateFilter,
   ) => {
     console.log(
       "UELScoreboardScreen: loadScoreboard called - silentUpdate:",
       silentUpdate,
       "dateFilter:",
-      dateFilter
+      dateFilter,
     );
     const now = Date.now();
     const cachedData = gameCache[dateFilter];
@@ -258,11 +258,11 @@ const UELScoreboardScreen = ({ navigation, route }) => {
           // Get team logos
           const awayLogo =
             await EuropaLeagueServiceEnhanced.getTeamLogoWithFallback(
-              game.competitions[0]?.competitors[1]?.team?.id
+              game.competitions[0]?.competitors[1]?.team?.id,
             );
           const homeLogo =
             await EuropaLeagueServiceEnhanced.getTeamLogoWithFallback(
-              game.competitions[0]?.competitors[0]?.team?.id
+              game.competitions[0]?.competitors[0]?.team?.id,
             );
 
           return {
@@ -270,7 +270,7 @@ const UELScoreboardScreen = ({ navigation, route }) => {
             awayLogo,
             homeLogo,
           };
-        })
+        }),
       );
 
       // Stable enhanced sorting: group by day, then by status priority (live/pre/post),
@@ -323,7 +323,7 @@ const UELScoreboardScreen = ({ navigation, route }) => {
           awayScore: g.competitions[0]?.competitors[1]?.score,
           homeScore: g.competitions[0]?.competitors[0]?.score,
           clock: g.status?.displayClock,
-        }))
+        })),
       );
 
       // Update cache
@@ -384,7 +384,7 @@ const UELScoreboardScreen = ({ navigation, route }) => {
     if (isCacheValid) {
       console.log(
         "UELScoreboardScreen: Using cached data for filter change to:",
-        filter
+        filter,
       );
       setGames(cachedData);
       setLoading(false);
@@ -392,7 +392,7 @@ const UELScoreboardScreen = ({ navigation, route }) => {
       console.log(
         "UELScoreboardScreen: No valid cache for filter:",
         filter,
-        "- will fetch fresh data"
+        "- will fetch fresh data",
       );
     }
   };
@@ -502,7 +502,7 @@ const UELScoreboardScreen = ({ navigation, route }) => {
       const awayName = awayTeam?.displayName || awayTeam?.abbreviation || "";
       const matchedId = LiveTrackerService.findMatchIdByTeams(
         homeName,
-        awayName
+        awayName,
       );
       console.log("UELScoreboardScreen: matched live-tracker id ->", matchedId);
 
@@ -732,7 +732,7 @@ const UELScoreboardScreen = ({ navigation, route }) => {
 
         {/* Live Viewer Section */}
         <View style={[styles.viewerSection, { borderTopColor: theme.border }]}>
-          <LiveViewerBadge gameId={competition.id} />
+          <LiveViewerBadge gameId={competition.id} status={matchStatus.text} />
         </View>
       </TouchableOpacity>
     );

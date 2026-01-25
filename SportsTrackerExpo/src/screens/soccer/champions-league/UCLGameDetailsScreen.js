@@ -75,7 +75,7 @@ const getTeamLogoUrls = (teamId, isDarkMode) => {
 
 // Memoized TeamLogoImage component to prevent flickering on state changes
 const TeamLogoImage = React.memo(
-  ({ teamId, style, isScoring = false, isDarkMode }) => {
+  ({ teamId, style, isScoring = false, isDarkMode, scoringTextColor }) => {
     const [logoSource, setLogoSource] = useState(null);
     const [retryCount, setRetryCount] = useState(0);
 
@@ -84,7 +84,8 @@ const TeamLogoImage = React.memo(
         try {
           if (isScoring) {
             // For scoring plays, always use dark variant
-            const darkUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
+            const code = scoringTextColor === "#000" ? "" : "-dark";
+            const darkUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500${code}/${teamId}.png&w=200&h=200`;
             setLogoSource({ uri: darkUrl });
           } else {
             // For non-scoring, use normal dark mode logic
@@ -99,7 +100,7 @@ const TeamLogoImage = React.memo(
         setLogoSource(require("../../../../assets/soccer.png"));
       }
       setRetryCount(0);
-    }, [teamId, isDarkMode, isScoring]);
+    }, [teamId, isDarkMode, isScoring, scoringTextColor]);
 
     useEffect(() => {
       loadLogo();
@@ -205,6 +206,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
   });
   const [shareCardPlayerStats, setShareCardPlayerStats] = useState({
     goals: 0,
+    ownGoals: 0,
     assists: 0,
     shots: 0,
     shotsOnTarget: 0,
@@ -753,6 +755,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
         setShareCardPlayerStats({
           goals: 0,
           assists: 0,
+          ownGoals: 0,
           shots: 0,
           shotsOnTarget: 0,
           yellowCards: 0,
@@ -765,6 +768,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
       let stats = {
         goals: 0,
         assists: 0,
+        ownGoals: 0,
         shots: 0,
         shotsOnTarget: 0,
         yellowCards: 0,
@@ -864,6 +868,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                       allStats.shots ||
                       allStats.shotsTotal ||
                       0,
+                    ownGoals: allStats.ownGoals || 0,
                     shotsOnTarget:
                       allStats.shotsOnTarget ||
                       allStats.shotsOnGoal ||
@@ -1125,6 +1130,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
         let parsedStats = {
           goals: 0,
           assists: 0,
+          ownGoals: 0,
           shots: 0,
           shotsOnTarget: 0,
           yellowCards: 0,
@@ -1160,6 +1166,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
           parsedStats = {
             goals: allStats.totalGoals || 0,
             assists: allStats.goalAssists || 0,
+            ownGoals: allStats.ownGoals || 0,
             shots: allStats.totalShots || 0,
             shotsOnTarget: allStats.shotsOnTarget || 0,
             yellowCards: allStats.yellowCards || 0,
@@ -5636,9 +5643,10 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                 <View style={styles.teamScoreDisplay}>
                   <TeamLogoImage
                     teamId={homeTeam?.team?.id}
-                    isDarkMode={isDarkMode}
+                    isDarkMode={isScoring ? (scoringTextColor === "#000" ? false : true) : isDarkMode}
                     style={styles.teamLogoSmall}
                     isScoring={isScoring}
+                    scoringTextColor={scoringTextColor}
                   />
                   <Text
                     allowFontScaling={false}
@@ -5652,7 +5660,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                 </View>
                 <Text
                   allowFontScaling={false}
-                  style={[styles.scoreSeparator, { color: theme.text }]}
+                  style={[styles.scoreSeparator, { color: isScoring ? scoringTextColor : theme.text }]}
                 >
                   -
                 </Text>
@@ -5668,9 +5676,10 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                   </Text>
                   <TeamLogoImage
                     teamId={awayTeam?.team?.id}
-                    isDarkMode={isDarkMode}
+                    isDarkMode={isScoring ? (scoringTextColor === "#000" ? false : true) : isDarkMode}
                     style={styles.teamLogoSmall}
                     isScoring={isScoring}
+                    scoringTextColor={scoringTextColor}
                   />
                 </View>
               </View>
@@ -5792,7 +5801,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                         allowFontScaling={false}
                         style={[
                           styles.playClock,
-                          { color: theme.textSecondary },
+                          { color: isScoring ? scoringTextColor : theme.text },
                         ]}
                       >
                         {period
@@ -7161,7 +7170,6 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                         return true;
                       }
 
-                      // Block navigation to obvious popup/ad URLs
                       const popupKeywords = [
                         "popup",
                         "ad",
@@ -7170,11 +7178,11 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                         "redirect",
                         "promo",
                       ];
+                      const urlLower = request.url.toLowerCase();
                       const hasPopupKeywords = popupKeywords.some((keyword) =>
-                        request.url.toLowerCase().includes(keyword),
+                        urlLower.includes(keyword),
                       );
 
-                      // Block external navigation attempts (popups trying to navigate within WebView)
                       const currentDomain = new URL(
                         availableStreams[currentStreamType],
                       ).hostname;
@@ -7182,12 +7190,31 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                       try {
                         requestDomain = new URL(request.url).hostname;
                       } catch (e) {
+                        if (urlLower.startsWith("about:blank") || urlLower.startsWith("data:")) {
+                          return true;
+                        }
                         console.log("Invalid URL:", request.url);
                         return false;
                       }
 
-                      // Allow same-domain navigation but block cross-domain (likely popups)
-                      if (requestDomain !== currentDomain || hasPopupKeywords) {
+                      const sameRootDomain =
+                        requestDomain === currentDomain ||
+                        requestDomain.endsWith(`.${currentDomain}`) ||
+                        currentDomain.endsWith(`.${requestDomain}`);
+
+                      const allowPatterns = [
+                        "/embed/",
+                        "/embed-noads/",
+                        "/player/",
+                        ".html",
+                        ".m3u8",
+                        ".mpd",
+                        "about:blank",
+                        "data:",
+                      ];
+                      const allowIfEmbed = allowPatterns.some((p) => urlLower.includes(p));
+
+                      if (hasPopupKeywords && !allowIfEmbed) {
                         console.log(
                           "Blocked UCL popup/cross-domain navigation:",
                           request.url,
@@ -7195,7 +7222,15 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                         return false;
                       }
 
-                      return true;
+                      if (sameRootDomain || allowIfEmbed) {
+                        return true;
+                      }
+
+                      console.log(
+                        "Blocked UCL popup/cross-domain navigation:",
+                        request.url,
+                      );
+                      return false;
                     }}
                     // Handle when WebView tries to open a new window (popup)
                     onOpenWindow={(syntheticEvent) => {
@@ -7418,6 +7453,9 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                       let scoringTeam = null;
                       let scoringTeamSide = "";
                       let teamAbbr = "";
+                      
+                      const isOwnGoal =
+                        play.type?.id === "97" || "";
 
                       console.log("Trying to match team IDs:", {
                         playTeamId,
@@ -7430,15 +7468,13 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                         scoringTeam = homeTeamData;
                         scoringTeamSide = "home";
                         teamAbbr =
-                          homeTeamData?.abbreviation ||
-                          homeTeamData?.team?.abbreviation ||
+                          `${isOwnGoal ? awayTeamData?.team?.abbreviation : homeTeamData?.team?.abbreviation}` ||
                           "HOME";
                       } else if (String(playTeamId) === String(awayId)) {
                         scoringTeam = awayTeamData;
                         scoringTeamSide = "away";
                         teamAbbr =
-                          awayTeamData?.abbreviation ||
-                          awayTeamData?.team?.abbreviation ||
+                          `${isOwnGoal ? homeTeamData?.team?.abbreviation : awayTeamData?.team?.abbreviation}` ||
                           "AWAY";
                       }
 
@@ -7571,7 +7607,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                       // Get time info
                       const period = play.period ? play.period.number || 1 : 1;
                       const clock = play.clock?.displayValue || "";
-                      const periodText = period === 1 ? "1st Half" : "2nd Half";
+                      const periodText = period === 1 ? "1st Half" : period === 2 ? "2nd Half" : `Extra Time`;
 
                       // Get current scores
                       const homeScore = play.homeScore || 0;
@@ -7579,9 +7615,6 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
 
                       // Determine goal type and situation
                       const playText = play.text || play.shortText || "";
-                      const isOwnGoal =
-                        play.ownGoal ||
-                        playText.toLowerCase().includes("own goal");
                       const isPenalty = playText
                         .toLowerCase()
                         .includes("penalty");
@@ -7642,7 +7675,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                                   scoringTeam?.id || scoringTeam?.team?.id
                                 }
                                 style={styles.goalCardTeamLogo}
-                                isDarkMode={true} // Always use dark logos on dark background
+                                isDarkMode={textColor === "#000" ? false : true} // Always use dark logos on dark background
                               />
                               <View style={styles.goalCardHeaderText}>
                                 <Text
@@ -7651,7 +7684,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                                     { color: textColor },
                                   ]}
                                 >
-                                  ⚽ Goal
+                                  ⚽ {isOwnGoal ? "Own Goal" : "Goal"}
                                   {goalSituation ? ` • ${goalSituation}` : ""}
                                 </Text>
                                 <Text
@@ -7660,7 +7693,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                                     { color: textColor },
                                   ]}
                                 >
-                                  {clock || periodText}
+                                  {clock} • {periodText}
                                 </Text>
                               </View>
                             </View>
@@ -7778,7 +7811,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                                   homeTeamData?.id || homeTeamData?.team?.id
                                 }
                                 style={styles.goalCardScoreLogoSmall}
-                                isDarkMode={true}
+                                isDarkMode={textColor === "#000" ? false : true}
                               />
                               <Text
                                 style={[
@@ -7793,7 +7826,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                                   awayTeamData?.id || awayTeamData?.team?.id
                                 }
                                 style={styles.goalCardScoreLogoSmall}
-                                isDarkMode={true}
+                                isDarkMode={textColor === "#000" ? false : true}
                               />
                             </View>
 
@@ -7809,7 +7842,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                                   { color: textColor },
                                 ]}
                               >
-                                GOAL
+                                {isOwnGoal ? "Own Goal" : "Goal"}
                               </Text>
                             </View>
                           </View>
@@ -7828,7 +7861,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                                   { color: textColor },
                                 ]}
                               >
-                                {playerStats.goals}
+                                {isOwnGoal ? playerStats.ownGoals : playerStats.goals}
                               </Text>
                               <Text
                                 style={[
@@ -7836,7 +7869,7 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                                   { color: textColor },
                                 ]}
                               >
-                                Goals
+                                {isOwnGoal ? "Own Goals" : "Goals"}
                               </Text>
                             </View>
                             <View

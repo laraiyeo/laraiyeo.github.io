@@ -144,7 +144,7 @@ const FranceScoreboardScreen = ({ navigation, route }) => {
 
       return () => {
         console.log(
-          "FranceScoreboardScreen: Screen unfocused, clearing intervals"
+          "FranceScoreboardScreen: Screen unfocused, clearing intervals",
         );
         setIsScreenFocused(false);
         // Clear any existing interval when screen loses focus
@@ -153,7 +153,7 @@ const FranceScoreboardScreen = ({ navigation, route }) => {
           return null;
         });
       };
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
@@ -161,7 +161,7 @@ const FranceScoreboardScreen = ({ navigation, route }) => {
       "FranceScoreboardScreen: Main useEffect triggered for filter:",
       selectedDateFilter,
       "focused:",
-      isScreenFocused
+      isScreenFocused,
     );
     // Load the current filter first
     loadScoreboard();
@@ -193,7 +193,7 @@ const FranceScoreboardScreen = ({ navigation, route }) => {
   useEffect(() => {
     console.log(
       "FranceScoreboardScreen: Preload useEffect triggered, hasPreloaded:",
-      hasPreloadedRef.current
+      hasPreloadedRef.current,
     );
     // Only preload if we haven't done it before
     if (hasPreloadedRef.current) {
@@ -222,13 +222,13 @@ const FranceScoreboardScreen = ({ navigation, route }) => {
 
   const loadScoreboard = async (
     silentUpdate = false,
-    dateFilter = selectedDateFilter
+    dateFilter = selectedDateFilter,
   ) => {
     console.log(
       "FranceScoreboardScreen: loadScoreboard called - silentUpdate:",
       silentUpdate,
       "dateFilter:",
-      dateFilter
+      dateFilter,
     );
     const now = Date.now();
     const cachedData = gameCache[dateFilter];
@@ -251,7 +251,7 @@ const FranceScoreboardScreen = ({ navigation, route }) => {
 
       console.log(
         "FranceScoreboardScreen: Fetching fresh data for",
-        dateFilter
+        dateFilter,
       );
       const data = await FranceServiceEnhanced.getScoreboard(dateFilter);
 
@@ -260,10 +260,10 @@ const FranceScoreboardScreen = ({ navigation, route }) => {
         (data.events || []).map(async (game) => {
           // Get team logos
           const awayLogo = await FranceServiceEnhanced.getTeamLogoWithFallback(
-            game.competitions[0]?.competitors[1]?.team?.id
+            game.competitions[0]?.competitors[1]?.team?.id,
           );
           const homeLogo = await FranceServiceEnhanced.getTeamLogoWithFallback(
-            game.competitions[0]?.competitors[0]?.team?.id
+            game.competitions[0]?.competitors[0]?.team?.id,
           );
 
           return {
@@ -271,7 +271,7 @@ const FranceScoreboardScreen = ({ navigation, route }) => {
             awayLogo,
             homeLogo,
           };
-        })
+        }),
       );
 
       // Stable enhanced sorting: group by day, then by status priority (live/pre/post),
@@ -324,7 +324,7 @@ const FranceScoreboardScreen = ({ navigation, route }) => {
           awayScore: g.competitions[0]?.competitors[1]?.score,
           homeScore: g.competitions[0]?.competitors[0]?.score,
           clock: g.status?.displayClock,
-        }))
+        })),
       );
 
       // Update cache
@@ -385,7 +385,7 @@ const FranceScoreboardScreen = ({ navigation, route }) => {
     if (isCacheValid) {
       console.log(
         "FranceScoreboardScreen: Using cached data for filter change to:",
-        filter
+        filter,
       );
       setGames(cachedData);
       setLoading(false);
@@ -393,7 +393,7 @@ const FranceScoreboardScreen = ({ navigation, route }) => {
       console.log(
         "FranceScoreboardScreen: No valid cache for filter:",
         filter,
-        "- will fetch fresh data"
+        "- will fetch fresh data",
       );
     }
   };
@@ -502,11 +502,11 @@ const FranceScoreboardScreen = ({ navigation, route }) => {
       const awayName = awayTeam?.displayName || awayTeam?.abbreviation || "";
       const matchedId = LiveTrackerService.findMatchIdByTeams(
         homeName,
-        awayName
+        awayName,
       );
       console.log(
         "FranceScoreboardScreen: matched live-tracker id ->",
-        matchedId
+        matchedId,
       );
 
       navigation.navigate("FranceGameDetails", {
@@ -735,7 +735,7 @@ const FranceScoreboardScreen = ({ navigation, route }) => {
 
         {/* Live Viewer Section */}
         <View style={[styles.viewerSection, { borderTopColor: theme.border }]}>
-          <LiveViewerBadge gameId={competition.id} />
+          <LiveViewerBadge gameId={competition.id} status={matchStatus.text} />
         </View>
       </TouchableOpacity>
     );

@@ -239,7 +239,7 @@ const TournamentStage = ({
             id: match.team1_id,
             name: match.team1?.name || "TBD",
             shortName: match.team1?.name || "TBD",
-            logoUrl: match.team1?.image_url,
+            logoUrl: match.team1?.image_url || "https://media.printables.com/media/prints/993971/images/7567942_39fd2e55-5ff1-43ef-a3a2-532a95d43dd4_93a75339-5509-492d-bac0-9c0ca1ede73d/thumbs/cover/800x800/jpg/f75dd04fa12445a8ec43be65fa16ff1b8d2bf82e.jpg",
             score: match.team1_score || 0,
             slug: match.team1?.slug,
           },
@@ -247,7 +247,7 @@ const TournamentStage = ({
             id: match.team2_id,
             name: match.team2?.name || "TBD",
             shortName: match.team2?.name || "TBD",
-            logoUrl: match.team2?.image_url,
+            logoUrl: match.team2?.image_url || "https://media.printables.com/media/prints/993971/images/7567942_39fd2e55-5ff1-43ef-a3a2-532a95d43dd4_93a75339-5509-492d-bac0-9c0ca1ede73d/thumbs/cover/800x800/jpg/f75dd04fa12445a8ec43be65fa16ff1b8d2bf82e.jpg",
             score: match.team2_score || 0,
             slug: match.team2?.slug,
           },
@@ -576,7 +576,7 @@ const TournamentStage = ({
                               source={{
                                 uri:
                                   match.team1?.image_url ||
-                                  "https://via.placeholder.com/24",
+                                  "https://media.printables.com/media/prints/993971/images/7567942_39fd2e55-5ff1-43ef-a3a2-532a95d43dd4_93a75339-5509-492d-bac0-9c0ca1ede73d/thumbs/cover/800x800/jpg/f75dd04fa12445a8ec43be65fa16ff1b8d2bf82e.jpg",
                               }}
                               style={styles.matchTeamLogo}
                               resizeMode="contain"
@@ -643,7 +643,7 @@ const TournamentStage = ({
                               source={{
                                 uri:
                                   match.team2?.image_url ||
-                                  "https://via.placeholder.com/24",
+                                  "https://media.printables.com/media/prints/993971/images/7567942_39fd2e55-5ff1-43ef-a3a2-532a95d43dd4_93a75339-5509-492d-bac0-9c0ca1ede73d/thumbs/cover/800x800/jpg/f75dd04fa12445a8ec43be65fa16ff1b8d2bf82e.jpg",
                               }}
                               style={styles.matchTeamLogo}
                               resizeMode="contain"
@@ -711,7 +711,7 @@ const TournamentStage = ({
                             source={{
                               uri:
                                 match.team1?.image_url ||
-                                "https://via.placeholder.com/24",
+                                "https://media.printables.com/media/prints/993971/images/7567942_39fd2e55-5ff1-43ef-a3a2-532a95d43dd4_93a75339-5509-492d-bac0-9c0ca1ede73d/thumbs/cover/800x800/jpg/f75dd04fa12445a8ec43be65fa16ff1b8d2bf82e.jpg",
                             }}
                             style={styles.matchTeamLogo}
                             resizeMode="contain"
@@ -770,7 +770,7 @@ const TournamentStage = ({
                             source={{
                               uri:
                                 match.team2?.image_url ||
-                                "https://via.placeholder.com/24",
+                                "https://media.printables.com/media/prints/993971/images/7567942_39fd2e55-5ff1-43ef-a3a2-532a95d43dd4_93a75339-5509-492d-bac0-9c0ca1ede73d/thumbs/cover/800x800/jpg/f75dd04fa12445a8ec43be65fa16ff1b8d2bf82e.jpg",
                             }}
                             style={styles.matchTeamLogo}
                             resizeMode="contain"
@@ -1008,7 +1008,7 @@ const TournamentStage = ({
                                                   source={{
                                                     uri:
                                                       team.logoUrl ||
-                                                      "https://via.placeholder.com/18",
+                                                      "https://media.printables.com/media/prints/993971/images/7567942_39fd2e55-5ff1-43ef-a3a2-532a95d43dd4_93a75339-5509-492d-bac0-9c0ca1ede73d/thumbs/cover/800x800/jpg/f75dd04fa12445a8ec43be65fa16ff1b8d2bf82e.jpg",
                                                   }}
                                                   style={[
                                                     styles.bracketTeamLogo,
@@ -1189,7 +1189,7 @@ const TournamentStage = ({
                                                       source={{
                                                         uri:
                                                           team.logoUrl ||
-                                                          "https://via.placeholder.com/18",
+                                                          "https://media.printables.com/media/prints/993971/images/7567942_39fd2e55-5ff1-43ef-a3a2-532a95d43dd4_93a75339-5509-492d-bac0-9c0ca1ede73d/thumbs/cover/800x800/jpg/f75dd04fa12445a8ec43be65fa16ff1b8d2bf82e.jpg",
                                                       }}
                                                       style={[
                                                         styles.bracketTeamLogo,
@@ -1823,7 +1823,7 @@ const CS2TournamentScreen = ({ navigation, route }) => {
                                   source={{
                                     uri:
                                       match.team1?.image_url ||
-                                      "https://via.placeholder.com/48",
+                                      "https://media.printables.com/media/prints/993971/images/7567942_39fd2e55-5ff1-43ef-a3a2-532a95d43dd4_93a75339-5509-492d-bac0-9c0ca1ede73d/thumbs/cover/800x800/jpg/f75dd04fa12445a8ec43be65fa16ff1b8d2bf82e.jpg",
                                   }}
                                   style={[
                                     styles.resultTeamLogo,
@@ -1948,7 +1948,7 @@ const CS2TournamentScreen = ({ navigation, route }) => {
                                   source={{
                                     uri:
                                       match.team2?.image_url ||
-                                      "https://via.placeholder.com/48",
+                                      "https://media.printables.com/media/prints/993971/images/7567942_39fd2e55-5ff1-43ef-a3a2-532a95d43dd4_93a75339-5509-492d-bac0-9c0ca1ede73d/thumbs/cover/800x800/jpg/f75dd04fa12445a8ec43be65fa16ff1b8d2bf82e.jpg",
                                   }}
                                   style={[
                                     styles.resultTeamLogo,
@@ -2056,8 +2056,8 @@ const CS2TournamentScreen = ({ navigation, route }) => {
                         <Image
                           source={{
                             uri:
-                              player.player.image_url ||
-                              "https://via.placeholder.com/40",
+                              player.player?.image_url ||
+                              "https://media.printables.com/media/prints/993971/images/7567942_39fd2e55-5ff1-43ef-a3a2-532a95d43dd4_93a75339-5509-492d-bac0-9c0ca1ede73d/thumbs/cover/800x800/jpg/f75dd04fa12445a8ec43be65fa16ff1b8d2bf82e.jpg",
                           }}
                           style={styles.playerImage}
                           resizeMode="cover"
@@ -2066,7 +2066,7 @@ const CS2TournamentScreen = ({ navigation, route }) => {
                           style={[styles.playerNickname, { color: theme.text }]}
                           numberOfLines={1}
                         >
-                          {player.player.nickname}
+                          {player.player?.nickname || "Player"}
                         </Text>
                       </View>
 
@@ -2075,8 +2075,8 @@ const CS2TournamentScreen = ({ navigation, route }) => {
                         <Image
                           source={{
                             uri:
-                              player.player.team.image_url ||
-                              "https://via.placeholder.com/32",
+                              player.player?.team?.image_url ||
+                              "https://media.printables.com/media/prints/993971/images/7567942_39fd2e55-5ff1-43ef-a3a2-532a95d43dd4_93a75339-5509-492d-bac0-9c0ca1ede73d/thumbs/cover/800x800/jpg/f75dd04fa12445a8ec43be65fa16ff1b8d2bf82e.jpg",
                           }}
                           style={styles.teamImage}
                           resizeMode="contain"
@@ -2088,7 +2088,7 @@ const CS2TournamentScreen = ({ navigation, route }) => {
                           ]}
                           numberOfLines={2}
                         >
-                          {player.player.team.name}
+                          {player.player?.team?.name || "Team"}
                         </Text>
                       </View>
 

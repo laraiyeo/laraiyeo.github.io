@@ -215,7 +215,7 @@ const CompareScreen = ({ route }) => {
   };
 
   const getTeamLogo = (player) => {
-    const teamLogoUrl = isDarkMode ? player.team?.logos?.[1]?.href : player.team?.logos?.[0]?.href;
+    const teamLogoUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/wnba/500${isDarkMode ? "-dark" : ""}/scoreboard/${(player.team?.abbreviation || "").toLowerCase()}.png&w=200&h=200`;
     return teamLogoUrl || getTeamLogoUrl('wnba', getWNBATeamAbbreviation(player.team));
   };
 
@@ -267,9 +267,9 @@ const CompareScreen = ({ route }) => {
         <View style={styles.playerImageContainer}>
           <Image
             source={{ 
-              uri: player.headshot?.href || `https://a.espncdn.com/combiner/i?img=/i/headshots/wnba/players/full/${player.id}.png`
+              uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/wnba/players/full/${player.id}.png&w=300`
             }}
-            style={styles.playerImage}
+            style={[styles.playerImage, { backgroundColor: `#${player.team?.color || '000000'}` + '88' }]}
           />
         </View>
 
@@ -542,9 +542,9 @@ const CompareScreen = ({ route }) => {
                   <View style={[styles.searchResultImage, { backgroundColor: theme.background }]}>
                     <Image
                       source={{ 
-                        uri: item.headshot?.href || `https://a.espncdn.com/combiner/i?img=/i/headshots/wnba/players/full/${item.id}.png`
+                        uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/wnba/players/full/${item.id}.png&w=200`
                       }}
-                      style={styles.playerHeadshot}
+                      style={[styles.playerHeadshot, { backgroundColor: `#${item.team?.color || '000000'}` + '88' }]}
                     />
                   </View>
                   <View style={styles.searchResultInfo}>
@@ -660,7 +660,7 @@ const styles = StyleSheet.create({
   playerImage: {
     width: 70,
     height: 70,
-    borderRadius: 30,
+    borderRadius: 35,
     marginBottom: 12,
   },
   playerHeadshot: {
@@ -870,8 +870,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   searchResultTeamLogo: {
-    width: 24,
-    height: 24,
+    width: 32,
+    height: 32,
   },
   modalOverlay: {
     flex: 1,

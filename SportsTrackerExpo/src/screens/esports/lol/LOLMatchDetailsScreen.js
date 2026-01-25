@@ -384,6 +384,7 @@ const LOLMatchDetailsScreen = ({ navigation, route }) => {
                   ]}
                   resizeMode="contain"
                 />
+                {status.text === 'SCHEDULED' ? null : (
                 <Text style={[
                   styles.scoreText, 
                   { 
@@ -393,6 +394,7 @@ const LOLMatchDetailsScreen = ({ navigation, route }) => {
                 ]}>
                   {teams[0]?.result?.gameWins || 0}
                 </Text>
+                )}
               </View>
               <Text style={[
                 styles.teamName, 
@@ -406,11 +408,12 @@ const LOLMatchDetailsScreen = ({ navigation, route }) => {
             </View>
 
             {/* Score Separator */}
-            <Text style={[styles.scoreSeparator, { color: theme.textSecondary }]}>-</Text>
+            <Text style={[styles.scoreSeparator, { color: theme.textSecondary }]}>{status.text === 'SCHEDULED' ? "vs" : "-"}</Text>
 
             {/* Team 2 */}
             <View style={styles.teamCompleteSection}>
               <View style={styles.logoScoreRow}>
+                {status.text === 'SCHEDULED' ? null : (
                 <Text style={[
                   styles.scoreText, 
                   { 
@@ -420,6 +423,7 @@ const LOLMatchDetailsScreen = ({ navigation, route }) => {
                 ]}>
                   {teams[1]?.result?.gameWins || 0}
                 </Text>
+                )}
                 <Image
                   source={{ uri: getSafeImageUri(teams[1]?.image) }}
                   style={[

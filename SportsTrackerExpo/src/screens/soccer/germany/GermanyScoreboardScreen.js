@@ -144,7 +144,7 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
 
       return () => {
         console.log(
-          "GermanyScoreboardScreen: Screen unfocused, clearing intervals"
+          "GermanyScoreboardScreen: Screen unfocused, clearing intervals",
         );
         setIsScreenFocused(false);
         // Clear any existing interval when screen loses focus
@@ -153,7 +153,7 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
           return null;
         });
       };
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
@@ -161,7 +161,7 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
       "GermanyScoreboardScreen: Main useEffect triggered for filter:",
       selectedDateFilter,
       "focused:",
-      isScreenFocused
+      isScreenFocused,
     );
     // Load the current filter first
     loadScoreboard();
@@ -193,7 +193,7 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
   useEffect(() => {
     console.log(
       "GermanyScoreboardScreen: Preload useEffect triggered, hasPreloaded:",
-      hasPreloadedRef.current
+      hasPreloadedRef.current,
     );
     // Only preload if we haven't done it before
     if (hasPreloadedRef.current) {
@@ -222,13 +222,13 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
 
   const loadScoreboard = async (
     silentUpdate = false,
-    dateFilter = selectedDateFilter
+    dateFilter = selectedDateFilter,
   ) => {
     console.log(
       "GermanyScoreboardScreen: loadScoreboard called - silentUpdate:",
       silentUpdate,
       "dateFilter:",
-      dateFilter
+      dateFilter,
     );
     const now = Date.now();
     const cachedData = gameCache[dateFilter];
@@ -251,7 +251,7 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
 
       console.log(
         "GermanyScoreboardScreen: Fetching fresh data for",
-        dateFilter
+        dateFilter,
       );
       const data = await GermanyServiceEnhanced.getScoreboard(dateFilter);
 
@@ -260,10 +260,10 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
         (data.events || []).map(async (game) => {
           // Get team logos
           const awayLogo = await GermanyServiceEnhanced.getTeamLogoWithFallback(
-            game.competitions[0]?.competitors[1]?.team?.id
+            game.competitions[0]?.competitors[1]?.team?.id,
           );
           const homeLogo = await GermanyServiceEnhanced.getTeamLogoWithFallback(
-            game.competitions[0]?.competitors[0]?.team?.id
+            game.competitions[0]?.competitors[0]?.team?.id,
           );
 
           return {
@@ -271,7 +271,7 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
             awayLogo,
             homeLogo,
           };
-        })
+        }),
       );
 
       // Stable enhanced sorting: group by day, then by status priority (live/pre/post),
@@ -324,7 +324,7 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
           awayScore: g.competitions[0]?.competitors[1]?.score,
           homeScore: g.competitions[0]?.competitors[0]?.score,
           clock: g.status?.displayClock,
-        }))
+        })),
       );
 
       // Update cache
@@ -352,7 +352,7 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
     } catch (error) {
       console.error(
         "GermanyScoreboardScreen: Error loading scoreboard:",
-        error
+        error,
       );
       if (!silentUpdate) {
         setLoading(false);
@@ -388,7 +388,7 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
     if (isCacheValid) {
       console.log(
         "GermanyScoreboardScreen: Using cached data for filter change to:",
-        filter
+        filter,
       );
       setGames(cachedData);
       setLoading(false);
@@ -396,7 +396,7 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
       console.log(
         "GermanyScoreboardScreen: No valid cache for filter:",
         filter,
-        "- will fetch fresh data"
+        "- will fetch fresh data",
       );
     }
   };
@@ -505,11 +505,11 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
       const awayName = awayTeam?.displayName || awayTeam?.abbreviation || "";
       const matchedId = LiveTrackerService.findMatchIdByTeams(
         homeName,
-        awayName
+        awayName,
       );
       console.log(
         "GermanyScoreboardScreen: matched live-tracker id ->",
-        matchedId
+        matchedId,
       );
 
       navigation.navigate("GermanyGameDetails", {
@@ -738,7 +738,7 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
 
         {/* Live Viewer Section */}
         <View style={[styles.viewerSection, { borderTopColor: theme.border }]}>
-          <LiveViewerBadge gameId={competition.id} />
+          <LiveViewerBadge gameId={competition.id} status={matchStatus.text} />
         </View>
       </TouchableOpacity>
     );

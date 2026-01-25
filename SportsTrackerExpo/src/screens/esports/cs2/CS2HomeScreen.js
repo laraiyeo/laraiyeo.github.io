@@ -642,7 +642,7 @@ const CS2HomeScreen = ({ navigation, route }) => {
           <View style={styles.emptyState}>
             <Ionicons name="calendar-outline" size={48} color={theme.textTertiary} />
             <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>
-              No upcoming matches for {activeFilter}
+              No matches for {activeFilter}
             </Text>
           </View>
         )}

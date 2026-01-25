@@ -65,6 +65,12 @@ const VALDiscoverScreen = ({ navigation }) => {
         return statusA - statusB;
       }
 
+      const rankA = a.rank || 0;
+      const rankB = b.rank || 0;
+      if (rankA !== rankB) {
+        return rankB - rankA; // Higher rank value first
+      }
+      
       // Second priority: sort by prize pool (descending)
       const prizeA = a.prizePool || 0;
       const prizeB = b.prizePool || 0;
@@ -112,6 +118,7 @@ const VALDiscoverScreen = ({ navigation }) => {
         featured = [...featured, ...additionalEvents];
         // Sort the final featured list
         featured = sortEventsByStatusPrizeAndDate(featured);
+        console.log("Mixed featured events:", featured);
       } else {
         // No live events, use upcoming or completed with sorting
         if (upcomingList.length > 0) {

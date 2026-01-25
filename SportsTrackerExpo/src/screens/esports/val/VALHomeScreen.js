@@ -14,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../../../context/ThemeContext';
-import { getLiveSeries, getCompletedSeries, getUpcomingSeries } from '../../../services/valorantService';
+import { getAllSeriesNextData } from '../../../services/valorantService';
 
 const { width } = Dimensions.get('window');
 
@@ -26,6 +26,7 @@ const VALHomeScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [rawApiData, setRawApiData] = useState(null);
+  const [allSeries, setAllSeries] = useState([]);
   const [activeFilter, setActiveFilter] = useState('today');
   const [selectedGame, setSelectedGame] = useState('VAL');
 
@@ -41,25 +42,32 @@ const VALHomeScreen = ({ navigation, route }) => {
       const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
       const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
       
-      // Fetch series data from rib.gg API
-      const [liveData, todayCompletedData, todayUpcomingData] = await Promise.all([
-        getLiveSeries(),
-        getCompletedSeries(today),
-        getUpcomingSeries(today)
-      ]);
-      
+      // Fetch the single Next.js en.json once and filter locally
+      const fetched = await getAllSeriesNextData();
+
       // Store raw API data for debugging
       setRawApiData({
-        live: liveData,
-        completed: todayCompletedData,
-        upcoming: todayUpcomingData,
+        raw: fetched,
         timestamp: new Date().toISOString(),
         currentDate: new Date().toString()
       });
-      
-      setLiveSeries(liveData?.data || []);
-      setCompletedSeries(todayCompletedData?.data || []);
-      setUpcomingSeries(todayUpcomingData?.data || []);
+
+      const list = Array.isArray(fetched) ? fetched : [];
+      setAllSeries(list);
+
+      const isSameDay = (dateString, targetDate) => {
+        if (!dateString) return false;
+        const d = new Date(dateString);
+        return d.getFullYear() === targetDate.getFullYear() && d.getMonth() === targetDate.getMonth() && d.getDate() === targetDate.getDate();
+      };
+
+      setLiveSeries(list.filter(s => s && (s.live === true || (s.status && String(s.status).toLowerCase() === 'live'))));
+      setCompletedSeries(
+        list
+          .filter(s => s && s.completed === true && isSameDay(s.startDate, today))
+          .sort((a, b) => (b.startDate ? new Date(b.startDate).getTime() : 0) - (a.startDate ? new Date(a.startDate).getTime() : 0))
+      );
+      setUpcomingSeries(list.filter(s => s && !s.live && !s.completed && isSameDay(s.startDate, today)));
     } catch (error) {
       console.error('Error loading Valorant series data:', error);
       // Fallback to empty arrays on error
@@ -72,8 +80,9 @@ const VALHomeScreen = ({ navigation, route }) => {
   };
 
   const onRefresh = async () => {
+    // Do not re-fetch remote data; re-run local filtering against cached `allSeries`.
     setRefreshing(true);
-    await loadData();
+    loadFilteredData(activeFilter);
     setRefreshing(false);
   };
 
@@ -122,13 +131,22 @@ const VALHomeScreen = ({ navigation, route }) => {
           targetDate = today;
       }
       
-      const [completedData, upcomingData] = await Promise.all([
-        getCompletedSeries(targetDate),
-        getUpcomingSeries(targetDate)
-      ]);
-      
-      setCompletedSeries(completedData?.data || []);
-      setUpcomingSeries(upcomingData?.data || []);
+      const list = Array.isArray(allSeries) ? allSeries : [];
+      const startOfDay = new Date(targetDate); startOfDay.setHours(0,0,0,0);
+      const endOfDay = new Date(targetDate); endOfDay.setHours(23,59,59,999);
+
+      const inDay = (dateString) => {
+        if (!dateString) return false;
+        const d = new Date(dateString);
+        return d >= startOfDay && d <= endOfDay;
+      };
+
+      setCompletedSeries(
+        list
+          .filter(s => s && s.completed === true && inDay(s.startDate))
+          .sort((a, b) => (b.startDate ? new Date(b.startDate).getTime() : 0) - (a.startDate ? new Date(a.startDate).getTime() : 0))
+      );
+      setUpcomingSeries(list.filter(s => s && !s.live && !s.completed && inDay(s.startDate)));
     } catch (error) {
       console.error('Error loading filtered data:', error);
       setCompletedSeries([]);
@@ -264,7 +282,7 @@ const VALHomeScreen = ({ navigation, route }) => {
   const groupSeriesByEvent = (series) => {
     const grouped = {};
     series.forEach(s => {
-      const eventKey = s.eventId || s.eventName;
+      const eventKey = s.parentEventId || s.parentEventSlug;
       if (!grouped[eventKey]) {
         grouped[eventKey] = {
           eventId: s.eventId,
@@ -581,7 +599,7 @@ const VALHomeScreen = ({ navigation, route }) => {
           <View style={styles.emptyState}>
             <Ionicons name="calendar-outline" size={48} color={theme.textTertiary} />
             <Text style={[styles.emptyStateText, { color: theme.textSecondary }]}>
-              No upcoming matches for {activeFilter}
+              No matches for {activeFilter}
             </Text>
           </View>
         )}

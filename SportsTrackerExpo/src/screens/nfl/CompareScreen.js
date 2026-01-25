@@ -412,9 +412,9 @@ const CompareScreen = ({ route }) => {
         <View style={styles.playerImageContainer}>
           <Image
             source={{ 
-              uri: player.headshot?.href || `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${player.id}.png`
+              uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/${player.id}.png&w=300`
             }}
-            style={styles.playerImage}
+            style={[styles.playerImage, { backgroundColor: `#${player.team?.color || '000000'}` + '88' }]}
           />
         </View>
 
@@ -981,8 +981,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   searchResultTeamLogo: {
-    width: 24,
-    height: 24,
+    width: 32,
+    height: 32,
   },
   modalOverlay: {
     flex: 1,

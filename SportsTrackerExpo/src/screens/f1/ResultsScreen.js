@@ -1041,7 +1041,7 @@ const ResultsScreen = ({ route }) => {
 
       {/* Viewer Count Section - Bottom placement as requested */}
       <View style={[styles.viewerSection, { borderTopColor: theme.border }]}>
-        <LiveViewerBadge gameId={event.id} style={styles.viewerBadge} />
+        <LiveViewerBadge gameId={event.id} status={event.status} style={styles.viewerBadge} />
       </View>
     </TouchableOpacity>
   );

@@ -82,6 +82,7 @@ export const useGamePresence = (gameId) => {
     viewerCount: viewerData.count,
     viewers: viewerData.viewers,
     isJoined,
+    peak: viewerData.peak || null,
   };
 };
 
@@ -126,6 +127,7 @@ export const useGamePresenceReadOnly = (gameId) => {
   return {
     viewerCount: viewerData.count,
     viewers: viewerData.viewers,
+    peak: viewerData.peak || null,
   };
 };
 

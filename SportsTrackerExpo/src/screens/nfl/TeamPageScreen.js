@@ -587,12 +587,12 @@ const TeamPageScreen = ({ route, navigation }) => {
       <View style={[styles.teamHeader, { backgroundColor: theme.surface }]}>
           <TeamLogoImage team={teamData} style={styles.teamLogoHead} />
         <View style={styles.teamInfo}>
-          <Text allowFontScaling={false} style={[styles.teamName, { color: `#${teamData.color}` }]}>{teamData.displayName || teamData.name || teamData.abbreviation}</Text>
+          <Text allowFontScaling={false} style={[styles.teamName, { color: `#${teamData.color}`, textShadowColor: isDarkMode ? '#ffffff88' : '#00000088', textShadowOffset: { width: 1, height: 0 }, textShadowRadius: 3 }]}>{teamData.displayName || teamData.name || teamData.abbreviation}</Text>
           <Text allowFontScaling={false} style={[styles.teamDivision, { color: theme.textSecondary }]}>{teamData.standingSummary || teamData.conference?.name || ''}</Text>
           {teamRecord && (
             <View style={styles.recordContainer}>
               <View style={styles.recordRow}>
-                <Text allowFontScaling={false} style={[styles.recordValue, { color: `#${teamData.color}` }]}>{teamRecord.wins}-{teamRecord.losses}</Text>
+                <Text allowFontScaling={false} style={[styles.recordValue, { color: theme.text }]}>{teamRecord.wins}-{teamRecord.losses}</Text>
                 <Text allowFontScaling={false} style={[styles.recordValue, { color: teamRecord.streak.slice(0, 1) === 'L' ? 'red' : 'green' }]}>{teamRecord.streak}</Text>
                 <Text allowFontScaling={false} style={[styles.recordValue, { color: teamRecord.differential.slice(0, 1) === '-' ? 'red' : 'green' }]}>{teamRecord.differential}</Text>
               </View>

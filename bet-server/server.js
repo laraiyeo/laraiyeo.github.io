@@ -5654,10 +5654,20 @@ app.get("/api/betslip", async (req, res) => {
 
       const sport = getSportFromGameId(gameId);
 
+      // helper: case-insensitive lookup into req.query
+      const findQueryValue = (name) => {
+        if (!req.query) return undefined;
+        const target = String(name || "").toLowerCase();
+        for (const k of Object.keys(req.query || {})) {
+          if (String(k || "").toLowerCase() === target) return req.query[k];
+        }
+        return undefined;
+      };
+
       // Try sport-specific parameter first (always, not just for multi-sport)
       if (sport) {
         const sportParam = `${paramName}_${sport}`;
-        const raw = req.query[sportParam];
+        const raw = findQueryValue(sportParam) ?? findQueryValue(`${paramName}${sport}`);
         if (raw !== undefined && raw !== null) {
           const parts = String(raw)
             .split(",")
@@ -5676,7 +5686,7 @@ app.get("/api/betslip", async (req, res) => {
       }
 
       // Fall back to non-suffixed parameter
-      const raw = req.query[paramName];
+      const raw = findQueryValue(paramName);
       if (raw === undefined || raw === null) return null;
       const parts = String(raw)
         .split(",")
