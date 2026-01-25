@@ -5643,7 +5643,13 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                 <View style={styles.teamScoreDisplay}>
                   <TeamLogoImage
                     teamId={homeTeam?.team?.id}
-                    isDarkMode={isScoring ? (scoringTextColor === "#000" ? false : true) : isDarkMode}
+                    isDarkMode={
+                      isScoring
+                        ? scoringTextColor === "#000"
+                          ? false
+                          : true
+                        : isDarkMode
+                    }
                     style={styles.teamLogoSmall}
                     isScoring={isScoring}
                     scoringTextColor={scoringTextColor}
@@ -5660,7 +5666,10 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                 </View>
                 <Text
                   allowFontScaling={false}
-                  style={[styles.scoreSeparator, { color: isScoring ? scoringTextColor : theme.text }]}
+                  style={[
+                    styles.scoreSeparator,
+                    { color: isScoring ? scoringTextColor : theme.text },
+                  ]}
                 >
                   -
                 </Text>
@@ -5676,7 +5685,13 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                   </Text>
                   <TeamLogoImage
                     teamId={awayTeam?.team?.id}
-                    isDarkMode={isScoring ? (scoringTextColor === "#000" ? false : true) : isDarkMode}
+                    isDarkMode={
+                      isScoring
+                        ? scoringTextColor === "#000"
+                          ? false
+                          : true
+                        : isDarkMode
+                    }
                     style={styles.teamLogoSmall}
                     isScoring={isScoring}
                     scoringTextColor={scoringTextColor}
@@ -7190,7 +7205,10 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                       try {
                         requestDomain = new URL(request.url).hostname;
                       } catch (e) {
-                        if (urlLower.startsWith("about:blank") || urlLower.startsWith("data:")) {
+                        if (
+                          urlLower.startsWith("about:blank") ||
+                          urlLower.startsWith("data:")
+                        ) {
                           return true;
                         }
                         console.log("Invalid URL:", request.url);
@@ -7212,7 +7230,9 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                         "about:blank",
                         "data:",
                       ];
-                      const allowIfEmbed = allowPatterns.some((p) => urlLower.includes(p));
+                      const allowIfEmbed = allowPatterns.some((p) =>
+                        urlLower.includes(p),
+                      );
 
                       if (hasPopupKeywords && !allowIfEmbed) {
                         console.log(
@@ -7453,9 +7473,8 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                       let scoringTeam = null;
                       let scoringTeamSide = "";
                       let teamAbbr = "";
-                      
-                      const isOwnGoal =
-                        play.type?.id === "97" || "";
+
+                      const isOwnGoal = play.type?.id === "97" || "";
 
                       console.log("Trying to match team IDs:", {
                         playTeamId,
@@ -7607,7 +7626,12 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                       // Get time info
                       const period = play.period ? play.period.number || 1 : 1;
                       const clock = play.clock?.displayValue || "";
-                      const periodText = period === 1 ? "1st Half" : period === 2 ? "2nd Half" : `Extra Time`;
+                      const periodText =
+                        period === 1
+                          ? "1st Half"
+                          : period === 2
+                            ? "2nd Half"
+                            : `Extra Time`;
 
                       // Get current scores
                       const homeScore = play.homeScore || 0;
@@ -7861,7 +7885,9 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
                                   { color: textColor },
                                 ]}
                               >
-                                {isOwnGoal ? playerStats.ownGoals : playerStats.goals}
+                                {isOwnGoal
+                                  ? playerStats.ownGoals
+                                  : playerStats.goals}
                               </Text>
                               <Text
                                 style={[

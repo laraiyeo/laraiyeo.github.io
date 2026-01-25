@@ -97,7 +97,10 @@ const GridDriverImage = React.memo(
           source={{ uri: headshot, cache: "force-cache" }}
           style={[
             styles.gridDriverAvatar,
-            { borderColor: teamColor || theme.border, backgroundColor: (teamColor || theme.border) + '50' },
+            {
+              borderColor: teamColor || theme.border,
+              backgroundColor: (teamColor || theme.border) + "50",
+            },
           ]}
           onError={() => {
             setImageError(true);
@@ -109,12 +112,12 @@ const GridDriverImage = React.memo(
           onLoad={() => {
             if (headshot) loadedImages.add(headshot);
           }}
-        />
+        />,
       );
     }
 
     return imageComponentCache.get(cacheKey);
-  }
+  },
 );
 
 const RaceDetailsScreen = ({ route }) => {
@@ -131,7 +134,7 @@ const RaceDetailsScreen = ({ route }) => {
   const passedNextCompetitionType =
     (route.params && route.params.nextCompetitionType) || null;
   const [nextCompetitionLabel, setNextCompetitionLabel] = useState(
-    passedNextCompetitionType
+    passedNextCompetitionType,
   );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -268,7 +271,7 @@ const RaceDetailsScreen = ({ route }) => {
           isScreenFocusedRef.current = false;
         }
       };
-    }, [])
+    }, []),
   );
 
   // Cleanup intervals on unmount
@@ -375,7 +378,7 @@ const RaceDetailsScreen = ({ route }) => {
     }
 
     const positionStat = gapToLeaderSplit.stats?.find(
-      (stat) => stat.name === "position"
+      (stat) => stat.name === "position",
     );
     if (positionStat) {
       return positionStat.value;
@@ -392,13 +395,13 @@ const RaceDetailsScreen = ({ route }) => {
 
       // Find the gapToLeader category (search by name, don't assume index)
       const gapToLeaderCategory = categories.find(
-        (cat) => cat.name === "gapToLeader"
+        (cat) => cat.name === "gapToLeader",
       );
 
       if (gapToLeaderCategory?.stats) {
         // Check position first to determine if this is the leader
         const positionStat = gapToLeaderCategory.stats.find(
-          (stat) => stat.name === "position"
+          (stat) => stat.name === "position",
         );
 
         if (positionStat && positionStat.value === 1) {
@@ -407,7 +410,7 @@ const RaceDetailsScreen = ({ route }) => {
 
         // Get the gapToLeader value
         const gapStat = gapToLeaderCategory.stats.find(
-          (stat) => stat.name === "gapToLeader"
+          (stat) => stat.name === "gapToLeader",
         );
 
         if (gapStat) {
@@ -424,7 +427,7 @@ const RaceDetailsScreen = ({ route }) => {
       if (generalCategory?.stats) {
         // Try behindTime from live stats
         const behindTimeStat = generalCategory.stats.find(
-          (stat) => stat.name === "behindTime"
+          (stat) => stat.name === "behindTime",
         );
         if (behindTimeStat && behindTimeStat.displayValue) {
           return behindTimeStat.displayValue;
@@ -432,7 +435,7 @@ const RaceDetailsScreen = ({ route }) => {
 
         // Try behindLaps from live stats
         const behindLapsStat = generalCategory.stats.find(
-          (stat) => stat.name === "behindLaps"
+          (stat) => stat.name === "behindLaps",
         );
         if (behindLapsStat && behindLapsStat.value != null) {
           return `+${behindLapsStat.value} Laps`;
@@ -497,14 +500,14 @@ const RaceDetailsScreen = ({ route }) => {
           (a.order != null
             ? Number(a.order)
             : a.startOrder != null
-            ? Number(a.startOrder)
-            : Number(a.startPosition ?? 0)) || 0;
+              ? Number(a.startOrder)
+              : Number(a.startPosition ?? 0)) || 0;
         const bOrder =
           (b.order != null
             ? Number(b.order)
             : b.startOrder != null
-            ? Number(b.startOrder)
-            : Number(b.startPosition ?? 0)) || 0;
+              ? Number(b.startOrder)
+              : Number(b.startPosition ?? 0)) || 0;
         return aOrder - bOrder;
       }
     });
@@ -557,7 +560,7 @@ const RaceDetailsScreen = ({ route }) => {
 
     // Convert race dates to EST for comparison
     const raceStartEST = new Date(
-      raceStartDate.getTime() + estOffset * 60 * 1000
+      raceStartDate.getTime() + estOffset * 60 * 1000,
     );
     const raceEndEST = new Date(raceEndDate.getTime() + estOffset * 60 * 1000);
 
@@ -565,17 +568,17 @@ const RaceDetailsScreen = ({ route }) => {
     const currentESTDateOnly = new Date(
       nowEST.getFullYear(),
       nowEST.getMonth(),
-      nowEST.getDate()
+      nowEST.getDate(),
     );
     const raceStartDateOnly = new Date(
       raceStartEST.getFullYear(),
       raceStartEST.getMonth(),
-      raceStartEST.getDate()
+      raceStartEST.getDate(),
     );
     const raceEndDateOnly = new Date(
       raceEndEST.getFullYear(),
       raceEndEST.getMonth(),
-      raceEndEST.getDate()
+      raceEndEST.getDate(),
     );
 
     const isWithinRaceWeekend =
@@ -636,31 +639,31 @@ const RaceDetailsScreen = ({ route }) => {
 
     if (compTypeAbbrev === "race") {
       targetSession = openF1Data.sessions.find(
-        (s) => s.session_name === "Race"
+        (s) => s.session_name === "Race",
       );
     } else if (compTypeAbbrev === "qual") {
       targetSession = openF1Data.sessions.find(
-        (s) => s.session_name === "Qualifying"
+        (s) => s.session_name === "Qualifying",
       );
     } else if (compTypeAbbrev === "fp3") {
       targetSession = openF1Data.sessions.find(
-        (s) => s.session_name === "Practice 3"
+        (s) => s.session_name === "Practice 3",
       );
     } else if (compTypeAbbrev === "fp2") {
       targetSession = openF1Data.sessions.find(
-        (s) => s.session_name === "Practice 2"
+        (s) => s.session_name === "Practice 2",
       );
     } else if (compTypeAbbrev === "fp1") {
       targetSession = openF1Data.sessions.find(
-        (s) => s.session_name === "Practice 1"
+        (s) => s.session_name === "Practice 1",
       );
     } else if (compTypeAbbrev === "ss") {
       targetSession = openF1Data.sessions.find(
-        (s) => s.session_name === "Sprint Qualifying"
+        (s) => s.session_name === "Sprint Qualifying",
       );
     } else if (compTypeAbbrev === "sr") {
       targetSession = openF1Data.sessions.find(
-        (s) => s.session_name === "Sprint"
+        (s) => s.session_name === "Sprint",
       );
     }
 
@@ -681,9 +684,8 @@ const RaceDetailsScreen = ({ route }) => {
     let mounted = true;
     const loadResults = async () => {
       if (!raceData) return;
-      const { results: res, order } = await fetchCompetitionResultsForEvent(
-        raceData
-      );
+      const { results: res, order } =
+        await fetchCompetitionResultsForEvent(raceData);
       if (!mounted) return;
 
       // Preserve existing liveStats when updating competition results
@@ -696,7 +698,7 @@ const RaceDetailsScreen = ({ route }) => {
             merged[compId].competitors = merged[compId].competitors.map(
               (newCompetitor) => {
                 const existingCompetitor = prev[compId].competitors.find(
-                  (c) => c.id === newCompetitor.id
+                  (c) => c.id === newCompetitor.id,
                 );
                 if (existingCompetitor && existingCompetitor.liveStats) {
                   return {
@@ -705,7 +707,7 @@ const RaceDetailsScreen = ({ route }) => {
                   };
                 }
                 return newCompetitor;
-              }
+              },
             );
           }
         });
@@ -716,10 +718,15 @@ const RaceDetailsScreen = ({ route }) => {
       setCompetitionOrder(order);
 
       // pick default competition - prefer current (nextCompetitionLabel) or last completed competition
-      console.log("[Competition Selection] Starting competition selection, order:", order, "nextCompetitionLabel:", nextCompetitionLabel);
+      console.log(
+        "[Competition Selection] Starting competition selection, order:",
+        order,
+        "nextCompetitionLabel:",
+        nextCompetitionLabel,
+      );
       if (order && order.length > 0) {
         let preferred = null;
-        
+
         // Always run smart selection first to check for live competitions
         // Smart competition selection: prioritize live > next upcoming > completed
         let liveCompetition = null;
@@ -728,256 +735,263 @@ const RaceDetailsScreen = ({ route }) => {
         let lastCompletedCompetition = null;
 
         const now = new Date();
-        console.log(
-          "[Competition Selection] Current time:",
-          now.toISOString()
-        );
+        console.log("[Competition Selection] Current time:", now.toISOString());
         console.log(
           "[Competition Selection] Raw raceData.competitions:",
-          raceData.competitions
+          raceData.competitions,
         );
 
         // Create array of competitions with their dates for better sorting
         const competitionsWithDates = order
-            .map((competitionId) => {
-              const r = res[competitionId];
-              if (!r) return null;
+          .map((competitionId) => {
+            const r = res[competitionId];
+            if (!r) return null;
 
-              // Try to find corresponding competition in original raceData for date/status info
-              const originalComp = raceData.competitions.find((comp) => {
-                const compId =
-                  comp.id || (comp.$ref && comp.$ref.split("/").pop());
-                return compId === competitionId;
-              });
+            // Try to find corresponding competition in original raceData for date/status info
+            const originalComp = raceData.competitions.find((comp) => {
+              const compId =
+                comp.id || (comp.$ref && comp.$ref.split("/").pop());
+              return compId === competitionId;
+            });
 
-              const compDate = originalComp?.date
-                ? new Date(originalComp.date)
-                : r.date
+            const compDate = originalComp?.date
+              ? new Date(originalComp.date)
+              : r.date
                 ? new Date(r.date)
                 : null;
-              const endDate = originalComp?.endDate
-                ? new Date(originalComp.endDate)
-                : r.endDate
+            const endDate = originalComp?.endDate
+              ? new Date(originalComp.endDate)
+              : r.endDate
                 ? new Date(r.endDate)
                 : compDate
-                ? new Date(compDate.getTime() + 3 * 60 * 60 * 1000)
-                : null;
+                  ? new Date(compDate.getTime() + 3 * 60 * 60 * 1000)
+                  : null;
 
-              // Use the status fetched during fetchCompetitionResultsForEvent
-              const status = r.status?.type || originalComp?.status?.type;
+            // Use the status fetched during fetchCompetitionResultsForEvent
+            const status = r.status?.type || originalComp?.status?.type;
 
-              // Log the fetched status for debugging
-              if (r.status) {
-                console.log(
-                  `[Status Fetched] ${
-                    r.name || r.type?.displayName || competitionId
-                  }:`,
-                  {
-                    hasStatus: !!r.status,
-                    statusType: r.status.type,
-                    state: r.status.type?.state,
-                    completed: r.status.type?.completed,
-                    description: r.status.type?.description,
-                  }
-                );
-                console.log(`[Status Detail] Full r.status for ${r.name}:`, r.status);
-                console.log(`[Status Detail] status variable (r.status.type) for ${r.name}:`, status);
-              }
-
-              // ESPN status can be confusing - "End of Session" means completed even if completed: false
-              const isCompleted =
-                status?.completed === true ||
-                status?.state === "post" ||
-                status?.description === "End of Session" ||
-                status?.detail === "End of Session" ||
-                status?.name === "STATUS_SESSION_COMPLETE";
-              // Prioritize status state - if status says 'in', it's live
-              const isLive =
-                !isCompleted &&
-                (status?.state === "in" || status?.state === "active");
-              const isUpcoming = !isCompleted && compDate && now < compDate;
-
-              const competitorCount = r.competitors?.length || 0;
-              const hasResults =
-                r.competitors?.some((c) => c.winner || c.order) || false;
-
+            // Log the fetched status for debugging
+            if (r.status) {
               console.log(
-                `[Competition Status] ${
+                `[Status Fetched] ${
                   r.name || r.type?.displayName || competitionId
                 }:`,
                 {
-                  id: competitionId,
-                  date: compDate?.toISOString(),
-                  endDate: endDate?.toISOString(),
-                  originalCompDate: originalComp?.date,
-                  originalCompStatus: originalComp?.status,
-                  fetchedStatus: r.status,
-                  isCompleted,
-                  isLive,
-                  isUpcoming,
-                  competitorCount,
-                  hasResults,
-                  statusState: status?.state,
-                  statusCompleted: status?.completed,
-                  statusDescription: status?.description,
-                  competitionType: r.type?.displayName || r.type?.abbreviation,
-                  originalComp: originalComp ? "found" : "not found",
-                }
+                  hasStatus: !!r.status,
+                  statusType: r.status.type,
+                  state: r.status.type?.state,
+                  completed: r.status.type?.completed,
+                  description: r.status.type?.description,
+                },
               );
+              console.log(
+                `[Status Detail] Full r.status for ${r.name}:`,
+                r.status,
+              );
+              console.log(
+                `[Status Detail] status variable (r.status.type) for ${r.name}:`,
+                status,
+              );
+            }
 
-              return {
+            // ESPN status can be confusing - "End of Session" means completed even if completed: false
+            const isCompleted =
+              status?.completed === true ||
+              status?.state === "post" ||
+              status?.description === "End of Session" ||
+              status?.detail === "End of Session" ||
+              status?.name === "STATUS_SESSION_COMPLETE";
+            // Prioritize status state - if status says 'in', it's live
+            const isLive =
+              !isCompleted &&
+              (status?.state === "in" || status?.state === "active");
+            const isUpcoming = !isCompleted && compDate && now < compDate;
+
+            const competitorCount = r.competitors?.length || 0;
+            const hasResults =
+              r.competitors?.some((c) => c.winner || c.order) || false;
+
+            console.log(
+              `[Competition Status] ${
+                r.name || r.type?.displayName || competitionId
+              }:`,
+              {
                 id: competitionId,
-                competition: r,
-                date: compDate,
-                endDate,
+                date: compDate?.toISOString(),
+                endDate: endDate?.toISOString(),
+                originalCompDate: originalComp?.date,
+                originalCompStatus: originalComp?.status,
+                fetchedStatus: r.status,
                 isCompleted,
                 isLive,
                 isUpcoming,
+                competitorCount,
                 hasResults,
-              };
-            })
-            .filter(Boolean);
+                statusState: status?.state,
+                statusCompleted: status?.completed,
+                statusDescription: status?.description,
+                competitionType: r.type?.displayName || r.type?.abbreviation,
+                originalComp: originalComp ? "found" : "not found",
+              },
+            );
 
-          // Build a map of processed competition status for easy lookup elsewhere
-          const statusMap = {};
-          competitionsWithDates.forEach((c) => {
-            statusMap[c.id] = {
-              isLive: !!c.isLive,
-              isCompleted: !!c.isCompleted,
-              isUpcoming: !!c.isUpcoming,
-              hasResults: !!c.hasResults,
-              date: c.date,
-              endDate: c.endDate,
+            return {
+              id: competitionId,
+              competition: r,
+              date: compDate,
+              endDate,
+              isCompleted,
+              isLive,
+              isUpcoming,
+              hasResults,
             };
-          });
-          setCompetitionStatusMap(statusMap);
+          })
+          .filter(Boolean);
 
-          // Sort by date to find chronologically next sessions
-          competitionsWithDates.sort((a, b) => {
-            if (!a.date && !b.date) return 0;
-            if (!a.date) return 1;
-            if (!b.date) return -1;
-            return a.date.getTime() - b.date.getTime();
-          });
+        // Build a map of processed competition status for easy lookup elsewhere
+        const statusMap = {};
+        competitionsWithDates.forEach((c) => {
+          statusMap[c.id] = {
+            isLive: !!c.isLive,
+            isCompleted: !!c.isCompleted,
+            isUpcoming: !!c.isUpcoming,
+            hasResults: !!c.hasResults,
+            date: c.date,
+            endDate: c.endDate,
+          };
+        });
+        setCompetitionStatusMap(statusMap);
 
-          // Find live session first
-          console.log("[Competition Selection] Checking for live competitions:", competitionsWithDates.map(c => ({ name: c.competition.name, isLive: c.isLive, id: c.id })));
+        // Sort by date to find chronologically next sessions
+        competitionsWithDates.sort((a, b) => {
+          if (!a.date && !b.date) return 0;
+          if (!a.date) return 1;
+          if (!b.date) return -1;
+          return a.date.getTime() - b.date.getTime();
+        });
+
+        // Find live session first
+        console.log(
+          "[Competition Selection] Checking for live competitions:",
+          competitionsWithDates.map((c) => ({
+            name: c.competition.name,
+            isLive: c.isLive,
+            id: c.id,
+          })),
+        );
+        for (const comp of competitionsWithDates) {
+          if (comp.isLive) {
+            liveCompetition = comp.id;
+            console.log(
+              "[Competition Selection] Found live competition:",
+              comp.competition.name,
+            );
+            break;
+          }
+        }
+
+        // Find next upcoming session (chronologically next)
+        if (!liveCompetition) {
           for (const comp of competitionsWithDates) {
-            if (comp.isLive) {
-              liveCompetition = comp.id;
+            if (comp.isUpcoming) {
+              nextUpcomingCompetition = comp.id;
+              nextUpcomingDate = comp.date;
               console.log(
-                "[Competition Selection] Found live competition:",
-                comp.competition.name
+                "[Competition Selection] Found next upcoming competition:",
+                comp.competition.name,
+                "at",
+                comp.date?.toISOString(),
               );
               break;
             }
           }
+        }
 
-          // Find next upcoming session (chronologically next)
-          if (!liveCompetition) {
-            for (const comp of competitionsWithDates) {
-              if (comp.isUpcoming) {
-                nextUpcomingCompetition = comp.id;
-                nextUpcomingDate = comp.date;
-                console.log(
-                  "[Competition Selection] Found next upcoming competition:",
-                  comp.competition.name,
-                  "at",
-                  comp.date?.toISOString()
-                );
-                break;
-              }
-            }
-          }
-
-          // Find last completed with results
-          if (!liveCompetition && !nextUpcomingCompetition) {
-            for (let i = competitionsWithDates.length - 1; i >= 0; i--) {
-              const comp = competitionsWithDates[i];
-              if (comp.isCompleted && comp.hasResults) {
-                lastCompletedCompetition = comp.id;
-                console.log(
-                  "[Competition Selection] Found last completed competition:",
-                  comp.competition.name
-                );
-                break;
-              }
-            }
-          }
-
-          // Select in priority order: live > next upcoming > last completed > nextCompetitionLabel > last in order
-          preferred =
-            liveCompetition ||
-            nextUpcomingCompetition ||
-            lastCompletedCompetition;
-          
-          // If no live/upcoming/completed found, fall back to nextCompetitionLabel if provided
-          if (!preferred && nextCompetitionLabel) {
-            preferred = order.find((id) => {
-              const r = res[id];
-              const t = r?.type || {};
-              const label = (
-                t.abbreviation ||
-                t.displayName ||
-                t.text ||
-                r.name ||
-                ""
-              )
-                .toString()
-                .toLowerCase();
-              return (
-                label === ("" + nextCompetitionLabel).toString().toLowerCase()
+        // Find last completed with results
+        if (!liveCompetition && !nextUpcomingCompetition) {
+          for (let i = competitionsWithDates.length - 1; i >= 0; i--) {
+            const comp = competitionsWithDates[i];
+            if (comp.isCompleted && comp.hasResults) {
+              lastCompletedCompetition = comp.id;
+              console.log(
+                "[Competition Selection] Found last completed competition:",
+                comp.competition.name,
               );
-            });
+              break;
+            }
           }
-          
-          // Final fallback to last in order
-          if (!preferred) {
-            preferred = order[order.length - 1];
-          }
+        }
 
-          const selectedCompetitionName =
-            res[preferred]?.name ||
-            res[preferred]?.type?.displayName ||
-            preferred;
-          console.log("=== COMPETITION SELECTION SUMMARY ===");
-          console.log("Available options:", {
-            live: liveCompetition
-              ? `${res[liveCompetition]?.name || liveCompetition}`
-              : null,
-            nextUpcoming: nextUpcomingCompetition
-              ? `${
-                  res[nextUpcomingCompetition]?.name || nextUpcomingCompetition
-                }`
-              : null,
-            lastCompleted: lastCompletedCompetition
-              ? `${
-                  res[lastCompletedCompetition]?.name ||
-                  lastCompletedCompetition
-                }`
-              : null,
-            fallback: `${
-              res[order[order.length - 1]]?.name || order[order.length - 1]
-            }`,
+        // Select in priority order: live > next upcoming > last completed > nextCompetitionLabel > last in order
+        preferred =
+          liveCompetition ||
+          nextUpcomingCompetition ||
+          lastCompletedCompetition;
+
+        // If no live/upcoming/completed found, fall back to nextCompetitionLabel if provided
+        if (!preferred && nextCompetitionLabel) {
+          preferred = order.find((id) => {
+            const r = res[id];
+            const t = r?.type || {};
+            const label = (
+              t.abbreviation ||
+              t.displayName ||
+              t.text ||
+              r.name ||
+              ""
+            )
+              .toString()
+              .toLowerCase();
+            return (
+              label === ("" + nextCompetitionLabel).toString().toLowerCase()
+            );
           });
-          console.log(
-            "FINAL SELECTION:",
-            selectedCompetitionName,
-            `(ID: ${preferred})`
-          );
-          console.log(
-            "Selection reason:",
-            liveCompetition
-              ? "Live competition found"
-              : nextUpcomingCompetition
+        }
+
+        // Final fallback to last in order
+        if (!preferred) {
+          preferred = order[order.length - 1];
+        }
+
+        const selectedCompetitionName =
+          res[preferred]?.name ||
+          res[preferred]?.type?.displayName ||
+          preferred;
+        console.log("=== COMPETITION SELECTION SUMMARY ===");
+        console.log("Available options:", {
+          live: liveCompetition
+            ? `${res[liveCompetition]?.name || liveCompetition}`
+            : null,
+          nextUpcoming: nextUpcomingCompetition
+            ? `${res[nextUpcomingCompetition]?.name || nextUpcomingCompetition}`
+            : null,
+          lastCompleted: lastCompletedCompetition
+            ? `${
+                res[lastCompletedCompetition]?.name || lastCompletedCompetition
+              }`
+            : null,
+          fallback: `${
+            res[order[order.length - 1]]?.name || order[order.length - 1]
+          }`,
+        });
+        console.log(
+          "FINAL SELECTION:",
+          selectedCompetitionName,
+          `(ID: ${preferred})`,
+        );
+        console.log(
+          "Selection reason:",
+          liveCompetition
+            ? "Live competition found"
+            : nextUpcomingCompetition
               ? "Next upcoming competition"
               : lastCompletedCompetition
-              ? "Last completed competition with results"
-              : nextCompetitionLabel
-              ? `Fallback to nextCompetitionLabel: ${nextCompetitionLabel}`
-              : "Fallback to last in order"
-          );
-          console.log("=====================================");
+                ? "Last completed competition with results"
+                : nextCompetitionLabel
+                  ? `Fallback to nextCompetitionLabel: ${nextCompetitionLabel}`
+                  : "Fallback to last in order",
+        );
+        console.log("=====================================");
         setSelectedCompetitionId(preferred);
       }
     };
@@ -1008,7 +1022,7 @@ const RaceDetailsScreen = ({ route }) => {
             liveUpdateInterval: !!liveUpdateInterval,
             streamModalVisible,
             isScreenFocused,
-          }
+          },
         );
         return;
       }
@@ -1112,7 +1126,7 @@ const RaceDetailsScreen = ({ route }) => {
 
     // look for exact rel match with 'full' and prefer svg
     const candidates = diagrams.filter(
-      (d) => Array.isArray(d.rel) && d.rel.includes(preferRel)
+      (d) => Array.isArray(d.rel) && d.rel.includes(preferRel),
     );
     const svgPrefer = (arr) => {
       if (!arr || arr.length === 0) return null;
@@ -1258,7 +1272,7 @@ const RaceDetailsScreen = ({ route }) => {
 
       // Get event log from first driver (use cached/coalesced fetch)
       const firstDriverData = await fetchAthleteCached(
-        standingsData.standings[0].athlete.$ref
+        standingsData.standings[0].athlete.$ref,
       );
 
       if (!firstDriverData || !firstDriverData.eventLog?.$ref) {
@@ -1266,7 +1280,7 @@ const RaceDetailsScreen = ({ route }) => {
       }
 
       const eventLogResponse = await fetch(
-        convertToHttps(firstDriverData.eventLog.$ref)
+        convertToHttps(firstDriverData.eventLog.$ref),
       );
       const eventLogData = await eventLogResponse.json();
 
@@ -1330,7 +1344,7 @@ const RaceDetailsScreen = ({ route }) => {
     }
     // openf1 stints use driver_number field
     const filtered = openF1Data.stints.filter(
-      (s) => Number(s.driver_number) === Number(driverNumber)
+      (s) => Number(s.driver_number) === Number(driverNumber),
     );
     console.log("Filtered stints for driver", driverNumber, ":", filtered);
     return filtered.sort((a, b) => (a.lap_start || 0) - (b.lap_start || 0));
@@ -1354,7 +1368,7 @@ const RaceDetailsScreen = ({ route }) => {
 
     // If no stint found for that lap, use the last stint before that lap
     const previousStints = stints.filter(
-      (stint) => (stint.lap_start || 0) <= lapNumber
+      (stint) => (stint.lap_start || 0) <= lapNumber,
     );
     if (previousStints.length > 0) {
       const lastStint = previousStints[previousStints.length - 1];
@@ -1709,11 +1723,11 @@ const RaceDetailsScreen = ({ route }) => {
     const pad = (v, l = 2) => String(v).padStart(l, "0");
     if (hours > 0)
       return `${sign}${hours}:${pad(minutes)}:${pad(seconds)}.${String(
-        millis
+        millis,
       ).padStart(3, "0")}`;
     return `${sign}${minutes}:${pad(seconds)}.${String(millis).padStart(
       3,
-      "0"
+      "0",
     )}`;
   };
 
@@ -1724,11 +1738,14 @@ const RaceDetailsScreen = ({ route }) => {
 
     const results = {};
     // Build order array first based on the original order in eventData
-    const order = eventData.competitions.map((comp) => 
-      comp.id || (comp.$ref && comp.$ref.split("/").pop())
+    const order = eventData.competitions.map(
+      (comp) => comp.id || (comp.$ref && comp.$ref.split("/").pop()),
     );
 
-    console.log("[fetchCompetitionResultsForEvent] Processing competitions, order:", order);
+    console.log(
+      "[fetchCompetitionResultsForEvent] Processing competitions, order:",
+      order,
+    );
 
     // Process competitions in parallel
     await Promise.all(
@@ -1746,12 +1763,15 @@ const RaceDetailsScreen = ({ route }) => {
           // Fetch status for this competition upfront
           let statusData = null;
           const statusRef = comp.status?.$ref;
-          console.log(`[fetchCompetitionResultsForEvent] Checking status for ${compName}:`, {
-            compId,
-            hasStatusRef: !!statusRef,
-            statusRef,
-            compStatus: comp.status
-          });
+          console.log(
+            `[fetchCompetitionResultsForEvent] Checking status for ${compName}:`,
+            {
+              compId,
+              hasStatusRef: !!statusRef,
+              statusRef,
+              compStatus: comp.status,
+            },
+          );
           if (statusRef) {
             try {
               const statusResponse = await fetch(convertToHttps(statusRef));
@@ -1766,18 +1786,18 @@ const RaceDetailsScreen = ({ route }) => {
                     state: statusData?.type?.state,
                     completed: statusData?.type?.completed,
                     description: statusData?.type?.description,
-                  }
+                  },
                 );
               } else {
                 console.warn(
                   `[fetchCompetitionResultsForEvent] Failed to fetch status for ${compId}:`,
-                  statusResponse.status
+                  statusResponse.status,
                 );
               }
             } catch (error) {
               console.warn(
                 `[fetchCompetitionResultsForEvent] Error fetching status for ${compId}:`,
-                error
+                error,
               );
             }
           }
@@ -1812,7 +1832,7 @@ const RaceDetailsScreen = ({ route }) => {
                 "No team color found for manufacturer:",
                 manufacturer,
                 "for driver:",
-                name
+                name,
               );
             }
             const winner = c.winner === true;
@@ -1865,7 +1885,7 @@ const RaceDetailsScreen = ({ route }) => {
             .map((r, i) =>
               !r.totalTime && !r.laps && !r.qual1 && !r.qual2 && !r.qual3
                 ? i
-                : -1
+                : -1,
             )
             .filter((i) => i >= 0);
           if (needIndexes.length > 0) {
@@ -2058,20 +2078,20 @@ const RaceDetailsScreen = ({ route }) => {
                   parsed.qual1Ms != null
                     ? parsed.qual1Ms
                     : typeof parsed.qual1 === "number"
-                    ? parsed.qual1
-                    : null;
+                      ? parsed.qual1
+                      : null;
                 r.qual2Ms =
                   parsed.qual2Ms != null
                     ? parsed.qual2Ms
                     : typeof parsed.qual2 === "number"
-                    ? parsed.qual2
-                    : null;
+                      ? parsed.qual2
+                      : null;
                 r.qual3Ms =
                   parsed.qual3Ms != null
                     ? parsed.qual3Ms
                     : typeof parsed.qual3 === "number"
-                    ? parsed.qual3
-                    : null;
+                      ? parsed.qual3
+                      : null;
                 r.behindTime = normalizeTime(parsed.behindTime);
                 r.fastestLap = normalizeTime(parsed.fastestLap);
                 r.behindLaps = normalizeTime(parsed.behindLaps);
@@ -2108,7 +2128,7 @@ const RaceDetailsScreen = ({ route }) => {
             const driversWithQ1 = resolved
               .map((r, idx) => ({ ...r, originalIndex: idx }))
               .filter((r) => r.qual1Ms && Number(r.qual1Ms) > 0);
-            
+
             const driversWithQ2 = resolved
               .map((r, idx) => ({ ...r, originalIndex: idx }))
               .filter((r) => r.qual2Ms && Number(r.qual2Ms) > 0);
@@ -2116,34 +2136,34 @@ const RaceDetailsScreen = ({ route }) => {
             // If we have Q1 times, mark the slowest 5 as eliminated
             if (driversWithQ1.length >= 5) {
               const sortedByQ1 = [...driversWithQ1].sort(
-                (a, b) => Number(b.qual1Ms) - Number(a.qual1Ms)
+                (a, b) => Number(b.qual1Ms) - Number(a.qual1Ms),
               );
               const eliminatedInQ1 = sortedByQ1.slice(0, 5);
-              
+
               eliminatedInQ1.forEach((driver) => {
                 resolved[driver.originalIndex].isEliminatedFromQual = true;
               });
-              
+
               console.log(
                 `[${compName}] Marked ${eliminatedInQ1.length} drivers as eliminated in Q1:`,
-                eliminatedInQ1.map((d) => d.name)
+                eliminatedInQ1.map((d) => d.name),
               );
             }
 
             // If we have Q2 times, mark the slowest 5 (excluding Q1 eliminated) as eliminated
             if (driversWithQ2.length >= 5) {
               const sortedByQ2 = [...driversWithQ2].sort(
-                (a, b) => Number(b.qual2Ms) - Number(a.qual2Ms)
+                (a, b) => Number(b.qual2Ms) - Number(a.qual2Ms),
               );
               const eliminatedInQ2 = sortedByQ2.slice(0, 5);
-              
+
               eliminatedInQ2.forEach((driver) => {
                 resolved[driver.originalIndex].isEliminatedFromQual = true;
               });
-              
+
               console.log(
                 `[${compName}] Marked ${eliminatedInQ2.length} drivers as eliminated in Q2:`,
-                eliminatedInQ2.map((d) => d.name)
+                eliminatedInQ2.map((d) => d.name),
               );
             }
           }
@@ -2158,18 +2178,24 @@ const RaceDetailsScreen = ({ route }) => {
             endDate: comp.endDate,
             raw: comp,
           };
-          
-          console.log(`[fetchCompetitionResultsForEvent] Built result for ${compName}:`, {
-            compId,
-            hasStatus: !!statusData,
-            statusState: statusData?.type?.state,
-            competitorCount: resolved.length
-          });
+
+          console.log(
+            `[fetchCompetitionResultsForEvent] Built result for ${compName}:`,
+            {
+              compId,
+              hasStatus: !!statusData,
+              statusState: statusData?.type?.state,
+              competitorCount: resolved.length,
+            },
+          );
         } catch (e) {
           // ignore per-competition errors
-          console.warn(`[fetchCompetitionResultsForEvent] Error processing competition:`, e);
+          console.warn(
+            `[fetchCompetitionResultsForEvent] Error processing competition:`,
+            e,
+          );
         }
-      })
+      }),
     );
 
     console.log("[fetchCompetitionResultsForEvent] Final results:", {
@@ -2179,8 +2205,8 @@ const RaceDetailsScreen = ({ route }) => {
         id,
         name: r.name,
         hasStatus: !!r.status,
-        statusState: r.status?.type?.state
-      }))
+        statusState: r.status?.type?.state,
+      })),
     });
 
     return { results, order };
@@ -2190,7 +2216,7 @@ const RaceDetailsScreen = ({ route }) => {
   const fetchOpenF1Meetings = async (year = new Date().getFullYear()) => {
     try {
       const response = await fetch(
-        `https://timestampedforf1.jeffreyjpz.com/api/v1/meetings?year=${year}`
+        `https://timestampedforf1.jeffreyjpz.com/api/v1/meetings?year=${year}`,
       );
       if (!response.ok)
         throw new Error(`Failed to fetch meetings: ${response.status}`);
@@ -2204,7 +2230,7 @@ const RaceDetailsScreen = ({ route }) => {
   const fetchOpenF1Sessions = async (meetingKey) => {
     try {
       const response = await fetch(
-        `https://timestampedforf1.jeffreyjpz.com/api/v1/sessions?meeting_key=${meetingKey}`
+        `https://timestampedforf1.jeffreyjpz.com/api/v1/sessions?meeting_key=${meetingKey}`,
       );
       if (!response.ok)
         throw new Error(`Failed to fetch sessions: ${response.status}`);
@@ -2218,7 +2244,7 @@ const RaceDetailsScreen = ({ route }) => {
   const fetchOpenF1Drivers = async (sessionKey) => {
     try {
       const response = await fetch(
-        `https://timestampedforf1.jeffreyjpz.com/api/v1/drivers?session_key=${sessionKey}`
+        `https://timestampedforf1.jeffreyjpz.com/api/v1/drivers?session_key=${sessionKey}`,
       );
       if (!response.ok)
         throw new Error(`Failed to fetch drivers: ${response.status}`);
@@ -2232,13 +2258,13 @@ const RaceDetailsScreen = ({ route }) => {
   const fetchOpenF1Events = async (sessionKey) => {
     try {
       const response = await fetch(
-        `https://timestampedforf1.jeffreyjpz.com/api/v1/events?session_key=${sessionKey}`
+        `https://timestampedforf1.jeffreyjpz.com/api/v1/events?session_key=${sessionKey}`,
       );
       if (!response.ok) {
         // Check if it's a temporary unavailability (during live session)
         if (response.status === 403 || response.status === 429) {
           throw new Error(
-            "Events data not yet ready - API access is restricted during live sessions"
+            "Events data not yet ready - API access is restricted during live sessions",
           );
         }
         throw new Error(`Failed to fetch events: ${response.status}`);
@@ -2256,7 +2282,7 @@ const RaceDetailsScreen = ({ route }) => {
     try {
       console.log("Fetching stints for session key:", sessionKey);
       const response = await fetch(
-        `https://api.openf1.org/v1/stints?session_key=${sessionKey}`
+        `https://api.openf1.org/v1/stints?session_key=${sessionKey}`,
       );
       if (!response.ok)
         throw new Error(`Failed to fetch stints: ${response.status}`);
@@ -2279,7 +2305,7 @@ const RaceDetailsScreen = ({ route }) => {
         overtakeTime.getDate(),
         overtakeTime.getHours(),
         overtakeTime.getMinutes(),
-        overtakeTime.getSeconds()
+        overtakeTime.getSeconds(),
       );
 
       const startTime = new Date(baseTime.getTime() - 1000); // -1 second
@@ -2313,7 +2339,7 @@ const RaceDetailsScreen = ({ route }) => {
       for (const meeting of meetings) {
         const meetingDate = new Date(meeting.date_start);
         const daysDiff = Math.abs(
-          (targetDate - meetingDate) / (1000 * 60 * 60 * 24)
+          (targetDate - meetingDate) / (1000 * 60 * 60 * 24),
         );
 
         // Only consider meetings within 7 days
@@ -2422,14 +2448,14 @@ const RaceDetailsScreen = ({ route }) => {
     try {
       console.log("Fetching Grand Prix stream from streaming API...");
       const response = await fetch(
-        "https://streamed.pk/api/matches/motor-sports/popular"
+        "https://streamed.pk/api/matches/motor-sports/popular",
       );
       const data = await response.json();
 
       // Find the first match with "Grand Prix" in the title
       const grandPrixMatch = data.find(
         (match) =>
-          match.title && match.title.toLowerCase().includes("grand prix")
+          match.title && match.title.toLowerCase().includes("grand prix"),
       );
 
       if (!grandPrixMatch) {
@@ -2441,7 +2467,7 @@ const RaceDetailsScreen = ({ route }) => {
 
       // Look for admin source
       const adminSource = grandPrixMatch.sources?.find(
-        (source) => source.source === "admin"
+        (source) => source.source === "admin",
       );
 
       if (!adminSource) {
@@ -2452,12 +2478,12 @@ const RaceDetailsScreen = ({ route }) => {
             match.title &&
             match.title.toLowerCase().includes("grand prix") &&
             match.sources?.some((source) => source.source === "admin") &&
-            match.id !== grandPrixMatch.id
+            match.id !== grandPrixMatch.id,
         );
 
         if (alternativeMatch) {
           const altAdminSource = alternativeMatch.sources.find(
-            (source) => source.source === "admin"
+            (source) => source.source === "admin",
           );
           const streamUrl = `https://embedsports.top/embed/admin/${altAdminSource.id}/1`;
           console.log("Found alternative Grand Prix stream:", streamUrl);
@@ -2486,12 +2512,12 @@ const RaceDetailsScreen = ({ route }) => {
       if (!isStreamingUnlocked) {
         Alert.alert(
           "Stream Unavailable",
-          "Please unlock streaming access in Settings first."
+          "Please unlock streaming access in Settings first.",
         );
       } else {
         Alert.alert(
           "Stream Unavailable",
-          "Streaming is only available during the race weekend (Oct 3-5, 2025 EST)."
+          "Streaming is only available during the race weekend (Oct 3-5, 2025 EST).",
         );
       }
       return;
@@ -2540,10 +2566,10 @@ const RaceDetailsScreen = ({ route }) => {
     // Extract driver numbers from driver_roles
     const driverRoles = event.details.driver_roles;
     const initiatorDriver = Object.keys(driverRoles).find(
-      (key) => driverRoles[key] === "initiator"
+      (key) => driverRoles[key] === "initiator",
     );
     const participantDriver = Object.keys(driverRoles).find(
-      (key) => driverRoles[key] === "participant"
+      (key) => driverRoles[key] === "participant",
     );
 
     console.log("Processing overtake click:", {
@@ -2583,12 +2609,12 @@ const RaceDetailsScreen = ({ route }) => {
       fetchCarData(
         parseInt(initiatorDriver),
         openF1Data.selectedSessionKey,
-        event.date
+        event.date,
       ),
       fetchCarData(
         parseInt(participantDriver),
         openF1Data.selectedSessionKey,
-        event.date
+        event.date,
       ),
     ]);
 
@@ -2646,7 +2672,7 @@ const RaceDetailsScreen = ({ route }) => {
       const participantData = prev.allDataPoints.participant;
       const dataPointCount = Math.max(
         initiatorData.length,
-        participantData.length
+        participantData.length,
       );
 
       if (dataPointCount <= 1) {
@@ -2738,37 +2764,37 @@ const RaceDetailsScreen = ({ route }) => {
             initiator: {
               speed: interpolateValue(
                 currentInitiatorData.speed,
-                nextInitiatorData.speed
+                nextInitiatorData.speed,
               ),
               rpm: interpolateValue(
                 currentInitiatorData.rpm,
-                nextInitiatorData.rpm
+                nextInitiatorData.rpm,
               ),
               n_gear: interpolateValue(
                 currentInitiatorData.n_gear,
-                nextInitiatorData.n_gear
+                nextInitiatorData.n_gear,
               ),
               brake: interpolateValue(
                 currentInitiatorData.brake,
-                nextInitiatorData.brake
+                nextInitiatorData.brake,
               ),
             },
             participant: {
               speed: interpolateValue(
                 currentParticipantData.speed,
-                nextParticipantData.speed
+                nextParticipantData.speed,
               ),
               rpm: interpolateValue(
                 currentParticipantData.rpm,
-                nextParticipantData.rpm
+                nextParticipantData.rpm,
               ),
               n_gear: interpolateValue(
                 currentParticipantData.n_gear,
-                nextParticipantData.n_gear
+                nextParticipantData.n_gear,
               ),
               brake: interpolateValue(
                 currentParticipantData.brake,
-                nextParticipantData.brake
+                nextParticipantData.brake,
               ),
             },
           };
@@ -2852,19 +2878,19 @@ const RaceDetailsScreen = ({ route }) => {
         (comp) =>
           comp.type?.name?.toLowerCase().includes("race") ||
           comp.type?.displayName?.toLowerCase().includes("race") ||
-          comp.type?.abbreviation?.toLowerCase().includes("race")
+          comp.type?.abbreviation?.toLowerCase().includes("race"),
       );
 
       if (raceCompetition && raceCompetition.competitors) {
         // Find the winner (winner: true)
         const winnerCompetitor = raceCompetition.competitors.find(
-          (c) => c.winner === true
+          (c) => c.winner === true,
         );
 
         if (winnerCompetitor && winnerCompetitor.athlete?.$ref) {
           // Get driver info
           const athleteData = await fetchAthleteData(
-            winnerCompetitor.athlete.$ref
+            winnerCompetitor.athlete.$ref,
           );
           if (athleteData) {
             return {
@@ -2904,7 +2930,7 @@ const RaceDetailsScreen = ({ route }) => {
         } catch (e) {
           console.warn(
             "Direct event fetch failed, falling back to event log approach",
-            e
+            e,
           );
         }
       }
@@ -2919,7 +2945,7 @@ const RaceDetailsScreen = ({ route }) => {
 
         // Find the specific race by competition ID
         const raceEvent = eventLogData.events?.items?.find(
-          (event) => event.competitionId === raceId
+          (event) => event.competitionId === raceId,
         );
 
         if (!raceEvent) {
@@ -2945,7 +2971,7 @@ const RaceDetailsScreen = ({ route }) => {
             .catch((error) => {
               console.error("Error fetching venue data:", error);
               return null;
-            })
+            }),
         );
       }
 
@@ -2959,7 +2985,7 @@ const RaceDetailsScreen = ({ route }) => {
             .catch((error) => {
               console.error("Error fetching circuit data:", error);
               return null;
-            })
+            }),
         );
       }
 
@@ -2970,7 +2996,7 @@ const RaceDetailsScreen = ({ route }) => {
           .catch((error) => {
             console.error("Error fetching race winner:", error);
             return null;
-          })
+          }),
       );
 
       // Execute all fetches in parallel
@@ -3056,7 +3082,7 @@ const RaceDetailsScreen = ({ route }) => {
         const startMs = Date.parse(eventData.date || "");
         const endMs =
           Date.parse(
-            eventData.endDate || eventData.end || eventData.date || ""
+            eventData.endDate || eventData.end || eventData.date || "",
           ) || 0;
         // Base completion by end time (don't add an arbitrary +24h here)
         const isCompletedByTime = endMs ? nowMs > endMs : false;
@@ -3214,7 +3240,7 @@ const RaceDetailsScreen = ({ route }) => {
         ) {
           console.log(
             "[checkIfRaceIsLive] Not live - selected competition completed:",
-            { statusState, completed, statusDescription }
+            { statusState, completed, statusDescription },
           );
           return false;
         }
@@ -3225,7 +3251,7 @@ const RaceDetailsScreen = ({ route }) => {
             "[checkIfRaceIsLive] Live by status - state:",
             statusState,
             "completed:",
-            completed
+            completed,
           );
           setCurrentLiveSession(competition);
           return true;
@@ -3235,7 +3261,7 @@ const RaceDetailsScreen = ({ route }) => {
         if (statusState === "pre" || statusState === "scheduled") {
           console.log(
             "[checkIfRaceIsLive] Not live - competition is scheduled:",
-            statusState
+            statusState,
           );
           return false;
         }
@@ -3252,7 +3278,7 @@ const RaceDetailsScreen = ({ route }) => {
       if (completed === true) {
         console.log(
           "[checkIfRaceIsLive] Not live - session completed:",
-          completed
+          completed,
         );
         return false;
       }
@@ -3271,7 +3297,7 @@ const RaceDetailsScreen = ({ route }) => {
           "[checkIfRaceIsLive] Live by status - state:",
           statusState,
           "completed:",
-          completed
+          completed,
         );
         return true;
       }
@@ -3299,14 +3325,14 @@ const RaceDetailsScreen = ({ route }) => {
         if (hasResults) {
           console.log(
             "[checkIfRaceIsLive] Not live - competition has results despite time window:",
-            compId
+            compId,
           );
           continue; // Skip this competition, it's completed
         }
 
         setCurrentLiveSession(competition);
         console.log(
-          "[checkIfRaceIsLive] Live by time window (fallback) - no results found"
+          "[checkIfRaceIsLive] Live by time window (fallback) - no results found",
         );
         return true;
       }
@@ -3350,7 +3376,7 @@ const RaceDetailsScreen = ({ route }) => {
     // Prevent overlapping updates
     if (isUpdatingRef.current) {
       console.log(
-        "[updateLiveRaceStatus] Skipping because previous update still running"
+        "[updateLiveRaceStatus] Skipping because previous update still running",
       );
       return;
     }
@@ -3363,7 +3389,7 @@ const RaceDetailsScreen = ({ route }) => {
         {
           isScreenFocused: isScreenFocusedRef.current,
           streamModalVisible: streamModalVisibleRef.current,
-        }
+        },
       );
       return;
     }
@@ -3390,13 +3416,13 @@ const RaceDetailsScreen = ({ route }) => {
         if (liveFalseStreakRef.current < 2) {
           console.log(
             "[updateLiveRaceStatus] Transient not-live detected - grace period, keeping live (streak):",
-            liveFalseStreakRef.current
+            liveFalseStreakRef.current,
           );
           // Keep UI/intervals running until confirmed twice
           setIsLiveRace(true);
         } else {
           console.log(
-            "[updateLiveRaceStatus] Confirmed not-live after streak - stopping live state"
+            "[updateLiveRaceStatus] Confirmed not-live after streak - stopping live state",
           );
           setIsLiveRace(false);
           const nextSession = findNextScheduledSession();
@@ -3420,7 +3446,7 @@ const RaceDetailsScreen = ({ route }) => {
           console.log(
             "[updateLiveRaceStatus] Updating",
             selectedComp.competitors.length,
-            "competitors with live stats"
+            "competitors with live stats",
           );
 
           // First, update the competition status to check if still live
@@ -3453,7 +3479,7 @@ const RaceDetailsScreen = ({ route }) => {
               setRaceStatus(statusData);
               console.log(
                 "[updateLiveRaceStatus] Updated race status:",
-                statusData.type?.name
+                statusData.type?.name,
               );
 
               // Check if session has ended - if so, stop live updates
@@ -3471,7 +3497,7 @@ const RaceDetailsScreen = ({ route }) => {
                   "[updateLiveRaceStatus] Session complete, stopping live updates - state:",
                   statusState,
                   "completed:",
-                  completed
+                  completed,
                 );
                 // Clear recent-live marker so computeShouldRunNow no longer treats this as recently live
                 lastLiveSeenRef.current = 0;
@@ -3492,7 +3518,7 @@ const RaceDetailsScreen = ({ route }) => {
                 // Skip fetching stats for drivers eliminated from qualifying
                 if (competitor.isEliminatedFromQual) {
                   console.log(
-                    `[updateLiveRaceStatus] Skipping ${competitor.name} - eliminated from qualifying`
+                    `[updateLiveRaceStatus] Skipping ${competitor.name} - eliminated from qualifying`,
                   );
                   return competitor;
                 }
@@ -3580,14 +3606,14 @@ const RaceDetailsScreen = ({ route }) => {
                 console.error("Error updating competitor stats:", error);
                 return competitor;
               }
-            })
+            }),
           );
 
           const competitorsWithLiveStats = updatedCompetitors.filter(
-            (c) => !!c.liveStats
+            (c) => !!c.liveStats,
           ).length;
           console.log(
-            `[updateLiveRaceStatus] Updating state: ${competitorsWithLiveStats}/${updatedCompetitors.length} competitors have live stats`
+            `[updateLiveRaceStatus] Updating state: ${competitorsWithLiveStats}/${updatedCompetitors.length} competitors have live stats`,
           );
 
           // Update only the selected competition with new competitor data
@@ -3617,7 +3643,7 @@ const RaceDetailsScreen = ({ route }) => {
     // Double-check locally before starting: if conditions don't justify running, skip.
     if (!computeShouldRunNow()) {
       console.log(
-        "[startLiveUpdates] Skipping start — computeShouldRunNow false"
+        "[startLiveUpdates] Skipping start — computeShouldRunNow false",
       );
       return;
     }
@@ -3631,7 +3657,7 @@ const RaceDetailsScreen = ({ route }) => {
           {
             isScreenFocused: isScreenFocusedRef.current,
             streamModalVisible: streamModalVisibleRef.current,
-          }
+          },
         );
         return;
       }
@@ -3639,7 +3665,7 @@ const RaceDetailsScreen = ({ route }) => {
       // Prevent overlapping runs
       if (isUpdatingRef.current) {
         console.log(
-          "[liveUpdateInterval] Skipping scheduled update - previous update still running"
+          "[liveUpdateInterval] Skipping scheduled update - previous update still running",
         );
         return;
       }
@@ -3682,7 +3708,7 @@ const RaceDetailsScreen = ({ route }) => {
     if (raceData) {
       console.log(
         "[useEffect] Checking live status - raceData exists, selectedCompetitionId:",
-        selectedCompetitionId
+        selectedCompetitionId,
       );
 
       const isLive = checkIfRaceIsLive();
@@ -3793,7 +3819,7 @@ const RaceDetailsScreen = ({ route }) => {
         console.log(
           "[useEffect] Tab switched to",
           selectedTab,
-          "- triggering immediate update"
+          "- triggering immediate update",
         );
         updateLiveRaceStatus();
       }
@@ -3806,7 +3832,7 @@ const RaceDetailsScreen = ({ route }) => {
       const isLive = checkIfRaceIsLive();
       if (isLive) {
         console.log(
-          "[useEffect] Screen focused/modal closed - immediately fetching F1 race data"
+          "[useEffect] Screen focused/modal closed - immediately fetching F1 race data",
         );
         updateLiveRaceStatus();
       }
@@ -3975,8 +4001,8 @@ const RaceDetailsScreen = ({ route }) => {
           const endDate = selectedOriginalComp.endDate
             ? new Date(selectedOriginalComp.endDate)
             : compDate
-            ? new Date(compDate.getTime() + 3 * 60 * 60 * 1000)
-            : null;
+              ? new Date(compDate.getTime() + 3 * 60 * 60 * 1000)
+              : null;
 
           const hasResults =
             selectedCompetition.competitors?.some((c) => c.winner || c.order) ||
@@ -4011,10 +4037,10 @@ const RaceDetailsScreen = ({ route }) => {
       selectedCompetition?.type?.abbreviation === "FP1"
         ? "1"
         : selectedCompetition?.type?.abbreviation === "FP2"
-        ? "2"
-        : selectedCompetition?.type?.abbreviation === "FP3"
-        ? "3"
-        : "";
+          ? "2"
+          : selectedCompetition?.type?.abbreviation === "FP3"
+            ? "3"
+            : "";
 
     return (
       <View style={styles.headerContainer}>
@@ -4474,8 +4500,8 @@ const RaceDetailsScreen = ({ route }) => {
     const endDate = selectedOriginalComp?.endDate
       ? new Date(selectedOriginalComp.endDate)
       : compDate
-      ? new Date(compDate.getTime() + 3 * 60 * 60 * 1000)
-      : null;
+        ? new Date(compDate.getTime() + 3 * 60 * 60 * 1000)
+        : null;
     const hasResults =
       selectedCompetition?.competitors?.some((c) => c.winner || c.order) ||
       false;
@@ -4485,10 +4511,10 @@ const RaceDetailsScreen = ({ route }) => {
     // Check qualifying ms presence across competitors for OUT logic
     const compCompetitors = selectedCompetition?.competitors || [];
     const hasAnyQual3Ms = compCompetitors.some(
-      (c) => c?.qual3Ms && Number(c.qual3Ms) > 0
+      (c) => c?.qual3Ms && Number(c.qual3Ms) > 0,
     );
     const hasAnyQual2Ms = compCompetitors.some(
-      (c) => c?.qual2Ms && Number(c.qual2Ms) > 0
+      (c) => c?.qual2Ms && Number(c.qual2Ms) > 0,
     );
 
     const getGapOnly = (competitor) => {
@@ -4496,7 +4522,7 @@ const RaceDetailsScreen = ({ route }) => {
         // Attempt to extract gapToLeader stat from liveStats
         const gapSplit =
           competitor.liveStats?.splits?.categories?.find(
-            (s) => s.name === "gapToLeader"
+            (s) => s.name === "gapToLeader",
           ) || null;
         if (gapSplit) {
           const gapStat =
@@ -4695,7 +4721,7 @@ const RaceDetailsScreen = ({ route }) => {
                                 onPress={() =>
                                   handleTeamFavoriteToggle(
                                     r.manufacturer,
-                                    r.teamColor
+                                    r.teamColor,
                                   )
                                 }
                                 activeOpacity={0.7}
@@ -4809,7 +4835,8 @@ const RaceDetailsScreen = ({ route }) => {
                                       </Text>
                                     ) : null}
                                   </>
-                                ) : r.qual2Ms && Number(r.qual2Ms) > 0 &&
+                                ) : r.qual2Ms &&
+                                  Number(r.qual2Ms) > 0 &&
                                   (!r.qual3Ms || Number(r.qual3Ms) === 0) ? (
                                   <>
                                     <Text
@@ -5043,9 +5070,9 @@ const RaceDetailsScreen = ({ route }) => {
                         >
                           {isLiveRace
                             ? getLivePosition(row.left)
-                            : row.left.order ??
+                            : (row.left.order ??
                               row.left.startOrder ??
-                              rowIndex * 2 + 1}
+                              rowIndex * 2 + 1)}
                         </Text>
                         {(() => {
                           const athleteRef = row.left.raw?.athlete?.$ref;
@@ -5060,7 +5087,7 @@ const RaceDetailsScreen = ({ route }) => {
                             <TouchableOpacity
                               onPress={async () => {
                                 const statsJson = await fetchDriverStats(
-                                  row.left
+                                  row.left,
                                 );
                                 setSelectedDriverDetails({
                                   competitor: row.left,
@@ -5119,9 +5146,9 @@ const RaceDetailsScreen = ({ route }) => {
                         >
                           {isLiveRace
                             ? getLivePosition(row.right)
-                            : row.right.order ??
+                            : (row.right.order ??
                               row.right.startOrder ??
-                              rowIndex * 2 + 2}
+                              rowIndex * 2 + 2)}
                         </Text>
                         {(() => {
                           const athleteRef = row.right.raw?.athlete?.$ref;
@@ -5136,7 +5163,7 @@ const RaceDetailsScreen = ({ route }) => {
                             <TouchableOpacity
                               onPress={async () => {
                                 const statsJson = await fetchDriverStats(
-                                  row.right
+                                  row.right,
                                 );
                                 setSelectedDriverDetails({
                                   competitor: row.right,
@@ -5322,7 +5349,7 @@ const RaceDetailsScreen = ({ route }) => {
       case "driver-notification:qualifying-stage-classification":
         if (details?.driver_roles) {
           const driverNumber = Object.keys(details.driver_roles).find(
-            (num) => details.driver_roles[num] === "initiator"
+            (num) => details.driver_roles[num] === "initiator",
           );
           if (driverNumber) {
             return getDriverTeamColor(driverNumber);
@@ -5453,10 +5480,10 @@ const RaceDetailsScreen = ({ route }) => {
       case "driver-notification:overtake":
         if (details?.driver_roles) {
           const initiatorNum = Object.keys(details.driver_roles).find(
-            (num) => details.driver_roles[num] === "initiator"
+            (num) => details.driver_roles[num] === "initiator",
           );
           const participantNum = Object.keys(details.driver_roles).find(
-            (num) => details.driver_roles[num] === "participant"
+            (num) => details.driver_roles[num] === "participant",
           );
 
           if (initiatorNum && participantNum) {
@@ -5478,7 +5505,7 @@ const RaceDetailsScreen = ({ route }) => {
       case "driver-action:out":
         if (details?.driver_roles) {
           const initiatorNum = Object.keys(details.driver_roles).find(
-            (num) => details.driver_roles[num] === "initiator"
+            (num) => details.driver_roles[num] === "initiator",
           );
           if (initiatorNum) {
             const initiator = getDriverName(initiatorNum);
@@ -5490,7 +5517,7 @@ const RaceDetailsScreen = ({ route }) => {
       case "driver-action:pit":
         if (details?.driver_roles) {
           const initiatorNum = Object.keys(details.driver_roles).find(
-            (num) => details.driver_roles[num] === "initiator"
+            (num) => details.driver_roles[num] === "initiator",
           );
           if (initiatorNum) {
             const initiator = getDriverName(initiatorNum);
@@ -5508,10 +5535,10 @@ const RaceDetailsScreen = ({ route }) => {
       case "driver-action:incident":
         if (details?.driver_roles) {
           const initiatorNum = Object.keys(details.driver_roles).find(
-            (num) => details.driver_roles[num] === "initiator"
+            (num) => details.driver_roles[num] === "initiator",
           );
           const participantNum = Object.keys(details.driver_roles).find(
-            (num) => details.driver_roles[num] === "participant"
+            (num) => details.driver_roles[num] === "participant",
           );
 
           if (initiatorNum) {
@@ -5532,10 +5559,10 @@ const RaceDetailsScreen = ({ route }) => {
       case "driver-notification:incident-verdict":
         if (details?.driver_roles) {
           const initiatorNum = Object.keys(details.driver_roles).find(
-            (num) => details.driver_roles[num] === "initiator"
+            (num) => details.driver_roles[num] === "initiator",
           );
           const participantNum = Object.keys(details.driver_roles).find(
-            (num) => details.driver_roles[num] === "participant"
+            (num) => details.driver_roles[num] === "participant",
           );
 
           if (initiatorNum) {
@@ -5557,7 +5584,7 @@ const RaceDetailsScreen = ({ route }) => {
       case "driver-action:track-limits":
         if (details?.driver_roles) {
           const initiatorNum = Object.keys(details.driver_roles).find(
-            (num) => details.driver_roles[num] === "initiator"
+            (num) => details.driver_roles[num] === "initiator",
           );
           if (initiatorNum) {
             const initiator = getDriverName(initiatorNum);
@@ -5570,7 +5597,7 @@ const RaceDetailsScreen = ({ route }) => {
       case "driver-notification:blue-flag":
         if (details?.driver_roles) {
           const initiatorNum = Object.keys(details.driver_roles).find(
-            (num) => details.driver_roles[num] === "initiator"
+            (num) => details.driver_roles[num] === "initiator",
           );
           if (initiatorNum) {
             const initiator = getDriverName(initiatorNum);
@@ -5585,7 +5612,7 @@ const RaceDetailsScreen = ({ route }) => {
       case "driver-notification:provisional-classification":
         if (details?.driver_roles) {
           const initiatorNum = Object.keys(details.driver_roles).find(
-            (num) => details.driver_roles[num] === "initiator"
+            (num) => details.driver_roles[num] === "initiator",
           );
           if (initiatorNum) {
             const initiator = getDriverName(initiatorNum);
@@ -5601,7 +5628,7 @@ const RaceDetailsScreen = ({ route }) => {
       case "driver-action:personal-best-lap":
         if (details?.driver_roles) {
           const initiatorNum = Object.keys(details.driver_roles).find(
-            (num) => details.driver_roles[num] === "initiator"
+            (num) => details.driver_roles[num] === "initiator",
           );
           if (initiatorNum) {
             const initiator = getDriverName(initiatorNum);
@@ -5651,7 +5678,7 @@ const RaceDetailsScreen = ({ route }) => {
       case "driver-notification:qualifying-stage-classification":
         if (details?.driver_roles) {
           const initiatorNum = Object.keys(details.driver_roles).find(
-            (num) => details.driver_roles[num] === "initiator"
+            (num) => details.driver_roles[num] === "initiator",
           );
           if (initiatorNum) {
             const initiator = getDriverName(initiatorNum);
@@ -5682,7 +5709,7 @@ const RaceDetailsScreen = ({ route }) => {
 
     // Get sorted list of drivers by full_name
     const driversList = Object.values(openF1Data.drivers).sort((a, b) =>
-      (a.full_name || "").localeCompare(b.full_name || "")
+      (a.full_name || "").localeCompare(b.full_name || ""),
     );
 
     return (
@@ -5786,7 +5813,7 @@ const RaceDetailsScreen = ({ route }) => {
           // Check if the event involves the selected driver
           if (event.details?.driver_roles) {
             return Object.keys(event.details.driver_roles).includes(
-              openF1Data.selectedDriverFilter.toString()
+              openF1Data.selectedDriverFilter.toString(),
             );
           }
           return false;
@@ -6064,7 +6091,7 @@ const RaceDetailsScreen = ({ route }) => {
                       key={`event-${event.session_key}-${index}`}
                       onPress={() => {
                         console.log(
-                          "TouchableOpacity pressed for overtake event"
+                          "TouchableOpacity pressed for overtake event",
                         );
                         handleOvertakeClick(event);
                       }}
@@ -7209,7 +7236,7 @@ const RaceDetailsScreen = ({ route }) => {
                       headshot={
                         selectedDriverDetails.athlete?.headshot ||
                         buildESPNHeadshotUrl(
-                          selectedDriverDetails.competitor?.id
+                          selectedDriverDetails.competitor?.id,
                         )
                       }
                       athlete={selectedDriverDetails.athlete}
@@ -7227,7 +7254,7 @@ const RaceDetailsScreen = ({ route }) => {
                     >
                       {selectedDriverDetails.athlete?.firstName ||
                         (selectedDriverDetails.competitor?.name || "").split(
-                          " "
+                          " ",
                         )[0] ||
                         ""}
                     </Text>
@@ -7486,13 +7513,13 @@ const RaceDetailsScreen = ({ route }) => {
                           >
                             {isLiveRace
                               ? getLiveGapToLeader(
-                                  selectedDriverDetails.competitor
+                                  selectedDriverDetails.competitor,
                                 )
-                              : behindTime ??
+                              : (behindTime ??
                                 (behindLaps != null
                                   ? `+${behindLaps} Laps`
                                   : selectedDriverDetails.competitor
-                                      ?.totalTime || "-")}
+                                      ?.totalTime || "-"))}
                           </Text>
                         </View>
                         <View style={styles.modalStatRow}>
@@ -7633,11 +7660,11 @@ const RaceDetailsScreen = ({ route }) => {
                     };
 
                     const initiatorName = getOvertakeDriverName(
-                      selectedOvertake.driver_number
+                      selectedOvertake.driver_number,
                     );
                     const participantName = getOvertakeDriverName(
                       selectedOvertake.overtake_participant_number ||
-                        selectedOvertake.driver_number_2
+                        selectedOvertake.driver_number_2,
                     );
 
                     return (
@@ -7727,7 +7754,7 @@ const RaceDetailsScreen = ({ route }) => {
                                 styles.overtakeDriverCircle,
                                 {
                                   backgroundColor: getDriverTeamColor(
-                                    selectedOvertake.driver_number
+                                    selectedOvertake.driver_number,
                                   ),
                                   borderColor: theme.text,
                                 },
@@ -7789,7 +7816,7 @@ const RaceDetailsScreen = ({ route }) => {
                                 {
                                   backgroundColor: getDriverTeamColor(
                                     selectedOvertake.overtake_participant_number ||
-                                      selectedOvertake.driver_number_2
+                                      selectedOvertake.driver_number_2,
                                   ),
                                   borderColor: theme.text,
                                 },
@@ -7829,11 +7856,11 @@ const RaceDetailsScreen = ({ route }) => {
                     };
 
                     const initiatorName = getOvertakeDriverName(
-                      selectedOvertake.driver_number
+                      selectedOvertake.driver_number,
                     );
                     const participantName = getOvertakeDriverName(
                       selectedOvertake.overtake_participant_number ||
-                        selectedOvertake.driver_number_2
+                        selectedOvertake.driver_number_2,
                     );
 
                     // Use animated values if animation is active, otherwise use cycling data
@@ -7865,7 +7892,7 @@ const RaceDetailsScreen = ({ route }) => {
                                 styles.overtakeDriverUnderline,
                                 {
                                   backgroundColor: getDriverTeamColor(
-                                    selectedOvertake.driver_number
+                                    selectedOvertake.driver_number,
                                   ),
                                 },
                               ]}
@@ -7975,7 +8002,7 @@ const RaceDetailsScreen = ({ route }) => {
                                 <View style={styles.overtakeCarDataTireValue}>
                                   {renderTireForCarData(
                                     selectedOvertake.driver_number,
-                                    selectedOvertake.details?.lap_number || 1
+                                    selectedOvertake.details?.lap_number || 1,
                                   )}
                                 </View>
                               </View>
@@ -8013,7 +8040,7 @@ const RaceDetailsScreen = ({ route }) => {
                                 {
                                   backgroundColor: getDriverTeamColor(
                                     selectedOvertake.overtake_participant_number ||
-                                      selectedOvertake.driver_number_2
+                                      selectedOvertake.driver_number_2,
                                   ),
                                 },
                               ]}
@@ -8124,7 +8151,7 @@ const RaceDetailsScreen = ({ route }) => {
                                   {renderTireForCarData(
                                     selectedOvertake.overtake_participant_number ||
                                       selectedOvertake.driver_number_2,
-                                    selectedOvertake.details?.lap_number || 1
+                                    selectedOvertake.details?.lap_number || 1,
                                   )}
                                 </View>
                               </View>
@@ -8506,14 +8533,14 @@ const RaceDetailsScreen = ({ route }) => {
                       // Handle messages from injected JavaScript if needed
                       console.log(
                         "F1 WebView message:",
-                        event.nativeEvent.data
+                        event.nativeEvent.data,
                       );
                     }}
                     // Block popup navigation within the WebView
                     onShouldStartLoadWithRequest={(request) => {
                       console.log(
                         "F1 WebView navigation request:",
-                        request.url
+                        request.url,
                       );
 
                       // Allow the initial stream URL to load
@@ -8535,7 +8562,7 @@ const RaceDetailsScreen = ({ route }) => {
                       ];
                       const urlLower = request.url.toLowerCase();
                       const hasPopupKeywords = popupKeywords.some((keyword) =>
-                        urlLower.includes(keyword)
+                        urlLower.includes(keyword),
                       );
 
                       const currentDomain = new URL(streamUrl).hostname;
@@ -8543,7 +8570,10 @@ const RaceDetailsScreen = ({ route }) => {
                       try {
                         requestDomain = new URL(request.url).hostname;
                       } catch (e) {
-                        if (urlLower.startsWith("about:blank") || urlLower.startsWith("data:")) {
+                        if (
+                          urlLower.startsWith("about:blank") ||
+                          urlLower.startsWith("data:")
+                        ) {
                           return true;
                         }
                         console.log("Invalid F1 URL:", request.url);
@@ -8565,12 +8595,14 @@ const RaceDetailsScreen = ({ route }) => {
                         "about:blank",
                         "data:",
                       ];
-                      const allowIfEmbed = allowPatterns.some((p) => urlLower.includes(p));
+                      const allowIfEmbed = allowPatterns.some((p) =>
+                        urlLower.includes(p),
+                      );
 
                       if (hasPopupKeywords && !allowIfEmbed) {
                         console.log(
                           "Blocked F1 popup/cross-domain navigation:",
-                          request.url
+                          request.url,
                         );
                         return false;
                       }
@@ -8581,7 +8613,7 @@ const RaceDetailsScreen = ({ route }) => {
 
                       console.log(
                         "Blocked F1 popup/cross-domain navigation:",
-                        request.url
+                        request.url,
                       );
                       return false;
                     }}
@@ -8590,7 +8622,7 @@ const RaceDetailsScreen = ({ route }) => {
                       const { nativeEvent } = syntheticEvent;
                       console.log(
                         "Blocked F1 popup window:",
-                        nativeEvent.targetUrl
+                        nativeEvent.targetUrl,
                       );
                       // Don't open the popup - just log it
                       return false;

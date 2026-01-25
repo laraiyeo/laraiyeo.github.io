@@ -24,7 +24,7 @@ export const useGamePresence = (gameId) => {
       } catch (error) {
         console.error(
           "❌ useGamePresence - Error joining game presence:",
-          error
+          error,
         );
       }
     };
@@ -36,7 +36,7 @@ export const useGamePresence = (gameId) => {
           gameId,
           (data) => {
             setViewerData(data);
-          }
+          },
         );
         unsubscribeRef.current = unsubscribe;
       } catch (error) {
@@ -49,7 +49,6 @@ export const useGamePresence = (gameId) => {
 
     // Cleanup on unmount or gameId change
     return () => {
-
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
         unsubscribeRef.current = null;
@@ -101,13 +100,13 @@ export const useGamePresenceReadOnly = (gameId) => {
           gameId,
           (data) => {
             setViewerData(data);
-          }
+          },
         );
         unsubscribeRef.current = unsubscribe;
       } catch (error) {
         console.error(
           "❌ useGamePresenceReadOnly - Error subscribing to viewers:",
-          error
+          error,
         );
         console.error("❌ useGamePresenceReadOnly - Platform:", Platform.OS);
       }
@@ -145,7 +144,7 @@ export const useMultipleGamePresence = (gameIds) => {
       gameIds,
       (allGameData) => {
         setGameViewers(allGameData);
-      }
+      },
     );
 
     unsubscribeRef.current = unsubscribe;

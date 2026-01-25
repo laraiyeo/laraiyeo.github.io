@@ -23,17 +23,20 @@ const ViewerCounter = ({
   const formatViewerCount = (count) => {
     if (count >= 1000000) {
       // Format as "1.01M" with 2 decimals
-      return (count / 1000000).toFixed(2).replace(/\.00$/, '') + 'M';
+      return (count / 1000000).toFixed(2).replace(/\.00$/, "") + "M";
     } else if (count >= 1000) {
       // Format as "100.1K" with 1 decimal
-      return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+      return (count / 1000).toFixed(1).replace(/\.0$/, "") + "K";
     }
     return count.toString();
   };
 
   if (compact) {
     const displayCount =
-      preferPeak && (viewerCount === 0 || viewerCount == null) && peak && peak.count
+      preferPeak &&
+      (viewerCount === 0 || viewerCount == null) &&
+      peak &&
+      peak.count
         ? peak.count
         : viewerCount;
 
@@ -68,14 +71,24 @@ const ViewerCounter = ({
       )}
       <Ionicons name="eye-outline" size={16} color={theme.textSecondary} />
       <Text style={[styles.viewerText, { color: theme.text }]}>
-        {formatViewerCount(preferPeak && (viewerCount === 0 || viewerCount == null) && peak && peak.count ? peak.count : viewerCount)}
+        {formatViewerCount(
+          preferPeak &&
+            (viewerCount === 0 || viewerCount == null) &&
+            peak &&
+            peak.count
+            ? peak.count
+            : viewerCount,
+        )}
       </Text>
       <Text style={[styles.label, { color: theme.textSecondary }]}>
-        {preferPeak && (viewerCount === 0 || viewerCount == null) && peak && peak.count
+        {preferPeak &&
+        (viewerCount === 0 || viewerCount == null) &&
+        peak &&
+        peak.count
           ? "peak"
           : viewerCount === 1
-          ? "viewer"
-          : "viewers"}
+            ? "viewer"
+            : "viewers"}
       </Text>
     </View>
   );
@@ -95,23 +108,28 @@ const LiveViewerBadge = ({ gameId, style, status = {} }) => {
   } else if (status && typeof status === "object") {
     statusStr = String(status.status || status.state || "");
   }
-  const isCompletedFlag = !!(status && status.isCompleted) || /final|post|completed/i.test(statusStr);
+  const isCompletedFlag =
+    !!(status && status.isCompleted) || /final|post|completed/i.test(statusStr);
 
   // If game is completed/finished, prefer showing peak (if present)
   const hasPeak = peak && peak.count;
   const shouldShowPeak = isCompletedFlag && hasPeak;
 
   // Prefer peak for completed games even if there are live viewers.
-  const effectiveCount = shouldShowPeak ? peak.count : (viewerCount > 0 ? viewerCount : 0);
+  const effectiveCount = shouldShowPeak
+    ? peak.count
+    : viewerCount > 0
+      ? viewerCount
+      : 0;
   if (effectiveCount === 0) return null;
 
   const formatViewerCount = (count) => {
     if (count >= 1000000) {
       // Format as "1.01M" with 2 decimals
-      return (count / 1000000).toFixed(2).replace(/\.00$/, '') + 'M';
+      return (count / 1000000).toFixed(2).replace(/\.00$/, "") + "M";
     } else if (count >= 1000) {
       // Format as "100.1K" with 1 decimal
-      return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+      return (count / 1000).toFixed(1).replace(/\.0$/, "") + "K";
     }
     return count.toString();
   };
@@ -130,8 +148,17 @@ const LiveViewerBadge = ({ gameId, style, status = {} }) => {
         },
       ]}
     >
-      <Ionicons name="eye" size={18} color={shouldShowPeak ? theme.textSecondary : colors.primary} />
-      <Text style={[styles.badgeText, { color: shouldShowPeak ? theme.textSecondary : colors.primary }]}>
+      <Ionicons
+        name="eye"
+        size={18}
+        color={shouldShowPeak ? theme.textSecondary : colors.primary}
+      />
+      <Text
+        style={[
+          styles.badgeText,
+          { color: shouldShowPeak ? theme.textSecondary : colors.primary },
+        ]}
+      >
         {formatViewerCount(effectiveCount)}
       </Text>
     </View>

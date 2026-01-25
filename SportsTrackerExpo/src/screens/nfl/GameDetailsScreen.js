@@ -48,7 +48,7 @@ const calculateColorSimilarity = (color1, color2) => {
   const distance = Math.sqrt(
     Math.pow(rgb1.r - rgb2.r, 2) +
       Math.pow(rgb1.g - rgb2.g, 2) +
-      Math.pow(rgb1.b - rgb2.b, 2)
+      Math.pow(rgb1.b - rgb2.b, 2),
   );
 
   // Normalize distance (max distance is sqrt(3 * 255^2) ≈ 441)
@@ -193,7 +193,7 @@ const GameDetailsScreen = ({ route }) => {
       }
 
       const response = await fetch(
-        `${STREAM_API_BASE}/matches/american-football`
+        `${STREAM_API_BASE}/matches/american-football`,
       );
       if (!response.ok) {
         throw new Error(`API responded with status: ${response.status}`);
@@ -228,7 +228,7 @@ const GameDetailsScreen = ({ route }) => {
   const fetchStreamsForSource = async (source, sourceId) => {
     try {
       const response = await fetch(
-        `${STREAM_API_BASE}/stream/${source}/${sourceId}`
+        `${STREAM_API_BASE}/stream/${source}/${sourceId}`,
       );
       if (!response.ok) {
         throw new Error(`Failed to fetch streams: ${response.status}`);
@@ -289,7 +289,7 @@ const GameDetailsScreen = ({ route }) => {
   const findNFLMatchStreams = async (homeTeamName, awayTeamName) => {
     try {
       console.log(
-        `Finding NFL streams for: ${awayTeamName} vs ${homeTeamName}`
+        `Finding NFL streams for: ${awayTeamName} vs ${homeTeamName}`,
       );
 
       const liveMatches = await fetchLiveMatches();
@@ -307,7 +307,7 @@ const GameDetailsScreen = ({ route }) => {
       const awayNormalized = normalizeNFLTeamName(awayTeamName).toLowerCase();
 
       console.log(
-        `Normalized NFL team names: {homeNormalized: '${homeNormalized}', awayNormalized: '${awayNormalized}'}`
+        `Normalized NFL team names: {homeNormalized: '${homeNormalized}', awayNormalized: '${awayNormalized}'}`,
       );
 
       let bestMatch = null;
@@ -350,7 +350,7 @@ const GameDetailsScreen = ({ route }) => {
               homeParts.forEach((part) => {
                 if (
                   titleWords.some(
-                    (word) => word.includes(part) || part.includes(word)
+                    (word) => word.includes(part) || part.includes(word),
                   )
                 )
                   homeMatches++;
@@ -358,7 +358,7 @@ const GameDetailsScreen = ({ route }) => {
               awayParts.forEach((part) => {
                 if (
                   titleWords.some(
-                    (word) => word.includes(part) || part.includes(word)
+                    (word) => word.includes(part) || part.includes(word),
                   )
                 )
                   awayMatches++;
@@ -399,8 +399,8 @@ const GameDetailsScreen = ({ route }) => {
         console.log(
           `NFL Match "${match.title.substring(
             0,
-            50
-          )}..." score: ${totalScore.toFixed(2)}`
+            50,
+          )}..." score: ${totalScore.toFixed(2)}`,
         );
 
         if (totalScore > bestScore) {
@@ -410,7 +410,7 @@ const GameDetailsScreen = ({ route }) => {
           // Early exit if we find a very good match
           if (bestScore >= 1.0) {
             console.log(
-              `Found excellent NFL match with score ${bestScore}, stopping search early`
+              `Found excellent NFL match with score ${bestScore}, stopping search early`,
             );
             break;
           }
@@ -420,8 +420,8 @@ const GameDetailsScreen = ({ route }) => {
       if (!bestMatch || bestScore < 0.3) {
         console.log(
           `No good matching NFL live match found (best score: ${bestScore.toFixed(
-            2
-          )})`
+            2,
+          )})`,
         );
         return {};
       }
@@ -429,7 +429,7 @@ const GameDetailsScreen = ({ route }) => {
       console.log(
         `Found matching NFL match: ${
           bestMatch.title
-        } (score: ${bestScore.toFixed(2)})`
+        } (score: ${bestScore.toFixed(2)})`,
       );
 
       // Collect only the first stream from each source (like soccer does)
@@ -438,7 +438,7 @@ const GameDetailsScreen = ({ route }) => {
         try {
           const sourceStreams = await fetchStreamsForSource(
             source.source,
-            source.id
+            source.id,
           );
 
           if (sourceStreams && sourceStreams.length > 0) {
@@ -455,13 +455,13 @@ const GameDetailsScreen = ({ route }) => {
             };
             console.log(
               `Added NFL stream for ${source.source}:`,
-              allStreams[sourceKey]
+              allStreams[sourceKey],
             );
           }
         } catch (error) {
           console.error(
             `Error fetching NFL streams for ${source.source}:`,
-            error
+            error,
           );
         }
       }
@@ -477,7 +477,7 @@ const GameDetailsScreen = ({ route }) => {
   const generateNFLStreamUrl = (
     awayTeamName,
     homeTeamName,
-    streamType = "alpha"
+    streamType = "alpha",
   ) => {
     const normalizedAway = normalizeNFLTeamName(awayTeamName);
     const normalizedHome = normalizeNFLTeamName(homeTeamName);
@@ -501,7 +501,7 @@ const GameDetailsScreen = ({ route }) => {
         Alert.alert(
           "Streaming Locked",
           "Please enter the streaming code in Settings to access live streams.",
-          [{ text: "OK" }]
+          [{ text: "OK" }],
         );
         return;
       }
@@ -524,14 +524,14 @@ const GameDetailsScreen = ({ route }) => {
       // Find home and away competitors by common keys
       let homeComp =
         competitors.find(
-          (c) => c.homeAway === "home" || c.side === "home" || c.isHome
+          (c) => c.homeAway === "home" || c.side === "home" || c.isHome,
         ) || null;
       let awayComp =
         competitors.find(
           (c) =>
             c.homeAway === "away" ||
             c.side === "away" ||
-            (!c.homeAway && !c.side && !c.isHome)
+            (!c.homeAway && !c.side && !c.isHome),
         ) || null;
 
       // If still missing, try alternate heuristics (by order)
@@ -559,7 +559,7 @@ const GameDetailsScreen = ({ route }) => {
 
       console.log(
         "openStreamModal: competition title =",
-        competition?.title || competition?.name
+        competition?.title || competition?.name,
       );
       console.log("openStreamModal: homeComp =", homeComp);
       console.log("openStreamModal: awayComp =", awayComp);
@@ -567,7 +567,7 @@ const GameDetailsScreen = ({ route }) => {
         "openStreamModal: resolved homeTeam =",
         homeTeam?.displayName || homeTeam?.name,
         "resolved awayTeam =",
-        awayTeam?.displayName || awayTeam?.name
+        awayTeam?.displayName || awayTeam?.name,
       );
 
       if (!awayTeam || !homeTeam) {
@@ -622,7 +622,7 @@ const GameDetailsScreen = ({ route }) => {
         initialUrl = generateNFLStreamUrl(
           awayName,
           homeName,
-          initialStreamType
+          initialStreamType,
         );
         setCurrentStreamType(initialStreamType);
       }
@@ -631,7 +631,7 @@ const GameDetailsScreen = ({ route }) => {
         "openStreamModal: initialStreamType =",
         initialStreamType,
         "initialUrl =",
-        initialUrl
+        initialUrl,
       );
       setStreamUrl(initialUrl);
       setIsStreamLoading(false);
@@ -653,15 +653,15 @@ const GameDetailsScreen = ({ route }) => {
     } else {
       // Fallback to manual URL construction
       const awayTeam = gameDetails?.competitions?.[0]?.competitors?.find(
-        (comp) => !comp.homeAway || comp.homeAway === "away"
+        (comp) => !comp.homeAway || comp.homeAway === "away",
       )?.team;
       const homeTeam = gameDetails?.competitions?.[0]?.competitors?.find(
-        (comp) => comp.homeAway === "home"
+        (comp) => comp.homeAway === "home",
       )?.team;
       newUrl = generateNFLStreamUrl(
         awayTeam?.displayName || awayTeam?.name,
         homeTeam?.displayName || homeTeam?.name,
-        streamType
+        streamType,
       );
     }
 
@@ -770,7 +770,7 @@ const GameDetailsScreen = ({ route }) => {
       "Team abbreviation:",
       espnTeam.abbreviation,
       "ESPN ID:",
-      espnTeam.id
+      espnTeam.id,
     );
 
     let nflId = teamMapping[espnTeam.abbreviation];
@@ -781,7 +781,7 @@ const GameDetailsScreen = ({ route }) => {
         espnTeam.abbreviation,
         "ESPN ID:",
         espnTeam.id,
-        "Using ESPN ID as fallback"
+        "Using ESPN ID as fallback",
       );
       return espnTeam.id;
     }
@@ -867,7 +867,7 @@ const GameDetailsScreen = ({ route }) => {
       return () => {
         // Cleanup if needed
       };
-    }, [gameId])
+    }, [gameId]),
   );
 
   // Effect to load roster data for scheduled games
@@ -950,7 +950,7 @@ const GameDetailsScreen = ({ route }) => {
     if (driveModalVisible && selectedDrive && drivesData) {
       // Find the updated drive that matches the selected drive ID
       const updatedDrive = drivesData.find(
-        (drive) => drive.id === selectedDrive.id
+        (drive) => drive.id === selectedDrive.id,
       );
       if (updatedDrive) {
         setSelectedDrive(updatedDrive);
@@ -1049,10 +1049,10 @@ const GameDetailsScreen = ({ route }) => {
 
       // Create hash for change detection
       const homeTeam = competition?.competitors?.find(
-        (c) => c.homeAway === "home"
+        (c) => c.homeAway === "home",
       );
       const awayTeam = competition?.competitors?.find(
-        (c) => c.homeAway === "away"
+        (c) => c.homeAway === "away",
       );
 
       const currentHash = JSON.stringify({
@@ -1093,15 +1093,15 @@ const GameDetailsScreen = ({ route }) => {
       const competition =
         gameDetails.header?.competitions?.[0] || gameDetails.competitions?.[0];
       const homeTeam = competition?.competitors?.find(
-        (c) => c.homeAway === "home"
+        (c) => c.homeAway === "home",
       );
       const awayTeam = competition?.competitors?.find(
-        (c) => c.homeAway === "away"
+        (c) => c.homeAway === "away",
       );
 
       if (homeTeam?.team?.id) {
         const homeResponse = await fetch(
-          `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${homeTeam.team.id}/roster`
+          `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${homeTeam.team.id}/roster`,
         );
         const homeData = await homeResponse.json();
         setHomeRosterData(homeData);
@@ -1109,7 +1109,7 @@ const GameDetailsScreen = ({ route }) => {
 
       if (awayTeam?.team?.id) {
         const awayResponse = await fetch(
-          `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${awayTeam.team.id}/roster`
+          `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${awayTeam.team.id}/roster`,
         );
         const awayData = await awayResponse.json();
         setAwayRosterData(awayData);
@@ -1225,7 +1225,7 @@ const GameDetailsScreen = ({ route }) => {
   const handlePlayerLongPress = async (
     player,
     statCategory,
-    teamInfo = null
+    teamInfo = null,
   ) => {
     setSelectedPlayer({
       ...player,
@@ -1289,11 +1289,11 @@ const GameDetailsScreen = ({ route }) => {
       "hasPlaysData:",
       drive.hasPlaysData,
       "plays count:",
-      drive.plays?.length || 0
+      drive.plays?.length || 0,
     );
     console.log(
       "Drive plays reference:",
-      drive.plays?.$ref || drive.plays?.href || "None"
+      drive.plays?.$ref || drive.plays?.href || "None",
     );
     setSelectedDrive(drive);
     setDriveModalVisible(true);
@@ -1324,7 +1324,7 @@ const GameDetailsScreen = ({ route }) => {
         // Also update the drive in the drives list for future reference
         if (drivesData) {
           const updatedDrivesData = drivesData.map((d) =>
-            d.id === drive.id ? updatedDrive : d
+            d.id === drive.id ? updatedDrive : d,
           );
           setDrivesData(updatedDrivesData);
         }
@@ -1387,7 +1387,7 @@ const GameDetailsScreen = ({ route }) => {
               prob.sequenceNumber === play.sequenceNumber ||
               prob.playId === play.id ||
               (prob.period === play.period &&
-                Math.abs(prob.clock - (play.clock || 0)) < 60)
+                Math.abs(prob.clock - (play.clock || 0)) < 60),
           );
 
           if (probData) {
@@ -1403,7 +1403,7 @@ const GameDetailsScreen = ({ route }) => {
             console.log(
               "Using cached game win probability:",
               winProbability,
-              "%"
+              "%",
             );
           } else {
             // Fallback to the most recent probability data
@@ -1424,7 +1424,7 @@ const GameDetailsScreen = ({ route }) => {
               console.log(
                 "Using fallback cached win probability:",
                 winProbability,
-                "%"
+                "%",
               );
             }
           }
@@ -1447,7 +1447,7 @@ const GameDetailsScreen = ({ route }) => {
         console.log(
           "Using fallback win probability based on score:",
           winProbability,
-          "%"
+          "%",
         );
       }
 
@@ -1537,7 +1537,7 @@ const GameDetailsScreen = ({ route }) => {
         console.log(
           "Processed participants using cached boxscore data:",
           enrichedParticipants.length,
-          "players"
+          "players",
         );
       }
 
@@ -1575,13 +1575,13 @@ const GameDetailsScreen = ({ route }) => {
 
     if (drive.plays && drive.plays.length > 0) {
       parts.push(
-        `${drive.plays.length} play${drive.plays.length === 1 ? "" : "s"}`
+        `${drive.plays.length} play${drive.plays.length === 1 ? "" : "s"}`,
       );
     }
 
     if (drive.yards) {
       parts.push(
-        `${drive.yards} yard${Math.abs(drive.yards) === 1 ? "" : "s"}`
+        `${drive.yards} yard${Math.abs(drive.yards) === 1 ? "" : "s"}`,
       );
     }
 
@@ -2375,7 +2375,7 @@ const GameDetailsScreen = ({ route }) => {
             prefixes.push(teamObj.name || "");
             prefixes.push(teamObj.abbreviation || "");
             const firstWord = (teamObj.displayName || teamObj.name || "").split(
-              " "
+              " ",
             )[0];
             if (firstWord) prefixes.push(firstWord);
           }
@@ -2396,11 +2396,11 @@ const GameDetailsScreen = ({ route }) => {
           const canonicalTokens = new Set();
           try {
             Object.keys(mapping).forEach((k) =>
-              canonicalTokens.add(k.toString().toLowerCase())
+              canonicalTokens.add(k.toString().toLowerCase()),
             );
             Object.values(mapping).forEach((arr) => {
               (arr || []).forEach((v) =>
-                canonicalTokens.add(v.toString().toLowerCase())
+                canonicalTokens.add(v.toString().toLowerCase()),
               );
             });
           } catch (err) {
@@ -2409,7 +2409,7 @@ const GameDetailsScreen = ({ route }) => {
 
           const normalizedTitle = (titleText || "").toString().toLowerCase();
           const matched = Array.from(canonicalTokens).find(
-            (tok) => tok && normalizedTitle.includes(tok)
+            (tok) => tok && normalizedTitle.includes(tok),
           );
           if (matched) {
             titleText = formatCategoryName(matched);
@@ -2556,7 +2556,7 @@ const GameDetailsScreen = ({ route }) => {
         console.warn("sharePlayerCopyCard: playerCopyCardRef not available");
         Alert.alert(
           "Unavailable",
-          "The player card is not ready to share yet."
+          "The player card is not ready to share yet.",
         );
         return;
       }
@@ -2587,7 +2587,7 @@ const GameDetailsScreen = ({ route }) => {
         } catch (shareErr) {
           console.warn(
             "Player share failed, falling back to native Share",
-            shareErr
+            shareErr,
           );
           await Share.share({ message: "Player card", url: uri });
         }
@@ -2671,13 +2671,13 @@ const GameDetailsScreen = ({ route }) => {
     const awayTeamLeaders = leaders.find(
       (teamLeader) =>
         teamLeader.team?.id === awayTeam?.team?.id ||
-        teamLeader.team?.abbreviation === awayTeam?.team?.abbreviation
+        teamLeader.team?.abbreviation === awayTeam?.team?.abbreviation,
     );
 
     const homeTeamLeaders = leaders.find(
       (teamLeader) =>
         teamLeader.team?.id === homeTeam?.team?.id ||
-        teamLeader.team?.abbreviation === homeTeam?.team?.abbreviation
+        teamLeader.team?.abbreviation === homeTeam?.team?.abbreviation,
     );
 
     if (!awayTeamLeaders || !homeTeamLeaders) {
@@ -2691,10 +2691,10 @@ const GameDetailsScreen = ({ route }) => {
       <View>
         {categories.map((category, categoryIndex) => {
           const awayCategoryData = awayTeamLeaders.leaders?.find(
-            (l) => l.name === category
+            (l) => l.name === category,
           );
           const homeCategoryData = homeTeamLeaders.leaders?.find(
-            (l) => l.name === category
+            (l) => l.name === category,
           );
 
           if (
@@ -2912,7 +2912,7 @@ const GameDetailsScreen = ({ route }) => {
     const teamLeaders = gameDetails.leaders.find(
       (teamLeader) =>
         teamLeader.team?.id === team?.team?.id ||
-        teamLeader.team?.abbreviation === team?.team?.abbreviation
+        teamLeader.team?.abbreviation === team?.team?.abbreviation,
     );
 
     if (!teamLeaders) return null;
@@ -2923,7 +2923,7 @@ const GameDetailsScreen = ({ route }) => {
       <View>
         {categories.map((category, categoryIndex) => {
           const categoryData = teamLeaders.leaders?.find(
-            (l) => l.name === category
+            (l) => l.name === category,
           );
 
           if (!categoryData || !categoryData.leaders?.[0]) {
@@ -3151,10 +3151,10 @@ const GameDetailsScreen = ({ route }) => {
 
         // Get win probabilities
         const awayWinChance = parseFloat(
-          predictor.awayTeam?.gameProjection || "0"
+          predictor.awayTeam?.gameProjection || "0",
         );
         const homeWinChance = parseFloat(
-          predictor.homeTeam?.gameProjection || "0"
+          predictor.homeTeam?.gameProjection || "0",
         );
 
         // Get team colors (fallback to default if not available)
@@ -3418,7 +3418,7 @@ const GameDetailsScreen = ({ route }) => {
             (positionGroup) =>
               positionGroup.position !== "practiceSquad" &&
               positionGroup.items &&
-              positionGroup.items.length > 0
+              positionGroup.items.length > 0,
           )
           .map((positionGroup, groupIndex) => (
             <View key={groupIndex} style={styles.rosterSection}>
@@ -3586,7 +3586,7 @@ const GameDetailsScreen = ({ route }) => {
     const teamBoxScore = gameDetails.boxscore.players.find(
       (playerTeam) =>
         playerTeam.team?.id === team?.team?.id ||
-        playerTeam.team?.abbreviation === team?.team?.abbreviation
+        playerTeam.team?.abbreviation === team?.team?.abbreviation,
     );
 
     if (!teamBoxScore || !teamBoxScore.statistics) {
@@ -4233,10 +4233,10 @@ const GameDetailsScreen = ({ route }) => {
                           play.down.number === 1
                             ? "st"
                             : play.down.number === 2
-                            ? "nd"
-                            : play.down.number === 3
-                            ? "rd"
-                            : "th"
+                              ? "nd"
+                              : play.down.number === 3
+                                ? "rd"
+                                : "th"
                         } & ${play.distance.yards}`,
                       play.type?.text,
                       play.scoringPlay && "SCORING PLAY",
@@ -4330,8 +4330,8 @@ const GameDetailsScreen = ({ route }) => {
                 color: isFavorite(getNFLTeamId(awayTeam?.team), "nfl")
                   ? colors.primary
                   : isAwayTeamLosing
-                  ? theme.textSecondary
-                  : theme.text,
+                    ? theme.textSecondary
+                    : theme.text,
               },
             ]}
           >
@@ -4345,7 +4345,7 @@ const GameDetailsScreen = ({ route }) => {
               return null;
 
             const currentDrive = drivesData.find(
-              (drive) => !drive.end?.text && drive.result !== "End of Game"
+              (drive) => !drive.end?.text && drive.result !== "End of Game",
             );
 
             const possessionTeamId = currentDrive?.team?.id;
@@ -4371,12 +4371,16 @@ const GameDetailsScreen = ({ route }) => {
             {status?.type?.completed
               ? "Final"
               : status?.type?.description === "Halftime"
-              ? "Halftime"
-              : status?.period && status?.period > 0 && !status?.type?.completed
-              ? status.period <= 4
-                ? `${["1st", "2nd", "3rd", "4th"][status.period - 1]} Quarter`
-                : `OT ${status.period - 4}`
-              : status?.type?.description || status?.type?.name || "Scheduled"}
+                ? "Halftime"
+                : status?.period &&
+                    status?.period > 0 &&
+                    !status?.type?.completed
+                  ? status.period <= 4
+                    ? `${["1st", "2nd", "3rd", "4th"][status.period - 1]} Quarter`
+                    : `OT ${status.period - 4}`
+                  : status?.type?.description ||
+                    status?.type?.name ||
+                    "Scheduled"}
           </Text>
           {/* Show clock for in-progress games or start time for scheduled games */}
           {status?.displayClock &&
@@ -4411,7 +4415,7 @@ const GameDetailsScreen = ({ route }) => {
               return null;
 
             const currentDrive = drivesData.find(
-              (drive) => !drive.end?.text && drive.result !== "End of Game"
+              (drive) => !drive.end?.text && drive.result !== "End of Game",
             );
 
             const possessionTeamId = currentDrive?.team?.id;
@@ -4434,8 +4438,8 @@ const GameDetailsScreen = ({ route }) => {
                 color: isFavorite(getNFLTeamId(homeTeam?.team), "nfl")
                   ? colors.primary
                   : isHomeTeamLosing
-                  ? theme.textSecondary
-                  : theme.text,
+                    ? theme.textSecondary
+                    : theme.text,
               },
             ]}
           >
@@ -4516,7 +4520,7 @@ const GameDetailsScreen = ({ route }) => {
               let possessionTeamId = null;
               if (drivesData) {
                 const currentDrive = drivesData.find(
-                  (drive) => !drive.end?.text && drive.result !== "End of Game"
+                  (drive) => !drive.end?.text && drive.result !== "End of Game",
                 );
                 if (currentDrive?.team?.id) {
                   possessionTeamId = currentDrive.team.id;
@@ -4526,21 +4530,21 @@ const GameDetailsScreen = ({ route }) => {
               console.log("=== POSSESSION DEBUG ===");
               console.log(
                 "drivesData found current drive possession team ID:",
-                possessionTeamId
+                possessionTeamId,
               );
               console.log("awayTeam.team.id:", awayTeam?.team?.id);
               console.log("homeTeam.team.id:", homeTeam?.team?.id);
               console.log(
                 "Possession match away:",
-                possessionTeamId === awayTeam?.team?.id
+                possessionTeamId === awayTeam?.team?.id,
               );
               console.log(
                 "Possession match home:",
-                possessionTeamId === homeTeam?.team?.id
+                possessionTeamId === homeTeam?.team?.id,
               );
               console.log(
                 "status.type.description:",
-                status?.type?.description
+                status?.type?.description,
               );
               console.log("========================");
               return null;
@@ -4566,7 +4570,7 @@ const GameDetailsScreen = ({ route }) => {
 
                   const currentDrive = drivesData.find(
                     (drive) =>
-                      !drive.end?.text && drive.result !== "End of Game"
+                      !drive.end?.text && drive.result !== "End of Game",
                   );
 
                   const possessionTeamId = currentDrive?.team?.id;
@@ -4600,8 +4604,8 @@ const GameDetailsScreen = ({ route }) => {
                       color: isFavorite(getNFLTeamId(awayTeam?.team), "nfl")
                         ? colors.primary
                         : isAwayTeamLosing
-                        ? theme.textSecondary
-                        : theme.text,
+                          ? theme.textSecondary
+                          : theme.text,
                     },
                   ]}
                 >
@@ -4628,18 +4632,18 @@ const GameDetailsScreen = ({ route }) => {
                 {status?.type?.completed
                   ? "Final"
                   : status?.type?.description === "Halftime"
-                  ? "Halftime"
-                  : status?.period &&
-                    status?.period > 0 &&
-                    !status?.type?.completed
-                  ? status.period <= 4
-                    ? `${
-                        ["1st", "2nd", "3rd", "4th"][status.period - 1]
-                      } Quarter`
-                    : `OT ${status.period - 4}`
-                  : status?.type?.description ||
-                    status?.type?.name ||
-                    "Scheduled"}
+                    ? "Halftime"
+                    : status?.period &&
+                        status?.period > 0 &&
+                        !status?.type?.completed
+                      ? status.period <= 4
+                        ? `${
+                            ["1st", "2nd", "3rd", "4th"][status.period - 1]
+                          } Quarter`
+                        : `OT ${status.period - 4}`
+                      : status?.type?.description ||
+                        status?.type?.name ||
+                        "Scheduled"}
               </Text>
               {/* Show clock for in-progress games or start time for scheduled games */}
               {status?.displayClock &&
@@ -4691,7 +4695,7 @@ const GameDetailsScreen = ({ route }) => {
 
                   const currentDrive = drivesData.find(
                     (drive) =>
-                      !drive.end?.text && drive.result !== "End of Game"
+                      !drive.end?.text && drive.result !== "End of Game",
                   );
 
                   const possessionTeamId = currentDrive?.team?.id;
@@ -4720,8 +4724,8 @@ const GameDetailsScreen = ({ route }) => {
                       color: isFavorite(getNFLTeamId(homeTeam?.team), "nfl")
                         ? colors.primary
                         : isHomeTeamLosing
-                        ? theme.textSecondary
-                        : theme.text,
+                          ? theme.textSecondary
+                          : theme.text,
                     },
                   ]}
                 >
@@ -4781,7 +4785,7 @@ const GameDetailsScreen = ({ route }) => {
                         )}
                       </View>
                     );
-                  }
+                  },
                 )}
 
                 {/* Ball position indicator - use drives data */}
@@ -4791,7 +4795,7 @@ const GameDetailsScreen = ({ route }) => {
                     // Find the current drive in progress
                     const currentDrive = drivesData.find(
                       (drive) =>
-                        !drive.end?.text && drive.result !== "End of Game"
+                        !drive.end?.text && drive.result !== "End of Game",
                     );
 
                     if (!currentDrive?.plays?.length) return null;
@@ -4878,7 +4882,7 @@ const GameDetailsScreen = ({ route }) => {
                   // Find the current drive in progress
                   const currentDrive = drivesData.find(
                     (drive) =>
-                      !drive.end?.text && drive.result !== "End of Game"
+                      !drive.end?.text && drive.result !== "End of Game",
                   );
 
                   if (!currentDrive?.plays?.length) return null;
@@ -5121,7 +5125,7 @@ const GameDetailsScreen = ({ route }) => {
                         source={{
                           uri: NFLService.convertToHttps(
                             selectedPlayer.headshot?.href ||
-                              selectedPlayer.headshot
+                              selectedPlayer.headshot,
                           ),
                         }}
                         style={[
@@ -5241,7 +5245,7 @@ const GameDetailsScreen = ({ route }) => {
                       source={{
                         uri: NFLService.convertToHttps(
                           selectedPlayer.headshot?.href ||
-                            selectedPlayer.headshot
+                            selectedPlayer.headshot,
                         ),
                       }}
                       style={[
@@ -5635,7 +5639,7 @@ const GameDetailsScreen = ({ route }) => {
                               const seqA = parseInt(a.sequenceNumber) || 0;
                               const seqB = parseInt(b.sequenceNumber) || 0;
                               return seqB - seqA;
-                            }
+                            },
                           );
                           const mostRecentPlay = sortedPlays[0];
 
@@ -5788,14 +5792,14 @@ const GameDetailsScreen = ({ route }) => {
                               onLongPress={() => {
                                 console.log(
                                   "TouchableOpacity onLongPress triggered for play:",
-                                  index
+                                  index,
                                 );
                                 handlePlayLongPress(play);
                               }}
                               onPress={() =>
                                 console.log(
                                   "TouchableOpacity onPress triggered for play:",
-                                  index
+                                  index,
                                 )
                               }
                               delayLongPress={500}
@@ -5931,14 +5935,14 @@ const GameDetailsScreen = ({ route }) => {
                     (() => {
                       console.log(
                         "Rendering share card modal with play data:",
-                        shareCardPlay
+                        shareCardPlay,
                       );
                       const play = shareCardPlay;
 
                       let teamColor = play.teamColor || "#000000";
 
                       let teamLogo = NFLService.convertToHttps(
-                        play.driveTeam || ""
+                        play.driveTeam || "",
                       );
 
                       let teamName = play.teamName || "";
@@ -6000,10 +6004,10 @@ const GameDetailsScreen = ({ route }) => {
 
                       // Get team logos
                       const homeTeamLogo = NFLService.convertToHttps(
-                        play.homeTeam?.team?.logos?.[0]?.href || ""
+                        play.homeTeam?.team?.logos?.[0]?.href || "",
                       );
                       const awayTeamLogo = NFLService.convertToHttps(
-                        play.awayTeam?.team?.logos?.[0]?.href || ""
+                        play.awayTeam?.team?.logos?.[0]?.href || "",
                       );
 
                       console.log("Win probability in modal:", winProbability);
@@ -6191,13 +6195,13 @@ const GameDetailsScreen = ({ route }) => {
                                     const currentPercent =
                                       (currentYard / 100) * 100;
                                     const driveWidth = Math.abs(
-                                      currentPercent - startPercent
+                                      currentPercent - startPercent,
                                     );
 
                                     // Flip horizontally: convert left position to right position
                                     const driveLeft = Math.min(
                                       startPercent,
-                                      currentPercent
+                                      currentPercent,
                                     );
                                     const flippedLeft =
                                       100 - driveLeft - driveWidth;
@@ -6267,7 +6271,7 @@ const GameDetailsScreen = ({ route }) => {
 
                               // Sort participants by order first
                               let participantsList = [...uniquePlayers].sort(
-                                (a, b) => (a.order || 0) - (b.order || 0)
+                                (a, b) => (a.order || 0) - (b.order || 0),
                               );
 
                               // Check for special cases using play type ID (like scoreboard.js)
@@ -6295,13 +6299,13 @@ const GameDetailsScreen = ({ route }) => {
                                 "Is special:",
                                 isSpecialPlayType,
                                 "Is scoring:",
-                                isScoringPlay
+                                isScoringPlay,
                               );
                               console.log(
                                 "Available participant types:",
                                 participantsList.map(
-                                  (p) => `${p.athlete?.displayName}: ${p.type}`
-                                )
+                                  (p) => `${p.athlete?.displayName}: ${p.type}`,
+                                ),
                               );
 
                               // Get main participant using same logic as scoreboard.js
@@ -6313,14 +6317,14 @@ const GameDetailsScreen = ({ route }) => {
                                   (p) =>
                                     p.type === "scorer" ||
                                     p.type === "rusher" ||
-                                    p.type === "receiver"
+                                    p.type === "receiver",
                                 );
                                 if (scorer) {
                                   console.log(
                                     "Found scoring participant:",
                                     scorer?.athlete?.displayName,
                                     "Type:",
-                                    scorer?.type
+                                    scorer?.type,
                                   );
                                   mainPlayer = scorer;
                                 }
@@ -6339,26 +6343,26 @@ const GameDetailsScreen = ({ route }) => {
                                         p.type === "recoverer" ||
                                         p.type === "returner" ||
                                         p.type === "sackedBy" ||
-                                        p.type === "passDefender"
+                                        p.type === "passDefender",
                                     );
                                   console.log(
                                     "Found special participant:",
                                     specialParticipant?.athlete?.displayName,
                                     "Type:",
-                                    specialParticipant?.type
+                                    specialParticipant?.type,
                                   );
                                   mainPlayer =
                                     specialParticipant || participantsList[0];
                                 } else if (isRushingPlay) {
                                   // For rushing plays, prioritize the rusher
                                   const rusher = participantsList.find(
-                                    (p) => p.type === "rusher"
+                                    (p) => p.type === "rusher",
                                   );
                                   mainPlayer = rusher || participantsList[0];
                                 } else if (isPassingPlay) {
                                   // For passing plays, prioritize the receiver
                                   const receiver = participantsList.find(
-                                    (p) => p.type === "receiver"
+                                    (p) => p.type === "receiver",
                                   );
                                   mainPlayer = receiver || participantsList[0];
                                 } else {
@@ -6370,7 +6374,7 @@ const GameDetailsScreen = ({ route }) => {
                                 "Selected main participant:",
                                 mainPlayer?.athlete?.displayName,
                                 "Type:",
-                                mainPlayer?.type
+                                mainPlayer?.type,
                               );
 
                               // Reorder participants array to put main participant first
@@ -6385,7 +6389,7 @@ const GameDetailsScreen = ({ route }) => {
                                   participantsList.filter(
                                     (p) =>
                                       p.athlete?.displayName !==
-                                      mainPlayer.athlete?.displayName
+                                      mainPlayer.athlete?.displayName,
                                   );
                                 participantsList = [
                                   mainPlayer,
@@ -6401,7 +6405,7 @@ const GameDetailsScreen = ({ route }) => {
                               const getPlayerStats = (
                                 player,
                                 playTypeId,
-                                participantType
+                                participantType,
                               ) => {
                                 if (
                                   !gameDetails?.boxscore?.players ||
@@ -6707,7 +6711,7 @@ const GameDetailsScreen = ({ route }) => {
                               const formatPlayerNameWithStats = (
                                 player,
                                 playTypeId,
-                                isMain = false
+                                isMain = false,
                               ) => {
                                 const fullName =
                                   player.athlete?.displayName ||
@@ -6726,12 +6730,12 @@ const GameDetailsScreen = ({ route }) => {
                                 const stats = getPlayerStats(
                                   player,
                                   playTypeId,
-                                  player.type
+                                  player.type,
                                 );
 
                                 if (stats.length > 0) {
                                   return `${formattedName} • ${stats.join(
-                                    ", "
+                                    ", ",
                                   )}`;
                                 }
 
@@ -6742,7 +6746,7 @@ const GameDetailsScreen = ({ route }) => {
                                 formatPlayerNameWithStats(
                                   mainPlayer,
                                   playTypeId,
-                                  true
+                                  true,
                                 );
                               const mainPlayerId = mainPlayer.athlete?.id;
                               const mainPlayerHeadshot =
@@ -6795,7 +6799,7 @@ const GameDetailsScreen = ({ route }) => {
                                             formatPlayerNameWithStats(
                                               player,
                                               playTypeId,
-                                              false
+                                              false,
                                             );
                                           return (
                                             <Text
@@ -7067,7 +7071,10 @@ const GameDetailsScreen = ({ route }) => {
                         try {
                           requestDomain = new URL(request.url).hostname;
                         } catch (e) {
-                          if (urlLower.startsWith("about:blank") || urlLower.startsWith("data:")) {
+                          if (
+                            urlLower.startsWith("about:blank") ||
+                            urlLower.startsWith("data:")
+                          ) {
                             return true;
                           }
                           console.log("Invalid URL:", request.url);
@@ -7089,12 +7096,14 @@ const GameDetailsScreen = ({ route }) => {
                           "about:blank",
                           "data:",
                         ];
-                        const allowIfEmbed = allowPatterns.some((p) => urlLower.includes(p));
+                        const allowIfEmbed = allowPatterns.some((p) =>
+                          urlLower.includes(p),
+                        );
 
                         if (hasPopupKeywords && !allowIfEmbed) {
                           console.log(
                             "Blocked popup/cross-domain navigation:",
-                            request.url
+                            request.url,
                           );
                           return false;
                         }
@@ -7105,7 +7114,7 @@ const GameDetailsScreen = ({ route }) => {
 
                         console.log(
                           "Blocked popup/cross-domain navigation:",
-                          request.url
+                          request.url,
                         );
                         return false;
                       }}
@@ -7114,7 +7123,7 @@ const GameDetailsScreen = ({ route }) => {
                         const { nativeEvent } = syntheticEvent;
                         console.log(
                           "Blocked popup window:",
-                          nativeEvent.targetUrl
+                          nativeEvent.targetUrl,
                         );
                         // Don't open the popup - just log it
                         return false;
@@ -7175,11 +7184,11 @@ const GameDetailsScreen = ({ route }) => {
                 {gameDetails
                   ? `${
                       gameDetails.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "away"
+                        (c) => c.homeAway === "away",
                       )?.team.name || "Away"
                     } vs ${
                       gameDetails.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "home"
+                        (c) => c.homeAway === "home",
                       )?.team.name || "Home"
                     }`
                   : "Chat"}

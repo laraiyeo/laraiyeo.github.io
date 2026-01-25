@@ -44,7 +44,7 @@ const calculateColorSimilarity = (color1, color2) => {
   const b2 = parseInt(hex2.substr(4, 2), 16);
 
   const distance = Math.sqrt(
-    Math.pow(r2 - r1, 2) + Math.pow(g2 - g1, 2) + Math.pow(b2 - b1, 2)
+    Math.pow(r2 - r1, 2) + Math.pow(g2 - g1, 2) + Math.pow(b2 - b1, 2),
   );
 
   const maxDistance = Math.sqrt(3 * Math.pow(255, 2));
@@ -79,13 +79,13 @@ const getSmartTeamColors = (awayTeam, homeTeam) => {
     } (${awayPrimary}, alt: ${awayAlternate}) vs ${
       homeTeam.displayName
     } (${homePrimary}, alt: ${homeAlternate}), similarity: ${similarity.toFixed(
-      3
-    )}`
+      3,
+    )}`,
   );
 
   if (similarity > conflictThreshold) {
     console.log(
-      `Color conflict detected: Using away alternate (${awayAlternate}) vs home primary (${homePrimary})`
+      `Color conflict detected: Using away alternate (${awayAlternate}) vs home primary (${homePrimary})`,
     );
     return {
       awayColor: awayAlternate,
@@ -94,7 +94,7 @@ const getSmartTeamColors = (awayTeam, homeTeam) => {
   }
 
   console.log(
-    `No color conflict detected: Using away primary (${awayPrimary}) vs home primary (${homePrimary})`
+    `No color conflict detected: Using away primary (${awayPrimary}) vs home primary (${homePrimary})`,
   );
   return {
     awayColor: awayPrimary,
@@ -160,7 +160,7 @@ const NHLGameDetailsScreen = ({ route }) => {
     if (gameId) {
       console.log(
         "🎮 NHL GameDetailsScreen - Tracking presence for gameId:",
-        gameId
+        gameId,
       );
     }
 
@@ -169,7 +169,7 @@ const NHLGameDetailsScreen = ({ route }) => {
       if (gameId) {
         console.log(
           "🎮 NHL GameDetailsScreen - Cleaning up presence for gameId:",
-          gameId
+          gameId,
         );
       }
     };
@@ -264,7 +264,7 @@ const NHLGameDetailsScreen = ({ route }) => {
       if (rawValue == null) num = 0;
       else if (typeof rawValue === "object")
         num = parseFloat(
-          rawValue.displayValue ?? rawValue.value ?? String(rawValue)
+          rawValue.displayValue ?? rawValue.value ?? String(rawValue),
         );
       else num = parseFloat(String(rawValue).replace(/[^0-9.-]/g, ""));
       if (isNaN(num) || num === 0) return theme.text;
@@ -283,7 +283,7 @@ const NHLGameDetailsScreen = ({ route }) => {
     if (isLoadingMorePlays || !playsData) return;
 
     console.log(
-      `[PLAYS DEBUG] Loading more plays. Current: ${visiblePlaysCount}, Total: ${playsData.length}`
+      `[PLAYS DEBUG] Loading more plays. Current: ${visiblePlaysCount}, Total: ${playsData.length}`,
     );
     setIsLoadingMorePlays(true);
 
@@ -294,8 +294,8 @@ const NHLGameDetailsScreen = ({ route }) => {
       console.log(
         `[PLAYS DEBUG] Loaded more plays. New count: ${Math.min(
           visiblePlaysCount + 20,
-          playsData.length
-        )}`
+          playsData.length,
+        )}`,
       );
     }, 100);
   }, [isLoadingMorePlays, playsData, visiblePlaysCount]);
@@ -363,7 +363,7 @@ const NHLGameDetailsScreen = ({ route }) => {
   const fetchStreamsForSource = async (source, sourceId) => {
     try {
       const response = await fetch(
-        `${STREAM_API_BASE}/stream/${source}/${sourceId}`
+        `${STREAM_API_BASE}/stream/${source}/${sourceId}`,
       );
       if (!response.ok) {
         throw new Error(`Failed to fetch streams: ${response.status}`);
@@ -420,7 +420,7 @@ const NHLGameDetailsScreen = ({ route }) => {
   const findNHLMatchStreams = async (homeTeamName, awayTeamName) => {
     try {
       console.log(
-        `Finding NHL streams for: ${awayTeamName} vs ${homeTeamName}`
+        `Finding NHL streams for: ${awayTeamName} vs ${homeTeamName}`,
       );
 
       const liveMatches = await fetchLiveMatches();
@@ -437,7 +437,7 @@ const NHLGameDetailsScreen = ({ route }) => {
       const awayNormalized = normalizeNHLTeamName(awayTeamName).toLowerCase();
 
       console.log(
-        `Normalized NHL team names: {homeNormalized: '${homeNormalized}', awayNormalized: '${awayNormalized}'}`
+        `Normalized NHL team names: {homeNormalized: '${homeNormalized}', awayNormalized: '${awayNormalized}'}`,
       );
 
       let bestMatch = null;
@@ -516,7 +516,7 @@ const NHLGameDetailsScreen = ({ route }) => {
 
       if (!bestMatch || bestScore < 0.25) {
         console.log(
-          `No good matching NHL live match found (best score: ${bestScore})`
+          `No good matching NHL live match found (best score: ${bestScore})`,
         );
         return {};
       }
@@ -524,7 +524,7 @@ const NHLGameDetailsScreen = ({ route }) => {
       console.log(
         `Found matching NHL match: ${
           bestMatch.title || bestMatch.id
-        } (score: ${bestScore})`
+        } (score: ${bestScore})`,
       );
 
       const allStreams = {};
@@ -532,7 +532,7 @@ const NHLGameDetailsScreen = ({ route }) => {
         try {
           const sourceStreams = await fetchStreamsForSource(
             source.source,
-            source.id
+            source.id,
           );
           if (sourceStreams && sourceStreams.length > 0) {
             const firstStream = sourceStreams[0];
@@ -555,13 +555,13 @@ const NHLGameDetailsScreen = ({ route }) => {
             };
             console.log(
               `Added NHL stream for ${source.source}:`,
-              allStreams[sourceKey]
+              allStreams[sourceKey],
             );
           }
         } catch (error) {
           console.error(
             `Error fetching NHL streams for ${source.source}:`,
-            error
+            error,
           );
         }
       }
@@ -577,7 +577,7 @@ const NHLGameDetailsScreen = ({ route }) => {
   const generateNHLStreamUrl = (
     awayTeamName,
     homeTeamName,
-    streamType = "alpha"
+    streamType = "alpha",
   ) => {
     const normalizedAway = normalizeNHLTeamName(awayTeamName);
     const normalizedHome = normalizeNHLTeamName(homeTeamName);
@@ -599,7 +599,7 @@ const NHLGameDetailsScreen = ({ route }) => {
         Alert.alert(
           "Streaming Locked",
           "Please enter the streaming code in Settings to access live streams.",
-          [{ text: "OK" }]
+          [{ text: "OK" }],
         );
         return;
       }
@@ -617,14 +617,14 @@ const NHLGameDetailsScreen = ({ route }) => {
 
       let homeComp =
         competitors.find(
-          (c) => c.homeAway === "home" || c.side === "home" || c.isHome
+          (c) => c.homeAway === "home" || c.side === "home" || c.isHome,
         ) || null;
       let awayComp =
         competitors.find(
           (c) =>
             c.homeAway === "away" ||
             c.side === "away" ||
-            (!c.homeAway && !c.side && !c.isHome)
+            (!c.homeAway && !c.side && !c.isHome),
         ) || null;
 
       if (!homeComp && competitors.length === 2) {
@@ -696,7 +696,7 @@ const NHLGameDetailsScreen = ({ route }) => {
         initialUrl = generateNHLStreamUrl(
           awayName,
           homeName,
-          initialStreamType
+          initialStreamType,
         );
         setCurrentStreamType(initialStreamType);
       }
@@ -705,7 +705,7 @@ const NHLGameDetailsScreen = ({ route }) => {
         "openStreamModal: initialStreamType =",
         initialStreamType,
         "initialUrl =",
-        initialUrl
+        initialUrl,
       );
       setStreamUrl(initialUrl);
       setIsStreamLoading(false);
@@ -724,15 +724,15 @@ const NHLGameDetailsScreen = ({ route }) => {
       newUrl = streamData.embedUrl || streamData.url || streamData;
     } else {
       const awayTeam = details?.competitions?.[0]?.competitors?.find(
-        (comp) => !comp.homeAway || comp.homeAway === "away"
+        (comp) => !comp.homeAway || comp.homeAway === "away",
       )?.team;
       const homeTeam = details?.competitions?.[0]?.competitors?.find(
-        (comp) => comp.homeAway === "home"
+        (comp) => comp.homeAway === "home",
       )?.team;
       newUrl = generateNHLStreamUrl(
         awayTeam?.displayName || awayTeam?.name,
         homeTeam?.displayName || homeTeam?.name,
-        streamType
+        streamType,
       );
     }
     setStreamUrl(newUrl);
@@ -757,8 +757,8 @@ const NHLGameDetailsScreen = ({ route }) => {
           .catch((e) =>
             console.error(
               "Failed to fetch NHL game details after stream modal close",
-              e
-            )
+              e,
+            ),
           );
       }
     }
@@ -890,7 +890,7 @@ const NHLGameDetailsScreen = ({ route }) => {
         period: p?.period?.displayValue || p?.period,
         clock: p?.clock?.displayValue || p?.clock || p?.time,
         scoring: !!p?.scoringPlay,
-      }))
+      })),
     );
 
     // Only process plays if content has actually changed
@@ -997,7 +997,7 @@ const NHLGameDetailsScreen = ({ route }) => {
         // Get smart team colors to handle color conflicts in play-by-play
         const smartColors = getSmartTeamColors(
           awayLocal?.team,
-          homeLocal?.team
+          homeLocal?.team,
         );
 
         const fully = [];
@@ -1026,7 +1026,7 @@ const NHLGameDetailsScreen = ({ route }) => {
               playTeamSummary = competitionObjLocal.competitors.find(
                 (c) =>
                   String(c.team?.id || c.id) === String(playTeamId) ||
-                  String(c.id) === String(playTeamId)
+                  String(c.id) === String(playTeamId),
               );
             }
             // Use smart colors for play team color to handle similar team colors
@@ -1065,14 +1065,14 @@ const NHLGameDetailsScreen = ({ route }) => {
               typeof coordXRaw === "number"
                 ? coordXRaw
                 : coordXRaw
-                ? parseFloat(coordXRaw)
-                : null;
+                  ? parseFloat(coordXRaw)
+                  : null;
             const coordY =
               typeof coordYRaw === "number"
                 ? coordYRaw
                 : coordYRaw
-                ? parseFloat(coordYRaw)
-                : null;
+                  ? parseFloat(coordYRaw)
+                  : null;
             const textColor = theme.text;
             const borderLeftWidth = playTeamColor ? 6 : 0;
             const borderLeftColor = playTeamColor || "transparent";
@@ -1080,13 +1080,13 @@ const NHLGameDetailsScreen = ({ route }) => {
               getLogoUriForTeam(awayLocal, isScoring) ||
               getTeamLogoUrl(
                 "nhl",
-                awayLocal?.team?.abbreviation || awayLocal?.abbreviation
+                awayLocal?.team?.abbreviation || awayLocal?.abbreviation,
               );
             const homeLogoUri =
               getLogoUriForTeam(homeLocal, isScoring) ||
               getTeamLogoUrl(
                 "nhl",
-                homeLocal?.team?.abbreviation || homeLocal?.abbreviation
+                homeLocal?.team?.abbreviation || homeLocal?.abbreviation,
               );
 
             return {
@@ -1166,7 +1166,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                     p?.person ||
                     p?.shortName ||
                     p?.displayName
-                  )
+                  ),
               );
             }
             return getShortNameFromParticipant(scorer);
@@ -1178,7 +1178,7 @@ const NHLGameDetailsScreen = ({ route }) => {
             const periodNum = getPeriodNumber(
               rawPlay?.period ||
                 rawPlay?.periodNumber ||
-                rawPlay?.period?.number
+                rawPlay?.period?.number,
             );
             if (periodNum !== null && periodNum >= 5) continue; // skip shootouts/long overtime
 
@@ -1234,7 +1234,7 @@ const NHLGameDetailsScreen = ({ route }) => {
               // Extract period and time from format "(3rd - 5:57)"
               const parseStamp = (stamp) => {
                 const match = stamp.match(
-                  /\((\d+)(?:st|nd|rd|th)?\s*-\s*(\d+):(\d+)\)/
+                  /\((\d+)(?:st|nd|rd|th)?\s*-\s*(\d+):(\d+)\)/,
                 );
                 if (!match) return { period: 0, minutes: 0, seconds: 0 };
                 return {
@@ -1375,7 +1375,7 @@ const NHLGameDetailsScreen = ({ route }) => {
             .map((c) => c + c)
             .join("")
         : h,
-      16
+      16,
     );
     const r = (bigint >> 16) & 255;
     const g = (bigint >> 8) & 255;
@@ -1508,7 +1508,7 @@ const NHLGameDetailsScreen = ({ route }) => {
         playerObj?.athlete?.id ||
           playerObj?.athlete?.athleteId ||
           playerObj?.athlete?.athleteid ||
-          ""
+          "",
       );
       for (const teamBox of playersBox) {
         if (!teamBox || !Array.isArray(teamBox.statistics)) continue;
@@ -1517,16 +1517,18 @@ const NHLGameDetailsScreen = ({ route }) => {
           const found = group.athletes.find(
             (a) =>
               String(
-                a?.athlete?.id || a?.athlete?.athleteId || a?.athlete?.athleteid
-              ) === athleteId
+                a?.athlete?.id ||
+                  a?.athlete?.athleteId ||
+                  a?.athlete?.athleteid,
+              ) === athleteId,
           );
           if (found) {
             return {
               labels: Array.isArray(group.labels)
                 ? group.labels.slice()
                 : Array.isArray(group.keys)
-                ? group.keys.slice()
-                : [],
+                  ? group.keys.slice()
+                  : [],
               keys: Array.isArray(group.keys) ? group.keys.slice() : null,
               groupName: group.name || "",
             };
@@ -1647,11 +1649,11 @@ const NHLGameDetailsScreen = ({ route }) => {
 
     const awayFaceoffPct = parseFloat(
       awayTeam?.statistics?.find((s) => s.name === "faceoffPercent")
-        ?.displayValue || "0"
+        ?.displayValue || "0",
     );
     const homeFaceoffPct = parseFloat(
       homeTeam?.statistics?.find((s) => s.name === "faceoffPercent")
-        ?.displayValue || "0"
+        ?.displayValue || "0",
     );
 
     if (awayFaceoffPct === 0 && homeFaceoffPct === 0) return null;
@@ -1772,7 +1774,7 @@ const NHLGameDetailsScreen = ({ route }) => {
     homeValue,
     awayValue,
     homeColor,
-    awayColor
+    awayColor,
   ) => {
     const homeNum =
       typeof homeValue === "number" ? homeValue : parseFloat(homeValue) || 0;
@@ -1920,10 +1922,10 @@ const NHLGameDetailsScreen = ({ route }) => {
 
         {keyStats.map((statName) => {
           const awayStat = awayTeam?.statistics?.find(
-            (s) => s.name === statName
+            (s) => s.name === statName,
           );
           const homeStat = homeTeam?.statistics?.find(
-            (s) => s.name === statName
+            (s) => s.name === statName,
           );
 
           if (!awayStat && !homeStat) return null;
@@ -1937,7 +1939,7 @@ const NHLGameDetailsScreen = ({ route }) => {
             homeValue,
             awayValue,
             homeColor,
-            awayColor
+            awayColor,
           );
         })}
       </View>
@@ -2071,10 +2073,10 @@ const NHLGameDetailsScreen = ({ route }) => {
                           {jerseyNumber && position
                             ? `#${jerseyNumber} • ${position}`
                             : jerseyNumber
-                            ? `#${jerseyNumber}`
-                            : position
-                            ? position
-                            : ""}
+                              ? `#${jerseyNumber}`
+                              : position
+                                ? position
+                                : ""}
                         </Text>
                       </View>
 
@@ -2102,7 +2104,7 @@ const NHLGameDetailsScreen = ({ route }) => {
   // Function to render roster section (home or away)
   const renderRosterSection = (teamType) => {
     console.log(
-      `=== RENDER ROSTER SECTION CALLED FOR ${teamType.toUpperCase()} ===`
+      `=== RENDER ROSTER SECTION CALLED FOR ${teamType.toUpperCase()} ===`,
     );
 
     if (!details?.boxscore?.teams) {
@@ -2138,8 +2140,8 @@ const NHLGameDetailsScreen = ({ route }) => {
 
     console.log(
       `Game finished check: ${isGameFinished}, statusType: ${JSON.stringify(
-        statusType
-      )}`
+        statusType,
+      )}`,
     );
 
     // Check if game is scheduled (pre) - we want to show goalies, injuries and last five games
@@ -2202,8 +2204,8 @@ const NHLGameDetailsScreen = ({ route }) => {
                 s && s.displayValue != null
                   ? s.displayValue
                   : s && s.value != null
-                  ? s.value
-                  : "0"
+                    ? s.value
+                    : "0",
               ),
               meta,
             };
@@ -2218,11 +2220,11 @@ const NHLGameDetailsScreen = ({ route }) => {
           playersBoxAll.find(
             (pb) =>
               String(pb.team?.id) === String(team.team.id) ||
-              pb.team?.abbreviation === team.team.abbreviation
+              pb.team?.abbreviation === team.team.abbreviation,
           ) || null;
         const groups = teamBoxForInj?.statistics || [];
         const goaliesGroup = groups.find((g) =>
-          (g.name || "").toLowerCase().includes("goalies")
+          (g.name || "").toLowerCase().includes("goalies"),
         );
         goalies = (goaliesGroup?.athletes || []).map((a) => ({
           ...a,
@@ -2234,7 +2236,7 @@ const NHLGameDetailsScreen = ({ route }) => {
       const teamInjuries = (details.injuries || []).find(
         (injTeam) =>
           String(injTeam.team?.id) === String(team.team.id) ||
-          injTeam.team?.abbreviation === team.team.abbreviation
+          injTeam.team?.abbreviation === team.team.abbreviation,
       );
       const injuriesList = teamInjuries?.injuries || [];
 
@@ -2242,14 +2244,14 @@ const NHLGameDetailsScreen = ({ route }) => {
       const teamLastFive = (details.lastFiveGames || []).find(
         (l5Team) =>
           String(l5Team.team?.id) === String(team.team.id) ||
-          l5Team.team?.abbreviation === team.team.abbreviation
+          l5Team.team?.abbreviation === team.team.abbreviation,
       );
       const lastFiveEvents = teamLastFive?.events || [];
 
       // Console logs for debugging
       console.log(`=== DEBUGGING ${teamType.toUpperCase()} TEAM ===`);
       console.log(
-        `Team ID: ${team.team.id}, Team Name: ${team.team.displayName}`
+        `Team ID: ${team.team.id}, Team Name: ${team.team.displayName}`,
       );
 
       // Goalies debug
@@ -2258,7 +2260,7 @@ const NHLGameDetailsScreen = ({ route }) => {
         console.log(
           `Team Name: ${team.team.displayName} | Name: ${
             goalie.athlete?.displayName || "Unknown"
-          }`
+          }`,
         );
       });
 
@@ -2270,7 +2272,7 @@ const NHLGameDetailsScreen = ({ route }) => {
             injury.athlete?.displayName || "Unknown"
           } | Status: ${injury.status || "Unknown"} | Details type: ${
             injury.details?.type || "Unknown"
-          }`
+          }`,
         );
       });
 
@@ -2280,7 +2282,7 @@ const NHLGameDetailsScreen = ({ route }) => {
         console.log(
           `Team Name: ${team.team.displayName} | Opponent Name: ${
             game.opponent?.displayName || "Unknown"
-          } | Score: ${game.score || "Unknown"}`
+          } | Score: ${game.score || "Unknown"}`,
         );
       });
 
@@ -2329,7 +2331,7 @@ const NHLGameDetailsScreen = ({ route }) => {
               <>
                 {renderStatHeaders(["GAA", "W", "SV%"], false)}
                 {goalies.map((g, idx) =>
-                  renderPlayerRow(g, idx, "proj-goalie", [0, 4, 2])
+                  renderPlayerRow(g, idx, "proj-goalie", [0, 4, 2]),
                 )}
               </>
             )}
@@ -2390,10 +2392,10 @@ const NHLGameDetailsScreen = ({ route }) => {
                         inj?.athlete?.position?.abbreviation
                           ? `• #${inj.athlete.jersey} • ${inj.athlete.position.abbreviation}`
                           : inj?.athlete?.jersey
-                          ? `#${inj.athlete.jersey}`
-                          : inj?.athlete?.position?.abbreviation
-                          ? inj.athlete.position.abbreviation
-                          : ""}
+                            ? `#${inj.athlete.jersey}`
+                            : inj?.athlete?.position?.abbreviation
+                              ? inj.athlete.position.abbreviation
+                              : ""}
                       </Text>
                     </View>
                     <View style={styles.injuryDetails}>
@@ -2405,8 +2407,8 @@ const NHLGameDetailsScreen = ({ route }) => {
                               inj?.status === "Out"
                                 ? "#F44336"
                                 : inj?.status === "Day-To-Day"
-                                ? "#FF9800"
-                                : theme.textSecondary,
+                                  ? "#FF9800"
+                                  : theme.textSecondary,
                           },
                         ]}
                       >
@@ -2525,7 +2527,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                             ]}
                           >
                             {new Date(
-                              game.gameDate || game.date || ""
+                              game.gameDate || game.date || "",
                             ).toLocaleDateString([], {
                               month: "short",
                               day: "numeric",
@@ -2553,7 +2555,7 @@ const NHLGameDetailsScreen = ({ route }) => {
     console.log(
       `Has onIce data: ${hasOnIceData}, onIce length: ${
         details?.onIce?.length || 0
-      }`
+      }`,
     );
 
     // Get players on ice for this team (from onIce array) if available and game not finished
@@ -2567,7 +2569,7 @@ const NHLGameDetailsScreen = ({ route }) => {
     const teamBox = playersBox.find(
       (pb) =>
         pb.team?.id === team.team.id ||
-        pb.team?.abbreviation === team.team.abbreviation
+        pb.team?.abbreviation === team.team.abbreviation,
     );
     const teamPlayers = teamBox?.statistics || [];
     const allPlayers = [];
@@ -2583,7 +2585,7 @@ const NHLGameDetailsScreen = ({ route }) => {
             isOnIce: hasOnIceData
               ? onIcePlayers.some(
                   (onIce) =>
-                    String(onIce.athleteid) === String(athlete.athlete?.id)
+                    String(onIce.athleteid) === String(athlete.athlete?.id),
                 )
               : false,
           });
@@ -2633,7 +2635,7 @@ const NHLGameDetailsScreen = ({ route }) => {
             {renderStatHeaders(["G", "A", "TOI"])}
 
             {skaters.map((player, idx) =>
-              renderPlayerRow(player, idx, "all-skater", [9, 11, 4])
+              renderPlayerRow(player, idx, "all-skater", [9, 11, 4]),
             )}
 
             {skaters.length > 0 && goalies.length > 0 && renderDivider()}
@@ -2641,7 +2643,7 @@ const NHLGameDetailsScreen = ({ route }) => {
             {goalies.length > 0 &&
               renderStatHeaders(["GA", "SA", "SV%"], false)}
             {goalies.map((player, idx) =>
-              renderPlayerRow(player, idx, "all-goalie", [0, 1, 5])
+              renderPlayerRow(player, idx, "all-goalie", [0, 1, 5]),
             )}
           </View>
         </View>
@@ -2655,10 +2657,10 @@ const NHLGameDetailsScreen = ({ route }) => {
     const skatersOnIce = playersOnIce.filter((p) => p.position !== "goalies");
     const goaliesOnIce = playersOnIce.filter((p) => p.position === "goalies");
     const skatersOnBench = playersOnBench.filter(
-      (p) => p.position !== "goalies"
+      (p) => p.position !== "goalies",
     );
     const goaliesOnBench = playersOnBench.filter(
-      (p) => p.position === "goalies"
+      (p) => p.position === "goalies",
     );
 
     // Helper function to render stat headers (custom labels)
@@ -2710,10 +2712,10 @@ const NHLGameDetailsScreen = ({ route }) => {
         player.position === "goalies"
           ? "G"
           : player.position === "forwards"
-          ? "F"
-          : player.position === "defenses"
-          ? "D"
-          : "";
+            ? "F"
+            : player.position === "defenses"
+              ? "D"
+              : "";
 
       // pull the stat strings safely by index and normalize objects to their displayValue
       function statToString(s) {
@@ -2770,10 +2772,10 @@ const NHLGameDetailsScreen = ({ route }) => {
                   {jerseyNum && position
                     ? `#${jerseyNum} • ${position}`
                     : jerseyNum
-                    ? `#${jerseyNum}`
-                    : position
-                    ? position
-                    : ""}
+                      ? `#${jerseyNum}`
+                      : position
+                        ? position
+                        : ""}
                 </Text>
               </View>
             </View>
@@ -2832,7 +2834,7 @@ const NHLGameDetailsScreen = ({ route }) => {
             {renderStatHeaders(["G", "A", "TOI"])}
 
             {skatersOnIce.map((player, idx) =>
-              renderPlayerRow(player, idx, "onice-skater", [9, 11, 4])
+              renderPlayerRow(player, idx, "onice-skater", [9, 11, 4]),
             )}
 
             {skatersOnIce.length > 0 &&
@@ -2842,7 +2844,7 @@ const NHLGameDetailsScreen = ({ route }) => {
             {/* Goalies use different stat indices and header */}
             {goaliesOnIce.length > 0 && renderStatHeaders(["GA", "SA", "SV%"])}
             {goaliesOnIce.map((player, idx) =>
-              renderPlayerRow(player, idx, "onice-goalie", [0, 1, 5])
+              renderPlayerRow(player, idx, "onice-goalie", [0, 1, 5]),
             )}
           </View>
         )}
@@ -2865,7 +2867,7 @@ const NHLGameDetailsScreen = ({ route }) => {
             {renderStatHeaders(["G", "A", "TOI"])}
 
             {skatersOnBench.map((player, idx) =>
-              renderPlayerRow(player, idx, "bench-skater", [9, 11, 4])
+              renderPlayerRow(player, idx, "bench-skater", [9, 11, 4]),
             )}
 
             {skatersOnBench.length > 0 &&
@@ -2875,7 +2877,7 @@ const NHLGameDetailsScreen = ({ route }) => {
             {goaliesOnBench.length > 0 &&
               renderStatHeaders(["GA", "SA", "SV%"])}
             {goaliesOnBench.map((player, idx) =>
-              renderPlayerRow(player, idx, "bench-goalie", [0, 1, 5])
+              renderPlayerRow(player, idx, "bench-goalie", [0, 1, 5]),
             )}
           </View>
         )}
@@ -2900,7 +2902,7 @@ const NHLGameDetailsScreen = ({ route }) => {
       // Only render the visible plays for performance
       const visiblePlays = playsData.slice(0, visiblePlaysCount);
       console.log(
-        `[PLAYS DEBUG] Rendering ${visiblePlays.length} of ${playsData.length} plays`
+        `[PLAYS DEBUG] Rendering ${visiblePlays.length} of ${playsData.length} plays`,
       );
 
       const renderedPlays = visiblePlays.map((p, index) => {
@@ -3034,7 +3036,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                                 color:
                                   ensureHexColor(p.playTeamColor) || "#999",
                               }
-                            : null
+                            : null,
                         )}
                       </View>
                     </View>
@@ -3092,7 +3094,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                 remaining)
               </Text>
             )}
-          </TouchableOpacity>
+          </TouchableOpacity>,
         );
       }
 
@@ -3165,8 +3167,8 @@ const NHLGameDetailsScreen = ({ route }) => {
                   color: awayIsLoser
                     ? theme.textSecondary
                     : isFavorite(getNHLTeamId(away), "nhl")
-                    ? colors.primary
-                    : theme.text,
+                      ? colors.primary
+                      : theme.text,
                 },
               ]}
             >
@@ -3195,8 +3197,8 @@ const NHLGameDetailsScreen = ({ route }) => {
                   color: homeIsLoser
                     ? theme.textSecondary
                     : isFavorite(getNHLTeamId(home), "nhl")
-                    ? colors.primary
-                    : theme.text,
+                      ? colors.primary
+                      : theme.text,
                 },
               ]}
             >
@@ -3260,8 +3262,8 @@ const NHLGameDetailsScreen = ({ route }) => {
     const teamId = team?.id || team?.team?.id || null;
     console.log(
       `[NHL GameDetails] getNHLTeamId: team=${JSON.stringify(
-        team?.team?.abbreviation || team?.abbreviation
-      )}, id=${teamId}`
+        team?.team?.abbreviation || team?.abbreviation,
+      )}, id=${teamId}`,
     );
     return teamId;
   };
@@ -3272,7 +3274,7 @@ const NHLGameDetailsScreen = ({ route }) => {
     if (!teamId) {
       console.warn(
         "NHL GameDetails handleFavoriteToggle: Invalid team ID",
-        team
+        team,
       );
       return;
     }
@@ -3340,7 +3342,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                     source={{
                       uri: getTeamLogoUrl(
                         "nhl",
-                        away?.team?.abbreviation || away?.abbreviation
+                        away?.team?.abbreviation || away?.abbreviation,
                       ),
                     }}
                     style={[
@@ -3367,8 +3369,8 @@ const NHLGameDetailsScreen = ({ route }) => {
                         color: awayIsLoser
                           ? "#999"
                           : isFavorite(getNHLTeamId(away), "nhl")
-                          ? colors.primary
-                          : theme.text,
+                            ? colors.primary
+                            : theme.text,
                       },
                     ]}
                     numberOfLines={2}
@@ -3393,15 +3395,15 @@ const NHLGameDetailsScreen = ({ route }) => {
                         ? awayIsWinner
                           ? colors.primary
                           : awayIsLoser
-                          ? "#999"
-                          : theme.text
+                            ? "#999"
+                            : theme.text
                         : theme.text,
                     },
                   ]}
                 >
                   {getGameStatus().isPre
                     ? ""
-                    : away?.score ?? away?.team?.score ?? "0"}
+                    : (away?.score ?? away?.team?.score ?? "0")}
                 </Text>
                 <View
                   style={[
@@ -3436,15 +3438,15 @@ const NHLGameDetailsScreen = ({ route }) => {
                         ? homeIsWinner
                           ? colors.primary
                           : homeIsLoser
-                          ? "#999"
-                          : theme.text
+                            ? "#999"
+                            : theme.text
                         : theme.text,
                     },
                   ]}
                 >
                   {getGameStatus().isPre
                     ? ""
-                    : home?.score ?? home?.team?.score ?? "0"}
+                    : (home?.score ?? home?.team?.score ?? "0")}
                 </Text>
               </View>
             </View>
@@ -3468,7 +3470,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                     source={{
                       uri: getTeamLogoUrl(
                         "nhl",
-                        home?.team?.abbreviation || home?.abbreviation
+                        home?.team?.abbreviation || home?.abbreviation,
                       ),
                     }}
                     style={[
@@ -3495,8 +3497,8 @@ const NHLGameDetailsScreen = ({ route }) => {
                         color: homeIsLoser
                           ? "#999"
                           : isFavorite(getNHLTeamId(home), "nhl")
-                          ? colors.primary
-                          : theme.text,
+                            ? colors.primary
+                            : theme.text,
                       },
                     ]}
                     numberOfLines={2}
@@ -3768,13 +3770,13 @@ const NHLGameDetailsScreen = ({ route }) => {
                     const teams = details.boxscore.teams;
                     if (
                       details.goalies?.homeTeam?.athletes?.some(
-                        (a) => String(a.id) === String(athlete?.id)
+                        (a) => String(a.id) === String(athlete?.id),
                       )
                     ) {
                       team = teams.find((t) => t.homeAway === "home")?.team;
                     } else if (
                       details.goalies?.awayTeam?.athletes?.some(
-                        (a) => String(a.id) === String(athlete?.id)
+                        (a) => String(a.id) === String(athlete?.id),
                       )
                     ) {
                       team = teams.find((t) => t.homeAway === "away")?.team;
@@ -3794,7 +3796,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                           if (group?.athletes) {
                             const found = group.athletes.find(
                               (a) =>
-                                String(a?.athlete?.id) === String(athlete?.id)
+                                String(a?.athlete?.id) === String(athlete?.id),
                             );
                             if (found) {
                               team = teamBox.team;
@@ -3935,12 +3937,12 @@ const NHLGameDetailsScreen = ({ route }) => {
                                       isProjectedGoalie ? "G" : position
                                     }`
                                   : jersey
-                                  ? `#${jersey}`
-                                  : (isProjectedGoalie ? "G" : position)
-                                  ? isProjectedGoalie
-                                    ? "G"
-                                    : position
-                                  : ""}
+                                    ? `#${jersey}`
+                                    : (isProjectedGoalie ? "G" : position)
+                                      ? isProjectedGoalie
+                                        ? "G"
+                                        : position
+                                      : ""}
                               </Text>
                             </View>
                             <View style={styles.modalTeamRow}>
@@ -4015,7 +4017,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                                     {
                                       color: getStatTextColor(
                                         keys[statIdx],
-                                        stats[statIdx]
+                                        stats[statIdx],
                                       ),
                                     },
                                   ]}
@@ -4103,7 +4105,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                               athlete?.athlete?.id ||
                                 athlete?.athlete?.athleteId ||
                                 athlete?.athlete?.athleteid ||
-                                ""
+                                "",
                             );
                             if (aid === String(scorerId)) {
                               foundPlayer = {
@@ -4202,10 +4204,10 @@ const NHLGameDetailsScreen = ({ route }) => {
                       const comp = details?.header?.competitions?.[0];
                       const competitors = comp?.competitors || [];
                       const awayC = competitors.find(
-                        (c) => c.homeAway === "away"
+                        (c) => c.homeAway === "away",
                       );
                       const homeC = competitors.find(
-                        (c) => c.homeAway === "home"
+                        (c) => c.homeAway === "home",
                       );
                       if (awayC?.team?.id === p.playTeamId) {
                         teamLogo = awayC?.team?.logo;
@@ -4341,7 +4343,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                                         ensureHexColor(p.playTeamColor) ||
                                         "#999",
                                     }
-                                  : null
+                                  : null,
                               )}
                             </View>
                           </View>
@@ -4633,7 +4635,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                           if (group?.athletes) {
                             const found = group.athletes.find(
                               (a) =>
-                                String(a?.athlete?.id) === String(athlete?.id)
+                                String(a?.athlete?.id) === String(athlete?.id),
                             );
                             if (found) {
                               team = teamBox.team;
@@ -4656,10 +4658,10 @@ const NHLGameDetailsScreen = ({ route }) => {
                     const competition = details?.header?.competitions?.[0];
                     const competitors = competition?.competitors || [];
                     const awayTeam = competitors.find(
-                      (c) => c.homeAway === "away"
+                      (c) => c.homeAway === "away",
                     );
                     const homeTeam = competitors.find(
-                      (c) => c.homeAway === "home"
+                      (c) => c.homeAway === "home",
                     );
                     const awayScore = awayTeam?.score || "0";
                     const homeScore = homeTeam?.score || "0";
@@ -4769,10 +4771,10 @@ const NHLGameDetailsScreen = ({ route }) => {
                                 {jersey && position
                                   ? `#${jersey} • ${position}`
                                   : jersey
-                                  ? `#${jersey}`
-                                  : position
-                                  ? position
-                                  : ""}
+                                    ? `#${jersey}`
+                                    : position
+                                      ? position
+                                      : ""}
                               </Text>
                               <View style={styles.shareCardTeamRow}>
                                 {teamLogo && (
@@ -4875,7 +4877,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                                       {
                                         color: getStatTextColor(
                                           keys[statIdx],
-                                          stats[statIdx]
+                                          stats[statIdx],
                                         ),
                                       },
                                     ]}
@@ -5216,7 +5218,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                     onShouldStartLoadWithRequest={(request) => {
                       console.log(
                         "NHL WebView navigation request:",
-                        request.url
+                        request.url,
                       );
 
                       // Allow the initial stream URL to load
@@ -5244,7 +5246,10 @@ const NHLGameDetailsScreen = ({ route }) => {
                       try {
                         requestDomain = new URL(request.url).hostname;
                       } catch (e) {
-                        if (urlLower.startsWith("about:blank") || urlLower.startsWith("data:")) {
+                        if (
+                          urlLower.startsWith("about:blank") ||
+                          urlLower.startsWith("data:")
+                        ) {
                           return true;
                         }
                         console.log("Invalid URL:", request.url);
@@ -5267,13 +5272,15 @@ const NHLGameDetailsScreen = ({ route }) => {
                         "about:blank",
                         "data:",
                       ];
-                      const allowIfEmbed = allowPatterns.some((p) => urlLower.includes(p));
+                      const allowIfEmbed = allowPatterns.some((p) =>
+                        urlLower.includes(p),
+                      );
 
                       // Block navigation if it looks like a popup/ad and not an embed/resource
                       if (hasPopupKeywords && !allowIfEmbed) {
                         console.log(
                           "Blocked NHL popup/cross-domain navigation:",
-                          request.url
+                          request.url,
                         );
                         return false;
                       }
@@ -5285,7 +5292,7 @@ const NHLGameDetailsScreen = ({ route }) => {
 
                       console.log(
                         "Blocked NHL popup/cross-domain navigation:",
-                        request.url
+                        request.url,
                       );
                       return false;
                     }}
@@ -5294,7 +5301,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                       const { nativeEvent } = syntheticEvent;
                       console.log(
                         "Blocked NHL popup window:",
-                        nativeEvent.targetUrl
+                        nativeEvent.targetUrl,
                       );
                       // Don't open the popup - just log it
                       return false;
@@ -5354,11 +5361,11 @@ const NHLGameDetailsScreen = ({ route }) => {
                 {details
                   ? `${
                       details.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "away"
+                        (c) => c.homeAway === "away",
                       )?.team.name || "Away"
                     } vs ${
                       details.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "home"
+                        (c) => c.homeAway === "home",
                       )?.team.name || "Home"
                     }`
                   : "Chat"}

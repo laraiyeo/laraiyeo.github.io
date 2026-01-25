@@ -5667,7 +5667,8 @@ app.get("/api/betslip", async (req, res) => {
       // Try sport-specific parameter first (always, not just for multi-sport)
       if (sport) {
         const sportParam = `${paramName}_${sport}`;
-        const raw = findQueryValue(sportParam) ?? findQueryValue(`${paramName}${sport}`);
+        const raw =
+          findQueryValue(sportParam) ?? findQueryValue(`${paramName}${sport}`);
         if (raw !== undefined && raw !== null) {
           const parts = String(raw)
             .split(",")

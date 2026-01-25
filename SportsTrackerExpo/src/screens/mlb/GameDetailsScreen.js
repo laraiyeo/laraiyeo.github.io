@@ -6159,7 +6159,10 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                       try {
                         requestDomain = new URL(request.url).hostname;
                       } catch (e) {
-                        if (urlLower.startsWith("about:blank") || urlLower.startsWith("data:")) {
+                        if (
+                          urlLower.startsWith("about:blank") ||
+                          urlLower.startsWith("data:")
+                        ) {
                           return true;
                         }
                         console.log("Invalid URL:", request.url);
@@ -6182,7 +6185,9 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                         "about:blank",
                         "data:",
                       ];
-                      const allowIfEmbed = allowPatterns.some((p) => urlLower.includes(p));
+                      const allowIfEmbed = allowPatterns.some((p) =>
+                        urlLower.includes(p),
+                      );
 
                       // Block navigation if it looks like a popup/ad and not an embed/resource
                       if (hasPopupKeywords && !allowIfEmbed) {

@@ -58,7 +58,7 @@ const calculateColorSimilarity = (color1, color2) => {
   const distance = Math.sqrt(
     Math.pow(rgb1.r - rgb2.r, 2) +
       Math.pow(rgb1.g - rgb2.g, 2) +
-      Math.pow(rgb1.b - rgb2.b, 2)
+      Math.pow(rgb1.b - rgb2.b, 2),
   );
 
   // Normalize distance (max distance is sqrt(3 * 255^2) ≈ 441)
@@ -222,7 +222,7 @@ const BasketballCourt = React.memo(
     const finalTeamColor = teamColor.startsWith("#")
       ? teamColor
       : `#${teamColor}`;
-      
+
     let clampedBottom = finalBottomPercent;
     if (teamSide === "home") {
       clampedBottom = Math.max(clampedBottom, 50);
@@ -286,7 +286,7 @@ const BasketballCourt = React.memo(
         </View>
       </View>
     );
-  }
+  },
 );
 
 const WNBAGameDetailsScreen = ({ route }) => {
@@ -332,7 +332,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
     const away =
       details?.boxscore?.teams?.[0] ||
       details?.header?.competitions?.[0]?.competitors?.find(
-        (c) => c.homeAway === "away"
+        (c) => c.homeAway === "away",
       );
     return away?.id || away?.team?.id || null;
   }, [details]);
@@ -341,7 +341,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
     const home =
       details?.boxscore?.teams?.[1] ||
       details?.header?.competitions?.[0]?.competitors?.find(
-        (c) => c.homeAway === "home"
+        (c) => c.homeAway === "home",
       );
     return home?.id || home?.team?.id || null;
   }, [details]);
@@ -354,7 +354,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
       if (rawValue == null) num = 0;
       else if (typeof rawValue === "object")
         num = parseFloat(
-          rawValue.displayValue ?? rawValue.value ?? String(rawValue)
+          rawValue.displayValue ?? rawValue.value ?? String(rawValue),
         );
       else num = parseFloat(String(rawValue).replace(/[^0-9.-]/g, ""));
       if (isNaN(num) || num === 0) return theme.text;
@@ -369,7 +369,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
     if (isLoadingMorePlays || !playsData) return;
 
     console.log(
-      `[PLAYS DEBUG] Loading more plays. Current: ${visiblePlaysCount}, Total: ${playsData.length}`
+      `[PLAYS DEBUG] Loading more plays. Current: ${visiblePlaysCount}, Total: ${playsData.length}`,
     );
     setIsLoadingMorePlays(true);
 
@@ -380,8 +380,8 @@ const WNBAGameDetailsScreen = ({ route }) => {
       console.log(
         `[PLAYS DEBUG] Loaded more plays. New count: ${Math.min(
           visiblePlaysCount + 30,
-          playsData.length
-        )}`
+          playsData.length,
+        )}`,
       );
     }, 100);
   }, [isLoadingMorePlays, playsData, visiblePlaysCount]);
@@ -409,7 +409,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
         return newOpen;
       });
     },
-    [activeTab]
+    [activeTab],
   );
 
   // Stream API functions (adapted from NFL)
@@ -459,7 +459,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
   const fetchStreamsForSource = async (source, sourceId) => {
     try {
       const response = await fetch(
-        `${STREAM_API_BASE}/stream/${source}/${sourceId}`
+        `${STREAM_API_BASE}/stream/${source}/${sourceId}`,
       );
       if (!response.ok) {
         throw new Error(`Failed to fetch streams: ${response.status}`);
@@ -505,7 +505,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
   const findWNBAMatchStreams = async (homeTeamName, awayTeamName) => {
     try {
       console.log(
-        `Finding WNBA streams for: ${awayTeamName} vs ${homeTeamName}`
+        `Finding WNBA streams for: ${awayTeamName} vs ${homeTeamName}`,
       );
 
       const liveMatches = await fetchLiveMatches();
@@ -522,7 +522,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
       const awayNormalized = normalizeWNBATeamName(awayTeamName).toLowerCase();
 
       console.log(
-        `Normalized WNBA team names: {homeNormalized: '${homeNormalized}', awayNormalized: '${awayNormalized}'}`
+        `Normalized WNBA team names: {homeNormalized: '${homeNormalized}', awayNormalized: '${awayNormalized}'}`,
       );
 
       let bestMatch = null;
@@ -601,7 +601,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
 
       if (!bestMatch || bestScore < 0.25) {
         console.log(
-          `No good matching WNBA live match found (best score: ${bestScore})`
+          `No good matching WNBA live match found (best score: ${bestScore})`,
         );
         return {};
       }
@@ -609,7 +609,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
       console.log(
         `Found matching WNBA match: ${
           bestMatch.title || bestMatch.id
-        } (score: ${bestScore})`
+        } (score: ${bestScore})`,
       );
 
       const allStreams = {};
@@ -617,7 +617,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
         try {
           const sourceStreams = await fetchStreamsForSource(
             source.source,
-            source.id
+            source.id,
           );
           if (sourceStreams && sourceStreams.length > 0) {
             const firstStream = sourceStreams[0];
@@ -640,13 +640,13 @@ const WNBAGameDetailsScreen = ({ route }) => {
             };
             console.log(
               `Added WNBA stream for ${source.source}:`,
-              allStreams[sourceKey]
+              allStreams[sourceKey],
             );
           }
         } catch (error) {
           console.error(
             `Error fetching WNBA streams for ${source.source}:`,
-            error
+            error,
           );
         }
       }
@@ -662,7 +662,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
   const generateWNBAStreamUrl = (
     awayTeamName,
     homeTeamName,
-    streamType = "alpha"
+    streamType = "alpha",
   ) => {
     const normalizedAway = normalizeWNBATeamName(awayTeamName);
     const normalizedHome = normalizeWNBATeamName(homeTeamName);
@@ -684,7 +684,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
         Alert.alert(
           "Streaming Locked",
           "Please enter the streaming code in Settings to access live streams.",
-          [{ text: "OK" }]
+          [{ text: "OK" }],
         );
         return;
       }
@@ -702,14 +702,14 @@ const WNBAGameDetailsScreen = ({ route }) => {
 
       let homeComp =
         competitors.find(
-          (c) => c.homeAway === "home" || c.side === "home" || c.isHome
+          (c) => c.homeAway === "home" || c.side === "home" || c.isHome,
         ) || null;
       let awayComp =
         competitors.find(
           (c) =>
             c.homeAway === "away" ||
             c.side === "away" ||
-            (!c.homeAway && !c.side && !c.isHome)
+            (!c.homeAway && !c.side && !c.isHome),
         ) || null;
 
       if (!homeComp && competitors.length === 2) {
@@ -781,7 +781,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
         initialUrl = generateWNBAStreamUrl(
           awayName,
           homeName,
-          initialStreamType
+          initialStreamType,
         );
         setCurrentStreamType(initialStreamType);
       }
@@ -790,7 +790,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
         "openStreamModal: initialStreamType =",
         initialStreamType,
         "initialUrl =",
-        initialUrl
+        initialUrl,
       );
       setStreamUrl(initialUrl);
       setIsStreamLoading(false);
@@ -809,15 +809,15 @@ const WNBAGameDetailsScreen = ({ route }) => {
       newUrl = streamData.embedUrl || streamData.url || streamData;
     } else {
       const awayTeam = details?.competitions?.[0]?.competitors?.find(
-        (comp) => !comp.homeAway || comp.homeAway === "away"
+        (comp) => !comp.homeAway || comp.homeAway === "away",
       )?.team;
       const homeTeam = details?.competitions?.[0]?.competitors?.find(
-        (comp) => comp.homeAway === "home"
+        (comp) => comp.homeAway === "home",
       )?.team;
       newUrl = generateWNBAStreamUrl(
         awayTeam?.displayName || awayTeam?.name,
         homeTeam?.displayName || homeTeam?.name,
-        streamType
+        streamType,
       );
     }
     setStreamUrl(newUrl);
@@ -842,8 +842,8 @@ const WNBAGameDetailsScreen = ({ route }) => {
           .catch((e) =>
             console.error(
               "Failed to fetch WNBA game details after stream modal close",
-              e
-            )
+              e,
+            ),
           );
       }
     }
@@ -1043,11 +1043,11 @@ const WNBAGameDetailsScreen = ({ route }) => {
         playTeamColor,
         awayLogoUri: getTeamLogoUrl(
           "wnba",
-          away?.team?.abbreviation || away?.abbreviation
+          away?.team?.abbreviation || away?.abbreviation,
         ),
         homeLogoUri: getTeamLogoUrl(
           "wnba",
-          home?.team?.abbreviation || home?.abbreviation
+          home?.team?.abbreviation || home?.abbreviation,
         ),
         awayAbbreviation: away?.team?.abbreviation || away?.abbreviation,
         homeAbbreviation: home?.team?.abbreviation || home?.abbreviation,
@@ -1184,7 +1184,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
             .map((c) => c + c)
             .join("")
         : h,
-      16
+      16,
     );
     const r = (bigint >> 16) & 255;
     const g = (bigint >> 8) & 255;
@@ -1306,7 +1306,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
         playerObj?.athlete?.id ||
           playerObj?.athlete?.athleteId ||
           playerObj?.athlete?.athleteid ||
-          ""
+          "",
       );
       for (const teamBox of playersBox) {
         if (!teamBox || !Array.isArray(teamBox.statistics)) continue;
@@ -1315,16 +1315,18 @@ const WNBAGameDetailsScreen = ({ route }) => {
           const found = group.athletes.find(
             (a) =>
               String(
-                a?.athlete?.id || a?.athlete?.athleteId || a?.athlete?.athleteid
-              ) === athleteId
+                a?.athlete?.id ||
+                  a?.athlete?.athleteId ||
+                  a?.athlete?.athleteid,
+              ) === athleteId,
           );
           if (found) {
             return {
               labels: Array.isArray(group.labels)
                 ? group.labels.slice()
                 : Array.isArray(group.keys)
-                ? group.keys.slice()
-                : [],
+                  ? group.keys.slice()
+                  : [],
               keys: Array.isArray(group.keys) ? group.keys.slice() : null,
               groupName: group.name || "",
             };
@@ -1376,7 +1378,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
     homeValue,
     awayValue,
     homeColor,
-    awayColor
+    awayColor,
   ) => {
     const homeNum =
       typeof homeValue === "number" ? homeValue : parseFloat(homeValue) || 0;
@@ -1486,7 +1488,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
     const { homeColor, awayColor } = getSmartTeamColors(
       homeTeam,
       awayTeam,
-      colors
+      colors,
     );
 
     return (
@@ -1525,10 +1527,10 @@ const WNBAGameDetailsScreen = ({ route }) => {
 
         {keyStats.map((statName) => {
           const awayStat = awayTeam?.statistics?.find(
-            (s) => s.name === statName
+            (s) => s.name === statName,
           );
           const homeStat = homeTeam?.statistics?.find(
-            (s) => s.name === statName
+            (s) => s.name === statName,
           );
 
           if (!awayStat && !homeStat) return null;
@@ -1542,7 +1544,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
             homeValue,
             awayValue,
             homeColor,
-            awayColor
+            awayColor,
           );
         })}
       </View>
@@ -1717,7 +1719,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
     const { homeColor, awayColor } = getSmartTeamColors(
       homeTeam,
       awayTeam,
-      colors
+      colors,
     );
 
     // Create a map of playId to period info
@@ -2040,13 +2042,13 @@ const WNBAGameDetailsScreen = ({ route }) => {
       (series) =>
         series.type === 3 ||
         series.type === "playoffs" ||
-        (series.title && series.title.toLowerCase().includes("playoff"))
+        (series.title && series.title.toLowerCase().includes("playoff")),
     );
     const regularSeasonSeries = details.seasonseries.filter(
       (series) =>
         series.type === 2 ||
         series.type === "season" ||
-        (series.title && series.title.toLowerCase().includes("season"))
+        (series.title && series.title.toLowerCase().includes("season")),
     );
 
     // If no specific filtering works, show all series
@@ -2154,8 +2156,8 @@ const WNBAGameDetailsScreen = ({ route }) => {
                       color: awayWon
                         ? colors.primary || "#4CAF50"
                         : homeWon
-                        ? theme.textSecondary
-                        : theme.text,
+                          ? theme.textSecondary
+                          : theme.text,
                     },
                   ]}
                 >
@@ -2169,8 +2171,8 @@ const WNBAGameDetailsScreen = ({ route }) => {
                     color: awayWon
                       ? colors.primary
                       : homeWon
-                      ? theme.textSecondary
-                      : colors.primary,
+                        ? theme.textSecondary
+                        : colors.primary,
                   },
                 ]}
               >
@@ -2211,8 +2213,8 @@ const WNBAGameDetailsScreen = ({ route }) => {
                       color: homeWon
                         ? colors.primary || "#4CAF50"
                         : awayWon
-                        ? theme.textSecondary
-                        : theme.text,
+                          ? theme.textSecondary
+                          : theme.text,
                     },
                   ]}
                 >
@@ -2237,8 +2239,8 @@ const WNBAGameDetailsScreen = ({ route }) => {
                     color: homeWon
                       ? colors.primary
                       : awayWon
-                      ? theme.textSecondary
-                      : colors.primary,
+                        ? theme.textSecondary
+                        : colors.primary,
                   },
                 ]}
               >
@@ -2292,7 +2294,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                 </Text>
                 {series.events &&
                   series.events.map((event, eventIndex) =>
-                    renderGameEvent(event, eventIndex)
+                    renderGameEvent(event, eventIndex),
                   )}
               </View>
             ))}
@@ -2324,7 +2326,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                 </Text>
                 {series.events &&
                   series.events.map((event, eventIndex) =>
-                    renderGameEvent(event, eventIndex)
+                    renderGameEvent(event, eventIndex),
                   )}
               </View>
             ))}
@@ -2356,7 +2358,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                 </Text>
                 {series.events &&
                   series.events.map((event, eventIndex) =>
-                    renderGameEvent(event, eventIndex)
+                    renderGameEvent(event, eventIndex),
                   )}
               </View>
             ))}
@@ -2493,10 +2495,10 @@ const WNBAGameDetailsScreen = ({ route }) => {
                           {jerseyNumber && position
                             ? `#${jerseyNumber} • ${position}`
                             : jerseyNumber
-                            ? `#${jerseyNumber}`
-                            : position
-                            ? position
-                            : ""}
+                              ? `#${jerseyNumber}`
+                              : position
+                                ? position
+                                : ""}
                         </Text>
                       </View>
 
@@ -2524,7 +2526,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
   // Function to render roster section (home or away)
   const renderRosterSection = (teamType) => {
     console.log(
-      `=== RENDER ROSTER SECTION CALLED FOR ${teamType.toUpperCase()} ===`
+      `=== RENDER ROSTER SECTION CALLED FOR ${teamType.toUpperCase()} ===`,
     );
 
     if (!details?.boxscore?.teams) {
@@ -2560,8 +2562,8 @@ const WNBAGameDetailsScreen = ({ route }) => {
 
     console.log(
       `Game finished check: ${isGameFinished}, statusType: ${JSON.stringify(
-        statusType
-      )}`
+        statusType,
+      )}`,
     );
 
     // Check if game is scheduled (pre) - we want to show goalies, injuries and last five games
@@ -2593,7 +2595,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
       const teamInjuries = (details.injuries || []).find(
         (injTeam) =>
           String(injTeam.team?.id) === String(team.team.id) ||
-          injTeam.team?.abbreviation === team.team.abbreviation
+          injTeam.team?.abbreviation === team.team.abbreviation,
       );
       const injuriesList = teamInjuries?.injuries || [];
 
@@ -2601,14 +2603,14 @@ const WNBAGameDetailsScreen = ({ route }) => {
       const teamLastFive = (details.lastFiveGames || []).find(
         (l5Team) =>
           String(l5Team.team?.id) === String(team.team.id) ||
-          l5Team.team?.abbreviation === team.team.abbreviation
+          l5Team.team?.abbreviation === team.team.abbreviation,
       );
       const lastFiveEvents = teamLastFive?.events || [];
 
       // Console logs for debugging
       console.log(`=== DEBUGGING ${teamType.toUpperCase()} TEAM ===`);
       console.log(
-        `Team ID: ${team.team.id}, Team Name: ${team.team.displayName}`
+        `Team ID: ${team.team.id}, Team Name: ${team.team.displayName}`,
       );
 
       // Injuries debug
@@ -2619,7 +2621,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
             injury.athlete?.displayName || "Unknown"
           } | Status: ${injury.status || "Unknown"} | Details type: ${
             injury.details?.type || "Unknown"
-          }`
+          }`,
         );
       });
 
@@ -2629,7 +2631,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
         console.log(
           `Team Name: ${team.team.displayName} | Opponent Name: ${
             game.opponent?.displayName || "Unknown"
-          } | Score: ${game.score || "Unknown"}`
+          } | Score: ${game.score || "Unknown"}`,
         );
       });
 
@@ -2707,10 +2709,10 @@ const WNBAGameDetailsScreen = ({ route }) => {
                         inj?.athlete?.position?.abbreviation
                           ? `• #${inj.athlete.jersey} • ${inj.athlete.position.abbreviation}`
                           : inj?.athlete?.jersey
-                          ? `#${inj.athlete.jersey}`
-                          : inj?.athlete?.position?.abbreviation
-                          ? inj.athlete.position.abbreviation
-                          : ""}
+                            ? `#${inj.athlete.jersey}`
+                            : inj?.athlete?.position?.abbreviation
+                              ? inj.athlete.position.abbreviation
+                              : ""}
                       </Text>
                     </View>
                     <View style={styles.injuryDetails}>
@@ -2722,8 +2724,8 @@ const WNBAGameDetailsScreen = ({ route }) => {
                               inj?.status === "Out"
                                 ? "#F44336"
                                 : inj?.status === "Day-To-Day"
-                                ? "#FF9800"
-                                : theme.textSecondary,
+                                  ? "#FF9800"
+                                  : theme.textSecondary,
                           },
                         ]}
                       >
@@ -2847,7 +2849,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                             ]}
                           >
                             {new Date(
-                              game.gameDate || game.date || ""
+                              game.gameDate || game.date || "",
                             ).toLocaleDateString([], {
                               month: "short",
                               day: "numeric",
@@ -2875,7 +2877,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
     console.log(
       `Has onCourt data: ${hasonCourtData}, onCourt length: ${
         details?.onCourt?.length || 0
-      }`
+      }`,
     );
 
     // Get players on ice for this team (from onCourt array) if available and game not finished
@@ -2889,7 +2891,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
     const teamBox = playersBox.find(
       (pb) =>
         pb.team?.id === team.team.id ||
-        pb.team?.abbreviation === team.team.abbreviation
+        pb.team?.abbreviation === team.team.abbreviation,
     );
     const teamPlayers = teamBox?.statistics || [];
     const allPlayers = [];
@@ -2905,7 +2907,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
             isonCourt: hasonCourtData
               ? onCourtPlayers.some(
                   (onCourt) =>
-                    String(onCourt.athleteid) === String(athlete.athlete?.id)
+                    String(onCourt.athleteid) === String(athlete.athlete?.id),
                 )
               : false,
           });
@@ -3017,7 +3019,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                   "FG",
                   "PTS",
                   "MIN",
-                ])
+                ]),
               )}
             </View>
           )}
@@ -3046,7 +3048,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                   "FG",
                   "PTS",
                   "MIN",
-                ])
+                ]),
               )}
             </View>
           )}
@@ -3161,7 +3163,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
       player,
       idx,
       keyPrefix,
-      statIndices = ["FG", "PTS", "MIN"]
+      statIndices = ["FG", "PTS", "MIN"],
     ) {
       const jerseyNum = player.athlete?.jersey || "";
       const position = player.athlete?.position?.abbreviation || "";
@@ -3260,10 +3262,10 @@ const WNBAGameDetailsScreen = ({ route }) => {
                   {jerseyNum && position
                     ? `#${jerseyNum} • ${position}`
                     : jerseyNum
-                    ? `#${jerseyNum}`
-                    : position
-                    ? position
-                    : ""}
+                      ? `#${jerseyNum}`
+                      : position
+                        ? position
+                        : ""}
                 </Text>
               </View>
             </View>
@@ -3326,7 +3328,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                 "FG",
                 "PTS",
                 "MIN",
-              ])
+              ]),
             )}
           </View>
         )}
@@ -3349,7 +3351,11 @@ const WNBAGameDetailsScreen = ({ route }) => {
             {renderStatHeaders(["FG", "PTS", "MIN"])}
 
             {playersOnBench.map((player, idx) =>
-              renderPlayerRow(player, idx, "bench-player", ["FG", "PTS", "MIN"])
+              renderPlayerRow(player, idx, "bench-player", [
+                "FG",
+                "PTS",
+                "MIN",
+              ]),
             )}
           </View>
         )}
@@ -3360,15 +3366,15 @@ const WNBAGameDetailsScreen = ({ route }) => {
   // Function to render plays with lazy loading
   const renderPlays = () => {
     console.log(
-      `[PLAYS DEBUG] renderPlays() called at: ${new Date().toISOString()}`
+      `[PLAYS DEBUG] renderPlays() called at: ${new Date().toISOString()}`,
     );
     console.log(
       `[PLAYS DEBUG] renderPlays() - playsData:`,
-      playsData ? `Array with ${playsData.length} items` : "null"
+      playsData ? `Array with ${playsData.length} items` : "null",
     );
     console.log(
       `[PLAYS DEBUG] renderPlays() - visiblePlaysCount:`,
-      visiblePlaysCount
+      visiblePlaysCount,
     );
 
     // Use precomputed playsData when available (fast path). If not, fall back to computing inline.
@@ -3386,7 +3392,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
       // Only render the visible plays for performance
       const visiblePlays = playsData.slice(0, visiblePlaysCount);
       console.log(
-        `[PLAYS DEBUG] Rendering ${visiblePlays.length} of ${playsData.length} plays`
+        `[PLAYS DEBUG] Rendering ${visiblePlays.length} of ${playsData.length} plays`,
       );
 
       const renderedPlays = visiblePlays.map((p, index) => {
@@ -3605,7 +3611,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                 remaining)
               </Text>
             )}
-          </TouchableOpacity>
+          </TouchableOpacity>,
         );
       }
 
@@ -3678,8 +3684,8 @@ const WNBAGameDetailsScreen = ({ route }) => {
                   color: awayIsLoser
                     ? theme.textSecondary
                     : isFavorite(awayTeamId, "wnba")
-                    ? colors.primary
-                    : theme.text,
+                      ? colors.primary
+                      : theme.text,
                 },
               ]}
             >
@@ -3708,8 +3714,8 @@ const WNBAGameDetailsScreen = ({ route }) => {
                   color: homeIsLoser
                     ? theme.textSecondary
                     : isFavorite(homeTeamId, "wnba")
-                    ? colors.primary
-                    : theme.text,
+                      ? colors.primary
+                      : theme.text,
                 },
               ]}
             >
@@ -3748,7 +3754,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
     if (!team || (!team.id && !team.team?.id)) {
       console.warn(
         "WNBA GameDetails navigateToTeam: Invalid team object",
-        team
+        team,
       );
       return;
     }
@@ -3776,7 +3782,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
     if (!teamId) {
       console.warn(
         "WNBA GameDetails handleFavoriteToggle: Invalid team ID",
-        team
+        team,
       );
       return;
     }
@@ -3862,8 +3868,8 @@ const WNBAGameDetailsScreen = ({ route }) => {
                         color: awayIsLoser
                           ? "#999"
                           : isFavorite(awayTeamId, "wnba")
-                          ? colors.primary
-                          : theme.text,
+                            ? colors.primary
+                            : theme.text,
                       },
                     ]}
                     numberOfLines={2}
@@ -3888,15 +3894,15 @@ const WNBAGameDetailsScreen = ({ route }) => {
                         ? awayIsWinner
                           ? colors.primary
                           : awayIsLoser
-                          ? "#999"
-                          : theme.text
+                            ? "#999"
+                            : theme.text
                         : theme.text,
                     },
                   ]}
                 >
                   {getGameStatus().isPre
                     ? ""
-                    : away?.score ?? away?.team?.score ?? "0"}
+                    : (away?.score ?? away?.team?.score ?? "0")}
                 </Text>
                 <Text
                   style={[styles.scoreDash, { color: theme.textSecondary }]}
@@ -3911,15 +3917,15 @@ const WNBAGameDetailsScreen = ({ route }) => {
                         ? homeIsWinner
                           ? colors.primary
                           : homeIsLoser
-                          ? "#999"
-                          : theme.text
+                            ? "#999"
+                            : theme.text
                         : theme.text,
                     },
                   ]}
                 >
                   {getGameStatus().isPre
                     ? ""
-                    : home?.score ?? home?.team?.score ?? "0"}
+                    : (home?.score ?? home?.team?.score ?? "0")}
                 </Text>
               </View>
               <View
@@ -3986,8 +3992,8 @@ const WNBAGameDetailsScreen = ({ route }) => {
                         color: homeIsLoser
                           ? "#999"
                           : isFavorite(homeTeamId, "wnba")
-                          ? colors.primary
-                          : theme.text,
+                            ? colors.primary
+                            : theme.text,
                       },
                     ]}
                     numberOfLines={2}
@@ -4112,7 +4118,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
               ]}
               onPress={() => {
                 console.log(
-                  `[PLAYS DEBUG] Plays tab clicked at: ${new Date().toISOString()}`
+                  `[PLAYS DEBUG] Plays tab clicked at: ${new Date().toISOString()}`,
                 );
                 resetPlaysCount();
                 setActiveTab("plays");
@@ -4220,7 +4226,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                         if (group?.athletes) {
                           const found = group.athletes.find(
                             (a) =>
-                              String(a?.athlete?.id) === String(athlete?.id)
+                              String(a?.athlete?.id) === String(athlete?.id),
                           );
                           if (found) {
                             team = teamBox.team;
@@ -4341,10 +4347,10 @@ const WNBAGameDetailsScreen = ({ route }) => {
                                 {jersey && position
                                   ? `#${jersey} • ${position}`
                                   : jersey
-                                  ? `#${jersey}`
-                                  : position
-                                  ? position
-                                  : ""}
+                                    ? `#${jersey}`
+                                    : position
+                                      ? position
+                                      : ""}
                               </Text>
                             </View>
                             <View style={styles.modalTeamRow}>
@@ -4421,7 +4427,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                                     {
                                       color: getStatTextColor(
                                         keys[statIdx],
-                                        stats[statIdx]
+                                        stats[statIdx],
                                       ),
                                     },
                                   ]}
@@ -4676,7 +4682,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                     onShouldStartLoadWithRequest={(request) => {
                       console.log(
                         "WNBA WebView navigation request:",
-                        request.url
+                        request.url,
                       );
 
                       // Allow the initial stream URL to load
@@ -4695,7 +4701,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                       ];
                       const urlLower = request.url.toLowerCase();
                       const hasPopupKeywords = popupKeywords.some((keyword) =>
-                        urlLower.includes(keyword)
+                        urlLower.includes(keyword),
                       );
 
                       // Determine domains and allow same root/subdomains
@@ -4704,7 +4710,10 @@ const WNBAGameDetailsScreen = ({ route }) => {
                       try {
                         requestDomain = new URL(request.url).hostname;
                       } catch (e) {
-                        if (urlLower.startsWith("about:blank") || urlLower.startsWith("data:")) {
+                        if (
+                          urlLower.startsWith("about:blank") ||
+                          urlLower.startsWith("data:")
+                        ) {
                           return true;
                         }
                         console.log("Invalid URL:", request.url);
@@ -4726,12 +4735,14 @@ const WNBAGameDetailsScreen = ({ route }) => {
                         "about:blank",
                         "data:",
                       ];
-                      const allowIfEmbed = allowPatterns.some((p) => urlLower.includes(p));
+                      const allowIfEmbed = allowPatterns.some((p) =>
+                        urlLower.includes(p),
+                      );
 
                       if (hasPopupKeywords && !allowIfEmbed) {
                         console.log(
                           "Blocked WNBA popup/cross-domain navigation:",
-                          request.url
+                          request.url,
                         );
                         return false;
                       }
@@ -4742,7 +4753,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
 
                       console.log(
                         "Blocked WNBA popup/cross-domain navigation:",
-                        request.url
+                        request.url,
                       );
                       return false;
                     }}
@@ -4751,7 +4762,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                       const { nativeEvent } = syntheticEvent;
                       console.log(
                         "Blocked WNBA popup window:",
-                        nativeEvent.targetUrl
+                        nativeEvent.targetUrl,
                       );
                       // Don't open the popup - just log it
                       return false;
@@ -4808,11 +4819,11 @@ const WNBAGameDetailsScreen = ({ route }) => {
                 {details
                   ? `${
                       details.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "away"
+                        (c) => c.homeAway === "away",
                       )?.team.name || "Away"
                     } vs ${
                       details.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "home"
+                        (c) => c.homeAway === "home",
                       )?.team.name || "Home"
                     }`
                   : "Chat"}

@@ -7116,7 +7116,10 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                       try {
                         requestDomain = new URL(request.url).hostname;
                       } catch (e) {
-                        if (urlLower.startsWith("about:blank") || urlLower.startsWith("data:")) {
+                        if (
+                          urlLower.startsWith("about:blank") ||
+                          urlLower.startsWith("data:")
+                        ) {
                           return true;
                         }
                         console.log("Invalid URL:", request.url);
@@ -7138,7 +7141,9 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                         "about:blank",
                         "data:",
                       ];
-                      const allowIfEmbed = allowPatterns.some((p) => urlLower.includes(p));
+                      const allowIfEmbed = allowPatterns.some((p) =>
+                        urlLower.includes(p),
+                      );
 
                       if (hasPopupKeywords && !allowIfEmbed) {
                         console.log(

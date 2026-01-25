@@ -70,7 +70,7 @@ const VALDiscoverScreen = ({ navigation }) => {
       if (rankA !== rankB) {
         return rankB - rankA; // Higher rank value first
       }
-      
+
       // Second priority: sort by prize pool (descending)
       const prizeA = a.prizePool || 0;
       const prizeB = b.prizePool || 0;

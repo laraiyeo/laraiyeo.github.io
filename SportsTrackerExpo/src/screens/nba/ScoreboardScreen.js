@@ -48,7 +48,7 @@ const TeamLogo = React.memo(
       prev.size === next.size &&
       prev.opacity === next.opacity
     );
-  }
+  },
 );
 
 const NBAScoreboardScreen = ({ navigation }) => {
@@ -181,7 +181,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
           clearInterval(updateInterval);
         }
       };
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
@@ -215,7 +215,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
     ) {
       const interval = setInterval(
         () => loadScoreboard(true, selectedDateFilter),
-        2000
+        2000,
       );
       setUpdateInterval(interval);
       return () => clearInterval(interval);
@@ -245,7 +245,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
 
   const loadScoreboard = async (
     silent = false,
-    dateFilter = selectedDateFilter
+    dateFilter = selectedDateFilter,
   ) => {
     try {
       const now = Date.now();
@@ -280,7 +280,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
         const grouped = groupGamesByDate(
           data.events
             .map((e) => NBAService.formatGameForMobile(e))
-            .filter(Boolean)
+            .filter(Boolean),
         );
         processed = [];
         Object.keys(grouped)
@@ -294,7 +294,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
       // One-time console.log of the first actual game item (skip headers/no-games)
       if (!hasLoggedFirstGameRef.current) {
         const firstGame = processed.find(
-          (p) => p && p.type !== "header" && p.type !== "no-games"
+          (p) => p && p.type !== "header" && p.type !== "no-games",
         );
         if (firstGame) {
           // Log only once
@@ -598,7 +598,9 @@ const NBAScoreboardScreen = ({ navigation }) => {
             styles.filterButton,
             {
               backgroundColor:
-                selectedDateFilter === filter ? colors.secondary : "transparent",
+                selectedDateFilter === filter
+                  ? colors.secondary
+                  : "transparent",
             },
           ]}
           onPress={() => setSelectedDateFilter(filter)}
@@ -613,8 +615,8 @@ const NBAScoreboardScreen = ({ navigation }) => {
             {filter === "yesterday"
               ? "Yesterday"
               : filter === "today"
-              ? "Today"
-              : "Upcoming"}
+                ? "Today"
+                : "Upcoming"}
           </Text>
         </TouchableOpacity>
       ))}
@@ -738,8 +740,8 @@ const NBAScoreboardScreen = ({ navigation }) => {
                               ? colors.primary
                               : theme.text
                             : awayWinner
-                            ? colors.primary
-                            : theme.textSecondary,
+                              ? colors.primary
+                              : theme.textSecondary,
                       },
                     ]}
                   >
@@ -768,8 +770,8 @@ const NBAScoreboardScreen = ({ navigation }) => {
                     isLive || isScheduled
                       ? theme.text
                       : awayWinner
-                      ? colors.primary
-                      : theme.textSecondary,
+                        ? colors.primary
+                        : theme.textSecondary,
                 },
               ]}
             >
@@ -817,8 +819,8 @@ const NBAScoreboardScreen = ({ navigation }) => {
                               ? colors.primary
                               : theme.text
                             : homeWinner
-                            ? colors.primary
-                            : theme.textSecondary,
+                              ? colors.primary
+                              : theme.textSecondary,
                       },
                     ]}
                   >
@@ -847,8 +849,8 @@ const NBAScoreboardScreen = ({ navigation }) => {
                     isLive || isScheduled
                       ? theme.text
                       : homeWinner
-                      ? colors.primary
-                      : theme.textSecondary,
+                        ? colors.primary
+                        : theme.textSecondary,
                 },
               ]}
             >

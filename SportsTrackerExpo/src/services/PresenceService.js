@@ -71,10 +71,10 @@ export class PresenceService {
     } catch (error) {
       console.error(
         "❌ PresenceService - Database connection test failed:",
-        error
+        error,
       );
       console.error(
-        "❌ PresenceService - This might be a permissions issue. Check Firebase rules."
+        "❌ PresenceService - This might be a permissions issue. Check Firebase rules.",
       );
     }
   }
@@ -103,7 +103,6 @@ export class PresenceService {
    */
   static async joinGame(gameId) {
     try {
-
       this.init();
       const userId = await this.getUserId();
 
@@ -119,7 +118,7 @@ export class PresenceService {
       // Reference to this user's presence in this game
       const userGamePresenceRef = ref(
         this.database,
-        `presence/games/${gameId}/viewers/${userId}`
+        `presence/games/${gameId}/viewers/${userId}`,
       );
       await set(userGamePresenceRef, presenceData);
       // Set up disconnect handler - remove user when they disconnect
@@ -137,9 +136,9 @@ export class PresenceService {
         set(
           ref(
             this.database,
-            `presence/games/${gameId}/viewers/${userId}/lastSeen`
+            `presence/games/${gameId}/viewers/${userId}/lastSeen`,
           ),
-          serverTimestamp()
+          serverTimestamp(),
         );
       }, 30000);
 
@@ -176,11 +175,10 @@ export class PresenceService {
 
       // Clean up
       this.userPresenceRefs.delete(gameId);
-
     } catch (error) {
       console.error(
         "❌ PresenceService.leaveGame - Error leaving game:",
-        error
+        error,
       );
     }
   }
@@ -194,7 +192,7 @@ export class PresenceService {
 
       const gameViewersRef = ref(
         this.database,
-        `presence/games/${gameId}/viewers`
+        `presence/games/${gameId}/viewers`,
       );
 
       const unsubscribe = onValue(
@@ -214,7 +212,7 @@ export class PresenceService {
                   : new Date(data.lastSeen).getTime();
 
               return currentTime - lastSeenTime < 2 * 60 * 1000; // 2 minutes
-            }
+            },
           );
 
           const viewerCount = activeViewers.length;
@@ -232,10 +230,10 @@ export class PresenceService {
 
           (async () => {
             try {
-
               // Log database URL if available to help diagnose rule/project mismatches
               try {
-                const dbUrl = this.database?.app?.options?.databaseURL ||
+                const dbUrl =
+                  this.database?.app?.options?.databaseURL ||
                   this.database?.app?.options?.databaseURL;
               } catch (e) {
                 // ignore
@@ -246,17 +244,24 @@ export class PresenceService {
               try {
                 const peakSnap = await get(peakRef);
                 currentPeakVal = peakSnap.exists() ? peakSnap.val() : null;
-                console.log("PresenceService: current peak value:", currentPeakVal);
+                console.log(
+                  "PresenceService: current peak value:",
+                  currentPeakVal,
+                );
               } catch (readErr) {
                 console.error(
                   "❌ PresenceService.subscribeToGameViewers - Error reading peak before transaction:",
-                  readErr
+                  readErr,
                 );
               }
 
-              const intendedPeak = { count: viewerCount, recordedAt: Date.now() };
+              const intendedPeak = {
+                count: viewerCount,
+                recordedAt: Date.now(),
+              };
 
-              const currentPeakCount = (currentPeakVal && currentPeakVal.count) || 0;
+              const currentPeakCount =
+                (currentPeakVal && currentPeakVal.count) || 0;
 
               // If there's no higher peak to set, skip writes and return current peak
               if (!(viewerCount > currentPeakCount)) {
@@ -266,7 +271,10 @@ export class PresenceService {
               }
 
               // Try a direct set for debugging to capture permission errors clearly.
-              console.log("PresenceService: attempting debug set of peak:", intendedPeak);
+              console.log(
+                "PresenceService: attempting debug set of peak:",
+                intendedPeak,
+              );
               try {
                 await set(peakRef, intendedPeak);
                 console.log("PresenceService: debug set succeeded");
@@ -281,14 +289,16 @@ export class PresenceService {
               }
 
               const txResult = await runTransaction(peakRef, (currentPeak) => {
-                const currentPeakCountInner = (currentPeak && currentPeak.count) || 0;
+                const currentPeakCountInner =
+                  (currentPeak && currentPeak.count) || 0;
                 if (viewerCount > currentPeakCountInner) {
                   return intendedPeak;
                 }
                 return currentPeak;
               });
 
-              const peakVal = (txResult.snapshot && txResult.snapshot.val()) || null;
+              const peakVal =
+                (txResult.snapshot && txResult.snapshot.val()) || null;
               console.log("PresenceService: runTransaction result:", {
                 committed: txResult.committed,
                 peakVal,
@@ -311,7 +321,7 @@ export class PresenceService {
         (error) => {
           console.error(
             "❌ PresenceService.subscribeToGameViewers - Firebase subscription error:",
-            error
+            error,
           );
           console.error(
             "❌ PresenceService.subscribeToGameViewers - Error details:",
@@ -319,10 +329,10 @@ export class PresenceService {
               code: error.code,
               message: error.message,
               name: error.name,
-            }
+            },
           );
           callback({ count: 0, viewers: [] });
-        }
+        },
       );
 
       // Store listener for cleanup
@@ -413,7 +423,7 @@ export class PresenceService {
                       : new Date(data.lastSeen).getTime();
 
                   return Date.now() - lastSeenTime < 2 * 60 * 1000;
-                }
+                },
               );
 
               stats[gameId] = {
@@ -430,7 +440,7 @@ export class PresenceService {
           },
           {
             onlyOnce: true,
-          }
+          },
         );
       });
     } catch (error) {

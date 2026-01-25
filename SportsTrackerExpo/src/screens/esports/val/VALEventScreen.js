@@ -33,7 +33,7 @@ import { child, get } from "firebase/database";
 const VALEventScreen = ({ navigation, route }) => {
   const { eventId } = route.params;
   const { colors, theme } = useTheme();
-  const { height: WINDOW_HEIGHT } = Dimensions.get('window');
+  const { height: WINDOW_HEIGHT } = Dimensions.get("window");
   const [event, setEvent] = useState(null);
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -144,7 +144,8 @@ const VALEventScreen = ({ navigation, route }) => {
 
         if (
           (childEvent.bracketJson &&
-            (childEvent.bracketJson.type === "double" || childEvent.bracketJson.type === "triple")) ||
+            (childEvent.bracketJson.type === "double" ||
+              childEvent.bracketJson.type === "triple")) ||
           (childEvent.bracketJson && childEvent.bracketJson.losers)
         ) {
           childEvent.bracketJson.losers.forEach((loserSeed) => {
@@ -174,7 +175,7 @@ const VALEventScreen = ({ navigation, route }) => {
 
         if (
           (childEvent.bracketJson &&
-            (childEvent.bracketJson.type === "triple")) ||
+            childEvent.bracketJson.type === "triple") ||
           (childEvent.bracketJson && childEvent.bracketJson.middle)
         ) {
           childEvent.bracketJson.middle.forEach((middleSeed) => {
@@ -344,7 +345,7 @@ const VALEventScreen = ({ navigation, route }) => {
             stageTitle:
               group.title ||
               `Group ${String.fromCharCode(
-                65 + eventData.bracketJson.groups.indexOf(group)
+                65 + eventData.bracketJson.groups.indexOf(group),
               )}`,
             eventType: "group",
           });
@@ -370,7 +371,7 @@ const VALEventScreen = ({ navigation, route }) => {
               stageTitle:
                 group.title ||
                 `Group ${String.fromCharCode(
-                  65 + childEvent.bracketJson.groups.indexOf(group)
+                  65 + childEvent.bracketJson.groups.indexOf(group),
                 )}`,
               eventType: "group",
             });
@@ -405,7 +406,7 @@ const VALEventScreen = ({ navigation, route }) => {
             }
           });
         }
-        
+
         if (childEvent.bracketJson.middle) {
           childEvent.bracketJson.middle.forEach((round) => {
             if (round.seeds) {
@@ -650,7 +651,7 @@ const VALEventScreen = ({ navigation, route }) => {
     currentWeekStandings,
     allWeeks,
     currentWeekIndex,
-    allTeams
+    allTeams,
   ) => {
     if (currentWeekIndex === 0) {
       // First week, no previous rankings to compare
@@ -664,7 +665,7 @@ const VALEventScreen = ({ navigation, route }) => {
     const previousWeekStandings = calculateWeeklyStandings(
       allWeeks,
       currentWeekIndex - 1,
-      allTeams
+      allTeams,
     );
 
     // Create a map of team ID to previous ranking
@@ -890,8 +891,8 @@ const VALEventScreen = ({ navigation, route }) => {
                 {event.startDate && event.endDate
                   ? formatEventDateRange(event.startDate, event.endDate)
                   : event.startDate
-                  ? new Date(event.startDate).toLocaleDateString()
-                  : "TBD"}
+                    ? new Date(event.startDate).toLocaleDateString()
+                    : "TBD"}
                 {event.prizePool && (
                   <Text>
                     {" "}
@@ -1158,15 +1159,15 @@ const VALEventScreen = ({ navigation, route }) => {
                                 backgroundColor:
                                   getEventStatus(
                                     event.startDate,
-                                    event.endDate
+                                    event.endDate,
                                   ) === "In Progress"
                                     ? theme.error
                                     : getEventStatus(
-                                        event.startDate,
-                                        event.endDate
-                                      ) === "Completed"
-                                    ? theme.success
-                                    : theme.warning,
+                                          event.startDate,
+                                          event.endDate,
+                                        ) === "Completed"
+                                      ? theme.success
+                                      : theme.warning,
                               },
                             ]}
                           >
@@ -1175,7 +1176,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                 ? "LIVE"
                                 : getEventStatus(
                                     event.startDate,
-                                    event.endDate
+                                    event.endDate,
                                   )}
                             </Text>
                           </View>
@@ -1188,7 +1189,7 @@ const VALEventScreen = ({ navigation, route }) => {
                             {event.startDate && event.endDate
                               ? formatEventDateRange(
                                   event.startDate,
-                                  event.endDate
+                                  event.endDate,
                                 )
                               : "TBD"}
                           </Text>
@@ -1249,7 +1250,7 @@ const VALEventScreen = ({ navigation, route }) => {
                               >
                                 {group.title ||
                                   `Group ${String.fromCharCode(
-                                    65 + groupIndex
+                                    65 + groupIndex,
                                   )}`}
                               </Text>
                             </TouchableOpacity>
@@ -1278,7 +1279,7 @@ const VALEventScreen = ({ navigation, route }) => {
                               >
                                 {group.title ||
                                   `Group ${String.fromCharCode(
-                                    65 + groupIndex
+                                    65 + groupIndex,
                                   )}`}{" "}
                                 Standings
                               </Text>
@@ -1344,13 +1345,13 @@ const VALEventScreen = ({ navigation, route }) => {
                                         borderLeftWidth: team.qualified
                                           ? 3
                                           : team.nonQualified
-                                          ? 3
-                                          : 0,
+                                            ? 3
+                                            : 0,
                                         borderLeftColor: team.qualified
                                           ? theme.success
                                           : team.nonQualified
-                                          ? theme.error
-                                          : theme.surface,
+                                            ? theme.error
+                                            : theme.surface,
                                       },
                                     ]}
                                   >
@@ -1405,10 +1406,10 @@ const VALEventScreen = ({ navigation, route }) => {
                                             team.roundsWon - team.roundsLost > 0
                                               ? theme.success
                                               : team.roundsWon -
-                                                  team.roundsLost <
-                                                0
-                                              ? theme.error
-                                              : theme.text,
+                                                    team.roundsLost <
+                                                  0
+                                                ? theme.error
+                                                : theme.text,
                                         },
                                       ]}
                                     >
@@ -1489,7 +1490,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                                       {
                                                         month: "short",
                                                         day: "numeric",
-                                                      }
+                                                      },
                                                     )
                                                     .replace(",", "")
                                                 : "TBD"}
@@ -1502,7 +1503,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                             >
                                               {series.startDate
                                                 ? new Date(
-                                                    series.startDate
+                                                    series.startDate,
                                                   ).toLocaleTimeString([], {
                                                     hour: "2-digit",
                                                     minute: "2-digit",
@@ -1624,7 +1625,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                           </View>
                                         </TouchableOpacity>
                                       );
-                                    }
+                                    },
                                   )}
                                 </View>
                               )}
@@ -1667,13 +1668,13 @@ const VALEventScreen = ({ navigation, route }) => {
 
                         if (matchDates.length > 0) {
                           const sortedDates = matchDates.sort(
-                            (a, b) => new Date(a) - new Date(b)
+                            (a, b) => new Date(a) - new Date(b),
                           );
                           weekStartDate = sortedDates[0];
                           weekEndDate = sortedDates[sortedDates.length - 1];
                           weekStatus = getEventStatus(
                             weekStartDate,
-                            weekEndDate
+                            weekEndDate,
                           );
                         }
 
@@ -1716,8 +1717,8 @@ const VALEventScreen = ({ navigation, route }) => {
                                           weekStatus === "Completed"
                                             ? theme.success
                                             : weekStatus === "In Progress"
-                                            ? theme.error
-                                            : theme.warning,
+                                              ? theme.error
+                                              : theme.warning,
                                       },
                                     ]}
                                   >
@@ -1734,7 +1735,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                     {weekStartDate && weekEndDate
                                       ? formatEventDateRange(
                                           weekStartDate,
-                                          weekEndDate
+                                          weekEndDate,
                                         )
                                       : "TBD"}
                                   </Text>
@@ -1792,13 +1793,13 @@ const VALEventScreen = ({ navigation, route }) => {
                                       calculateWeeklyStandings(
                                         childEvent.bracketJson.weekly.weeks,
                                         weekIndex,
-                                        weeklyTeams
+                                        weeklyTeams,
                                       );
                                     const standings = calculateRankingChanges(
                                       baseStandings,
                                       childEvent.bracketJson.weekly.weeks,
                                       weekIndex,
-                                      weeklyTeams
+                                      weeklyTeams,
                                     );
                                     const showMatchesKey = weekKey;
 
@@ -1866,14 +1867,14 @@ const VALEventScreen = ({ navigation, route }) => {
                                                     team.qualified
                                                       ? 3
                                                       : team.nonQualified
-                                                      ? 3
-                                                      : 0,
+                                                        ? 3
+                                                        : 0,
                                                   borderLeftColor:
                                                     team.qualified
                                                       ? theme.success
                                                       : team.nonQualified
-                                                      ? theme.error
-                                                      : theme.surface,
+                                                        ? theme.error
+                                                        : theme.surface,
                                                 },
                                               ]}
                                             >
@@ -2000,10 +2001,10 @@ const VALEventScreen = ({ navigation, route }) => {
                                                       0
                                                         ? theme.success
                                                         : team.roundsWon -
-                                                            team.roundsLost <
-                                                          0
-                                                        ? theme.error
-                                                        : theme.text,
+                                                              team.roundsLost <
+                                                            0
+                                                          ? theme.error
+                                                          : theme.text,
                                                   },
                                                 ]}
                                               >
@@ -2084,7 +2085,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                                             seriesId:
                                                               series.id ||
                                                               series.seriesId,
-                                                          }
+                                                          },
                                                         );
                                                       }}
                                                       activeOpacity={0.7}
@@ -2105,7 +2106,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                                         >
                                                           {series.startDate
                                                             ? new Date(
-                                                                series.startDate
+                                                                series.startDate,
                                                               )
                                                                 .toLocaleDateString(
                                                                   "en-US",
@@ -2113,11 +2114,11 @@ const VALEventScreen = ({ navigation, route }) => {
                                                                     month:
                                                                       "short",
                                                                     day: "numeric",
-                                                                  }
+                                                                  },
                                                                 )
                                                                 .replace(
                                                                   ",",
-                                                                  ""
+                                                                  "",
                                                                 )
                                                             : "TBD"}
                                                         </Text>
@@ -2132,14 +2133,14 @@ const VALEventScreen = ({ navigation, route }) => {
                                                         >
                                                           {series.startDate
                                                             ? new Date(
-                                                                series.startDate
+                                                                series.startDate,
                                                               ).toLocaleTimeString(
                                                                 [],
                                                                 {
                                                                   hour: "2-digit",
                                                                   minute:
                                                                     "2-digit",
-                                                                }
+                                                                },
                                                               )
                                                             : ""}
                                                         </Text>
@@ -2283,7 +2284,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                                       </View>
                                                     </TouchableOpacity>
                                                   );
-                                                }
+                                                },
                                               )}
                                             </View>
                                           )}
@@ -2295,14 +2296,14 @@ const VALEventScreen = ({ navigation, route }) => {
                             )}
                           </View>
                         );
-                      }
+                      },
                     );
                   }
 
                   // Handle non-weekly tournaments (existing logic)
                   const status = getEventStatus(
                     childEvent.startDate,
-                    childEvent.endDate
+                    childEvent.endDate,
                   );
                   const isExpanded = expandedEvents[childEvent.id] || false;
 
@@ -2353,8 +2354,8 @@ const VALEventScreen = ({ navigation, route }) => {
                                     status === "Completed"
                                       ? theme.success
                                       : status === "In Progress"
-                                      ? theme.error
-                                      : theme.warning,
+                                        ? theme.error
+                                        : theme.warning,
                                 },
                               ]}
                             >
@@ -2369,7 +2370,7 @@ const VALEventScreen = ({ navigation, route }) => {
                               {childEvent.startDate && childEvent.endDate
                                 ? formatEventDateRange(
                                     childEvent.startDate,
-                                    childEvent.endDate
+                                    childEvent.endDate,
                                   )
                                 : "TBD"}
                             </Text>
@@ -2413,7 +2414,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                               newState[
                                                 `${childEvent.id}-${idx}`
                                               ] = false;
-                                            }
+                                            },
                                           );
                                           // Then activate only the clicked group
                                           newState[
@@ -2437,11 +2438,11 @@ const VALEventScreen = ({ navigation, route }) => {
                                       >
                                         {group.title ||
                                           `Group ${String.fromCharCode(
-                                            65 + groupIndex
+                                            65 + groupIndex,
                                           )}`}
                                       </Text>
                                     </TouchableOpacity>
-                                  )
+                                  ),
                                 )}
                               </View>
                             )}
@@ -2474,7 +2475,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                     >
                                       {group.title ||
                                         `Group ${String.fromCharCode(
-                                          65 + groupIndex
+                                          65 + groupIndex,
                                         )}`}{" "}
                                       Standings
                                     </Text>
@@ -2540,13 +2541,13 @@ const VALEventScreen = ({ navigation, route }) => {
                                               borderLeftWidth: team.qualified
                                                 ? 3
                                                 : team.nonQualified
-                                                ? 3
-                                                : 0,
+                                                  ? 3
+                                                  : 0,
                                               borderLeftColor: team.qualified
                                                 ? theme.success
                                                 : team.nonQualified
-                                                ? theme.error
-                                                : theme.surface,
+                                                  ? theme.error
+                                                  : theme.surface,
                                             },
                                           ]}
                                         >
@@ -2603,10 +2604,10 @@ const VALEventScreen = ({ navigation, route }) => {
                                                   0
                                                     ? theme.success
                                                     : team.roundsWon -
-                                                        team.roundsLost <
-                                                      0
-                                                    ? theme.error
-                                                    : theme.text,
+                                                          team.roundsLost <
+                                                        0
+                                                      ? theme.error
+                                                      : theme.text,
                                               },
                                             ]}
                                           >
@@ -2678,7 +2679,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                                     "VALSeries",
                                                     {
                                                       seriesId: series.id,
-                                                    }
+                                                    },
                                                   );
                                                 }}
                                                 activeOpacity={0.7}
@@ -2697,14 +2698,14 @@ const VALEventScreen = ({ navigation, route }) => {
                                                   >
                                                     {series.startDate
                                                       ? new Date(
-                                                          series.startDate
+                                                          series.startDate,
                                                         )
                                                           .toLocaleDateString(
                                                             "en-US",
                                                             {
                                                               month: "short",
                                                               day: "numeric",
-                                                            }
+                                                            },
                                                           )
                                                           .replace(",", "")
                                                       : "TBD"}
@@ -2720,13 +2721,13 @@ const VALEventScreen = ({ navigation, route }) => {
                                                   >
                                                     {series.startDate
                                                       ? new Date(
-                                                          series.startDate
+                                                          series.startDate,
                                                         ).toLocaleTimeString(
                                                           [],
                                                           {
                                                             hour: "2-digit",
                                                             minute: "2-digit",
-                                                          }
+                                                          },
                                                         )
                                                       : ""}
                                                   </Text>
@@ -2854,18 +2855,19 @@ const VALEventScreen = ({ navigation, route }) => {
                                                 </View>
                                               </TouchableOpacity>
                                             );
-                                          }
+                                          },
                                         )}
                                       </View>
                                     )}
                                   </View>
                                 );
-                              }
+                              },
                             )}
 
                           {/* Playoff Bracket Content */}
                           {(childEvent.bracketJson.type === "double" ||
-                            childEvent.bracketJson.type === "single" || childEvent.bracketJson.type === "triple") && (
+                            childEvent.bracketJson.type === "single" ||
+                            childEvent.bracketJson.type === "triple") && (
                             <View style={styles.playoffContainer}>
                               <View
                                 horizontal
@@ -2958,7 +2960,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                         (_, matchIndex) => ({
                                           top: yOffset + matchIndex * spacing,
                                           left: 15,
-                                        })
+                                        }),
                                       );
 
                                       positions.push(roundPositions);
@@ -2975,7 +2977,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                           BOX_MARGIN;
                                         maxHeight = Math.max(
                                           maxHeight,
-                                          roundMaxHeight
+                                          roundMaxHeight,
                                         );
                                       }
                                     });
@@ -2984,18 +2986,19 @@ const VALEventScreen = ({ navigation, route }) => {
                                   }
 
                                   const winnerBracket = computeBracketPositions(
-                                    childEvent.bracketJson.winners || []
+                                    childEvent.bracketJson.winners || [],
                                   );
                                   const middleBracket = computeBracketPositions(
-                                    childEvent.bracketJson.middle || []
+                                    childEvent.bracketJson.middle || [],
                                   );
                                   const loserBracket = computeBracketPositions(
-                                    childEvent.bracketJson.losers || []
+                                    childEvent.bracketJson.losers || [],
                                   );
 
                                   const winnerPositions =
                                     winnerBracket.positions;
-                                  const middlePositions = middleBracket.positions;
+                                  const middlePositions =
+                                    middleBracket.positions;
                                   const loserPositions = loserBracket.positions;
 
                                   return (
@@ -3006,14 +3009,19 @@ const VALEventScreen = ({ navigation, route }) => {
                                           <ScrollView
                                             horizontal={true}
                                             nestedScrollEnabled={true}
-                                            showsHorizontalScrollIndicator={false}
+                                            showsHorizontalScrollIndicator={
+                                              false
+                                            }
                                             style={{
                                               position: "relative",
-                                              height: Math.min(winnerBracket.maxHeight, WINDOW_HEIGHT * 0.7),
+                                              height: Math.min(
+                                                winnerBracket.maxHeight,
+                                                WINDOW_HEIGHT * 0.7,
+                                              ),
                                             }}
                                             contentContainerStyle={{
-                                              flexDirection: 'row',
-                                              alignItems: 'flex-start',
+                                              flexDirection: "row",
+                                              alignItems: "flex-start",
                                               paddingRight: 20,
                                             }}
                                           >
@@ -3072,7 +3080,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                                                     seriesId:
                                                                       match.seriesId ||
                                                                       match.id,
-                                                                  }
+                                                                  },
                                                                 );
                                                               }
                                                             }}
@@ -3089,16 +3097,16 @@ const VALEventScreen = ({ navigation, route }) => {
                                                             >
                                                               {match.startDate
                                                                 ? `${new Date(
-                                                                    match.startDate
+                                                                    match.startDate,
                                                                   ).toLocaleDateString(
                                                                     "en-US",
                                                                     {
                                                                       month:
                                                                         "short",
                                                                       day: "numeric",
-                                                                    }
+                                                                    },
                                                                   )} • ${new Date(
-                                                                    match.startDate
+                                                                    match.startDate,
                                                                   ).toLocaleTimeString(
                                                                     "en-US",
                                                                     {
@@ -3106,7 +3114,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                                                       minute:
                                                                         "2-digit",
                                                                       hour12: true,
-                                                                    }
+                                                                    },
                                                                   )}`
                                                                 : "TBD"}
                                                             </Text>
@@ -3115,7 +3123,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                                               match.teams.map(
                                                                 (
                                                                   team,
-                                                                  teamIndex
+                                                                  teamIndex,
                                                                 ) => {
                                                                   const isWinner =
                                                                     match.completed &&
@@ -3207,35 +3215,40 @@ const VALEventScreen = ({ navigation, route }) => {
                                                                       </Text>
                                                                     </View>
                                                                   );
-                                                                }
+                                                                },
                                                               )}
                                                           </TouchableOpacity>
                                                         );
-                                                      }
+                                                      },
                                                     )}
                                                 </View>
-                                              )
+                                              ),
                                             )}
                                           </ScrollView>
                                         </View>
                                       )}
 
                                       {/* Middle Bracket */}
-                                      {(childEvent.bracketJson.type ===
-                                        "triple") && 
+                                      {childEvent.bracketJson.type ===
+                                        "triple" &&
                                         childEvent.bracketJson.middle && (
                                           <View style={styles.bracketSection}>
                                             <ScrollView
                                               horizontal={true}
                                               nestedScrollEnabled={true}
-                                              showsHorizontalScrollIndicator={false}
+                                              showsHorizontalScrollIndicator={
+                                                false
+                                              }
                                               style={{
                                                 position: "relative",
-                                                height: Math.min(middleBracket.maxHeight, WINDOW_HEIGHT * 0.7),
+                                                height: Math.min(
+                                                  middleBracket.maxHeight,
+                                                  WINDOW_HEIGHT * 0.7,
+                                                ),
                                               }}
                                               contentContainerStyle={{
-                                                flexDirection: 'row',
-                                                alignItems: 'flex-start',
+                                                flexDirection: "row",
+                                                alignItems: "flex-start",
                                                 paddingRight: 20,
                                               }}
                                             >
@@ -3294,7 +3307,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                                                       seriesId:
                                                                         match.seriesId ||
                                                                         match.id,
-                                                                    }
+                                                                    },
                                                                   );
                                                                 }
                                                               }}
@@ -3313,16 +3326,16 @@ const VALEventScreen = ({ navigation, route }) => {
                                                               >
                                                                 {match.startDate
                                                                   ? `${new Date(
-                                                                      match.startDate
+                                                                      match.startDate,
                                                                     ).toLocaleDateString(
                                                                       "en-US",
                                                                       {
                                                                         month:
                                                                           "short",
                                                                         day: "numeric",
-                                                                      }
+                                                                      },
                                                                     )} • ${new Date(
-                                                                      match.startDate
+                                                                      match.startDate,
                                                                     ).toLocaleTimeString(
                                                                       "en-US",
                                                                       {
@@ -3330,7 +3343,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                                                         minute:
                                                                           "2-digit",
                                                                         hour12: true,
-                                                                      }
+                                                                      },
                                                                     )}`
                                                                   : "TBD"}
                                                               </Text>
@@ -3339,7 +3352,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                                                 match.teams.map(
                                                                   (
                                                                     team,
-                                                                    teamIndex
+                                                                    teamIndex,
                                                                   ) => {
                                                                     const isWinner =
                                                                       match.completed &&
@@ -3431,14 +3444,14 @@ const VALEventScreen = ({ navigation, route }) => {
                                                                         </Text>
                                                                       </View>
                                                                     );
-                                                                  }
+                                                                  },
                                                                 )}
                                                             </TouchableOpacity>
                                                           );
-                                                        }
+                                                        },
                                                       )}
                                                   </View>
-                                                )
+                                                ),
                                               )}
                                             </ScrollView>
                                           </View>
@@ -3446,20 +3459,27 @@ const VALEventScreen = ({ navigation, route }) => {
 
                                       {/* Lower Bracket */}
                                       {(childEvent.bracketJson.type ===
-                                        "double" || childEvent.bracketJson.type === "triple") && 
+                                        "double" ||
+                                        childEvent.bracketJson.type ===
+                                          "triple") &&
                                         childEvent.bracketJson.losers && (
                                           <View style={styles.bracketSection}>
                                             <ScrollView
                                               horizontal={true}
                                               nestedScrollEnabled={true}
-                                              showsHorizontalScrollIndicator={false}
+                                              showsHorizontalScrollIndicator={
+                                                false
+                                              }
                                               style={{
                                                 position: "relative",
-                                                height: Math.min(loserBracket.maxHeight, WINDOW_HEIGHT * 0.7),
+                                                height: Math.min(
+                                                  loserBracket.maxHeight,
+                                                  WINDOW_HEIGHT * 0.7,
+                                                ),
                                               }}
                                               contentContainerStyle={{
-                                                flexDirection: 'row',
-                                                alignItems: 'flex-start',
+                                                flexDirection: "row",
+                                                alignItems: "flex-start",
                                                 paddingRight: 20,
                                               }}
                                             >
@@ -3518,7 +3538,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                                                       seriesId:
                                                                         match.seriesId ||
                                                                         match.id,
-                                                                    }
+                                                                    },
                                                                   );
                                                                 }
                                                               }}
@@ -3537,16 +3557,16 @@ const VALEventScreen = ({ navigation, route }) => {
                                                               >
                                                                 {match.startDate
                                                                   ? `${new Date(
-                                                                      match.startDate
+                                                                      match.startDate,
                                                                     ).toLocaleDateString(
                                                                       "en-US",
                                                                       {
                                                                         month:
                                                                           "short",
                                                                         day: "numeric",
-                                                                      }
+                                                                      },
                                                                     )} • ${new Date(
-                                                                      match.startDate
+                                                                      match.startDate,
                                                                     ).toLocaleTimeString(
                                                                       "en-US",
                                                                       {
@@ -3554,7 +3574,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                                                         minute:
                                                                           "2-digit",
                                                                         hour12: true,
-                                                                      }
+                                                                      },
                                                                     )}`
                                                                   : "TBD"}
                                                               </Text>
@@ -3563,7 +3583,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                                                 match.teams.map(
                                                                   (
                                                                     team,
-                                                                    teamIndex
+                                                                    teamIndex,
                                                                   ) => {
                                                                     const isWinner =
                                                                       match.completed &&
@@ -3655,14 +3675,14 @@ const VALEventScreen = ({ navigation, route }) => {
                                                                         </Text>
                                                                       </View>
                                                                     );
-                                                                  }
+                                                                  },
                                                                 )}
                                                             </TouchableOpacity>
                                                           );
-                                                        }
+                                                        },
                                                       )}
                                                   </View>
-                                                )
+                                                ),
                                               )}
                                             </ScrollView>
                                           </View>
@@ -3775,7 +3795,7 @@ const VALEventScreen = ({ navigation, route }) => {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
-                    }
+                    },
                   );
                   if (!matchesByDate[dateKey]) {
                     matchesByDate[dateKey] = [];
@@ -3977,7 +3997,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                     ]}
                                   >
                                     {new Date(
-                                      match.startDate
+                                      match.startDate,
                                     ).toLocaleTimeString([], {
                                       hour: "2-digit",
                                       minute: "2-digit",
@@ -4360,8 +4380,8 @@ const VALEventScreen = ({ navigation, route }) => {
                             acc[player.weaponName].push(player);
                             return acc;
                           },
-                          {}
-                        )
+                          {},
+                        ),
                       )
                         .slice(0, 10)
                         .map(([weaponName, players]) => {
@@ -4507,7 +4527,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                   const winRate =
                                     agent.picks > 0
                                       ? Math.round(
-                                          (agent.wins / agent.picks) * 100
+                                          (agent.wins / agent.picks) * 100,
                                         )
                                       : 0;
                                   return (
@@ -4521,7 +4541,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                       <Image
                                         source={{
                                           uri: getAgentImageUrl(
-                                            agent.agentName
+                                            agent.agentName,
                                           ),
                                         }}
                                         style={styles.agentColumnImage}
@@ -4553,7 +4573,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                 })}
                             </View>
                           </View>
-                        )
+                        ),
                       )}
                     </View>
                   </View>
@@ -4590,19 +4610,19 @@ const VALEventScreen = ({ navigation, route }) => {
                         const fkPercent =
                           agent.rounds > 0
                             ? Math.round(
-                                (agent.firstKills / agent.rounds) * 100
+                                (agent.firstKills / agent.rounds) * 100,
                               )
                             : 0;
                         const fdPercent =
                           agent.rounds > 0
                             ? Math.round(
-                                (agent.firstDeaths / agent.rounds) * 100
+                                (agent.firstDeaths / agent.rounds) * 100,
                               )
                             : 0;
                         const kastPercent =
                           agent.rounds > 0
                             ? Math.round(
-                                (agent.kastRounds / agent.rounds) * 100
+                                (agent.kastRounds / agent.rounds) * 100,
                               )
                             : 0;
 
@@ -4787,24 +4807,29 @@ const VALEventScreen = ({ navigation, route }) => {
                             acc[comp.mapName].push(comp);
                             return acc;
                           },
-                          {}
-                        )
+                          {},
+                        ),
                       ).map(([mapName, comps]) => {
                         const isExpanded = !!expandedMaps[mapName];
                         const hasMore = comps.length > 2;
-                        const displayComps = isExpanded ? comps : comps.slice(0, 2);
+                        const displayComps = isExpanded
+                          ? comps
+                          : comps.slice(0, 2);
                         const Wrapper = hasMore ? TouchableOpacity : View;
 
                         return (
                           <View key={mapName} style={styles.mapCompsSection}>
-                            <Wrapper 
+                            <Wrapper
                               style={styles.mapCompsHeader}
-                              onPress={ hasMore ? () =>
-                                setExpandedMaps((prev) => ({
-                                  ...prev,
-                                  [mapName]: !prev[mapName],
-                                }))
-                              : undefined}
+                              onPress={
+                                hasMore
+                                  ? () =>
+                                      setExpandedMaps((prev) => ({
+                                        ...prev,
+                                        [mapName]: !prev[mapName],
+                                      }))
+                                  : undefined
+                              }
                             >
                               <Text
                                 style={[
@@ -4815,11 +4840,11 @@ const VALEventScreen = ({ navigation, route }) => {
                                 {mapName}
                               </Text>
                               {hasMore && (
-                                <TouchableOpacity
-                                  style={styles.mapCompsToggle}
-                                >
+                                <TouchableOpacity style={styles.mapCompsToggle}>
                                   <Ionicons
-                                    name={isExpanded ? "chevron-up" : "chevron-down"}
+                                    name={
+                                      isExpanded ? "chevron-up" : "chevron-down"
+                                    }
                                     size={18}
                                     color={colors.primary}
                                   />
@@ -4848,7 +4873,7 @@ const VALEventScreen = ({ navigation, route }) => {
                                         key={agentId}
                                         source={{
                                           uri: getAgentImageUrl(
-                                            getAgentDisplayName(agentId)
+                                            getAgentDisplayName(agentId),
                                           ),
                                         }}
                                         style={styles.compAgentImage}
@@ -4857,9 +4882,13 @@ const VALEventScreen = ({ navigation, route }) => {
                                     ))}
                                   </View>
                                   <Text
-                                    style={[styles.compPicks, { color: "white" }]}
+                                    style={[
+                                      styles.compPicks,
+                                      { color: "white" },
+                                    ]}
                                   >
-                                    {comp.picks} pick{comp.picks !== 1 ? "s" : ""}
+                                    {comp.picks} pick
+                                    {comp.picks !== 1 ? "s" : ""}
                                   </Text>
                                 </View>
                               </View>
@@ -5380,9 +5409,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   mapCompsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 8,
   },
   mapCompsToggle: {
