@@ -1,7 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="apple-itunes-app" content="app-id=6754208862, app-argument=https://sportsheart.ca/" />
     <meta name="viewport" content="width=device-wi      .team-name-ticker {
         font-size: 14px;
         font-weight: bold;
@@ -640,7 +641,7 @@
           // Live game
           const inningHalf = game.linescore?.inningHalf || "Top";
           const inningNum = game.linescore?.currentInning || 1;
-          const inningArrow = inningHalf === "Top" ? "▲" : "▼";
+          const inningArrow = inningHalf === "Top" ? "â–²" : "â–¼";
           const inningSuffix = getInningSuffix(inningNum);
           const outs = game.linescore?.outs || 0;
 
@@ -895,3 +896,4 @@
     </script>
   </body>
 </html>
+

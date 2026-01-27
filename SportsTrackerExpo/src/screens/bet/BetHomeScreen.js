@@ -734,10 +734,10 @@ const CompletedGameCard = React.memo(
                 styles.completedScore,
                 {
                   color:
-                    game.score1 > game.score2
+                    parseInt(game.score1) > parseInt(game.score2)
                       ? colors.primary
                       : theme.textSecondary,
-                  fontWeight: game.score1 > game.score2 ? "bold" : "normal",
+                  fontWeight: parseInt(game.score1) > parseInt(game.score2) ? "bold" : "normal",
                 },
               ]}
             >
@@ -778,10 +778,10 @@ const CompletedGameCard = React.memo(
                 styles.completedScore,
                 {
                   color:
-                    game.score2 > game.score1
+                    parseInt(game.score2) > parseInt(game.score1)
                       ? colors.primary
                       : theme.textSecondary,
-                  fontWeight: game.score2 > game.score1 ? "bold" : "normal",
+                  fontWeight: parseInt(game.score2) > parseInt(game.score1) ? "bold" : "normal",
                 },
               ]}
             >
