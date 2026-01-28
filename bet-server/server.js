@@ -9833,8 +9833,14 @@ app.get("/api/betslip", async (req, res) => {
           for (const [key, val] of Object.entries(bets)) {
             if (key === "players" && Array.isArray(val)) {
               count += val.reduce((pSum, p) => {
-                const over = p.overUnder && typeof p.overUnder === "object" ? Object.keys(p.overUnder).length : 0;
-                const milestones = p.milestones && typeof p.milestones === "object" ? Object.keys(p.milestones).length : 0;
+                const over =
+                  p.overUnder && typeof p.overUnder === "object"
+                    ? Object.keys(p.overUnder).length
+                    : 0;
+                const milestones =
+                  p.milestones && typeof p.milestones === "object"
+                    ? Object.keys(p.milestones).length
+                    : 0;
                 return pSum + over + milestones;
               }, 0);
             } else if (Array.isArray(val)) {
