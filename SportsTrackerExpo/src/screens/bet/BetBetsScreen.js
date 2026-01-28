@@ -1417,16 +1417,29 @@ const BetBetsScreen = () => {
     ) {
       // Special handling for spreads: visualize relative to the spread line.
       // Use diff = opponent - team (positive => opponent leads).
-      if (pick.isSpread) {
+      if (pick.isSpread === false) {
         const line = Number(safeLine);
-        const diff = Number(pick.currentValue);
-        const maxRange = Math.max(30, Math.abs(line) * 4);
+        let raw = Number(pick.currentValue);
+        if (!Number.isFinite(raw)) raw = 0;
 
-        // Any diff <= line should push the indicator to the right end (100%).
+        // Some payloads expose the margin as (opponent - team) while others
+        // may use (team - opponent). Pick the sign that is closest to the
+        // expected numeric line so the visualization isn't inverted.
+        const candA = raw; // opponent - team (existing convention)
+        const candB = -raw; // team - opponent
+        const diff =
+          Math.abs(candB - line) < Math.abs(candA - line) ? candB : candA;
+
+        // Range for mapping: scale by line magnitude but enforce a sensible
+        // minimum so small spreads still show meaningful progress.
+        const maxRange = Math.max(10, Math.abs(line) * 6);
+
+        // If diff is better-or-equal than the line (covers the spread or beyond)
+        // treat as full coverage (100%). Otherwise map line->100 down to
+        // line+maxRange -> 0 linearly.
         if (diff <= line) {
           progress = 100;
         } else {
-          // Map values greater than line toward 0 across maxRange
           const frac = Math.max(0, Math.min(1, (diff - line) / maxRange));
           progress = Math.max(0, 100 - frac * 100);
         }
@@ -1851,6 +1864,7 @@ const BetBetsScreen = () => {
 
     // Expanded view
     return (
+        console.log(pick),
       <View
         key={parlay.id}
         style={[styles.betCard, { backgroundColor: theme.surface }]}
@@ -4583,6 +4597,7 @@ const BetBetsScreen = () => {
 
       // Expanded single view (when isExpanded)
       return (
+        console.log(pick),
         <View
           key={betSlip.id}
           style={[
@@ -4870,7 +4885,10 @@ const BetBetsScreen = () => {
           </View>
 
           <View style={styles.parlayPicks}>
-            {allPicks.map((pick) => renderPick(pick, true))}
+            {allPicks.map((pick) => {
+              console.log(pick);
+              return renderPick(pick, true);
+            })}
           </View>
 
           <View
@@ -5133,7 +5151,10 @@ const BetBetsScreen = () => {
               </View>
 
               <View style={styles.parlayPicks}>
-                {picks.map((pick) => renderPick(pick, true))}
+                {picks.map((pick) => {
+                  console.log(pick);
+                  return renderPick(pick, true);
+                })}
               </View>
             </View>
           );

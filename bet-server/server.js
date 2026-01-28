@@ -2592,7 +2592,7 @@ async function fetchSGOOdds(sport = "nba") {
       startsAfter,
     )}&startsBefore=${encodeURIComponent(
       startsBefore,
-    )}&ended=false&live=false&bookmakerID=fanduel,draftkings&includeOpposingOdds=false&expandResults=false&includeAltLines=true&apiKey=${SPORTSGAMEODDS_API_KEY}`;
+    )}&ended=false&live=false&bookmakerID=fanduel,draftkings&includeOpposingOdds=false&expandResults=false&includeAltLines=true&limit=25&apiKey=${SPORTSGAMEODDS_API_KEY}`;
 
     const resp = await axios.get(url, { timeout: 20000 });
     const events = resp.data?.data || resp.data || [];
