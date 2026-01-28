@@ -1864,63 +1864,65 @@ const BetBetsScreen = () => {
 
     // Expanded view
     return (
-        console.log(pick),
-      <View
-        key={parlay.id}
-        style={[styles.betCard, { backgroundColor: theme.surface }]}
-      >
-        <View style={styles.parlayExpandedHeader}>
-          <View style={styles.parlayBadge}>
-            <Text style={styles.parlayBadgeText}>SGP</Text>
-          </View>
-          <Text style={[styles.parlayTitle, { color: theme.text }]}>
-            Same Game Parlay
-          </Text>
-          <Text style={[styles.parlayOdds, { color: theme.text }]}>
-            {parlay.odds}
-          </Text>
-        </View>
-
-        <View style={styles.parlayGameInfo}>
-          <View style={styles.parlayGameScore}>
-            <Text
-              style={[styles.parlayGameText, { color: theme.textSecondary }]}
-            >
-              {parlay.gameInfo}
-            </Text>
-            {renderScoreText(parlay.scores?.team1, parlay.scores?.team2)}
-          </View>
-          <View style={styles.parlayGameStatusRow}>
-            <View
-              style={[
-                styles.liveIndicator,
-                { backgroundColor: theme.error, marginRight: 8 },
-              ]}
-            >
-              <Text style={styles.liveText}>LIVE</Text>
-            </View>
-            <Text
-              style={[
-                styles.parlayGameStatus,
-                { color: theme.textTertiary, marginLeft: 8 },
-              ]}
-            >
-              {parlay.gameStatus}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.parlayPicks}>
-          {parlay.picks.map((pick) => renderPick(pick, true))}
-        </View>
-
-        <TouchableOpacity
-          style={styles.collapseButton}
-          onPress={() => toggleParlay(parlay.id)}
+      console.log(pick),
+      (
+        <View
+          key={parlay.id}
+          style={[styles.betCard, { backgroundColor: theme.surface }]}
         >
-          <Ionicons name="chevron-up" size={20} color={theme.textSecondary} />
-        </TouchableOpacity>
-      </View>
+          <View style={styles.parlayExpandedHeader}>
+            <View style={styles.parlayBadge}>
+              <Text style={styles.parlayBadgeText}>SGP</Text>
+            </View>
+            <Text style={[styles.parlayTitle, { color: theme.text }]}>
+              Same Game Parlay
+            </Text>
+            <Text style={[styles.parlayOdds, { color: theme.text }]}>
+              {parlay.odds}
+            </Text>
+          </View>
+
+          <View style={styles.parlayGameInfo}>
+            <View style={styles.parlayGameScore}>
+              <Text
+                style={[styles.parlayGameText, { color: theme.textSecondary }]}
+              >
+                {parlay.gameInfo}
+              </Text>
+              {renderScoreText(parlay.scores?.team1, parlay.scores?.team2)}
+            </View>
+            <View style={styles.parlayGameStatusRow}>
+              <View
+                style={[
+                  styles.liveIndicator,
+                  { backgroundColor: theme.error, marginRight: 8 },
+                ]}
+              >
+                <Text style={styles.liveText}>LIVE</Text>
+              </View>
+              <Text
+                style={[
+                  styles.parlayGameStatus,
+                  { color: theme.textTertiary, marginLeft: 8 },
+                ]}
+              >
+                {parlay.gameStatus}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.parlayPicks}>
+            {parlay.picks.map((pick) => renderPick(pick, true))}
+          </View>
+
+          <TouchableOpacity
+            style={styles.collapseButton}
+            onPress={() => toggleParlay(parlay.id)}
+          >
+            <Ionicons name="chevron-up" size={20} color={theme.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      )
     );
   };
 
@@ -4598,132 +4600,144 @@ const BetBetsScreen = () => {
       // Expanded single view (when isExpanded)
       return (
         console.log(pick),
-        <View
-          key={betSlip.id}
-          style={[
-            styles.betCard,
-            { backgroundColor: theme.surface },
-            ticketStatus === "won"
-              ? { borderWidth: 2, borderColor: "#22C55E" }
-              : ticketStatus === "lost"
-                ? { borderWidth: 2, borderColor: "#EF4444" }
-                : {},
-          ]}
-        >
-          <View style={styles.parlayExpandedHeader}>
-            <View style={[styles.parlayBadge, { backgroundColor: badgeColor }]}>
-              <Text style={styles.parlayBadgeText}>{badgeType}</Text>
+        (
+          <View
+            key={betSlip.id}
+            style={[
+              styles.betCard,
+              { backgroundColor: theme.surface },
+              ticketStatus === "won"
+                ? { borderWidth: 2, borderColor: "#22C55E" }
+                : ticketStatus === "lost"
+                  ? { borderWidth: 2, borderColor: "#EF4444" }
+                  : {},
+            ]}
+          >
+            <View style={styles.parlayExpandedHeader}>
+              <View
+                style={[styles.parlayBadge, { backgroundColor: badgeColor }]}
+              >
+                <Text style={styles.parlayBadgeText}>{badgeType}</Text>
+              </View>
+              <Text style={[styles.parlayTitle, { color: theme.text }]}>
+                Single Bet
+              </Text>
+              <Text style={[styles.parlayOdds, { color: theme.text }]}>
+                {formatOddsForDisplay(odds, oddsDisplay)}
+              </Text>
             </View>
-            <Text style={[styles.parlayTitle, { color: theme.text }]}>
-              Single Bet
-            </Text>
-            <Text style={[styles.parlayOdds, { color: theme.text }]}>
-              {formatOddsForDisplay(odds, oddsDisplay)}
-            </Text>
-          </View>
 
-          <View style={styles.parlayGameInfo}>
-            <View style={styles.parlayGameScore}>
-              {renderGameScoreNames(pick, liveGame, scores)}
-            </View>
-            <View style={styles.parlayGameStatusRow}>
-              {(liveGame?.competitions[0]?.status?.type?.state ||
-                pick.gameState) === "in" && (
-                <View
+            <View style={styles.parlayGameInfo}>
+              <View style={styles.parlayGameScore}>
+                {renderGameScoreNames(pick, liveGame, scores)}
+              </View>
+              <View style={styles.parlayGameStatusRow}>
+                {(liveGame?.competitions[0]?.status?.type?.state ||
+                  pick.gameState) === "in" && (
+                  <View
+                    style={[
+                      styles.liveIndicator,
+                      { backgroundColor: theme.error, marginRight: 8 },
+                    ]}
+                  >
+                    <Text style={styles.liveText}>LIVE</Text>
+                  </View>
+                )}
+                <Text
                   style={[
-                    styles.liveIndicator,
-                    { backgroundColor: theme.error, marginRight: 8 },
+                    styles.parlayGameStatus,
+                    { color: theme.textTertiary, marginLeft: 0 },
                   ]}
                 >
-                  <Text style={styles.liveText}>LIVE</Text>
-                </View>
-              )}
-              <Text
-                style={[
-                  styles.parlayGameStatus,
-                  { color: theme.textTertiary, marginLeft: 0 },
-                ]}
-              >
-                {pick.gameStatus || liveGame?.status?.type?.shortDetail}
-              </Text>
+                  {pick.gameStatus || liveGame?.status?.type?.shortDetail}
+                </Text>
+              </View>
             </View>
+
+            <View style={styles.parlayPicks}>{renderPick(pick, true)}</View>
+
+            <View
+              style={[styles.parlaySummary, { borderTopColor: theme.border }]}
+            >
+              <View style={styles.parlaySummaryItem}>
+                <Text
+                  style={[styles.parlaySummaryLabel, { color: theme.text }]}
+                >
+                  {amount.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  C
+                </Text>
+                <Text
+                  style={[
+                    styles.parlaySummarySubLabel,
+                    { color: theme.textTertiary },
+                  ]}
+                >
+                  WAGER
+                </Text>
+              </View>
+              <View style={styles.parlaySummaryItem}>
+                <Text
+                  style={[styles.parlaySummaryLabel, { color: theme.text }]}
+                >
+                  {Number(
+                    ticketStatus === "won"
+                      ? displayedPayout
+                      : ticketStatus === "lost"
+                        ? 0
+                        : potentialPayout,
+                  ).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  C
+                </Text>
+                <Text
+                  style={[
+                    styles.parlaySummarySubLabel,
+                    { color: theme.textTertiary },
+                  ]}
+                >
+                  PAYOUT
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.collapseButton,
+                {
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                },
+              ]}
+              onPress={() => toggleParlay(betSlip.id)}
+            >
+              <Ionicons
+                name="chevron-up"
+                size={20}
+                color={theme.textSecondary}
+              />
+              {(() => {
+                const ts = getTicketTimestamp(betSlip);
+                const { dateStr, timeStr } = formatToESTDateTime(ts);
+                return (
+                  <View style={{ marginLeft: 8, alignItems: "flex-start" }}>
+                    <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
+                      {dateStr}
+                    </Text>
+                    <Text style={{ color: theme.textTertiary, fontSize: 12 }}>
+                      {timeStr}
+                    </Text>
+                  </View>
+                );
+              })()}
+            </TouchableOpacity>
           </View>
-
-          <View style={styles.parlayPicks}>{renderPick(pick, true)}</View>
-
-          <View
-            style={[styles.parlaySummary, { borderTopColor: theme.border }]}
-          >
-            <View style={styles.parlaySummaryItem}>
-              <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
-                {amount.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}{" "}
-                C
-              </Text>
-              <Text
-                style={[
-                  styles.parlaySummarySubLabel,
-                  { color: theme.textTertiary },
-                ]}
-              >
-                WAGER
-              </Text>
-            </View>
-            <View style={styles.parlaySummaryItem}>
-              <Text style={[styles.parlaySummaryLabel, { color: theme.text }]}>
-                {Number(
-                  ticketStatus === "won"
-                    ? displayedPayout
-                    : ticketStatus === "lost"
-                      ? 0
-                      : potentialPayout,
-                ).toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}{" "}
-                C
-              </Text>
-              <Text
-                style={[
-                  styles.parlaySummarySubLabel,
-                  { color: theme.textTertiary },
-                ]}
-              >
-                PAYOUT
-              </Text>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.collapseButton,
-              {
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-              },
-            ]}
-            onPress={() => toggleParlay(betSlip.id)}
-          >
-            <Ionicons name="chevron-up" size={20} color={theme.textSecondary} />
-            {(() => {
-              const ts = getTicketTimestamp(betSlip);
-              const { dateStr, timeStr } = formatToESTDateTime(ts);
-              return (
-                <View style={{ marginLeft: 8, alignItems: "flex-start" }}>
-                  <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
-                    {dateStr}
-                  </Text>
-                  <Text style={{ color: theme.textTertiary, fontSize: 12 }}>
-                    {timeStr}
-                  </Text>
-                </View>
-              );
-            })()}
-          </TouchableOpacity>
-        </View>
+        )
       );
     }
 
