@@ -864,6 +864,7 @@ const BetSlip = ({ isGameDetail = false, scoreboardGames = [] }) => {
             to: "to",
             threes: "3pm",
             "3pt": "3pm",
+            "threePointersMade": "3pm",
             "points+rebounds+assists": "pra",
             "points+assists": "pa",
             "points+rebounds": "pr",

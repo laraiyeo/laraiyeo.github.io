@@ -11185,7 +11185,17 @@ function startWatcherInline(betslipId) {
         anyCompletedNotWon &&
         !hasPendingEmptyEvents
       ) {
-        if (fresh.status !== "lost") {
+        // Ensure betslip payload indicates all bets are present before settling
+        const allowSettle = await canSettleFromPayload(fresh, betslipId).catch((e) => {
+          console.warn(`[watcher ${betslipId}] canSettleFromPayload failed`, e?.message || e);
+          return true;
+        });
+
+        if (!allowSettle) {
+          console.log(`[watcher ${betslipId}] deferring settlement: payload reports fewer bets than games`);
+        }
+
+        if (allowSettle && fresh.status !== "lost") {
           try {
             // Use DB RPC to atomically settle and record ledger/history
             const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc(
@@ -11228,7 +11238,17 @@ function startWatcherInline(betslipId) {
       // entire multi-game bet when another game is still 'pre'.
       if (!isFirstTick && allFinal && !hasPendingEmptyEvents) {
         const newStatus = anyLost ? "lost" : "won";
-        if (fresh.status !== newStatus) {
+        // Ensure betslip payload indicates all bets are present before settling
+        const allowSettleFinal = await canSettleFromPayload(fresh, betslipId).catch((e) => {
+          console.warn(`[watcher ${betslipId}] canSettleFromPayload failed (final)`, e?.message || e);
+          return true;
+        });
+
+        if (!allowSettleFinal) {
+          console.log(`[watcher ${betslipId}] deferring final settlement: payload reports fewer bets than games`);
+        }
+
+        if (allowSettleFinal && fresh.status !== newStatus) {
           try {
             const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc(
               "settle_betslip",
@@ -11268,6 +11288,42 @@ function startWatcherInline(betslipId) {
   }, 4000);
   betslipWatchers[betslipId] = { intervalId, lastStates, lastEventStatus };
   console.log(`[watcher] started watcher for ${betslipId}`);
+}
+
+// Check betslip payload to ensure reported totalBets >= gamesCount before settling
+async function canSettleFromPayload(fresh, betslipId) {
+  try {
+    let payload = null;
+    const betslipUrl =
+      fresh.betslip_url || fresh.betslip_data?.betslip_url || fresh.betslip_data?.betslipUrl || null;
+
+    if (betslipUrl) {
+      try {
+        const resp = await axios.get(betslipUrl);
+        payload = resp.data || null;
+      } catch (e) {
+        console.warn(`[watcher ${betslipId}] failed to fetch betslip_url`, e?.message || e);
+      }
+    }
+
+    if (!payload && fresh.betslip_data) payload = fresh.betslip_data;
+    if (!payload) return true; // no payload to check -> allow (preserve existing behavior)
+
+    const meta = payload.metadata || payload.meta || null;
+    if (!meta) return true;
+
+    const totalBets =
+      typeof meta.totalBets === "number" ? meta.totalBets : Number(meta.totalBets);
+    const gamesCount =
+      typeof meta.gamesCount === "number" ? meta.gamesCount : Number(meta.gamesCount);
+
+    if (!Number.isFinite(totalBets) || !Number.isFinite(gamesCount)) return true;
+
+    return totalBets >= gamesCount;
+  } catch (e) {
+    console.warn(`[canSettleFromPayload] error for ${betslipId}`, e?.message || e);
+    return true;
+  }
 }
 
 function startTestNotifier(betslipId) {
