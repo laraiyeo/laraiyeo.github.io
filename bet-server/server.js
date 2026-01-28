@@ -11010,9 +11010,21 @@ function startWatcherInline(betslipId) {
                     parseFloat(String(bet.line).replace(/[^0-9\.-]/g, "")) || 0;
                   const adjusted = betScore + lineNum - oppScore;
                   isWinning = adjusted >= 0;
+                } else if (
+                  // If the normalized payload exposes a numeric `current` value
+                  // (e.g. an adjusted score or margin), use its sign instead of
+                  // naively comparing raw team scores. This avoids misclassifying
+                  // spread bets when `line` is missing from the payload.
+                  typeof bet.current === "number" ||
+                  (bet.current && !Number.isNaN(Number(bet.current)))
+                ) {
+                  const cur = Number(bet.current);
+                  isWinning = cur >= 0;
                 } else {
-                  // as a last resort, compare raw scores
-                  isWinning = betScore > oppScore;
+                  // Unknown shape: be conservative. If the game is completed
+                  // fall back to raw score comparison; otherwise do not claim
+                  // the spread as winning while in-progress.
+                  isWinning = isCompleted ? betScore > oppScore : false;
                 }
               } else {
                 // moneyline / generic comparison
