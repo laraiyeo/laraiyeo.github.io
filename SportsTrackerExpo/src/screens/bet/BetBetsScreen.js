@@ -4900,7 +4900,6 @@ const BetBetsScreen = () => {
 
           <View style={styles.parlayPicks}>
             {allPicks.map((pick) => {
-              console.log(pick);
               return renderPick(pick, true);
             })}
           </View>
@@ -5166,7 +5165,6 @@ const BetBetsScreen = () => {
 
               <View style={styles.parlayPicks}>
                 {picks.map((pick) => {
-                  console.log(pick);
                   return renderPick(pick, true);
                 })}
               </View>

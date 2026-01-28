@@ -9828,17 +9828,24 @@ app.get("/api/betslip", async (req, res) => {
         },
         totalBets: events.reduce((sum, event) => {
           let count = 0;
-          if (event.bets.moneyline) count++;
-          if (event.bets.totalPoints) count++;
-          if (event.bets.spread) count++;
-          if (event.bets.players)
-            count += event.bets.players.reduce((pSum, p) => {
-              return (
-                pSum +
-                Object.keys(p.overUnder).length +
-                Object.keys(p.milestones).length
-              );
-            }, 0);
+          const bets = event.bets || {};
+
+          for (const [key, val] of Object.entries(bets)) {
+            if (key === "players" && Array.isArray(val)) {
+              count += val.reduce((pSum, p) => {
+                const over = p.overUnder && typeof p.overUnder === "object" ? Object.keys(p.overUnder).length : 0;
+                const milestones = p.milestones && typeof p.milestones === "object" ? Object.keys(p.milestones).length : 0;
+                return pSum + over + milestones;
+              }, 0);
+            } else if (Array.isArray(val)) {
+              count += val.length;
+            } else if (val && typeof val === "object") {
+              if (Object.keys(val).length > 0) count += 1;
+            } else if (val) {
+              count += 1;
+            }
+          }
+
           return sum + count;
         }, 0),
         gamesCount: events.length,
