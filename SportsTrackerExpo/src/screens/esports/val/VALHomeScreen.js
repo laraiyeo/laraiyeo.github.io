@@ -14,7 +14,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { useTheme } from "../../../context/ThemeContext";
-import { getAllSeriesNextData, getCompletedSeriesRecent } from "../../../services/valorantService";
+import {
+  getAllSeriesNextData,
+  getCompletedSeriesRecent,
+} from "../../../services/valorantService";
 
 const { width } = Dimensions.get("window");
 
@@ -85,8 +88,6 @@ const VALHomeScreen = ({ navigation, route }) => {
       const list = Array.isArray(fetched) ? fetched : [];
       setAllSeries(list);
 
-      
-
       setLiveSeries(
         list.filter(
           (s) =>
@@ -104,7 +105,9 @@ const VALHomeScreen = ({ navigation, route }) => {
         setCompletedApiSeries(completedList);
 
         // Combine completed from Next.js cached list and API results, dedupe by id
-        const completedFromCache = list.filter((s) => s && s.completed === true);
+        const completedFromCache = list.filter(
+          (s) => s && s.completed === true,
+        );
         const combined = [...completedFromCache, ...completedList];
         const map = new Map();
         combined.forEach((s) => {
@@ -131,7 +134,8 @@ const VALHomeScreen = ({ navigation, route }) => {
       }
       setUpcomingSeries(
         list.filter(
-          (s) => s && !s.live && !s.completed && isSameDayInEST(s.startDate, today),
+          (s) =>
+            s && !s.live && !s.completed && isSameDayInEST(s.startDate, today),
         ),
       );
     } catch (error) {
@@ -202,7 +206,9 @@ const VALHomeScreen = ({ navigation, route }) => {
 
       // Combine completed entries from cached series and API, dedupe by id
       const cachedCompleted = list.filter((s) => s && s.completed === true);
-      const apiCompleted = Array.isArray(completedApiSeries) ? completedApiSeries : [];
+      const apiCompleted = Array.isArray(completedApiSeries)
+        ? completedApiSeries
+        : [];
       const combinedCompleted = [...cachedCompleted, ...apiCompleted];
       const completedMap = new Map();
       combinedCompleted.forEach((s) => {
@@ -213,9 +219,10 @@ const VALHomeScreen = ({ navigation, route }) => {
       setCompletedSeries(
         uniqueCompletedAll
           .filter((s) => s && inDay(s.startDate))
-          .sort((a, b) =>
-            (b.startDate ? new Date(b.startDate).getTime() : 0) -
-            (a.startDate ? new Date(a.startDate).getTime() : 0),
+          .sort(
+            (a, b) =>
+              (b.startDate ? new Date(b.startDate).getTime() : 0) -
+              (a.startDate ? new Date(a.startDate).getTime() : 0),
           ),
       );
       setUpcomingSeries(

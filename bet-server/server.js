@@ -11379,7 +11379,10 @@ async function canSettleFromPayload(fresh, betslipId) {
     // reported bet has a non-boolean `won` value (e.g. "pending" / null),
     // treat payload as incomplete and do not settle.
     const events =
-      payload.events || payload.betslipData?.events || payload.betslip_data?.events || [];
+      payload.events ||
+      payload.betslipData?.events ||
+      payload.betslip_data?.events ||
+      [];
     try {
       for (const ev of events) {
         const bets = ev.bets || {};
@@ -11398,7 +11401,10 @@ async function canSettleFromPayload(fresh, betslipId) {
               for (const sub of [p.overUnder || {}, p.milestones || {}]) {
                 for (const key of Object.keys(sub || {})) {
                   const entry = sub[key];
-                  if (entry && Object.prototype.hasOwnProperty.call(entry, "won")) {
+                  if (
+                    entry &&
+                    Object.prototype.hasOwnProperty.call(entry, "won")
+                  ) {
                     if (typeof entry.won !== "boolean") return false;
                   }
                 }

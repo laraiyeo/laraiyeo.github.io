@@ -3751,7 +3751,9 @@ const NHLGameDetailsScreen = ({ route }) => {
                           for (const group of teamBox.statistics) {
                             if (group?.athletes) {
                               const found = group.athletes.find(
-                                (a) => String(a?.athlete?.id) === String(athlete?.id),
+                                (a) =>
+                                  String(a?.athlete?.id) ===
+                                  String(athlete?.id),
                               );
                               if (found) {
                                 team = teamBox.team;
@@ -3861,7 +3863,6 @@ const NHLGameDetailsScreen = ({ route }) => {
                       })
                     : "";
 
-
                   // Define most important stats by position
                   const isGoalie = groupName === "goalies" || position === "G";
 
@@ -3923,7 +3924,13 @@ const NHLGameDetailsScreen = ({ route }) => {
                           {headshot ? (
                             <Image
                               source={{ uri: headshot }}
-                              style={[styles.modalHeadshot, { backgroundColor: `#${team.color}` || theme.surface }]}
+                              style={[
+                                styles.modalHeadshot,
+                                {
+                                  backgroundColor:
+                                    `#${team.color}` || theme.surface,
+                                },
+                              ]}
                             />
                           ) : (
                             <View
@@ -5296,7 +5303,9 @@ const NHLGameDetailsScreen = ({ route }) => {
                     />
                   ) : (
                     <View style={styles.noStreamContainer}>
-                      <Text style={[styles.noStreamText, { color: theme.text }]}> 
+                      <Text
+                        style={[styles.noStreamText, { color: theme.text }]}
+                      >
                         No stream URL available
                       </Text>
                     </View>

@@ -4208,7 +4208,9 @@ const WNBAGameDetailsScreen = ({ route }) => {
                           for (const group of teamBox.statistics) {
                             if (group?.athletes) {
                               const found = group.athletes.find(
-                                (a) => String(a?.athlete?.id) === String(athlete?.id),
+                                (a) =>
+                                  String(a?.athlete?.id) ===
+                                  String(athlete?.id),
                               );
                               if (found) {
                                 team = teamBox.team;
@@ -4219,7 +4221,11 @@ const WNBAGameDetailsScreen = ({ route }) => {
                           if (team) break;
                         }
                       }
-                      const { homeColor, awayColor } = getSmartTeamColors(home, away, colors);
+                      const { homeColor, awayColor } = getSmartTeamColors(
+                        home,
+                        away,
+                        colors,
+                      );
                       return team
                         ? String(team.id) === String(away?.team?.id || away?.id)
                           ? awayColor
@@ -4294,13 +4300,16 @@ const WNBAGameDetailsScreen = ({ route }) => {
                     : "";
 
                   // Determine smart colors for this game and pick headshot background
-                  const { homeColor, awayColor } = getSmartTeamColors(home, away, colors);
+                  const { homeColor, awayColor } = getSmartTeamColors(
+                    home,
+                    away,
+                    colors,
+                  );
                   const headshotBg = team
-                    ? (String(team.id) === String(away?.team?.id || away?.id)
-                        ? awayColor
-                        : homeColor)
+                    ? String(team.id) === String(away?.team?.id || away?.id)
+                      ? awayColor
+                      : homeColor
                     : theme.surface;
-
 
                   // Define most important stats for basketball players
                   let importantStatIndices = [];
@@ -4344,7 +4353,12 @@ const WNBAGameDetailsScreen = ({ route }) => {
                           {headshot ? (
                             <Image
                               source={{ uri: headshot }}
-                              style={[styles.modalHeadshot, { backgroundColor: headshotBg || theme.surface }]}
+                              style={[
+                                styles.modalHeadshot,
+                                {
+                                  backgroundColor: headshotBg || theme.surface,
+                                },
+                              ]}
                             />
                           ) : (
                             <View
@@ -4766,7 +4780,9 @@ const WNBAGameDetailsScreen = ({ route }) => {
                     />
                   ) : (
                     <View style={styles.noStreamContainer}>
-                      <Text style={[styles.noStreamText, { color: theme.text }]}> 
+                      <Text
+                        style={[styles.noStreamText, { color: theme.text }]}
+                      >
                         No stream URL available
                       </Text>
                     </View>

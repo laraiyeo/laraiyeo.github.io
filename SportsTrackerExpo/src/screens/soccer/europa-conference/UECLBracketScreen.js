@@ -1485,12 +1485,22 @@ const UECLBracketScreen = ({ navigation, route }) => {
         <View style={styles.pairingContent}>
           <View style={styles.pairingLeft}>
             {matchups.map((matchup, index) => {
-              const clickableLeft = matchup && matchup.homeTeam?.id && matchup.awayTeam?.id;
+              const clickableLeft =
+                matchup && matchup.homeTeam?.id && matchup.awayTeam?.id;
               let winnerColor = theme.border;
               try {
-                const agg = getWinnerInfo(matchup, matchup.aggregateHome, matchup.aggregateAway);
-                const isTie = getWinnerInfo(matchup, matchup.aggregateHome, matchup.aggregateAway);
-                if (!isTie && agg?.winner?.color) winnerColor = `#${agg.winner.color}`;
+                const agg = getWinnerInfo(
+                  matchup,
+                  matchup.aggregateHome,
+                  matchup.aggregateAway,
+                );
+                const isTie = getWinnerInfo(
+                  matchup,
+                  matchup.aggregateHome,
+                  matchup.aggregateAway,
+                );
+                if (!isTie && agg?.winner?.color)
+                  winnerColor = `#${agg.winner.color}`;
               } catch (e) {}
 
               return clickableLeft ? (
@@ -1563,7 +1573,8 @@ const UECLBracketScreen = ({ navigation, route }) => {
                     r16Matchup.aggregateHome,
                     r16Matchup.aggregateAway,
                   );
-                  if (!isTie && agg?.winner?.color) winnerColor = `#${agg.winner.color}`;
+                  if (!isTie && agg?.winner?.color)
+                    winnerColor = `#${agg.winner.color}`;
                 }
               } catch (e) {}
 
@@ -1705,13 +1716,18 @@ const UECLBracketScreen = ({ navigation, route }) => {
         <View style={styles.scoreSection}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             {firstTeam?.id ? (
-              <TeamLogoImage teamId={firstTeam.id} style={{ width: 28, height: 28, marginRight: 8 }} />
+              <TeamLogoImage
+                teamId={firstTeam.id}
+                style={{ width: 28, height: 28, marginRight: 8 }}
+              />
             ) : null}
             <Text
               allowFontScaling={false}
               style={[
                 styles.matchScore,
-                { color: firstIsWinner && !isTie ? colors.primary : theme.text },
+                {
+                  color: firstIsWinner && !isTie ? colors.primary : theme.text,
+                },
               ]}
             >
               {firstScoreDisplay}
@@ -1730,13 +1746,18 @@ const UECLBracketScreen = ({ navigation, route }) => {
               allowFontScaling={false}
               style={[
                 styles.matchScore,
-                { color: !firstIsWinner && !isTie ? colors.primary : theme.text },
+                {
+                  color: !firstIsWinner && !isTie ? colors.primary : theme.text,
+                },
               ]}
             >
               {secondScoreDisplay}
             </Text>
             {secondTeam?.id ? (
-              <TeamLogoImage teamId={secondTeam.id} style={{ width: 28, height: 28, marginLeft: 8 }} />
+              <TeamLogoImage
+                teamId={secondTeam.id}
+                style={{ width: 28, height: 28, marginLeft: 8 }}
+              />
             ) : null}
           </View>
         </View>
@@ -1850,13 +1871,18 @@ const UECLBracketScreen = ({ navigation, route }) => {
         <View style={styles.scoreSection}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             {homeTeam?.id ? (
-              <TeamLogoImage teamId={homeTeam.id} style={{ width: 28, height: 28, marginRight: 8 }} />
+              <TeamLogoImage
+                teamId={homeTeam.id}
+                style={{ width: 28, height: 28, marginRight: 8 }}
+              />
             ) : null}
             <Text
               allowFontScaling={false}
               style={[
                 styles.matchScore,
-                { color: homeTeam.id === winnerId ? colors.primary : theme.text },
+                {
+                  color: homeTeam.id === winnerId ? colors.primary : theme.text,
+                },
               ]}
             >
               {homeScoreDisplay}
@@ -1875,13 +1901,18 @@ const UECLBracketScreen = ({ navigation, route }) => {
               allowFontScaling={false}
               style={[
                 styles.matchScore,
-                { color: awayTeam.id === winnerId ? colors.primary : theme.text },
+                {
+                  color: awayTeam.id === winnerId ? colors.primary : theme.text,
+                },
               ]}
             >
               {awayScoreDisplay}
             </Text>
             {awayTeam?.id ? (
-              <TeamLogoImage teamId={awayTeam.id} style={{ width: 28, height: 28, marginLeft: 8 }} />
+              <TeamLogoImage
+                teamId={awayTeam.id}
+                style={{ width: 28, height: 28, marginLeft: 8 }}
+              />
             ) : null}
           </View>
         </View>
@@ -2027,30 +2058,33 @@ const UECLBracketScreen = ({ navigation, route }) => {
                                     match.homeScore > match.awayScore
                                       ? colors.primary
                                       : theme.text,
-                                      marginBottom: match.homeScore && match.homeShootoutScore ? 5 : 0,
+                                  marginBottom:
+                                    match.homeScore && match.homeShootoutScore
+                                      ? 5
+                                      : 0,
                                 },
                               ]}
                             >
                               {match.homeTeam.shortDisplayName}
                             </Text>
                             {match.homeShootoutScore && match.homeScore && (
-                            <Text
-                              allowFontScaling={false}
-                              style={[
-                                styles.legScore,
-                                {
-                                  color:
-                                    match.status === "post" &&
-                                    match.homeScore > match.awayScore
-                                      ? colors.primary
-                                      : theme.text,
-                                },
-                              ]}
-                            >
-                              {match.homeShootoutScore > 0
-                                ? `${match.homeScore}(${match.homeShootoutScore})`
-                                : match.homeScore}
-                            </Text>
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  styles.legScore,
+                                  {
+                                    color:
+                                      match.status === "post" &&
+                                      match.homeScore > match.awayScore
+                                        ? colors.primary
+                                        : theme.text,
+                                  },
+                                ]}
+                              >
+                                {match.homeShootoutScore > 0
+                                  ? `${match.homeScore}(${match.homeShootoutScore})`
+                                  : match.homeScore}
+                              </Text>
                             )}
                           </View>
                         </View>
@@ -2083,30 +2117,33 @@ const UECLBracketScreen = ({ navigation, route }) => {
                                     match.awayScore > match.homeScore
                                       ? colors.primary
                                       : theme.text,
-                                      marginBottom: match.awayScore && match.awayShootoutScore ? 5 : 0,
+                                  marginBottom:
+                                    match.awayScore && match.awayShootoutScore
+                                      ? 5
+                                      : 0,
                                 },
                               ]}
                             >
                               {match.awayTeam.shortDisplayName}
                             </Text>
                             {match.awayShootoutScore && match.awayScore && (
-                            <Text
-                              allowFontScaling={false}
-                              style={[
-                                styles.legScore,
-                                {
-                                  color:
-                                    match.status === "post" &&
-                                    match.awayScore > match.homeScore
-                                      ? colors.primary
-                                      : theme.text,
-                                },
-                              ]}
-                            >
-                              {match.awayShootoutScore > 0
-                                ? `${match.awayScore}(${match.awayShootoutScore})`
-                                : match.awayScore}
-                            </Text>
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  styles.legScore,
+                                  {
+                                    color:
+                                      match.status === "post" &&
+                                      match.awayScore > match.homeScore
+                                        ? colors.primary
+                                        : theme.text,
+                                  },
+                                ]}
+                              >
+                                {match.awayShootoutScore > 0
+                                  ? `${match.awayScore}(${match.awayShootoutScore})`
+                                  : match.awayScore}
+                              </Text>
                             )}
                           </View>
                         </View>
@@ -2119,10 +2156,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
                 return (
                   <View
                     key={legNumber}
-                    style={[
-                      styles.legCard,
-                      { backgroundColor: theme.surface },
-                    ]}
+                    style={[styles.legCard, { backgroundColor: theme.surface }]}
                   >
                     <Text
                       allowFontScaling={false}

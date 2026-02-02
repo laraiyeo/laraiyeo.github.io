@@ -4973,7 +4973,10 @@ const GameDetailsScreen = ({ route }) => {
 
           return (
             <TouchableOpacity
-              style={[styles.streamButton, { backgroundColor: colors.primary, margin: 10 }]}
+              style={[
+                styles.streamButton,
+                { backgroundColor: colors.primary, margin: 10 },
+              ]}
               onPress={openStreamModal}
             >
               <Text
@@ -6943,7 +6946,11 @@ const GameDetailsScreen = ({ route }) => {
                       allowFontScaling={false}
                       style={[
                         styles.streamCloseText,
-                        { color: colors.primary, fontSize: 26, fontWeight: "bold" },
+                        {
+                          color: colors.primary,
+                          fontSize: 26,
+                          fontWeight: "bold",
+                        },
                       ]}
                     >
                       ×
@@ -7080,7 +7087,10 @@ const GameDetailsScreen = ({ route }) => {
                       }}
                       // Block popup navigation within the WebView
                       onShouldStartLoadWithRequest={(request) => {
-                        console.log("NFL WebView navigation request:", request.url);
+                        console.log(
+                          "NFL WebView navigation request:",
+                          request.url,
+                        );
 
                         // Allow the initial stream URL to load
                         if (request.url === streamUrl) {
