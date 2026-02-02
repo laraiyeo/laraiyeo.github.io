@@ -215,7 +215,7 @@ const UCLStandingsScreen = ({ navigation, route }) => {
         activeOpacity={0.7}
       >
         <View style={[styles.positionContainer, { backgroundColor: getPositionColor(position, item.note) }]}>
-          <Text allowFontScaling={false} style={[styles.positionText, { color: '#fff' }]}>{position}</Text>
+          <Text allowFontScaling={false} style={[styles.positionText, { color: '#1e1e1e' }]}>{position}</Text>
         </View>
         
         <View style={styles.teamContainer}>

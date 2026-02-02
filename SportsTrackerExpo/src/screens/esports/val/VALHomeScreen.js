@@ -14,7 +14,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { useTheme } from "../../../context/ThemeContext";
-import { getAllSeriesNextData } from "../../../services/valorantService";
+import { getAllSeriesNextData, getCompletedSeriesRecent } from "../../../services/valorantService";
 
 const { width } = Dimensions.get("window");
 
@@ -22,6 +22,7 @@ const VALHomeScreen = ({ navigation, route }) => {
   const { colors, theme } = useTheme();
   const [liveSeries, setLiveSeries] = useState([]);
   const [completedSeries, setCompletedSeries] = useState([]);
+  const [completedApiSeries, setCompletedApiSeries] = useState([]);
   const [upcomingSeries, setUpcomingSeries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -29,6 +30,35 @@ const VALHomeScreen = ({ navigation, route }) => {
   const [allSeries, setAllSeries] = useState([]);
   const [activeFilter, setActiveFilter] = useState("today");
   const [selectedGame, setSelectedGame] = useState("VAL");
+
+  // EST helpers (shared between loadData and loadFilteredData)
+  // Use Intl with America/New_York to get consistent EST dates (handles DST)
+  const getESTYMD = (dateInput) => {
+    const d = dateInput ? new Date(dateInput) : new Date();
+    const dtf = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const parts = dtf.formatToParts(d);
+    let year = 0,
+      month = 0,
+      day = 0;
+    parts.forEach((p) => {
+      if (p.type === "year") year = Number(p.value);
+      if (p.type === "month") month = Number(p.value);
+      if (p.type === "day") day = Number(p.value);
+    });
+    return { year, month, day };
+  };
+
+  const isSameDayInEST = (dateString, targetDate) => {
+    if (!dateString) return false;
+    const a = getESTYMD(dateString);
+    const b = getESTYMD(targetDate);
+    return a.year === b.year && a.month === b.month && a.day === b.day;
+  };
 
   useEffect(() => {
     loadData();
@@ -55,15 +85,7 @@ const VALHomeScreen = ({ navigation, route }) => {
       const list = Array.isArray(fetched) ? fetched : [];
       setAllSeries(list);
 
-      const isSameDay = (dateString, targetDate) => {
-        if (!dateString) return false;
-        const d = new Date(dateString);
-        return (
-          d.getFullYear() === targetDate.getFullYear() &&
-          d.getMonth() === targetDate.getMonth() &&
-          d.getDate() === targetDate.getDate()
-        );
-      };
+      
 
       setLiveSeries(
         list.filter(
@@ -73,20 +95,43 @@ const VALHomeScreen = ({ navigation, route }) => {
               (s.status && String(s.status).toLowerCase() === "live")),
         ),
       );
-      setCompletedSeries(
-        list
-          .filter(
-            (s) => s && s.completed === true && isSameDay(s.startDate, today),
-          )
-          .sort(
-            (a, b) =>
-              (b.startDate ? new Date(b.startDate).getTime() : 0) -
-              (a.startDate ? new Date(a.startDate).getTime() : 0),
-          ),
-      );
+      // Fetch recent completed series from the API (EST midnight - 2 days)
+      try {
+        const completedResp = await getCompletedSeriesRecent(50, 2);
+        const completedList = Array.isArray(completedResp?.data)
+          ? completedResp.data
+          : [];
+        setCompletedApiSeries(completedList);
+
+        // Combine completed from Next.js cached list and API results, dedupe by id
+        const completedFromCache = list.filter((s) => s && s.completed === true);
+        const combined = [...completedFromCache, ...completedList];
+        const map = new Map();
+        combined.forEach((s) => {
+          if (s && s.id) map.set(s.id, s);
+        });
+        const uniqueCompleted = Array.from(map.values());
+
+        // By default show only today's completed matches (EST)
+        const todaysCompleted = uniqueCompleted.filter((s) =>
+          isSameDayInEST(s.startDate, today),
+        );
+
+        todaysCompleted.sort((a, b) => {
+          const ta = a.startDate ? new Date(a.startDate).getTime() : 0;
+          const tb = b.startDate ? new Date(b.startDate).getTime() : 0;
+          return tb - ta;
+        });
+
+        setCompletedSeries(todaysCompleted);
+      } catch (err) {
+        console.error("Error fetching completed series from API:", err);
+        setCompletedApiSeries([]);
+        setCompletedSeries([]);
+      }
       setUpcomingSeries(
         list.filter(
-          (s) => s && !s.live && !s.completed && isSameDay(s.startDate, today),
+          (s) => s && !s.live && !s.completed && isSameDayInEST(s.startDate, today),
         ),
       );
     } catch (error) {
@@ -153,24 +198,24 @@ const VALHomeScreen = ({ navigation, route }) => {
       }
 
       const list = Array.isArray(allSeries) ? allSeries : [];
-      const startOfDay = new Date(targetDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(targetDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      const inDay = (dateString) => isSameDayInEST(dateString, targetDate);
 
-      const inDay = (dateString) => {
-        if (!dateString) return false;
-        const d = new Date(dateString);
-        return d >= startOfDay && d <= endOfDay;
-      };
+      // Combine completed entries from cached series and API, dedupe by id
+      const cachedCompleted = list.filter((s) => s && s.completed === true);
+      const apiCompleted = Array.isArray(completedApiSeries) ? completedApiSeries : [];
+      const combinedCompleted = [...cachedCompleted, ...apiCompleted];
+      const completedMap = new Map();
+      combinedCompleted.forEach((s) => {
+        if (s && s.id) completedMap.set(s.id, s);
+      });
+      const uniqueCompletedAll = Array.from(completedMap.values());
 
       setCompletedSeries(
-        list
-          .filter((s) => s && s.completed === true && inDay(s.startDate))
-          .sort(
-            (a, b) =>
-              (b.startDate ? new Date(b.startDate).getTime() : 0) -
-              (a.startDate ? new Date(a.startDate).getTime() : 0),
+        uniqueCompletedAll
+          .filter((s) => s && inDay(s.startDate))
+          .sort((a, b) =>
+            (b.startDate ? new Date(b.startDate).getTime() : 0) -
+            (a.startDate ? new Date(a.startDate).getTime() : 0),
           ),
       );
       setUpcomingSeries(

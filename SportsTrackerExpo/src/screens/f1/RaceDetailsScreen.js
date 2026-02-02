@@ -8450,92 +8450,21 @@ const RaceDetailsScreen = ({ route }) => {
                       setIsStreamLoading(false);
                     }}
                     userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
-                    injectedJavaScript={`
-                  (function() {
-                    console.log('F1 stream ad blocker initializing...');
-                    
-                    // Block all popup methods
-                    const originalOpen = window.open;
-                    window.open = function() {
-                      console.log('Blocked F1 window.open popup');
-                      return null;
-                    };
-                    
-                    // Block alert, confirm, prompt
-                    window.alert = function() { console.log('Blocked F1 alert'); };
-                    window.confirm = function() { console.log('Blocked F1 confirm'); return false; };
-                    window.prompt = function() { console.log('Blocked F1 prompt'); return null; };
-                    
-                    // Override addEventListener to block popup events
-                    const originalAddEventListener = EventTarget.prototype.addEventListener;
-                    EventTarget.prototype.addEventListener = function(type, listener, options) {
-                      const blockedEvents = ['beforeunload', 'unload', 'popstate'];
-                      if (blockedEvents.includes(type)) {
-                        console.log('Blocked F1 event listener for:', type);
-                        return;
-                      }
-                      return originalAddEventListener.call(this, type, listener, options);
-                    };
-                    
-                    // Block navigation attempts
-                    const originalAssign = Location.prototype.assign;
-                    const originalReplace = Location.prototype.replace;
-                    
-                    Location.prototype.assign = function(url) {
-                      console.log('Blocked F1 location.assign to:', url);
-                    };
-                    
-                    Location.prototype.replace = function(url) {
-                      console.log('Blocked F1 location.replace to:', url);
-                    };
-                    
-                    // Block href changes
-                    Object.defineProperty(Location.prototype, 'href', {
-                      set: function(url) {
-                        console.log('Blocked F1 href change to:', url);
-                      },
-                      get: function() {
-                        return window.location.href;
-                      }
-                    });
-                    
-                    // Remove ads and overlays
-                    const removeAds = () => {
-                      const selectors = [
-                        'iframe[src*="ads"]',
-                        'div[class*="ad"]',
-                        'div[id*="ad"]',
-                        'div[class*="popup"]',
-                        'div[id*="popup"]',
-                        '[onclick*="window.open"]',
-                        '[onclick*="popup"]',
-                        '.overlay',
-                        '.modal'
-                      ];
-                      
-                      selectors.forEach(selector => {
-                        const elements = document.querySelectorAll(selector);
-                        elements.forEach(el => {
-                          el.remove();
-                        });
-                      });
-                    };
-                    
-                    // Run ad removal on load and periodically
-                    document.addEventListener('DOMContentLoaded', removeAds);
-                    setInterval(removeAds, 2000);
-                    
-                    console.log('F1 stream ad blocker fully loaded');
-                    true;
-                  })();
-                `}
-                    onMessage={(event) => {
-                      // Handle messages from injected JavaScript if needed
-                      console.log(
-                        "F1 WebView message:",
-                        event.nativeEvent.data,
-                      );
-                    }}
+                    injectedJavaScript={`(function(){
+                      function post(obj){ try{ window.ReactNativeWebView.postMessage(JSON.stringify(obj)); }catch(e){} }
+                      post({type:'instrumentation', event:'init'});
+                      window.addEventListener('load', function(){ post({type:'lifecycle', event:'load', href:location.href}); });
+                      document.addEventListener('DOMContentLoaded', function(){ post({type:'lifecycle', event:'domcontent', href:location.href}); });
+                      try{ const origAssign = Location.prototype.assign; Location.prototype.assign = function(url){ post({type:'nav', method:'assign', url:url}); return origAssign.call(this, url); }; }catch(e){}
+                      try{ const origReplace = Location.prototype.replace; Location.prototype.replace = function(url){ post({type:'nav', method:'replace', url:url}); return origReplace.call(this, url); }; }catch(e){}
+                      try{ const hrefDesc = Object.getOwnPropertyDescriptor(Location.prototype,'href')||{}; if(hrefDesc && hrefDesc.set){ const origHrefSet = hrefDesc.set; Object.defineProperty(Location.prototype,'href',{ set:function(url){ post({type:'nav', method:'href', url:url}); return origHrefSet.call(this,url); }, get: hrefDesc.get }); } }catch(e){}
+                      try{ const origOpen = window.open; window.open = function(url,target,features){ post({type:'nav', method:'window.open', url:url, target:target}); return origOpen.call(this,url,target,features); }; }catch(e){}
+                      try{ const observer = new MutationObserver(function(muts){ muts.forEach(m=>{ m.addedNodes && m.addedNodes.forEach(n=>{ if(n.nodeType===1){ const tag=n.tagName.toLowerCase(); if(tag==='video'||tag==='iframe'||(n.querySelector&&(n.querySelector('video')||n.querySelector('iframe')))){ post({type:'dom', action:'added', tag:tag, html:n.outerHTML?(n.outerHTML.substring(0,200)):null, href:location.href}); } } }); m.removedNodes && m.removedNodes.forEach(n=>{ if(n.nodeType===1){ const tag=n.tagName.toLowerCase(); if(tag==='video'||tag==='iframe'||(n.querySelector&&(n.querySelector('video')||n.querySelector('iframe')))){ post({type:'dom', action:'removed', tag:tag, href:location.href}); } } }); }); }); observer.observe(document.documentElement||document.body,{ childList:true, subtree:true }); post({type:'instrumentation', event:'observer_started'}); }catch(e){ post({type:'instrumentation', event:'observer_error', error:String(e)}); }
+                      function instrumentExistingVideos(){ const videos=document.querySelectorAll('video'); videos.forEach(v=>{ if(!v.__instrumented){ v.__instrumented=true; v.addEventListener('play',()=>post({type:'video', event:'play', src:v.currentSrc||v.src, href:location.href})); v.addEventListener('pause',()=>post({type:'video', event:'pause', src:v.currentSrc||v.src, href:location.href})); v.addEventListener('ended',()=>post({type:'video', event:'ended', src:v.currentSrc||v.src, href:location.href})); } }); }
+                      setInterval(instrumentExistingVideos,1000);
+                      true; })();`}
+                    onMessage={(event)=>{ try{ const data=JSON.parse(event.nativeEvent.data); console.log('WebView instrumentation:', data); }catch(e){ console.log('WebView message (raw):', event.nativeEvent.data); } }}
+                    onNavigationStateChange={(navState)=>{ console.log('WebView navigation state change:', {url:navState.url, title:navState.title, loading:navState.loading}); }}
                     // Block popup navigation within the WebView
                     onShouldStartLoadWithRequest={(request) => {
                       console.log(

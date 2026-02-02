@@ -7121,6 +7121,34 @@ const GermanyGameDetailsScreen = ({ route, navigation }) => {
                     onLoadEnd={() => setStreamLoading(false)}
                     onError={() => setStreamLoading(false)}
                     userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                    injectedJavaScript={`(function(){
+                      function post(obj){ try{ window.ReactNativeWebView.postMessage(JSON.stringify(obj)); }catch(e){} }
+                      post({type:'instrumentation', event:'init'});
+                      window.addEventListener('load', function(){ post({type:'lifecycle', event:'load', href:location.href}); });
+                      document.addEventListener('DOMContentLoaded', function(){ post({type:'lifecycle', event:'domcontent', href:location.href}); });
+                      try{ const origOpen = window.open; window.open = function(url,target,features){ post({type:'nav', method:'window.open', url:url, target:target}); return origOpen.call(this,url,target,features); }; }catch(e){}
+                      try{ const observer = new MutationObserver(function(muts){ muts.forEach(m=>{ m.addedNodes && m.addedNodes.forEach(n=>{ if(n.nodeType===1){ const tag=n.tagName.toLowerCase(); if(tag==='video'||tag==='iframe'||(n.querySelector&&(n.querySelector('video')||n.querySelector('iframe')))){ post({type:'dom', action:'added', tag:tag, html:n.outerHTML?(n.outerHTML.substring(0,200)):null, href:location.href}); } } }); m.removedNodes && m.removedNodes.forEach(n=>{ if(n.nodeType===1){ const tag=n.tagName.toLowerCase(); if(tag==='video'||tag==='iframe'||(n.querySelector&&(n.querySelector('video')||n.querySelector('iframe')))){ post({type:'dom', action:'removed', tag:tag, href:location.href}); } } }); }); }); observer.observe(document.documentElement||document.body,{ childList:true, subtree:true }); post({type:'instrumentation', event:'observer_started'}); }catch(e){ post({type:'instrumentation', event:'observer_error', error:String(e)}); }
+                      function instrumentExistingVideos(){ const videos=document.querySelectorAll('video'); videos.forEach(v=>{ if(!v.__instrumented){ v.__instrumented=true; v.addEventListener('play',()=>post({type:'video', event:'play', src:v.currentSrc||v.src, href:location.href})); v.addEventListener('pause',()=>post({type:'video', event:'pause', src:v.currentSrc||v.src, href:location.href})); v.addEventListener('ended',()=>post({type:'video', event:'ended', src:v.currentSrc||v.src, href:location.href})); } }); }
+                      setInterval(instrumentExistingVideos,1000);
+                      true; })();`}
+                    onMessage={(event) => {
+                      try {
+                        const data = JSON.parse(event.nativeEvent.data);
+                        console.log("WebView instrumentation:", data);
+                      } catch (e) {
+                        console.log(
+                          "WebView message (raw):",
+                          event.nativeEvent.data,
+                        );
+                      }
+                    }}
+                    onNavigationStateChange={(navState) => {
+                      console.log("WebView navigation state change:", {
+                        url: navState.url,
+                        title: navState.title,
+                        loading: navState.loading,
+                      });
+                    }}
                     // Block popup navigation within the WebView
                     onShouldStartLoadWithRequest={(request) => {
                       console.log(

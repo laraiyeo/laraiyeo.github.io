@@ -733,7 +733,7 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
 
         {/* Live Viewer Section */}
         <View style={[styles.viewerSection, { borderTopColor: theme.border }]}>
-          <LiveViewerBadge gameId={competition.id} status={competition.status} />
+          <LiveViewerBadge gameId={competition.id} status={competition.status.type.state} />
         </View>
       </TouchableOpacity>
     );

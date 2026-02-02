@@ -3537,6 +3537,39 @@ const VALSeriesScreen = ({ navigation, route }) => {
                                       style={[
                                         styles.copyStatValue,
                                         {
+                                          color: player.kills - player.deaths >= 0 ? "green" : "red",
+                                          fontSize: 12,
+                                          fontWeight: "bold",
+                                        },
+                                      ]}
+                                    >
+                                      {player.kills - player.deaths}
+                                    </Text>
+                                    <Text
+                                      style={[
+                                        styles.copyStatLabel,
+                                        {
+                                          color: theme.textSecondary,
+                                          fontSize: 9,
+                                        },
+                                      ]}
+                                    >
+                                      +/-
+                                    </Text>
+                                  </View>
+                                  <View
+                                    style={[
+                                      styles.copyStatItem,
+                                      {
+                                        alignItems: "center",
+                                        marginHorizontal: 6,
+                                      },
+                                    ]}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.copyStatValue,
+                                        {
                                           color: theme.text,
                                           fontSize: 12,
                                           fontWeight: "bold",
@@ -3794,6 +3827,39 @@ const VALSeriesScreen = ({ navigation, route }) => {
                                       ]}
                                     >
                                       A
+                                    </Text>
+                                  </View>
+                                  <View
+                                    style={[
+                                      styles.copyStatItem,
+                                      {
+                                        alignItems: "center",
+                                        marginHorizontal: 6,
+                                      },
+                                    ]}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.copyStatValue,
+                                        {
+                                          color: player.kills - player.deaths >= 0 ? "green" : "red",
+                                          fontSize: 12,
+                                          fontWeight: "bold",
+                                        },
+                                      ]}
+                                    >
+                                      {player.kills - player.deaths}
+                                    </Text>
+                                    <Text
+                                      style={[
+                                        styles.copyStatLabel,
+                                        {
+                                          color: theme.textSecondary,
+                                          fontSize: 9,
+                                        },
+                                      ]}
+                                    >
+                                      +/-
                                     </Text>
                                   </View>
                                   <View

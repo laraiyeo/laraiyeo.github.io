@@ -5788,344 +5788,39 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                     onError={() => setIsStreamLoading(false)}
                     javaScriptEnabled={true}
                     domStorageEnabled={true}
-                    allowsInlineMediaPlaybook={true}
+                    allowsInlineMediaPlayback={true}
                     mediaPlaybackRequiresUserAction={false}
                     userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-                    injectedJavaScriptBeforeContentLoaded={`
-                    // Early ad blocking - runs before page content loads
-                    (function() {
-                      // Block video ads immediately
-                      const originalPlay = HTMLVideoElement.prototype.play;
-                      HTMLVideoElement.prototype.play = function() {
-                        // Check if this video looks like an ad
-                        const src = this.src || this.currentSrc || '';
-                        const adKeywords = ['ad', 'advertisement', 'commercial', 'sponsor', 'promo'];
-                        const isAd = adKeywords.some(keyword => src.toLowerCase().includes(keyword));
-                        
-                        if (isAd) {
-                          console.log('Blocked video ad:', src);
-                          return Promise.resolve();
-                        }
-                        
-                        return originalPlay.call(this);
-                      };
-
-                      // Block ad domains immediately
-                      const adDomains = [
-                        'googleads', 'doubleclick', 'googlesyndication', 'adsystem',
-                        'amazon-adsystem', 'facebook.com/tr', 'google-analytics',
-                        'googletagmanager', 'ads.yahoo', 'outbrain', 'taboola',
-                        'criteo', 'pubmatic', 'rubiconproject', 'openx', 'media.net'
-                      ];
-
-                      // Override document.createElement early
-                      const originalCreateElement = document.createElement;
-                      document.createElement = function(tagName) {
-                        const element = originalCreateElement.call(this, tagName);
-                        
-                        if (tagName.toLowerCase() === 'script' || tagName.toLowerCase() === 'iframe') {
-                          const originalSetSrc = Object.getOwnPropertyDescriptor(
-                            tagName.toLowerCase() === 'script' ? HTMLScriptElement.prototype : HTMLIFrameElement.prototype, 
-                            'src'
-                          ).set;
-                          
-                          Object.defineProperty(element, 'src', {
-                            set: function(value) {
-                              if (value && adDomains.some(domain => value.includes(domain))) {
-                                console.log('Blocked early ad element:', value);
-                                return;
-                              }
-                              originalSetSrc.call(this, value);
-                            }
-                          });
-                        }
-                        
-                        return element;
-                      };
-
-                      // Block fetch early
-                      if (window.fetch) {
-                        const originalFetch = window.fetch;
-                        window.fetch = function(...args) {
-                          const url = args[0];
-                          if (typeof url === 'string' && adDomains.some(domain => url.includes(domain))) {
-                            console.log('Blocked early fetch:', url);
-                            return Promise.reject(new Error('Ad blocked'));
-                          }
-                          return originalFetch.apply(this, args);
-                        };
-                      }
-
-                      true;
-                    })();
-                  `}
-                    injectedJavaScript={`
-                    // Enhanced Ad blocking script with video ad focus
-                    (function() {
-                      console.log('Advanced ad blocker loaded');
-                      
-                      // Comprehensive ad domain list
-                      const adDomains = [
-                        'googleads.g.doubleclick.net', 'googlesyndication.com', 'google-analytics.com',
-                        'googletagmanager.com', 'facebook.com/tr', 'ads.yahoo.com', 'adsystem.com',
-                        'adskeeper.co.uk', 'adnxs.com', 'amazon-adsystem.com', 'media.net',
-                        'outbrain.com', 'taboola.com', 'criteo.com', 'pubmatic.com', 'rubiconproject.com',
-                        'openx.net', 'adsrvr.org', 'turn.com', 'bidswitch.net', 'rlcdn.com',
-                        'casalemedia.com', 'contextweb.com', 'serving-sys.com', 'adform.net',
-                        'adsafeprotected.com', 'moatads.com', 'scorecardresearch.com', 'quantserve.com',
-                        'ads.', 'ad.', 'adsv', 'advertising', 'advertisement'
-                      ];
-
-                      // Video ad blocking
-                      function blockVideoAds() {
-                        const videos = document.querySelectorAll('video');
-                        videos.forEach(video => {
-                          // Skip videos that are clearly ads
-                          const src = video.src || video.currentSrc || '';
-                          const adKeywords = ['ad', 'advertisement', 'commercial', 'sponsor', 'promo', 'preroll'];
-                          const isAd = adKeywords.some(keyword => src.toLowerCase().includes(keyword));
-                          
-                          if (isAd) {
-                            video.pause();
-                            video.currentTime = video.duration || 999;
-                            video.style.display = 'none';
-                            console.log('Blocked video ad');
-                            return;
-                          }
-
-                          // Auto-skip ads by fast-forwarding
-                          video.addEventListener('loadedmetadata', function() {
-                            if (this.duration && this.duration < 60) { // Likely an ad if under 60 seconds
-                              this.currentTime = this.duration;
-                              console.log('Auto-skipped short video (likely ad)');
-                            }
-                          });
-
-                          // Skip to end if video contains ad indicators
-                          if (video.poster && adKeywords.some(keyword => video.poster.toLowerCase().includes(keyword))) {
-                            video.currentTime = video.duration || 999;
-                            console.log('Skipped video with ad poster');
-                          }
-                        });
-                      }
-
-                      // Enhanced element removal
-                      const adSelectors = [
-                        // Basic ad selectors
-                        '[id*="ad"]', '[class*="ad"]', '[id*="Ad"]', '[class*="Ad"]',
-                        '[id*="banner"]', '[class*="banner"]', '[id*="Banner"]', '[class*="Banner"]',
-                        '[id*="popup"]', '[class*="popup"]', '[id*="Popup"]', '[class*="Popup"]',
-                        '[id*="overlay"]', '[class*="overlay"]', '[id*="Overlay"]', '[class*="Overlay"]',
-                        '[id*="modal"]', '[class*="modal"]', '[id*="Modal"]', '[class*="Modal"]',
-                        
-                        // Video ad specific
-                        '[id*="preroll"]', '[class*="preroll"]', '[id*="commercial"]', '[class*="commercial"]',
-                        '[id*="sponsor"]', '[class*="sponsor"]', '[id*="promo"]', '[class*="promo"]',
-                        
-                        // Common ad containers
-                        '.advertisement', '.ads', '.ad-container', '.banner-ad', '.popup-ad',
-                        '.video-ad', '.preroll-ad', '.overlay-ad', '.sponsored-content',
-                        
-                        // Iframes
-                        'iframe[src*="ads"]', 'iframe[src*="doubleclick"]', 'iframe[src*="googlesyndication"]',
-                        'iframe[src*="amazon-adsystem"]', 'iframe[src*="facebook.com/tr"]',
-                        
-                        // Data attributes
-                        '[data-ad]', '[data-ads]', '[data-advertisement]', '[data-google-av-cxn]',
-                        '[data-google-av-cpm]', '[data-google-av-adk]'
-                      ];
-
-                      // Aggressive ad removal
-                      function removeAds() {
-                        let removedCount = 0;
-                        
-                        // Remove by selectors
-                        adSelectors.forEach(selector => {
-                          try {
-                            const elements = document.querySelectorAll(selector);
-                            elements.forEach(el => {
-                              if (el && el.remove) {
-                                el.style.display = 'none !important';
-                                el.style.visibility = 'hidden !important';
-                                el.style.opacity = '0 !important';
-                                el.remove();
-                                removedCount++;
-                              }
-                            });
-                          } catch (e) {}
-                        });
-
-                        // Remove high z-index overlays
-                        try {
-                          const allElements = document.querySelectorAll('*');
-                          allElements.forEach(el => {
-                            const style = window.getComputedStyle(el);
-                            const zIndex = parseInt(style.zIndex);
-                            if (zIndex > 1000 && style.position === 'fixed') {
-                              const rect = el.getBoundingClientRect();
-                              // If it covers a large area, it's probably an overlay ad
-                              if (rect.width > window.innerWidth * 0.5 && rect.height > window.innerHeight * 0.5) {
-                                el.style.display = 'none !important';
-                                el.remove();
-                                removedCount++;
-                              }
-                            }
-                          });
-                        } catch (e) {}
-
-                        if (removedCount > 0) {
-                          console.log('Removed', removedCount, 'ad elements');
-                        }
-
-                        // Block video ads
-                        blockVideoAds();
-                      }
-
-                      // Enhanced network blocking
-                      const originalFetch = window.fetch;
-                      window.fetch = function(...args) {
-                        const url = args[0];
-                        if (typeof url === 'string') {
-                          for (const domain of adDomains) {
-                            if (url.includes(domain)) {
-                              console.log('Blocked fetch ad request:', url);
-                              return Promise.reject(new Error('Ad blocked'));
-                            }
-                          }
-                        }
-                        return originalFetch.apply(this, args);
-                      };
-
-                      const originalOpen = XMLHttpRequest.prototype.open;
-                      XMLHttpRequest.prototype.open = function(method, url, ...args) {
-                        if (typeof url === 'string') {
-                          for (const domain of adDomains) {
-                            if (url.includes(domain)) {
-                              console.log('Blocked XHR ad request:', url);
-                              return;
-                            }
-                          }
-                        }
-                        return originalOpen.call(this, method, url, ...args);
-                      };
-
-                      // Block createElement for dynamic ads
-                      const originalCreateElement = document.createElement;
-                      document.createElement = function(tagName) {
-                        const element = originalCreateElement.call(this, tagName);
-                        
-                        if (tagName.toLowerCase() === 'script') {
-                          const originalSetSrc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src').set;
-                          Object.defineProperty(element, 'src', {
-                            set: function(value) {
-                              if (value && adDomains.some(domain => value.includes(domain))) {
-                                console.log('Blocked script:', value);
-                                return;
-                              }
-                              originalSetSrc.call(this, value);
-                            }
-                          });
-                        }
-                        
-                        return element;
-                      };
-
-                      // Enhanced CSS blocking
-                      const style = document.createElement('style');
-                      style.textContent = \`
-                        [id*="ad"], [class*="ad"], [id*="Ad"], [class*="Ad"],
-                        [id*="banner"], [class*="banner"], [id*="Banner"], [class*="Banner"],
-                        [id*="popup"], [class*="popup"], [id*="Popup"], [class*="Popup"],
-                        [id*="overlay"], [class*="overlay"], [id*="Overlay"], [class*="Overlay"],
-                        [id*="modal"], [class*="modal"], [id*="Modal"], [class*="Modal"],
-                        [id*="preroll"], [class*="preroll"], [id*="commercial"], [class*="commercial"],
-                        [id*="sponsor"], [class*="sponsor"], [id*="promo"], [class*="promo"],
-                        .advertisement, .ads, .ad-container, .banner-ad, .popup-ad,
-                        .video-ad, .preroll-ad, .overlay-ad, .sponsored-content,
-                        [data-ad], [data-ads], [data-advertisement],
-                        iframe[src*="ads"], iframe[src*="doubleclick"], iframe[src*="googlesyndication"] {
-                          display: none !important;
-                          visibility: hidden !important;
-                          opacity: 0 !important;
-                          position: absolute !important;
-                          left: -9999px !important;
-                          top: -9999px !important;
-                          width: 0 !important;
-                          height: 0 !important;
-                          pointer-events: none !important;
-                        }
-                        
-                        /* Hide video controls during ads */
-                        video[src*="ad"], video[src*="advertisement"], video[src*="commercial"] {
-                          display: none !important;
-                        }
-                      \`;
-                      
-                      const addStyle = () => {
-                        if (document.head) {
-                          document.head.appendChild(style);
-                        } else {
-                          setTimeout(addStyle, 10);
-                        }
-                      };
-                      addStyle();
-
-                      // Popup and redirect blocking
-                      window.open = function() {
-                        console.log('Blocked popup');
-                        return null;
-                      };
-
-                      // Block common ad events
-                      ['click', 'mousedown', 'mouseup', 'touchstart', 'touchend'].forEach(eventType => {
-                        document.addEventListener(eventType, function(e) {
-                          const target = e.target;
-                          if (target && (
-                            target.className.toLowerCase().includes('ad') ||
-                            target.id.toLowerCase().includes('ad') ||
-                            target.href && adDomains.some(domain => target.href.includes(domain))
-                          )) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            console.log('Blocked ad click');
-                          }
-                        }, true);
-                      });
-
-                      // Initial cleanup
-                      removeAds();
-                      
-                      // Continuous cleanup - more aggressive timing
-                      document.addEventListener('DOMContentLoaded', removeAds);
-                      setInterval(removeAds, 500); // Run every 500ms
-                      
-                      // Watch for DOM mutations to catch dynamic ads
-                      if (window.MutationObserver) {
-                        const observer = new MutationObserver(function(mutations) {
-                          let shouldRemove = false;
-                          mutations.forEach(function(mutation) {
-                            if (mutation.addedNodes.length > 0) {
-                              shouldRemove = true;
-                            }
-                          });
-                          if (shouldRemove) {
-                            setTimeout(removeAds, 100);
-                          }
-                        });
-                        
-                        observer.observe(document.body || document.documentElement, {
-                          childList: true,
-                          subtree: true
-                        });
-                      }
-
-                      console.log('Advanced ad blocker fully loaded');
-                      true;
-                    })();
-                  `}
+                    injectedJavaScript={`(function(){
+                        function post(obj){ try{ window.ReactNativeWebView.postMessage(JSON.stringify(obj)); }catch(e){} }
+                        post({type:'instrumentation', event:'init'});
+                        window.addEventListener('load', function(){ post({type:'lifecycle', event:'load', href:location.href}); });
+                        document.addEventListener('DOMContentLoaded', function(){ post({type:'lifecycle', event:'domcontent', href:location.href}); });
+                        try{ const origAssign = Location.prototype.assign; Location.prototype.assign = function(url){ post({type:'nav', method:'assign', url:url}); return origAssign.call(this, url); }; }catch(e){}
+                        try{ const origReplace = Location.prototype.replace; Location.prototype.replace = function(url){ post({type:'nav', method:'replace', url:url}); return origReplace.call(this, url); }; }catch(e){}
+                        try{ const hrefDesc = Object.getOwnPropertyDescriptor(Location.prototype,'href')||{}; if(hrefDesc && hrefDesc.set){ const origHrefSet = hrefDesc.set; Object.defineProperty(Location.prototype,'href',{ set:function(url){ post({type:'nav', method:'href', url:url}); return origHrefSet.call(this,url); }, get: hrefDesc.get }); } }catch(e){}
+                        try{ const origOpen = window.open; window.open = function(url,target,features){ post({type:'nav', method:'window.open', url:url, target:target}); return origOpen.call(this,url,target,features); }; }catch(e){}
+                        try{ const observer = new MutationObserver(function(muts){ muts.forEach(m=>{ m.addedNodes && m.addedNodes.forEach(n=>{ if(n.nodeType===1){ const tag=n.tagName.toLowerCase(); if(tag==='video'||tag==='iframe'||(n.querySelector&&(n.querySelector('video')||n.querySelector('iframe')))){ post({type:'dom', action:'added', tag:tag, html:n.outerHTML?(n.outerHTML.substring(0,200)):null, href:location.href}); } } }); m.removedNodes && m.removedNodes.forEach(n=>{ if(n.nodeType===1){ const tag=n.tagName.toLowerCase(); if(tag==='video'||tag==='iframe'||(n.querySelector&&(n.querySelector('video')||n.querySelector('iframe')))){ post({type:'dom', action:'removed', tag:tag, href:location.href}); } } }); }); }); observer.observe(document.documentElement||document.body,{ childList:true, subtree:true }); post({type:'instrumentation', event:'observer_started'}); }catch(e){ post({type:'instrumentation', event:'observer_error', error:String(e)}); }
+                        function instrumentExistingVideos(){ const videos=document.querySelectorAll('video'); videos.forEach(v=>{ if(!v.__instrumented){ v.__instrumented=true; v.addEventListener('play',()=>post({type:'video', event:'play', src:v.currentSrc||v.src, href:location.href})); v.addEventListener('pause',()=>post({type:'video', event:'pause', src:v.currentSrc||v.src, href:location.href})); v.addEventListener('ended',()=>post({type:'video', event:'ended', src:v.currentSrc||v.src, href:location.href})); } }); }
+                        setInterval(instrumentExistingVideos,1000);
+                        true; })();`}
                     onMessage={(event) => {
-                      // Handle messages from injected JavaScript if needed
-                      console.log("WebView message:", event.nativeEvent.data);
+                      try {
+                        const data = JSON.parse(event.nativeEvent.data);
+                        console.log("WebView instrumentation:", data);
+                      } catch (e) {
+                        console.log(
+                          "WebView message (raw):",
+                          event.nativeEvent.data,
+                        );
+                      }
+                    }}
+                    onNavigationStateChange={(navState) => {
+                      console.log("WebView navigation state change:", {
+                        url: navState.url,
+                        title: navState.title,
+                        loading: navState.loading,
+                      });
                     }}
                     // Block popup navigation within the WebView
                     onShouldStartLoadWithRequest={(request) => {

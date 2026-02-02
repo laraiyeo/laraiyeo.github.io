@@ -3632,7 +3632,12 @@ const BetBetsScreen = () => {
                 pick.status = "pending";
               }
             } else {
-              pick.status = "pending";
+              const payload = eventData.bets[resolvedBetKey] || null;
+                payload?.won === true
+                  ? pick.status = "winning"
+                  : payload?.won === false
+                    ? pick.status = "losing"
+                    : pick.status = "pending";
             }
             // Prefer canonical game names/scores/status from event payload when not pre
             try {

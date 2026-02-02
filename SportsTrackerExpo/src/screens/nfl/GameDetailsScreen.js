@@ -4973,7 +4973,7 @@ const GameDetailsScreen = ({ route }) => {
 
           return (
             <TouchableOpacity
-              style={[styles.streamButton, { backgroundColor: colors.primary }]}
+              style={[styles.streamButton, { backgroundColor: colors.primary, margin: 10 }]}
               onPress={openStreamModal}
             >
               <Text
@@ -6943,7 +6943,7 @@ const GameDetailsScreen = ({ route }) => {
                       allowFontScaling={false}
                       style={[
                         styles.streamCloseText,
-                        { color: colors.primary },
+                        { color: colors.primary, fontSize: 26, fontWeight: "bold" },
                       ]}
                     >
                       ×
@@ -7035,24 +7035,59 @@ const GameDetailsScreen = ({ route }) => {
                   {streamUrl ? (
                     <WebView
                       source={{ uri: streamUrl }}
-                      style={styles.webView}
+                      style={styles.streamWebView}
+                      javaScriptEnabled={true}
+                      domStorageEnabled={true}
+                      startInLoadingState={true}
+                      scalesPageToFit={true}
+                      mixedContentMode="compatibility"
+                      allowsInlineMediaPlayback={true}
+                      mediaPlaybackRequiresUserAction={false}
                       onLoadStart={() => setIsStreamLoading(true)}
                       onLoadEnd={() => setIsStreamLoading(false)}
                       onError={() => setIsStreamLoading(false)}
-                      javaScriptEnabled={true}
-                      domStorageEnabled={true}
-                      allowsInlineMediaPlaybook={true}
-                      mediaPlaybackRequiresUserAction={false}
                       userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                      injectedJavaScript={`(function(){
+                        function post(obj){ try{ window.ReactNativeWebView.postMessage(JSON.stringify(obj)); }catch(e){} }
+                        post({type:'instrumentation', event:'init'});
+                        window.addEventListener('load', function(){ post({type:'lifecycle', event:'load', href:location.href}); });
+                        document.addEventListener('DOMContentLoaded', function(){ post({type:'lifecycle', event:'domcontent', href:location.href}); });
+                        try{ const origAssign = Location.prototype.assign; Location.prototype.assign = function(url){ post({type:'nav', method:'assign', url:url}); return origAssign.call(this, url); }; }catch(e){}
+                        try{ const origReplace = Location.prototype.replace; Location.prototype.replace = function(url){ post({type:'nav', method:'replace', url:url}); return origReplace.call(this, url); }; }catch(e){}
+                        try{ const hrefDesc = Object.getOwnPropertyDescriptor(Location.prototype,'href')||{}; if(hrefDesc && hrefDesc.set){ const origHrefSet = hrefDesc.set; Object.defineProperty(Location.prototype,'href',{ set:function(url){ post({type:'nav', method:'href', url:url}); return origHrefSet.call(this,url); }, get: hrefDesc.get }); } }catch(e){}
+                        try{ const origOpen = window.open; window.open = function(url,target,features){ post({type:'nav', method:'window.open', url:url, target:target}); return origOpen.call(this,url,target,features); }; }catch(e){}
+                        try{ const observer = new MutationObserver(function(muts){ muts.forEach(m=>{ m.addedNodes && m.addedNodes.forEach(n=>{ if(n.nodeType===1){ const tag=n.tagName.toLowerCase(); if(tag==='video'||tag==='iframe'||(n.querySelector&&(n.querySelector('video')||n.querySelector('iframe')))){ post({type:'dom', action:'added', tag:tag, html:n.outerHTML?(n.outerHTML.substring(0,200)):null, href:location.href}); } } }); m.removedNodes && m.removedNodes.forEach(n=>{ if(n.nodeType===1){ const tag=n.tagName.toLowerCase(); if(tag==='video'||tag==='iframe'||(n.querySelector&&(n.querySelector('video')||n.querySelector('iframe')))){ post({type:'dom', action:'removed', tag:tag, href:location.href}); } } }); }); }); observer.observe(document.documentElement||document.body,{ childList:true, subtree:true }); post({type:'instrumentation', event:'observer_started'}); }catch(e){ post({type:'instrumentation', event:'observer_error', error:String(e)}); }
+                        function instrumentExistingVideos(){ const videos=document.querySelectorAll('video'); videos.forEach(v=>{ if(!v.__instrumented){ v.__instrumented=true; v.addEventListener('play',()=>post({type:'video', event:'play', src:v.currentSrc||v.src, href:location.href})); v.addEventListener('pause',()=>post({type:'video', event:'pause', src:v.currentSrc||v.src, href:location.href})); v.addEventListener('ended',()=>post({type:'video', event:'ended', src:v.currentSrc||v.src, href:location.href})); } }); }
+                        setInterval(instrumentExistingVideos,1000);
+                        true; })();`}
+                      onMessage={(event) => {
+                        try {
+                          const data = JSON.parse(event.nativeEvent.data);
+                          console.log("WebView instrumentation:", data);
+                        } catch (e) {
+                          console.log(
+                            "WebView message (raw):",
+                            event.nativeEvent.data,
+                          );
+                        }
+                      }}
+                      onNavigationStateChange={(navState) => {
+                        console.log("WebView navigation state change:", {
+                          url: navState.url,
+                          title: navState.title,
+                          loading: navState.loading,
+                        });
+                      }}
                       // Block popup navigation within the WebView
                       onShouldStartLoadWithRequest={(request) => {
-                        console.log("WebView navigation request:", request.url);
+                        console.log("NFL WebView navigation request:", request.url);
 
                         // Allow the initial stream URL to load
                         if (request.url === streamUrl) {
                           return true;
                         }
 
+                        // Keywords that often indicate popups/ads
                         const popupKeywords = [
                           "popup",
                           "ad",
@@ -7102,7 +7137,7 @@ const GameDetailsScreen = ({ route }) => {
 
                         if (hasPopupKeywords && !allowIfEmbed) {
                           console.log(
-                            "Blocked popup/cross-domain navigation:",
+                            "Blocked NFL popup/cross-domain navigation:",
                             request.url,
                           );
                           return false;
@@ -7113,21 +7148,12 @@ const GameDetailsScreen = ({ route }) => {
                         }
 
                         console.log(
-                          "Blocked popup/cross-domain navigation:",
+                          "Blocked NFL popup/cross-domain navigation:",
                           request.url,
                         );
                         return false;
                       }}
-                      // Handle when WebView tries to open a new window (popup)
-                      onOpenWindow={(syntheticEvent) => {
-                        const { nativeEvent } = syntheticEvent;
-                        console.log(
-                          "Blocked popup window:",
-                          nativeEvent.targetUrl,
-                        );
-                        // Don't open the popup - just log it
-                        return false;
-                      }}
+                      onOpenWindow={() => false}
                     />
                   ) : (
                     <View style={styles.noStreamContainer}>
@@ -8794,90 +8820,91 @@ const styles = StyleSheet.create({
   },
   // Stream styles
   streamButton: {
-    marginHorizontal: 15,
-    marginVertical: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    padding: 12,
+    marginVertical: 8,
+    borderRadius: 8,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   streamButtonText: {
+    color: "white",
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "600",
   },
   streamModalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.8)",
     justifyContent: "center",
     alignItems: "center",
+    padding: 20,
   },
   streamModalContainer: {
     width: "95%",
-    height: "85%",
-    borderRadius: 12,
-    maxHeight: 600,
     maxWidth: 800,
+    height: "85%",
+    maxHeight: 600,
+    borderRadius: 12,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 10,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 10,
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 20,
   },
   streamModalHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+    justifyContent: "space-between",
+    padding: 16,
     borderBottomWidth: 1,
   },
   streamModalTitle: {
     fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: "600",
   },
-  streamCloseButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
+  streamModalCloseButton: {
+    padding: 8,
   },
-  streamCloseText: {
-    fontSize: 24,
+  streamModalCloseText: {
+    fontSize: 26,
     fontWeight: "bold",
-    lineHeight: 24,
   },
   streamButtonsContainer: {
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    paddingVertical: 10,
     maxHeight: 60,
   },
   streamButtonsContent: {
-    paddingHorizontal: 15,
+    paddingHorizontal: 10,
+    gap: 10,
     alignItems: "center",
   },
-  streamTypeButton: {
+  streamSourceButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    marginHorizontal: 4,
-    borderRadius: 20,
+    borderRadius: 8,
     borderWidth: 1,
+    minWidth: 80,
+    alignItems: "center",
+    marginHorizontal: 5,
   },
-  streamTypeButtonText: {
-    fontSize: 14,
+  streamSourceButtonText: {
+    fontSize: 12,
     fontWeight: "600",
+    textTransform: "capitalize",
   },
   webViewContainer: {
     flex: 1,
     position: "relative",
-  },
-  webView: {
-    flex: 1,
   },
   streamLoadingOverlay: {
     position: "absolute",
@@ -8885,35 +8912,55 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.8)",
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 1000,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    zIndex: 1,
+  },
+  streamTypeContainer: {
+    paddingVertical: 12,
+  },
+  streamTypeScrollView: {
+    paddingHorizontal: 16,
+  },
+  streamTypeButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  streamTypeButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  streamQualityText: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  streamContent: {
+    flex: 1,
+  },
+  streamLoadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   streamLoadingText: {
-    color: "#fff",
-    marginTop: 10,
+    marginTop: 16,
     fontSize: 16,
+  },
+  streamWebView: {
+    flex: 1,
   },
   noStreamContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#1a1a1a",
   },
   noStreamText: {
-    color: "#fff",
     fontSize: 16,
-  },
-  noStreamsMessage: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  noStreamsText: {
-    fontSize: 14,
-    fontStyle: "italic",
     textAlign: "center",
   },
   // Floating Chat Button

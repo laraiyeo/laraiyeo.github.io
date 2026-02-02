@@ -3054,6 +3054,12 @@ const VALEventScreen = ({ navigation, route }) => {
                                                             left: 0,
                                                           };
 
+                                                        const isQualified =
+                                                          match.qualifying ||
+                                                          match.localQualifying ||
+                                                          match.title === "Qualified" ||
+                                                          round.title === "Qualified";
+
                                                         return (
                                                           <TouchableOpacity
                                                             key={matchIndex}
@@ -3066,157 +3072,206 @@ const VALEventScreen = ({ navigation, route }) => {
                                                                 left: pos.left,
                                                                 backgroundColor:
                                                                   theme.surface,
+                                                                transform: [{ translateY: isQualified ? -7 : 0 }],
+                                                                borderWidth: (isQualified && match.teams[0].id) ? 2 : 0,
+                                                                borderColor: isQualified
+                                                                  ? colors.primary
+                                                                  : "transparent",
                                                               },
                                                             ]}
                                                             onPress={() => {
-                                                              if (
-                                                                match.teams &&
-                                                                match.teams
-                                                                  .length >= 2
-                                                              ) {
-                                                                navigation.navigate(
-                                                                  "VALSeries",
-                                                                  {
-                                                                    seriesId:
-                                                                      match.seriesId ||
-                                                                      match.id,
-                                                                  },
-                                                                );
+                                                              if (isQualified) {
+                                                                const team0 =
+                                                                  match.teams &&
+                                                                  match.teams[0];
+                                                                if (team0 && (team0.id || team0.teamId)) {
+                                                                  navigation.navigate(
+                                                                    "VALTeamPage",
+                                                                    {
+                                                                      teamId: team0.id || team0.teamId,
+                                                                      teamName:
+                                                                        team0.name ||
+                                                                        team0.shortName ||
+                                                                        team0.teamName,
+                                                                    },
+                                                                  );
+                                                                }
+                                                              } else {
+                                                                if (
+                                                                  match.teams &&
+                                                                  match.teams.length >= 2
+                                                                ) {
+                                                                  navigation.navigate(
+                                                                    "VALSeries",
+                                                                    {
+                                                                      seriesId:
+                                                                        match.seriesId ||
+                                                                        match.id,
+                                                                    },
+                                                                  );
+                                                                }
                                                               }
                                                             }}
                                                             activeOpacity={0.7}
                                                           >
-                                                            <Text
-                                                              style={[
-                                                                styles.matchDate,
-                                                                {
-                                                                  color:
-                                                                    theme.textSecondary,
-                                                                },
-                                                              ]}
-                                                            >
-                                                              {match.startDate
-                                                                ? `${new Date(
-                                                                    match.startDate,
-                                                                  ).toLocaleDateString(
-                                                                    "en-US",
-                                                                    {
-                                                                      month:
-                                                                        "short",
-                                                                      day: "numeric",
-                                                                    },
-                                                                  )} • ${new Date(
-                                                                    match.startDate,
-                                                                  ).toLocaleTimeString(
-                                                                    "en-US",
-                                                                    {
-                                                                      hour: "numeric",
-                                                                      minute:
-                                                                        "2-digit",
-                                                                      hour12: true,
-                                                                    },
-                                                                  )}`
-                                                                : "TBD"}
-                                                            </Text>
+                                                            {!isQualified && (
+                                                              <Text
+                                                                style={[
+                                                                  styles.matchDate,
+                                                                  {
+                                                                    color:
+                                                                      theme.textSecondary,
+                                                                  },
+                                                                ]}
+                                                              >
+                                                                {match.startDate
+                                                                  ? `${new Date(
+                                                                      match.startDate,
+                                                                    ).toLocaleDateString(
+                                                                      "en-US",
+                                                                      {
+                                                                        month:
+                                                                          "short",
+                                                                        day: "numeric",
+                                                                      },
+                                                                    )} • ${new Date(
+                                                                      match.startDate,
+                                                                    ).toLocaleTimeString(
+                                                                      "en-US",
+                                                                      {
+                                                                        hour: "numeric",
+                                                                        minute:
+                                                                          "2-digit",
+                                                                        hour12: true,
+                                                                      },
+                                                                    )}`
+                                                                  : "TBD"}
+                                                              </Text>
+                                                            )}
 
-                                                            {match.teams &&
-                                                              match.teams.map(
-                                                                (
-                                                                  team,
-                                                                  teamIndex,
-                                                                ) => {
+                                                            {(() => {
+                                                              if (isQualified) {
+                                                                const team0 =
+                                                                  match.teams &&
+                                                                  match.teams[0];
+                                                                return (
+                                                                  <View
+                                                                    style={{
+                                                                      alignItems: "center",
+                                                                      marginTop: 8,
+                                                                    }}
+                                                                  >
+                                                                    <View
+                                                                      style={
+                                                                        styles.qualifiedBox
+                                                                      }
+                                                                    >
+                                                                      {team0 ? (
+                                                                        <Image
+                                                                          source={{
+                                                                            uri:
+                                                                              team0.logoUrl ||
+                                                                              "https://i.imgur.com/BIC4pnO.webp",
+                                                                          }}
+                                                                          style={
+                                                                            styles.qualifiedLogo
+                                                                          }
+                                                                          resizeMode="contain"
+                                                                        />
+                                                                      ) : (
+                                                                        <View
+                                                                          style={[
+                                                                            styles.qualifiedLogo,
+                                                                            styles.topPlayersTeamLogoPlaceholder,
+                                                                            { backgroundColor: colors.primary + "20" },
+                                                                          ]}
+                                                                        >
+                                                                          <Ionicons
+                                                                            name="shield"
+                                                                            size={14}
+                                                                            color={
+                                                                              colors.primary
+                                                                            }
+                                                                          />
+                                                                        </View>
+                                                                      )}
+                                                                      <Text
+                                                                        style={[
+                                                                          styles.qualifiedAbbrev,
+                                                                          { color: theme.text },
+                                                                        ]}
+                                                                      >
+                                                                        {team0
+                                                                          ? team0.shortName || team0.name || "TBD"
+                                                                          : "TBD"}
+                                                                      </Text>
+                                                                    </View>
+                                                                    <Text
+                                                                      style={[
+                                                                        styles.qualifiedLabel,
+                                                                        { color: team0.id ? colors.primary : theme.textSecondary },
+                                                                      ]}
+                                                                    >
+                                                                      QUAL
+                                                                    </Text>
+                                                                  </View>
+                                                                );
+                                                              }
+
+                                                              return match.teams && match.teams.map(
+                                                                (team, teamIndex) => {
                                                                   const isWinner =
                                                                     match.completed &&
                                                                     team.score >
-                                                                      (match
-                                                                        .teams[
-                                                                        1 -
-                                                                          teamIndex
-                                                                      ]
-                                                                        ?.score ||
-                                                                        0);
+                                                                      (match.teams[1 - teamIndex]?.score || 0);
                                                                   const isLoser =
                                                                     match.completed &&
                                                                     team.score <
-                                                                      (match
-                                                                        .teams[
-                                                                        1 -
-                                                                          teamIndex
-                                                                      ]
-                                                                        ?.score ||
-                                                                        0);
+                                                                      (match.teams[1 - teamIndex]?.score || 0);
 
                                                                   return (
                                                                     <View
-                                                                      key={
-                                                                        teamIndex
-                                                                      }
+                                                                      key={teamIndex}
                                                                       style={[
                                                                         styles.bracketTeam,
-                                                                        isWinner &&
-                                                                          styles.winnerTeam,
-                                                                        isLoser &&
-                                                                          styles.loserTeam,
+                                                                        isWinner && styles.winnerTeam,
+                                                                        isLoser && styles.loserTeam,
                                                                       ]}
                                                                     >
                                                                       <Image
                                                                         source={{
-                                                                          uri:
-                                                                            team.logoUrl ||
+                                                                          uri: team.logoUrl ||
                                                                             "https://i.imgur.com/BIC4pnO.webp",
                                                                         }}
                                                                         style={[
                                                                           styles.bracketTeamLogo,
-                                                                          {
-                                                                            opacity:
-                                                                              isLoser
-                                                                                ? 0.5
-                                                                                : 1,
-                                                                          },
+                                                                          { opacity: isLoser ? 0.5 : 1 },
                                                                         ]}
                                                                         resizeMode="contain"
                                                                       />
                                                                       <Text
                                                                         style={[
                                                                           styles.bracketTeamName,
-                                                                          {
-                                                                            color:
-                                                                              theme.text,
-                                                                            opacity:
-                                                                              isLoser
-                                                                                ? 0.6
-                                                                                : 1,
-                                                                          },
+                                                                          { color: theme.text, opacity: isLoser ? 0.6 : 1 },
                                                                         ]}
-                                                                        numberOfLines={
-                                                                          1
-                                                                        }
+                                                                        numberOfLines={1}
                                                                         ellipsizeMode="tail"
                                                                       >
-                                                                        {team.shortName ||
-                                                                          team.name ||
-                                                                          "TBD"}
+                                                                        {team.shortName || team.name || "TBD"}
                                                                       </Text>
                                                                       <Text
                                                                         style={[
                                                                           styles.bracketTeamScore,
-                                                                          {
-                                                                            color:
-                                                                              theme.text,
-                                                                            opacity:
-                                                                              isLoser
-                                                                                ? 0.6
-                                                                                : 1,
-                                                                          },
+                                                                          { color: theme.text, opacity: isLoser ? 0.6 : 1 },
                                                                         ]}
                                                                       >
-                                                                        {team.score ||
-                                                                          0}
+                                                                        {team.score || 0}
                                                                       </Text>
                                                                     </View>
                                                                   );
                                                                 },
-                                                              )}
+                                                              );
+                                                            })()}
                                                           </TouchableOpacity>
                                                         );
                                                       },
@@ -3281,6 +3336,12 @@ const VALEventScreen = ({ navigation, route }) => {
                                                               left: 0,
                                                             };
 
+                                                        const isQualified =
+                                                          match.qualifying ||
+                                                          match.localQualifying ||
+                                                          match.title === "Qualified" ||
+                                                          round.title === "Qualified";
+
                                                           return (
                                                             <TouchableOpacity
                                                               key={matchIndex}
@@ -3293,159 +3354,237 @@ const VALEventScreen = ({ navigation, route }) => {
                                                                   left: pos.left,
                                                                   backgroundColor:
                                                                     theme.surface,
+                                                                transform: [{ translateY: isQualified ? -7 : 0 }],
+                                                                borderWidth: (isQualified && match.teams[0].id) ? 2 : 0,
+                                                                borderColor: isQualified
+                                                                  ? colors.primary
+                                                                  : "transparent",
                                                                 },
                                                               ]}
                                                               onPress={() => {
-                                                                if (
-                                                                  match.teams &&
-                                                                  match.teams
-                                                                    .length >= 2
-                                                                ) {
-                                                                  navigation.navigate(
-                                                                    "VALSeries",
-                                                                    {
-                                                                      seriesId:
-                                                                        match.seriesId ||
-                                                                        match.id,
-                                                                    },
-                                                                  );
+                                                                const isQualified =
+                                                                  match.qualifying ||
+                                                                  match.localQualifying ||
+                                                                  match.title === "Qualified" ||
+                                                                  round.title === "Qualified";
+
+                                                                if (isQualified) {
+                                                                  const team0 =
+                                                                    match.teams &&
+                                                                    match.teams[0];
+                                                                  if (team0 && (team0.id || team0.teamId)) {
+                                                                    navigation.navigate(
+                                                                      "VALTeamPage",
+                                                                      {
+                                                                        teamId: team0.id || team0.teamId,
+                                                                        teamName:
+                                                                          team0.name ||
+                                                                          team0.shortName ||
+                                                                          team0.teamName,
+                                                                      },
+                                                                    );
+                                                                  }
+                                                                } else {
+                                                                  if (
+                                                                    match.teams &&
+                                                                    match.teams.length >= 2
+                                                                  ) {
+                                                                    navigation.navigate(
+                                                                      "VALSeries",
+                                                                      {
+                                                                        seriesId:
+                                                                          match.seriesId ||
+                                                                          match.id,
+                                                                      },
+                                                                    );
+                                                                  }
                                                                 }
                                                               }}
                                                               activeOpacity={
                                                                 0.7
                                                               }
                                                             >
-                                                              <Text
-                                                                style={[
-                                                                  styles.matchDate,
-                                                                  {
-                                                                    color:
-                                                                      theme.textSecondary,
-                                                                  },
-                                                                ]}
-                                                              >
-                                                                {match.startDate
-                                                                  ? `${new Date(
-                                                                      match.startDate,
-                                                                    ).toLocaleDateString(
-                                                                      "en-US",
-                                                                      {
-                                                                        month:
-                                                                          "short",
-                                                                        day: "numeric",
-                                                                      },
-                                                                    )} • ${new Date(
-                                                                      match.startDate,
-                                                                    ).toLocaleTimeString(
-                                                                      "en-US",
-                                                                      {
-                                                                        hour: "numeric",
-                                                                        minute:
-                                                                          "2-digit",
-                                                                        hour12: true,
-                                                                      },
-                                                                    )}`
-                                                                  : "TBD"}
-                                                              </Text>
+                                                                {(() => {
+                                                                  const isQualified =
+                                                                    match.qualifying ||
+                                                                    match.localQualifying ||
+                                                                    match.title === "Qualified" ||
+                                                                    round.title === "Qualified";
 
-                                                              {match.teams &&
-                                                                match.teams.map(
-                                                                  (
-                                                                    team,
-                                                                    teamIndex,
-                                                                  ) => {
-                                                                    const isWinner =
-                                                                      match.completed &&
-                                                                      team.score >
-                                                                        (match
-                                                                          .teams[
-                                                                          1 -
-                                                                            teamIndex
-                                                                        ]
-                                                                          ?.score ||
-                                                                          0);
-                                                                    const isLoser =
-                                                                      match.completed &&
-                                                                      team.score <
-                                                                        (match
-                                                                          .teams[
-                                                                          1 -
-                                                                            teamIndex
-                                                                        ]
-                                                                          ?.score ||
-                                                                          0);
+                                                                  return (
+                                                                    <>
+                                                                      {!isQualified && (
+                                                                        <Text
+                                                                          style={[
+                                                                            styles.matchDate,
+                                                                            {
+                                                                              color:
+                                                                                theme.textSecondary,
+                                                                            },
+                                                                          ]}
+                                                                        >
+                                                                          {match.startDate
+                                                                            ? `${new Date(
+                                                                                match.startDate,
+                                                                              ).toLocaleDateString(
+                                                                                "en-US",
+                                                                                {
+                                                                                  month:
+                                                                                    "short",
+                                                                                  day: "numeric",
+                                                                                },
+                                                                              )} • ${new Date(
+                                                                                match.startDate,
+                                                                              ).toLocaleTimeString(
+                                                                                "en-US",
+                                                                                {
+                                                                                  hour: "numeric",
+                                                                                  minute:
+                                                                                    "2-digit",
+                                                                                  hour12: true,
+                                                                                },
+                                                                              )}`
+                                                                            : "TBD"}
+                                                                        </Text>
+                                                                      )}
 
-                                                                    return (
-                                                                      <View
-                                                                        key={
-                                                                          teamIndex
-                                                                        }
-                                                                        style={[
-                                                                          styles.bracketTeam,
-                                                                          isWinner &&
-                                                                            styles.winnerTeam,
-                                                                          isLoser &&
-                                                                            styles.loserTeam,
-                                                                        ]}
-                                                                      >
-                                                                        <Image
-                                                                          source={{
-                                                                            uri:
-                                                                              team.logoUrl ||
-                                                                              "https://i.imgur.com/BIC4pnO.webp",
+                                                                      {isQualified ? (
+                                                                        <View
+                                                                          style={{
+                                                                            alignItems:
+                                                                              "center",
+                                                                            marginTop: 8,
                                                                           }}
-                                                                          style={[
-                                                                            styles.bracketTeamLogo,
-                                                                            {
-                                                                              opacity:
-                                                                                isLoser
-                                                                                  ? 0.5
-                                                                                  : 1,
-                                                                            },
-                                                                          ]}
-                                                                          resizeMode="contain"
-                                                                        />
-                                                                        <Text
-                                                                          style={[
-                                                                            styles.bracketTeamName,
-                                                                            {
-                                                                              color:
-                                                                                theme.text,
-                                                                              opacity:
-                                                                                isLoser
-                                                                                  ? 0.6
-                                                                                  : 1,
-                                                                            },
-                                                                          ]}
-                                                                          numberOfLines={
-                                                                            1
-                                                                          }
-                                                                          ellipsizeMode="tail"
                                                                         >
-                                                                          {team.shortName ||
-                                                                            team.name ||
-                                                                            "TBD"}
-                                                                        </Text>
-                                                                        <Text
-                                                                          style={[
-                                                                            styles.bracketTeamScore,
-                                                                            {
-                                                                              color:
-                                                                                theme.text,
-                                                                              opacity:
-                                                                                isLoser
-                                                                                  ? 0.6
-                                                                                  : 1,
-                                                                            },
-                                                                          ]}
-                                                                        >
-                                                                          {team.score ||
-                                                                            0}
-                                                                        </Text>
-                                                                      </View>
-                                                                    );
-                                                                  },
-                                                                )}
+                                                                          <View
+                                                                            style={
+                                                                              styles.qualifiedBox
+                                                                            }
+                                                                          >
+                                                                            {match.teams &&
+                                                                            match.teams[0] ? (
+                                                                              <Image
+                                                                                source={{
+                                                                                  uri:
+                                                                                    match
+                                                                                      .teams[0]
+                                                                                      .logoUrl ||
+                                                                                    "https://i.imgur.com/BIC4pnO.webp",
+                                                                                }}
+                                                                                style={
+                                                                                  styles.qualifiedLogo
+                                                                                }
+                                                                                resizeMode="contain"
+                                                                              />
+                                                                            ) : (
+                                                                              <View
+                                                                                style={[
+                                                                                  styles.qualifiedLogo,
+                                                                                  styles.topPlayersTeamLogoPlaceholder,
+                                                                                  { backgroundColor: colors.primary + "20" },
+                                                                                ]}
+                                                                              >
+                                                                                <Ionicons
+                                                                                  name="shield"
+                                                                                  size={14}
+                                                                                  color={
+                                                                                    colors.primary
+                                                                                  }
+                                                                                />
+                                                                              </View>
+                                                                            )}
+                                                                            <Text
+                                                                              style={[
+                                                                                styles.qualifiedAbbrev,
+                                                                                { color: theme.text },
+                                                                              ]}
+                                                                            >
+                                                                              {match.teams &&
+                                                                              match.teams[0]
+                                                                                ? match
+                                                                                    .teams[0]
+                                                                                    .shortName ||
+                                                                                  match
+                                                                                    .teams[0]
+                                                                                    .name ||
+                                                                                    "TBD"
+                                                                                : "TBD"}
+                                                                            </Text>
+                                                                          </View>
+                                                                          <Text
+                                                                            style={[
+                                                                              styles.qualifiedLabel,
+                                                                              { color: match.teams[0].id ? colors.primary : theme.textSecondary },
+                                                                            ]}
+                                                                          >
+                                                                            QUAL
+                                                                          </Text>
+                                                                        </View>
+                                                                      ) : (
+                                                                        match.teams &&
+                                                                        match.teams.map(
+                                                                          (
+                                                                            team,
+                                                                            teamIndex,
+                                                                          ) => {
+                                                                            const isWinner =
+                                                                              match.completed &&
+                                                                              team.score >
+                                                                                (match.teams[1 - teamIndex]?.score || 0);
+                                                                            const isLoser =
+                                                                              match.completed &&
+                                                                              team.score <
+                                                                                (match.teams[1 - teamIndex]?.score || 0);
+
+                                                                            return (
+                                                                              <View
+                                                                                key={
+                                                                                  teamIndex
+                                                                                }
+                                                                                style={[
+                                                                                  styles.bracketTeam,
+                                                                                  isWinner && styles.winnerTeam,
+                                                                                  isLoser && styles.loserTeam,
+                                                                                ]}
+                                                                              >
+                                                                                <Image
+                                                                                  source={{
+                                                                                    uri:
+                                                                                      team.logoUrl ||
+                                                                                      "https://i.imgur.com/BIC4pnO.webp",
+                                                                                  }}
+                                                                                  style={[
+                                                                                    styles.bracketTeamLogo,
+                                                                                    { opacity: isLoser ? 0.5 : 1 },
+                                                                                  ]}
+                                                                                  resizeMode="contain"
+                                                                                />
+                                                                                <Text
+                                                                                  style={[
+                                                                                    styles.bracketTeamName,
+                                                                                    { color: theme.text, opacity: isLoser ? 0.6 : 1 },
+                                                                                  ]}
+                                                                                  numberOfLines={1}
+                                                                                  ellipsizeMode="tail"
+                                                                                >
+                                                                                  {team.shortName || team.name || "TBD"}
+                                                                                </Text>
+                                                                                <Text
+                                                                                  style={[
+                                                                                    styles.bracketTeamScore,
+                                                                                    { color: theme.text, opacity: isLoser ? 0.6 : 1 },
+                                                                                  ]}
+                                                                                >
+                                                                                  {team.score || 0}
+                                                                                </Text>
+                                                                              </View>
+                                                                            );
+                                                                          },
+                                                                        )
+                                                                      )}
+                                                                    </>
+                                                                  );
+                                                                })()}
                                                             </TouchableOpacity>
                                                           );
                                                         },
@@ -3512,6 +3651,12 @@ const VALEventScreen = ({ navigation, route }) => {
                                                               left: 0,
                                                             };
 
+                                                        const isQualified =
+                                                          match.qualifying ||
+                                                          match.localQualifying ||
+                                                          match.title === "Qualified" ||
+                                                          round.title === "Qualified";
+
                                                           return (
                                                             <TouchableOpacity
                                                               key={matchIndex}
@@ -3524,159 +3669,236 @@ const VALEventScreen = ({ navigation, route }) => {
                                                                   left: pos.left,
                                                                   backgroundColor:
                                                                     theme.surface,
+                                                                transform: [{ translateY: isQualified ? -7 : 0 }],
+                                                                borderWidth: (isQualified && match.teams[0].id) ? 2 : 0,
+                                                                borderColor: isQualified
+                                                                  ? colors.primary
+                                                                  : "transparent",
                                                                 },
                                                               ]}
                                                               onPress={() => {
-                                                                if (
-                                                                  match.teams &&
-                                                                  match.teams
-                                                                    .length >= 2
-                                                                ) {
-                                                                  navigation.navigate(
-                                                                    "VALSeries",
-                                                                    {
-                                                                      seriesId:
-                                                                        match.seriesId ||
-                                                                        match.id,
-                                                                    },
-                                                                  );
+                                                                const isQualified =
+                                                                  match.qualifying ||
+                                                                  match.localQualifying ||
+                                                                  match.title === "Qualified" ||
+                                                                  round.title === "Qualified";
+
+                                                                if (isQualified) {
+                                                                  const team0 =
+                                                                    match.teams &&
+                                                                    match.teams[0];
+                                                                  if (team0 && (team0.id || team0.teamId)) {
+                                                                    navigation.navigate(
+                                                                      "VALTeamPage",
+                                                                      {
+                                                                        teamId: team0.id || team0.teamId,
+                                                                        teamName:
+                                                                          team0.name ||
+                                                                          team0.shortName ||
+                                                                          team0.teamName,
+                                                                      },
+                                                                    );
+                                                                  }
+                                                                } else {
+                                                                  if (
+                                                                    match.teams &&
+                                                                    match.teams.length >= 2
+                                                                  ) {
+                                                                    navigation.navigate(
+                                                                      "VALSeries",
+                                                                      {
+                                                                        seriesId:
+                                                                          match.seriesId ||
+                                                                          match.id,
+                                                                      },
+                                                                    );
+                                                                  }
                                                                 }
                                                               }}
                                                               activeOpacity={
                                                                 0.7
                                                               }
                                                             >
-                                                              <Text
-                                                                style={[
-                                                                  styles.matchDate,
-                                                                  {
-                                                                    color:
-                                                                      theme.textSecondary,
-                                                                  },
-                                                                ]}
-                                                              >
-                                                                {match.startDate
-                                                                  ? `${new Date(
-                                                                      match.startDate,
-                                                                    ).toLocaleDateString(
-                                                                      "en-US",
-                                                                      {
-                                                                        month:
-                                                                          "short",
-                                                                        day: "numeric",
-                                                                      },
-                                                                    )} • ${new Date(
-                                                                      match.startDate,
-                                                                    ).toLocaleTimeString(
-                                                                      "en-US",
-                                                                      {
-                                                                        hour: "numeric",
-                                                                        minute:
-                                                                          "2-digit",
-                                                                        hour12: true,
-                                                                      },
-                                                                    )}`
-                                                                  : "TBD"}
-                                                              </Text>
+                                                              {(() => {
+                                                                const isQualified =
+                                                                  match.qualifying ||
+                                                                  match.localQualifying ||
+                                                                  match.title === "Qualified" ||
+                                                                  round.title === "Qualified";
 
-                                                              {match.teams &&
-                                                                match.teams.map(
-                                                                  (
-                                                                    team,
-                                                                    teamIndex,
-                                                                  ) => {
-                                                                    const isWinner =
-                                                                      match.completed &&
-                                                                      team.score >
-                                                                        (match
-                                                                          .teams[
-                                                                          1 -
-                                                                            teamIndex
-                                                                        ]
-                                                                          ?.score ||
-                                                                          0);
-                                                                    const isLoser =
-                                                                      match.completed &&
-                                                                      team.score <
-                                                                        (match
-                                                                          .teams[
-                                                                          1 -
-                                                                            teamIndex
-                                                                        ]
-                                                                          ?.score ||
-                                                                          0);
-
-                                                                    return (
-                                                                      <View
-                                                                        key={
-                                                                          teamIndex
-                                                                        }
+                                                                return (
+                                                                  <>
+                                                                    {!isQualified && (
+                                                                      <Text
                                                                         style={[
-                                                                          styles.bracketTeam,
-                                                                          isWinner &&
-                                                                            styles.winnerTeam,
-                                                                          isLoser &&
-                                                                            styles.loserTeam,
+                                                                          styles.matchDate,
+                                                                          {
+                                                                            color:
+                                                                              theme.textSecondary,
+                                                                          },
                                                                         ]}
                                                                       >
-                                                                        <Image
-                                                                          source={{
-                                                                            uri:
-                                                                              team.logoUrl ||
-                                                                              "https://i.imgur.com/BIC4pnO.webp",
-                                                                          }}
-                                                                          style={[
-                                                                            styles.bracketTeamLogo,
-                                                                            {
-                                                                              opacity:
-                                                                                isLoser
-                                                                                  ? 0.5
-                                                                                  : 1,
-                                                                            },
-                                                                          ]}
-                                                                          resizeMode="contain"
-                                                                        />
-                                                                        <Text
-                                                                          style={[
-                                                                            styles.bracketTeamName,
-                                                                            {
-                                                                              color:
-                                                                                theme.text,
-                                                                              opacity:
-                                                                                isLoser
-                                                                                  ? 0.6
-                                                                                  : 1,
-                                                                            },
-                                                                          ]}
-                                                                          numberOfLines={
-                                                                            1
+                                                                        {match.startDate
+                                                                          ? `${new Date(
+                                                                              match.startDate,
+                                                                            ).toLocaleDateString(
+                                                                              "en-US",
+                                                                              {
+                                                                                month:
+                                                                                  "short",
+                                                                                day: "numeric",
+                                                                              },
+                                                                            )} • ${new Date(
+                                                                              match.startDate,
+                                                                            ).toLocaleTimeString(
+                                                                              "en-US",
+                                                                              {
+                                                                                hour: "numeric",
+                                                                                minute:
+                                                                                  "2-digit",
+                                                                                hour12: true,
+                                                                              },
+                                                                            )}`
+                                                                          : "TBD"}
+                                                                      </Text>
+                                                                    )}
+
+                                                                    {isQualified ? (
+                                                                      <View
+                                                                        style={{
+                                                                          alignItems:
+                                                                            "center",
+                                                                          marginTop: 8,
+                                                                        }}
+                                                                      >
+                                                                        <View
+                                                                          style={
+                                                                            styles.qualifiedBox
                                                                           }
-                                                                          ellipsizeMode="tail"
                                                                         >
-                                                                          {team.shortName ||
-                                                                            team.name ||
-                                                                            "TBD"}
-                                                                        </Text>
+                                                                          {match.teams &&
+                                                                          match.teams[0] ? (
+                                                                            <Image
+                                                                              source={{
+                                                                                uri:
+                                                                                  match
+                                                                                    .teams[0]
+                                                                                    .logoUrl ||
+                                                                                  "https://i.imgur.com/BIC4pnO.webp",
+                                                                              }}
+                                                                              style={
+                                                                                styles.qualifiedLogo
+                                                                              }
+                                                                              resizeMode="contain"
+                                                                            />
+                                                                          ) : (
+                                                                            <View
+                                                                              style={[
+                                                                                styles.qualifiedLogo,
+                                                                                styles.topPlayersTeamLogoPlaceholder,
+                                                                                { backgroundColor: colors.primary + "20" },
+                                                                              ]}
+                                                                            >
+                                                                              <Ionicons
+                                                                                name="shield"
+                                                                                size={14}
+                                                                                color={
+                                                                                  colors.primary
+                                                                                }
+                                                                              />
+                                                                            </View>
+                                                                          )}
+                                                                          <Text
+                                                                            style={[
+                                                                              styles.qualifiedAbbrev,
+                                                                              { color: theme.text },
+                                                                            ]}
+                                                                          >
+                                                                            {match.teams &&
+                                                                            match.teams[0]
+                                                                              ? match
+                                                                                  .teams[0]
+                                                                                  .shortName ||
+                                                                                match
+                                                                                  .teams[0]
+                                                                                  .name || "TBD"
+                                                                              : "TBD"}
+                                                                          </Text>
+                                                                        </View>
                                                                         <Text
                                                                           style={[
-                                                                            styles.bracketTeamScore,
-                                                                            {
-                                                                              color:
-                                                                                theme.text,
-                                                                              opacity:
-                                                                                isLoser
-                                                                                  ? 0.6
-                                                                                  : 1,
-                                                                            },
+                                                                            styles.qualifiedLabel,
+                                                                            { color: match.teams[0].id ? colors.primary : theme.textSecondary },
                                                                           ]}
                                                                         >
-                                                                          {team.score ||
-                                                                            0}
+                                                                          QUAL
                                                                         </Text>
                                                                       </View>
-                                                                    );
-                                                                  },
-                                                                )}
+                                                                    ) : (
+                                                                      match.teams &&
+                                                                      match.teams.map(
+                                                                        (
+                                                                          team,
+                                                                          teamIndex,
+                                                                        ) => {
+                                                                          const isWinner =
+                                                                            match.completed &&
+                                                                            team.score >
+                                                                              (match.teams[1 - teamIndex]?.score || 0);
+                                                                          const isLoser =
+                                                                            match.completed &&
+                                                                            team.score <
+                                                                              (match.teams[1 - teamIndex]?.score || 0);
+
+                                                                          return (
+                                                                            <View
+                                                                              key={
+                                                                                teamIndex
+                                                                              }
+                                                                              style={[
+                                                                                styles.bracketTeam,
+                                                                                isWinner && styles.winnerTeam,
+                                                                                isLoser && styles.loserTeam,
+                                                                              ]}
+                                                                            >
+                                                                              <Image
+                                                                                source={{
+                                                                                  uri:
+                                                                                    team.logoUrl ||
+                                                                                    "https://i.imgur.com/BIC4pnO.webp",
+                                                                                }}
+                                                                                style={[
+                                                                                  styles.bracketTeamLogo,
+                                                                                  { opacity: isLoser ? 0.5 : 1 },
+                                                                                ]}
+                                                                                resizeMode="contain"
+                                                                              />
+                                                                              <Text
+                                                                                style={[
+                                                                                  styles.bracketTeamName,
+                                                                                  { color: theme.text, opacity: isLoser ? 0.6 : 1 },
+                                                                                ]}
+                                                                                numberOfLines={1}
+                                                                                ellipsizeMode="tail"
+                                                                              >
+                                                                                {team.shortName || team.name || "TBD"}
+                                                                              </Text>
+                                                                              <Text
+                                                                                style={[
+                                                                                  styles.bracketTeamScore,
+                                                                                  { color: theme.text, opacity: isLoser ? 0.6 : 1 },
+                                                                                ]}
+                                                                              >
+                                                                                {team.score || 0}
+                                                                              </Text>
+                                                                            </View>
+                                                                          );
+                                                                        },
+                                                                      )
+                                                                    )}
+                                                                  </>
+                                                                );
+                                                              })()}
                                                             </TouchableOpacity>
                                                           );
                                                         },
@@ -6174,6 +6396,29 @@ const styles = StyleSheet.create({
   compPicks: {
     fontSize: 12,
     fontWeight: "600",
+  },
+  // Qualified seed styles
+  qualifiedBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 9,
+    borderRadius: 8,
+    backgroundColor: "transparent",
+  },
+  qualifiedLogo: {
+    width: 40,
+    height: 40,
+    marginRight: 14,
+  },
+  qualifiedAbbrev: {
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  qualifiedLabel: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: "700",
   },
 });
 

@@ -572,6 +572,47 @@ export const getSeriesData = async (
   }
 };
 
+// Get completed series from the rib.gg API using an EST minStartDate going back `daysBack` days
+export const getCompletedSeriesRecent = async (take = 50, daysBack = 2) => {
+  try {
+    // EST is UTC-5 (fixed), we need the EST midnight for today's date then go back `daysBack` days
+    const now = new Date();
+    const estOffsetHours = -5; // EST = UTC-5
+
+    // Compute EST date for `now`
+    const estNow = new Date(now.getTime() + estOffsetHours * 60 * 60 * 1000);
+    const estYear = estNow.getFullYear();
+    const estMonth = estNow.getMonth();
+    const estDate = estNow.getDate();
+
+    // EST midnight expressed in UTC is at hour = -estOffsetHours (e.g., 5 for EST)
+    const estMidnightUtcHour = -estOffsetHours;
+
+    // Build the UTC timestamp corresponding to EST midnight `daysBack` days ago
+    const targetUtcMs = Date.UTC(
+      estYear,
+      estMonth,
+      estDate - daysBack,
+      estMidnightUtcHour,
+      0,
+      0,
+      0,
+    );
+
+    const minStartDateIso = new Date(targetUtcMs).toISOString();
+
+    const endpoint = `/series?completed=true&take=${take}&minStartDate=${encodeURIComponent(
+      minStartDateIso,
+    )}`;
+
+    const data = await ribApiCall(endpoint);
+    return data;
+  } catch (error) {
+    console.error("Error fetching completed series:", error);
+    return { data: [], meta: { start: 0, results: 0, total: 0 } };
+  }
+};
+
 // Fetch the Next.js `en.json` once (cached) and return the `series` array
 export const getAllSeriesNextData = async () => {
   const cacheKey = "rib_next_en_series_all";
@@ -579,7 +620,7 @@ export const getAllSeriesNextData = async () => {
     cacheKey,
     async () => {
       try {
-        const url = await RibBuildIdService.getNextDataUrl("/en.json");
+        const url = await RibBuildIdService.getNextDataUrl("/en/matches.json");
         const response = await fetch(url, { method: "GET" });
         if (!response.ok)
           throw new Error(`HTTP error! status: ${response.status}`);

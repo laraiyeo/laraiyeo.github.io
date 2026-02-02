@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -11,19 +11,25 @@ import {
   ScrollView,
   RefreshControl,
   Image,
-} from 'react-native';
-import { useTheme } from '../../../context/ThemeContext';
-import { useFocusEffect } from '@react-navigation/native';
+} from "react-native";
+import { useTheme } from "../../../context/ThemeContext";
+import { useFocusEffect } from "@react-navigation/native";
+import {
+  fetchScoreboardOnce,
+  fetchStandingsOnce,
+} from "../espnScoreboardCache";
 
 // Helper function for Europa League year logic
 // For Europa League standings/bracket screens: July-December uses next year, else current year
 const getEuropaLeagueYear = () => {
   const now = new Date();
   const currentMonth = now.getMonth() + 1; // getMonth() returns 0-11
-  return (currentMonth >= 7 && currentMonth <= 12) ? now.getFullYear() + 1 : now.getFullYear();
+  return currentMonth >= 7 && currentMonth <= 12
+    ? now.getFullYear() + 1
+    : now.getFullYear();
 };
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 // In-memory cache for prefetched logo URIs to avoid flicker
 const logoUriCache = {};
@@ -37,7 +43,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
   const { theme, colors, isDarkMode } = useTheme();
 
   // View state: 'bracket' or 'knockout' (default to 'knockout')
-  const [currentView, setCurrentView] = useState('knockout');
+  const [currentView, setCurrentView] = useState("knockout");
 
   // Data states
   const [knockoutPairings, setKnockoutPairings] = useState({});
@@ -69,27 +75,18 @@ const UECLBracketScreen = ({ navigation, route }) => {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const chr = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + chr;
+      hash = (hash << 5) - hash + chr;
       hash |= 0;
     }
     return hash;
   };
 
-  // Fetch standings with caching
+  // Fetch standings via shared cache
   const fetchStandings = async () => {
     try {
-      const now = Date.now();
-      if (cachedStandings && (now - lastStandingsCache) < CACHE_DURATION) {
-        return cachedStandings;
-      }
-
-      const STANDINGS_URL = `https://cdn.espn.com/core/soccer/table?xhr=1&league=uefa.europa`;
-      const response = await fetch(STANDINGS_URL);
-      const data = await response.json();
-
-      const standings = data.content.standings.groups[0].standings.entries || [];
+      const leagueCode = LEAGUES["Europa League"].code;
+      const standings = await fetchStandingsOnce(leagueCode);
       setCachedStandings(standings);
-      setLastStandingsCache(now);
       return standings;
     } catch (error) {
       console.error("Error fetching standings:", error);
@@ -99,7 +96,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
 
   // Get team rank from standings
   const getTeamRank = (teamId, standings) => {
-    const teamEntry = standings.find(entry => entry.team.id === teamId);
+    const teamEntry = standings.find((entry) => entry.team.id === teamId);
     return teamEntry?.note?.rank || teamEntry?.team.rank || null;
   };
 
@@ -107,10 +104,11 @@ const UECLBracketScreen = ({ navigation, route }) => {
   const fetchKnockoutPlayoffs = async () => {
     try {
       const currentYear = getEuropaLeagueYear();
-      const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard?dates=${currentYear}0101`;
-
-      const calendarResponse = await fetch(CALENDAR_API_URL);
-      const calendarText = await calendarResponse.text();
+      const calendarData = await fetchScoreboardOnce(
+        LEAGUES["Europa League"].code,
+        `${currentYear}0101`,
+      );
+      const calendarText = JSON.stringify(calendarData || {});
       const newHash = hashString(calendarText);
 
       if (newHash === lastBracketHash) {
@@ -119,12 +117,11 @@ const UECLBracketScreen = ({ navigation, route }) => {
       }
       setLastBracketHash(newHash);
 
-      const calendarData = JSON.parse(calendarText);
-
       // Find the Knockout Round Playoffs stage
-      const knockoutStage = calendarData.leagues?.[0]?.calendar?.[0]?.entries.find(e =>
-        e.label === "Knockout Round Playoffs"
-      );
+      const knockoutStage =
+        calendarData.leagues?.[0]?.calendar?.[0]?.entries.find(
+          (e) => e.label === "Knockout Round Playoffs",
+        );
 
       if (!knockoutStage) {
         console.log("Knockout Round Playoffs not found in calendar.");
@@ -132,11 +129,11 @@ const UECLBracketScreen = ({ navigation, route }) => {
       }
 
       const dates = `${knockoutStage.startDate.split("T")[0].replace(/-/g, "")}-${knockoutStage.endDate.split("T")[0].replace(/-/g, "")}`;
-      const SCOREBOARD_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard?dates=${dates}`;
-
-      const scoreboardResponse = await fetch(SCOREBOARD_API_URL);
-      const scoreboardData = await scoreboardResponse.json();
-      const events = scoreboardData.events || [];
+      const scoreboardData = await fetchScoreboardOnce(
+        LEAGUES["Europa League"].code,
+        dates,
+      );
+      const events = (scoreboardData && scoreboardData.events) || [];
 
       // Get standings for team rankings
       const standings = await fetchStandings();
@@ -144,7 +141,6 @@ const UECLBracketScreen = ({ navigation, route }) => {
       // Group matches by pairing
       const pairings = groupMatchesByPairing(events, standings);
       setKnockoutPairings(pairings);
-
     } catch (error) {
       console.error("Error fetching knockout playoffs:", error);
     }
@@ -154,12 +150,16 @@ const UECLBracketScreen = ({ navigation, route }) => {
   const groupMatchesByPairing = (events, standings) => {
     const matchups = {};
 
-    events.forEach(event => {
+    events.forEach((event) => {
       const competition = event.competitions?.[0];
       if (!competition) return;
 
-      const homeTeam = competition.competitors.find(c => c.homeAway === "home")?.team;
-      const awayTeam = competition.competitors.find(c => c.homeAway === "away")?.team;
+      const homeTeam = competition.competitors.find(
+        (c) => c.homeAway === "home",
+      )?.team;
+      const awayTeam = competition.competitors.find(
+        (c) => c.homeAway === "away",
+      )?.team;
 
       if (!homeTeam || !awayTeam) return;
 
@@ -174,20 +174,32 @@ const UECLBracketScreen = ({ navigation, route }) => {
       const matchupKey = [homeTeam.id, awayTeam.id].sort().join("-");
 
       if (!matchups[matchupKey]) {
-        const sortedTeams = [homeTeam, awayTeam].sort((a, b) => a.id.localeCompare(b.id));
+        const sortedTeams = [homeTeam, awayTeam].sort((a, b) =>
+          a.id.localeCompare(b.id),
+        );
         matchups[matchupKey] = {
           homeTeam: sortedTeams[0],
           awayTeam: sortedTeams[1],
           matches: [],
           aggregateHome: 0,
-          aggregateAway: 0
+          aggregateAway: 0,
         };
       }
 
-      const homeScore = parseInt(competition.competitors.find(c => c.homeAway === "home")?.score || 0);
-      const awayScore = parseInt(competition.competitors.find(c => c.homeAway === "away")?.score || 0);
-      const homeShootoutScore = parseInt(competition.competitors.find(c => c.homeAway === "home")?.shootoutScore || 0);
-      const awayShootoutScore = parseInt(competition.competitors.find(c => c.homeAway === "away")?.shootoutScore || 0);
+      const homeScore = parseInt(
+        competition.competitors.find((c) => c.homeAway === "home")?.score || 0,
+      );
+      const awayScore = parseInt(
+        competition.competitors.find((c) => c.homeAway === "away")?.score || 0,
+      );
+      const homeShootoutScore = parseInt(
+        competition.competitors.find((c) => c.homeAway === "home")
+          ?.shootoutScore || 0,
+      );
+      const awayShootoutScore = parseInt(
+        competition.competitors.find((c) => c.homeAway === "away")
+          ?.shootoutScore || 0,
+      );
 
       matchups[matchupKey].matches.push({
         homeTeam,
@@ -199,7 +211,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
         leg: competition.leg?.value || 1,
         status: competition.status.type.state,
         gameId: event.id,
-        date: new Date(event.date).toLocaleDateString()
+        date: new Date(event.date).toLocaleDateString(),
       });
 
       // Update aggregate scores correctly - add scores for each specific team
@@ -228,20 +240,37 @@ const UECLBracketScreen = ({ navigation, route }) => {
       "Pairing I": [],
       "Pairing II": [],
       "Pairing III": [],
-      "Pairing IV": []
+      "Pairing IV": [],
     };
 
-    matchupArray.forEach(matchup => {
-      const ranks = [matchup.homeTeam.rank, matchup.awayTeam.rank].sort((a, b) => a - b);
+    matchupArray.forEach((matchup) => {
+      const ranks = [matchup.homeTeam.rank, matchup.awayTeam.rank].sort(
+        (a, b) => a - b,
+      );
 
       // Assign based on typical UEFA playoff pairings - each pairing can have 2 matchups
-      if ((ranks[0] >= 9 && ranks[0] <= 10) && (ranks[1] >= 23 && ranks[1] <= 24)) {
+      if (ranks[0] >= 9 && ranks[0] <= 10 && ranks[1] >= 23 && ranks[1] <= 24) {
         pairings["Pairing I"].push(matchup);
-      } else if ((ranks[0] >= 11 && ranks[0] <= 12) && (ranks[1] >= 21 && ranks[1] <= 22)) {
+      } else if (
+        ranks[0] >= 11 &&
+        ranks[0] <= 12 &&
+        ranks[1] >= 21 &&
+        ranks[1] <= 22
+      ) {
         pairings["Pairing II"].push(matchup);
-      } else if ((ranks[0] >= 13 && ranks[0] <= 14) && (ranks[1] >= 19 && ranks[1] <= 20)) {
+      } else if (
+        ranks[0] >= 13 &&
+        ranks[0] <= 14 &&
+        ranks[1] >= 19 &&
+        ranks[1] <= 20
+      ) {
         pairings["Pairing III"].push(matchup);
-      } else if ((ranks[0] >= 15 && ranks[0] <= 16) && (ranks[1] >= 17 && ranks[1] <= 18)) {
+      } else if (
+        ranks[0] >= 15 &&
+        ranks[0] <= 16 &&
+        ranks[1] >= 17 &&
+        ranks[1] <= 18
+      ) {
         pairings["Pairing IV"].push(matchup);
       }
     });
@@ -253,27 +282,29 @@ const UECLBracketScreen = ({ navigation, route }) => {
   const fetchRoundOf16Matchups = async () => {
     try {
       const now = Date.now();
-      if (cachedRoundOf16 && (now - lastMatchupsCache) < CACHE_DURATION) {
+      if (cachedRoundOf16 && now - lastMatchupsCache < CACHE_DURATION) {
         setRoundOf16Matchups(cachedRoundOf16);
         return cachedRoundOf16;
       }
 
       const currentYear = getEuropaLeagueYear();
-      const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard?dates=${currentYear}0101`;
-
-      const calendarResponse = await fetch(CALENDAR_API_URL);
-      const calendarData = await calendarResponse.json();
+      const calendarData = await fetchScoreboardOnce(
+        LEAGUES["Europa League"].code,
+        `${currentYear}0101`,
+      );
 
       // Find the Round of 16 stage
-      let roundOf16Stage = calendarData.leagues?.[0]?.calendar?.[0]?.entries.find(e =>
-        e.label === "Round of 16" ||
-        e.label === "1/8-Finals" ||
-        e.label === "Rd of 16" ||
-        e.label === "Round of 16 Finals" ||
-        e.label === "Knockout Stage Round of 16" ||
-        e.label.toLowerCase().includes("round of 16") ||
-        e.label.toLowerCase().includes("1/8")
-      );
+      let roundOf16Stage =
+        calendarData.leagues?.[0]?.calendar?.[0]?.entries.find(
+          (e) =>
+            e.label === "Round of 16" ||
+            e.label === "1/8-Finals" ||
+            e.label === "Rd of 16" ||
+            e.label === "Round of 16 Finals" ||
+            e.label === "Knockout Stage Round of 16" ||
+            e.label.toLowerCase().includes("round of 16") ||
+            e.label.toLowerCase().includes("1/8"),
+        );
 
       if (!roundOf16Stage) {
         setRoundOf16Matchups([]);
@@ -281,11 +312,11 @@ const UECLBracketScreen = ({ navigation, route }) => {
       }
 
       const dates = `${roundOf16Stage.startDate.split("T")[0].replace(/-/g, "")}-${roundOf16Stage.endDate.split("T")[0].replace(/-/g, "")}`;
-      const ROUND_OF_16_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard?dates=${dates}`;
-
-      const response = await fetch(ROUND_OF_16_API_URL);
-      const data = await response.json();
-      const events = data.events || [];
+      const data = await fetchScoreboardOnce(
+        LEAGUES["Europa League"].code,
+        dates,
+      );
+      const events = (data && data.events) || [];
 
       const matchups = groupRoundOf16ByMatchup(events);
       setCachedRoundOf16(matchups);
@@ -303,12 +334,16 @@ const UECLBracketScreen = ({ navigation, route }) => {
   const groupRoundOf16ByMatchup = (events) => {
     const matchups = {};
 
-    events.forEach(event => {
+    events.forEach((event) => {
       const competition = event.competitions?.[0];
       if (!competition) return;
 
-      const homeTeam = competition.competitors.find(c => c.homeAway === "home")?.team;
-      const awayTeam = competition.competitors.find(c => c.homeAway === "away")?.team;
+      const homeTeam = competition.competitors.find(
+        (c) => c.homeAway === "home",
+      )?.team;
+      const awayTeam = competition.competitors.find(
+        (c) => c.homeAway === "away",
+      )?.team;
 
       if (!homeTeam || !awayTeam) return;
 
@@ -316,20 +351,32 @@ const UECLBracketScreen = ({ navigation, route }) => {
       const matchupKey = [homeTeam.id, awayTeam.id].sort().join("-");
 
       if (!matchups[matchupKey]) {
-        const sortedTeams = [homeTeam, awayTeam].sort((a, b) => a.id.localeCompare(b.id));
+        const sortedTeams = [homeTeam, awayTeam].sort((a, b) =>
+          a.id.localeCompare(b.id),
+        );
         matchups[matchupKey] = {
           homeTeam: sortedTeams[0],
           awayTeam: sortedTeams[1],
           matches: [],
           aggregateHome: 0,
-          aggregateAway: 0
+          aggregateAway: 0,
         };
       }
 
-      const homeScore = parseInt(competition.competitors.find(c => c.homeAway === "home")?.score || 0);
-      const awayScore = parseInt(competition.competitors.find(c => c.homeAway === "away")?.score || 0);
-      const homeShootoutScore = parseInt(competition.competitors.find(c => c.homeAway === "home")?.shootoutScore || 0);
-      const awayShootoutScore = parseInt(competition.competitors.find(c => c.homeAway === "away")?.shootoutScore || 0);
+      const homeScore = parseInt(
+        competition.competitors.find((c) => c.homeAway === "home")?.score || 0,
+      );
+      const awayScore = parseInt(
+        competition.competitors.find((c) => c.homeAway === "away")?.score || 0,
+      );
+      const homeShootoutScore = parseInt(
+        competition.competitors.find((c) => c.homeAway === "home")
+          ?.shootoutScore || 0,
+      );
+      const awayShootoutScore = parseInt(
+        competition.competitors.find((c) => c.homeAway === "away")
+          ?.shootoutScore || 0,
+      );
 
       matchups[matchupKey].matches.push({
         homeTeam,
@@ -341,7 +388,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
         leg: competition.leg?.value || 1,
         status: competition.status.type.state,
         gameId: event.id,
-        date: new Date(event.date).toLocaleDateString()
+        date: new Date(event.date).toLocaleDateString(),
       });
 
       // Update aggregate scores
@@ -366,20 +413,24 @@ const UECLBracketScreen = ({ navigation, route }) => {
   const fetchQuarterfinalsMatchups = async () => {
     try {
       const now = Date.now();
-      if (cachedQuarterfinals && (now - lastMatchupsCache) < CACHE_DURATION) {
+      if (cachedQuarterfinals && now - lastMatchupsCache < CACHE_DURATION) {
         setQuarterfinalsMatchups(cachedQuarterfinals);
         return cachedQuarterfinals;
       }
 
       const currentYear = getEuropaLeagueYear();
-      const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard?dates=${currentYear}0101`;
-
-      const calendarResponse = await fetch(CALENDAR_API_URL);
-      const calendarData = await calendarResponse.json();
-
-      const quarterfinalsStage = calendarData.leagues?.[0]?.calendar?.[0]?.entries.find(e =>
-        e.label === "Quarterfinals" || e.label === "Quarter-finals" || e.label.toLowerCase().includes("quarter")
+      const calendarData = await fetchScoreboardOnce(
+        LEAGUES["Europa League"].code,
+        `${currentYear}0101`,
       );
+
+      const quarterfinalsStage =
+        calendarData.leagues?.[0]?.calendar?.[0]?.entries.find(
+          (e) =>
+            e.label === "Quarterfinals" ||
+            e.label === "Quarter-finals" ||
+            e.label.toLowerCase().includes("quarter"),
+        );
 
       if (!quarterfinalsStage) {
         setQuarterfinalsMatchups([]);
@@ -387,11 +438,11 @@ const UECLBracketScreen = ({ navigation, route }) => {
       }
 
       const dates = `${quarterfinalsStage.startDate.split("T")[0].replace(/-/g, "")}-${quarterfinalsStage.endDate.split("T")[0].replace(/-/g, "")}`;
-      const API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard?dates=${dates}`;
-
-      const response = await fetch(API_URL);
-      const data = await response.json();
-      const events = data.events || [];
+      const data = await fetchScoreboardOnce(
+        LEAGUES["Europa League"].code,
+        dates,
+      );
+      const events = (data && data.events) || [];
 
       const matchups = groupRoundOf16ByMatchup(events);
       setCachedQuarterfinals(matchups);
@@ -407,20 +458,24 @@ const UECLBracketScreen = ({ navigation, route }) => {
   const fetchSemifinalsMatchups = async () => {
     try {
       const now = Date.now();
-      if (cachedSemifinals && (now - lastMatchupsCache) < CACHE_DURATION) {
+      if (cachedSemifinals && now - lastMatchupsCache < CACHE_DURATION) {
         setSemifinalsMatchups(cachedSemifinals);
         return cachedSemifinals;
       }
 
       const currentYear = getEuropaLeagueYear();
-      const CALENDAR_API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard?dates=${currentYear}0101`;
-
-      const calendarResponse = await fetch(CALENDAR_API_URL);
-      const calendarData = await calendarResponse.json();
-
-      const semifinalsStage = calendarData.leagues?.[0]?.calendar?.[0]?.entries.find(e =>
-        e.label === "Semifinals" || e.label === "Semi-finals" || e.label.toLowerCase().includes("semi")
+      const calendarData = await fetchScoreboardOnce(
+        LEAGUES["Europa League"].code,
+        `${currentYear}0101`,
       );
+
+      const semifinalsStage =
+        calendarData.leagues?.[0]?.calendar?.[0]?.entries.find(
+          (e) =>
+            e.label === "Semifinals" ||
+            e.label === "Semi-finals" ||
+            e.label.toLowerCase().includes("semi"),
+        );
 
       if (!semifinalsStage) {
         setSemifinalsMatchups([]);
@@ -428,11 +483,11 @@ const UECLBracketScreen = ({ navigation, route }) => {
       }
 
       const dates = `${semifinalsStage.startDate.split("T")[0].replace(/-/g, "")}-${semifinalsStage.endDate.split("T")[0].replace(/-/g, "")}`;
-      const API_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard?dates=${dates}`;
-
-      const response = await fetch(API_URL);
-      const data = await response.json();
-      const events = data.events || [];
+      const data = await fetchScoreboardOnce(
+        LEAGUES["Europa League"].code,
+        dates,
+      );
+      const events = (data && data.events) || [];
 
       const matchups = groupRoundOf16ByMatchup(events);
       setCachedSemifinals(matchups);
@@ -448,7 +503,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
   const fetchFinalsMatchups = async () => {
     try {
       const now = Date.now();
-      if (cachedFinals && (now - lastMatchupsCache) < CACHE_DURATION) {
+      if (cachedFinals && now - lastMatchupsCache < CACHE_DURATION) {
         setFinalsMatchups(cachedFinals);
         return cachedFinals;
       }
@@ -459,9 +514,10 @@ const UECLBracketScreen = ({ navigation, route }) => {
       const calendarResponse = await fetch(CALENDAR_API_URL);
       const calendarData = await calendarResponse.json();
 
-      const finalsStage = calendarData.leagues?.[0]?.calendar?.[0]?.entries.find(e =>
-        e.label === "Final"
-      );
+      const finalsStage =
+        calendarData.leagues?.[0]?.calendar?.[0]?.entries.find(
+          (e) => e.label === "Final",
+        );
 
       if (!finalsStage) {
         setFinalsMatchups([]);
@@ -492,8 +548,12 @@ const UECLBracketScreen = ({ navigation, route }) => {
     let homeShootoutScore = 0;
     let awayShootoutScore = 0;
 
-    const finishedMatches = matchup.matches.filter(match => match.status === "post");
-    const matchWithShootout = finishedMatches.find(match => match.homeShootoutScore > 0 || match.awayShootoutScore > 0);
+    const finishedMatches = matchup.matches.filter(
+      (match) => match.status === "post",
+    );
+    const matchWithShootout = finishedMatches.find(
+      (match) => match.homeShootoutScore > 0 || match.awayShootoutScore > 0,
+    );
 
     if (matchWithShootout) {
       if (matchWithShootout.homeTeam.id === matchup.homeTeam.id) {
@@ -504,11 +564,14 @@ const UECLBracketScreen = ({ navigation, route }) => {
         awayShootoutScore = matchWithShootout.homeShootoutScore;
       }
     }
-    
+
     // (renderKnockoutView was previously accidentally nested here; moved to top-level)
 
     // If aggregate scores are tied, use shootout to determine winner
-    if (aggregateHome === aggregateAway && (homeShootoutScore > 0 || awayShootoutScore > 0)) {
+    if (
+      aggregateHome === aggregateAway &&
+      (homeShootoutScore > 0 || awayShootoutScore > 0)
+    ) {
       if (homeShootoutScore > awayShootoutScore) {
         return {
           winner: matchup.homeTeam,
@@ -517,7 +580,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
           loserScore: aggregateAway,
           isTie: false,
           homeShootoutScore,
-          awayShootoutScore
+          awayShootoutScore,
         };
       } else if (awayShootoutScore > homeShootoutScore) {
         return {
@@ -527,7 +590,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
           loserScore: aggregateHome,
           isTie: false,
           homeShootoutScore,
-          awayShootoutScore
+          awayShootoutScore,
         };
       }
     }
@@ -541,7 +604,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
         loserScore: aggregateAway,
         isTie: false,
         homeShootoutScore,
-        awayShootoutScore
+        awayShootoutScore,
       };
     } else if (aggregateAway > aggregateHome) {
       return {
@@ -551,7 +614,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
         loserScore: aggregateHome,
         isTie: false,
         homeShootoutScore,
-        awayShootoutScore
+        awayShootoutScore,
       };
     } else {
       return {
@@ -561,7 +624,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
         loserScore: aggregateAway,
         isTie: true,
         homeShootoutScore,
-        awayShootoutScore
+        awayShootoutScore,
       };
     }
   };
@@ -575,15 +638,17 @@ const UECLBracketScreen = ({ navigation, route }) => {
         fetchRoundOf16Matchups(),
         fetchQuarterfinalsMatchups(),
         fetchSemifinalsMatchups(),
-        fetchFinalsMatchups()
+        fetchFinalsMatchups(),
       ]);
 
       // After data loads, prefetch logos for all teams seen in the bracket
       const allTeamIds = [];
-      const collectFrom = (arr) => arr && arr.forEach(m => {
-        if (m.homeTeam?.id) allTeamIds.push(m.homeTeam.id);
-        if (m.awayTeam?.id) allTeamIds.push(m.awayTeam.id);
-      });
+      const collectFrom = (arr) =>
+        arr &&
+        arr.forEach((m) => {
+          if (m.homeTeam?.id) allTeamIds.push(m.homeTeam.id);
+          if (m.awayTeam?.id) allTeamIds.push(m.awayTeam.id);
+        });
 
       collectFrom(quarterfinalsMatchups);
       collectFrom(semifinalsMatchups);
@@ -591,8 +656,8 @@ const UECLBracketScreen = ({ navigation, route }) => {
       collectFrom(roundOf16Matchups);
 
       // Also include pairings
-      Object.values(knockoutPairings || {}).forEach(pairArr => {
-        pairArr.forEach(m => {
+      Object.values(knockoutPairings || {}).forEach((pairArr) => {
+        pairArr.forEach((m) => {
           if (m.homeTeam?.id) allTeamIds.push(m.homeTeam.id);
           if (m.awayTeam?.id) allTeamIds.push(m.awayTeam.id);
         });
@@ -611,7 +676,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
   // Focus effect to reload data when screen is focused
   useFocusEffect(
     React.useCallback(() => {
-      console.log('UECLBracketScreen: Screen focused');
+      console.log("UECLBracketScreen: Screen focused");
       loadData();
 
       // Set up periodic updates
@@ -622,7 +687,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
       return () => {
         clearInterval(interval);
       };
-    }, [])
+    }, []),
   );
 
   // Refresh function
@@ -634,6 +699,13 @@ const UECLBracketScreen = ({ navigation, route }) => {
 
   // Handle matchup press for modal
   const handleMatchupPress = (matchup) => {
+    console.log(
+      "UEL handleMatchupPress",
+      matchup?.homeTeam?.id,
+      matchup?.awayTeam?.id,
+      "matches:",
+      matchup?.matches?.length,
+    );
     setSelectedMatchup(matchup);
     setModalVisible(true);
   };
@@ -641,10 +713,10 @@ const UECLBracketScreen = ({ navigation, route }) => {
   // Handle game press for navigation
   const handleGamePress = (gameId) => {
     setModalVisible(false);
-    navigation.navigate('UECLGameDetails', {
+    navigation.navigate("UECLGameDetails", {
       gameId: gameId,
-      sport: 'Europa League',
-      competition: 'UECL'
+      sport: "Europa League",
+      competition: "UECL",
     });
   };
 
@@ -678,9 +750,10 @@ const UECLBracketScreen = ({ navigation, route }) => {
   // Small TeamLogoImage component (memoized) with simple 2-stage fallback logic
   const TeamLogoImage = React.memo(({ teamId, style }) => {
     // Use cached URI synchronously when available to avoid flicker
-    const initialSource = teamId && logoUriCache[teamId]
-      ? { uri: logoUriCache[teamId], cache: 'force-cache' }
-      : require('../../../../assets/soccer.png');
+    const initialSource =
+      teamId && logoUriCache[teamId]
+        ? { uri: logoUriCache[teamId], cache: "force-cache" }
+        : require("../../../../assets/soccer.png");
     const [source, setSource] = useState(initialSource);
     const [triedFallback, setTriedFallback] = useState(false);
 
@@ -688,15 +761,21 @@ const UECLBracketScreen = ({ navigation, route }) => {
       let mounted = true;
 
       // reset to placeholder when teamId changes
-      setSource(require('../../../../assets/soccer.png'));
+      setSource(require("../../../../assets/soccer.png"));
       setTriedFallback(false);
 
-      if (!teamId) return () => { mounted = false; };
+      if (!teamId)
+        return () => {
+          mounted = false;
+        };
 
       // If we already prefetched this team's logo earlier, use it immediately
       if (logoUriCache[teamId]) {
-        if (mounted) setSource({ uri: logoUriCache[teamId], cache: 'force-cache' });
-        return () => { mounted = false; };
+        if (mounted)
+          setSource({ uri: logoUriCache[teamId], cache: "force-cache" });
+        return () => {
+          mounted = false;
+        };
       }
 
       const logos = getTeamLogo(teamId, isDarkMode);
@@ -710,7 +789,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
           await Image.prefetch(url);
           if (!mounted) return false;
           // Use cache option to help prevent re-downloads
-          setSource({ uri: url, cache: 'force-cache' });
+          setSource({ uri: url, cache: "force-cache" });
           return true;
         } catch (e) {
           return false;
@@ -743,11 +822,13 @@ const UECLBracketScreen = ({ navigation, route }) => {
         }
         if (mounted) {
           // leave placeholder if nothing works
-          setSource(require('../../../../assets/soccer.png'));
+          setSource(require("../../../../assets/soccer.png"));
         }
       })();
 
-      return () => { mounted = false; };
+      return () => {
+        mounted = false;
+      };
     }, [teamId, isDarkMode]);
 
     // onError fallback for unexpected failures during rendering
@@ -756,13 +837,13 @@ const UECLBracketScreen = ({ navigation, route }) => {
       if (!triedFallback) {
         const logos = getTeamLogo(teamId, isDarkMode);
         if (logos?.fallbackUrl) {
-          setSource({ uri: logos.fallbackUrl, cache: 'force-cache' });
+          setSource({ uri: logos.fallbackUrl, cache: "force-cache" });
           setTriedFallback(true);
           return;
         }
       }
       // final fallback
-      setSource(require('../../../../assets/soccer.png'));
+      setSource(require("../../../../assets/soccer.png"));
     };
 
     return (
@@ -778,38 +859,47 @@ const UECLBracketScreen = ({ navigation, route }) => {
   // Prefetch an array of teamIds and populate logoUriCache to reduce flicker
   const prefetchLogos = async (teamIds = []) => {
     const unique = Array.from(new Set(teamIds.filter(Boolean)));
-    await Promise.all(unique.map(async (teamId) => {
-      if (logoUriCache[teamId]) return;
-      const logos = getTeamLogo(teamId, isDarkMode);
-      const candidates = [logos?.primaryUrl, logos?.fallbackUrl, `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`].filter(Boolean);
-      for (const url of candidates) {
-        try {
-          await Image.prefetch(url);
-          logoUriCache[teamId] = url;
-          break;
-        } catch (e) {
-          // try next
+    await Promise.all(
+      unique.map(async (teamId) => {
+        if (logoUriCache[teamId]) return;
+        const logos = getTeamLogo(teamId, isDarkMode);
+        const candidates = [
+          logos?.primaryUrl,
+          logos?.fallbackUrl,
+          `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`,
+        ].filter(Boolean);
+        for (const url of candidates) {
+          try {
+            await Image.prefetch(url);
+            logoUriCache[teamId] = url;
+            break;
+          } catch (e) {
+            // try next
+          }
         }
-      }
-    }));
+      }),
+    );
   };
 
   // Render view selector
   const renderViewSelector = () => {
     // Knockout should be first/left and default
     return (
-      <View style={[styles.selectorContainer, { backgroundColor: theme.surface }]}>
+      <View
+        style={[styles.selectorContainer, { backgroundColor: theme.surface }]}
+      >
         <TouchableOpacity
           style={[
             styles.selectorButton,
-            currentView === 'knockout' && { backgroundColor: colors.primary }
+            currentView === "knockout" && { backgroundColor: colors.primary },
           ]}
-          onPress={() => setCurrentView('knockout')}
+          onPress={() => setCurrentView("knockout")}
         >
-          <Text allowFontScaling={false}
+          <Text
+            allowFontScaling={false}
             style={[
               styles.selectorText,
-              { color: currentView === 'knockout' ? '#fff' : theme.text }
+              { color: currentView === "knockout" ? "#fff" : theme.text },
             ]}
           >
             Knockout
@@ -819,14 +909,15 @@ const UECLBracketScreen = ({ navigation, route }) => {
         <TouchableOpacity
           style={[
             styles.selectorButton,
-            currentView === 'bracket' && { backgroundColor: colors.primary }
+            currentView === "bracket" && { backgroundColor: colors.primary },
           ]}
-          onPress={() => setCurrentView('bracket')}
+          onPress={() => setCurrentView("bracket")}
         >
-          <Text allowFontScaling={false}
+          <Text
+            allowFontScaling={false}
             style={[
               styles.selectorText,
-              { color: currentView === 'bracket' ? '#fff' : theme.text }
+              { color: currentView === "bracket" ? "#fff" : theme.text },
             ]}
           >
             Bracket
@@ -842,8 +933,17 @@ const UECLBracketScreen = ({ navigation, route }) => {
 
     // Build rows in the requested vertical order: 2 QFs (top), top SF, FINAL, bottom SF, 2 QFs (bottom)
     // Safe fallbacks are used when some rounds are missing.
-    const topQFs = quarterfinalsMatchups.slice(0, Math.min(2, quarterfinalsMatchups.length));
-    const bottomQFs = quarterfinalsMatchups.length > 2 ? quarterfinalsMatchups.slice(2, Math.min(4, quarterfinalsMatchups.length)) : [];
+    const topQFs = quarterfinalsMatchups.slice(
+      0,
+      Math.min(2, quarterfinalsMatchups.length),
+    );
+    const bottomQFs =
+      quarterfinalsMatchups.length > 2
+        ? quarterfinalsMatchups.slice(
+            2,
+            Math.min(4, quarterfinalsMatchups.length),
+          )
+        : [];
 
     const topSemi = semifinalsMatchups[0] ? [semifinalsMatchups[0]] : [];
     const bottomSemi = semifinalsMatchups[1] ? [semifinalsMatchups[1]] : [];
@@ -851,11 +951,11 @@ const UECLBracketScreen = ({ navigation, route }) => {
     const finalRow = finalsMatchups[0] ? [finalsMatchups[0]] : [];
 
     // Always add rows, even if empty (TBD placeholders will be rendered)
-    mobileBracketData.push({ type: 'qf-row', matchups: topQFs });
-    mobileBracketData.push({ type: 'sf-row', matchups: topSemi });
-    mobileBracketData.push({ type: 'finals-row', matchups: finalRow });
-    mobileBracketData.push({ type: 'sf-row', matchups: bottomSemi });
-    mobileBracketData.push({ type: 'qf-row', matchups: bottomQFs });
+    mobileBracketData.push({ type: "qf-row", matchups: topQFs });
+    mobileBracketData.push({ type: "sf-row", matchups: topSemi });
+    mobileBracketData.push({ type: "finals-row", matchups: finalRow });
+    mobileBracketData.push({ type: "sf-row", matchups: bottomSemi });
+    mobileBracketData.push({ type: "qf-row", matchups: bottomQFs });
 
     return (
       <FlatList
@@ -876,28 +976,28 @@ const UECLBracketScreen = ({ navigation, route }) => {
     );
   };
 
-    // Top-level renderKnockoutView (moved out of getWinnerInfo)
-    const renderKnockoutView = () => {
-      const pairingData = Object.entries(knockoutPairings || {});
+  // Top-level renderKnockoutView (moved out of getWinnerInfo)
+  const renderKnockoutView = () => {
+    const pairingData = Object.entries(knockoutPairings || {});
 
-      return (
-        <FlatList
-          data={pairingData}
-          keyExtractor={(item) => item[0]}
-          renderItem={({ item }) => renderPairingRow(item)}
-          contentContainerStyle={styles.knockoutContainer}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-            />
-          }
-          showsVerticalScrollIndicator={false}
-        />
-      );
-    };
+    return (
+      <FlatList
+        data={pairingData}
+        keyExtractor={(item) => item[0]}
+        renderItem={({ item }) => renderPairingRow(item)}
+        contentContainerStyle={styles.knockoutContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      />
+    );
+  };
 
   // Render bracket row
   const renderBracketRow = (rowData) => {
@@ -908,35 +1008,59 @@ const UECLBracketScreen = ({ navigation, route }) => {
         {matchups.map((matchup, index) => {
           // If this is the finals row, try to get a representative gameId to navigate to
           let finalGameId = null;
-          if (type === 'finals-row' && matchup && matchup.matches && matchup.matches.length > 0) {
+          if (
+            type === "finals-row" &&
+            matchup &&
+            matchup.matches &&
+            matchup.matches.length > 0
+          ) {
             // Prefer an in-progress or finished match, otherwise take the first
-            const prefer = matchup.matches.find(m => m.status === 'in') || matchup.matches.find(m => m.status === 'post') || matchup.matches[0];
+            const prefer =
+              matchup.matches.find((m) => m.status === "in") ||
+              matchup.matches.find((m) => m.status === "post") ||
+              matchup.matches[0];
             finalGameId = prefer?.gameId || null;
           }
 
-          const onPressHandler = type === 'finals-row'
-            ? (finalGameId ? () => handleGamePress(finalGameId) : undefined)
-            : () => handleMatchupPress(matchup);
+          let onPressHandler;
+          if (type === "finals-row") {
+            onPressHandler = finalGameId
+              ? () => handleGamePress(finalGameId)
+              : undefined;
+          } else {
+            const clickable =
+              matchup &&
+              matchup.homeTeam?.id &&
+              matchup.awayTeam?.id &&
+              Array.isArray(matchup.matches) &&
+              matchup.matches.length > 0;
+            onPressHandler = clickable
+              ? () => handleMatchupPress(matchup)
+              : undefined;
+          }
 
           return (
             <TouchableOpacity
               key={`${type}-${index}`}
               style={[
                 styles.bracketRound,
-                type === 'qf-row' && styles.qfRound,
-                type === 'sf-row' && styles.sfRound,
-                type === 'finals-row' && styles.finalsRound,
-                { backgroundColor: theme.surface, shadowColor: theme.text }
+                type === "qf-row" && styles.qfRound,
+                type === "sf-row" && styles.sfRound,
+                type === "finals-row" && styles.finalsRound,
+                { backgroundColor: theme.surface, shadowColor: theme.text },
               ]}
               onPress={onPressHandler}
+              disabled={!onPressHandler}
+              activeOpacity={onPressHandler ? 0.85 : 1}
             >
               {renderMatchupCard(matchup, type)}
             </TouchableOpacity>
           );
         })}
-        
+
         {/* Add TBD placeholders when there are missing matchups */}
-        {type === 'qf-row' && matchups.length < 2 && (
+        {type === "qf-row" &&
+          matchups.length < 2 &&
           Array.from({ length: 2 - matchups.length }, (_, index) => (
             <View
               key={`${type}-tbd-${index}`}
@@ -944,43 +1068,74 @@ const UECLBracketScreen = ({ navigation, route }) => {
                 styles.bracketRound,
                 styles.qfRound,
                 styles.tbaMatchup,
-                { backgroundColor: theme.surfaceSecondary, shadowColor: theme.text, borderColor: theme.border }
+                {
+                  backgroundColor: theme.surfaceSecondary,
+                  shadowColor: theme.text,
+                  borderColor: theme.border,
+                },
               ]}
             >
               <View style={[styles.cardContent, styles.tbaCard]}>
-                <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>TBD vs TBD</Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.teamName, { color: theme.textSecondary }]}
+                >
+                  TBD vs TBD
+                </Text>
               </View>
             </View>
-          ))
-        )}
-        {type === 'sf-row' && matchups.length === 0 && (
+          ))}
+        {type === "sf-row" && matchups.length === 0 && (
           <View
             key={`${type}-tbd`}
             style={[
               styles.bracketRound,
               styles.sfRound,
               styles.tbaMatchup,
-              { backgroundColor: theme.surfaceSecondary, shadowColor: theme.text, borderColor: theme.border }
+              {
+                backgroundColor: theme.surfaceSecondary,
+                shadowColor: theme.text,
+                borderColor: theme.border,
+              },
             ]}
           >
             <View style={[styles.cardContent, styles.tbaCard]}>
-              <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>TBD vs TBD</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.teamName, { color: theme.textSecondary }]}
+              >
+                TBD vs TBD
+              </Text>
             </View>
           </View>
         )}
-        {type === 'finals-row' && matchups.length === 0 && (
+        {type === "finals-row" && matchups.length === 0 && (
           <View
             key={`${type}-tbd`}
             style={[
               styles.bracketRound,
               styles.finalsRound,
               styles.tbaMatchup,
-              { backgroundColor: theme.surfaceSecondary, shadowColor: theme.text, borderColor: theme.border }
+              {
+                backgroundColor: theme.surfaceSecondary,
+                shadowColor: theme.text,
+                borderColor: theme.border,
+              },
             ]}
           >
             <View style={[styles.cardContent, styles.tbaCard]}>
-              <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>FINAL</Text>
-              <Text allowFontScaling={false} style={[styles.matchScore, { color: theme.textSecondary }]}>TBD vs TBD</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.teamName, { color: theme.textSecondary }]}
+              >
+                FINAL
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.matchScore, { color: theme.textSecondary }]}
+              >
+                TBD vs TBD
+              </Text>
             </View>
           </View>
         )}
@@ -993,10 +1148,23 @@ const UECLBracketScreen = ({ navigation, route }) => {
     const aggregateHome = matchup.aggregateHome || 0;
     const aggregateAway = matchup.aggregateAway || 0;
 
-    const { winner, loser, winnerScore, loserScore, isTie, homeShootoutScore, awayShootoutScore } = getWinnerInfo(matchup, aggregateHome, aggregateAway);
+    const {
+      winner,
+      loser,
+      winnerScore,
+      loserScore,
+      isTie,
+      homeShootoutScore,
+      awayShootoutScore,
+    } = getWinnerInfo(matchup, aggregateHome, aggregateAway);
 
-    let firstTeam, secondTeam, firstScore, secondScore, firstIsWinner = false;
-    let firstShootoutScore = 0, secondShootoutScore = 0;
+    let firstTeam,
+      secondTeam,
+      firstScore,
+      secondScore,
+      firstIsWinner = false;
+    let firstShootoutScore = 0,
+      secondShootoutScore = 0;
 
     if (type === "finals-row") {
       firstTeam = matchup.homeTeam;
@@ -1030,35 +1198,99 @@ const UECLBracketScreen = ({ navigation, route }) => {
       }
     }
 
-    const firstScoreDisplay = firstShootoutScore > 0 ? `${firstScore}(${firstShootoutScore})` : firstScore.toString();
-    const secondScoreDisplay = secondShootoutScore > 0 ? `${secondScore}(${secondShootoutScore})` : secondScore.toString();
+    const firstScoreDisplay =
+      firstShootoutScore > 0
+        ? `${firstScore}(${firstShootoutScore})`
+        : firstScore.toString();
+    const secondScoreDisplay =
+      secondShootoutScore > 0
+        ? `${secondScore}(${secondShootoutScore})`
+        : secondScore.toString();
 
     if (type === "finals-row") {
-      const firstAbbrev = abbreviateFinalsTeamName(firstTeam) || (firstTeam?.displayName || "TBD");
-      const secondAbbrev = abbreviateFinalsTeamName(secondTeam) || (secondTeam?.displayName || "TBD");
+      const firstAbbrev =
+        abbreviateFinalsTeamName(firstTeam) || firstTeam?.displayName || "TBD";
+      const secondAbbrev =
+        abbreviateFinalsTeamName(secondTeam) ||
+        secondTeam?.displayName ||
+        "TBD";
 
       return (
         <View style={styles.finalsCard}>
-          <Text allowFontScaling={false} style={[styles.finalsTitle, { color: theme.text }]}>FINAL</Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.finalsTitle, { color: theme.text }]}
+          >
+            FINAL
+          </Text>
           <View style={styles.finalsMatchupHorizontal}>
             <View style={styles.finalTeamLeft}>
-              <TeamLogoImage teamId={firstTeam?.id} style={styles.finalLogoLeft} />
+              <TeamLogoImage
+                teamId={firstTeam?.id}
+                style={styles.finalLogoLeft}
+              />
               <View style={styles.finalTeamTexts}>
-                <Text allowFontScaling={false} style={[styles.teamAbbrev, { color: firstIsWinner ? colors.primary : theme.text }]}>{firstAbbrev}</Text>
-                <Text allowFontScaling={false} style={[styles.teamScore, { color: firstIsWinner ? colors.primary : theme.text }]}>{firstScoreDisplay}</Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.teamAbbrev,
+                    { color: firstIsWinner ? colors.primary : theme.text },
+                  ]}
+                >
+                  {firstAbbrev}
+                </Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.teamScore,
+                    { color: firstIsWinner ? colors.primary : theme.text },
+                  ]}
+                >
+                  {firstScoreDisplay}
+                </Text>
               </View>
             </View>
 
             <View style={styles.finalSeparator}>
-              <Text allowFontScaling={false} style={[styles.vsText, { color: theme.textSecondary }]}>vs</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.vsText, { color: theme.textSecondary }]}
+              >
+                vs
+              </Text>
             </View>
 
             <View style={styles.finalTeamRight}>
               <View style={styles.finalTeamTexts}>
-                <Text allowFontScaling={false} style={[styles.teamAbbrev, { color: !isTie && !firstIsWinner ? colors.primary : theme.text }]}>{secondAbbrev}</Text>
-                <Text allowFontScaling={false} style={[styles.teamScore, { color: !isTie && !firstIsWinner ? colors.primary : theme.text }]}>{secondScoreDisplay}</Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.teamAbbrev,
+                    {
+                      color:
+                        !isTie && !firstIsWinner ? colors.primary : theme.text,
+                    },
+                  ]}
+                >
+                  {secondAbbrev}
+                </Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.teamScore,
+                    {
+                      color:
+                        !isTie && !firstIsWinner ? colors.primary : theme.text,
+                    },
+                  ]}
+                >
+                  {secondScoreDisplay}
+                </Text>
               </View>
-              <TeamLogoImage teamId={secondTeam?.id} style={styles.finalLogoRight} />
+              <TeamLogoImage
+                teamId={secondTeam?.id}
+                style={styles.finalLogoRight}
+              />
             </View>
           </View>
         </View>
@@ -1070,13 +1302,48 @@ const UECLBracketScreen = ({ navigation, route }) => {
       <View style={styles.matchupCard}>
         <View style={styles.teamSectionVertical}>
           <TeamLogoImage teamId={firstTeam?.id} style={styles.bracketLogoTop} />
-          <Text allowFontScaling={false} style={[styles.teamName, { color: firstIsWinner ? colors.primary : theme.text }]}>{firstTeam.shortDisplayName}</Text>
-          <Text allowFontScaling={false} style={[styles.teamScore, { color: firstIsWinner ? colors.primary : theme.text }]}>{firstScoreDisplay}</Text>
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.teamName,
+              { color: firstIsWinner ? colors.primary : theme.text },
+            ]}
+          >
+            {firstTeam.shortDisplayName}
+          </Text>
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.teamScore,
+              { color: firstIsWinner ? colors.primary : theme.text },
+            ]}
+          >
+            {firstScoreDisplay}
+          </Text>
         </View>
         <View style={styles.teamSectionVertical}>
-          <TeamLogoImage teamId={secondTeam?.id} style={styles.bracketLogoTop} />
-          <Text allowFontScaling={false} style={[styles.teamName, { color: !isTie && !firstIsWinner ? colors.primary : theme.text }]}>{secondTeam.shortDisplayName}</Text>
-          <Text allowFontScaling={false} style={[styles.teamScore, { color: !isTie && !firstIsWinner ? colors.primary : theme.text }]}>{secondScoreDisplay}</Text>
+          <TeamLogoImage
+            teamId={secondTeam?.id}
+            style={styles.bracketLogoTop}
+          />
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.teamName,
+              { color: !isTie && !firstIsWinner ? colors.primary : theme.text },
+            ]}
+          >
+            {secondTeam.shortDisplayName}
+          </Text>
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.teamScore,
+              { color: !isTie && !firstIsWinner ? colors.primary : theme.text },
+            ]}
+          >
+            {secondScoreDisplay}
+          </Text>
         </View>
       </View>
     );
@@ -1087,29 +1354,119 @@ const UECLBracketScreen = ({ navigation, route }) => {
     if (matchups.length === 0) {
       return (
         <View style={[styles.pairingRow, { backgroundColor: theme.surface }]}>
-          <Text allowFontScaling={false} style={[styles.pairingTitle, { color: theme.text }]}>{pairingName}</Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.pairingTitle, { color: theme.text }]}
+          >
+            {pairingName}
+          </Text>
           <View style={styles.pairingContent}>
             <View style={styles.pairingLeft}>
-              <View style={[styles.teamMatchup, styles.tbaMatchup, { backgroundColor: theme.surfaceSecondary, shadowColor: theme.text, borderColor: theme.border }]}>
-                <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>TBD vs TBD</Text>
-                <Text allowFontScaling={false} style={[styles.matchScore, { color: theme.textSecondary }]}>Agg: - : -</Text>
+              <View
+                style={[
+                  styles.teamMatchup,
+                  styles.tbaMatchup,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    shadowColor: theme.text,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.teamName, { color: theme.textSecondary }]}
+                >
+                  TBD vs TBD
+                </Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.matchScore, { color: theme.textSecondary }]}
+                >
+                  Agg: - : -
+                </Text>
               </View>
-              <View style={[styles.teamMatchup, styles.tbaMatchup, { backgroundColor: theme.surfaceSecondary, shadowColor: theme.text, borderColor: theme.border }]}>
-                <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>TBD vs TBD</Text>
-                <Text allowFontScaling={false} style={[styles.matchScore, { color: theme.textSecondary }]}>Agg: - : -</Text>
+              <View
+                style={[
+                  styles.teamMatchup,
+                  styles.tbaMatchup,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    shadowColor: theme.text,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.teamName, { color: theme.textSecondary }]}
+                >
+                  TBD vs TBD
+                </Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.matchScore, { color: theme.textSecondary }]}
+                >
+                  Agg: - : -
+                </Text>
               </View>
             </View>
             <View style={styles.vsSection}>
-              <Text allowFontScaling={false} style={[styles.vsText, { color: theme.textSecondary }]}>vs</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.vsText, { color: theme.textSecondary }]}
+              >
+                vs
+              </Text>
             </View>
             <View style={styles.pairingRight}>
-              <View style={[styles.teamMatchup, styles.tbaMatchup, { backgroundColor: theme.surfaceSecondary, shadowColor: theme.text, borderColor: theme.border }]}>
-                <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>Round of 16</Text>
-                <Text allowFontScaling={false} style={[styles.matchScore, { color: theme.textSecondary }]}>TBD vs TBD</Text>
+              <View
+                style={[
+                  styles.teamMatchup,
+                  styles.tbaMatchup,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    shadowColor: theme.text,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.teamName, { color: theme.textSecondary }]}
+                >
+                  Round of 16
+                </Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.matchScore, { color: theme.textSecondary }]}
+                >
+                  TBD vs TBD
+                </Text>
               </View>
-              <View style={[styles.teamMatchup, styles.tbaMatchup, { backgroundColor: theme.surfaceSecondary, shadowColor: theme.text, borderColor: theme.border }]}>
-                <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>Round of 16</Text>
-                <Text allowFontScaling={false} style={[styles.matchScore, { color: theme.textSecondary }]}>TBD vs TBD</Text>
+              <View
+                style={[
+                  styles.teamMatchup,
+                  styles.tbaMatchup,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    shadowColor: theme.text,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.teamName, { color: theme.textSecondary }]}
+                >
+                  Round of 16
+                </Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.matchScore, { color: theme.textSecondary }]}
+                >
+                  TBD vs TBD
+                </Text>
               </View>
             </View>
           </View>
@@ -1119,33 +1476,137 @@ const UECLBracketScreen = ({ navigation, route }) => {
 
     return (
       <View style={[styles.pairingRow, { backgroundColor: theme.surface }]}>
-        <Text allowFontScaling={false} style={[styles.pairingTitle, { color: theme.text }]}>{pairingName}</Text>
+        <Text
+          allowFontScaling={false}
+          style={[styles.pairingTitle, { color: theme.text }]}
+        >
+          {pairingName}
+        </Text>
         <View style={styles.pairingContent}>
           <View style={styles.pairingLeft}>
-            {matchups.map((matchup, index) => (
-              <TouchableOpacity
-                key={`left-${index}`}
-                style={[styles.teamMatchup, {backgroundColor: theme.surfaceSecondary, shadowColor: theme.text}]}
-                onPress={() => handleMatchupPress(matchup)}
-              >
-                {renderAggregateCard(matchup)}
-              </TouchableOpacity>
-            ))}
+            {matchups.map((matchup, index) => {
+              const clickableLeft = matchup && matchup.homeTeam?.id && matchup.awayTeam?.id;
+              let winnerColor = theme.border;
+              try {
+                const agg = getWinnerInfo(matchup, matchup.aggregateHome, matchup.aggregateAway);
+                const isTie = getWinnerInfo(matchup, matchup.aggregateHome, matchup.aggregateAway);
+                if (!isTie && agg?.winner?.color) winnerColor = `#${agg.winner.color}`;
+              } catch (e) {}
+
+              return clickableLeft ? (
+                <TouchableOpacity
+                  key={`left-${index}`}
+                  style={[
+                    styles.teamMatchup,
+                    {
+                      backgroundColor: theme.surfaceSecondary,
+                      shadowColor: theme.text,
+                      borderWidth: 1,
+                      borderColor: winnerColor,
+                    },
+                  ]}
+                  onPress={() => handleMatchupPress(matchup)}
+                  activeOpacity={0.85}
+                >
+                  {renderAggregateCard(matchup)}
+                </TouchableOpacity>
+              ) : (
+                <View
+                  key={`left-${index}`}
+                  style={[
+                    styles.teamMatchup,
+                    {
+                      backgroundColor: theme.surfaceSecondary,
+                      shadowColor: theme.text,
+                      borderWidth: 2,
+                      borderColor: theme.border,
+                      borderStyle: "dashed",
+                    },
+                  ]}
+                >
+                  {renderAggregateCard(matchup)}
+                </View>
+              );
+            })}
           </View>
           <View style={styles.vsSection}>
-            <Text allowFontScaling={false} style={[styles.vsText, { color: theme.textSecondary }]}>-</Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.vsText, { color: theme.textSecondary }]}
+            >
+              -
+            </Text>
           </View>
           <View style={styles.pairingRight}>
             {matchups.map((matchup, index) => {
-              const r16Matchup = findMatchingRoundOf16(matchup, roundOf16Matchups) || matchup;
-              return (
+              const r16Matchup = findMatchingRoundOf16(
+                matchup,
+                roundOf16Matchups,
+              );
+              const clickableRight =
+                r16Matchup &&
+                r16Matchup.homeTeam?.id &&
+                r16Matchup.awayTeam?.id &&
+                Array.isArray(r16Matchup.matches) &&
+                r16Matchup.matches.length > 0;
+
+              let winnerColor = theme.border;
+              try {
+                if (r16Matchup) {
+                  const agg = getWinnerInfo(
+                    r16Matchup,
+                    r16Matchup.aggregateHome,
+                    r16Matchup.aggregateAway,
+                  );
+                  const isTie = getWinnerInfo(
+                    r16Matchup,
+                    r16Matchup.aggregateHome,
+                    r16Matchup.aggregateAway,
+                  );
+                  if (!isTie && agg?.winner?.color) winnerColor = `#${agg.winner.color}`;
+                }
+              } catch (e) {}
+
+              return clickableRight ? (
                 <TouchableOpacity
                   key={`right-${index}`}
-                  style={[styles.teamMatchup, {backgroundColor: theme.surfaceSecondary, shadowColor: theme.text}]}
-                  onPress={() => handleMatchupPress(r16Matchup)}
+                  style={[
+                    styles.teamMatchup,
+                    {
+                      backgroundColor: theme.surfaceSecondary,
+                      shadowColor: theme.text,
+                      borderWidth: 1,
+                      borderColor: winnerColor,
+                    },
+                  ]}
+                  onPress={() => {
+                    console.log(
+                      "UEL pairing right press -> r16Matchup",
+                      r16Matchup?.homeTeam?.id,
+                      r16Matchup?.awayTeam?.id,
+                    );
+                    handleMatchupPress(r16Matchup);
+                  }}
+                  activeOpacity={0.85}
                 >
                   {renderRoundOf16Card(matchup, index)}
                 </TouchableOpacity>
+              ) : (
+                <View
+                  key={`right-${index}`}
+                  style={[
+                    styles.teamMatchup,
+                    {
+                      backgroundColor: theme.surfaceSecondary,
+                      shadowColor: theme.text,
+                      borderWidth: 2,
+                      borderColor: theme.border,
+                      borderStyle: "dashed",
+                    },
+                  ]}
+                >
+                  {renderRoundOf16Card(matchup, index)}
+                </View>
               );
             })}
           </View>
@@ -1159,7 +1620,15 @@ const UECLBracketScreen = ({ navigation, route }) => {
     const aggregateHome = matchup.aggregateHome;
     const aggregateAway = matchup.aggregateAway;
 
-    const { winner, loser, winnerScore, loserScore, isTie, homeShootoutScore, awayShootoutScore } = getWinnerInfo(matchup, aggregateHome, aggregateAway);
+    const {
+      winner,
+      loser,
+      winnerScore,
+      loserScore,
+      isTie,
+      homeShootoutScore,
+      awayShootoutScore,
+    } = getWinnerInfo(matchup, aggregateHome, aggregateAway);
 
     let firstTeam, secondTeam, firstScore, secondScore, firstIsWinner;
     if (!isTie) {
@@ -1188,27 +1657,88 @@ const UECLBracketScreen = ({ navigation, route }) => {
       }
     }
 
-    const firstScoreDisplay = firstShootoutScore > 0 ? `${firstScore}(${firstShootoutScore})` : firstScore.toString();
-    const secondScoreDisplay = secondShootoutScore > 0 ? `${secondScore}(${secondShootoutScore})` : secondScore.toString();
+    const firstScoreDisplay =
+      firstShootoutScore > 0
+        ? `${firstScore}(${firstShootoutScore})`
+        : firstScore.toString();
+    const secondScoreDisplay =
+      secondShootoutScore > 0
+        ? `${secondScore}(${secondShootoutScore})`
+        : secondScore.toString();
 
     return (
       <View style={styles.cardContent}>
-        <View style={styles.teamInfo}>
-          <Text allowFontScaling={false} style={[styles.teamName, { color: firstIsWinner && !isTie ? colors.primary : theme.text }]}>
-            {firstTeam.shortDisplayName}
+        <View
+          style={[
+            styles.teamInfo,
+            { flexDirection: "row", justifyContent: "center" },
+          ]}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.teamName,
+              {
+                color: firstIsWinner && !isTie ? colors.primary : theme.text,
+                borderBottomWidth: 2,
+                borderBottomColor: `#${firstTeam.color}`,
+              },
+            ]}
+          >
+            {firstTeam.abbreviation || firstTeam.shortDisplayName}
           </Text>
-          <Text allowFontScaling={false} style={[styles.teamName, { color: !firstIsWinner && !isTie ? colors.primary : theme.text }]}>
-            {secondTeam.shortDisplayName}
+          <Text style={{ color: theme.text }}> - </Text>
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.teamName,
+              {
+                color: !firstIsWinner && !isTie ? colors.primary : theme.text,
+                borderBottomWidth: 2,
+                borderBottomColor: `#${secondTeam.color}`,
+              },
+            ]}
+          >
+            {secondTeam.abbreviation || secondTeam.shortDisplayName}
           </Text>
         </View>
         <View style={styles.scoreSection}>
-          <Text allowFontScaling={false} style={[styles.matchScore, { color: firstIsWinner && !isTie ? colors.primary : theme.text }]}>
-            {firstScoreDisplay}
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            {firstTeam?.id ? (
+              <TeamLogoImage teamId={firstTeam.id} style={{ width: 28, height: 28, marginRight: 8 }} />
+            ) : null}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.matchScore,
+                { color: firstIsWinner && !isTie ? colors.primary : theme.text },
+              ]}
+            >
+              {firstScoreDisplay}
+            </Text>
+          </View>
+
+          <Text
+            allowFontScaling={false}
+            style={[styles.matchScore, { color: theme.textSecondary }]}
+          >
+            :
           </Text>
-          <Text allowFontScaling={false} style={[styles.matchScore, { color: theme.textSecondary }]}>:</Text>
-          <Text allowFontScaling={false} style={[styles.matchScore, { color: !firstIsWinner && !isTie ? colors.primary : theme.text }]}>
-            {secondScoreDisplay}
-          </Text>
+
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.matchScore,
+                { color: !firstIsWinner && !isTie ? colors.primary : theme.text },
+              ]}
+            >
+              {secondScoreDisplay}
+            </Text>
+            {secondTeam?.id ? (
+              <TeamLogoImage teamId={secondTeam.id} style={{ width: 28, height: 28, marginLeft: 8 }} />
+            ) : null}
+          </View>
         </View>
       </View>
     );
@@ -1216,13 +1746,36 @@ const UECLBracketScreen = ({ navigation, route }) => {
 
   // Render Round of 16 card for knockout view
   const renderRoundOf16Card = (knockoutMatchup, matchIndex) => {
-    const roundOf16Matchup = findMatchingRoundOf16(knockoutMatchup, roundOf16Matchups);
+    const roundOf16Matchup = findMatchingRoundOf16(
+      knockoutMatchup,
+      roundOf16Matchups,
+    );
 
     if (!roundOf16Matchup) {
       return (
-        <View style={[styles.cardContent, styles.tbaCard, { backgroundColor: theme.surfaceSecondary, shadowColor: theme.text, borderColor: theme.border }]}>
-          <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>Round of 16</Text>
-          <Text allowFontScaling={false} style={[styles.matchScore, { color: theme.textSecondary }]}>TBD vs TBD</Text>
+        <View
+          style={[
+            styles.cardContent,
+            styles.tbaCard,
+            {
+              backgroundColor: theme.surfaceSecondary,
+              shadowColor: theme.text,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[styles.teamName, { color: theme.textSecondary }]}
+          >
+            Round of 16
+          </Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.matchScore, { color: theme.textSecondary }]}
+          >
+            TBD vs TBD
+          </Text>
         </View>
       );
     }
@@ -1232,35 +1785,105 @@ const UECLBracketScreen = ({ navigation, route }) => {
     const homeScore = roundOf16Matchup.aggregateHome;
     const awayScore = roundOf16Matchup.aggregateAway;
 
-    const { winner, loser, winnerScore, loserScore, isTie, homeShootoutScore, awayShootoutScore } = getWinnerInfo(roundOf16Matchup, homeScore, awayScore);
+    const {
+      winner,
+      loser,
+      winnerScore,
+      loserScore,
+      isTie,
+      homeShootoutScore,
+      awayShootoutScore,
+    } = getWinnerInfo(roundOf16Matchup, homeScore, awayScore);
 
-    let winnerId = null, loserId = null;
+    let winnerId = null,
+      loserId = null;
     if (!isTie) {
       winnerId = winner.id;
       loserId = loser.id;
     }
 
-    const homeScoreDisplay = homeShootoutScore > 0 ? `${homeScore}(${homeShootoutScore})` : homeScore.toString();
-    const awayScoreDisplay = awayShootoutScore > 0 ? `${awayScore}(${awayShootoutScore})` : awayScore.toString();
+    const homeScoreDisplay =
+      homeShootoutScore > 0
+        ? `${homeScore}(${homeShootoutScore})`
+        : homeScore.toString();
+    const awayScoreDisplay =
+      awayShootoutScore > 0
+        ? `${awayScore}(${awayShootoutScore})`
+        : awayScore.toString();
 
     return (
       <View style={styles.cardContent}>
-        <View style={styles.teamInfo}>
-          <Text allowFontScaling={false} style={[styles.teamName, { color: homeTeam.id === winnerId ? colors.primary : theme.text }]}>
-            {homeTeam.shortDisplayName}
+        <View
+          style={[
+            styles.teamInfo,
+            { flexDirection: "row", justifyContent: "center" },
+          ]}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.teamName,
+              {
+                color: homeTeam.id === winnerId ? colors.primary : theme.text,
+                borderBottomWidth: 2,
+                borderBottomColor: `#${homeTeam.color}`,
+              },
+            ]}
+          >
+            {homeTeam.abbreviation || homeTeam.shortDisplayName}
           </Text>
-          <Text allowFontScaling={false} style={[styles.teamName, { color: awayTeam.id === winnerId ? colors.primary : theme.text }]}>
-            {awayTeam.shortDisplayName}
+          <Text style={{ color: theme.text }}> - </Text>
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.teamName,
+              {
+                color: awayTeam.id === winnerId ? colors.primary : theme.text,
+                borderBottomWidth: 2,
+                borderBottomColor: `#${awayTeam.color}`,
+              },
+            ]}
+          >
+            {awayTeam.abbreviation || awayTeam.shortDisplayName}
           </Text>
         </View>
         <View style={styles.scoreSection}>
-          <Text allowFontScaling={false} style={[styles.matchScore, { color: homeTeam.id === winnerId ? colors.primary : theme.text }]}>
-            {homeScoreDisplay}
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            {homeTeam?.id ? (
+              <TeamLogoImage teamId={homeTeam.id} style={{ width: 28, height: 28, marginRight: 8 }} />
+            ) : null}
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.matchScore,
+                { color: homeTeam.id === winnerId ? colors.primary : theme.text },
+              ]}
+            >
+              {homeScoreDisplay}
+            </Text>
+          </View>
+
+          <Text
+            allowFontScaling={false}
+            style={[styles.matchScore, { color: theme.textSecondary }]}
+          >
+            :
           </Text>
-          <Text allowFontScaling={false} style={[styles.matchScore, { color: theme.textSecondary }]}>:</Text>
-          <Text allowFontScaling={false} style={[styles.matchScore, { color: awayTeam.id === winnerId ? colors.primary : theme.text }]}>
-            {awayScoreDisplay}
-          </Text>
+
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.matchScore,
+                { color: awayTeam.id === winnerId ? colors.primary : theme.text },
+              ]}
+            >
+              {awayScoreDisplay}
+            </Text>
+            {awayTeam?.id ? (
+              <TeamLogoImage teamId={awayTeam.id} style={{ width: 28, height: 28, marginLeft: 8 }} />
+            ) : null}
+          </View>
         </View>
       </View>
     );
@@ -1268,15 +1891,19 @@ const UECLBracketScreen = ({ navigation, route }) => {
 
   // Find matching Round of 16 matchup
   const findMatchingRoundOf16 = (knockoutMatchup, roundOf16Matchups) => {
-    if (!knockoutMatchup || !roundOf16Matchups || roundOf16Matchups.length === 0) {
+    if (
+      !knockoutMatchup ||
+      !roundOf16Matchups ||
+      roundOf16Matchups.length === 0
+    ) {
       return null;
     }
 
     const koTeams = [knockoutMatchup.homeTeam.id, knockoutMatchup.awayTeam.id];
 
-    return roundOf16Matchups.find(r16Matchup => {
+    return roundOf16Matchups.find((r16Matchup) => {
       const r16Teams = [r16Matchup.homeTeam.id, r16Matchup.awayTeam.id];
-      return koTeams.some(koTeamId => r16Teams.includes(koTeamId));
+      return koTeams.some((koTeamId) => r16Teams.includes(koTeamId));
     });
   };
 
@@ -1285,10 +1912,28 @@ const UECLBracketScreen = ({ navigation, route }) => {
     if (!selectedMatchup) return null;
 
     const sortedMatches = selectedMatchup.matches.sort((a, b) => a.leg - b.leg);
-    const { winner, loser, winnerScore, loserScore, isTie, homeShootoutScore, awayShootoutScore } = getWinnerInfo(selectedMatchup, selectedMatchup.aggregateHome, selectedMatchup.aggregateAway);
+    const {
+      winner,
+      loser,
+      winnerScore,
+      loserScore,
+      isTie,
+      homeShootoutScore,
+      awayShootoutScore,
+    } = getWinnerInfo(
+      selectedMatchup,
+      selectedMatchup.aggregateHome,
+      selectedMatchup.aggregateAway,
+    );
 
-    const homeAggregateDisplay = homeShootoutScore > 0 ? `${selectedMatchup.aggregateHome}(${homeShootoutScore})` : selectedMatchup.aggregateHome.toString();
-    const awayAggregateDisplay = awayShootoutScore > 0 ? `${selectedMatchup.aggregateAway}(${awayShootoutScore})` : selectedMatchup.aggregateAway.toString();
+    const homeAggregateDisplay =
+      homeShootoutScore > 0
+        ? `${selectedMatchup.aggregateHome}(${homeShootoutScore})`
+        : selectedMatchup.aggregateHome.toString();
+    const awayAggregateDisplay =
+      awayShootoutScore > 0
+        ? `${selectedMatchup.aggregateAway}(${awayShootoutScore})`
+        : selectedMatchup.aggregateAway.toString();
 
     return (
       <Modal
@@ -1298,85 +1943,211 @@ const UECLBracketScreen = ({ navigation, route }) => {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
+          <View
+            style={[styles.modalContent, { backgroundColor: theme.background }]}
+          >
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setModalVisible(false)}
             >
-              <Text allowFontScaling={false} style={[styles.closeButtonText, { color: theme.text }]}>×</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.closeButtonText, { color: theme.text }]}
+              >
+                ×
+              </Text>
             </TouchableOpacity>
 
-            <Text allowFontScaling={false} style={[styles.modalTitle, { color: theme.text }]}>
-              {selectedMatchup.homeTeam.shortDisplayName} vs {selectedMatchup.awayTeam.shortDisplayName}
+            <Text
+              allowFontScaling={false}
+              style={[styles.modalTitle, { color: theme.text }]}
+            >
+              {selectedMatchup.homeTeam.shortDisplayName} vs{" "}
+              {selectedMatchup.awayTeam.shortDisplayName}
             </Text>
 
             <ScrollView style={styles.legsContainer}>
-              {[1, 2].map(legNumber => {
-                const match = sortedMatches.find(m => m.leg === legNumber);
+              {[1, 2].map((legNumber) => {
+                const match = sortedMatches.find((m) => m.leg === legNumber);
                 // If a match exists for this leg, render the whole card as a single touchable
                 if (match) {
                   return (
                     <TouchableOpacity
                       key={legNumber}
-                      style={[styles.legCard, { backgroundColor: theme.background }]}
+                      style={[
+                        styles.legCard,
+                        { backgroundColor: theme.surface },
+                      ]}
                       onPress={() => handleGamePress(match.gameId)}
                       activeOpacity={0.85}
                     >
                       <View style={styles.legHeader}>
-                        <Text allowFontScaling={false} style={[styles.legTitle, { color: theme.text }]}>
-                          Leg {legNumber} - {match.status === "post" ? "Finished" : match.status === "in" ? "In Progress" : "Scheduled"}
+                        <Text
+                          allowFontScaling={false}
+                          style={[styles.legTitle, { color: theme.text }]}
+                        >
+                          Leg {legNumber} -{" "}
+                          {match.status === "post"
+                            ? "Finished"
+                            : match.status === "in"
+                              ? "In Progress"
+                              : "Scheduled"}
                         </Text>
                         {match.date && (
-                          <Text allowFontScaling={false} style={[styles.legDate, { color: theme.textSecondary }]}>({match.date})</Text>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.legDate,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            ({match.date})
+                          </Text>
                         )}
                       </View>
 
                       <View style={styles.legMatchup}>
                         <View style={styles.legTeam}>
-                          <TeamLogoImage teamId={match.homeTeam?.id} style={[styles.legLogo, styles.legLogoLeft]} />
-                          <View style={[styles.legTeamTextsCenter, styles.legTeamTextsHome]}>
-                            <Text allowFontScaling={false} style={[styles.legTeamName, { color: match.status === "post" && match.homeScore > match.awayScore ? colors.primary : theme.text }]}>{match.homeTeam.shortDisplayName}</Text>
-                            <Text allowFontScaling={false} style={[styles.legScore, { color: match.status === "post" && match.homeScore > match.awayScore ? colors.primary : theme.text }]}>
-                              {match.homeShootoutScore > 0 ? `${match.homeScore}(${match.homeShootoutScore})` : match.homeScore}
+                          <TeamLogoImage
+                            teamId={match.homeTeam?.id}
+                            style={[styles.legLogo, styles.legLogoLeft]}
+                          />
+                          <View
+                            style={[
+                              styles.legTeamTextsCenter,
+                              styles.legTeamTextsHome,
+                            ]}
+                          >
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.legTeamName,
+                                {
+                                  color:
+                                    match.status === "post" &&
+                                    match.homeScore > match.awayScore
+                                      ? colors.primary
+                                      : theme.text,
+                                      marginBottom: match.homeScore && match.homeShootoutScore ? 5 : 0,
+                                },
+                              ]}
+                            >
+                              {match.homeTeam.shortDisplayName}
                             </Text>
+                            {match.homeShootoutScore && match.homeScore && (
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.legScore,
+                                {
+                                  color:
+                                    match.status === "post" &&
+                                    match.homeScore > match.awayScore
+                                      ? colors.primary
+                                      : theme.text,
+                                },
+                              ]}
+                            >
+                              {match.homeShootoutScore > 0
+                                ? `${match.homeScore}(${match.homeShootoutScore})`
+                                : match.homeScore}
+                            </Text>
+                            )}
                           </View>
                         </View>
 
-                        <Text allowFontScaling={false} style={[styles.legVs, { color: theme.textSecondary }]}>:</Text>
+                        <Text
+                          allowFontScaling={false}
+                          style={[styles.legVs, { color: theme.textSecondary }]}
+                        >
+                          :
+                        </Text>
 
                         <View style={styles.legTeam}>
-                          <TeamLogoImage teamId={match.awayTeam?.id} style={[styles.legLogo, styles.legLogoRight]} />
-                          <View style={[styles.legTeamTextsCenter, styles.legTeamTextsAway]}>
-                            <Text allowFontScaling={false} style={[styles.legTeamName, { color: match.status === "post" && match.awayScore > match.homeScore ? colors.primary : theme.text }]}>{match.awayTeam.shortDisplayName}</Text>
-                            <Text allowFontScaling={false} style={[styles.legScore, { color: match.status === "post" && match.awayScore > match.homeScore ? colors.primary : theme.text }]}>
-                              {match.awayShootoutScore > 0 ? `${match.awayScore}(${match.awayShootoutScore})` : match.awayScore}
+                          <TeamLogoImage
+                            teamId={match.awayTeam?.id}
+                            style={[styles.legLogo, styles.legLogoRight]}
+                          />
+                          <View
+                            style={[
+                              styles.legTeamTextsCenter,
+                              styles.legTeamTextsAway,
+                            ]}
+                          >
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.legTeamName,
+                                {
+                                  color:
+                                    match.status === "post" &&
+                                    match.awayScore > match.homeScore
+                                      ? colors.primary
+                                      : theme.text,
+                                      marginBottom: match.awayScore && match.awayShootoutScore ? 5 : 0,
+                                },
+                              ]}
+                            >
+                              {match.awayTeam.shortDisplayName}
                             </Text>
+                            {match.awayShootoutScore && match.awayScore && (
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                styles.legScore,
+                                {
+                                  color:
+                                    match.status === "post" &&
+                                    match.awayScore > match.homeScore
+                                      ? colors.primary
+                                      : theme.text,
+                                },
+                              ]}
+                            >
+                              {match.awayShootoutScore > 0
+                                ? `${match.awayScore}(${match.awayShootoutScore})`
+                                : match.awayScore}
+                            </Text>
+                            )}
                           </View>
                         </View>
                       </View>
-
-                      {/* Show an indicator for live/scheduled but avoid an inner Touchable to prevent nested touchables */}
-                      {match.status === "pre" || match.status === "in" ? (
-                        <View style={[styles.viewGameButton, { backgroundColor: colors.primary }]}> 
-                          <Text allowFontScaling={false} style={[styles.viewGameText, { color: '#fff' }]}>{match.status === "in" ? "Watch Live" : "View Game"}</Text>
-                        </View>
-                      ) : null}
                     </TouchableOpacity>
                   );
                 }
 
                 // No match scheduled for this leg
                 return (
-                  <View key={legNumber} style={[styles.legCard, { backgroundColor: theme.background }]}>
-                    <Text allowFontScaling={false} style={[styles.legTitle, { color: theme.textSecondary }]}>Leg {legNumber} - Not Scheduled</Text>
+                  <View
+                    key={legNumber}
+                    style={[
+                      styles.legCard,
+                      { backgroundColor: theme.surface },
+                    ]}
+                  >
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.legTitle, { color: theme.textSecondary }]}
+                    >
+                      Leg {legNumber} - Not Scheduled
+                    </Text>
                   </View>
                 );
               })}
             </ScrollView>
 
-            <View style={[styles.aggregateSection, { backgroundColor: theme.background }]}>
-              <Text allowFontScaling={false} style={[styles.aggregateText, { color: theme.text }]}>
-                Aggregate Score - {homeAggregateDisplay} : {awayAggregateDisplay}
+            <View
+              style={[
+                styles.aggregateSection,
+                { backgroundColor: theme.surface },
+              ]}
+            >
+              <Text
+                allowFontScaling={false}
+                style={[styles.aggregateText, { color: theme.text }]}
+              >
+                Aggregate Score - {homeAggregateDisplay} :{" "}
+                {awayAggregateDisplay}
               </Text>
             </View>
           </View>
@@ -1390,7 +2161,12 @@ const UECLBracketScreen = ({ navigation, route }) => {
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         {renderViewSelector()}
         <View style={styles.loadingContainer}>
-          <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>Loading bracket data...</Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.loadingText, { color: theme.text }]}
+          >
+            Loading bracket data...
+          </Text>
         </View>
       </View>
     );
@@ -1400,7 +2176,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {renderViewSelector()}
 
-      {currentView === 'bracket' ? renderBracketView() : renderKnockoutView()}
+      {currentView === "bracket" ? renderBracketView() : renderKnockoutView()}
 
       {renderModal()}
     </View>
@@ -1412,11 +2188,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   selectorContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
+    borderBottomColor: "rgba(0,0,0,0.1)",
   },
   selectorButton: {
     flex: 1,
@@ -1424,16 +2200,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginHorizontal: 4,
     borderRadius: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   selectorText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     fontSize: 16,
@@ -1442,29 +2218,29 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   mobileRow: {
-    width: '100%',
+    width: "100%",
     marginBottom: 20,
   },
-  'qf-row': {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  "qf-row": {
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: 10,
   },
-  'sf-row': {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+  "sf-row": {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  'finals-row': {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+  "finals-row": {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
   },
   bracketRound: {
     borderRadius: 8,
     padding: 10,
-    backgroundColor: '#f9f9f9',
-    shadowColor: '#000',
+    backgroundColor: "#f9f9f9",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
@@ -1472,78 +2248,78 @@ const styles = StyleSheet.create({
   },
   qfRound: {
     flex: 1,
-    maxWidth: '48%',
+    maxWidth: "48%",
   },
   sfRound: {
     flex: 0.6,
-    maxWidth: '60%',
-    alignSelf: 'center',
+    maxWidth: "60%",
+    alignSelf: "center",
   },
   finalsRound: {
     flex: 0.8,
-    maxWidth: '80%',
-    alignSelf: 'center',
+    maxWidth: "80%",
+    alignSelf: "center",
   },
   matchupCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 10,
   },
   teamSection: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 5,
   },
   teamName: {
     fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
   },
   teamScore: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   finalsCard: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 15,
   },
   finalsTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
   },
   finalsMatchup: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 20,
   },
   finalsMatchupHorizontal: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
   },
   finalTeamLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 20,
     flex: 1,
-    justifyContent: 'flex-start',
+    justifyContent: "flex-start",
   },
   finalTeamRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 20,
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   finalTeamTexts: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 4,
   },
   finalSeparator: {
     width: 60,
-    alignItems: 'center',
+    alignItems: "center",
   },
   finalLogoLeft: {
     width: 44,
@@ -1554,11 +2330,11 @@ const styles = StyleSheet.create({
     height: 44,
   },
   teamColumn: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 5,
   },
   teamSectionVertical: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 6,
     flex: 1,
     paddingVertical: 8,
@@ -1571,11 +2347,11 @@ const styles = StyleSheet.create({
   },
   teamAbbrev: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   vsText: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   knockoutContainer: {
     padding: 16,
@@ -1584,7 +2360,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 16,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
@@ -1592,13 +2368,13 @@ const styles = StyleSheet.create({
   },
   pairingTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 16,
   },
   pairingContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 16,
   },
   pairingLeft: {
@@ -1610,24 +2386,24 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   vsSection: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: 8,
   },
   teamMatchup: {
     borderRadius: 8,
     padding: 12,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
+    backgroundColor: "#fff",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
   },
   tbaMatchup: {
-    backgroundColor: '#f8f9fa',
-    borderStyle: 'dashed',
+    backgroundColor: "#f8f9fa",
+    borderStyle: "dashed",
     borderWidth: 2,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
   },
   cardContent: {
     gap: 8,
@@ -1636,50 +2412,50 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   scoreSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 4,
   },
   matchScore: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   tbaCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
     borderRadius: 10,
     padding: 20,
     maxWidth: width * 0.9,
-    width: '90%',
-    maxHeight: '80%',
+    width: "90%",
+    maxHeight: "80%",
   },
   closeButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 10,
     right: 15,
     width: 30,
     height: 30,
     borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   closeButtonText: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 20,
     marginTop: 10,
   },
@@ -1692,42 +2468,42 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   legHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 10,
   },
   legTitle: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   legDate: {
     fontSize: 12,
   },
   legMatchup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 10,
   },
   legTeam: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
   },
   legTeamName: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 5,
   },
   legScore: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   legVs: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginHorizontal: 10,
   },
   legLogo: {
@@ -1735,15 +2511,15 @@ const styles = StyleSheet.create({
     height: 36,
   },
   legLogoLeft: {
-    position: 'absolute',
+    position: "absolute",
     left: 8,
   },
   legLogoRight: {
-    position: 'absolute',
+    position: "absolute",
     right: 8,
   },
   legTeamTextsCenter: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   legTeamTextsHome: {
     paddingLeft: 30,
@@ -1755,11 +2531,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 6,
-    alignItems: 'center',
+    alignItems: "center",
   },
   viewGameText: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   aggregateSection: {
     borderRadius: 8,
@@ -1768,8 +2544,8 @@ const styles = StyleSheet.create({
   },
   aggregateText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
   },
 });
 

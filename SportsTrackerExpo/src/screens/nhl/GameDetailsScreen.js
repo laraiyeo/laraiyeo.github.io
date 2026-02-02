@@ -3734,7 +3734,45 @@ const NHLGameDetailsScreen = ({ route }) => {
             ]}
           >
             <View
-              style={[styles.modalCard, { backgroundColor: theme.surface }]}
+              style={[
+                styles.modalCard,
+                {
+                  backgroundColor: theme.surface,
+                  borderWidth: 1,
+                  borderColor: (() => {
+                    try {
+                      if (!selectedPlayer) return theme.border;
+                      const player = selectedPlayer.player;
+                      const athlete = player?.athlete;
+                      const playersBox = details?.boxscore?.players || [];
+                      let team = null;
+                      for (const teamBox of playersBox) {
+                        if (teamBox?.statistics) {
+                          for (const group of teamBox.statistics) {
+                            if (group?.athletes) {
+                              const found = group.athletes.find(
+                                (a) => String(a?.athlete?.id) === String(athlete?.id),
+                              );
+                              if (found) {
+                                team = teamBox.team;
+                                break;
+                              }
+                            }
+                          }
+                          if (team) break;
+                        }
+                      }
+                      return team
+                        ? String(team.id) === String(away?.team?.id || away?.id)
+                          ? `#${away?.team?.color}`
+                          : `#${home?.team?.color}`
+                        : theme.border;
+                    } catch (e) {
+                      return theme.border;
+                    }
+                  })(),
+                },
+              ]}
             >
               {selectedPlayer &&
                 (() => {
@@ -3823,6 +3861,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                       })
                     : "";
 
+
                   // Define most important stats by position
                   const isGoalie = groupName === "goalies" || position === "G";
 
@@ -3884,7 +3923,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                           {headshot ? (
                             <Image
                               source={{ uri: headshot }}
-                              style={styles.modalHeadshot}
+                              style={[styles.modalHeadshot, { backgroundColor: `#${team.color}` || theme.surface }]}
                             />
                           ) : (
                             <View
@@ -5003,317 +5042,266 @@ const NHLGameDetailsScreen = ({ route }) => {
         {/* Stream Modal - Only render when streaming is unlocked */}
         {isStreamingUnlocked && (
           <Modal
+            animationType="fade"
+            transparent={true}
             visible={streamModalVisible}
-            animationType="slide"
-            presentationStyle="pageSheet"
             onRequestClose={closeStreamModal}
           >
-            <View
-              style={[
-                styles.streamModalContainer,
-                { backgroundColor: theme.background },
-              ]}
-            >
-              {/* Modal Header */}
+            <View style={styles.streamModalOverlay}>
               <View
                 style={[
-                  styles.streamModalHeader,
-                  {
-                    backgroundColor: theme.surface,
-                    borderBottomColor: theme.border,
-                  },
+                  styles.streamModalContainer,
+                  { backgroundColor: theme.surface },
                 ]}
               >
-                <Text style={[styles.streamModalTitle, { color: theme.text }]}>
-                  Live Stream
-                </Text>
-                <TouchableOpacity
-                  onPress={closeStreamModal}
-                  style={styles.streamModalCloseButton}
-                >
-                  <FontAwesome6 name="xmark" size={20} color={theme.text} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Stream Type Selector */}
-              {Object.keys(availableStreams).length > 1 && (
+                {/* Modal Header */}
                 <View
                   style={[
-                    styles.streamTypeContainer,
-                    { backgroundColor: theme.surface },
+                    styles.streamModalHeader,
+                    {
+                      backgroundColor: theme.surfaceSecondary,
+                      borderBottomColor: theme.border,
+                    },
                   ]}
                 >
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.streamTypeScrollView}
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.streamModalTitle, { color: colors.primary }]}
                   >
-                    {Object.keys(availableStreams).map((streamType) => (
+                    Live Stream
+                  </Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.streamModalCloseButton,
+                      { backgroundColor: theme.surfaceSecondary },
+                    ]}
+                    onPress={closeStreamModal}
+                  >
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.streamModalCloseText,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      ×
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Stream Source Buttons */}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={[
+                    styles.streamButtonsContainer,
+                    {
+                      backgroundColor: theme.surfaceSecondary,
+                      borderBottomColor: theme.border,
+                    },
+                  ]}
+                  contentContainerStyle={styles.streamButtonsContent}
+                >
+                  {Object.keys(availableStreams)
+                    .slice(0, 5)
+                    .map((source) => (
                       <TouchableOpacity
-                        key={streamType}
+                        key={source}
                         style={[
-                          styles.streamTypeButton,
+                          styles.streamSourceButton,
                           {
                             backgroundColor:
-                              currentStreamType === streamType
-                                ? colors.secondary
-                                : theme.surface,
-                            borderColor:
-                              currentStreamType === streamType
-                                ? colors.secondary
-                                : theme.border,
+                              currentStreamType === source
+                                ? colors.primary
+                                : theme.surfaceSecondary,
                           },
+                          { borderColor: theme.border },
                         ]}
-                        onPress={() => switchStream(streamType)}
+                        onPress={() => switchStream(source)}
                       >
                         <Text
+                          allowFontScaling={false}
                           style={[
-                            styles.streamTypeButtonText,
+                            styles.streamSourceButtonText,
                             {
                               color:
-                                currentStreamType === streamType
-                                  ? "white"
-                                  : theme.text,
+                                currentStreamType === source
+                                  ? "#fff"
+                                  : colors.primary,
                             },
                           ]}
                         >
-                          {streamType.toUpperCase()}
+                          {source.charAt(0).toUpperCase() + source.slice(1)}
                         </Text>
-                        {availableStreams[streamType]?.quality && (
-                          <Text
-                            style={[
-                              styles.streamQualityText,
-                              {
-                                color:
-                                  currentStreamType === streamType
-                                    ? "white"
-                                    : theme.textSecondary,
-                              },
-                            ]}
-                          >
-                            {availableStreams[streamType].quality}
-                          </Text>
-                        )}
                       </TouchableOpacity>
                     ))}
-                  </ScrollView>
-                </View>
-              )}
+                </ScrollView>
 
-              {/* Stream Content */}
-              <View style={styles.streamContent}>
-                {isStreamLoading && (
-                  <View style={styles.streamLoadingContainer}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                    <Text
-                      style={[styles.streamLoadingText, { color: theme.text }]}
-                    >
-                      Loading stream...
-                    </Text>
-                  </View>
-                )}
+                {/* WebView Container */}
+                <View style={styles.webViewContainer}>
+                  {isStreamLoading && (
+                    <View style={styles.streamLoadingOverlay}>
+                      <ActivityIndicator size="large" color={colors.primary} />
+                      <Text
+                        allowFontScaling={false}
+                        style={[styles.streamLoadingText, { color: "#fff" }]}
+                      >
+                        Loading stream...
+                      </Text>
+                    </View>
+                  )}
 
-                {streamUrl ? (
-                  <WebView
-                    source={{ uri: streamUrl }}
-                    style={styles.streamWebView}
-                    javaScriptEnabled={true}
-                    domStorageEnabled={true}
-                    startInLoadingState={true}
-                    scalesPageToFit={true}
-                    mixedContentMode="compatibility"
-                    allowsInlineMediaPlayback={true}
-                    mediaPlaybackRequiresUserAction={false}
-                    onLoadStart={() => setIsStreamLoading(true)}
-                    onLoadEnd={() => setIsStreamLoading(false)}
-                    onError={(error) => {
-                      console.error("WebView error:", error);
-                      setIsStreamLoading(false);
-                    }}
-                    userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
-                    injectedJavaScript={`
-                  (function() {
-                    console.log('Advanced ad blocker initializing...');
-                    
-                    // Block all popup methods
-                    const originalOpen = window.open;
-                    window.open = function() {
-                      console.log('Blocked window.open popup');
-                      return null;
-                    };
-                    
-                    // Block alert, confirm, prompt
-                    window.alert = function() { console.log('Blocked alert'); };
-                    window.confirm = function() { console.log('Blocked confirm'); return false; };
-                    window.prompt = function() { console.log('Blocked prompt'); return null; };
-                    
-                    // Override addEventListener to block popup events
-                    const originalAddEventListener = EventTarget.prototype.addEventListener;
-                    EventTarget.prototype.addEventListener = function(type, listener, options) {
-                      const blockedEvents = ['beforeunload', 'unload', 'popstate'];
-                      if (blockedEvents.includes(type)) {
-                        console.log('Blocked event listener for:', type);
-                        return;
-                      }
-                      return originalAddEventListener.call(this, type, listener, options);
-                    };
-                    
-                    // Block navigation attempts
-                    const originalAssign = Location.prototype.assign;
-                    const originalReplace = Location.prototype.replace;
-                    
-                    Location.prototype.assign = function(url) {
-                      console.log('Blocked location.assign to:', url);
-                    };
-                    
-                    Location.prototype.replace = function(url) {
-                      console.log('Blocked location.replace to:', url);
-                    };
-                    
-                    // Block href changes
-                    Object.defineProperty(Location.prototype, 'href', {
-                      set: function(url) {
-                        console.log('Blocked href change to:', url);
-                      },
-                      get: function() {
-                        return window.location.href;
-                      }
-                    });
-                    
-                    // Remove ads and overlays
-                    const removeAds = () => {
-                      const selectors = [
-                        'iframe[src*="ads"]',
-                        'div[class*="ad"]',
-                        'div[id*="ad"]',
-                        'div[class*="popup"]',
-                        'div[id*="popup"]',
-                        '[onclick*="window.open"]',
-                        '[onclick*="popup"]',
-                        '.overlay',
-                        '.modal'
-                      ];
-                      
-                      selectors.forEach(selector => {
-                        const elements = document.querySelectorAll(selector);
-                        elements.forEach(el => {
-                          el.remove();
+                  {streamUrl ? (
+                    <WebView
+                      source={{ uri: streamUrl }}
+                      style={styles.streamWebView}
+                      javaScriptEnabled={true}
+                      domStorageEnabled={true}
+                      startInLoadingState={true}
+                      scalesPageToFit={true}
+                      mixedContentMode="compatibility"
+                      allowsInlineMediaPlayback={true}
+                      mediaPlaybackRequiresUserAction={false}
+                      onLoadStart={() => setIsStreamLoading(true)}
+                      onLoadEnd={() => setIsStreamLoading(false)}
+                      onError={(error) => {
+                        console.error("WebView error:", error);
+                        setIsStreamLoading(false);
+                      }}
+                      userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
+                      injectedJavaScript={`(function(){
+                        // Diagnostics instrumentation for native WebView
+                        function post(obj){ try{ window.ReactNativeWebView.postMessage(JSON.stringify(obj)); }catch(e){} }
+
+                        post({type:'instrumentation', event:'init'});
+
+                        // Log important lifecycle events
+                        window.addEventListener('load', function(){ post({type:'lifecycle', event:'load', href:location.href}); });
+                        document.addEventListener('DOMContentLoaded', function(){ post({type:'lifecycle', event:'domcontent', href:location.href}); });
+
+                        // Observe navigation attempts via assign/replace/href
+                        try{ const origAssign = Location.prototype.assign; Location.prototype.assign = function(url){ post({type:'nav', method:'assign', url:url}); return origAssign.call(this, url); }; }catch(e){}
+                        try{ const origReplace = Location.prototype.replace; Location.prototype.replace = function(url){ post({type:'nav', method:'replace', url:url}); return origReplace.call(this, url); }; }catch(e){}
+                        try{ const hrefDesc = Object.getOwnPropertyDescriptor(Location.prototype,'href') || {}; if(hrefDesc && hrefDesc.set){ const origHrefSet = hrefDesc.set; Object.defineProperty(Location.prototype,'href',{ set:function(url){ post({type:'nav', method:'href', url:url}); return origHrefSet.call(this,url); }, get: hrefDesc.get }); } }catch(e){}
+
+                        try{ const origOpen = window.open; window.open = function(url, target, features){ post({type:'nav', method:'window.open', url:url, target:target}); return origOpen.call(this,url,target,features); }; }catch(e){}
+
+                        try{ const observer = new MutationObserver(function(muts){ muts.forEach(m => { m.addedNodes && m.addedNodes.forEach(n=>{ if(n.nodeType===1){ const tag = n.tagName.toLowerCase(); if(tag==='video' || tag==='iframe' || n.querySelector && (n.querySelector('video')||n.querySelector('iframe'))){ post({type:'dom', action:'added', tag:tag, html:n.outerHTML ? (n.outerHTML.substring(0,200)) : null, href:location.href}); } } }); m.removedNodes && m.removedNodes.forEach(n=>{ if(n.nodeType===1){ const tag = n.tagName.toLowerCase(); if(tag==='video' || tag==='iframe' || (n.querySelector && (n.querySelector('video')||n.querySelector('iframe')))){ post({type:'dom', action:'removed', tag:tag, href:location.href}); } } }); }); }); observer.observe(document.documentElement || document.body, { childList:true, subtree:true }); post({type:'instrumentation', event:'observer_started'}); }catch(e){ post({type:'instrumentation', event:'observer_error', error:String(e)}); }
+
+                        function instrumentExistingVideos(){ const videos = document.querySelectorAll('video'); videos.forEach(v=>{ if(!v.__instrumented){ v.__instrumented = true; v.addEventListener('play', ()=>post({type:'video', event:'play', src:v.currentSrc || v.src, href:location.href})); v.addEventListener('pause', ()=>post({type:'video', event:'pause', src:v.currentSrc || v.src, href:location.href})); v.addEventListener('ended', ()=>post({type:'video', event:'ended', src:v.currentSrc || v.src, href:location.href})); } }); }
+                        setInterval(instrumentExistingVideos,1000);
+
+                        true;
+                      })();`}
+                      onMessage={(event) => {
+                        try {
+                          const data = JSON.parse(event.nativeEvent.data);
+                          console.log("WebView instrumentation:", data);
+                        } catch (e) {
+                          console.log(
+                            "WebView message (raw):",
+                            event.nativeEvent.data,
+                          );
+                        }
+                      }}
+                      onNavigationStateChange={(navState) => {
+                        console.log("WebView navigation state change:", {
+                          url: navState.url,
+                          title: navState.title,
+                          loading: navState.loading,
                         });
-                      });
-                    };
-                    
-                    // Run ad removal on load and periodically
-                    document.addEventListener('DOMContentLoaded', removeAds);
-                    setInterval(removeAds, 2000);
-                    
-                    console.log('Advanced ad blocker fully loaded');
-                    true;
-                  })();
-                `}
-                    onMessage={(event) => {
-                      // Handle messages from injected JavaScript if needed
-                      console.log("WebView message:", event.nativeEvent.data);
-                    }}
-                    // Block popup navigation within the WebView
-                    onShouldStartLoadWithRequest={(request) => {
-                      console.log(
-                        "NHL WebView navigation request:",
-                        request.url,
-                      );
+                      }}
+                      onShouldStartLoadWithRequest={(request) => {
+                        console.log(
+                          "NHL WebView navigation request:",
+                          request.url,
+                        );
 
-                      // Allow the initial stream URL to load
-                      if (request.url === streamUrl) {
-                        return true;
-                      }
-
-                      // Keywords that often indicate popups/ads
-                      const popupKeywords = [
-                        "popup",
-                        "ad",
-                        "ads",
-                        "click",
-                        "redirect",
-                        "promo",
-                      ];
-                      const urlLower = request.url.toLowerCase();
-                      const hasPopupKeywords = popupKeywords.some((keyword) =>
-                        urlLower.includes(keyword),
-                      );
-
-                      // Determine domains and allow same root/subdomains
-                      const currentDomain = new URL(streamUrl).hostname;
-                      let requestDomain = "";
-                      try {
-                        requestDomain = new URL(request.url).hostname;
-                      } catch (e) {
-                        if (
-                          urlLower.startsWith("about:blank") ||
-                          urlLower.startsWith("data:")
-                        ) {
+                        // Allow the initial stream URL to load
+                        if (request.url === streamUrl) {
                           return true;
                         }
-                        console.log("Invalid URL:", request.url);
-                        return false;
-                      }
 
-                      const sameRootDomain =
-                        requestDomain === currentDomain ||
-                        requestDomain.endsWith(`.${currentDomain}`) ||
-                        currentDomain.endsWith(`.${requestDomain}`);
+                        // Keywords that often indicate popups/ads
+                        const popupKeywords = [
+                          "popup",
+                          "ad",
+                          "ads",
+                          "click",
+                          "redirect",
+                          "promo",
+                        ];
+                        const urlLower = request.url.toLowerCase();
+                        const hasPopupKeywords = popupKeywords.some((keyword) =>
+                          urlLower.includes(keyword),
+                        );
 
-                      // Allow certain embed/navigation patterns even when cross-domain
-                      const allowPatterns = [
-                        "/embed/",
-                        "/embed-noads/",
-                        "/player/",
-                        ".html",
-                        ".m3u8",
-                        ".mpd",
-                        "about:blank",
-                        "data:",
-                      ];
-                      const allowIfEmbed = allowPatterns.some((p) =>
-                        urlLower.includes(p),
-                      );
+                        // Determine domains and allow same root/subdomains
+                        const currentDomain = new URL(streamUrl).hostname;
+                        let requestDomain = "";
+                        try {
+                          requestDomain = new URL(request.url).hostname;
+                        } catch (e) {
+                          if (
+                            urlLower.startsWith("about:blank") ||
+                            urlLower.startsWith("data:")
+                          ) {
+                            return true;
+                          }
+                          console.log("Invalid URL:", request.url);
+                          return false;
+                        }
 
-                      // Block navigation if it looks like a popup/ad and not an embed/resource
-                      if (hasPopupKeywords && !allowIfEmbed) {
+                        const sameRootDomain =
+                          requestDomain === currentDomain ||
+                          requestDomain.endsWith(`.${currentDomain}`) ||
+                          currentDomain.endsWith(`.${requestDomain}`);
+
+                        // Allow certain embed/navigation patterns even when cross-domain
+                        const allowPatterns = [
+                          "/embed/",
+                          "/embed-noads/",
+                          "/player/",
+                          ".html",
+                          ".m3u8",
+                          ".mpd",
+                          "about:blank",
+                          "data:",
+                        ];
+                        const allowIfEmbed = allowPatterns.some((p) =>
+                          urlLower.includes(p),
+                        );
+
+                        // Block navigation if it looks like a popup/ad and not an embed/resource
+                        if (hasPopupKeywords && !allowIfEmbed) {
+                          console.log(
+                            "Blocked NHL popup/cross-domain navigation:",
+                            request.url,
+                          );
+                          return false;
+                        }
+
+                        // If it's same root domain or matches known embed/resource patterns, allow
+                        if (sameRootDomain || allowIfEmbed) {
+                          return true;
+                        }
+
                         console.log(
                           "Blocked NHL popup/cross-domain navigation:",
                           request.url,
                         );
                         return false;
-                      }
-
-                      // If it's same root domain or matches known embed/resource patterns, allow
-                      if (sameRootDomain || allowIfEmbed) {
-                        return true;
-                      }
-
-                      console.log(
-                        "Blocked NHL popup/cross-domain navigation:",
-                        request.url,
-                      );
-                      return false;
-                    }}
-                    // Handle when WebView tries to open a new window (popup)
-                    onOpenWindow={(syntheticEvent) => {
-                      const { nativeEvent } = syntheticEvent;
-                      console.log(
-                        "Blocked NHL popup window:",
-                        nativeEvent.targetUrl,
-                      );
-                      // Don't open the popup - just log it
-                      return false;
-                    }}
-                  />
-                ) : (
-                  <View style={styles.noStreamContainer}>
-                    <Text style={[styles.noStreamText, { color: theme.text }]}>
-                      No stream URL available
-                    </Text>
-                  </View>
-                )}
+                      }}
+                      onOpenWindow={() => false}
+                    />
+                  ) : (
+                    <View style={styles.noStreamContainer}>
+                      <Text style={[styles.noStreamText, { color: theme.text }]}> 
+                        No stream URL available
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
             </View>
           </Modal>
@@ -6764,8 +6752,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  streamModalContainer: {
+  streamModalOverlay: {
     flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  streamModalContainer: {
+    width: "95%",
+    maxWidth: 800,
+    height: "85%",
+    maxHeight: 600,
+    borderRadius: 12,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 20,
   },
   streamModalHeader: {
     flexDirection: "row",
@@ -6780,6 +6788,49 @@ const styles = StyleSheet.create({
   },
   streamModalCloseButton: {
     padding: 8,
+  },
+  streamModalCloseText: {
+    fontSize: 26,
+    fontWeight: "bold",
+  },
+  streamButtonsContainer: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    maxHeight: 60,
+  },
+  streamButtonsContent: {
+    paddingHorizontal: 10,
+    gap: 10,
+    alignItems: "center",
+  },
+  streamSourceButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    minWidth: 80,
+    alignItems: "center",
+    marginHorizontal: 5,
+  },
+  streamSourceButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    textTransform: "capitalize",
+  },
+  webViewContainer: {
+    flex: 1,
+    position: "relative",
+  },
+  streamLoadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    zIndex: 1,
   },
   streamTypeContainer: {
     paddingVertical: 12,

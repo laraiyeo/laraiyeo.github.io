@@ -19,7 +19,7 @@ export class RibBuildIdService {
       console.log('RibBuildIdService: Fetching fresh build ID from rib.gg...');
       
       // Fetch the contact page HTML to extract build ID
-      const response = await fetch('https://corsproxy.io/?url=https://www.rib.gg/contact');
+      const response = await fetch('https://www.rib.gg/contact');
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -68,7 +68,7 @@ export class RibBuildIdService {
    */
   static async getNextDataUrl(path) {
     const buildId = await this.getBuildId();
-    return `https://corsproxy.io/?url=https://www.rib.gg/_next/data/${buildId}${path}`;
+    return `https://www.rib.gg/_next/data/${buildId}${path}`;
   }
 
   /**

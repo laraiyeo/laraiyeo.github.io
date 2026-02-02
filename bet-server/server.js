@@ -11208,6 +11208,7 @@ function startWatcherInline(betslipId) {
         !isFirstTick &&
         anyCompleted &&
         anyCompletedNotWon &&
+        allFinal &&
         !hasPendingEmptyEvents
       ) {
         // Ensure betslip payload indicates all bets are present before settling
@@ -11370,7 +11371,48 @@ async function canSettleFromPayload(fresh, betslipId) {
     if (!Number.isFinite(totalBets) || !Number.isFinite(gamesCount))
       return true;
 
-    return totalBets >= gamesCount;
+    // Require exact match: totalBets must equal gamesCount. If they differ,
+    // the payload is incomplete and we must NOT settle yet.
+    if (totalBets >= gamesCount) return false;
+
+    // Additionally, scan payload events for explicit `won` flags. If any
+    // reported bet has a non-boolean `won` value (e.g. "pending" / null),
+    // treat payload as incomplete and do not settle.
+    const events =
+      payload.events || payload.betslipData?.events || payload.betslip_data?.events || [];
+    try {
+      for (const ev of events) {
+        const bets = ev.bets || {};
+        // top-level bet types
+        for (const k of Object.keys(bets)) {
+          const b = bets[k];
+          if (!b) continue;
+          // simple shape: { won: ... }
+          if (Object.prototype.hasOwnProperty.call(b, "won")) {
+            if (typeof b.won !== "boolean") return false;
+          }
+          // players array shape
+          if (Array.isArray(b.players)) {
+            for (const p of b.players) {
+              // overUnder / milestones nested shapes
+              for (const sub of [p.overUnder || {}, p.milestones || {}]) {
+                for (const key of Object.keys(sub || {})) {
+                  const entry = sub[key];
+                  if (entry && Object.prototype.hasOwnProperty.call(entry, "won")) {
+                    if (typeof entry.won !== "boolean") return false;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // if scanning fails, be conservative and disallow settlement
+      return false;
+    }
+
+    return true;
   } catch (e) {
     console.warn(
       `[canSettleFromPayload] error for ${betslipId}`,

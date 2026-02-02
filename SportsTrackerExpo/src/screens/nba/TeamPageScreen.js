@@ -999,7 +999,7 @@ const TeamPageScreen = ({ route, navigation }) => {
               athlete.position?.displayName ||
               "N/A",
             number: athlete.jersey || "N/A",
-            headshot: athlete.headshot?.href,
+            headshot: `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${athlete.id}.png&w=200`,
             status: athlete.injuries?.[0]?.status || "Active",
           }));
           console.log(
@@ -1501,11 +1501,11 @@ const TeamPageScreen = ({ route, navigation }) => {
       if (!cand) return null;
 
       if (team && Array.isArray(team.logos) && team.logos.length > 0) {
-        const preferredIndex = isDarkMode ? 1 : 0;
-        const fallbackIndex = isDarkMode ? 0 : 1;
+        const preferredIndex = isDarkMode ? "-dark" : "";
+        const fallbackIndex = isDarkMode ? "" : "-dark";
         const logoUrl =
-          team.logos[preferredIndex]?.href ||
-          team.logos[fallbackIndex]?.href ||
+          `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${preferredIndex}/${team.abbreviation.toLowerCase()}.png&h=200&w=200` ||
+          `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${fallbackIndex}/${team.abbreviation.toLowerCase()}.png&h=200&w=200` ||
           team.logos[0]?.href;
         if (logoUrl) return { uri: logoUrl };
       }
@@ -1525,11 +1525,11 @@ const TeamPageScreen = ({ route, navigation }) => {
       // Recompute and update only if different to avoid unnecessary state churn
       let newUrl = null;
       if (team && Array.isArray(team.logos) && team.logos.length > 0) {
-        const preferredIndex = isDarkMode ? 1 : 0;
-        const fallbackIndex = isDarkMode ? 0 : 1;
+        const preferredIndex = isDarkMode ? "-dark" : "";
+        const fallbackIndex = isDarkMode ? "" : "-dark";
         newUrl =
-          team.logos[preferredIndex]?.href ||
-          team.logos[fallbackIndex]?.href ||
+          `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${preferredIndex}/${team.abbreviation.toLowerCase()}.png&h=200&w=200` ||
+          `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${fallbackIndex}/${team.abbreviation.toLowerCase()}.png&h=200&w=200` ||
           team.logos[0]?.href;
       }
       if (!newUrl) {

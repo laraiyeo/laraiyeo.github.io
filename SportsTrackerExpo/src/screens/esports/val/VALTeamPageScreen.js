@@ -149,7 +149,7 @@ const VALTeamPageScreen = ({ route }) => {
   const fetchTeamData = async () => {
     try {
       setLoading(true);
-      const data = await ribApiCall(`/teams/${teamId}`);
+      const data = await ribApiCall(`/teams/${teamId}?`);
       setTeamData(data);
     } catch (error) {
       console.error('Error fetching team data:', error);
