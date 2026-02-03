@@ -2000,6 +2000,9 @@ const UECLBracketScreen = ({ navigation, route }) => {
             <ScrollView style={styles.legsContainer}>
               {[1, 2].map((legNumber) => {
                 const match = sortedMatches.find((m) => m.leg === legNumber);
+
+                const hasHomeScore = match.homeScore != null || match.homeShootoutScore != null;
+                const hasAwayScore = match.awayScore != null || match.awayShootoutScore != null;
                 // If a match exists for this leg, render the whole card as a single touchable
                 if (match) {
                   return (
@@ -2059,7 +2062,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
                                       ? colors.primary
                                       : theme.text,
                                   marginBottom:
-                                    match.homeScore && match.homeShootoutScore
+                                    hasHomeScore
                                       ? 5
                                       : 0,
                                 },
@@ -2067,7 +2070,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
                             >
                               {match.homeTeam.shortDisplayName}
                             </Text>
-                            {match.homeShootoutScore && match.homeScore && (
+                            {hasHomeScore && (
                               <Text
                                 allowFontScaling={false}
                                 style={[
@@ -2118,7 +2121,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
                                       ? colors.primary
                                       : theme.text,
                                   marginBottom:
-                                    match.awayScore && match.awayShootoutScore
+                                    hasAwayScore
                                       ? 5
                                       : 0,
                                 },
@@ -2126,7 +2129,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
                             >
                               {match.awayTeam.shortDisplayName}
                             </Text>
-                            {match.awayShootoutScore && match.awayScore && (
+                            {hasAwayScore && (
                               <Text
                                 allowFontScaling={false}
                                 style={[

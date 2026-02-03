@@ -191,6 +191,8 @@ export class WNBAService extends BaseCacheService {
         displayClock: game.status?.displayClock || '',
         period: game.status?.period || 0,
         isCompleted: !!game.status?.type?.completed,
+        season: game.season || {},
+        notes: competition.notes?.[0]?.headline || "",
         situation: competition.situation || null,
         homeTeam: {
           id: home.id,

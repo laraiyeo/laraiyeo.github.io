@@ -41,7 +41,9 @@ const StandingsScreen = ({ route }) => {
     'Aston Martin': '#229971',
     'Williams': '#64C4FF',
     'Sauber': '#52E252',
-    'Haas': '#B6BABD'
+    'Haas': '#B6BABD',
+    'Audi': "#DB0303",
+    'Cadillac': "#A2AAAD",
   };
 
   // Helper to format color from API (adds # if missing)

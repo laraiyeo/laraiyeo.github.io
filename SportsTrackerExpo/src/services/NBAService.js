@@ -249,6 +249,7 @@ export class NBAService extends BaseCacheService {
           }
         })(),
         notes: competition.notes?.[0]?.headline || "",
+        season: game.season || {},
         gameStatus: game.status?.type?.state || "",
         neutral: competition.neutralSite || false,
         odds: competition.odds?.[0] || null,

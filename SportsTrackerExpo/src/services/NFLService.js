@@ -288,6 +288,8 @@ export class NFLService extends BaseCacheService {
       displayClock: game.status.displayClock,
       period: game.status.period,
       isCompleted: game.status.type.completed,
+      season: game.season,
+      notes: game.competitions?.[0]?.notes?.[0]?.headline || "",
       situation: formattedSituation,
       homeTeam: {
         id: homeTeam.id,

@@ -1,14 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView, Modal } from 'react-native';
-import { useTheme } from '../../../context/ThemeContext';
-import { GermanyServiceEnhanced } from '../../../services/soccer/GermanyServiceEnhanced';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  ScrollView,
+  Modal,
+} from "react-native";
+import { useTheme } from "../../../context/ThemeContext";
+import { GermanyServiceEnhanced } from "../../../services/soccer/GermanyServiceEnhanced";
 
 // Helper function to get the appropriate year for domestic leagues
 const getDomesticLeagueYear = () => {
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1; // getMonth() is 0-indexed
   const currentYear = currentDate.getFullYear();
-  
+
   // For domestic leagues: July-December uses current year, January-June uses previous year
   if (currentMonth >= 7) {
     return currentYear;
@@ -19,8 +28,8 @@ const getDomesticLeagueYear = () => {
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
 const convertToHttps = (url) => {
-  if (url && url.startsWith('http://')) {
-    return url.replace('http://', 'https://');
+  if (url && url.startsWith("http://")) {
+    return url.replace("http://", "https://");
   }
   return url;
 };
@@ -28,7 +37,7 @@ const convertToHttps = (url) => {
 const GermanyPlayerPageScreen = ({ route, navigation }) => {
   const { playerId, playerName, teamId, sport } = route.params;
   const { theme, colors, isDarkMode } = useTheme();
-  const [activeTab, setActiveTab] = useState('Stats');
+  const [activeTab, setActiveTab] = useState("Stats");
   const [playerData, setPlayerData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [playerStats, setPlayerStats] = useState(null);
@@ -44,7 +53,6 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
   const [showSeasonModal, setShowSeasonModal] = useState(false);
   const [failedLogos, setFailedLogos] = useState(new Set());
   const [leagueNames, setLeagueNames] = useState(new Map());
-  
 
   // Helper function to get team logo URL with fallback
   const getTeamLogoUrl = (teamId, useDarkMode = isDarkMode) => {
@@ -52,45 +60,47 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
       // Return null for no team ID - will use defaultSource
       return null;
     }
-    
+
     // Create unique keys for different logo attempts
-    const primaryKey = `${teamId}-${useDarkMode ? '500-dark' : '500'}`;
-    const fallbackKey = `${teamId}-${useDarkMode ? '500' : '500-dark'}`;
-    
+    const primaryKey = `${teamId}-${useDarkMode ? "500-dark" : "500"}`;
+    const fallbackKey = `${teamId}-${useDarkMode ? "500" : "500-dark"}`;
+
     // If both primary and fallback have failed, return null to use defaultSource
     if (failedLogos.has(primaryKey) && failedLogos.has(fallbackKey)) {
       return null;
     }
-    
+
     // If primary has failed, try fallback
     if (failedLogos.has(primaryKey)) {
-      return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/${useDarkMode ? '500' : '500-dark'}/${teamId}.png&w=200&h=200`;
+      return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/${useDarkMode ? "500" : "500-dark"}/${teamId}.png&w=200&h=200`;
     }
-    
+
     // Try primary first
-    return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/${useDarkMode ? '500-dark' : '500'}/${teamId}.png&w=200&h=200`;
+    return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/${useDarkMode ? "500-dark" : "500"}/${teamId}.png&w=200&h=200`;
   };
 
   // Helper function to handle logo loading errors
   const handleLogoError = (teamId, useDarkMode) => {
-    const logoKey = `${teamId}-${useDarkMode ? '500-dark' : '500'}`;
-    setFailedLogos(prev => new Set([...prev, logoKey]));
+    const logoKey = `${teamId}-${useDarkMode ? "500-dark" : "500"}`;
+    setFailedLogos((prev) => new Set([...prev, logoKey]));
   };
 
   // Helper function to get team logo fallback URL
   const getTeamLogoFallbackUrl = (teamId, useDarkMode = isDarkMode) => {
     if (!teamId) {
-      return require('../../../../assets/soccer.png');
+      return require("../../../../assets/soccer.png");
     }
-    
+
     // Return the actual logo URL as default first
-    return { uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200` };
+    return {
+      uri: `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`,
+    };
   };
 
   // Helper function to get competition logo URL with fallback logic
   const getCompetitionLogoUrl = (logoId, useDarkMode = isDarkMode) => {
     if (!logoId) return null;
-    
+
     // For dark mode: try 500-dark first
     // For light mode: try 500 first
     if (useDarkMode) {
@@ -103,7 +113,7 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
   // Helper function to get competition logo fallback URL (alternate version)
   const getCompetitionLogoFallbackUrl = (logoId, useDarkMode = isDarkMode) => {
     if (!logoId) return null;
-    
+
     // Return the alternate version based on theme
     // If primary dark mode link fails, try light mode (500)
     // If primary light mode link fails, try dark mode (500-dark)
@@ -114,12 +124,134 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
     }
   };
 
+  // Render team logos for a season: combine multiple teams in same league into dual-logos
+  const renderSeasonTeamsView = (season, useDarkMode = isDarkMode) => {
+    const teams = [];
+    if (!season) return null;
+
+    // If this season represents a merged transfer pair, render the from->to logos
+    if (season.transferPair && season.fromTeam && season.toTeam) {
+      const firstId = season.fromTeam.id;
+      const secondId = season.toTeam.id;
+      return (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Image
+            source={
+              getTeamLogoUrl(firstId, useDarkMode)
+                ? { uri: getTeamLogoUrl(firstId, useDarkMode) }
+                : require("../../../../assets/soccer.png")
+            }
+            style={[
+              styles.careerTeamLogo,
+              { width: 28, height: 28, marginRight: 6 },
+            ]}
+            defaultSource={getTeamLogoFallbackUrl(firstId, useDarkMode)}
+            onError={() => handleLogoError(firstId, useDarkMode)}
+          />
+          <Image
+            source={
+              getTeamLogoUrl(secondId, useDarkMode)
+                ? { uri: getTeamLogoUrl(secondId, useDarkMode) }
+                : require("../../../../assets/soccer.png")
+            }
+            style={[styles.careerTeamLogo, { width: 28, height: 28 }]}
+            defaultSource={getTeamLogoFallbackUrl(secondId, useDarkMode)}
+            onError={() => handleLogoError(secondId, useDarkMode)}
+          />
+        </View>
+      );
+    }
+
+    if (Array.isArray(season.allStatsData) && season.allStatsData.length > 0) {
+      const seen = new Set();
+      season.allStatsData.forEach((s) => {
+        if (s.teamId && !seen.has(s.teamId)) {
+          seen.add(s.teamId);
+          teams.push({ id: s.teamId });
+        }
+      });
+    } else if (
+      Array.isArray(season.teamsForSeason) &&
+      season.teamsForSeason.length > 0
+    ) {
+      const seen = new Set();
+      season.teamsForSeason.forEach((t) => {
+        if (t.teamId && !seen.has(t.teamId)) {
+          seen.add(t.teamId);
+          teams.push({ id: t.teamId });
+        }
+      });
+    } else if (season.team && season.team.id) {
+      teams.push({ id: season.team.id });
+    }
+
+    if (teams.length === 0) {
+      return (
+        <CompetitionLogo
+          logoId={season.logoId}
+          style={styles.careerTeamLogo}
+          useDarkMode={useDarkMode}
+        />
+      );
+    }
+
+    if (teams.length === 1) {
+      const t = teams[0];
+      return (
+        <Image
+          source={
+            getTeamLogoUrl(t.id, useDarkMode)
+              ? { uri: getTeamLogoUrl(t.id, useDarkMode) }
+              : require("../../../../assets/soccer.png")
+          }
+          style={styles.careerTeamLogo}
+          defaultSource={getTeamLogoFallbackUrl(t.id, useDarkMode)}
+          onError={() => handleLogoError(t.id, useDarkMode)}
+        />
+      );
+    }
+
+    const first = teams[0];
+    const second = teams[1];
+    return (
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <Image
+          source={
+            getTeamLogoUrl(first.id, useDarkMode)
+              ? { uri: getTeamLogoUrl(first.id, useDarkMode) }
+              : require("../../../../assets/soccer.png")
+          }
+          style={[
+            styles.careerTeamLogo,
+            { width: 28, height: 28, marginRight: 6 },
+          ]}
+          defaultSource={getTeamLogoFallbackUrl(first.id, useDarkMode)}
+          onError={() => handleLogoError(first.id, useDarkMode)}
+        />
+        {second && (
+          <Image
+            source={
+              getTeamLogoUrl(second.id, useDarkMode)
+                ? { uri: getTeamLogoUrl(second.id, useDarkMode) }
+                : require("../../../../assets/soccer.png")
+            }
+            style={[styles.careerTeamLogo, { width: 28, height: 28 }]}
+            defaultSource={getTeamLogoFallbackUrl(second.id, useDarkMode)}
+            onError={() => handleLogoError(second.id, useDarkMode)}
+          />
+        )}
+      </View>
+    );
+  };
+
   // Custom Competition Logo component with fallback logic
   const CompetitionLogo = ({ logoId, style, useDarkMode = isDarkMode }) => {
-    const [currentUrl, setCurrentUrl] = useState(() => getCompetitionLogoUrl(logoId, useDarkMode));
+    const [currentUrl, setCurrentUrl] = useState(() =>
+      getCompetitionLogoUrl(logoId, useDarkMode),
+    );
     const [failed, setFailed] = useState(false);
-    const logoKey = `${logoId}_${useDarkMode ? 'dark' : 'light'}`;
-    
+    const logoKey = `${logoId}_${useDarkMode ? "dark" : "light"}`;
+
     const handleImageError = () => {
       if (!failed) {
         // Try fallback URL (alternate theme)
@@ -137,7 +269,7 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
     }
 
     return (
-      <Image 
+      <Image
         source={{ uri: currentUrl }}
         style={style}
         onError={handleImageError}
@@ -148,21 +280,39 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
   // Get team color like in team page
   const getTeamColor = (team) => {
     if (!team) return colors.primary;
-    
+
     // Use alternate color if main color is too light/problematic
-    const isUsingAlternateColor = ["ffffff", "ffee00", "ffff00", "81f733", "000000", "f7f316", "eef209", "ece83a", "1c31ce", "ffd700"].includes(team.color);
-    
+    const isUsingAlternateColor = [
+      "ffffff",
+      "ffee00",
+      "ffff00",
+      "81f733",
+      "000000",
+      "f7f316",
+      "eef209",
+      "ece83a",
+      "1c31ce",
+      "ffd700",
+    ].includes(team.color);
+
     if (isUsingAlternateColor && team.alternateColor) {
       return `#${team.alternateColor}`;
     } else if (team.color) {
       return `#${team.color}`;
     }
-    
+
     return colors.primary;
   };
 
   useEffect(() => {
-    console.log('GermanyPlayerPageScreen received - playerId:', playerId, 'playerName:', playerName, 'teamId:', teamId);
+    console.log(
+      "GermanyPlayerPageScreen received - playerId:",
+      playerId,
+      "playerName:",
+      playerName,
+      "teamId:",
+      teamId,
+    );
     fetchPlayerData();
   }, [playerId]);
 
@@ -170,34 +320,44 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
   const fetchPlayerTransactions = async (currentPlayerData = null) => {
     try {
       console.log(`Fetching transaction history for player ${playerId}...`);
-      const transactionResponse = await fetch(convertToHttps(`https://sports.core.api.espn.com/v2/sports/soccer/athletes/${playerId}/transactions?lang=en&region=us`));
-      console.log('Transaction response status:', transactionResponse.status);
-      console.log('Transaction response object:', transactionResponse);
-      
+      const transactionResponse = await fetch(
+        convertToHttps(
+          `https://sports.core.api.espn.com/v2/sports/soccer/athletes/${playerId}/transactions?lang=en&region=us`,
+        ),
+      );
+      console.log("Transaction response status:", transactionResponse.status);
+      console.log("Transaction response object:", transactionResponse);
+
       if (transactionResponse.ok) {
         const transactionData = await transactionResponse.json();
-        console.log('RAW TRANSACTION RESPONSE DATA:');
-        console.log('==========================================');
+        console.log("RAW TRANSACTION RESPONSE DATA:");
+        console.log("==========================================");
         console.log(JSON.stringify(transactionData, null, 2));
-        console.log('==========================================');
-        console.log(`Transaction history for player ${playerId}:`, transactionData);
-        console.log('Transaction items count:', transactionData?.items?.length || 0);
-        
+        console.log("==========================================");
+        console.log(
+          `Transaction history for player ${playerId}:`,
+          transactionData,
+        );
+        console.log(
+          "Transaction items count:",
+          transactionData?.items?.length || 0,
+        );
+
         // Add transactions to player data
-        setPlayerData(prevData => ({
+        setPlayerData((prevData) => ({
           ...prevData,
-          transactions: transactionData
+          transactions: transactionData,
         }));
-        
-        console.log('Transaction data successfully added to playerData');
-        
+
+        console.log("Transaction data successfully added to playerData");
+
         // Parse each transaction and log the details
         if (transactionData && transactionData.items) {
           transactionData.items.forEach((transaction, index) => {
             const transactionDate = new Date(transaction.date);
             const year = transactionDate.getFullYear();
             const month = transactionDate.getMonth() + 1; // getMonth() returns 0-11, so add 1
-            
+
             // Convert to season year: if month is 1-6 (Jan-Jun), it's part of the previous year's season
             // if month is 7-12 (Jul-Dec), it's part of the current year's season
             let seasonYear;
@@ -206,55 +366,71 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
             } else {
               seasonYear = year; // August 2021 = 2021 season
             }
-            
+
             // Extract FROM team info
             if (transaction.from && transaction.from.$ref) {
               const fromTeamMatch = transaction.from.$ref.match(/teams\/(\d+)/);
-              const fromLeagueMatch = transaction.from.$ref.match(/leagues\/([^\/]+)\/seasons/);
+              const fromLeagueMatch = transaction.from.$ref.match(
+                /leagues\/([^\/]+)\/seasons/,
+              );
               if (fromTeamMatch && fromLeagueMatch) {
-                console.log(`From team: id: ${fromTeamMatch[1]} league: ${fromLeagueMatch[1]}`);
+                console.log(
+                  `From team: id: ${fromTeamMatch[1]} league: ${fromLeagueMatch[1]}`,
+                );
               }
             }
-            
+
             // Extract TO team info
             if (transaction.to && transaction.to.$ref) {
               const toTeamMatch = transaction.to.$ref.match(/teams\/(\d+)/);
-              const toLeagueMatch = transaction.to.$ref.match(/leagues\/([^\/]+)\/seasons/);
+              const toLeagueMatch = transaction.to.$ref.match(
+                /leagues\/([^\/]+)\/seasons/,
+              );
               if (toTeamMatch && toLeagueMatch) {
-                console.log(`To team: id: ${toTeamMatch[1]} league: ${toLeagueMatch[1]}`);
+                console.log(
+                  `To team: id: ${toTeamMatch[1]} league: ${toLeagueMatch[1]}`,
+                );
               }
             }
-            
+
             console.log(`Year converted: ${seasonYear}`);
           });
         }
       } else {
-        console.log('Failed to fetch transaction history');
+        console.log("Failed to fetch transaction history");
       }
     } catch (error) {
-      console.log('Error fetching transactions:', error);
+      console.log("Error fetching transactions:", error);
     }
   };
 
   // Effect to load stats when Stats tab is selected
   useEffect(() => {
-    if (activeTab === 'Stats' && playerData && !loadingStats) {
+    if (activeTab === "Stats" && playerData && !loadingStats) {
       fetchPlayerStats();
     }
   }, [activeTab, playerData]);
 
   // Effect to load game log when Game Log tab is selected
   useEffect(() => {
-    if (activeTab === 'Game Log' && playerData && gameLog.length === 0 && !loadingGameLog) {
+    if (
+      activeTab === "Game Log" &&
+      playerData &&
+      gameLog.length === 0 &&
+      !loadingGameLog
+    ) {
       fetchGameLog();
     }
   }, [activeTab, playerData]);
 
   // Effect to load career data when Career tab is selected
   useEffect(() => {
-    if (activeTab === 'Career' && playerData && !careerData && !loadingCareer) {
-      console.log('Career tab selected, checking transaction data...');
-      console.log('playerData.transactions available:', !!playerData?.transactions);
+    if (activeTab === "Career" && playerData && !careerData && !loadingCareer) {
+      console.log("Career tab selected, checking transaction data...");
+      console.log(
+        "playerData.transactions available:",
+        !!playerData?.transactions,
+      );
       fetchCareerData();
     }
   }, [activeTab, playerData, playerData?.transactions]);
@@ -262,58 +438,72 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
   const fetchPlayerData = async () => {
     try {
       setLoading(true);
-      console.log('Fetching player data for playerId:', playerId);
-      
+      console.log("Fetching player data for playerId:", playerId);
+
       // Create a basic player object with the data we have from navigation
       const basicPlayerData = {
         id: playerId,
         displayName: playerName,
         fullName: playerName,
-        jersey: '10',
-        position: { displayName: 'Forward' }, // Better default than 'Unknown'
-        team: { 
-          id: teamId, 
-          displayName: 'Bayern Munich', // Better default for ger.1 teams
-          name: 'Real Madrid'
+        jersey: "10",
+        position: { displayName: "Forward" }, // Better default than 'Unknown'
+        team: {
+          id: teamId,
+          displayName: "Bayern Munich", // Better default for ger.1 teams
+          name: "Real Madrid",
         },
-        headshot: { href: `https://via.placeholder.com/80x80?text=${playerName?.charAt(0) || 'P'}` }
+        headshot: {
+          href: `https://via.placeholder.com/80x80?text=${playerName?.charAt(0) || "P"}`,
+        },
       };
 
       // Try to fetch enhanced data from ESPN APIs with better error handling
       try {
-        console.log('Attempting to fetch from site API...');
-        const siteResponse = await fetch(convertToHttps(`https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/athletes/${playerId}`), {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
+        console.log("Attempting to fetch from site API...");
+        const siteResponse = await fetch(
+          convertToHttps(
+            `https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/athletes/${playerId}`,
+          ),
+          {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+            },
           },
-        });
-        
+        );
+
         if (siteResponse.ok) {
           const siteData = await siteResponse.json();
-          console.log('Site API response:', siteData);
-          
+          console.log("Site API response:", siteData);
+
           if (siteData && siteData.athlete) {
             // Extract position information more carefully
-            let position = { displayName: 'Unknown' };
+            let position = { displayName: "Unknown" };
             if (siteData.athlete.position) {
               position = siteData.athlete.position;
-            } else if (siteData.athlete.positions && siteData.athlete.positions.length > 0) {
+            } else if (
+              siteData.athlete.positions &&
+              siteData.athlete.positions.length > 0
+            ) {
               position = siteData.athlete.positions[0];
             }
-            
+
             // Extract team information more carefully
-            let team = { id: teamId, displayName: 'Team' };
+            let team = { id: teamId, displayName: "Team" };
             if (siteData.athlete.team) {
               team = {
                 id: siteData.athlete.team.id || teamId,
-                displayName: siteData.athlete.team.displayName || siteData.athlete.team.name || 'Team'
+                displayName:
+                  siteData.athlete.team.displayName ||
+                  siteData.athlete.team.name ||
+                  "Team",
               };
             }
-            
+
             // Merge with enhanced data, excluding transactions to prevent overwriting
-            const { transactions, ...athleteDataWithoutTransactions } = siteData.athlete;
-            
+            const { transactions, ...athleteDataWithoutTransactions } =
+              siteData.athlete;
+
             const enhancedData = {
               ...basicPlayerData,
               ...athleteDataWithoutTransactions,
@@ -321,57 +511,75 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
               fullName: siteData.athlete.fullName || playerName,
               position: position,
               team: team,
-              jersey: siteData.athlete.jersey || siteData.athlete.uniformNumber || '10'
+              jersey:
+                siteData.athlete.jersey ||
+                siteData.athlete.uniformNumber ||
+                "10",
             };
             setPlayerData(enhancedData);
-            console.log('Enhanced player data loaded:', enhancedData);
-            
+            console.log("Enhanced player data loaded:", enhancedData);
+
             // Fetch transactions for this enhanced player data
             await fetchPlayerTransactions(enhancedData);
-            
+
             return; // Exit early on success
           }
         } else {
-          console.log('Site API request failed with status:', siteResponse.status);
+          console.log(
+            "Site API request failed with status:",
+            siteResponse.status,
+          );
         }
       } catch (fetchError) {
-        console.log('Site API fetch failed, trying core API...', fetchError.message);
+        console.log(
+          "Site API fetch failed, trying core API...",
+          fetchError.message,
+        );
       }
-        
+
       // Fallback to core API
       try {
-        const coreResponse = await fetch(convertToHttps(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/ger.1/athletes/${playerId}?lang=en&region=us`));
+        const coreResponse = await fetch(
+          convertToHttps(
+            `https://sports.core.api.espn.com/v2/sports/soccer/leagues/ger.1/athletes/${playerId}?lang=en&region=us`,
+          ),
+        );
         if (coreResponse.ok) {
           const coreData = await coreResponse.json();
-          console.log('Core API response:', coreData);
-          
+          console.log("Core API response:", coreData);
+
           // Extract position from core API
-          let position = { displayName: 'Unknown' };
+          let position = { displayName: "Unknown" };
           if (coreData.position) {
             position = coreData.position;
           } else if (coreData.positions && coreData.positions.length > 0) {
             position = coreData.positions[0];
           }
-          
+
           // Extract team from core API with proper $ref handling
-          let team = { id: teamId, displayName: 'Team' };
+          let team = { id: teamId, displayName: "Team" };
           if (coreData.team) {
             // If team is a $ref, fetch the team data
-            if (typeof coreData.team === 'object' && coreData.team.$ref) {
+            if (typeof coreData.team === "object" && coreData.team.$ref) {
               try {
-                const teamResponse = await fetch(convertToHttps(coreData.team.$ref));
+                const teamResponse = await fetch(
+                  convertToHttps(coreData.team.$ref),
+                );
                 if (teamResponse.ok) {
                   const teamData = await teamResponse.json();
                   team = {
                     id: teamData.id || teamId,
-                    displayName: teamData.displayName || teamData.name || teamData.shortDisplayName,
+                    displayName:
+                      teamData.displayName ||
+                      teamData.name ||
+                      teamData.shortDisplayName,
                     name: teamData.name || teamData.displayName,
                     color: teamData.color,
-                    alternateColor: teamData.alternateColor
+                    alternateColor: teamData.alternateColor,
                   };
                 }
               } catch (error) {
-                console.error('Error fetching team data from $ref:', error);
+                console.error("Error fetching team data from $ref:", error);
               }
             } else {
               // Direct team object
@@ -380,14 +588,14 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
                 displayName: coreData.team.displayName || coreData.team.name,
                 name: coreData.team.name || coreData.team.displayName,
                 color: coreData.team.color,
-                alternateColor: coreData.team.alternateColor
+                alternateColor: coreData.team.alternateColor,
               };
             }
           }
-          
+
           // Exclude transactions from coreData to prevent overwriting our fetched data
           const { transactions, ...coreDataWithoutTransactions } = coreData;
-          
+
           const enhancedData = {
             ...basicPlayerData,
             ...coreDataWithoutTransactions,
@@ -395,48 +603,52 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
             fullName: coreData.fullName || playerName,
             position: position,
             team: team,
-            jersey: coreData.jersey || coreData.uniformNumber || '10'
+            jersey: coreData.jersey || coreData.uniformNumber || "10",
           };
           setPlayerData(enhancedData);
-          console.log('Core API player data loaded:', enhancedData);
-          
+          console.log("Core API player data loaded:", enhancedData);
+
           // Fetch transactions for this enhanced player data
           await fetchPlayerTransactions(enhancedData);
-          
+
           return; // Exit early on success
         } else {
-          console.log('Core API also failed');
+          console.log("Core API also failed");
         }
       } catch (coreError) {
-        console.log('Core API also failed:', coreError.message);
+        console.log("Core API also failed:", coreError.message);
       }
-      
+
       // If all APIs fail, use basic data
-      console.log('Using basic player data (all APIs failed)');
+      console.log("Using basic player data (all APIs failed)");
       setPlayerData(basicPlayerData);
-      
+
       // Fetch transactions even for basic player data
       await fetchPlayerTransactions(basicPlayerData);
-      
     } catch (error) {
-      console.error('Error in fetchPlayerData:', error);
+      console.error("Error in fetchPlayerData:", error);
       // Fallback to basic data even if everything fails
       const fallbackData = {
         id: playerId,
         displayName: playerName,
         fullName: playerName,
         jersey: null,
-        position: { displayName: 'Unknown' },
-        team: { id: teamId, displayName: 'Team' },
-        headshot: { href: `https://via.placeholder.com/80x80?text=${playerName?.charAt(0) || 'P'}` }
+        position: { displayName: "Unknown" },
+        team: { id: teamId, displayName: "Team" },
+        headshot: {
+          href: `https://via.placeholder.com/80x80?text=${playerName?.charAt(0) || "P"}`,
+        },
       };
       setPlayerData(fallbackData);
-      
+
       // Try to fetch transactions even for fallback data
       try {
         await fetchPlayerTransactions(fallbackData);
       } catch (transactionError) {
-        console.log('Failed to fetch transactions in error fallback:', transactionError);
+        console.log(
+          "Failed to fetch transactions in error fallback:",
+          transactionError,
+        );
       }
     } finally {
       setLoading(false);
@@ -458,19 +670,21 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
     try {
       const url = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueCode}?lang=en&region=us`;
       console.log(`Fetching league name for ${leagueCode} from:`, url);
-      
+
       const response = await fetch(convertToHttps(url));
       if (!response.ok) {
-        console.warn(`Failed to fetch league name for ${leagueCode}: ${response.status}`);
+        console.warn(
+          `Failed to fetch league name for ${leagueCode}: ${response.status}`,
+        );
         return leagueCode; // Fallback to code
       }
-      
+
       const data = await response.json();
       const leagueName = data.name || data.displayName || leagueCode;
-      
+
       // Cache the result
-      setLeagueNames(prev => new Map(prev.set(leagueCode, leagueName)));
-      
+      setLeagueNames((prev) => new Map(prev.set(leagueCode, leagueName)));
+
       console.log(`League name for ${leagueCode}: ${leagueName}`);
       return leagueName;
     } catch (error) {
@@ -481,44 +695,53 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
 
   const fetchPlayerStats = async () => {
     if (!playerData) return;
-    
+
     setLoadingStats(true);
     try {
-      console.log('Fetching player stats for playerId:', playerId);
-      
+      console.log("Fetching player stats for playerId:", playerId);
+
       // Define competitions - all use types/0/ as you specified
       const competitions = [
-        { code: 'ger.1', name: 'Bundesliga', seasonType: '0' },
-        { code: 'ger.dfb_pokal', name: 'DFB Pokal', seasonType: '0' },
-        { code: 'ger.super_cup', name: 'German Super Cup', seasonType: '0' }
+        { code: "ger.1", name: "Bundesliga", seasonType: "0" },
+        { code: "ger.dfb_pokal", name: "DFB Pokal", seasonType: "0" },
+        { code: "ger.super_cup", name: "German Super Cup", seasonType: "0" },
       ];
-      
+
       const allStats = {};
-      
+
       // Fetch stats for each competition in parallel with year fallback
       const statsPromises = competitions.map(async (competition) => {
         try {
           const year = getDomesticLeagueYear();
           const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition.code}/seasons/${year}/types/${competition.seasonType}/athletes/${playerId}/statistics?lang=en&region=us`;
           const response = await fetch(convertToHttps(statsUrl));
-          
+
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
           }
-          
+
           const statsData = await response.json();
-          console.log(`Validating Germany player stats data for ${competition.name}:`, statsData);
-          const isValidData = statsData && statsData.splits && statsData.splits.categories && statsData.splits.categories.length > 0;
+          console.log(
+            `Validating Germany player stats data for ${competition.name}:`,
+            statsData,
+          );
+          const isValidData =
+            statsData &&
+            statsData.splits &&
+            statsData.splits.categories &&
+            statsData.splits.categories.length > 0;
 
           if (isValidData) {
-            console.log(`Found ${competition.name} stats with ${statsData.splits.categories.length} categories`);
-            
+            console.log(
+              `Found ${competition.name} stats with ${statsData.splits.categories.length} categories`,
+            );
+
             // Handle the case where data might be wrapped in a data property
             const actualData = statsData.data || statsData;
-            
+
             return {
               competition: competition.name,
-              data: actualData
+              data: actualData,
             };
           } else {
             console.log(`No stats found for ${competition.name}`);
@@ -529,20 +752,22 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
           return null;
         }
       });
-      
+
       const statsResults = await Promise.all(statsPromises);
-      const validStats = statsResults.filter(result => result !== null);
-      
+      const validStats = statsResults.filter((result) => result !== null);
+
       // Organize stats by competition
-      validStats.forEach(result => {
+      validStats.forEach((result) => {
         allStats[result.competition] = processTeamPageStats(result.data);
       });
-      
-      console.log(`Successfully fetched stats for ${Object.keys(allStats).length} competitions:`, Object.keys(allStats));
+
+      console.log(
+        `Successfully fetched stats for ${Object.keys(allStats).length} competitions:`,
+        Object.keys(allStats),
+      );
       setPlayerStats(allStats);
-      
     } catch (error) {
-      console.error('Error in fetchPlayerStats:', error);
+      console.error("Error in fetchPlayerStats:", error);
       setPlayerStats({});
     } finally {
       setLoadingStats(false);
@@ -552,67 +777,85 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
   const processTeamPageStats = (statsData) => {
     // Process stats exactly like team-page.js does
     const stats = {};
-    
+
     if (statsData.splits && statsData.splits.categories) {
-      statsData.splits.categories.forEach(category => {
+      statsData.splits.categories.forEach((category) => {
         if (category.stats) {
-          category.stats.forEach(stat => {
+          category.stats.forEach((stat) => {
             stats[stat.name] = stat.value;
           });
         }
       });
     }
-    
+
     return { general: stats };
   };
 
   const fetchGameLog = async () => {
     if (!playerData) return;
-    
+
     setLoadingGameLog(true);
     try {
-      console.log('Fetching game log for playerId:', playerId);
-      
+      console.log("Fetching game log for playerId:", playerId);
+
       // Germany competitions to fetch game logs from
-      const competitions = ['ger.1', 'ger.dfb_pokal', 'ger.super_cup'];
-      
+      const competitions = ["ger.1", "ger.dfb_pokal", "ger.super_cup"];
+
       // Fetch game logs from all Germany competitions with year fallback
       const fetchPromises = competitions.map(async (competition) => {
         try {
           const year = getDomesticLeagueYear();
           const gameLogUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/seasons/${year}/athletes/${playerId}/eventlog?lang=en&region=us&played=true`;
           const response = await fetch(convertToHttps(gameLogUrl));
-          
+
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
           }
-          
+
           const gameLogData = await response.json();
-          console.log(`Validating Germany game log data for ${competition}:`, gameLogData);
-          const isValidData = gameLogData && ((gameLogData.events && gameLogData.events.length > 0) || (gameLogData.events && gameLogData.events.items && gameLogData.events.items.length > 0));
+          console.log(
+            `Validating Germany game log data for ${competition}:`,
+            gameLogData,
+          );
+          const isValidData =
+            gameLogData &&
+            ((gameLogData.events && gameLogData.events.length > 0) ||
+              (gameLogData.events &&
+                gameLogData.events.items &&
+                gameLogData.events.items.length > 0));
 
           if (isValidData) {
             console.log(`${competition} game log API response:`, gameLogData);
-            
+
             // Handle the case where data might be wrapped in a data property
             const actualData = gameLogData.data || gameLogData;
-            
+
             let eventsToProcess = null;
-            
+
             // Handle different possible data structures
             if (actualData && actualData.events && actualData.events.items) {
               eventsToProcess = actualData.events.items;
-              console.log(`Found events.items array for ${competition} with`, actualData.events.count, 'total events');
-            } else if (actualData && actualData.events && Array.isArray(actualData.events)) {
+              console.log(
+                `Found events.items array for ${competition} with`,
+                actualData.events.count,
+                "total events",
+              );
+            } else if (
+              actualData &&
+              actualData.events &&
+              Array.isArray(actualData.events)
+            ) {
               eventsToProcess = actualData.events;
             } else if (actualData && actualData.items) {
               eventsToProcess = actualData.items;
             } else if (Array.isArray(actualData)) {
               eventsToProcess = actualData;
             }
-            
+
             if (eventsToProcess && Array.isArray(eventsToProcess)) {
-              console.log(`Processing ${eventsToProcess.length} events from ${competition}`);
+              console.log(
+                `Processing ${eventsToProcess.length} events from ${competition}`,
+              );
               return eventsToProcess;
             }
           } else {
@@ -626,22 +869,30 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
 
       // Wait for all competitions to complete
       const allCompetitionResults = await Promise.all(fetchPromises);
-      
+
       // Flatten all events into a single array
       const allEvents = allCompetitionResults.flat();
-      
+
       if (allEvents.length > 0) {
-        console.log('Processing total of', allEvents.length, 'events from all competitions');
+        console.log(
+          "Processing total of",
+          allEvents.length,
+          "events from all competitions",
+        );
         // Process combined game log
         const processedGameLog = await processFantasyGameLog(allEvents);
         setGameLog(processedGameLog);
-        console.log('Combined game log loaded:', processedGameLog.length, 'games');
+        console.log(
+          "Combined game log loaded:",
+          processedGameLog.length,
+          "games",
+        );
       } else {
-        console.log('No events found in any competition');
+        console.log("No events found in any competition");
         setGameLog([]);
       }
     } catch (error) {
-      console.error('Error in fetchGameLog:', error);
+      console.error("Error in fetchGameLog:", error);
       setGameLog([]);
     } finally {
       setLoadingGameLog(false);
@@ -650,59 +901,73 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
 
   // Function to get competition display name from league code
   const getCompetitionName = (leagueCode) => {
-    if (!leagueCode) return 'Unknown';
-    
+    if (!leagueCode) return "Unknown";
+
     // Map league codes to display names
     switch (leagueCode) {
-      case 'ger.1': 
-        return 'Bundesliga';
-      case 'ger.dfb_pokal':
-        return 'DFB Pokal';
-      case 'ger.super_cup':
-        return 'German Super Cup';
+      case "ger.1":
+        return "Bundesliga";
+      case "ger.dfb_pokal":
+        return "DFB Pokal";
+      case "ger.super_cup":
+        return "German Super Cup";
       default:
-        return leagueCode.replace('ger.', '').replace('_', ' ').toUpperCase();
+        return leagueCode.replace("ger.", "").replace("_", " ").toUpperCase();
     }
   };
 
   const processFantasyGameLog = async (events) => {
     // Validate input
     if (!events || !Array.isArray(events)) {
-      console.log('Invalid events data passed to processFantasyGameLog:', typeof events);
+      console.log(
+        "Invalid events data passed to processFantasyGameLog:",
+        typeof events,
+      );
       return [];
     }
-    
+
     // Process all events in parallel
     const eventPromises = events.map(async (eventData) => {
       try {
         // The event and competition are $ref objects that need to be fetched
         if (eventData && eventData.event && eventData.competition) {
-          console.log('Fetching event details for:', eventData.event.$ref);
-          
+          console.log("Fetching event details for:", eventData.event.$ref);
+
           // Extract league code from the event URL
           const eventUrl = eventData.event.$ref;
           const leagueCodeMatch = eventUrl.match(/\/leagues\/([^\/]+)\//);
-          const leagueCode = leagueCodeMatch ? leagueCodeMatch[1] : 'ger.1';
-          
+          const leagueCode = leagueCodeMatch ? leagueCodeMatch[1] : "ger.1";
+
           // Fetch event, competition, and stats in parallel
-          const [eventResponse, competitionResponse, statsResponse] = await Promise.all([
-            fetch(convertToHttps(`${eventData.event.$ref}?lang=en&region=us`)),
-            fetch(convertToHttps(`${eventData.competition.$ref}?lang=en&region=us`)),
-            eventData.statistics?.$ref ? 
-              fetch(convertToHttps(`${eventData.statistics.$ref}?lang=en&region=us`)).catch(() => null) : 
-              Promise.resolve(null)
-          ]);
-          
+          const [eventResponse, competitionResponse, statsResponse] =
+            await Promise.all([
+              fetch(
+                convertToHttps(`${eventData.event.$ref}?lang=en&region=us`),
+              ),
+              fetch(
+                convertToHttps(
+                  `${eventData.competition.$ref}?lang=en&region=us`,
+                ),
+              ),
+              eventData.statistics?.$ref
+                ? fetch(
+                    convertToHttps(
+                      `${eventData.statistics.$ref}?lang=en&region=us`,
+                    ),
+                  ).catch(() => null)
+                : Promise.resolve(null),
+            ]);
+
           if (!eventResponse.ok || !competitionResponse.ok) {
-            console.log('Failed to fetch event or competition details');
+            console.log("Failed to fetch event or competition details");
             return null;
           }
-          
+
           const [event, competition] = await Promise.all([
             eventResponse.json(),
-            competitionResponse.json()
+            competitionResponse.json(),
           ]);
-          
+
           // Process stats if available
           let stats = {};
           if (statsResponse && statsResponse.ok) {
@@ -710,16 +975,19 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
               const statsData = await statsResponse.json();
               stats = processEventStats(statsData.splits);
             } catch (statsError) {
-              console.log('Failed to process stats:', statsError);
+              console.log("Failed to process stats:", statsError);
             }
           }
-          
+
           // Get opponent data
-          const opponent = await getOpponentFromCompetition(competition, eventData.teamId);
-          
+          const opponent = await getOpponentFromCompetition(
+            competition,
+            eventData.teamId,
+          );
+
           // Determine win/loss/draw result
           const result = determineGameResult(competition, eventData.teamId);
-          
+
           // Build game log entry
           const gameEntry = {
             gameId: event.id,
@@ -730,123 +998,155 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
             stats: stats,
             competition: competition,
             played: eventData.played || false,
-            venue: event.competitions?.[0]?.venue?.shortName || 'Unknown',
-            leagueCode: leagueCode // Pass the extracted league code
+            venue: event.competitions?.[0]?.venue?.shortName || "Unknown",
+            leagueCode: leagueCode, // Pass the extracted league code
           };
-          
-          console.log('Processed game entry:', gameEntry);
+
+          console.log("Processed game entry:", gameEntry);
           return gameEntry;
         } else {
-          console.log('Missing event or competition data:', eventData);
+          console.log("Missing event or competition data:", eventData);
           return null;
         }
       } catch (error) {
-        console.error('Error processing event:', error);
+        console.error("Error processing event:", error);
         return null;
       }
     });
-    
+
     // Wait for all events to be processed
     const gameLogEntries = await Promise.all(eventPromises);
-    
+
     // Filter out null entries
-    const validEntries = gameLogEntries.filter(entry => entry !== null);
-    
+    const validEntries = gameLogEntries.filter((entry) => entry !== null);
+
     // Deduplicate by gameId to prevent duplicate matches
     const uniqueEntries = validEntries.reduce((acc, current) => {
-      const existingIndex = acc.findIndex(entry => entry.gameId === current.gameId);
+      const existingIndex = acc.findIndex(
+        (entry) => entry.gameId === current.gameId,
+      );
       if (existingIndex === -1) {
         acc.push(current);
       }
       return acc;
     }, []);
-    
+
     // Sort by date (most recent first)
     return uniqueEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
   };
 
   const getOpponentFromCompetition = async (competition, teamId) => {
-    console.log('Getting opponent from competition competitors:', competition.competitors, 'for teamId:', teamId);
+    console.log(
+      "Getting opponent from competition competitors:",
+      competition.competitors,
+      "for teamId:",
+      teamId,
+    );
     if (competition && competition.competitors) {
-      const opponent = competition.competitors.find(comp => comp.id !== teamId?.toString());
-      console.log('Found opponent:', opponent);
-      
+      const opponent = competition.competitors.find(
+        (comp) => comp.id !== teamId?.toString(),
+      );
+      console.log("Found opponent:", opponent);
+
       if (opponent && opponent.team && opponent.team.$ref) {
         try {
           // Fetch the actual team data from the $ref
-          const teamResponse = await fetch(convertToHttps(`${opponent.team.$ref}?lang=en&region=us`));
+          const teamResponse = await fetch(
+            convertToHttps(`${opponent.team.$ref}?lang=en&region=us`),
+          );
           if (teamResponse.ok) {
             const teamData = await teamResponse.json();
-            console.log('Fetched opponent team data:', teamData);
+            console.log("Fetched opponent team data:", teamData);
             return {
               id: opponent.id,
-              displayName: teamData.displayName || teamData.shortDisplayName || 'Unknown Team',
-              abbreviation: teamData.abbreviation || 'UNK'
+              displayName:
+                teamData.displayName ||
+                teamData.shortDisplayName ||
+                "Unknown Team",
+              abbreviation: teamData.abbreviation || "UNK",
             };
           }
         } catch (error) {
-          console.log('Error fetching opponent team data:', error);
+          console.log("Error fetching opponent team data:", error);
         }
       }
-      
+
       // Fallback to basic info if fetch fails
-      return opponent ? {
-        id: opponent.id,
-        displayName: opponent.team?.displayName || 'Unknown Team',
-        abbreviation: opponent.team?.abbreviation || 'UNK'
-      } : null;
+      return opponent
+        ? {
+            id: opponent.id,
+            displayName: opponent.team?.displayName || "Unknown Team",
+            abbreviation: opponent.team?.abbreviation || "UNK",
+          }
+        : null;
     }
     return null;
   };
 
   const isHomeGame = (competition, teamId) => {
-    console.log('Checking home game for competitors:', competition.competitors, 'teamId:', teamId);
+    console.log(
+      "Checking home game for competitors:",
+      competition.competitors,
+      "teamId:",
+      teamId,
+    );
     if (competition && competition.competitors) {
-      const homeTeam = competition.competitors.find(comp => comp.homeAway === 'home');
+      const homeTeam = competition.competitors.find(
+        (comp) => comp.homeAway === "home",
+      );
       const isHome = homeTeam ? homeTeam.id === teamId?.toString() : false;
-      console.log('Is home game:', isHome, 'homeTeam:', homeTeam);
+      console.log("Is home game:", isHome, "homeTeam:", homeTeam);
       return isHome;
     }
     return false;
   };
 
   const determineGameResult = (competition, teamId) => {
-    console.log('Determining game result for competitors:', competition.competitors, 'teamId:', teamId);
+    console.log(
+      "Determining game result for competitors:",
+      competition.competitors,
+      "teamId:",
+      teamId,
+    );
     if (competition && competition.competitors) {
-      const playerTeam = competition.competitors.find(comp => comp.id === teamId?.toString());
-      
+      const playerTeam = competition.competitors.find(
+        (comp) => comp.id === teamId?.toString(),
+      );
+
       if (playerTeam) {
         // Check if player's team won
         if (playerTeam.winner === true) {
-          return { result: 'W', color: 'success' };
+          return { result: "W", color: "success" };
         }
-        
+
         // Check if player's team lost
         if (playerTeam.winner === false) {
           // Check if it's a draw (both teams have winner: false)
-          const opponentTeam = competition.competitors.find(comp => comp.id !== teamId?.toString());
+          const opponentTeam = competition.competitors.find(
+            (comp) => comp.id !== teamId?.toString(),
+          );
           if (opponentTeam && opponentTeam.winner === false) {
-            return { result: 'D', color: 'warning' };
+            return { result: "D", color: "warning" };
           } else {
-            return { result: 'L', color: 'error' };
+            return { result: "L", color: "error" };
           }
         }
       }
     }
-    
+
     // Default fallback
-    return { result: 'W', color: 'primary' };
+    return { result: "W", color: "primary" };
   };
 
   const processEventStats = (statisticsData) => {
     // Process event statistics from the splits structure
     const stats = {};
-    
+
     if (statisticsData && statisticsData.categories) {
       // Process each category (defensive, general, goalKeeping, offensive)
-      statisticsData.categories.forEach(category => {
+      statisticsData.categories.forEach((category) => {
         if (category.stats) {
-          category.stats.forEach(stat => {
+          category.stats.forEach((stat) => {
             if (stat.name && stat.value !== undefined) {
               stats[stat.name] = stat.value;
             }
@@ -855,20 +1155,20 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
       });
     } else if (statisticsData && Array.isArray(statisticsData)) {
       // Handle array format
-      statisticsData.forEach(stat => {
+      statisticsData.forEach((stat) => {
         if (stat.name && stat.value !== undefined) {
           stats[stat.name] = stat.value;
         }
       });
-    } else if (typeof statisticsData === 'object') {
+    } else if (typeof statisticsData === "object") {
       // Handle direct object format
-      Object.keys(statisticsData).forEach(key => {
+      Object.keys(statisticsData).forEach((key) => {
         if (statisticsData[key] !== undefined) {
           stats[key] = statisticsData[key];
         }
       });
     }
-    
+
     return stats;
   };
 
@@ -876,43 +1176,66 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
   const combinePlayerStatistics = (allStatsData) => {
     if (allStatsData.length === 0) return null;
     if (allStatsData.length === 1) return allStatsData[0].stats;
-    
-    console.log('Combining statistics from multiple teams:', allStatsData.map(s => `${s.teamId} (${s.league}) (includeStats: ${s.includeStats !== false})`));
-    
+
+    console.log(
+      "Combining statistics from multiple teams:",
+      allStatsData.map(
+        (s) =>
+          `${s.teamId} (${s.league}) (includeStats: ${s.includeStats !== false})`,
+      ),
+    );
+
     // Check if all teams are from the same league
-    const statsToInclude = allStatsData.filter(data => data.includeStats !== false);
-    const uniqueLeagues = [...new Set(statsToInclude.map(data => data.league))];
+    const statsToInclude = allStatsData.filter(
+      (data) => data.includeStats !== false,
+    );
+    const uniqueLeagues = [
+      ...new Set(statsToInclude.map((data) => data.league)),
+    ];
     const isSameLeague = uniqueLeagues.length === 1;
-    
-    console.log('Same league transfer:', isSameLeague, 'Leagues:', uniqueLeagues);
-    
+
+    console.log(
+      "Same league transfer:",
+      isSameLeague,
+      "Leagues:",
+      uniqueLeagues,
+    );
+
     if (statsToInclude.length === 1) {
       // Only one team has stats to include
       return statsToInclude[0].stats;
     }
-    
+
     // Use the first stats structure as the base (should be FROM team)
     const baseStats = JSON.parse(JSON.stringify(allStatsData[0].stats));
-    
+
     // Combine categories from all stats that should be included
     if (baseStats.splits && baseStats.splits.categories) {
       for (let i = 1; i < statsToInclude.length; i++) {
         const additionalStatsData = statsToInclude[i];
         const additionalStats = additionalStatsData.stats;
-        
+
         if (additionalStats.splits && additionalStats.splits.categories) {
           // Combine each category
-          baseStats.splits.categories.forEach(baseCategory => {
-            const matchingCategory = additionalStats.splits.categories.find(cat => cat.name === baseCategory.name);
-            
-            if (matchingCategory && baseCategory.stats && matchingCategory.stats) {
-              baseCategory.stats.forEach(baseStat => {
-                const matchingStat = matchingCategory.stats.find(stat => stat.name === baseStat.name);
-                
+          baseStats.splits.categories.forEach((baseCategory) => {
+            const matchingCategory = additionalStats.splits.categories.find(
+              (cat) => cat.name === baseCategory.name,
+            );
+
+            if (
+              matchingCategory &&
+              baseCategory.stats &&
+              matchingCategory.stats
+            ) {
+              baseCategory.stats.forEach((baseStat) => {
+                const matchingStat = matchingCategory.stats.find(
+                  (stat) => stat.name === baseStat.name,
+                );
+
                 if (matchingStat) {
-                  const baseValue = baseStat.value || '0';
-                  const additionalValue = matchingStat.value || '0';
-                  
+                  const baseValue = baseStat.value || "0";
+                  const additionalValue = matchingStat.value || "0";
+
                   if (isSameLeague) {
                     // Same league transfer - just add the values normally without "FROM / TO" format
                     const baseNumeric = parseFloat(baseValue) || 0;
@@ -921,11 +1244,13 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
                   } else {
                     // Inter-league transfer - show as "FROM / TO" format
                     baseStat.displayValue = `${baseValue} / ${additionalValue}`;
-                    
+
                     // Keep mathematical sum for internal calculations if needed
                     const baseNumeric = parseFloat(baseValue) || 0;
                     const additionalNumeric = parseFloat(additionalValue) || 0;
-                    baseStat.value = (baseNumeric + additionalNumeric).toString();
+                    baseStat.value = (
+                      baseNumeric + additionalNumeric
+                    ).toString();
                   }
                 }
               });
@@ -934,288 +1259,379 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
         }
       }
     }
-    
-    console.log('Combined stats with transfer format:', baseStats);
+
+    console.log("Combined stats with transfer format:", baseStats);
     return baseStats;
   };
 
   // Function to determine teams and leagues for a player in a given season based on transactions (exact copy from team-page.js)
   const getPlayerTeamsForSeason = (transactions, season) => {
-    console.log(`getPlayerTeamsForSeason called with season: ${season}, transactions:`, transactions);
+    console.log(
+      `getPlayerTeamsForSeason called with season: ${season}, transactions:`,
+      transactions,
+    );
     const teams = [];
-    
-    if (!transactions || !transactions.items || transactions.items.length === 0) {
-      console.log('No transaction data available');
+
+    if (
+      !transactions ||
+      !transactions.items ||
+      transactions.items.length === 0
+    ) {
+      console.log("No transaction data available");
       return teams; // No transaction data available
     }
-    
+
     // Season runs from August of current year to July of next year
     // For season 2021: August 2021 to July 2022
     const seasonStart = new Date(`${season}-08-01`);
     const seasonEnd = new Date(`${season + 1}-07-31`);
-    
+
     // Find all transactions that occurred during this season
-    const seasonTransactions = transactions.items.filter(transaction => {
+    const seasonTransactions = transactions.items.filter((transaction) => {
       const transactionDate = new Date(transaction.date);
       return transactionDate >= seasonStart && transactionDate <= seasonEnd;
     });
-    
-    console.log(`Season ${season} range: ${seasonStart.toISOString()} to ${seasonEnd.toISOString()}`);
-    console.log(`Found ${seasonTransactions.length} transactions for season ${season}:`, seasonTransactions);
-    
+
+    console.log(
+      `Season ${season} range: ${seasonStart.toISOString()} to ${seasonEnd.toISOString()}`,
+    );
+    console.log(
+      `Found ${seasonTransactions.length} transactions for season ${season}:`,
+      seasonTransactions,
+    );
+
     if (seasonTransactions.length === 0) {
-      console.log('No transfers during this season');
+      console.log("No transfers during this season");
       return teams; // No transfers during this season
     }
-    
+
     // For each transaction, extract team and league info
     seasonTransactions.forEach((transaction, index) => {
       // Extract FROM team info
       if (transaction.from && transaction.from.$ref) {
         const fromTeamMatch = transaction.from.$ref.match(/teams\/(\d+)/);
-        const fromLeagueMatch = transaction.from.$ref.match(/leagues\/([^\/]+)\/seasons/);
+        const fromLeagueMatch = transaction.from.$ref.match(
+          /leagues\/([^\/]+)\/seasons/,
+        );
         if (fromTeamMatch && fromLeagueMatch) {
-          console.log(`From team: ID: ${fromTeamMatch[1]} League: ${fromLeagueMatch[1]}`);
+          console.log(
+            `From team: ID: ${fromTeamMatch[1]} League: ${fromLeagueMatch[1]}`,
+          );
           teams.push({
             teamId: fromTeamMatch[1],
             league: fromLeagueMatch[1],
-            period: 'from',
+            period: "from",
             transactionDate: transaction.date,
-            order: index * 2
+            order: index * 2,
           });
         }
       }
-      
+
       // Extract TO team info
       if (transaction.to && transaction.to.$ref) {
         const toTeamMatch = transaction.to.$ref.match(/teams\/(\d+)/);
-        const toLeagueMatch = transaction.to.$ref.match(/leagues\/([^\/]+)\/seasons/);
+        const toLeagueMatch = transaction.to.$ref.match(
+          /leagues\/([^\/]+)\/seasons/,
+        );
         if (toTeamMatch && toLeagueMatch) {
-          console.log(`To team: ID: ${toTeamMatch[1]} League: ${toLeagueMatch[1]}`);
+          console.log(
+            `To team: ID: ${toTeamMatch[1]} League: ${toLeagueMatch[1]}`,
+          );
           teams.push({
             teamId: toTeamMatch[1],
             league: toLeagueMatch[1],
-            period: 'to',
+            period: "to",
             transactionDate: transaction.date,
-            order: index * 2 + 1
+            order: index * 2 + 1,
           });
         }
       }
     });
-    
+
     // Sort by transaction order to maintain from->to sequence
     teams.sort((a, b) => a.order - b.order);
-    
+
     return teams;
   };
 
   // Main function to load player stats for a specific year (exact copy from team-page.js)
   const loadPlayerStatsForYear = async (playerId, position, year) => {
     try {
-      console.log('loadPlayerStatsForYear called for year:', year);
-      
+      console.log("loadPlayerStatsForYear called for year:", year);
+
       // Get the player's team and league for the specific year
-      let teamIdForYear = playerData?.team?.id || ''; // Default to current team
-      let leagueForYear = 'ger.1'; // Default to Bundesliga
-      
+      let teamIdForYear = playerData?.team?.id || ""; // Default to current team
+      let leagueForYear = "ger.1"; // Default to Bundesliga
+
       // If not current year, try to get team/league for the specific year
       if (year !== new Date().getFullYear()) {
         try {
-          const playerSeasonResponse = await fetch(convertToHttps(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueForYear}/seasons/${year}/athletes/${playerId}?lang=en&region=us`));
-          
+          const playerSeasonResponse = await fetch(
+            convertToHttps(
+              `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueForYear}/seasons/${year}/athletes/${playerId}?lang=en&region=us`,
+            ),
+          );
+
           if (playerSeasonResponse.ok) {
             const playerSeasonData = await playerSeasonResponse.json();
-            
+
             // Check for defaultTeam and defaultLeague in season-specific data
-            if (playerSeasonData.defaultTeam && playerSeasonData.defaultTeam.$ref) {
-              const teamRefMatch = playerSeasonData.defaultTeam.$ref.match(/teams\/(\d+)/);
+            if (
+              playerSeasonData.defaultTeam &&
+              playerSeasonData.defaultTeam.$ref
+            ) {
+              const teamRefMatch =
+                playerSeasonData.defaultTeam.$ref.match(/teams\/(\d+)/);
               if (teamRefMatch) {
                 teamIdForYear = teamRefMatch[1];
               }
             }
-            
-            if (playerSeasonData.defaultLeague && playerSeasonData.defaultLeague.$ref) {
-              const leagueRefMatch = playerSeasonData.defaultLeague.$ref.match(/leagues\/([^?]+)/);
+
+            if (
+              playerSeasonData.defaultLeague &&
+              playerSeasonData.defaultLeague.$ref
+            ) {
+              const leagueRefMatch =
+                playerSeasonData.defaultLeague.$ref.match(/leagues\/([^?]+)/);
               if (leagueRefMatch) {
                 leagueForYear = leagueRefMatch[1];
               }
             }
-            
+
             // Fallback to team $ref if defaultTeam not available
-            if (!playerSeasonData.defaultTeam && playerSeasonData.team && playerSeasonData.team.$ref) {
-              const teamRefMatch = playerSeasonData.team.$ref.match(/teams\/(\d+)/);
+            if (
+              !playerSeasonData.defaultTeam &&
+              playerSeasonData.team &&
+              playerSeasonData.team.$ref
+            ) {
+              const teamRefMatch =
+                playerSeasonData.team.$ref.match(/teams\/(\d+)/);
               if (teamRefMatch) {
                 teamIdForYear = teamRefMatch[1];
               }
             }
           }
         } catch (error) {
-          console.log('Error fetching season-specific data:', error);
+          console.log("Error fetching season-specific data:", error);
         }
       }
-      
+
       // Always try ESPN API first for consistency across initial loads and year changes
       // Try to fetch year-specific stats from ESPN API using the correct team/league
       let selectedPlayer = null;
-      
+
       // Check if player has transfer history and get teams for this season
       let allStatsData = [];
       let playerBasicInfo = null;
       let teamsForSeason = [];
-      
+
       // Use transaction data to determine teams for the season
       if (playerData?.transactions) {
-        console.log('About to call getPlayerTeamsForSeason with year:', year);
-        console.log('playerData.transactions:', playerData.transactions);
+        console.log("About to call getPlayerTeamsForSeason with year:", year);
+        console.log("playerData.transactions:", playerData.transactions);
         teamsForSeason = getPlayerTeamsForSeason(playerData.transactions, year);
-        console.log('teamsForSeason result:', teamsForSeason);
+        console.log("teamsForSeason result:", teamsForSeason);
       } else {
-        console.log('No transaction data available for getPlayerTeamsForSeason');
+        console.log(
+          "No transaction data available for getPlayerTeamsForSeason",
+        );
       }
-      
+
       // If no transaction data or no transfers in this season, use current/default team approach
       if (teamsForSeason.length === 0) {
         try {
-          const espnResponse = await fetch(convertToHttps(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueForYear}/seasons/${year}/athletes/${playerId}?lang=en&region=us`));
+          const espnResponse = await fetch(
+            convertToHttps(
+              `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueForYear}/seasons/${year}/athletes/${playerId}?lang=en&region=us`,
+            ),
+          );
           if (espnResponse.ok) {
             const espnData = await espnResponse.json();
             playerBasicInfo = espnData;
-            
+
             // Add current team/league
             if (espnData.team && espnData.team.$ref) {
               const teamMatch = espnData.team.$ref.match(/teams\/(\d+)/);
-              const leagueMatch = espnData.team.$ref.match(/leagues\/([^\/]+)\/seasons/);
+              const leagueMatch = espnData.team.$ref.match(
+                /leagues\/([^\/]+)\/seasons/,
+              );
               if (teamMatch && leagueMatch) {
-                teamsForSeason.push({ teamId: teamMatch[1], league: leagueMatch[1], period: 'current' });
+                teamsForSeason.push({
+                  teamId: teamMatch[1],
+                  league: leagueMatch[1],
+                  period: "current",
+                });
               }
             }
-            
+
             // Add default team if different
             if (espnData.defaultTeam && espnData.defaultTeam.$ref) {
-              const defaultTeamMatch = espnData.defaultTeam.$ref.match(/teams\/(\d+)/);
+              const defaultTeamMatch =
+                espnData.defaultTeam.$ref.match(/teams\/(\d+)/);
               if (defaultTeamMatch) {
                 const defaultTeamId = defaultTeamMatch[1];
                 let defaultLeague = leagueForYear;
-                
+
                 if (espnData.defaultLeague && espnData.defaultLeague.$ref) {
-                  const defaultLeagueMatch = espnData.defaultLeague.$ref.match(/leagues\/([^?]+)/);
+                  const defaultLeagueMatch =
+                    espnData.defaultLeague.$ref.match(/leagues\/([^?]+)/);
                   if (defaultLeagueMatch) {
                     defaultLeague = defaultLeagueMatch[1];
                   }
                 }
-                
+
                 // Only add if different
-                const isDifferentTeam = !teamsForSeason.some(t => t.teamId === defaultTeamId && t.league === defaultLeague);
+                const isDifferentTeam = !teamsForSeason.some(
+                  (t) =>
+                    t.teamId === defaultTeamId && t.league === defaultLeague,
+                );
                 if (isDifferentTeam) {
-                  teamsForSeason.push({ teamId: defaultTeamId, league: defaultLeague, period: 'default' });
+                  teamsForSeason.push({
+                    teamId: defaultTeamId,
+                    league: defaultLeague,
+                    period: "default",
+                  });
                 }
               }
             }
           }
         } catch (e) {
-          console.log('Error fetching ESPN data:', e);
+          console.log("Error fetching ESPN data:", e);
         }
       }
-      
+
       // If still no teams, use fallback
       if (teamsForSeason.length === 0) {
-        teamsForSeason.push({ teamId: teamIdForYear, league: leagueForYear, period: 'fallback' });
+        teamsForSeason.push({
+          teamId: teamIdForYear,
+          league: leagueForYear,
+          period: "fallback",
+        });
       }
-      
+
       // Check if this is a transfer year before fetching stats
       let isTransferYear = false;
       let transferInfo = null;
-      
-      console.log('Checking for transfer in year:', year);
+
+      console.log("Checking for transfer in year:", year);
       if (playerData && playerData.transactions) {
-        console.log('Searching through transactions for year:', year);
-        const transferInThisYear = playerData.transactions.items?.find(transaction => {
-          const transactionDate = new Date(transaction.date);
-          const transactionYear = transactionDate.getFullYear();
-          const month = transactionDate.getMonth() + 1;
-          
-          let seasonYear;
-          if (month >= 8) {
-            // August to December belongs to current year's season
-            seasonYear = transactionYear;
-          } else {
-            // January to July belongs to previous year's season
-            seasonYear = transactionYear - 1;
-          }
-          
-          console.log(`Transaction date: ${transaction.date}, calculated season year: ${seasonYear}, target year: ${year}, match: ${seasonYear === year}`);
-          return seasonYear === year;
-        });
-        
+        console.log("Searching through transactions for year:", year);
+        const transferInThisYear = playerData.transactions.items?.find(
+          (transaction) => {
+            const transactionDate = new Date(transaction.date);
+            const transactionYear = transactionDate.getFullYear();
+            const month = transactionDate.getMonth() + 1;
+
+            let seasonYear;
+            if (month >= 8) {
+              // August to December belongs to current year's season
+              seasonYear = transactionYear;
+            } else {
+              // January to July belongs to previous year's season
+              seasonYear = transactionYear - 1;
+            }
+
+            console.log(
+              `Transaction date: ${transaction.date}, calculated season year: ${seasonYear}, target year: ${year}, match: ${seasonYear === year}`,
+            );
+            return seasonYear === year;
+          },
+        );
+
         if (transferInThisYear) {
           isTransferYear = true;
-          console.log('Transfer found for year:', year, transferInThisYear);
-          
+          console.log("Transfer found for year:", year, transferInThisYear);
+
           // Extract team info from transfer
-          const fromTeamMatch = transferInThisYear.from?.$ref?.match(/teams\/(\d+)/);
-          const fromLeagueMatch = transferInThisYear.from?.$ref?.match(/leagues\/([^\/]+)\/seasons/);
-          const toTeamMatch = transferInThisYear.to?.$ref?.match(/teams\/(\d+)/);
-          const toLeagueMatch = transferInThisYear.to?.$ref?.match(/leagues\/([^\/]+)\/seasons/);
-          
-          if (fromTeamMatch && toTeamMatch && fromLeagueMatch && toLeagueMatch) {
+          const fromTeamMatch =
+            transferInThisYear.from?.$ref?.match(/teams\/(\d+)/);
+          const fromLeagueMatch = transferInThisYear.from?.$ref?.match(
+            /leagues\/([^\/]+)\/seasons/,
+          );
+          const toTeamMatch =
+            transferInThisYear.to?.$ref?.match(/teams\/(\d+)/);
+          const toLeagueMatch = transferInThisYear.to?.$ref?.match(
+            /leagues\/([^\/]+)\/seasons/,
+          );
+
+          if (
+            fromTeamMatch &&
+            toTeamMatch &&
+            fromLeagueMatch &&
+            toLeagueMatch
+          ) {
             transferInfo = {
               fromTeamId: fromTeamMatch[1],
               fromLeague: fromLeagueMatch[1],
               toTeamId: toTeamMatch[1],
-              toLeague: toLeagueMatch[1]
+              toLeague: toLeagueMatch[1],
             };
-            console.log(`Transfer year detected: From ${transferInfo.fromTeamId} (${transferInfo.fromLeague}) to ${transferInfo.toTeamId} (${transferInfo.toLeague})`);
+            console.log(
+              `Transfer year detected: From ${transferInfo.fromTeamId} (${transferInfo.fromLeague}) to ${transferInfo.toTeamId} (${transferInfo.toLeague})`,
+            );
           }
         }
       }
-      
+
       // Fetch statistics from all teams for this season
       for (const teamInfo of teamsForSeason) {
         try {
           const statsUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${teamInfo.league}/seasons/${year}/types/0/athletes/${playerId}/statistics?lang=en&region=us`;
           const statsResponse = await fetch(convertToHttps(statsUrl));
-          
+
           if (statsResponse.ok) {
             const statsData = await statsResponse.json();
-            
+
             if (statsData.splits && statsData.splits.categories) {
               // Check if this is the TO team in a transfer year
               let shouldIncludeStats = true;
               let isToTeam = false;
-              
-              if (isTransferYear && transferInfo && teamInfo.teamId === transferInfo.toTeamId) {
+
+              if (
+                isTransferYear &&
+                transferInfo &&
+                teamInfo.teamId === transferInfo.toTeamId
+              ) {
                 isToTeam = true;
                 // Check appearances for TO team
-                const appearancesCategory = statsData.splits.categories.find(cat => cat.name === 'general');
+                const appearancesCategory = statsData.splits.categories.find(
+                  (cat) => cat.name === "general",
+                );
                 if (appearancesCategory) {
-                  const appearancesStat = appearancesCategory.stats.find(stat => stat.name === 'appearances');
+                  const appearancesStat = appearancesCategory.stats.find(
+                    (stat) => stat.name === "appearances",
+                  );
                   if (appearancesStat && appearancesStat.value === 0) {
-                    console.log(`TO team ${teamInfo.teamId} has 0 appearances, excluding stats but including competitions`);
+                    console.log(
+                      `TO team ${teamInfo.teamId} has 0 appearances, excluding stats but including competitions`,
+                    );
                     shouldIncludeStats = false;
                   }
                 }
               }
-              
+
               allStatsData.push({
                 teamId: teamInfo.teamId,
                 league: teamInfo.league,
                 period: teamInfo.period,
                 stats: statsData,
                 includeStats: shouldIncludeStats,
-                isToTeam: isToTeam
+                isToTeam: isToTeam,
               });
             }
           } else {
-            console.log(`Failed to fetch stats for team ${teamInfo.teamId}: ${statsResponse.status}`);
+            console.log(
+              `Failed to fetch stats for team ${teamInfo.teamId}: ${statsResponse.status}`,
+            );
           }
         } catch (e) {
           console.log(`Error fetching stats for team ${teamInfo.teamId}:`, e);
         }
       }
-      
+
       // Combine all statistics if we have multiple sources
       if (allStatsData.length > 0) {
-        console.log('DEBUG: allStatsData length:', allStatsData.length);
+        console.log("DEBUG: allStatsData length:", allStatsData.length);
         const combinedStats = combinePlayerStatistics(allStatsData);
         selectedPlayer = {
           id: playerId,
@@ -1224,81 +1640,119 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
           allStatsData: allStatsData,
           transferInfo: transferInfo,
           teamsForSeason: teamsForSeason,
-          transactions: playerData?.transactions
+          transactions: playerData?.transactions,
         };
       }
-      
+
       return selectedPlayer;
-      
     } catch (error) {
-      console.error('Error in loadPlayerStatsForYear:', error);
+      console.error("Error in loadPlayerStatsForYear:", error);
       return null;
     }
   };
 
   const fetchCareerData = async () => {
     if (!playerData?.id) {
-      console.log('No player ID available for career data. PlayerData:', playerData);
+      console.log(
+        "No player ID available for career data. PlayerData:",
+        playerData,
+      );
       return;
     }
-    
+
     setLoadingCareer(true);
     try {
-      console.log('Fetching career data for player ID:', playerId);
-      console.log('Current playerData in fetchCareerData:', playerData);
-      console.log('playerData.transactions available:', !!playerData?.transactions);
-      console.log('playerData.transactions items count:', playerData?.transactions?.items?.length || 0);
-      
+      console.log("Fetching career data for player ID:", playerId);
+      console.log("Current playerData in fetchCareerData:", playerData);
+      console.log(
+        "playerData.transactions available:",
+        !!playerData?.transactions,
+      );
+      console.log(
+        "playerData.transactions items count:",
+        playerData?.transactions?.items?.length || 0,
+      );
+
       // We'll fetch career stats from multiple years (current and past 4 years)
       const currentYear = new Date().getFullYear();
       const yearsToFetch = [];
       for (let i = 0; i < 5; i++) {
         yearsToFetch.push(currentYear - i);
       }
-      
+
       // Process all years in parallel, but handle transfers within each year
       const careerPromises = yearsToFetch.map(async (year) => {
         try {
           console.log(`Fetching career stats for year: ${year}`);
-          
+
           // Check if player has transfer history and get teams for this season
           let teamsForSeason = [];
-          
+
           // Use transaction data to determine teams for the season
           if (playerData?.transactions) {
-            console.log('Using transaction data to find teams for year:', year);
-            teamsForSeason = getPlayerTeamsForSeason(playerData.transactions, year);
-            console.log('Teams found for season:', teamsForSeason);
+            console.log("Using transaction data to find teams for year:", year);
+            teamsForSeason = getPlayerTeamsForSeason(
+              playerData.transactions,
+              year,
+            );
+            console.log("Teams found for season:", teamsForSeason);
           }
-          
+
           // If no transaction data or no transfers in this season, use fallback approach
           if (teamsForSeason.length === 0) {
-            console.log('No transaction data available, using fallback approach for year:', year);
-            
+            console.log(
+              "No transaction data available, using fallback approach for year:",
+              year,
+            );
+
             // Try multiple leagues to find where the player was in this year (in parallel)
-            const leaguesToTry = ['ger.1', 'ger.dfb_pokal', 'ger.super_cup', 'eng.1', 'esp.1', 'fra.1', 'ita.1', 'usa.1', 'ksa.1'];
-            
+            const leaguesToTry = [
+              "ger.1",
+              "ger.dfb_pokal",
+              "ger.super_cup",
+              "eng.1",
+              "esp.1",
+              "fra.1",
+              "ita.1",
+              "usa.1",
+              "ksa.1",
+            ];
+
             const playerSeasonPromises = leaguesToTry.map(async (league) => {
               try {
-                const playerSeasonResponse = await fetch(convertToHttps(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${league}/seasons/${year}/athletes/${playerId}?lang=en&region=us`));
+                const playerSeasonResponse = await fetch(
+                  convertToHttps(
+                    `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${league}/seasons/${year}/athletes/${playerId}?lang=en&region=us`,
+                  ),
+                );
                 if (playerSeasonResponse.ok) {
                   const playerSeasonData = await playerSeasonResponse.json();
-                  
-                  if (playerSeasonData.defaultTeam && playerSeasonData.defaultTeam.$ref) {
-                    const teamRefMatch = playerSeasonData.defaultTeam.$ref.match(/teams\/(\d+)/);
+
+                  if (
+                    playerSeasonData.defaultTeam &&
+                    playerSeasonData.defaultTeam.$ref
+                  ) {
+                    const teamRefMatch =
+                      playerSeasonData.defaultTeam.$ref.match(/teams\/(\d+)/);
                     if (teamRefMatch) {
                       let leagueForYear = league;
-                      if (playerSeasonData.defaultLeague && playerSeasonData.defaultLeague.$ref) {
-                        const leagueRefMatch = playerSeasonData.defaultLeague.$ref.match(/leagues\/([^?]+)/);
+                      if (
+                        playerSeasonData.defaultLeague &&
+                        playerSeasonData.defaultLeague.$ref
+                      ) {
+                        const leagueRefMatch =
+                          playerSeasonData.defaultLeague.$ref.match(
+                            /leagues\/([^?]+)/,
+                          );
                         if (leagueRefMatch) {
                           leagueForYear = leagueRefMatch[1];
                         }
                       }
-                      
+
                       return {
                         teamId: teamRefMatch[1],
                         league: leagueForYear,
-                        found: true
+                        found: true,
                       };
                     }
                   }
@@ -1310,102 +1764,138 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
             });
 
             const playerSeasonResults = await Promise.all(playerSeasonPromises);
-            const foundData = playerSeasonResults.find(result => result.found);
-            
+            const foundData = playerSeasonResults.find(
+              (result) => result.found,
+            );
+
             if (foundData) {
               teamsForSeason.push({
                 teamId: foundData.teamId,
                 league: foundData.league,
-                period: 'fallback'
+                period: "fallback",
               });
             } else {
               // Use current team as absolute fallback
               teamsForSeason.push({
                 teamId: teamId,
-                league: 'ger.1',
-                period: 'current'
+                league: "ger.1",
+                period: "current",
               });
             }
           }
-          
+
           // Now fetch stats for each team the player was at during this season
-          const teamStatsPromises = teamsForSeason.map(async (teamInfo, index) => {
-            try {
-              console.log(`Fetching stats for team ${teamInfo.teamId} in league ${teamInfo.league} for year ${year} (${teamInfo.period})`);
-              
-              // Fetch stats, team data, and competitions in parallel
-              const [statsResponse, teamResponse, competitions] = await Promise.allSettled([
-                fetch(convertToHttps(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${teamInfo.league}/seasons/${year}/types/0/athletes/${playerId}/statistics?lang=en&region=us`)),
-                fetch(convertToHttps(`https://site.api.espn.com/apis/site/v2/sports/soccer/${teamInfo.league}/teams/${teamInfo.teamId}`)),
-                fetchCompetitionsForYear(playerId, teamInfo.league, year)
-              ]);
-              
-              // Process stats response
-              if (statsResponse.status === 'fulfilled' && statsResponse.value.ok) {
-                const statsData = await statsResponse.value.json();
-                
-                if (statsData.splits && statsData.splits.categories) {
-                  // Process team data
-                  let teamData = null;
-                  if (teamResponse.status === 'fulfilled' && teamResponse.value.ok) {
-                    try {
-                      const teamInfo_response = await teamResponse.value.json();
-                      teamData = teamInfo_response.team;
-                    } catch (e) {
-                      console.log(`Error parsing team data for ${teamInfo.teamId}:`, e);
+          const teamStatsPromises = teamsForSeason.map(
+            async (teamInfo, index) => {
+              try {
+                console.log(
+                  `Fetching stats for team ${teamInfo.teamId} in league ${teamInfo.league} for year ${year} (${teamInfo.period})`,
+                );
+
+                // Fetch stats, team data, and competitions in parallel
+                const [statsResponse, teamResponse, competitions] =
+                  await Promise.allSettled([
+                    fetch(
+                      convertToHttps(
+                        `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${teamInfo.league}/seasons/${year}/types/0/athletes/${playerId}/statistics?lang=en&region=us`,
+                      ),
+                    ),
+                    fetch(
+                      convertToHttps(
+                        `https://site.api.espn.com/apis/site/v2/sports/soccer/${teamInfo.league}/teams/${teamInfo.teamId}`,
+                      ),
+                    ),
+                    fetchCompetitionsForYear(playerId, teamInfo.league, year),
+                  ]);
+
+                // Process stats response
+                if (
+                  statsResponse.status === "fulfilled" &&
+                  statsResponse.value.ok
+                ) {
+                  const statsData = await statsResponse.value.json();
+
+                  if (statsData.splits && statsData.splits.categories) {
+                    // Process team data
+                    let teamData = null;
+                    if (
+                      teamResponse.status === "fulfilled" &&
+                      teamResponse.value.ok
+                    ) {
+                      try {
+                        const teamInfo_response =
+                          await teamResponse.value.json();
+                        teamData = teamInfo_response.team;
+                      } catch (e) {
+                        console.log(
+                          `Error parsing team data for ${teamInfo.teamId}:`,
+                          e,
+                        );
+                      }
                     }
+
+                    // Process competitions
+                    const competitionsData =
+                      competitions.status === "fulfilled"
+                        ? competitions.value
+                        : [];
+
+                    console.log(
+                      `Successfully fetched stats for team ${teamInfo.teamId} in year ${year}`,
+                    );
+
+                    // Create unique identifier for transfer situations - use simple index for uniqueness
+                    const seasonKey =
+                      teamsForSeason.length > 1 ? `${year}` : year.toString();
+
+                    return {
+                      season: seasonKey,
+                      displaySeason: year.toString(),
+                      league: teamInfo.league,
+                      team: teamData || {
+                        id: teamInfo.teamId,
+                        displayName: "Unknown Team",
+                      },
+                      statistics: statsData,
+                      competitions: competitionsData,
+                      transferPeriod: teamInfo.period,
+                      transferDate: teamInfo.transactionDate || null,
+                      isTransferYear: teamsForSeason.length > 1,
+                    };
                   }
-                  
-                  // Process competitions
-                  const competitionsData = competitions.status === 'fulfilled' ? competitions.value : [];
-                  
-                  console.log(`Successfully fetched stats for team ${teamInfo.teamId} in year ${year}`);
-                  
-                  // Create unique identifier for transfer situations - use simple index for uniqueness
-                  const seasonKey = teamsForSeason.length > 1 ? 
-                    `${year}` : 
-                    year.toString();
-                  
-                  return {
-                    season: seasonKey,
-                    displaySeason: year.toString(),
-                    league: teamInfo.league,
-                    team: teamData || { id: teamInfo.teamId, displayName: 'Unknown Team' },
-                    statistics: statsData,
-                    competitions: competitionsData,
-                    transferPeriod: teamInfo.period,
-                    transferDate: teamInfo.transactionDate || null,
-                    isTransferYear: teamsForSeason.length > 1
-                  };
+                } else {
+                  console.log(
+                    `No stats available for team ${teamInfo.teamId} in year ${year}`,
+                  );
                 }
-              } else {
-                console.log(`No stats available for team ${teamInfo.teamId} in year ${year}`);
+
+                return null;
+              } catch (error) {
+                console.log(
+                  `Error fetching stats for team ${teamInfo.teamId} in year ${year}:`,
+                  error,
+                );
+                return null;
               }
-              
-              return null;
-            } catch (error) {
-              console.log(`Error fetching stats for team ${teamInfo.teamId} in year ${year}:`, error);
-              return null;
-            }
-          });
-          
+            },
+          );
+
           // Wait for all teams in this season to complete
           const seasonResults = await Promise.all(teamStatsPromises);
-          return seasonResults.filter(result => result !== null);
-          
+          return seasonResults.filter((result) => result !== null);
         } catch (error) {
           console.log(`Error fetching stats for year ${year}:`, error);
           return [];
         }
       });
-      
+
       // Wait for all years to complete processing
       const careerResults = await Promise.all(careerPromises);
-      
+
       // Flatten results (since each year can have multiple teams) and sort
       const careerStats = careerResults
         .flat()
-        .filter(result => result !== null)
+        .filter((result) => result !== null)
         .sort((a, b) => {
           // Sort by display season first, then by transfer order
           const yearA = parseInt(a.displaySeason);
@@ -1414,25 +1904,103 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
             return yearB - yearA; // Newest first
           }
           // Within same year, sort by transfer order (to team first, then from team)
-          if (a.transferPeriod === 'to' && b.transferPeriod === 'from') return -1;
-          if (a.transferPeriod === 'from' && b.transferPeriod === 'to') return 1;
+          if (a.transferPeriod === "to" && b.transferPeriod === "from")
+            return -1;
+          if (a.transferPeriod === "from" && b.transferPeriod === "to")
+            return 1;
           return 0;
         });
-      
-      console.log('Final career data with transfers:', careerStats);
-      
+
+      console.log("Final career data with transfers:", careerStats);
+
       // Extract unique league codes and fetch their names
-      const uniqueLeagues = [...new Set(careerStats.map(stat => stat.league).filter(Boolean))];
-      console.log('Unique leagues found in career data:', uniqueLeagues);
-      
+      const uniqueLeagues = [
+        ...new Set(careerStats.map((stat) => stat.league).filter(Boolean)),
+      ];
+      console.log("Unique leagues found in career data:", uniqueLeagues);
+
       // Fetch league names for all unique leagues
-      const leagueNamePromises = uniqueLeagues.map(leagueCode => fetchLeagueName(leagueCode));
+      const leagueNamePromises = uniqueLeagues.map((leagueCode) =>
+        fetchLeagueName(leagueCode),
+      );
       await Promise.all(leagueNamePromises);
-      
-      setCareerData({ seasons: careerStats });
-      
+
+      // Merge transfer pairs (handle same-league transfers and multi-team seasons)
+      const mergedCareer = [];
+      const usedIdx = new Set();
+      for (let i = 0; i < careerStats.length; i++) {
+        if (usedIdx.has(i)) continue;
+        const entry = careerStats[i];
+        if (
+          entry &&
+          entry.isTransferYear &&
+          (entry.transferPeriod === "from" || entry.transferPeriod === "to")
+        ) {
+          // find partner entry (same displaySeason and league, opposite transferPeriod)
+          let partner = -1;
+          for (let j = i + 1; j < careerStats.length; j++) {
+            if (usedIdx.has(j)) continue;
+            const cand = careerStats[j];
+            if (!cand) continue;
+            // require same season & league, opposite transferPeriod, and different teams when available
+            if (
+              cand.displaySeason === entry.displaySeason &&
+              cand.league === entry.league &&
+              cand.transferPeriod &&
+              cand.transferPeriod !== entry.transferPeriod &&
+              (!(cand.team && entry.team) || cand.team.id !== entry.team.id)
+            ) {
+              partner = j;
+              break;
+            }
+          }
+          if (partner !== -1) {
+            usedIdx.add(i);
+            usedIdx.add(partner);
+            const a = careerStats[i];
+            const b = careerStats[partner];
+            const from = a.transferPeriod === "from" ? a : b;
+            const to = a.transferPeriod === "to" ? a : b;
+            const merged = {
+              ...from,
+              transferPair: true,
+              fromTeam: from.team || null,
+              toTeam: to.team || null,
+              team: from.team || from.teamId || from,
+              competitions: Array.from(
+                new Set([
+                  ...(from.competitions || []),
+                  ...(to.competitions || []),
+                ]),
+              ),
+            };
+            mergedCareer.push(merged);
+            continue;
+          }
+        }
+        // default: keep entry
+        mergedCareer.push(entry);
+      }
+
+      // Final dedupe: avoid exact duplicate season/team entries
+      const seenKeys = new Set();
+      const finalCareer = [];
+      for (const s of mergedCareer) {
+        const teamId =
+          s?.team?.id ||
+          s?.team?.teamId ||
+          s?.teamId ||
+          JSON.stringify(s.team || "");
+        const key = `${s?.league || ""}__${s?.displaySeason || ""}__${teamId}`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          finalCareer.push(s);
+        }
+      }
+
+      setCareerData({ seasons: finalCareer });
     } catch (error) {
-      console.error('Error fetching career data:', error);
+      console.error("Error fetching career data:", error);
     } finally {
       setLoadingCareer(false);
     }
@@ -1440,68 +2008,83 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
 
   // Helper function to fetch competitions for a specific year
   const fetchCompetitionsForYear = async (playerId, leagueCode, year) => {
-    console.log(`Fetching competitions for player ${playerId} in league ${leagueCode} for year ${year}`);
+    console.log(
+      `Fetching competitions for player ${playerId} in league ${leagueCode} for year ${year}`,
+    );
     const competitions = [];
-    
+
     // Define competitions based on league (matching team-page.js)
     const LEAGUE_COMPETITIONS = {
       "eng.1": [
-    { code: "eng.fa", name: "FA Cup", logo: "40" },
-    { code: "eng.league_cup", name: "EFL Cup", logo: "41" }
-  ],
-  "esp.1": [
-    { code: "esp.copa_del_rey", name: "Copa del Rey", logo: "80" },
-    { code: "esp.super_cup", name: "Spanish Supercopa", logo: "431" }
-  ],
-  "ger.1": [
-    { code: "ger.dfb_pokal", name: "DFB Pokal", logo: "2061" },
-    { code: "ger.super_cup", name: "German Super Cup", logo: "2315" }
-  ],
-  "ita.1": [
-    { code: "ita.coppa_italia", name: "Coppa Italia", logo: "2192" },
-    { code: "ita.super_cup", name: "Italian Supercoppa", logo: "2316" }
-  ],
-  "fra.1": [
-    { code: "fra.coupe_de_france", name: "Coupe de France", logo: "182" },
-    { code: "fra.super_cup", name: "Trophee des Champions", logo: "2345" }
-  ],
-  "usa.1": [
-    { code: "usa.open", name: "US Open Cup", logo: "69" }
-  ],
-  "ksa.1": [
-    { code: "ksa.kings.cup", name: "Saudi King's Cup", logo: "2490" }
-  ]
+        { code: "eng.fa", name: "FA Cup", logo: "40" },
+        { code: "eng.league_cup", name: "EFL Cup", logo: "41" },
+      ],
+      "esp.1": [
+        { code: "esp.copa_del_rey", name: "Copa del Rey", logo: "80" },
+        { code: "esp.super_cup", name: "Spanish Supercopa", logo: "431" },
+      ],
+      "ger.1": [
+        { code: "ger.dfb_pokal", name: "DFB Pokal", logo: "2061" },
+        { code: "ger.super_cup", name: "German Super Cup", logo: "2315" },
+      ],
+      "ita.1": [
+        { code: "ita.coppa_italia", name: "Coppa Italia", logo: "2192" },
+        { code: "ita.super_cup", name: "Italian Supercoppa", logo: "2316" },
+      ],
+      "fra.1": [
+        { code: "fra.coupe_de_france", name: "Coupe de France", logo: "182" },
+        { code: "fra.super_cup", name: "Trophee des Champions", logo: "2345" },
+      ],
+      "usa.1": [{ code: "usa.open", name: "US Open Cup", logo: "69" }],
+      "ksa.1": [
+        { code: "ksa.kings.cup", name: "Saudi King's Cup", logo: "2490" },
+      ],
     };
-    
+
     const leagueCompetitions = LEAGUE_COMPETITIONS[leagueCode] || [];
-    console.log(`Found ${leagueCompetitions.length} competitions for league ${leagueCode}:`, leagueCompetitions.map(c => c.name));
-    
+    console.log(
+      `Found ${leagueCompetitions.length} competitions for league ${leagueCode}:`,
+      leagueCompetitions.map((c) => c.name),
+    );
+
     for (const competition of leagueCompetitions) {
       try {
         const compUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition.code}/seasons/${year}/types/0/athletes/${playerId}/statistics?lang=en&region=us`;
         console.log(`Fetching ${competition.name} from: ${compUrl}`);
         const response = await fetch(convertToHttps(compUrl));
-        
+
         if (response.ok) {
           const data = await response.json();
           if (data.splits && data.splits.categories) {
-            console.log(`Successfully fetched ${competition.name} stats for ${year}`);
+            console.log(
+              `Successfully fetched ${competition.name} stats for ${year}`,
+            );
             competitions.push({
               ...competition,
-              statistics: data
+              statistics: data,
             });
           } else {
-            console.log(`${competition.name} response OK but no stats data for ${year}`);
+            console.log(
+              `${competition.name} response OK but no stats data for ${year}`,
+            );
           }
         } else {
-          console.log(`Failed to fetch ${competition.name} for ${year}: ${response.status}`);
+          console.log(
+            `Failed to fetch ${competition.name} for ${year}: ${response.status}`,
+          );
         }
       } catch (error) {
-        console.log(`Error fetching ${competition.name} stats for ${year}:`, error);
+        console.log(
+          `Error fetching ${competition.name} stats for ${year}:`,
+          error,
+        );
       }
     }
-    
-    console.log(`Final competitions found for ${year}:`, competitions.map(c => c.name));
+
+    console.log(
+      `Final competitions found for ${year}:`,
+      competitions.map((c) => c.name),
+    );
     return competitions;
   };
 
@@ -1513,34 +2096,55 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
     return (
       <View style={[styles.playerHeader, { backgroundColor: theme.surface }]}>
         <View style={[styles.jerseyCircle, { backgroundColor: teamColor }]}>
-          <Text allowFontScaling={false} style={[styles.jerseyNumber, { color: 'white' }]}>
-            {playerData.jersey || '10'}
+          <Text
+            allowFontScaling={false}
+            style={[styles.jerseyNumber, { color: "white" }]}
+          >
+            {playerData.jersey || "10"}
           </Text>
         </View>
         <View style={styles.playerInfo}>
-          <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.playerName, { color: theme.text }]}
+          >
             {playerData.displayName || playerName}
           </Text>
           <View style={styles.playerDetailsRow}>
             {playerData.team && playerData.team.id && (
               <View style={styles.teamContainer}>
-                <Image 
-                  source={getTeamLogoUrl(playerData.team.id, isDarkMode) ? 
-                    { uri: getTeamLogoUrl(playerData.team.id, isDarkMode) } : 
-                    require('../../../../assets/soccer.png')}
+                <Image
+                  source={
+                    getTeamLogoUrl(playerData.team.id, isDarkMode)
+                      ? { uri: getTeamLogoUrl(playerData.team.id, isDarkMode) }
+                      : require("../../../../assets/soccer.png")
+                  }
                   style={styles.teamLogo}
-                  defaultSource={getTeamLogoFallbackUrl(playerData.team.id, isDarkMode)}
-                  onError={() => handleLogoError(playerData.team.id, isDarkMode)}
+                  defaultSource={getTeamLogoFallbackUrl(
+                    playerData.team.id,
+                    isDarkMode,
+                  )}
+                  onError={() =>
+                    handleLogoError(playerData.team.id, isDarkMode)
+                  }
                 />
-                <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary, fontWeight: 'bold' }]}>
-                  {playerData.team.displayName || playerData.team.name || ''}
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.teamName,
+                    { color: theme.textSecondary, fontWeight: "bold" },
+                  ]}
+                >
+                  {playerData.team.displayName || playerData.team.name || ""}
                 </Text>
               </View>
             )}
-            <Text allowFontScaling={false} style={[styles.playerDetails, { color: theme.textSecondary }]}>
-            • {playerData.position?.displayName || 'N/A'}
+            <Text
+              allowFontScaling={false}
+              style={[styles.playerDetails, { color: theme.textSecondary }]}
+            >
+              • {playerData.position?.displayName || "N/A"}
             </Text>
-            
           </View>
         </View>
       </View>
@@ -1548,8 +2152,8 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
   };
 
   const renderTabButtons = () => {
-    const tabs = ['Stats', 'Game Log', 'Career'];
-    
+    const tabs = ["Stats", "Game Log", "Career"];
+
     return (
       <>
         {tabs.map((tab) => (
@@ -1558,15 +2162,24 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
             style={[
               styles.tabButton,
               activeTab === tab && styles.activeTabButton,
-              { borderBottomColor: activeTab === tab ? colors.primary : 'transparent' }
+              {
+                borderBottomColor:
+                  activeTab === tab ? colors.primary : "transparent",
+              },
             ]}
             onPress={() => setActiveTab(tab)}
           >
-            <Text allowFontScaling={false} style={[
-              styles.tabText,
-              activeTab === tab && styles.activeTabText,
-              { color: activeTab === tab ? colors.primary : theme.textSecondary }
-            ]}>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.tabText,
+                activeTab === tab && styles.activeTabText,
+                {
+                  color:
+                    activeTab === tab ? colors.primary : theme.textSecondary,
+                },
+              ]}
+            >
               {tab}
             </Text>
           </TouchableOpacity>
@@ -1577,11 +2190,11 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'Stats':
+      case "Stats":
         return renderStatsContent();
-      case 'Game Log':
+      case "Game Log":
         return renderGameLogContent();
-      case 'Career':
+      case "Career":
         return renderCareerContent();
       default:
         return renderStatsContent();
@@ -1591,17 +2204,32 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
   const renderStatsContent = () => {
     if (loadingStats) {
       return (
-        <View style={[styles.statsLoadingContainer, { backgroundColor: theme.background }]}>
+        <View
+          style={[
+            styles.statsLoadingContainer,
+            { backgroundColor: theme.background },
+          ]}
+        >
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>Loading stats...</Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.loadingText, { color: theme.text }]}
+          >
+            Loading stats...
+          </Text>
         </View>
       );
     }
 
     if (!playerStats || Object.keys(playerStats).length === 0) {
       return (
-        <View style={[styles.statsContainer, { backgroundColor: theme.background }]}>
-          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>
+        <View
+          style={[styles.statsContainer, { backgroundColor: theme.background }]}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[styles.contentText, { color: theme.textSecondary }]}
+          >
             No stats available
           </Text>
         </View>
@@ -1609,11 +2237,20 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
     }
 
     const renderStatBox = (label, value, key) => (
-      <View key={key} style={[styles.statBox, { backgroundColor: theme.surface }]}>
-        <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>
-          {value || '0'}
+      <View
+        key={key}
+        style={[styles.statBox, { backgroundColor: theme.surface }]}
+      >
+        <Text
+          allowFontScaling={false}
+          style={[styles.statBoxValue, { color: theme.text }]}
+        >
+          {value || "0"}
         </Text>
-        <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.statBoxLabel, { color: theme.textSecondary }]}
+        >
           {label}
         </Text>
       </View>
@@ -1625,8 +2262,10 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
         const rowStats = statDefinitions.slice(i, i + 3);
         rows.push(
           <View key={i} style={styles.statsRow}>
-            {rowStats.map(({ key, label }) => renderStatBox(label, stats[key] || '0', key))}
-          </View>
+            {rowStats.map(({ key, label }) =>
+              renderStatBox(label, stats[key] || "0", key),
+            )}
+          </View>,
         );
       }
       return rows;
@@ -1637,38 +2276,41 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
 
       return (
         <View key={competitionName} style={styles.statsSection}>
-          <Text allowFontScaling={false} style={[styles.statsSectionTitle, { color: colors.primary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.statsSectionTitle, { color: colors.primary }]}
+          >
             {competitionName} Stats
           </Text>
-          {renderStatsGrid(
-            stats.general,
-            [
-              { key: 'appearances', label: 'Apps' },
-              { key: 'totalGoals', label: 'Goals' },
-              { key: 'goalAssists', label: 'Assists' },
-              { key: 'minutes', label: 'Minutes' },
-              { key: 'yellowCards', label: 'Yellow Cards' },
-              { key: 'redCards', label: 'Red Cards' },
-              { key: 'totalShots', label: 'Shots' },
-              { key: 'shotsOnTarget', label: 'Shots on Target' },
-              { key: 'totalPasses', label: 'Passes' },
-              { key: 'accuratePasses', label: 'Passes Completed' },
-              { key: 'totalTackles', label: 'Tackles' },
-              { key: 'interceptions', label: 'Interceptions' },
-              { key: 'totalClearance', label: 'Clearances' },
-              { key: 'saves', label: 'Saves' },
-              { key: 'cleanSheet', label: 'Clean Sheets' }
-            ]
-          )}
+          {renderStatsGrid(stats.general, [
+            { key: "appearances", label: "Apps" },
+            { key: "totalGoals", label: "Goals" },
+            { key: "goalAssists", label: "Assists" },
+            { key: "minutes", label: "Minutes" },
+            { key: "yellowCards", label: "Yellow Cards" },
+            { key: "redCards", label: "Red Cards" },
+            { key: "totalShots", label: "Shots" },
+            { key: "shotsOnTarget", label: "Shots on Target" },
+            { key: "totalPasses", label: "Passes" },
+            { key: "accuratePasses", label: "Passes Completed" },
+            { key: "totalTackles", label: "Tackles" },
+            { key: "interceptions", label: "Interceptions" },
+            { key: "totalClearance", label: "Clearances" },
+            { key: "saves", label: "Saves" },
+            { key: "cleanSheet", label: "Clean Sheets" },
+          ])}
         </View>
       );
     };
 
     return (
-      <ScrollView style={[styles.statsContainer, { backgroundColor: theme.background }]} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={[styles.statsContainer, { backgroundColor: theme.background }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.statsContent}>
-          {Object.entries(playerStats).map(([competitionName, stats]) => 
-            renderCompetitionStats(competitionName, stats)
+          {Object.entries(playerStats).map(([competitionName, stats]) =>
+            renderCompetitionStats(competitionName, stats),
           )}
         </View>
       </ScrollView>
@@ -1678,101 +2320,216 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
   const renderGameLogContent = () => {
     if (loadingGameLog) {
       return (
-        <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <View
+          style={[
+            styles.loadingContainer,
+            { backgroundColor: theme.background },
+          ]}
+        >
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>Loading game log...</Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.loadingText, { color: theme.textSecondary }]}
+          >
+            Loading game log...
+          </Text>
         </View>
       );
     }
 
     return (
-      <ScrollView style={[styles.statsContainer, { backgroundColor: theme.background }]} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={[styles.statsContainer, { backgroundColor: theme.background }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.statsContent}>
           {gameLog.length === 0 ? (
-            <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.contentText, { color: theme.textSecondary }]}
+            >
               No recent games available
             </Text>
           ) : (
-            gameLog.map((game, index) => (
-              <TouchableOpacity
-                key={game.gameId || index}
-                style={[styles.mlbGameCard, { backgroundColor: theme.surface }]}
-                onPress={() => {
-                  setSelectedGameStats(game);
-                  setShowStatsModal(true);
-                }}
-              >
-                {/* Date Header */}
-                <View style={[styles.mlbGameHeader, {backgroundColor: theme.surfaceSecondary}]}>
-                  <Text allowFontScaling={false} style={[styles.mlbGameDate, { color: theme.text }]}>
-                    {new Date(game.date).toLocaleDateString('en-US', { 
-                      weekday: 'short', 
-                      month: 'short', 
-                      day: 'numeric' 
-                    })}
-                  </Text>
-                </View>
-
-                {/* Player Info Row */}
-                <View style={styles.mlbPlayerRow}>
-                  {/* Jersey Number Circle */}
-                  <View style={[styles.jerseyCircle, { backgroundColor: getTeamColor(playerData?.team) }]}>
-                    <Text allowFontScaling={false} style={[styles.jerseyNumber, { color: 'white' }]}>
-                      {playerData?.jersey || '10'}
+            gameLog
+              .filter((game) => {
+                const mins = Number(
+                  game.stats?.minutesPlayed ?? game.stats?.minutes ?? 0,
+                );
+                return mins > 0;
+              })
+              .map((game, index) => (
+                <TouchableOpacity
+                  key={game.gameId || index}
+                  style={[
+                    styles.mlbGameCard,
+                    { backgroundColor: theme.surface },
+                  ]}
+                  onPress={() => {
+                    setSelectedGameStats(game);
+                    setShowStatsModal(true);
+                  }}
+                >
+                  {/* Date Header */}
+                  <View
+                    style={[
+                      styles.mlbGameHeader,
+                      { backgroundColor: theme.surfaceSecondary },
+                    ]}
+                  >
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.mlbGameDate, { color: theme.text }]}
+                    >
+                      {new Date(game.date).toLocaleDateString("en-US", {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}
                     </Text>
                   </View>
 
-                  {/* Player Name and Stats */}
-                  <View style={styles.mlbPlayerInfo}>
-                    <Text allowFontScaling={false} style={[styles.mlbPlayerName, { color: theme.text }]}>
-                      {playerData?.displayName || playerData?.fullName || 'Player'}
-                    </Text>
-                    <Text allowFontScaling={false} style={[styles.mlbPlayerStats, { color: theme.textSecondary }]}>
-                      G: {game.stats?.totalGoals || 0} | A: {game.stats?.goalAssists || 0} | MP: {game.stats?.minutesPlayed || game.stats?.minutes || 0}
-                    </Text>
+                  {/* Player Info Row */}
+                  <View style={styles.mlbPlayerRow}>
+                    {/* Jersey Number Circle */}
+                    <View
+                      style={[
+                        styles.jerseyCircle,
+                        { backgroundColor: getTeamColor(playerData?.team) },
+                      ]}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        style={[styles.jerseyNumber, { color: "white" }]}
+                      >
+                        {playerData?.jersey || "10"}
+                      </Text>
+                    </View>
+
+                    {/* Player Name and Stats */}
+                    <View style={styles.mlbPlayerInfo}>
+                      <Text
+                        allowFontScaling={false}
+                        style={[styles.mlbPlayerName, { color: theme.text }]}
+                      >
+                        {playerData?.displayName ||
+                          playerData?.fullName ||
+                          "Player"}
+                      </Text>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.mlbPlayerStats,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        G: {game.stats?.totalGoals || 0} | A:{" "}
+                        {game.stats?.goalAssists || 0} | MP:{" "}
+                        {game.stats?.minutesPlayed || game.stats?.minutes || 0}
+                      </Text>
+                    </View>
+
+                    {/* Win Indicator */}
+                    <View
+                      style={[
+                        styles.mlbWinIndicator,
+                        {
+                          backgroundColor:
+                            game.result?.color === "success"
+                              ? theme.success
+                              : game.result?.color === "error"
+                                ? theme.error
+                                : game.result?.color === "warning"
+                                  ? theme.warning
+                                  : colors.primary,
+                        },
+                      ]}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        style={[styles.mlbWinText, { color: "white" }]}
+                      >
+                        {game.result?.result || "W"}
+                      </Text>
+                    </View>
                   </View>
 
-                  {/* Win Indicator */}
-                  <View style={[styles.mlbWinIndicator, { 
-                    backgroundColor: game.result?.color === 'success' ? theme.success : 
-                                    game.result?.color === 'error' ? theme.error :
-                                    game.result?.color === 'warning' ? theme.warning : colors.primary
-                  }]}>
-                    <Text allowFontScaling={false} style={[styles.mlbWinText, { color: 'white' }]}>
-                      {game.result?.result || 'W'}
+                  {/* Match Info Row */}
+                  <View
+                    style={[
+                      styles.mlbMatchRow,
+                      { borderTopColor: theme.surfaceSecondary },
+                    ]}
+                  >
+                    <View style={styles.mlbTeamLogos}>
+                      <Image
+                        source={
+                          getTeamLogoUrl(
+                            playerData?.team?.id || teamId,
+                            isDarkMode,
+                          )
+                            ? {
+                                uri: getTeamLogoUrl(
+                                  playerData?.team?.id || teamId,
+                                  isDarkMode,
+                                ),
+                              }
+                            : require("../../../../assets/soccer.png")
+                        }
+                        style={styles.mlbTeamLogo}
+                        defaultSource={getTeamLogoFallbackUrl(
+                          playerData?.team?.id || teamId,
+                          isDarkMode,
+                        )}
+                        onError={() =>
+                          handleLogoError(
+                            playerData?.team?.id || teamId,
+                            isDarkMode,
+                          )
+                        }
+                      />
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.mlbVersus,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {game.isHome ? "vs" : "@"}
+                      </Text>
+                      <Image
+                        source={
+                          getTeamLogoUrl(game.opponent?.id || "86", isDarkMode)
+                            ? {
+                                uri: getTeamLogoUrl(
+                                  game.opponent?.id || "86",
+                                  isDarkMode,
+                                ),
+                              }
+                            : require("../../../../assets/soccer.png")
+                        }
+                        style={styles.mlbTeamLogo}
+                        defaultSource={getTeamLogoFallbackUrl(
+                          game.opponent?.id || "86",
+                          isDarkMode,
+                        )}
+                        onError={() =>
+                          handleLogoError(game.opponent?.id || "86", isDarkMode)
+                        }
+                      />
+                    </View>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.mlbOpponentName,
+                        { color: theme.textTertiary },
+                      ]}
+                    >
+                      {getCompetitionName(game.leagueCode)}
                     </Text>
                   </View>
-                </View>
-
-                {/* Match Info Row */}
-                <View style={[styles.mlbMatchRow, { borderTopColor: theme.surfaceSecondary }]}>
-                  <View style={styles.mlbTeamLogos}>
-                    <Image 
-                      source={getTeamLogoUrl(playerData?.team?.id || teamId, isDarkMode) ? 
-                        { uri: getTeamLogoUrl(playerData?.team?.id || teamId, isDarkMode) } : 
-                        require('../../../../assets/soccer.png')}
-                      style={styles.mlbTeamLogo}
-                      defaultSource={getTeamLogoFallbackUrl(playerData?.team?.id || teamId, isDarkMode)}
-                      onError={() => handleLogoError(playerData?.team?.id || teamId, isDarkMode)}
-                    />
-                    <Text allowFontScaling={false} style={[styles.mlbVersus, { color: theme.textSecondary }]}>
-                      {game.isHome ? 'vs' : '@'}
-                    </Text>
-                    <Image 
-                      source={getTeamLogoUrl(game.opponent?.id || '86', isDarkMode) ? 
-                        { uri: getTeamLogoUrl(game.opponent?.id || '86', isDarkMode) } : 
-                        require('../../../../assets/soccer.png')}
-                      style={styles.mlbTeamLogo}
-                      defaultSource={getTeamLogoFallbackUrl(game.opponent?.id || '86', isDarkMode)}
-                      onError={() => handleLogoError(game.opponent?.id || '86', isDarkMode)}
-                    />
-                  </View>
-                  <Text allowFontScaling={false} style={[styles.mlbOpponentName, { color: theme.textTertiary }]}>
-                    {getCompetitionName(game.leagueCode)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
+                </TouchableOpacity>
+              ))
           )}
         </View>
       </ScrollView>
@@ -1782,26 +2539,56 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
   const renderCareerContent = () => {
     if (loadingCareer) {
       return (
-        <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <View
+          style={[
+            styles.loadingContainer,
+            { backgroundColor: theme.background },
+          ]}
+        >
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>Loading career statistics...</Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.loadingText, { color: theme.textSecondary }]}
+          >
+            Loading career statistics...
+          </Text>
         </View>
       );
     }
 
     if (!careerData || !careerData.seasons || careerData.seasons.length === 0) {
       return (
-        <View style={[styles.contentContainer, { backgroundColor: theme.background }]}>
-          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary }]}>No career data available</Text>
+        <View
+          style={[
+            styles.contentContainer,
+            { backgroundColor: theme.background },
+          ]}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[styles.contentText, { color: theme.textSecondary }]}
+          >
+            No career data available
+          </Text>
         </View>
       );
     }
 
     return (
-      <ScrollView style={[styles.statsContainer, { backgroundColor: theme.background }]} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={[styles.statsContainer, { backgroundColor: theme.background }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.careerContainer}>
-          <Text allowFontScaling={false} style={[styles.careerSectionTitle, { color: colors.primary }]}>Soccer Career</Text>
-          {careerData.seasons.map((season, index) => renderCareerSeasonItem(season, index))}
+          <Text
+            allowFontScaling={false}
+            style={[styles.careerSectionTitle, { color: colors.primary }]}
+          >
+            Soccer Career
+          </Text>
+          {careerData.seasons.map((season, index) =>
+            renderCareerSeasonItem(season, index),
+          )}
         </View>
       </ScrollView>
     );
@@ -1813,32 +2600,38 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
     }
 
     // Check if player is a goalkeeper
-    const playerPosition = playerData?.position?.displayName?.toLowerCase() || '';
-    const isGoalkeeper = playerPosition.includes('goalkeeper') || playerPosition.includes('goalie') || playerPosition === 'gk';
+    const playerPosition =
+      playerData?.position?.displayName?.toLowerCase() || "";
+    const isGoalkeeper =
+      playerPosition.includes("goalkeeper") ||
+      playerPosition.includes("goalie") ||
+      playerPosition === "gk";
 
     // Extract main stats from categories
-    const getStatValue = (statName, categoryName = 'general') => {
-      const category = season.statistics?.splits?.categories?.find(c => c.name === categoryName);
-      const stat = category?.stats?.find(s => s.name === statName);
-      return stat?.displayValue || stat?.value || '0';
+    const getStatValue = (statName, categoryName = "general") => {
+      const category = season.statistics?.splits?.categories?.find(
+        (c) => c.name === categoryName,
+      );
+      const stat = category?.stats?.find((s) => s.name === statName);
+      return stat?.displayValue || stat?.value || "0";
     };
 
-    const minutes = getStatValue('minutes');
-    const appearances = getStatValue('appearances');
-    
+    const minutes = getStatValue("minutes");
+    const appearances = getStatValue("appearances");
+
     // Define stats based on position
     let primaryStat1, primaryStat2, stat1Label, stat2Label;
-    
+
     if (isGoalkeeper) {
-      primaryStat1 = getStatValue('cleanSheet', 'goalKeeping');
-      primaryStat2 = getStatValue('goalsAgainst', 'goalKeeping');
-      stat1Label = 'CS';
-      stat2Label = 'GA';
+      primaryStat1 = getStatValue("cleanSheet", "goalKeeping");
+      primaryStat2 = getStatValue("goalsAgainst", "goalKeeping");
+      stat1Label = "CS";
+      stat2Label = "GA";
     } else {
-      primaryStat1 = getStatValue('totalGoals', 'offensive');
-      primaryStat2 = getStatValue('goalAssists', 'offensive');
-      stat1Label = 'Goals';
-      stat2Label = 'Assists';
+      primaryStat1 = getStatValue("totalGoals", "offensive");
+      primaryStat2 = getStatValue("goalAssists", "offensive");
+      stat1Label = "Goals";
+      stat2Label = "Assists";
     }
 
     const handleSeasonPress = () => {
@@ -1847,7 +2640,7 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
     };
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         key={`${season.season}-${index}`}
         style={[styles.careerSeasonCard, { backgroundColor: theme.surface }]}
         onPress={handleSeasonPress}
@@ -1855,74 +2648,186 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
       >
         <View style={styles.careerSeasonHeader}>
           <View style={styles.careerTeamInfo}>
-            <Image 
-              source={getTeamLogoUrl(season.team.id, isDarkMode) ? 
-                { uri: getTeamLogoUrl(season.team.id, isDarkMode) } : 
-                require('../../../../assets/soccer.png')}
-              style={styles.careerTeamLogo}
-              defaultSource={getTeamLogoFallbackUrl(season.team.id, isDarkMode)}
-              onError={() => handleLogoError(season.team.id, isDarkMode)}
-            />
-            <Text allowFontScaling={false} style={[styles.careerTeamName, { color: theme.textSecondary }]}>
-              {season.team.displayName || season.team.name || 'Unknown Team'}
+            {renderSeasonTeamsView(season)}
+            <Text
+              allowFontScaling={false}
+              style={[styles.careerTeamName, { color: theme.textSecondary }]}
+            >
+              {season.transferPair && season.fromTeam && season.toTeam
+                ? `${
+                    season.fromTeam.abbreviation ||
+                    season.fromTeam.shortDisplayName ||
+                    season.fromTeam.displayName ||
+                    season.fromTeam.name ||
+                    ""
+                  } / ${
+                    season.toTeam.abbreviation ||
+                    season.toTeam.shortDisplayName ||
+                    season.toTeam.displayName ||
+                    season.toTeam.name ||
+                    ""
+                  }`
+                : season.team.displayName || season.team.name || "Unknown Team"}
             </Text>
           </View>
-          <Text allowFontScaling={false} style={[styles.careerSeasonYear, { color: theme.text }]}>{season.season}</Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.careerSeasonYear, { color: theme.text }]}
+          >
+            {season.season}
+          </Text>
         </View>
-        
+
         {/* Main League Stats */}
         <View style={styles.careerStatsRow}>
           <View style={styles.careerStatItem}>
-            <Text allowFontScaling={false} style={[styles.careerStatValue, { color: theme.text }]}>{appearances}</Text>
-            <Text allowFontScaling={false} style={[styles.careerStatLabel, { color: theme.textSecondary }]}>Apps</Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.careerStatValue, { color: theme.text }]}
+            >
+              {appearances}
+            </Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.careerStatLabel, { color: theme.textSecondary }]}
+            >
+              Apps
+            </Text>
           </View>
           <View style={styles.careerStatItem}>
-            <Text allowFontScaling={false} style={[styles.careerStatValue, { color: theme.text }]}>{minutes}</Text>
-            <Text allowFontScaling={false} style={[styles.careerStatLabel, { color: theme.textSecondary }]}>Minutes</Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.careerStatValue, { color: theme.text }]}
+            >
+              {minutes}
+            </Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.careerStatLabel, { color: theme.textSecondary }]}
+            >
+              Minutes
+            </Text>
           </View>
           <View style={styles.careerStatItem}>
-            <Text allowFontScaling={false} style={[styles.careerStatValue, { color: theme.text }]}>{primaryStat1}</Text>
-            <Text allowFontScaling={false} style={[styles.careerStatLabel, { color: theme.textSecondary }]}>{stat1Label}</Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.careerStatValue, { color: theme.text }]}
+            >
+              {primaryStat1}
+            </Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.careerStatLabel, { color: theme.textSecondary }]}
+            >
+              {stat1Label}
+            </Text>
           </View>
           <View style={styles.careerStatItem}>
-            <Text allowFontScaling={false} style={[styles.careerStatValue, { color: theme.text }]}>{primaryStat2}</Text>
-            <Text allowFontScaling={false} style={[styles.careerStatLabel, { color: theme.textSecondary }]}>{stat2Label}</Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.careerStatValue, { color: theme.text }]}
+            >
+              {primaryStat2}
+            </Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.careerStatLabel, { color: theme.textSecondary }]}
+            >
+              {stat2Label}
+            </Text>
           </View>
         </View>
 
         {/* Competition Stats */}
         {season.competitions && season.competitions.length > 0 && (
           <View style={styles.competitionsContainer}>
-            <Text allowFontScaling={false} style={[styles.competitionsTitle, { color: theme.textSecondary }]}>Competitions:</Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.competitionsTitle, { color: theme.textSecondary }]}
+            >
+              Competitions:
+            </Text>
             {season.competitions.map((competition, compIndex) => {
-              const compApps = competition.statistics?.splits?.categories?.find(c => c.name === 'general')?.stats?.find(s => s.name === 'appearances')?.displayValue || '0';
-              
+              const compApps =
+                competition.statistics?.splits?.categories
+                  ?.find((c) => c.name === "general")
+                  ?.stats?.find((s) => s.name === "appearances")
+                  ?.displayValue || "0";
+
               let compStat1, compStat2, compStat1Label, compStat2Label;
-              
+
               if (isGoalkeeper) {
-                compStat1 = competition.statistics?.splits?.categories?.find(c => c.name === 'general')?.stats?.find(s => s.name === 'cleanSheet')?.displayValue || '0';
-                compStat2 = competition.statistics?.splits?.categories?.find(c => c.name === 'general')?.stats?.find(s => s.name === 'goalsAgainst')?.displayValue || '0';
-                compStat1Label = 'CS';
-                compStat2Label = 'GA';
+                compStat1 =
+                  competition.statistics?.splits?.categories
+                    ?.find((c) => c.name === "general")
+                    ?.stats?.find((s) => s.name === "cleanSheet")
+                    ?.displayValue || "0";
+                compStat2 =
+                  competition.statistics?.splits?.categories
+                    ?.find((c) => c.name === "general")
+                    ?.stats?.find((s) => s.name === "goalsAgainst")
+                    ?.displayValue || "0";
+                compStat1Label = "CS";
+                compStat2Label = "GA";
               } else {
-                compStat1 = competition.statistics?.splits?.categories?.find(c => c.name === 'offensive')?.stats?.find(s => s.name === 'totalGoals')?.displayValue || '0';
-                compStat2 = competition.statistics?.splits?.categories?.find(c => c.name === 'offensive')?.stats?.find(s => s.name === 'goalAssists')?.displayValue || '0';
-                compStat1Label = 'Goal' + (compStat1 === '1' ? '' : 's');
-                compStat2Label = 'Assist' + (compStat2 === '1' ? '' : 's');
+                compStat1 =
+                  competition.statistics?.splits?.categories
+                    ?.find((c) => c.name === "offensive")
+                    ?.stats?.find((s) => s.name === "totalGoals")
+                    ?.displayValue || "0";
+                compStat2 =
+                  competition.statistics?.splits?.categories
+                    ?.find((c) => c.name === "offensive")
+                    ?.stats?.find((s) => s.name === "goalAssists")
+                    ?.displayValue || "0";
+                compStat1Label = "Goal" + (compStat1 === "1" ? "" : "s");
+                compStat2Label = "Assist" + (compStat2 === "1" ? "" : "s");
               }
-              
+
               return (
                 <View key={compIndex} style={styles.competitionRow}>
-                  <CompetitionLogo 
+                  <CompetitionLogo
                     logoId={competition.logo}
                     style={styles.competitionLogo}
                     useDarkMode={isDarkMode}
                   />
-                  <Text allowFontScaling={false} style={[styles.competitionName, { color: theme.textSecondary }]}>{competition.name}</Text>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.competitionName,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {competition.name}
+                  </Text>
                   <View style={styles.competitionStats}>
-                    <Text allowFontScaling={false} style={[styles.competitionStatText, { color: theme.text }]}>{compApps} App{compApps === '1' ? '' : 's'}</Text>
-                    <Text allowFontScaling={false} style={[styles.competitionStatText, { color: theme.text }]}>{compStat1} {compStat1Label}</Text>
-                    <Text allowFontScaling={false} style={[styles.competitionStatText, { color: theme.text }]}>{compStat2} {compStat2Label}</Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.competitionStatText,
+                        { color: theme.text },
+                      ]}
+                    >
+                      {compApps} App{compApps === "1" ? "" : "s"}
+                    </Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.competitionStatText,
+                        { color: theme.text },
+                      ]}
+                    >
+                      {compStat1} {compStat1Label}
+                    </Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.competitionStatText,
+                        { color: theme.text },
+                      ]}
+                    >
+                      {compStat2} {compStat2Label}
+                    </Text>
                   </View>
                 </View>
               );
@@ -1937,7 +2842,7 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
     if (!selectedSeasonStats) return null;
 
     const season = selectedSeasonStats;
-    
+
     return (
       <Modal
         animationType="slide"
@@ -1945,52 +2850,101 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
         visible={showSeasonModal}
         onRequestClose={() => setShowSeasonModal(false)}
       >
-        <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
-          <View style={[styles.modalHeader, { backgroundColor: theme.surface }]}>
-            <TouchableOpacity 
+        <View
+          style={[styles.modalContainer, { backgroundColor: theme.background }]}
+        >
+          <View
+            style={[styles.modalHeader, { backgroundColor: theme.surface }]}
+          >
+            <TouchableOpacity
               onPress={() => setShowSeasonModal(false)}
               style={styles.modalCloseButton}
             >
-              <Text allowFontScaling={false} style={[styles.modalCloseText, { color: colors.primary }]}>Close</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.modalCloseText, { color: colors.primary }]}
+              >
+                Close
+              </Text>
             </TouchableOpacity>
-            <Text allowFontScaling={false} style={[styles.modalTitle, { color: theme.text }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.modalTitle, { color: theme.text }]}
+            >
               {season.season} Season Statistics
             </Text>
             <View style={styles.modalPlaceholder} />
           </View>
 
-          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-            <View style={[styles.modalSeasonHeader, { backgroundColor: theme.surface }]}>
+          <ScrollView
+            style={styles.modalContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View
+              style={[
+                styles.modalSeasonHeader,
+                { backgroundColor: theme.surface },
+              ]}
+            >
               <View style={styles.modalSeasonTopRow}>
                 <View style={styles.modalSeasonInfo}>
-                  <Text allowFontScaling={false} style={[styles.modalSeasonYear, { color: theme.text }]}>{season.season}</Text>
-                  <Text allowFontScaling={false} style={[styles.modalLeagueName, { color: theme.textSecondary }]}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.modalSeasonYear, { color: theme.text }]}
+                  >
+                    {season.season}
+                  </Text>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.modalLeagueName,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
                     {getLeagueDisplayName(season.league)}
                   </Text>
                 </View>
                 <View style={styles.modalTeamContainer}>
-                  <Image 
-                    source={getTeamLogoUrl(season.team.id, isDarkMode) ? 
-                      { uri: getTeamLogoUrl(season.team.id, isDarkMode) } : 
-                      require('../../../../assets/soccer.png')}
-                    style={styles.modalSeasonTeamLogo}
-                    defaultSource={getTeamLogoFallbackUrl(season.team.id, isDarkMode)}
-                    onError={() => handleLogoError(season.team.id, isDarkMode)}
-                  />
-                  <Text allowFontScaling={false} style={[styles.modalTeamName, { color: theme.text }]}>
-                    {season.team.displayName || season.team.name || 'Unknown Team'}
+                  {renderSeasonTeamsView(season, isDarkMode)}
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.modalTeamName, { color: theme.text }]}
+                  >
+                    {season.transferPair && season.fromTeam && season.toTeam
+                      ? `${
+                          season.fromTeam.abbreviation ||
+                          season.fromTeam.shortDisplayName ||
+                          season.fromTeam.displayName ||
+                          season.fromTeam.name ||
+                          ""
+                        } / ${
+                          season.toTeam.abbreviation ||
+                          season.toTeam.shortDisplayName ||
+                          season.toTeam.displayName ||
+                          season.toTeam.name ||
+                          ""
+                        }`
+                      : season.team.displayName ||
+                        season.team.name ||
+                        "Unknown Team"}
                   </Text>
                 </View>
               </View>
             </View>
 
             {/* Main League Statistics */}
-            {season.statistics && renderSeasonStatistics('Main League', season.statistics)}
-            
+            {season.statistics &&
+              renderSeasonStatistics("Main League", season.statistics)}
+
             {/* Competition Statistics */}
-            {season.competitions && season.competitions.map((competition, index) => 
-              renderSeasonStatistics(competition.name, competition.statistics, competition.logo)
-            )}
+            {season.competitions &&
+              season.competitions.map((competition, index) =>
+                renderSeasonStatistics(
+                  competition.name,
+                  competition.statistics,
+                  competition.logo,
+                ),
+              )}
           </ScrollView>
         </View>
       </Modal>
@@ -2009,16 +2963,31 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
         statsRows.push(
           <View key={i} style={styles.modalStatsGrid}>
             {rowStats.map((stat, index) => (
-              <View key={index} style={[styles.modalStatCard, { backgroundColor: theme.surface }]}>
-                <Text allowFontScaling={false} style={[styles.modalStatCardValue, { color: theme.text }]}>
-                  {stat.displayValue || stat.value || '0'}
+              <View
+                key={index}
+                style={[
+                  styles.modalStatCard,
+                  { backgroundColor: theme.surface },
+                ]}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.modalStatCardValue, { color: theme.text }]}
+                >
+                  {stat.displayValue || stat.value || "0"}
                 </Text>
-                <Text allowFontScaling={false} style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}>
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.modalStatCardLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
                   {stat.displayName || stat.name}
                 </Text>
               </View>
             ))}
-          </View>
+          </View>,
         );
       }
       return statsRows;
@@ -2028,19 +2997,28 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
       <View key={title} style={styles.modalStatsSection}>
         <View style={styles.modalSectionTitleContainer}>
           {logo && (
-            <CompetitionLogo 
+            <CompetitionLogo
               logoId={logo}
               style={styles.modalSectionLogo}
               useDarkMode={isDarkMode}
             />
           )}
-          <Text allowFontScaling={false} style={[styles.modalSectionTitle, { color: colors.primary }]}>{title}</Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.modalSectionTitle, { color: colors.primary }]}
+          >
+            {title}
+          </Text>
         </View>
-        
+
         {statistics.splits.categories.map((category, categoryIndex) => (
           <View key={categoryIndex}>
-            <Text allowFontScaling={false} style={[styles.modalCategoryTitle, { color: theme.text }]}>
-              {category.displayName || category.name.charAt(0).toUpperCase() + category.name.slice(1)}
+            <Text
+              allowFontScaling={false}
+              style={[styles.modalCategoryTitle, { color: theme.text }]}
+            >
+              {category.displayName ||
+                category.name.charAt(0).toUpperCase() + category.name.slice(1)}
             </Text>
             {renderStatsGrid(category.stats || [], category.name)}
           </View>
@@ -2051,9 +3029,16 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+      <View
+        style={[styles.loadingContainer, { backgroundColor: theme.background }]}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.text }]}>Loading player...</Text>
+        <Text
+          allowFontScaling={false}
+          style={[styles.loadingText, { color: theme.text }]}
+        >
+          Loading player...
+        </Text>
       </View>
     );
   }
@@ -2065,8 +3050,18 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
       <View style={styles.statsGrid}>
         {Object.entries(gameStats.stats).map(([key, value]) => (
           <View key={key} style={styles.statItem}>
-            <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>{value}</Text>
-            <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>{key.toUpperCase()}</Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.statValue, { color: theme.text }]}
+            >
+              {value}
+            </Text>
+            <Text
+              allowFontScaling={false}
+              style={[styles.statLabel, { color: theme.textSecondary }]}
+            >
+              {key.toUpperCase()}
+            </Text>
           </View>
         ))}
       </View>
@@ -2077,8 +3072,23 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
     if (!gameData || !gameData.stats) {
       return (
         <View style={styles.modalStatsSection}>
-          <Text allowFontScaling={false} style={[styles.modalSectionTitle, { color: colors.primary }]}>Game Statistics</Text>
-          <Text allowFontScaling={false} style={[styles.contentText, { color: theme.textSecondary, textAlign: 'center', marginTop: 20 }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.modalSectionTitle, { color: colors.primary }]}
+          >
+            Game Statistics
+          </Text>
+          <Text
+            allowFontScaling={false}
+            style={[
+              styles.contentText,
+              {
+                color: theme.textSecondary,
+                textAlign: "center",
+                marginTop: 20,
+              },
+            ]}
+          >
             No statistics available for this game
           </Text>
         </View>
@@ -2087,35 +3097,46 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
 
     // Define stat categories and their display order
     const statDefinitions = [
-      { key: 'totalGoals', label: 'Goals' },
-      { key: 'goalAssists', label: 'Assists' },
-      { key: 'minutesPlayed', label: 'Minutes' },
-      { key: 'totalShots', label: 'Shots' },
-      { key: 'shotsOnTarget', label: 'Shots on Target' },
-      { key: 'passingAccuracy', label: 'Pass Accuracy' },
-      { key: 'totalPasses', label: 'Total Passes' },
-      { key: 'keyPasses', label: 'Key Passes' },
-      { key: 'touches', label: 'Touches' },
-      { key: 'tackles', label: 'Tackles' },
-      { key: 'interceptions', label: 'Interceptions' },
-      { key: 'foulsCommitted', label: 'Fouls' },
-      { key: 'yellowCards', label: 'Yellow Cards' },
-      { key: 'redCards', label: 'Red Cards' },
-      { key: 'saves', label: 'Saves' },
-      { key: 'savePercentage', label: 'Save %' }
+      { key: "totalGoals", label: "Goals" },
+      { key: "goalAssists", label: "Assists" },
+      { key: "minutesPlayed", label: "Minutes" },
+      { key: "totalShots", label: "Shots" },
+      { key: "shotsOnTarget", label: "Shots on Target" },
+      { key: "passingAccuracy", label: "Pass Accuracy" },
+      { key: "totalPasses", label: "Total Passes" },
+      { key: "keyPasses", label: "Key Passes" },
+      { key: "touches", label: "Touches" },
+      { key: "tackles", label: "Tackles" },
+      { key: "interceptions", label: "Interceptions" },
+      { key: "foulsCommitted", label: "Fouls" },
+      { key: "yellowCards", label: "Yellow Cards" },
+      { key: "redCards", label: "Red Cards" },
+      { key: "saves", label: "Saves" },
+      { key: "savePercentage", label: "Save %" },
     ];
 
     // Filter stat definitions to only show stats that exist in the data
-    const availableStats = statDefinitions.filter(stat => 
-      gameData.stats[stat.key] !== undefined && gameData.stats[stat.key] !== null
+    const availableStats = statDefinitions.filter(
+      (stat) =>
+        gameData.stats[stat.key] !== undefined &&
+        gameData.stats[stat.key] !== null,
     );
 
     const renderStatBox = (label, value, key) => (
-      <View key={key} style={[styles.statBox, { backgroundColor: theme.surface }]}>
-        <Text allowFontScaling={false} style={[styles.statBoxValue, { color: theme.text }]}>
-          {value || '0'}
+      <View
+        key={key}
+        style={[styles.statBox, { backgroundColor: theme.surface }]}
+      >
+        <Text
+          allowFontScaling={false}
+          style={[styles.statBoxValue, { color: theme.text }]}
+        >
+          {value || "0"}
         </Text>
-        <Text allowFontScaling={false} style={[styles.statBoxLabel, { color: theme.textSecondary }]}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.statBoxLabel, { color: theme.textSecondary }]}
+        >
           {label}
         </Text>
       </View>
@@ -2130,12 +3151,13 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
             {rowStats.map(({ key, label }) => {
               const value = stats[key];
               // Format percentage values
-              const displayValue = key.includes('Percentage') || key.includes('Accuracy') ? 
-                `${(parseFloat(value) || 0).toFixed(1)}%` : 
-                (value || '0').toString();
+              const displayValue =
+                key.includes("Percentage") || key.includes("Accuracy")
+                  ? `${(parseFloat(value) || 0).toFixed(1)}%`
+                  : (value || "0").toString();
               return renderStatBox(label, displayValue, key);
             })}
-          </View>
+          </View>,
         );
       }
       return rows;
@@ -2143,7 +3165,15 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
 
     return (
       <View style={styles.modalStatsSection}>
-        <Text allowFontScaling={false} style={[styles.modalSectionTitle, { color: colors.primary, marginBottom: 20 }]}>Game Statistics</Text>
+        <Text
+          allowFontScaling={false}
+          style={[
+            styles.modalSectionTitle,
+            { color: colors.primary, marginBottom: 20 },
+          ]}
+        >
+          Game Statistics
+        </Text>
         {renderStatsGrid(gameData.stats, availableStats)}
       </View>
     );
@@ -2153,19 +3183,33 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
     if (!seasonData.stats || !seasonData.stats.splits) return null;
 
     const categories = seasonData.stats.splits.categories;
-    
+
     return (
       <View>
         {categories.map((category, index) => (
           <View key={index} style={styles.categorySection}>
-            <Text allowFontScaling={false} style={[styles.categoryTitle, { color: theme.text }]}>
-              {category.displayName || category.name.charAt(0).toUpperCase() + category.name.slice(1)}
+            <Text
+              allowFontScaling={false}
+              style={[styles.categoryTitle, { color: theme.text }]}
+            >
+              {category.displayName ||
+                category.name.charAt(0).toUpperCase() + category.name.slice(1)}
             </Text>
             <View style={styles.statsGrid}>
               {category.stats.map((stat, statIndex) => (
                 <View key={statIndex} style={styles.statItem}>
-                  <Text allowFontScaling={false} style={[styles.statValue, { color: theme.text }]}>{stat.displayValue}</Text>
-                  <Text allowFontScaling={false} style={[styles.statLabel, { color: theme.textSecondary }]}>{stat.displayName}</Text>
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.statValue, { color: theme.text }]}
+                  >
+                    {stat.displayValue}
+                  </Text>
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.statLabel, { color: theme.textSecondary }]}
+                  >
+                    {stat.displayName}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -2178,13 +3222,18 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {renderPlayerHeader()}
-      
-      <View style={[styles.fixedTabContainer, { backgroundColor: theme.surface }]}>
+
+      <View
+        style={[styles.fixedTabContainer, { backgroundColor: theme.surface }]}
+      >
         {renderTabButtons()}
       </View>
-      
-      <ScrollView 
-        style={[styles.contentScrollView, { backgroundColor: theme.background }]}
+
+      <ScrollView
+        style={[
+          styles.contentScrollView,
+          { backgroundColor: theme.background },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {renderContent()}
@@ -2197,70 +3246,152 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
         visible={showStatsModal}
         onRequestClose={() => setShowStatsModal(false)}
       >
-        <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
-          <View style={[styles.modalHeader, { backgroundColor: theme.surface }]}>
-            <TouchableOpacity 
+        <View
+          style={[styles.modalContainer, { backgroundColor: theme.background }]}
+        >
+          <View
+            style={[styles.modalHeader, { backgroundColor: theme.surface }]}
+          >
+            <TouchableOpacity
               onPress={() => setShowStatsModal(false)}
               style={styles.modalCloseButton}
             >
-              <Text allowFontScaling={false} style={[styles.modalCloseText, { color: colors.primary }]}>Close</Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.modalCloseText, { color: colors.primary }]}
+              >
+                Close
+              </Text>
             </TouchableOpacity>
-            <Text allowFontScaling={false} style={[styles.modalTitle, { color: theme.text }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.modalTitle, { color: theme.text }]}
+            >
               Game Statistics
             </Text>
             <View style={styles.modalPlaceholder} />
           </View>
 
-          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.modalContent}
+            showsVerticalScrollIndicator={false}
+          >
             {selectedGameStats && (
               <>
                 {/* Player Header */}
-                <View style={[styles.playerHeaderLog, { backgroundColor: theme.surface, marginBottom: 15 }]}>
-                  <View style={[styles.jerseyCircle, { backgroundColor: getTeamColor(playerData?.team) }]}>
-                    <Text allowFontScaling={false} style={[styles.jerseyNumber, { color: 'white' }]}>
-                      {playerData?.jersey || ''}
+                <View
+                  style={[
+                    styles.playerHeaderLog,
+                    { backgroundColor: theme.surface, marginBottom: 15 },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.jerseyCircle,
+                      { backgroundColor: getTeamColor(playerData?.team) },
+                    ]}
+                  >
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.jerseyNumber, { color: "white" }]}
+                    >
+                      {playerData?.jersey || ""}
                     </Text>
                   </View>
                   <View style={styles.playerInfo}>
-                    <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.playerName, { color: theme.text }]}
+                    >
                       {playerData?.displayName || playerName}
                     </Text>
                     <View style={styles.playerDetailsRow}>
                       {playerData?.team && playerData.team.id && (
                         <View style={styles.teamContainer}>
-                          <Image 
-                            source={getTeamLogoUrl(playerData.team.id, isDarkMode) ? 
-                              { uri: getTeamLogoUrl(playerData.team.id, isDarkMode) } : 
-                              require('../../../../assets/soccer.png')}
+                          <Image
+                            source={
+                              getTeamLogoUrl(playerData.team.id, isDarkMode)
+                                ? {
+                                    uri: getTeamLogoUrl(
+                                      playerData.team.id,
+                                      isDarkMode,
+                                    ),
+                                  }
+                                : require("../../../../assets/soccer.png")
+                            }
                             style={styles.teamLogo}
-                            defaultSource={getTeamLogoFallbackUrl(playerData.team.id, isDarkMode)}
-                            onError={() => handleLogoError(playerData.team.id, isDarkMode)}
+                            defaultSource={getTeamLogoFallbackUrl(
+                              playerData.team.id,
+                              isDarkMode,
+                            )}
+                            onError={() =>
+                              handleLogoError(playerData.team.id, isDarkMode)
+                            }
                           />
-                          <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary, fontWeight: 'bold' }]}>
-                            {playerData.team.displayName || playerData.team.name || ''}
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.teamName,
+                              {
+                                color: theme.textSecondary,
+                                fontWeight: "bold",
+                              },
+                            ]}
+                          >
+                            {playerData.team.displayName ||
+                              playerData.team.name ||
+                              ""}
                           </Text>
                         </View>
                       )}
-                      <Text allowFontScaling={false} style={[styles.playerDetails, { color: theme.textSecondary }]}>
-                      • {playerData?.position?.displayName || 'N/A'}
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.playerDetails,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        • {playerData?.position?.displayName || "N/A"}
                       </Text>
                     </View>
                   </View>
                 </View>
 
                 {/* Game Header - Date and Competition Only */}
-                <View style={[styles.modalSeasonHeader, { backgroundColor: theme.surface }]}>
+                <View
+                  style={[
+                    styles.modalSeasonHeader,
+                    { backgroundColor: theme.surface },
+                  ]}
+                >
                   <View style={styles.modalSeasonTopRow}>
-                    <View style={[styles.modalSeasonInfo, { alignItems: 'center', flex: 1 }]}>
-                      <Text allowFontScaling={false} style={[styles.modalSeasonYear, { color: theme.text }]}>
-                        {new Date(selectedGameStats.date).toLocaleDateString('en-US', { 
-                          weekday: 'long', 
-                          month: 'long', 
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
+                    <View
+                      style={[
+                        styles.modalSeasonInfo,
+                        { alignItems: "center", flex: 1 },
+                      ]}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        style={[styles.modalSeasonYear, { color: theme.text }]}
+                      >
+                        {new Date(selectedGameStats.date).toLocaleDateString(
+                          "en-US",
+                          {
+                            weekday: "long",
+                            month: "long",
+                            day: "numeric",
+                            year: "numeric",
+                          },
+                        )}
                       </Text>
-                      <Text allowFontScaling={false} style={[styles.modalLeagueName, { color: theme.textSecondary }]}>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.modalLeagueName,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
                         {getCompetitionName(selectedGameStats.leagueCode)}
                       </Text>
                     </View>
@@ -2271,48 +3402,119 @@ const GermanyPlayerPageScreen = ({ route, navigation }) => {
                 {renderGameStatistics(selectedGameStats)}
 
                 {/* Team Matchup - Moved to bottom */}
-                <TouchableOpacity 
-                  style={[styles.modalSeasonHeader, { backgroundColor: theme.surface, marginTop: -5 }]}
+                <TouchableOpacity
+                  style={[
+                    styles.modalSeasonHeader,
+                    { backgroundColor: theme.surface, marginTop: -5 },
+                  ]}
                   onPress={() => {
-                    console.log('Navigating to game details for gameId:', selectedGameStats.gameId);
+                    console.log(
+                      "Navigating to game details for gameId:",
+                      selectedGameStats.gameId,
+                    );
                     setShowStatsModal(false); // Close the current modal first
                     setTimeout(() => {
-                      navigation.navigate('GermanyGameDetails', {
+                      navigation.navigate("GermanyGameDetails", {
                         gameId: selectedGameStats.gameId,
-                        sport: 'German',
-                        competition: getCompetitionName(selectedGameStats.leagueCode),
-                        homeTeam: selectedGameStats.isHome ? playerData?.team : selectedGameStats.opponent,
-                        awayTeam: selectedGameStats.isHome ? selectedGameStats.opponent : playerData?.team
+                        sport: "German",
+                        competition: getCompetitionName(
+                          selectedGameStats.leagueCode,
+                        ),
+                        homeTeam: selectedGameStats.isHome
+                          ? playerData?.team
+                          : selectedGameStats.opponent,
+                        awayTeam: selectedGameStats.isHome
+                          ? selectedGameStats.opponent
+                          : playerData?.team,
                       });
                     }, 100);
                   }}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.modalSeasonTopRow, { justifyContent: 'center' }]}>
+                  <View
+                    style={[
+                      styles.modalSeasonTopRow,
+                      { justifyContent: "center" },
+                    ]}
+                  >
                     <View style={styles.modalTeamContainer}>
                       <View style={styles.mlbTeamLogos}>
-                        <Image 
-                          source={getTeamLogoUrl(playerData?.team?.id || teamId, isDarkMode) ? 
-                            { uri: getTeamLogoUrl(playerData?.team?.id || teamId, isDarkMode) } : 
-                            require('../../../../assets/soccer.png')}
+                        <Image
+                          source={
+                            getTeamLogoUrl(
+                              playerData?.team?.id || teamId,
+                              isDarkMode,
+                            )
+                              ? {
+                                  uri: getTeamLogoUrl(
+                                    playerData?.team?.id || teamId,
+                                    isDarkMode,
+                                  ),
+                                }
+                              : require("../../../../assets/soccer.png")
+                          }
                           style={styles.modalSeasonTeamLogo}
-                          defaultSource={getTeamLogoFallbackUrl(playerData?.team?.id || teamId, isDarkMode)}
-                          onError={() => handleLogoError(playerData?.team?.id || teamId, isDarkMode)}
+                          defaultSource={getTeamLogoFallbackUrl(
+                            playerData?.team?.id || teamId,
+                            isDarkMode,
+                          )}
+                          onError={() =>
+                            handleLogoError(
+                              playerData?.team?.id || teamId,
+                              isDarkMode,
+                            )
+                          }
                         />
-                        <Text allowFontScaling={false} style={[styles.mlbVersus, { color: theme.textSecondary, fontSize: 16, marginHorizontal: 12 }]}>
-                          {selectedGameStats.isHome ? 'vs' : '@'}
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            styles.mlbVersus,
+                            {
+                              color: theme.textSecondary,
+                              fontSize: 16,
+                              marginHorizontal: 12,
+                            },
+                          ]}
+                        >
+                          {selectedGameStats.isHome ? "vs" : "@"}
                         </Text>
-                        <Image 
-                          source={getTeamLogoUrl(selectedGameStats.opponent?.id || '86', isDarkMode) ? 
-                            { uri: getTeamLogoUrl(selectedGameStats.opponent?.id || '86', isDarkMode) } : 
-                            require('../../../../assets/soccer.png')}
+                        <Image
+                          source={
+                            getTeamLogoUrl(
+                              selectedGameStats.opponent?.id || "86",
+                              isDarkMode,
+                            )
+                              ? {
+                                  uri: getTeamLogoUrl(
+                                    selectedGameStats.opponent?.id || "86",
+                                    isDarkMode,
+                                  ),
+                                }
+                              : require("../../../../assets/soccer.png")
+                          }
                           style={styles.modalSeasonTeamLogo}
-                          defaultSource={getTeamLogoFallbackUrl(selectedGameStats.opponent?.id || '86', isDarkMode)}
-                          onError={() => handleLogoError(selectedGameStats.opponent?.id || '86', isDarkMode)}
+                          defaultSource={getTeamLogoFallbackUrl(
+                            selectedGameStats.opponent?.id || "86",
+                            isDarkMode,
+                          )}
+                          onError={() =>
+                            handleLogoError(
+                              selectedGameStats.opponent?.id || "86",
+                              isDarkMode,
+                            )
+                          }
                         />
                       </View>
-                      <Text allowFontScaling={false} style={[styles.modalTeamName, { color: theme.text, marginTop: 8 }]}>
-                        {playerData?.team?.displayName || 'Team'} {selectedGameStats.isHome ? 'vs' : '@'} {selectedGameStats.opponent?.displayName || 'Opponent'}
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.modalTeamName,
+                          { color: theme.text, marginTop: 8 },
+                        ]}
+                      >
+                        {playerData?.team?.displayName || "Team"}{" "}
+                        {selectedGameStats.isHome ? "vs" : "@"}{" "}
+                        {selectedGameStats.opponent?.displayName || "Opponent"}
                       </Text>
                     </View>
                   </View>
@@ -2335,18 +3537,18 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
   },
   playerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -2356,8 +3558,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   playerHeaderLog: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 15,
     borderRadius: 10,
   },
@@ -2366,13 +3568,13 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   playerDetailsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 8,
   },
   playerName: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 4,
   },
   playerDetails: {
@@ -2381,8 +3583,8 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
   teamContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginLeft: -2,
   },
   teamLogo: {
@@ -2392,11 +3594,11 @@ const styles = StyleSheet.create({
   },
   teamName: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   fixedTabContainer: {
-    flexDirection: 'row',
-    shadowColor: '#000',
+    flexDirection: "row",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -2412,19 +3614,19 @@ const styles = StyleSheet.create({
   tabButton: {
     flex: 1,
     paddingVertical: 15,
-    alignItems: 'center',
+    alignItems: "center",
     borderBottomWidth: 3,
-    borderBottomColor: 'transparent',
+    borderBottomColor: "transparent",
   },
   activeTabButton: {
     borderBottomWidth: 3,
   },
   tabText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   activeTabText: {
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   statsContainer: {
     flex: 1,
@@ -2434,14 +3636,14 @@ const styles = StyleSheet.create({
   },
   contentText: {
     fontSize: 16,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    textAlign: "center",
+    fontStyle: "italic",
   },
   // Stats styles
   statsLoadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 40,
   },
   statsSection: {
@@ -2449,16 +3651,16 @@ const styles = StyleSheet.create({
   },
   statsSectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 15,
-    textAlign: 'center',
+    textAlign: "center",
   },
   fantasyPointsCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 12,
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -2469,27 +3671,27 @@ const styles = StyleSheet.create({
   },
   fantasyPointsValue: {
     fontSize: 32,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 5,
   },
   fantasyPointsLabel: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 15,
     gap: 10,
   },
   statBox: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 8,
     padding: 15,
     minHeight: 80,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -2500,19 +3702,19 @@ const styles = StyleSheet.create({
   },
   statBoxValue: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 5,
   },
   statBoxLabel: {
     fontSize: 12,
-    textAlign: 'center',
-    fontWeight: '500',
+    textAlign: "center",
+    fontWeight: "500",
   },
   // MLB-style Game Log Styles
   mlbGameCard: {
     marginBottom: 12,
     borderRadius: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -2520,22 +3722,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   mlbGameHeader: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
     paddingVertical: 8,
     paddingHorizontal: 15,
-    alignItems: 'center',
+    alignItems: "center",
   },
   mlbGameDate: {
     fontSize: 12,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
+    fontWeight: "bold",
+    textTransform: "uppercase",
   },
   mlbPlayerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 15,
   },
@@ -2543,49 +3745,49 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 12,
   },
   jerseyNumber: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   mlbPlayerInfo: {
     flex: 1,
   },
   mlbPlayerName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 2,
   },
   mlbPlayerStats: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   mlbWinIndicator: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   mlbWinText: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   mlbMatchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: 8,
     paddingHorizontal: 15,
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
+    borderTopColor: "#e9ecef",
   },
   mlbTeamLogos: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   mlbTeamLogo: {
     width: 24,
@@ -2593,33 +3795,33 @@ const styles = StyleSheet.create({
   },
   mlbVersus: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginHorizontal: 8,
   },
   mlbOpponentName: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   // Career section styles
   // Career section styles (matching team-page.js)
   yearSelectorContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 20,
     paddingHorizontal: 16,
   },
   pickerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   pickerLabel: {
     fontSize: 14,
     marginRight: 8,
   },
   yearPicker: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
@@ -2628,7 +3830,7 @@ const styles = StyleSheet.create({
   },
   yearPickerText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginRight: 4,
   },
   yearPickerArrow: {
@@ -2640,12 +3842,12 @@ const styles = StyleSheet.create({
   seasonTeamInfo: {
     marginBottom: 20,
     padding: 16,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: "rgba(255,255,255,0.05)",
     borderRadius: 8,
   },
   seasonTeamTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   teamSeasonInfo: {
@@ -2658,12 +3860,12 @@ const styles = StyleSheet.create({
   transferInfo: {
     marginTop: 20,
     padding: 16,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: "rgba(255,255,255,0.05)",
     borderRadius: 8,
   },
   transferTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   transferText: {
@@ -2671,13 +3873,13 @@ const styles = StyleSheet.create({
   },
   noDataContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: 40,
   },
   noDataText: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   seasonCard: {
     marginBottom: 16,
@@ -2686,9 +3888,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   seasonHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 12,
   },
   seasonInfo: {
@@ -2696,12 +3898,12 @@ const styles = StyleSheet.create({
   },
   seasonYear: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 4,
   },
   teamInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   teamLogo: {
     width: 20,
@@ -2712,38 +3914,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   seasonStats: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   quickStats: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   viewDetails: {
     fontSize: 12,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    textAlign: "center",
+    fontStyle: "italic",
   },
   // Modal styles
   modalContainer: {
     flex: 1,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   closeButton: {
     padding: 8,
   },
   closeButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   modalContent: {
     flex: 1,
@@ -2755,12 +3957,12 @@ const styles = StyleSheet.create({
   modalSubtitle: {
     fontSize: 16,
     marginBottom: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   seasonTeamInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 20,
     padding: 16,
   },
@@ -2771,16 +3973,16 @@ const styles = StyleSheet.create({
   },
   modalTeamName: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   categorySection: {
     marginBottom: 24,
   },
   categoryTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   // Career section styles (matching MLB PlayerPageScreen)
   careerContainer: {
@@ -2791,14 +3993,14 @@ const styles = StyleSheet.create({
   },
   careerSectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 15,
   },
   careerSeasonCard: {
     padding: 15,
     marginBottom: 10,
     borderRadius: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -2808,18 +4010,18 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   careerSeasonHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 10,
   },
   careerSeasonYear: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   careerTeamInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   careerTeamLogo: {
     width: 30,
@@ -2828,40 +4030,40 @@ const styles = StyleSheet.create({
   },
   careerTeamName: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   careerStatsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
   },
   careerStatItem: {
-    alignItems: 'center',
+    alignItems: "center",
     flex: 1,
   },
   careerStatValue: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 2,
   },
   careerStatLabel: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   // Competition styles within career cards
   competitionsContainer: {
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+    borderTopColor: "rgba(0, 0, 0, 0.1)",
   },
   competitionsTitle: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 8,
   },
   competitionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 6,
   },
   competitionLogo: {
@@ -2872,15 +4074,15 @@ const styles = StyleSheet.create({
   competitionName: {
     flex: 1,
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   competitionStats: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
   },
   competitionStatText: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   // Modal styles (matching MLB PlayerPageScreen)
   modalPlaceholder: {
@@ -2892,23 +4094,23 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   modalSeasonTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   modalSeasonInfo: {
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
   modalSeasonYear: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 5,
   },
   modalLeagueName: {
     fontSize: 14,
   },
   modalTeamContainer: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   modalSeasonTeamLogo: {
     width: 50,
@@ -2919,15 +4121,15 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   modalSectionTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 16,
   },
   modalSectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
   },
   modalSectionLogo: {
     width: 24,
@@ -2936,23 +4138,23 @@ const styles = StyleSheet.create({
   },
   modalCategoryTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 12,
     marginTop: 8,
   },
   modalStatsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     marginBottom: 16,
   },
   modalStatCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 8,
     padding: 12,
-    width: '30%',
+    width: "30%",
     minHeight: 70,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -2963,13 +4165,13 @@ const styles = StyleSheet.create({
   },
   modalStatCardValue: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 4,
   },
   modalStatCardLabel: {
     fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
+    fontWeight: "500",
+    textAlign: "center",
   },
 });
 

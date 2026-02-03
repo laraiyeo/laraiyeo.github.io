@@ -38,6 +38,8 @@ const getSoccerYear = () => {
 export const FIFAWorldServiceEnhanced = {
   // Logo cache to prevent repeated fetches
   logoCache: new Map(),
+  // Roster cache to avoid fetching rosters for the same team/season repeatedly
+  rosterCache: new Map(),
 
   // Smart live game detection for Soccer
   hasLiveEvents(games) {
@@ -94,7 +96,7 @@ export const FIFAWorldServiceEnhanced = {
       key,
       fetchFunction,
       context,
-      this.getDataType.bind(this)
+      this.getDataType.bind(this),
     );
   },
 
@@ -169,7 +171,7 @@ export const FIFAWorldServiceEnhanced = {
   getAdjustedDateForSoccer() {
     const now = new Date();
     const estNow = new Date(
-      now.toLocaleString("en-US", { timeZone: "America/New_York" })
+      now.toLocaleString("en-US", { timeZone: "America/New_York" }),
     );
     if (estNow.getHours() < 2) {
       estNow.setDate(estNow.getDate() - 1);
@@ -244,7 +246,7 @@ export const FIFAWorldServiceEnhanced = {
       const headers = this.getBrowserHeaders();
       const response = await fetch(
         `https://site.api.espn.com/apis/site/v2/sports/soccer/${competitionCode}/scoreboard?dates=${dateRange}`,
-        { headers }
+        { headers },
       );
 
       if (response.ok) {
@@ -263,7 +265,7 @@ export const FIFAWorldServiceEnhanced = {
         });
 
         console.log(
-          `Found ${competitionGames.length} games in ${competitionCode}`
+          `Found ${competitionGames.length} games in ${competitionCode}`,
         );
         return competitionGames;
       } else {
@@ -302,7 +304,7 @@ export const FIFAWorldServiceEnhanced = {
 
     console.log(
       `Fetching FIFA games from ${allCompetitionsToCheck.length} competitions:`,
-      allCompetitionsToCheck.map((c) => c.code)
+      allCompetitionsToCheck.map((c) => c.code),
     );
 
     // Create all fetch promises in parallel
@@ -347,13 +349,13 @@ export const FIFAWorldServiceEnhanced = {
             `Fetching FIFA scoreboard for ${dateFilter}${
               competitionCode ? ` (${competitionCode})` : ""
             }:`,
-            dateRange
+            dateRange,
           );
 
           // Fetch from all competitions or specific competition
           const games = await this.fetchGamesFromAllCompetitions(
             dateRange,
-            competitionCode
+            competitionCode,
           );
 
           return {
@@ -365,7 +367,7 @@ export const FIFAWorldServiceEnhanced = {
           throw error;
         }
       },
-      "scoreboard"
+      "scoreboard",
     );
   },
 
@@ -379,7 +381,7 @@ export const FIFAWorldServiceEnhanced = {
           // Try each FIFA competition to find the right one
           for (const comp of Object.keys(FIFA_COMPETITIONS)) {
             const coreResponse = await fetch(
-              `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${comp}/events/${gameId}?lang=en&region=us`
+              `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${comp}/events/${gameId}?lang=en&region=us`,
             );
             if (coreResponse.ok) {
               const coreData = await coreResponse.json();
@@ -422,7 +424,7 @@ export const FIFAWorldServiceEnhanced = {
             k === effectiveHint ||
             FIFA_COMPETITIONS[k].name.toLowerCase() ===
               String(effectiveHint).toLowerCase() ||
-            k === String(effectiveHint)
+            k === String(effectiveHint),
         );
         if (normalized) {
           // Place the hinted competition at the front
@@ -436,7 +438,7 @@ export const FIFAWorldServiceEnhanced = {
       for (const competition of competitionOrder) {
         try {
           const response = await fetch(
-            `https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${gameId}`
+            `https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${gameId}`,
           );
           if (response.ok) {
             const data = await response.json();
@@ -461,7 +463,7 @@ export const FIFAWorldServiceEnhanced = {
     try {
       // FIFA standings don't use the year parameter like domestic leagues
       const response = await fetch(
-        `https://cdn.espn.com/core/soccer/table?xhr=1&league=${competitionCode}`
+        `https://cdn.espn.com/core/soccer/table?xhr=1&league=${competitionCode}`,
       );
       const standingsData = await response.json();
 
@@ -495,7 +497,7 @@ export const FIFAWorldServiceEnhanced = {
         ) {
           console.log(
             "First group entries:",
-            groups[0].standings.entries.length
+            groups[0].standings.entries.length,
           );
           groups[0].standings.entries.slice(0, 3).forEach((entry, index) => {
             console.log(`Entry ${index + 1}:`, {
@@ -526,7 +528,7 @@ export const FIFAWorldServiceEnhanced = {
   async getTeam(teamId, competitionCode = "fifa.world") {
     try {
       const response = await fetch(
-        `https://site.api.espn.com/apis/site/v2/sports/soccer/${competitionCode}/teams/${teamId}`
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/${competitionCode}/teams/${teamId}`,
       );
       const data = await response.json();
       return data;
@@ -540,7 +542,7 @@ export const FIFAWorldServiceEnhanced = {
   async getPlayer(playerId) {
     try {
       const response = await fetch(
-        `https://site.api.espn.com/apis/site/v2/sports/soccer/players/${playerId}`
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/players/${playerId}`,
       );
       const data = await response.json();
       return data;
@@ -554,7 +556,7 @@ export const FIFAWorldServiceEnhanced = {
   async searchTeams(query, competitionCode = "fifa.world") {
     try {
       const response = await fetch(
-        `https://site.api.espn.com/apis/site/v2/sports/soccer/${competitionCode}/teams?limit=50`
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/${competitionCode}/teams?limit=50`,
       );
       const data = await response.json();
 
@@ -566,7 +568,7 @@ export const FIFAWorldServiceEnhanced = {
       ) {
         const teams = data.sports[0].leagues[0].teams;
         return teams.filter((team) =>
-          team.team.displayName.toLowerCase().includes(query.toLowerCase())
+          team.team.displayName.toLowerCase().includes(query.toLowerCase()),
         );
       }
       return [];
@@ -581,7 +583,7 @@ export const FIFAWorldServiceEnhanced = {
     try {
       // Get all teams first
       const response = await fetch(
-        `https://site.api.espn.com/apis/site/v2/sports/soccer/${competitionCode}/teams`
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/${competitionCode}/teams`,
       );
       const data = await response.json();
 
@@ -603,7 +605,7 @@ export const FIFAWorldServiceEnhanced = {
           const teamId = team.team.id;
           const year = getSoccerYear();
           const response = await fetch(
-            `https://site.api.espn.com/apis/site/v2/sports/soccer/${competitionCode}/teams/${teamId}/roster?season=${year}`
+            `https://site.api.espn.com/apis/site/v2/sports/soccer/${competitionCode}/teams/${teamId}/roster?season=${year}`,
           );
           const rosterData = await response.json();
 
@@ -661,7 +663,7 @@ export const FIFAWorldServiceEnhanced = {
         } catch (teamError) {
           console.error(
             `Error fetching team ${team.team.displayName}:`,
-            teamError
+            teamError,
           );
           return [];
         }

@@ -126,7 +126,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       // Fallback to current year
       console.log(
         "No FIFA season year found, using current year:",
-        currentCalendarYear
+        currentCalendarYear,
       );
       setCurrentYear(currentCalendarYear);
       return currentCalendarYear;
@@ -212,10 +212,130 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
     }
   };
 
+  // Render team logos for a season: combine multiple teams in same league into dual-logos
+  const renderSeasonTeamsView = (season, useDarkMode = isDarkMode) => {
+    const teams = [];
+    if (!season) return null;
+
+    // If this season represents a merged transfer pair, render the from->to logos
+    if (season.transferPair && season.fromTeam && season.toTeam) {
+      const firstId = season.fromTeam.id;
+      const secondId = season.toTeam.id;
+      return (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Image
+            source={
+              getTeamLogoUrl(firstId, useDarkMode)
+                ? { uri: getTeamLogoUrl(firstId, useDarkMode) }
+                : require("../../../../assets/soccer.png")
+            }
+            style={[
+              styles.careerTeamLogo,
+              { width: 28, height: 28, marginRight: 6 },
+            ]}
+            defaultSource={getTeamLogoFallbackUrl(firstId, useDarkMode)}
+            onError={() => handleLogoError(firstId, useDarkMode)}
+          />
+          <Image
+            source={
+              getTeamLogoUrl(secondId, useDarkMode)
+                ? { uri: getTeamLogoUrl(secondId, useDarkMode) }
+                : require("../../../../assets/soccer.png")
+            }
+            style={[styles.careerTeamLogo, { width: 28, height: 28 }]}
+            defaultSource={getTeamLogoFallbackUrl(secondId, useDarkMode)}
+            onError={() => handleLogoError(secondId, useDarkMode)}
+          />
+        </View>
+      );
+    }
+
+    if (Array.isArray(season.allStatsData) && season.allStatsData.length > 0) {
+      const seen = new Set();
+      season.allStatsData.forEach((s) => {
+        if (s.teamId && !seen.has(s.teamId)) {
+          seen.add(s.teamId);
+          teams.push({ id: s.teamId });
+        }
+      });
+    } else if (
+      Array.isArray(season.teamsForSeason) &&
+      season.teamsForSeason.length > 0
+    ) {
+      const seen = new Set();
+      season.teamsForSeason.forEach((t) => {
+        if (t.teamId && !seen.has(t.teamId)) {
+          seen.add(t.teamId);
+          teams.push({ id: t.teamId });
+        }
+      });
+    } else if (season.team && season.team.id) {
+      teams.push({ id: season.team.id });
+    }
+
+    if (teams.length === 0) {
+      return (
+        <CompetitionLogo
+          logoId={season.logoId}
+          style={styles.careerTeamLogo}
+          useDarkMode={useDarkMode}
+        />
+      );
+    }
+
+    if (teams.length === 1) {
+      const t = teams[0];
+      return (
+        <Image
+          source={
+            getTeamLogoUrl(t.id, useDarkMode)
+              ? { uri: getTeamLogoUrl(t.id, useDarkMode) }
+              : require("../../../../assets/soccer.png")
+          }
+          style={styles.careerTeamLogo}
+          defaultSource={getTeamLogoFallbackUrl(t.id, useDarkMode)}
+          onError={() => handleLogoError(t.id, useDarkMode)}
+        />
+      );
+    }
+
+    const first = teams[0];
+    const second = teams[1];
+    return (
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <Image
+          source={
+            getTeamLogoUrl(first.id, useDarkMode)
+              ? { uri: getTeamLogoUrl(first.id, useDarkMode) }
+              : require("../../../../assets/soccer.png")
+          }
+          style={[
+            styles.careerTeamLogo,
+            { width: 28, height: 28, marginRight: 6 },
+          ]}
+          defaultSource={getTeamLogoFallbackUrl(first.id, useDarkMode)}
+          onError={() => handleLogoError(first.id, useDarkMode)}
+        />
+        {second && (
+          <Image
+            source={
+              getTeamLogoUrl(second.id, useDarkMode)
+                ? { uri: getTeamLogoUrl(second.id, useDarkMode) }
+                : require("../../../../assets/soccer.png")
+            }
+            style={[styles.careerTeamLogo, { width: 28, height: 28 }]}
+            defaultSource={getTeamLogoFallbackUrl(second.id, useDarkMode)}
+            onError={() => handleLogoError(second.id, useDarkMode)}
+          />
+        )}
+      </View>
+    );
+  };
+
   // Custom Competition Logo component with fallback logic
   const CompetitionLogo = ({ logoId, style, useDarkMode = isDarkMode }) => {
     const [currentUrl, setCurrentUrl] = useState(() =>
-      getCompetitionLogoUrl(logoId, useDarkMode)
+      getCompetitionLogoUrl(logoId, useDarkMode),
     );
     const [failed, setFailed] = useState(false);
     const logoKey = `${logoId}_${useDarkMode ? "dark" : "light"}`;
@@ -281,7 +401,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       "teamId:",
       teamId,
       "competitionId:",
-      competitionId
+      competitionId,
     );
     fetchPlayerData();
   }, [playerId]);
@@ -292,8 +412,8 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       console.log(`Fetching transaction history for player ${playerId}...`);
       const transactionResponse = await fetch(
         convertToHttps(
-          `https://sports.core.api.espn.com/v2/sports/soccer/athletes/${playerId}/transactions?lang=en&region=us`
-        )
+          `https://sports.core.api.espn.com/v2/sports/soccer/athletes/${playerId}/transactions?lang=en&region=us`,
+        ),
       );
       console.log("Transaction response status:", transactionResponse.status);
       console.log("Transaction response object:", transactionResponse);
@@ -306,11 +426,11 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
         console.log("==========================================");
         console.log(
           `Transaction history for player ${playerId}:`,
-          transactionData
+          transactionData,
         );
         console.log(
           "Transaction items count:",
-          transactionData?.items?.length || 0
+          transactionData?.items?.length || 0,
         );
 
         // Add transactions to player data
@@ -341,11 +461,11 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
             if (transaction.from && transaction.from.$ref) {
               const fromTeamMatch = transaction.from.$ref.match(/teams\/(\d+)/);
               const fromLeagueMatch = transaction.from.$ref.match(
-                /leagues\/([^\/]+)\/seasons/
+                /leagues\/([^\/]+)\/seasons/,
               );
               if (fromTeamMatch && fromLeagueMatch) {
                 console.log(
-                  `From team: id: ${fromTeamMatch[1]} league: ${fromLeagueMatch[1]}`
+                  `From team: id: ${fromTeamMatch[1]} league: ${fromLeagueMatch[1]}`,
                 );
               }
             }
@@ -354,11 +474,11 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
             if (transaction.to && transaction.to.$ref) {
               const toTeamMatch = transaction.to.$ref.match(/teams\/(\d+)/);
               const toLeagueMatch = transaction.to.$ref.match(
-                /leagues\/([^\/]+)\/seasons/
+                /leagues\/([^\/]+)\/seasons/,
               );
               if (toTeamMatch && toLeagueMatch) {
                 console.log(
-                  `To team: id: ${toTeamMatch[1]} league: ${toLeagueMatch[1]}`
+                  `To team: id: ${toTeamMatch[1]} league: ${toLeagueMatch[1]}`,
                 );
               }
             }
@@ -399,7 +519,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       console.log("Career tab selected, checking transaction data...");
       console.log(
         "playerData.transactions available:",
-        !!playerData?.transactions
+        !!playerData?.transactions,
       );
       fetchCareerData();
     }
@@ -410,7 +530,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       setLoading(true);
 
       console.log(
-        `Fetching FIFA player data for player ${playerId} from competition ${competitionId}...`
+        `Fetching FIFA player data for player ${playerId} from competition ${competitionId}...`,
       );
 
       // Get the current year for FIFA competitions
@@ -442,7 +562,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
 
       if (!foundData) {
         console.log(
-          "No player data found, trying generic soccer athlete endpoint..."
+          "No player data found, trying generic soccer athlete endpoint...",
         );
         const genericUrl = `https://sports.core.api.espn.com/v2/sports/soccer/athletes/${playerId}?lang=en&region=us`;
         athleteResponse = await fetch(convertToHttps(genericUrl));
@@ -460,7 +580,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
         if (foundData.team && foundData.team.$ref) {
           try {
             const teamResponse = await fetch(
-              convertToHttps(foundData.team.$ref)
+              convertToHttps(foundData.team.$ref),
             );
             if (teamResponse.ok) {
               const teamData = await teamResponse.json();
@@ -502,7 +622,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       } catch (transactionError) {
         console.error(
           "Failed to fetch transactions in error fallback:",
-          transactionError
+          transactionError,
         );
       }
     } finally {
@@ -529,7 +649,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       const response = await fetch(convertToHttps(url));
       if (!response.ok) {
         console.warn(
-          `Failed to fetch league name for ${leagueCode}: ${response.status}`
+          `Failed to fetch league name for ${leagueCode}: ${response.status}`,
         );
         return leagueCode; // Fallback to code
       }
@@ -613,11 +733,11 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
             };
             console.log(
               `Successfully fetched ${competition.name} stats:`,
-              actualData
+              actualData,
             );
 
             console.log(
-              `Found ${competition.name} stats with ${statsData.splits.categories.length} categories`
+              `Found ${competition.name} stats with ${statsData.splits.categories.length} categories`,
             );
             return {
               competition: competition.name,
@@ -645,7 +765,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
         `Successfully fetched stats for ${
           Object.keys(allStats).length
         } competitions:`,
-        Object.keys(allStats)
+        Object.keys(allStats),
       );
       setPlayerStats(allStats);
     } catch (error) {
@@ -709,7 +829,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
           const gameLogData = await response.json();
           console.log(
             `Validating FIFA game log data for ${competition}:`,
-            gameLogData
+            gameLogData,
           );
 
           // Check if data is valid
@@ -734,7 +854,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
               console.log(
                 `Found events.items array for ${competition} with`,
                 actualData.events.count,
-                "total events"
+                "total events",
               );
             } else if (
               actualData &&
@@ -750,7 +870,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
 
             if (eventsToProcess && Array.isArray(eventsToProcess)) {
               console.log(
-                `Processing ${eventsToProcess.length} events from ${competition}`
+                `Processing ${eventsToProcess.length} events from ${competition}`,
               );
               return eventsToProcess;
             }
@@ -773,7 +893,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
         console.log(
           "Processing total of",
           allEvents.length,
-          "events from all competitions"
+          "events from all competitions",
         );
         // Process combined game log
         const processedGameLog = await processFantasyGameLog(allEvents);
@@ -781,7 +901,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
         console.log(
           "Combined game log loaded:",
           processedGameLog.length,
-          "games"
+          "games",
         );
       } else {
         console.log("No events found in any competition");
@@ -833,7 +953,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
     if (!events || !Array.isArray(events)) {
       console.log(
         "Invalid events data passed to processFantasyGameLog:",
-        typeof events
+        typeof events,
       );
       return [];
     }
@@ -856,18 +976,18 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
           const [eventResponse, competitionResponse, statsResponse] =
             await Promise.all([
               fetch(
-                convertToHttps(`${eventData.event.$ref}?lang=en&region=us`)
+                convertToHttps(`${eventData.event.$ref}?lang=en&region=us`),
               ),
               fetch(
                 convertToHttps(
-                  `${eventData.competition.$ref}?lang=en&region=us`
-                )
+                  `${eventData.competition.$ref}?lang=en&region=us`,
+                ),
               ),
               eventData.statistics?.$ref
                 ? fetch(
                     convertToHttps(
-                      `${eventData.statistics.$ref}?lang=en&region=us`
-                    )
+                      `${eventData.statistics.$ref}?lang=en&region=us`,
+                    ),
                   ).catch(() => null)
                 : Promise.resolve(null),
             ]);
@@ -896,7 +1016,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
           // Get opponent data
           const opponent = await getOpponentFromCompetition(
             competition,
-            eventData.teamId
+            eventData.teamId,
           );
 
           // Determine win/loss/draw result
@@ -937,7 +1057,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
     // Deduplicate by gameId to prevent duplicate matches
     const uniqueEntries = validEntries.reduce((acc, current) => {
       const existingIndex = acc.findIndex(
-        (entry) => entry.gameId === current.gameId
+        (entry) => entry.gameId === current.gameId,
       );
       if (existingIndex === -1) {
         acc.push(current);
@@ -954,11 +1074,11 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       "Getting opponent from competition competitors:",
       competition.competitors,
       "for teamId:",
-      teamId
+      teamId,
     );
     if (competition && competition.competitors) {
       const opponent = competition.competitors.find(
-        (comp) => comp.id !== teamId?.toString()
+        (comp) => comp.id !== teamId?.toString(),
       );
       console.log("Found opponent:", opponent);
 
@@ -966,7 +1086,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
         try {
           // Fetch the actual team data from the $ref
           const teamResponse = await fetch(
-            convertToHttps(`${opponent.team.$ref}?lang=en&region=us`)
+            convertToHttps(`${opponent.team.$ref}?lang=en&region=us`),
           );
           if (teamResponse.ok) {
             const teamData = await teamResponse.json();
@@ -1002,11 +1122,11 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       "Checking home game for competitors:",
       competition.competitors,
       "teamId:",
-      teamId
+      teamId,
     );
     if (competition && competition.competitors) {
       const homeTeam = competition.competitors.find(
-        (comp) => comp.homeAway === "home"
+        (comp) => comp.homeAway === "home",
       );
       const isHome = homeTeam ? homeTeam.id === teamId?.toString() : false;
       console.log("Is home game:", isHome, "homeTeam:", homeTeam);
@@ -1020,11 +1140,11 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       "Determining game result for competitors:",
       competition.competitors,
       "teamId:",
-      teamId
+      teamId,
     );
     if (competition && competition.competitors) {
       const playerTeam = competition.competitors.find(
-        (comp) => comp.id === teamId?.toString()
+        (comp) => comp.id === teamId?.toString(),
       );
 
       if (playerTeam) {
@@ -1037,7 +1157,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
         if (playerTeam.winner === false) {
           // Check if it's a draw (both teams have winner: false)
           const opponentTeam = competition.competitors.find(
-            (comp) => comp.id !== teamId?.toString()
+            (comp) => comp.id !== teamId?.toString(),
           );
           if (opponentTeam && opponentTeam.winner === false) {
             return { result: "D", color: "warning" };
@@ -1097,13 +1217,13 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
         (s) =>
           `${s.teamId} (${s.league}) (includeStats: ${
             s.includeStats !== false
-          })`
-      )
+          })`,
+      ),
     );
 
     // Check if all teams are from the same league
     const statsToInclude = allStatsData.filter(
-      (data) => data.includeStats !== false
+      (data) => data.includeStats !== false,
     );
     const uniqueLeagues = [
       ...new Set(statsToInclude.map((data) => data.league)),
@@ -1114,7 +1234,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       "Same league transfer:",
       isSameLeague,
       "Leagues:",
-      uniqueLeagues
+      uniqueLeagues,
     );
 
     if (statsToInclude.length === 1) {
@@ -1135,7 +1255,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
           // Combine each category
           baseStats.splits.categories.forEach((baseCategory) => {
             const matchingCategory = additionalStats.splits.categories.find(
-              (cat) => cat.name === baseCategory.name
+              (cat) => cat.name === baseCategory.name,
             );
 
             if (
@@ -1145,7 +1265,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
             ) {
               baseCategory.stats.forEach((baseStat) => {
                 const matchingStat = matchingCategory.stats.find(
-                  (stat) => stat.name === baseStat.name
+                  (stat) => stat.name === baseStat.name,
                 );
 
                 if (matchingStat) {
@@ -1184,7 +1304,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
   const getPlayerTeamsForSeason = (transactions, season) => {
     console.log(
       `getPlayerTeamsForSeason called with season: ${season}, transactions:`,
-      transactions
+      transactions,
     );
     const teams = [];
 
@@ -1209,11 +1329,11 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
     });
 
     console.log(
-      `Season ${season} range: ${seasonStart.toISOString()} to ${seasonEnd.toISOString()}`
+      `Season ${season} range: ${seasonStart.toISOString()} to ${seasonEnd.toISOString()}`,
     );
     console.log(
       `Found ${seasonTransactions.length} transactions for season ${season}:`,
-      seasonTransactions
+      seasonTransactions,
     );
 
     if (seasonTransactions.length === 0) {
@@ -1227,11 +1347,11 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       if (transaction.from && transaction.from.$ref) {
         const fromTeamMatch = transaction.from.$ref.match(/teams\/(\d+)/);
         const fromLeagueMatch = transaction.from.$ref.match(
-          /leagues\/([^\/]+)\/seasons/
+          /leagues\/([^\/]+)\/seasons/,
         );
         if (fromTeamMatch && fromLeagueMatch) {
           console.log(
-            `From team: ID: ${fromTeamMatch[1]} League: ${fromLeagueMatch[1]}`
+            `From team: ID: ${fromTeamMatch[1]} League: ${fromLeagueMatch[1]}`,
           );
           teams.push({
             teamId: fromTeamMatch[1],
@@ -1247,11 +1367,11 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       if (transaction.to && transaction.to.$ref) {
         const toTeamMatch = transaction.to.$ref.match(/teams\/(\d+)/);
         const toLeagueMatch = transaction.to.$ref.match(
-          /leagues\/([^\/]+)\/seasons/
+          /leagues\/([^\/]+)\/seasons/,
         );
         if (toTeamMatch && toLeagueMatch) {
           console.log(
-            `To team: ID: ${toTeamMatch[1]} League: ${toLeagueMatch[1]}`
+            `To team: ID: ${toTeamMatch[1]} League: ${toLeagueMatch[1]}`,
           );
           teams.push({
             teamId: toTeamMatch[1],
@@ -1284,8 +1404,8 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
         try {
           const playerSeasonResponse = await fetch(
             convertToHttps(
-              `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueForYear}/seasons/${year}/athletes/${playerId}?lang=en&region=us`
-            )
+              `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueForYear}/seasons/${year}/athletes/${playerId}?lang=en&region=us`,
+            ),
           );
 
           if (playerSeasonResponse.ok) {
@@ -1349,7 +1469,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
         console.log("teamsForSeason result:", teamsForSeason);
       } else {
         console.log(
-          "No transaction data available for getPlayerTeamsForSeason"
+          "No transaction data available for getPlayerTeamsForSeason",
         );
       }
 
@@ -1358,8 +1478,8 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
         try {
           const espnResponse = await fetch(
             convertToHttps(
-              `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueForYear}/seasons/${year}/athletes/${playerId}?lang=en&region=us`
-            )
+              `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${leagueForYear}/seasons/${year}/athletes/${playerId}?lang=en&region=us`,
+            ),
           );
           if (espnResponse.ok) {
             const espnData = await espnResponse.json();
@@ -1369,7 +1489,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
             if (espnData.team && espnData.team.$ref) {
               const teamMatch = espnData.team.$ref.match(/teams\/(\d+)/);
               const leagueMatch = espnData.team.$ref.match(
-                /leagues\/([^\/]+)\/seasons/
+                /leagues\/([^\/]+)\/seasons/,
               );
               if (teamMatch && leagueMatch) {
                 teamsForSeason.push({
@@ -1399,7 +1519,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                 // Only add if different
                 const isDifferentTeam = !teamsForSeason.some(
                   (t) =>
-                    t.teamId === defaultTeamId && t.league === defaultLeague
+                    t.teamId === defaultTeamId && t.league === defaultLeague,
                 );
                 if (isDifferentTeam) {
                   teamsForSeason.push({
@@ -1452,10 +1572,10 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                 transaction.date
               }, calculated season year: ${seasonYear}, target year: ${year}, match: ${
                 seasonYear === year
-              }`
+              }`,
             );
             return seasonYear === year;
-          }
+          },
         );
 
         if (transferInThisYear) {
@@ -1466,12 +1586,12 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
           const fromTeamMatch =
             transferInThisYear.from?.$ref?.match(/teams\/(\d+)/);
           const fromLeagueMatch = transferInThisYear.from?.$ref?.match(
-            /leagues\/([^\/]+)\/seasons/
+            /leagues\/([^\/]+)\/seasons/,
           );
           const toTeamMatch =
             transferInThisYear.to?.$ref?.match(/teams\/(\d+)/);
           const toLeagueMatch = transferInThisYear.to?.$ref?.match(
-            /leagues\/([^\/]+)\/seasons/
+            /leagues\/([^\/]+)\/seasons/,
           );
 
           if (
@@ -1487,7 +1607,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
               toLeague: toLeagueMatch[1],
             };
             console.log(
-              `Transfer year detected: From ${transferInfo.fromTeamId} (${transferInfo.fromLeague}) to ${transferInfo.toTeamId} (${transferInfo.toLeague})`
+              `Transfer year detected: From ${transferInfo.fromTeamId} (${transferInfo.fromLeague}) to ${transferInfo.toTeamId} (${transferInfo.toLeague})`,
             );
           }
         }
@@ -1515,15 +1635,15 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                 isToTeam = true;
                 // Check appearances for TO team
                 const appearancesCategory = statsData.splits.categories.find(
-                  (cat) => cat.name === "general"
+                  (cat) => cat.name === "general",
                 );
                 if (appearancesCategory) {
                   const appearancesStat = appearancesCategory.stats.find(
-                    (stat) => stat.name === "appearances"
+                    (stat) => stat.name === "appearances",
                   );
                   if (appearancesStat && appearancesStat.value === 0) {
                     console.log(
-                      `TO team ${teamInfo.teamId} has 0 appearances, excluding stats but including competitions`
+                      `TO team ${teamInfo.teamId} has 0 appearances, excluding stats but including competitions`,
                     );
                     shouldIncludeStats = false;
                   }
@@ -1541,7 +1661,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
             }
           } else {
             console.log(
-              `Failed to fetch stats for team ${teamInfo.teamId}: ${statsResponse.status}`
+              `Failed to fetch stats for team ${teamInfo.teamId}: ${statsResponse.status}`,
             );
           }
         } catch (e) {
@@ -1599,17 +1719,17 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
           const playerSeasonUrl = `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${competition}/seasons/${year}/athletes/${playerId}?lang=en&region=us`;
           console.log(
             `Checking player in ${competition} for ${year}:`,
-            playerSeasonUrl
+            playerSeasonUrl,
           );
 
           const playerSeasonResponse = await fetch(
-            convertToHttps(playerSeasonUrl)
+            convertToHttps(playerSeasonUrl),
           );
           if (playerSeasonResponse.ok) {
             const playerSeasonData = await playerSeasonResponse.json();
             console.log(
               `Found player data in ${competition} for ${year}:`,
-              playerSeasonData
+              playerSeasonData,
             );
 
             // Get team information
@@ -1617,7 +1737,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
             if (playerSeasonData.team?.$ref) {
               try {
                 const teamResponse = await fetch(
-                  convertToHttps(playerSeasonData.team.$ref)
+                  convertToHttps(playerSeasonData.team.$ref),
                 );
                 if (teamResponse.ok) {
                   teamData = await teamResponse.json();
@@ -1634,17 +1754,17 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                 // Use types/1 endpoint for proper statistics
                 const statisticsUrl = playerSeasonData.statistics.$ref.replace(
                   /types\/\d+/,
-                  "types/1"
+                  "types/1",
                 );
                 console.log(`Fetching statistics from: ${statisticsUrl}`);
                 const statsResponse = await fetch(
-                  convertToHttps(statisticsUrl)
+                  convertToHttps(statisticsUrl),
                 );
                 if (statsResponse.ok) {
                   statsData = await statsResponse.json();
                   console.log(
                     `Got statistics for ${competition} ${year}:`,
-                    statsData
+                    statsData,
                   );
                 }
               } catch (statsError) {
@@ -1672,7 +1792,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
         } catch (error) {
           console.error(
             `Error fetching ${competition} data for ${year}:`,
-            error
+            error,
           );
         }
       }
@@ -1688,7 +1808,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
     if (!playerData?.id) {
       console.log(
         "No player ID available for career data. PlayerData:",
-        playerData
+        playerData,
       );
       return;
     }
@@ -1700,7 +1820,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
 
       // Get competition-specific seasons from both competitions
       const competitionsForSeasons = [competitionId, "fifa.world"].filter(
-        (comp, index, arr) => arr.indexOf(comp) === index
+        (comp, index, arr) => arr.indexOf(comp) === index,
       );
       const competitionSeasons = new Map(); // Map of competition -> [years]
 
@@ -1761,7 +1881,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
           // Use the new FIFA-specific career stats fetcher
           const fifaCareerStats = await fetchFIFACareerStats(
             year,
-            competitionSeasons
+            competitionSeasons,
           );
 
           if (fifaCareerStats.length > 0) {
@@ -1786,7 +1906,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
         } catch (error) {
           console.error(
             `Error processing FIFA career data for year ${year}:`,
-            error
+            error,
           );
           return { year, data: [] };
         }
@@ -1819,7 +1939,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
               });
             } else {
               console.log(
-                `Skipping ${seasonData.year} ${seasonData.competition} - no statistics found`
+                `Skipping ${seasonData.year} ${seasonData.competition} - no statistics found`,
               );
             }
           });
@@ -1828,7 +1948,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
 
       // Sort by year (newest first)
       careerStats.sort(
-        (a, b) => parseInt(b.displaySeason) - parseInt(a.displaySeason)
+        (a, b) => parseInt(b.displaySeason) - parseInt(a.displaySeason),
       );
 
       console.log("Final FIFA career data:", careerStats);
@@ -1843,7 +1963,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
   // Helper function to fetch competitions for a specific year
   const fetchCompetitionsForYear = async (playerId, leagueCode, year) => {
     console.log(
-      `Fetching competitions for player ${playerId} in league ${leagueCode} for year ${year}`
+      `Fetching competitions for player ${playerId} in league ${leagueCode} for year ${year}`,
     );
     const competitions = [];
 
@@ -1906,7 +2026,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
     const leagueCompetitions = LEAGUE_COMPETITIONS[leagueCode] || [];
     console.log(
       `Found ${leagueCompetitions.length} competitions for league ${leagueCode}:`,
-      leagueCompetitions.map((c) => c.name)
+      leagueCompetitions.map((c) => c.name),
     );
 
     for (const competition of leagueCompetitions) {
@@ -1919,7 +2039,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
           const data = await response.json();
           if (data.splits && data.splits.categories) {
             console.log(
-              `Successfully fetched ${competition.name} stats for ${year}`
+              `Successfully fetched ${competition.name} stats for ${year}`,
             );
             competitions.push({
               ...competition,
@@ -1927,25 +2047,25 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
             });
           } else {
             console.log(
-              `${competition.name} response OK but no stats data for ${year}`
+              `${competition.name} response OK but no stats data for ${year}`,
             );
           }
         } else {
           console.log(
-            `Failed to fetch ${competition.name} for ${year}: ${response.status}`
+            `Failed to fetch ${competition.name} for ${year}: ${response.status}`,
           );
         }
       } catch (error) {
         console.log(
           `Error fetching ${competition.name} stats for ${year}:`,
-          error
+          error,
         );
       }
     }
 
     console.log(
       `Final competitions found for ${year}:`,
-      competitions.map((c) => c.name)
+      competitions.map((c) => c.name),
     );
     return competitions;
   };
@@ -1984,7 +2104,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                   style={styles.teamLogo}
                   defaultSource={getTeamLogoFallbackUrl(
                     playerData.team.id,
-                    isDarkMode
+                    isDarkMode,
                   )}
                   onError={() =>
                     handleLogoError(playerData.team.id, isDarkMode)
@@ -2125,9 +2245,9 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
         rows.push(
           <View key={i} style={styles.statsRow}>
             {rowStats.map(({ key, label }) =>
-              renderStatBox(label, stats[key] || "0", key)
+              renderStatBox(label, stats[key] || "0", key),
             )}
-          </View>
+          </View>,
         );
       }
       return rows;
@@ -2172,7 +2292,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       >
         <View style={styles.statsContent}>
           {Object.entries(playerStats).map(([competitionName, stats]) =>
-            renderCompetitionStats(competitionName, stats)
+            renderCompetitionStats(competitionName, stats),
           )}
         </View>
       </ScrollView>
@@ -2213,172 +2333,185 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
               No recent games available
             </Text>
           ) : (
-            gameLog.map((game, index) => (
-              <TouchableOpacity
-                key={game.gameId || index}
-                style={[styles.mlbGameCard, { backgroundColor: theme.surface }]}
-                onPress={() => {
-                  setSelectedGameStats(game);
-                  setShowStatsModal(true);
-                }}
-              >
-                {/* Date Header */}
-                <View
+            gameLog
+              .filter((game) => {
+                const mins = Number(
+                  game.stats?.minutesPlayed ?? game.stats?.minutes ?? 0,
+                );
+                return mins > 0;
+              })
+              .map((game, index) => (
+                <TouchableOpacity
+                  key={game.gameId || index}
                   style={[
-                    styles.mlbGameHeader,
-                    { backgroundColor: theme.surfaceSecondary },
+                    styles.mlbGameCard,
+                    { backgroundColor: theme.surface },
                   ]}
+                  onPress={() => {
+                    setSelectedGameStats(game);
+                    setShowStatsModal(true);
+                  }}
                 >
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.mlbGameDate, { color: theme.text }]}
-                  >
-                    {new Date(game.date).toLocaleDateString("en-US", {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </Text>
-                </View>
-
-                {/* Player Info Row */}
-                <View style={styles.mlbPlayerRow}>
-                  {/* Jersey Number Circle */}
+                  {/* Date Header */}
                   <View
                     style={[
-                      styles.jerseyCircle,
-                      { backgroundColor: getTeamColor(playerData?.team) },
+                      styles.mlbGameHeader,
+                      { backgroundColor: theme.surfaceSecondary },
                     ]}
                   >
                     <Text
                       allowFontScaling={false}
-                      style={[styles.jerseyNumber, { color: "white" }]}
+                      style={[styles.mlbGameDate, { color: theme.text }]}
                     >
-                      {getPlayerInitials(playerData)}
+                      {new Date(game.date).toLocaleDateString("en-US", {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}
                     </Text>
                   </View>
 
-                  {/* Player Name and Stats */}
-                  <View style={styles.mlbPlayerInfo}>
-                    <Text
-                      allowFontScaling={false}
-                      style={[styles.mlbPlayerName, { color: theme.text }]}
+                  {/* Player Info Row */}
+                  <View style={styles.mlbPlayerRow}>
+                    {/* Jersey Number Circle */}
+                    <View
+                      style={[
+                        styles.jerseyCircle,
+                        { backgroundColor: getTeamColor(playerData?.team) },
+                      ]}
                     >
-                      {playerData?.displayName ||
-                        playerData?.fullName ||
-                        "Player"}
-                    </Text>
+                      <Text
+                        allowFontScaling={false}
+                        style={[styles.jerseyNumber, { color: "white" }]}
+                      >
+                        {getPlayerInitials(playerData)}
+                      </Text>
+                    </View>
+
+                    {/* Player Name and Stats */}
+                    <View style={styles.mlbPlayerInfo}>
+                      <Text
+                        allowFontScaling={false}
+                        style={[styles.mlbPlayerName, { color: theme.text }]}
+                      >
+                        {playerData?.displayName ||
+                          playerData?.fullName ||
+                          "Player"}
+                      </Text>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.mlbPlayerStats,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        G: {game.stats?.totalGoals || 0} | A:{" "}
+                        {game.stats?.goalAssists || 0} | MP:{" "}
+                        {game.stats?.minutesPlayed || game.stats?.minutes || 0}
+                      </Text>
+                    </View>
+
+                    {/* Win Indicator */}
+                    <View
+                      style={[
+                        styles.mlbWinIndicator,
+                        {
+                          backgroundColor:
+                            game.result?.color === "success"
+                              ? theme.success
+                              : game.result?.color === "error"
+                                ? theme.error
+                                : game.result?.color === "warning"
+                                  ? theme.warning
+                                  : colors.primary,
+                        },
+                      ]}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        style={[styles.mlbWinText, { color: "white" }]}
+                      >
+                        {game.result?.result || "W"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Match Info Row */}
+                  <View
+                    style={[
+                      styles.mlbMatchRow,
+                      { borderTopColor: theme.surfaceSecondary },
+                    ]}
+                  >
+                    <View style={styles.mlbTeamLogos}>
+                      <Image
+                        source={
+                          getTeamLogoUrl(
+                            playerData?.team?.id || teamId,
+                            isDarkMode,
+                          )
+                            ? {
+                                uri: getTeamLogoUrl(
+                                  playerData?.team?.id || teamId,
+                                  isDarkMode,
+                                ),
+                              }
+                            : require("../../../../assets/soccer.png")
+                        }
+                        style={styles.mlbTeamLogo}
+                        defaultSource={getTeamLogoFallbackUrl(
+                          playerData?.team?.id || teamId,
+                          isDarkMode,
+                        )}
+                        onError={() =>
+                          handleLogoError(
+                            playerData?.team?.id || teamId,
+                            isDarkMode,
+                          )
+                        }
+                      />
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.mlbVersus,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {game.isHome ? "vs" : "@"}
+                      </Text>
+                      <Image
+                        source={
+                          getTeamLogoUrl(game.opponent?.id || "86", isDarkMode)
+                            ? {
+                                uri: getTeamLogoUrl(
+                                  game.opponent?.id || "86",
+                                  isDarkMode,
+                                ),
+                              }
+                            : require("../../../../assets/soccer.png")
+                        }
+                        style={styles.mlbTeamLogo}
+                        defaultSource={getTeamLogoFallbackUrl(
+                          game.opponent?.id || "86",
+                          isDarkMode,
+                        )}
+                        onError={() =>
+                          handleLogoError(game.opponent?.id || "86", isDarkMode)
+                        }
+                      />
+                    </View>
                     <Text
                       allowFontScaling={false}
                       style={[
-                        styles.mlbPlayerStats,
-                        { color: theme.textSecondary },
+                        styles.mlbOpponentName,
+                        { color: theme.textTertiary },
                       ]}
                     >
-                      G: {game.stats?.totalGoals || 0} | A:{" "}
-                      {game.stats?.goalAssists || 0} | MP:{" "}
-                      {game.stats?.minutesPlayed || game.stats?.minutes || 0}
+                      {getCompetitionName(game.leagueCode)}
                     </Text>
                   </View>
-
-                  {/* Win Indicator */}
-                  <View
-                    style={[
-                      styles.mlbWinIndicator,
-                      {
-                        backgroundColor:
-                          game.result?.color === "success"
-                            ? theme.success
-                            : game.result?.color === "error"
-                            ? theme.error
-                            : game.result?.color === "warning"
-                            ? theme.warning
-                            : colors.primary,
-                      },
-                    ]}
-                  >
-                    <Text
-                      allowFontScaling={false}
-                      style={[styles.mlbWinText, { color: "white" }]}
-                    >
-                      {game.result?.result || "W"}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Match Info Row */}
-                <View
-                  style={[
-                    styles.mlbMatchRow,
-                    { borderTopColor: theme.surfaceSecondary },
-                  ]}
-                >
-                  <View style={styles.mlbTeamLogos}>
-                    <Image
-                      source={
-                        getTeamLogoUrl(
-                          playerData?.team?.id || teamId,
-                          isDarkMode
-                        )
-                          ? {
-                              uri: getTeamLogoUrl(
-                                playerData?.team?.id || teamId,
-                                isDarkMode
-                              ),
-                            }
-                          : require("../../../../assets/soccer.png")
-                      }
-                      style={styles.mlbTeamLogo}
-                      defaultSource={getTeamLogoFallbackUrl(
-                        playerData?.team?.id || teamId,
-                        isDarkMode
-                      )}
-                      onError={() =>
-                        handleLogoError(
-                          playerData?.team?.id || teamId,
-                          isDarkMode
-                        )
-                      }
-                    />
-                    <Text
-                      allowFontScaling={false}
-                      style={[styles.mlbVersus, { color: theme.textSecondary }]}
-                    >
-                      {game.isHome ? "vs" : "@"}
-                    </Text>
-                    <Image
-                      source={
-                        getTeamLogoUrl(game.opponent?.id || "86", isDarkMode)
-                          ? {
-                              uri: getTeamLogoUrl(
-                                game.opponent?.id || "86",
-                                isDarkMode
-                              ),
-                            }
-                          : require("../../../../assets/soccer.png")
-                      }
-                      style={styles.mlbTeamLogo}
-                      defaultSource={getTeamLogoFallbackUrl(
-                        game.opponent?.id || "86",
-                        isDarkMode
-                      )}
-                      onError={() =>
-                        handleLogoError(game.opponent?.id || "86", isDarkMode)
-                      }
-                    />
-                  </View>
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.mlbOpponentName,
-                      { color: theme.textTertiary },
-                    ]}
-                  >
-                    {getCompetitionName(game.leagueCode)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
+                </TouchableOpacity>
+              ))
           )}
         </View>
       </ScrollView>
@@ -2436,7 +2569,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
             Soccer Career
           </Text>
           {careerData.seasons.map((season, index) =>
-            renderCareerSeasonItem(season, index)
+            renderCareerSeasonItem(season, index),
           )}
         </View>
       </ScrollView>
@@ -2459,7 +2592,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
     // Extract main stats from categories
     const getStatValue = (statName, categoryName = "general") => {
       const category = season.statistics?.splits?.categories?.find(
-        (c) => c.name === categoryName
+        (c) => c.name === categoryName,
       );
       const stat = category?.stats?.find((s) => s.name === statName);
       return stat?.displayValue || stat?.value || "0";
@@ -2497,21 +2630,26 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
       >
         <View style={styles.careerSeasonHeader}>
           <View style={styles.careerTeamInfo}>
-            <Image
-              source={{
-                uri: getCompetitionLogoUrl(
-                  season.competitionLogo || "4",
-                  isDarkMode
-                ),
-              }}
-              style={styles.careerTeamLogo}
-              defaultSource={require("../../../../assets/soccer.png")}
-            />
+            {renderSeasonTeamsView(season)}
             <Text
               allowFontScaling={false}
               style={[styles.careerTeamName, { color: theme.textSecondary }]}
             >
-              {season.competitionName || "Unknown Competition"}
+              {season.transferPair && season.fromTeam && season.toTeam
+                ? `${
+                    season.fromTeam.abbreviation ||
+                    season.fromTeam.shortDisplayName ||
+                    season.fromTeam.displayName ||
+                    season.fromTeam.name ||
+                    ""
+                  } / ${
+                    season.toTeam.abbreviation ||
+                    season.toTeam.shortDisplayName ||
+                    season.toTeam.displayName ||
+                    season.toTeam.name ||
+                    ""
+                  }`
+                : season.competitionName || "Unknown Competition"}
             </Text>
           </View>
           <Text
@@ -2749,21 +2887,26 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                   </Text>
                 </View>
                 <View style={styles.modalTeamContainer}>
-                  <Image
-                    source={{
-                      uri: getCompetitionLogoUrl(
-                        season.competitionLogo || "4",
-                        isDarkMode
-                      ),
-                    }}
-                    style={styles.modalSeasonTeamLogo}
-                    defaultSource={require("../../../../assets/soccer.png")}
-                  />
+                  {renderSeasonTeamsView(season, isDarkMode)}
                   <Text
                     allowFontScaling={false}
                     style={[styles.modalTeamName, { color: theme.text }]}
                   >
-                    {season.competitionName || "Unknown Competition"}
+                    {season.transferPair && season.fromTeam && season.toTeam
+                      ? `${
+                          season.fromTeam.abbreviation ||
+                          season.fromTeam.shortDisplayName ||
+                          season.fromTeam.displayName ||
+                          season.fromTeam.name ||
+                          ""
+                        } / ${
+                          season.toTeam.abbreviation ||
+                          season.toTeam.shortDisplayName ||
+                          season.toTeam.displayName ||
+                          season.toTeam.name ||
+                          ""
+                        }`
+                      : season.competitionName || "Unknown Competition"}
                   </Text>
                 </View>
               </View>
@@ -2779,8 +2922,8 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                 renderSeasonStatistics(
                   competition.name,
                   competition.statistics,
-                  competition.logo
-                )
+                  competition.logo,
+                ),
               )}
           </ScrollView>
         </View>
@@ -2824,7 +2967,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                 </Text>
               </View>
             ))}
-          </View>
+          </View>,
         );
       }
       return statsRows;
@@ -2956,7 +3099,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
     const availableStats = statDefinitions.filter(
       (stat) =>
         gameData.stats[stat.key] !== undefined &&
-        gameData.stats[stat.key] !== null
+        gameData.stats[stat.key] !== null,
     );
 
     const renderStatBox = (label, value, key) => (
@@ -2994,7 +3137,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                   : (value || "0").toString();
               return renderStatBox(label, displayValue, key);
             })}
-          </View>
+          </View>,
         );
       }
       return rows;
@@ -3151,7 +3294,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                                 ? {
                                     uri: getTeamLogoUrl(
                                       playerData.team.id,
-                                      isDarkMode
+                                      isDarkMode,
                                     ),
                                   }
                                 : require("../../../../assets/soccer.png")
@@ -3159,7 +3302,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                             style={styles.teamLogo}
                             defaultSource={getTeamLogoFallbackUrl(
                               playerData.team.id,
-                              isDarkMode
+                              isDarkMode,
                             )}
                             onError={() =>
                               handleLogoError(playerData.team.id, isDarkMode)
@@ -3219,7 +3362,7 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                             month: "long",
                             day: "numeric",
                             year: "numeric",
-                          }
+                          },
                         )}
                       </Text>
                       <Text
@@ -3277,12 +3420,12 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                           source={
                             getTeamLogoUrl(
                               playerData?.team?.id || teamId,
-                              isDarkMode
+                              isDarkMode,
                             )
                               ? {
                                   uri: getTeamLogoUrl(
                                     playerData?.team?.id || teamId,
-                                    isDarkMode
+                                    isDarkMode,
                                   ),
                                 }
                               : require("../../../../assets/soccer.png")
@@ -3290,12 +3433,12 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                           style={styles.modalSeasonTeamLogo}
                           defaultSource={getTeamLogoFallbackUrl(
                             playerData?.team?.id || teamId,
-                            isDarkMode
+                            isDarkMode,
                           )}
                           onError={() =>
                             handleLogoError(
                               playerData?.team?.id || teamId,
-                              isDarkMode
+                              isDarkMode,
                             )
                           }
                         />
@@ -3316,12 +3459,12 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                           source={
                             getTeamLogoUrl(
                               selectedGameStats.opponent?.id || "86",
-                              isDarkMode
+                              isDarkMode,
                             )
                               ? {
                                   uri: getTeamLogoUrl(
                                     selectedGameStats.opponent?.id || "86",
-                                    isDarkMode
+                                    isDarkMode,
                                   ),
                                 }
                               : require("../../../../assets/soccer.png")
@@ -3329,12 +3472,12 @@ const FIFAWorldPlayerPageScreen = ({ route, navigation }) => {
                           style={styles.modalSeasonTeamLogo}
                           defaultSource={getTeamLogoFallbackUrl(
                             selectedGameStats.opponent?.id || "86",
-                            isDarkMode
+                            isDarkMode,
                           )}
                           onError={() =>
                             handleLogoError(
                               selectedGameStats.opponent?.id || "86",
-                              isDarkMode
+                              isDarkMode,
                             )
                           }
                         />

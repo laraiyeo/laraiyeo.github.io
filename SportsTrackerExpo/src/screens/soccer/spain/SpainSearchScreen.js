@@ -1,31 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TextInput, 
-  FlatList, 
-  TouchableOpacity, 
-  Image, 
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  FlatList,
+  TouchableOpacity,
+  Image,
   ActivityIndicator,
-  Alert 
-} from 'react-native';
-import { SpainServiceEnhanced } from '../../../services/soccer/SpainServiceEnhanced';
-import { useTheme } from '../../../context/ThemeContext';
+  Alert,
+} from "react-native";
+import { SpainServiceEnhanced } from "../../../services/soccer/SpainServiceEnhanced";
+import { useTheme } from "../../../context/ThemeContext";
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
+// Cache team info (color/etc.) across searches to avoid refetching on each keystroke
+const teamInfoCache = new Map();
+
 const convertToHttps = (url) => {
-  if (url && url.startsWith('http://')) {
-    return url.replace('http://', 'https://');
+  if (url && url.startsWith("http://")) {
+    return url.replace("http://", "https://");
   }
   return url;
 };
 
 const SpainSearchScreen = ({ route, navigation }) => {
-  const { sport } = route?.params || { sport: 'Spanish' };
+  const { sport } = route?.params || { sport: "Spanish" };
   const { theme, colors, isDarkMode } = useTheme();
-  
-  const [searchQuery, setSearchQuery] = useState('');
+
+  const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -53,15 +56,24 @@ const SpainSearchScreen = ({ route, navigation }) => {
         setRetryCount(1);
       } else {
         // Final fallback - use soccer.png asset for all cases
-        setLogoSource(require('../../../../assets/soccer.png'));
+        setLogoSource(require("../../../../assets/soccer.png"));
       }
     };
 
     return (
       <Image
         style={style}
-        source={logoSource || (teamId ? { uri: getTeamLogo(teamId, isDarkMode).primaryUrl } : require('../../../../assets/soccer.png'))}
-        defaultSource={teamId ? { uri: getTeamLogo(teamId, isDarkMode).primaryUrl } : require('../../../../assets/soccer.png')}
+        source={
+          logoSource ||
+          (teamId
+            ? { uri: getTeamLogo(teamId, isDarkMode).primaryUrl }
+            : require("../../../../assets/soccer.png"))
+        }
+        defaultSource={
+          teamId
+            ? { uri: getTeamLogo(teamId, isDarkMode).primaryUrl }
+            : require("../../../../assets/soccer.png")
+        }
         onError={handleError}
       />
     );
@@ -72,7 +84,7 @@ const SpainSearchScreen = ({ route, navigation }) => {
     const primaryUrl = isDarkMode
       ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`
       : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
-    
+
     const fallbackUrl = isDarkMode
       ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`
       : `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
@@ -96,40 +108,41 @@ const SpainSearchScreen = ({ route, navigation }) => {
 
   const performSearch = async (query) => {
     if (query.length < 3) return;
-    
+
     setLoading(true);
     setHasSearched(true);
-    
+
     try {
       const results = [];
-      
+
       // Search for teams with error handling
       try {
         const teamResults = await searchTeams(query);
         results.push(...teamResults);
       } catch (teamError) {
-        console.error('Team search failed:', teamError);
+        console.error("Team search failed:", teamError);
         // Continue with player search even if team search fails
       }
-      
+
       // Search for players with error handling
       try {
         const playerResults = await searchPlayers(query);
         results.push(...playerResults);
       } catch (playerError) {
-        console.error('Player search failed:', playerError);
+        console.error("Player search failed:", playerError);
         // Continue even if player search fails
       }
-      
+
       setSearchResults(results);
-      
+
       // Only show alert if both searches failed and no results
       if (results.length === 0) {
-        console.warn('Both team and player searches failed or returned no results');
+        console.warn(
+          "Both team and player searches failed or returned no results",
+        );
       }
-      
     } catch (error) {
-      console.error('Search error:', error);
+      console.error("Search error:", error);
       // Don't show alert for every search failure, just log it
       setSearchResults([]);
     } finally {
@@ -140,41 +153,43 @@ const SpainSearchScreen = ({ route, navigation }) => {
   const searchTeams = async (query) => {
     try {
       const teamsData = await SpainServiceEnhanced.searchTeams(query);
-      
+
       if (teamsData && Array.isArray(teamsData)) {
         const processedTeams = await Promise.all(
           teamsData.map(async (teamData) => {
             try {
-              const logo = await SpainServiceEnhanced.getTeamLogoWithFallback(teamData.team.id);
+              const logo = await SpainServiceEnhanced.getTeamLogoWithFallback(
+                teamData.team.id,
+              );
               return {
                 id: teamData.team.id,
-                type: 'team',
+                type: "team",
                 name: teamData.team.displayName,
                 teamName: teamData.team.name,
                 locationName: teamData.team.location,
                 abbreviation: teamData.team.shortDisplayName,
-                logo: logo
+                logo: logo,
               };
             } catch (logoError) {
-              console.warn('Failed to get logo for team:', teamData.team.id);
+              console.warn("Failed to get logo for team:", teamData.team.id);
               // Return team data with fallback logo URL or placeholder
               return {
                 id: teamData.team.id,
-                type: 'team',
+                type: "team",
                 name: teamData.team.displayName,
                 teamName: teamData.team.name,
                 locationName: teamData.team.location,
                 abbreviation: teamData.team.shortDisplayName,
-                logo: 'https://via.placeholder.com/40x40?text=TEAM'
+                logo: "https://via.placeholder.com/40x40?text=TEAM",
               };
             }
-          })
+          }),
         );
         return processedTeams;
       }
       return [];
     } catch (error) {
-      console.error('Team search error:', error);
+      console.error("Team search error:", error);
       throw error; // Re-throw to be caught by performSearch
     }
   };
@@ -182,50 +197,62 @@ const SpainSearchScreen = ({ route, navigation }) => {
   const searchPlayers = async (query) => {
     try {
       const playersData = await SpainServiceEnhanced.searchPlayers(query);
-      
+
       if (playersData && Array.isArray(playersData)) {
         // Fetch team data to get colors
         const playersWithTeamInfo = await Promise.all(
           playersData.map(async (playerData) => {
             let teamColorInfo = null;
-            
-            // Try to fetch team data for color information
+
+            // Try to fetch team data for color information (use cache to avoid refetch)
             if (playerData.teamId) {
-              try {
-                const teamResponse = await fetch(convertToHttps(`https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/teams/${playerData.teamId}`));
-                const teamData = await teamResponse.json();
-                
-                if (teamData.team) {
-                  teamColorInfo = {
-                    color: teamData.team.color,
-                    alternateColor: teamData.team.alternateColor
-                  };
+              if (teamInfoCache.has(playerData.teamId)) {
+                teamColorInfo = teamInfoCache.get(playerData.teamId);
+              } else {
+                try {
+                  const teamResponse = await fetch(
+                    convertToHttps(
+                      `https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/teams/${playerData.teamId}`,
+                    ),
+                  );
+                  const teamData = await teamResponse.json();
+
+                  if (teamData.team) {
+                    teamColorInfo = {
+                      color: teamData.team.color,
+                      alternateColor: teamData.team.alternateColor,
+                    };
+                    teamInfoCache.set(playerData.teamId, teamColorInfo);
+                  }
+                } catch (teamError) {
+                  console.warn(
+                    "Failed to fetch team color for team:",
+                    playerData.teamId,
+                  );
                 }
-              } catch (teamError) {
-                console.warn('Failed to fetch team color for team:', playerData.teamId);
               }
             }
-            
+
             return {
               id: playerData.id,
-              type: 'player',
+              type: "player",
               fullName: playerData.displayName || playerData.fullName,
-              firstName: playerData.firstName || '',
-              lastName: playerData.lastName || '',
+              firstName: playerData.firstName || "",
+              lastName: playerData.lastName || "",
               primaryNumber: playerData.jersey || null,
               primaryPosition: playerData.position, // This is already a string
               currentTeam: playerData.team, // This is a string (team name)
               teamAbbr: playerData.teamAbbr, // Use the abbreviated team name directly
               teamColor: teamColorInfo, // Add team color info
             };
-          })
+          }),
         );
-        
+
         return playersWithTeamInfo;
       }
       return [];
     } catch (error) {
-      console.error('Player search error:', error);
+      console.error("Player search error:", error);
       throw error; // Re-throw to be caught by performSearch
     }
   };
@@ -234,65 +261,79 @@ const SpainSearchScreen = ({ route, navigation }) => {
     if (team?.abbreviation) {
       return team.abbreviation;
     }
-    
-    return team?.name?.substring(0, 3)?.toUpperCase() || 'SOC';
+
+    return team?.name?.substring(0, 3)?.toUpperCase() || "SOC";
   };
 
   // Get team color like in player page
   const getTeamColor = (team) => {
     if (!team) return colors.primary;
-    
+
     // Use alternate color if main color is too light/problematic
-    const isUsingAlternateColor = ["ffffff", "ffee00", "ffff00", "81f733", "000000", "f7f316", "eef209", "ece83a", "1c31ce", "ffd700"].includes(team.color);
-    
+    const isUsingAlternateColor = [
+      "ffffff",
+      "ffee00",
+      "ffff00",
+      "81f733",
+      "000000",
+      "f7f316",
+      "eef209",
+      "ece83a",
+      "1c31ce",
+      "ffd700",
+    ].includes(team.color);
+
     if (isUsingAlternateColor && team.alternateColor) {
       return `#${team.alternateColor}`;
     } else if (team.color && team.color !== "000000") {
       return `#${team.color}`;
     }
-    
+
     return colors.primary;
   };
 
   const handleItemPress = (item) => {
-    if (item.type === 'team') {
+    if (item.type === "team") {
       // Navigate to team page
-      navigation.navigate('SpainTeamPage', { 
+      navigation.navigate("SpainTeamPage", {
         teamId: item.id,
         teamName: item.name,
         sport: sport,
-        league: 'spain'
+        league: "spain",
       });
-    } else if (item.type === 'player') {
+    } else if (item.type === "player") {
       // Navigate to player page
-      navigation.navigate('SpainPlayerPage', {
+      navigation.navigate("SpainPlayerPage", {
         playerId: item.id,
         playerName: item.fullName,
         teamId: item.teamId || null, // Use teamId from player data
         sport: sport,
-        league: 'spain'
+        league: "spain",
       });
     }
   };
 
   const renderTeamItem = (item) => {
     const teamAbbr = getSoccerTeamAbbreviation(item);
-    
+
     return (
       <TouchableOpacity
         style={[styles.resultItem, { backgroundColor: theme.surface }]}
         onPress={() => handleItemPress(item)}
         activeOpacity={0.7}
       >
-        <TeamLogoImage 
-          teamId={item.id}
-          style={styles.teamLogo}
-        />
+        <TeamLogoImage teamId={item.id} style={styles.teamLogo} />
         <View style={styles.teamInfo}>
-          <Text allowFontScaling={false} style={[styles.teamName, { color: theme.text }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.teamName, { color: theme.text }]}
+          >
             {item.name}
           </Text>
-          <Text allowFontScaling={false} style={[styles.teamDetails, { color: theme.textSecondary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.teamDetails, { color: theme.textSecondary }]}
+          >
             {teamAbbr} • Team
           </Text>
         </View>
@@ -302,27 +343,42 @@ const SpainSearchScreen = ({ route, navigation }) => {
 
   const renderPlayerItem = (item) => {
     // Use the teamAbbr directly since currentTeam is just a string (team name)
-    const teamAbbr = item.teamAbbr || 'SOC';
+    const teamAbbr = item.teamAbbr || "SOC";
     // Get team color or fallback to primary color
-    const playerAvatarColor = item.teamColor ? getTeamColor(item.teamColor) : colors.primary;
-    
+    const playerAvatarColor = item.teamColor
+      ? getTeamColor(item.teamColor)
+      : colors.primary;
+
     return (
       <TouchableOpacity
         style={[styles.resultItem, { backgroundColor: theme.surface }]}
         onPress={() => handleItemPress(item)}
         activeOpacity={0.7}
       >
-        <View style={[styles.playerAvatar, { backgroundColor: playerAvatarColor }]}>
+        <View
+          style={[styles.playerAvatar, { backgroundColor: playerAvatarColor }]}
+        >
           <Text allowFontScaling={false} style={styles.playerInitials}>
-            {item.fullName.split(' ').map(n => n[0]).join('').substring(0, 2)}
+            {item.fullName
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .substring(0, 2)}
           </Text>
         </View>
         <View style={styles.playerInfo}>
-          <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.playerName, { color: theme.text }]}
+          >
             {item.fullName}
           </Text>
-          <Text allowFontScaling={false} style={[styles.playerDetails, { color: theme.textSecondary }]}>
-            #{item.primaryNumber || '--'} • {item.primaryPosition || 'N/A'} • {teamAbbr}
+          <Text
+            allowFontScaling={false}
+            style={[styles.playerDetails, { color: theme.textSecondary }]}
+          >
+            #{item.primaryNumber || "--"} • {item.primaryPosition || "N/A"} •{" "}
+            {teamAbbr}
           </Text>
         </View>
       </TouchableOpacity>
@@ -330,9 +386,9 @@ const SpainSearchScreen = ({ route, navigation }) => {
   };
 
   const renderResultItem = ({ item }) => {
-    if (item.type === 'team') {
+    if (item.type === "team") {
       return renderTeamItem(item);
-    } else if (item.type === 'player') {
+    } else if (item.type === "player") {
       return renderPlayerItem(item);
     }
     return null;
@@ -342,20 +398,36 @@ const SpainSearchScreen = ({ route, navigation }) => {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Search Header */}
       <View style={[styles.searchHeader, { backgroundColor: theme.surface }]}>
-        <Text allowFontScaling={false} style={[styles.title, { color: colors.primary }]}>Search</Text>
-        <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Search for {(sport || 'Spanish').toUpperCase()} teams and players
+        <Text
+          allowFontScaling={false}
+          style={[styles.title, { color: colors.primary }]}
+        >
+          Search
+        </Text>
+        <Text
+          allowFontScaling={false}
+          style={[styles.subtitle, { color: theme.textSecondary }]}
+        >
+          Search for {(sport || "Spanish").toUpperCase()} teams and players
         </Text>
       </View>
 
       {/* Search Input */}
-      <View style={[styles.searchInputContainer, { backgroundColor: theme.surface }]}>
+      <View
+        style={[
+          styles.searchInputContainer,
+          { backgroundColor: theme.surface },
+        ]}
+      >
         <TextInput
-          style={[styles.searchInput, { 
-            color: theme.text, 
-            backgroundColor: theme.background,
-            borderColor: theme.border 
-          }]}
+          style={[
+            styles.searchInput,
+            {
+              color: theme.text,
+              backgroundColor: theme.background,
+              borderColor: theme.border,
+            },
+          ]}
           placeholder="Search teams and players... (3 characters minimum)"
           placeholderTextColor={theme.textSecondary}
           value={searchQuery}
@@ -370,7 +442,10 @@ const SpainSearchScreen = ({ route, navigation }) => {
         {loading && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.loadingText, { color: theme.textSecondary }]}
+            >
               Searching...
             </Text>
           </View>
@@ -378,10 +453,16 @@ const SpainSearchScreen = ({ route, navigation }) => {
 
         {!loading && hasSearched && searchResults.length === 0 && (
           <View style={styles.noResultsContainer}>
-            <Text allowFontScaling={false} style={[styles.noResultsText, { color: theme.textSecondary }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.noResultsText, { color: theme.textSecondary }]}
+            >
               No results found for "{searchQuery}"
             </Text>
-            <Text allowFontScaling={false} style={[styles.noResultsSubtext, { color: theme.textTertiary }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.noResultsSubtext, { color: theme.textTertiary }]}
+            >
               Try searching for team names or player names
             </Text>
           </View>
@@ -399,7 +480,10 @@ const SpainSearchScreen = ({ route, navigation }) => {
 
         {!hasSearched && searchQuery.length === 0 && (
           <View style={styles.instructionsContainer}>
-            <Text allowFontScaling={false} style={[styles.instructionsText, { color: theme.textSecondary }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.instructionsText, { color: theme.textSecondary }]}
+            >
               Enter at least 3 characters to search for teams and players
             </Text>
           </View>
@@ -416,7 +500,7 @@ const styles = StyleSheet.create({
   searchHeader: {
     padding: 20,
     paddingBottom: 15,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -427,7 +511,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 5,
   },
   subtitle: {
@@ -435,7 +519,7 @@ const styles = StyleSheet.create({
   },
   searchInputContainer: {
     padding: 15,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
@@ -457,8 +541,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingTop: 50,
   },
   loadingText: {
@@ -467,28 +551,28 @@ const styles = StyleSheet.create({
   },
   noResultsContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingTop: 50,
   },
   noResultsText: {
     fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
     marginBottom: 5,
   },
   noResultsSubtext: {
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
   },
   instructionsContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   instructionsText: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginHorizontal: 20,
   },
   resultsList: {
@@ -496,12 +580,12 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   resultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 15,
     marginVertical: 5,
     borderRadius: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
@@ -520,7 +604,7 @@ const styles = StyleSheet.create({
   },
   teamName: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 2,
   },
   teamDetails: {
@@ -530,21 +614,21 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 15,
   },
   playerInitials: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   playerInfo: {
     flex: 1,
   },
   playerName: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 2,
   },
   playerDetails: {

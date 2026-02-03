@@ -14,6 +14,7 @@ import { useTheme } from "../../../context/ThemeContext";
 import { useNavigation } from "@react-navigation/native";
 import { FIFACompetitionState } from "../../../services/soccer/FIFACompetitionState";
 import { BaseCacheService } from "../../../services/BaseCacheService";
+import { Ionicons } from "@expo/vector-icons";
 
 // FIFA World Competitions data
 const FIFA_COMPETITIONS = [
@@ -25,6 +26,30 @@ const FIFA_COMPETITIONS = [
   { id: "fifa.worldq.conmebol", name: "CONMEBOL Qualifiers", logo: "65" },
   { id: "fifa.worldq.ofc", name: "OFC Qualifiers", logo: "66" },
 ];
+
+// Extra competitions for major domestic leagues (main league + cups)
+const LEAGUE_EXTRA_COMPETITIONS = {
+  "eng.1": [
+    { id: "eng.fa", name: "FA Cup", logo: "40" },
+    { id: "eng.league_cup", name: "EFL Cup", logo: "41" },
+  ],
+  "esp.1": [
+    { id: "esp.copa_del_rey", name: "Copa del Rey", logo: "80" },
+    { id: "esp.super_cup", name: "Spanish Supercopa", logo: "431" },
+  ],
+  "ger.1": [
+    { id: "ger.dfb_pokal", name: "DFB Pokal", logo: "2061" },
+    { id: "ger.super_cup", name: "German Super Cup", logo: "2315" },
+  ],
+  "ita.1": [
+    { id: "ita.coppa_italia", name: "Coppa Italia", logo: "2192" },
+    { id: "ita.super_cup", name: "Italian Supercoppa", logo: "2316" },
+  ],
+  "fra.1": [
+    { id: "fra.coupe_de_france", name: "Coupe de France", logo: "182" },
+    { id: "fra.super_cup", name: "Trophee des Champions", logo: "2345" },
+  ],
+};
 
 // Logo cache to prevent re-fetching
 const logoCache = new Map();
@@ -60,7 +85,7 @@ const setCache = (url, data) => {
 
 // Memoized Logo component with error handling and caching
 const LogoWithFallback = React.memo(
-  ({ logoId, name, style, isDarkMode, theme }) => {
+  ({ logoId, name, style, isDarkMode, theme, colors }) => {
     const cacheKey = `${logoId}-${isDarkMode}`;
 
     const [imageError, setImageError] = useState(() => {
@@ -87,27 +112,12 @@ const LogoWithFallback = React.memo(
     }, [cacheKey, imageError, fallbackError]);
 
     if (imageError && fallbackError) {
+      const iconColor = (colors && colors.primary) || theme?.text || "#000";
       return (
         <View
           style={[style, { alignItems: "center", justifyContent: "center" }]}
         >
-          <Text
-            allowFontScaling={false}
-            style={{
-              fontSize: 8,
-              textAlign: "center",
-              fontWeight: "500",
-              color: theme.text,
-              lineHeight: 10,
-            }}
-          >
-            {name.split(" ").map((word, index) => (
-              <Text allowFontScaling={false} key={index}>
-                {word}
-                {"\n"}
-              </Text>
-            ))}
-          </Text>
+          <Ionicons name="trophy" size={24} color={iconColor} />
         </View>
       );
     }
@@ -126,7 +136,7 @@ const LogoWithFallback = React.memo(
         }}
       />
     );
-  }
+  },
 );
 
 // Memoized Competition Button Component
@@ -148,6 +158,7 @@ const CompetitionButton = React.memo(
         style={styles.competitionLogo}
         isDarkMode={isDarkMode}
         theme={theme}
+        colors={colors}
       />
       <Text
         allowFontScaling={false}
@@ -162,7 +173,7 @@ const CompetitionButton = React.memo(
         {competition.name}
       </Text>
     </TouchableOpacity>
-  )
+  ),
 );
 
 // Helper function to convert HTTP URLs to HTTPS
@@ -252,12 +263,29 @@ const getTeamName = (teamData) => {
   );
 };
 
-const FIFAWorldStatsScreen = ({ route }) => {
+const FIFAWorldStatsScreen = ({ route, hideSelector = false }) => {
   const { theme, colors, isDarkMode } = useTheme();
   const navigation = useNavigation();
 
-  const [selectedCompetition, setSelectedCompetition] = useState(() =>
-    FIFACompetitionState.getCurrentCompetition()
+  const routeCompetitionId = route?.params?.competition || null;
+  const routeCompetitionName = route?.params?.competitionName || null;
+  const routeCompetitionLogo = route?.params?.competitionLogo || null;
+
+  const compToRealIdMap = {
+    "premier league": "England",
+    "la liga": "Spain",
+    bundesliga: "Germany",
+    "serie a": "Italy",
+    "ligue 1": "France",
+  };
+
+  const playerCompName = routeCompetitionName
+    ? compToRealIdMap[routeCompetitionName.toLowerCase()] ||
+      routeCompetitionName
+    : "FIFAWorld";
+
+  const [selectedCompetition, setSelectedCompetition] = useState(
+    () => routeCompetitionId || FIFACompetitionState.getCurrentCompetition(),
   );
   const [playerStats, setPlayerStats] = useState({});
   const [loading, setLoading] = useState(true);
@@ -265,6 +293,8 @@ const FIFAWorldStatsScreen = ({ route }) => {
   const [modalData, setModalData] = useState([]);
   const [modalTitle, setModalTitle] = useState("");
   const [currentYear, setCurrentYear] = useState(null);
+  // Track failed logo loads per team id so one failure doesn't affect all images
+  const [failedLogos, setFailedLogos] = useState({});
 
   // Cache flag to avoid refetching
   const [statsLoaded, setStatsLoaded] = useState(false);
@@ -274,7 +304,7 @@ const FIFAWorldStatsScreen = ({ route }) => {
     const unsubscribe = FIFACompetitionState.subscribe((newCompetition) => {
       console.log(
         "FIFAWorldStatsScreen: Received competition change:",
-        newCompetition
+        newCompetition,
       );
       setSelectedCompetition(newCompetition);
       setStatsLoaded(false); // Reset cache when competition changes
@@ -288,7 +318,7 @@ const FIFAWorldStatsScreen = ({ route }) => {
       if (competitionId === selectedCompetition) return;
       console.log(
         "FIFAWorldStatsScreen: Changing competition to:",
-        competitionId
+        competitionId,
       );
 
       // Clear global cache when competition changes
@@ -300,19 +330,45 @@ const FIFAWorldStatsScreen = ({ route }) => {
       FIFACompetitionState.setCurrentCompetition(competitionId);
       setStatsLoaded(false); // Reset cache when competition changes
     },
-    [selectedCompetition]
+    [selectedCompetition],
   );
 
   const renderCompetitionSelector = React.useCallback(() => {
+    let availableCompetitions;
+
+    if (routeCompetitionId) {
+      const extras = LEAGUE_EXTRA_COMPETITIONS[routeCompetitionId];
+      const mainCompetition = {
+        id: routeCompetitionId,
+        name: routeCompetitionName || routeCompetitionId,
+        logo: routeCompetitionLogo || "4",
+      };
+
+      if (extras && Array.isArray(extras) && extras.length > 0) {
+        availableCompetitions = [mainCompetition, ...extras];
+      } else {
+        availableCompetitions = [mainCompetition];
+      }
+    } else {
+      availableCompetitions = FIFA_COMPETITIONS;
+    }
+
+    const CompView = routeCompetitionId ? View : ScrollView;
+
     return (
       <View style={styles.competitionContainer}>
-        <ScrollView
+        <CompView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.competitionScrollContent}
-          style={styles.competitionScroll}
+          style={[
+            styles.competitionScroll,
+            routeCompetitionId
+              ? { flexDirection: "row", justifyContent: "center" }
+              : {},
+          ]}
         >
-          {FIFA_COMPETITIONS.map((competition) => (
+          {availableCompetitions.map((competition) => (
             <CompetitionButton
               key={competition.id}
               competition={competition}
@@ -323,7 +379,7 @@ const FIFAWorldStatsScreen = ({ route }) => {
               isDarkMode={isDarkMode}
             />
           ))}
-        </ScrollView>
+        </CompView>
       </View>
     );
   }, [selectedCompetition, colors, theme, isDarkMode, handleCompetitionChange]);
@@ -333,7 +389,7 @@ const FIFAWorldStatsScreen = ({ route }) => {
     try {
       console.log(
         "Fetching current year for competition:",
-        selectedCompetition
+        selectedCompetition,
       );
       const currentYear = new Date().getFullYear();
       const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${selectedCompetition}/scoreboard?dates=${currentYear}0101`;
@@ -436,15 +492,15 @@ const FIFAWorldStatsScreen = ({ route }) => {
         const teamRefsArray = Array.from(globalUniqueTeamRefs);
 
         console.log(
-          `Global deduplication: ${athleteRefsArray.length} unique athletes and ${teamRefsArray.length} unique teams across ALL categories`
+          `Global deduplication: ${athleteRefsArray.length} unique athletes and ${teamRefsArray.length} unique teams across ALL categories`,
         );
 
         // Check cache first and filter out already cached URLs
         const uncachedAthleteRefs = athleteRefsArray.filter(
-          (url) => !getFromCache(url)
+          (url) => !getFromCache(url),
         );
         const uncachedTeamRefs = teamRefsArray.filter(
-          (url) => !getFromCache(url)
+          (url) => !getFromCache(url),
         );
 
         console.log(
@@ -452,10 +508,10 @@ const FIFAWorldStatsScreen = ({ route }) => {
             athleteRefsArray.length - uncachedAthleteRefs.length
           } athletes and ${
             teamRefsArray.length - uncachedTeamRefs.length
-          } teams from cache`
+          } teams from cache`,
         );
         console.log(
-          `Need to fetch: ${uncachedAthleteRefs.length} athletes and ${uncachedTeamRefs.length} teams`
+          `Need to fetch: ${uncachedAthleteRefs.length} athletes and ${uncachedTeamRefs.length} teams`,
         );
 
         // Only fetch uncached data
@@ -478,7 +534,7 @@ const FIFAWorldStatsScreen = ({ route }) => {
 
               if (!response.ok) {
                 console.error(
-                  `HTTP error! status: ${response.status} for URL: ${refUrl}`
+                  `HTTP error! status: ${response.status} for URL: ${refUrl}`,
                 );
                 return {
                   refUrl,
@@ -496,7 +552,7 @@ const FIFAWorldStatsScreen = ({ route }) => {
               console.log(
                 `Successfully fetched and cached: ${
                   refUrl.includes("athletes") ? "athlete" : "team"
-                }`
+                }`,
               );
               return { refUrl, data, success: true };
             } catch (error) {
@@ -504,7 +560,7 @@ const FIFAWorldStatsScreen = ({ route }) => {
                 "Error fetching ref:",
                 refUrl,
                 "Error:",
-                error.message
+                error.message,
               );
               return {
                 refUrl,
@@ -578,18 +634,18 @@ const FIFAWorldStatsScreen = ({ route }) => {
                   console.log(`=== PROCESSED LEADER ${index} ===`);
                   console.log(
                     "Fetched athlete:",
-                    fetchedAthleteData?.displayName || "No fetched athlete"
+                    fetchedAthleteData?.displayName || "No fetched athlete",
                   );
                   console.log(
                     "Fetched team:",
                     fetchedTeamData?.displayName ||
                       fetchedTeamData?.name ||
-                      "No fetched team"
+                      "No fetched team",
                   );
                   console.log("Team fetch success:", !!fetchedTeamData);
                   console.log(
                     "Final team data will be:",
-                    fetchedTeamData || "null (no fallback to $ref)"
+                    fetchedTeamData || "null (no fallback to $ref)",
                   );
                 }
 
@@ -663,7 +719,10 @@ const FIFAWorldStatsScreen = ({ route }) => {
       "Unknown Player";
     const teamName = getTeamName(leader.teamData);
     const teamAbbreviation = leader.teamData?.abbreviation || "UNK";
-    const teamLogo = convertToHttps(leader.teamData?.logos?.[0]?.href);
+    const teamId = leader.teamData?.id || "100";
+    const teamLogo = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/${
+      isDarkMode ? "500-dark" : "500"
+    }/${teamId}.png&w=200&h=200`;
     const statValue = leader.displayValue || leader.value?.toString() || "0";
 
     // Get player initials and team color for avatar
@@ -674,7 +733,7 @@ const FIFAWorldStatsScreen = ({ route }) => {
     // Navigation function for player page
     const navigateToPlayer = () => {
       if (leader.athleteData?.id) {
-        navigation.navigate("FIFAWorldPlayerPage", {
+        navigation.navigate(`${playerCompName}PlayerPage`, {
           playerId: leader.athleteData.id,
           playerName: athleteName,
           teamId: leader.teamData?.id,
@@ -712,15 +771,18 @@ const FIFAWorldStatsScreen = ({ route }) => {
               </Text>
             </View>
             <View style={[styles.playerNameRow, { marginBottom: 0 }]}>
-              {teamLogo && (
-                <Image
-                  source={{ uri: teamLogo }}
-                  style={styles.teamLogoSmall}
-                  onError={() =>
-                    console.log("Failed to load team logo:", teamLogo)
-                  }
-                />
-              )}
+              <Image
+                source={
+                  !failedLogos[teamId] && teamLogo
+                    ? { uri: teamLogo }
+                    : require("../../../../assets/soccer.png")
+                }
+                style={styles.teamLogoSmall}
+                onError={() => {
+                  console.log("Failed to load team logo:", teamLogo);
+                  setFailedLogos((prev) => ({ ...prev, [teamId]: true }));
+                }}
+              />
               <Text
                 allowFontScaling={false}
                 style={[styles.teamName, { color: theme.textSecondary }]}
@@ -753,9 +815,19 @@ const FIFAWorldStatsScreen = ({ route }) => {
         >
           {leader.rank || index + 1}
         </Text>
-        {teamLogo && (
-          <Image source={{ uri: teamLogo }} style={styles.teamLogoSmall} />
-        )}
+        {/* Always render a logo (fallback to soccer.png when failed) */}
+        <Image
+          source={
+            !failedLogos[teamId] && teamLogo
+              ? { uri: teamLogo }
+              : require("../../../../assets/soccer.png")
+          }
+          style={styles.teamLogoSmall}
+          onError={() => {
+            console.log("Failed to load team logo:", teamLogo);
+            setFailedLogos((prev) => ({ ...prev, [teamId]: true }));
+          }}
+        />
         <Text
           allowFontScaling={false}
           style={[styles.playerNameCompact, { color: theme.text }]}
@@ -818,7 +890,10 @@ const FIFAWorldStatsScreen = ({ route }) => {
       item.athleteData?.fullName ||
       "Unknown Player";
     const teamName = getTeamName(item.teamData);
-    const teamLogo = convertToHttps(item.teamData?.logos?.[0]?.href);
+    const modalTeamId = item.teamData?.id || "100";
+    const teamLogo = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/${
+      isDarkMode ? "500-dark" : "500"
+    }/${modalTeamId}.png&w=200&h=200`;
     const statValue = item.displayValue || item.value?.toString() || "0";
 
     // Get player initials and team color for avatar
@@ -830,7 +905,7 @@ const FIFAWorldStatsScreen = ({ route }) => {
     const navigateToPlayer = () => {
       if (item.athleteData?.id) {
         setModalVisible(false); // Close modal first
-        navigation.navigate("FIFAWorldPlayerPage", {
+        navigation.navigate(`${playerCompName}PlayerPage`, {
           playerId: item.athleteData.id,
           playerName: athleteName,
           teamId: item.teamData?.id,
@@ -874,9 +949,18 @@ const FIFAWorldStatsScreen = ({ route }) => {
             </Text>
           </View>
           <View style={[styles.modalNameRow, { marginBottom: 0 }]}>
-            {teamLogo && (
-              <Image source={{ uri: teamLogo }} style={styles.modalTeamLogo} />
-            )}
+            <Image
+              source={
+                !failedLogos[modalTeamId] && teamLogo
+                  ? { uri: teamLogo }
+                  : require("../../../../assets/soccer.png")
+              }
+              style={styles.modalTeamLogo}
+              onError={() => {
+                console.log("Failed to load team logo:", teamLogo);
+                setFailedLogos((prev) => ({ ...prev, [modalTeamId]: true }));
+              }}
+            />
             <Text
               allowFontScaling={false}
               style={[styles.modalTeamName, { color: theme.textSecondary }]}
@@ -900,7 +984,7 @@ const FIFAWorldStatsScreen = ({ route }) => {
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        {renderCompetitionSelector()}
+        {!hideSelector && renderCompetitionSelector()}
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text
@@ -916,7 +1000,7 @@ const FIFAWorldStatsScreen = ({ route }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {renderCompetitionSelector()}
+      {!hideSelector && renderCompetitionSelector()}
 
       <ScrollView
         style={styles.scrollView}

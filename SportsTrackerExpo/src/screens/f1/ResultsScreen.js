@@ -678,6 +678,8 @@ const ResultsScreen = ({ route }) => {
       Williams: "64C4FF",
       Sauber: "52E252",
       Haas: "B6BABD",
+      Audi: "DB0303",
+      Cadillac: "A2AAAD",
     };
     return colorMap[constructorName] || "333333";
   };

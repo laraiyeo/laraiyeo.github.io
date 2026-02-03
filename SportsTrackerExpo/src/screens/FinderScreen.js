@@ -15,7 +15,17 @@ import { NFLService } from "../services/NFLService";
 import { WNBAService } from "../services/WNBAService";
 import { NHLService } from "../services/NHLService";
 import { MLBService } from "../services/MLBService";
-import { Ionicons } from "@expo/vector-icons";
+// Soccer enhanced services
+import { EnglandServiceEnhanced } from "../services/soccer/EnglandServiceEnhanced";
+import { SpainServiceEnhanced } from "../services/soccer/SpainServiceEnhanced";
+import { ItalyServiceEnhanced } from "../services/soccer/ItalyServiceEnhanced";
+import { FranceServiceEnhanced } from "../services/soccer/FranceServiceEnhanced";
+import { GermanyServiceEnhanced } from "../services/soccer/GermanyServiceEnhanced";
+import { ChampionsLeagueServiceEnhanced } from "../services/soccer/ChampionsLeagueServiceEnhanced";
+import { EuropaLeagueServiceEnhanced } from "../services/soccer/EuropaLeagueServiceEnhanced";
+import { EuropaConferenceLeagueServiceEnhanced } from "../services/soccer/EuropaConferenceLeagueServiceEnhanced";
+import { FIFAWorldServiceEnhanced } from "../services/soccer/FIFAWorldServiceEnhanced";
+import { Ionicons, FontAwesome6 } from "@expo/vector-icons";
 
 const MIN_DATE = new Date(2004, 0, 11); // 2004-01-11
 
@@ -108,9 +118,41 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
     wnba: WNBAService,
     nhl: NHLService,
     mlb: MLBService,
+    // soccer leagues/services
+    england: EnglandServiceEnhanced,
+    "eng.1": EnglandServiceEnhanced,
+    "eng.fa": EnglandServiceEnhanced,
+    "eng.league_cup": EnglandServiceEnhanced,
+    spain: SpainServiceEnhanced,
+    "esp.1": SpainServiceEnhanced,
+    "esp.copa_del_rey": SpainServiceEnhanced,
+    "esp.super_cup": SpainServiceEnhanced,
+    italy: ItalyServiceEnhanced,
+    "ita.1": ItalyServiceEnhanced,
+    france: FranceServiceEnhanced,
+    "fra.1": FranceServiceEnhanced,
+    germany: GermanyServiceEnhanced,
+    "ger.1": GermanyServiceEnhanced,
+    "champions-league": ChampionsLeagueServiceEnhanced,
+    "uefa.champions": ChampionsLeagueServiceEnhanced,
+    "uefa.europa": EuropaLeagueServiceEnhanced,
+    "europa-league": EuropaLeagueServiceEnhanced,
+    "uefa.europa.conf": EuropaConferenceLeagueServiceEnhanced,
+    "europa-conference": EuropaConferenceLeagueServiceEnhanced,
+    "fifa.world": FIFAWorldServiceEnhanced,
   };
 
   const SelectedService = serviceMap[sport] || NBAService;
+  // Diagnostic: show which service we resolved for this sport param
+  try {
+    console.log("[Finder] resolved SelectedService", {
+      sportParam: sport,
+      isFallbackToNBA: SelectedService === NBAService,
+      selectedServiceKeys: SelectedService
+        ? Object.keys(SelectedService)
+        : null,
+    });
+  } catch (e) {}
 
   const today = useMemo(() => new Date(), []);
 
@@ -124,7 +166,7 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
 
   const monthMatrix = useMemo(
     () => buildMonthMatrix(viewMonth.getFullYear(), viewMonth.getMonth()),
-    [viewMonth]
+    [viewMonth],
   );
 
   const canSelect = (d) => {
@@ -134,7 +176,7 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
     const normalizedToday = new Date(
       today.getFullYear(),
       today.getMonth(),
-      today.getDate()
+      today.getDate(),
     );
     if (d > normalizedToday) return false;
 
@@ -147,7 +189,7 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
       d.getDate() + 1,
       2,
       0,
-      0
+      0,
     );
     return now >= availability;
   };
@@ -155,36 +197,36 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
   const prevAction = () => {
     if (pickerLevel === "months") {
       setViewMonth(
-        new Date(viewMonth.getFullYear() - 1, viewMonth.getMonth(), 1)
+        new Date(viewMonth.getFullYear() - 1, viewMonth.getMonth(), 1),
       );
       return;
     }
     if (pickerLevel === "years") {
       setViewMonth(
-        new Date(viewMonth.getFullYear() - 10, viewMonth.getMonth(), 1)
+        new Date(viewMonth.getFullYear() - 10, viewMonth.getMonth(), 1),
       );
       return;
     }
     setViewMonth(
-      new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1)
+      new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1),
     );
   };
 
   const nextAction = () => {
     if (pickerLevel === "months") {
       setViewMonth(
-        new Date(viewMonth.getFullYear() + 1, viewMonth.getMonth(), 1)
+        new Date(viewMonth.getFullYear() + 1, viewMonth.getMonth(), 1),
       );
       return;
     }
     if (pickerLevel === "years") {
       setViewMonth(
-        new Date(viewMonth.getFullYear() + 10, viewMonth.getMonth(), 1)
+        new Date(viewMonth.getFullYear() + 10, viewMonth.getMonth(), 1),
       );
       return;
     }
     setViewMonth(
-      new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1)
+      new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1),
     );
   };
 
@@ -197,8 +239,33 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
       SelectedService && SelectedService.formatDateForAPI
         ? SelectedService.formatDateForAPI(selectedDate)
         : formatApiDate(selectedDate);
+    // Extensive logging to trace which service and endpoint are used
     try {
+      try {
+        const leagueInfo = SelectedService.getLeagueInfo
+          ? SelectedService.getLeagueInfo()
+          : null;
+        const competitionInfo = SelectedService.getCompetitionInfo
+          ? SelectedService.getCompetitionInfo()
+          : null;
+        console.log("[Finder] searchBySelectedDate start", {
+          sportParam: sport,
+          dateStr,
+          SelectedServiceHasScoreboard: !!SelectedService.getScoreboard,
+          leagueInfo,
+          competitionInfo,
+        });
+      } catch (inner) {
+        console.log(
+          "[Finder] searchBySelectedDate - could not read service meta",
+          inner,
+        );
+      }
+
       const data = await SelectedService.getScoreboard(dateStr);
+      console.log("[Finder] getScoreboard returned", {
+        eventsCount: data?.events?.length,
+      });
       const events = data?.events || [];
       let formatted = [];
       if (SelectedService.formatGameForMobile) {
@@ -260,8 +327,8 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
             color: disabled
               ? theme.textTertiary
               : isSelected
-              ? "#fff"
-              : theme.text,
+                ? "#fff"
+                : theme.text,
           }}
         >
           {d.getDate()}
@@ -278,11 +345,55 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
     if ((!abbr || abbr === "") && sport === "mlb" && team) {
       abbr = getMLBTeamAbbreviation(team);
     }
-    const uri = getTeamLogoUrl(sport, abbr);
+    // For soccer services prefer the team numeric id (ESPN combiner expects id)
+    const soccerKeys = new Set([
+      "england",
+      "eng.1",
+      "eng.fa",
+      "eng.league_cup",
+      "spain",
+      "esp.1",
+      "esp.copa_del_rey",
+      "esp.super_cup",
+      "italy",
+      "ita.1",
+      "france",
+      "fra.1",
+      "germany",
+      "ger.1",
+      "champions-league",
+      "uefa.champions",
+      "europa-league",
+      "europa-conference",
+      "fifa.world",
+      "uefa.europa",
+      "uefa.europa.conf",
+    ]);
+    const isSoccer = soccerKeys.has(sport);
+    const logoId =
+      isSoccer && team && (team.id || team.teamId)
+        ? team.id || team.teamId
+        : abbr;
+    // For soccer always request via generic 'soccer' to ensure ThemeContext builds soccer path
+    const logoSport = isSoccer ? "soccer" : sport;
+    const uri = getTeamLogoUrl(logoSport, logoId);
+
+    const iconName = isSoccer
+      ? "soccer-ball"
+      : sport === "nba" || sport === "wnba"
+        ? "basketball"
+        : sport === "nfl"
+          ? "football"
+          : sport === "nhl"
+            ? "ice-hockey"
+            : sport === "mlb"
+              ? "baseball"
+              : "basketball";
+
     if (!uri || err)
       return (
-        <Ionicons
-          name="basketball"
+        <FontAwesome6
+          name={iconName}
           size={size}
           color={colors.primary}
           style={style}
@@ -306,12 +417,16 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
     const hasClock = !!(
       item.displayClock && /\d/.test(String(item.displayClock))
     );
-    return !item.isCompleted && (isHalftime || isEndOf || hasClock);
+    return (
+      !item.isCompleted &&
+      !item.status.type?.completed &&
+      (isHalftime || isEndOf || hasClock)
+    );
   };
 
   const getStatusText = (item) => {
     if (!item) return "";
-    if (item.isCompleted) return "Final";
+    if (item?.isCompleted || item?.status?.type?.completed) return "Final";
     const live = isLiveGame(item);
     if (live) {
       const clockRaw = item.displayClock;
@@ -347,22 +462,102 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
 
   const getStatusColor = (item) => {
     if (!item) return theme.textSecondary;
-    if (item.isCompleted) return theme.success;
+    if (item?.isCompleted || item?.status?.type?.completed) return theme.success;
     if (isLiveGame(item)) return colors.primary;
     return theme.textSecondary;
   };
 
   const renderGame = ({ item }) => {
     if (!item) return null;
+    console.log(item);
+
+    // Safely resolve away/home team objects — some services return competitors
+    // under `competitions[0].competitors` instead of `awayTeam`/`homeTeam`.
+    const resolveTeam = (it, side) => {
+      if (!it)
+        return {
+          id: null,
+          abbreviation: "",
+          displayName: "",
+          score: "-",
+          record: "",
+        };
+      if (side === "away" && it.awayTeam) return it.awayTeam;
+      if (side === "home" && it.homeTeam) return it.homeTeam;
+      const comps =
+        it.competitions && it.competitions[0] ? it.competitions[0] : null;
+      const competitors = comps && comps.competitors ? comps.competitors : [];
+      const found = competitors.find((c) =>
+        side === "away" ? c.homeAway === "away" : c.homeAway === "home",
+      );
+      if (found) {
+        return {
+          id:
+            (found.team && (found.team.id || found.team.teamId)) ||
+            found.id ||
+            null,
+          abbreviation:
+            (found.team && found.team.abbreviation) || found.abbreviation || "",
+          displayName:
+            (found.team &&
+              (found.team.displayName || found.team.shortDisplayName)) ||
+            found.displayName ||
+            "",
+          score: found.score || found.homeScore || found.awayScore || "-",
+          record:
+            found.record ||
+            (found.records && found.records[0]
+              ? found.records[0].summary
+              : "") ||
+            "",
+        };
+      }
+      return {
+        id: null,
+        abbreviation: "",
+        displayName: "",
+        score: "-",
+        record: "",
+      };
+    };
+
+    const awayTeam = resolveTeam(item, "away");
+    const homeTeam = resolveTeam(item, "home");
+
+    // Helper to pick the correct GameDetails route for soccer competitions
+    const getDetailsRouteFor = (it, sportParam) => {
+      const code =
+        (it && (it.competitionCode || it.competitionName)) || sportParam || "";
+      const c = String(code).toLowerCase();
+      if (c.includes("eng")) return "EnglandGameDetails";
+      if (c.includes("esp") || c.includes("spain")) return "SpainGameDetails";
+      if (c.includes("ita") || c.includes("italy")) return "ItalyGameDetails";
+      if (c.includes("fra") || c.includes("france")) return "FranceGameDetails";
+      if (c.includes("ger") || c.includes("germany"))
+        return "GermanyGameDetails";
+      if (c.includes("champions") || c.includes("ucl")) return "UCLGameDetails";
+      if (c.includes("europa-conference") || c.includes("uecl"))
+        return "UECLGameDetails";
+      if (c.includes("europa") || c.includes("uel")) return "UELGameDetails";
+      if (c.includes("fifa")) return "FIFAWorldGameDetails";
+      // If nothing matches, fall back to generic GameDetails
+      return "GameDetails";
+    };
+
     return (
       <TouchableOpacity
         style={[
           styles.gameCard,
           { backgroundColor: theme.surface, borderColor: theme.border },
         ]}
-        onPress={() =>
-          navigation.navigate("GameDetails", { sport, gameId: item.id })
-        }
+        onPress={() => {
+          const routeName = getDetailsRouteFor(item, sport);
+          navigation.navigate(routeName, {
+            gameId: item.id,
+            competitionCode: item.competitionCode || null,
+            sport,
+          });
+        }}
         activeOpacity={0.8}
       >
         <View style={styles.gameHeader}>
@@ -376,7 +571,30 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
               ]}
             >
               {getStatusText(item)}
+              {(() => {
+                const compName =
+                  item && item.competitionName
+                    ? typeof item.competitionName === "string"
+                      ? item.competitionName
+                      : item.competitionName.displayName ||
+                        item.competitionName.name ||
+                        ""
+                    : "";
+
+                return compName ? (
+                  <Text
+                    style={[
+                      styles.competitionNameText,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {" - "}
+                    {compName}
+                  </Text>
+                ) : null;
+              })()}
             </Text>
+
             {isLiveGame(item) && (
               <View
                 style={[styles.liveDot, { backgroundColor: colors.primary }]}
@@ -391,30 +609,30 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
               <TouchableOpacity
                 onPress={() =>
                   navigation.navigate("TeamPage", {
-                    teamId: item.awayTeam.id,
+                    teamId: awayTeam.id,
                     sport,
                   })
                 }
                 activeOpacity={0.8}
               >
                 <TeamLogo
-                  team={item.awayTeam}
-                  teamAbbreviation={item.awayTeam.abbreviation}
+                  team={awayTeam}
+                  teamAbbreviation={awayTeam.abbreviation}
                   size={36}
                   style={{
                     marginRight: 12,
-                    opacity: !item.isCompleted
-                      ? 1
-                      : parseInt(item.awayTeam.score) >
-                        parseInt(item.homeTeam.score)
-                      ? 1
-                      : 0.5,
+                    opacity:
+                      !item?.isCompleted && !item?.status?.type?.completed
+                        ? 1
+                        : parseInt(awayTeam.score) > parseInt(homeTeam.score)
+                          ? 1
+                          : 0.5,
                   }}
                 />
               </TouchableOpacity>
               <View style={styles.teamDetails}>
                 <View style={styles.teamNameContainer}>
-                  {isFavorite(item.awayTeam.id, sport) && (
+                  {isFavorite(awayTeam.id, sport) && (
                     <Ionicons
                       name="star"
                       size={14}
@@ -427,28 +645,31 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
                     style={[
                       styles.teamName,
                       {
-                        color: !item.isCompleted
-                          ? isFavorite(item.awayTeam.id, sport)
-                            ? colors.primary
-                            : theme.text
-                          : parseInt(item.awayTeam.score) >
-                            parseInt(item.homeTeam.score)
-                          ? isFavorite(item.awayTeam.id, sport)
-                            ? colors.primary
-                            : theme.text
-                          : theme.textSecondary,
+                        color:
+                          !item?.isCompleted && !item?.status?.type?.completed
+                            ? isFavorite(awayTeam.id, sport)
+                              ? colors.primary
+                              : theme.text
+                            : parseInt(awayTeam.score) >
+                                parseInt(homeTeam.score)
+                              ? isFavorite(awayTeam.id, sport)
+                                ? colors.primary
+                                : theme.text
+                              : theme.textSecondary,
                       },
                     ]}
                   >
-                    {item.awayTeam.displayName}
+                    {String(awayTeam.displayName || "")}
                   </Text>
                 </View>
+                {awayTeam.record ? (
                 <Text
                   allowFontScaling={false}
                   style={[styles.teamRecord, { color: theme.textSecondary }]}
                 >
-                  {item.awayTeam.record || ""}
+                  {String(awayTeam.record || "")}
                 </Text>
+                ) : null}
               </View>
             </View>
             <Text
@@ -456,16 +677,16 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
               style={[
                 styles.teamScore,
                 {
-                  color: !item.isCompleted
-                    ? theme.text
-                    : parseInt(item.awayTeam.score) >
-                      parseInt(item.homeTeam.score)
-                    ? colors.primary
-                    : theme.textSecondary,
+                  color:
+                    !item?.isCompleted && !item?.status?.type?.completed
+                      ? theme.text
+                      : parseInt(awayTeam.score) > parseInt(homeTeam.score)
+                        ? colors.primary
+                        : theme.textSecondary,
                 },
               ]}
             >
-              {item.status === "Scheduled" ? "" : item.awayTeam.score || "-"}
+              {item.status === "Scheduled" ? "" : String(awayTeam.score || "-")}
             </Text>
           </View>
 
@@ -474,30 +695,30 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
               <TouchableOpacity
                 onPress={() =>
                   navigation.navigate("TeamPage", {
-                    teamId: item.homeTeam.id,
+                    teamId: homeTeam.id,
                     sport,
                   })
                 }
                 activeOpacity={0.8}
               >
                 <TeamLogo
-                  team={item.homeTeam}
-                  teamAbbreviation={item.homeTeam.abbreviation}
+                  team={homeTeam}
+                  teamAbbreviation={homeTeam.abbreviation}
                   size={36}
                   style={{
                     marginRight: 12,
-                    opacity: !item.isCompleted
-                      ? 1
-                      : parseInt(item.homeTeam.score) >
-                        parseInt(item.awayTeam.score)
-                      ? 1
-                      : 0.5,
+                    opacity:
+                      !item?.isCompleted && !item?.status?.type?.completed
+                        ? 1
+                        : parseInt(homeTeam.score) > parseInt(awayTeam.score)
+                          ? 1
+                          : 0.5,
                   }}
                 />
               </TouchableOpacity>
               <View style={styles.teamDetails}>
                 <View style={styles.teamNameContainer}>
-                  {isFavorite(item.homeTeam.id, sport) && (
+                  {isFavorite(homeTeam.id, sport) && (
                     <Ionicons
                       name="star"
                       size={14}
@@ -510,28 +731,31 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
                     style={[
                       styles.teamName,
                       {
-                        color: !item.isCompleted
-                          ? isFavorite(item.homeTeam.id, sport)
-                            ? colors.primary
-                            : theme.text
-                          : parseInt(item.homeTeam.score) >
-                            parseInt(item.awayTeam.score)
-                          ? isFavorite(item.homeTeam.id, sport)
-                            ? colors.primary
-                            : theme.text
-                          : theme.textSecondary,
+                        color:
+                          !item?.isCompleted && !item?.status?.type?.completed
+                            ? isFavorite(homeTeam.id, sport)
+                              ? colors.primary
+                              : theme.text
+                            : parseInt(homeTeam.score) >
+                                parseInt(awayTeam.score)
+                              ? isFavorite(homeTeam.id, sport)
+                                ? colors.primary
+                                : theme.text
+                              : theme.textSecondary,
                       },
                     ]}
                   >
-                    {item.homeTeam.displayName}
+                    {String(homeTeam.displayName || "")}
                   </Text>
                 </View>
+                {homeTeam.record ? (
                 <Text
                   allowFontScaling={false}
                   style={[styles.teamRecord, { color: theme.textSecondary }]}
                 >
-                  {item.homeTeam.record || ""}
+                  {String(homeTeam.record || "")}
                 </Text>
+                ) : null}
               </View>
             </View>
             <Text
@@ -539,16 +763,16 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
               style={[
                 styles.teamScore,
                 {
-                  color: !item.isCompleted
-                    ? theme.text
-                    : parseInt(item.homeTeam.score) >
-                      parseInt(item.awayTeam.score)
-                    ? colors.primary
-                    : theme.textSecondary,
+                  color:
+                    !item?.isCompleted && !item?.status?.type?.completed
+                      ? theme.text
+                      : parseInt(homeTeam.score) > parseInt(awayTeam.score)
+                        ? colors.primary
+                        : theme.textSecondary,
                 },
               ]}
             >
-              {item.status === "Scheduled" ? "" : item.homeTeam.score || "-"}
+              {item.status === "Scheduled" ? "" : String(homeTeam.score || "-")}
             </Text>
           </View>
         </View>
@@ -560,16 +784,50 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
                 allowFontScaling={false}
                 style={[styles.venueText, { color: theme.textSecondary }]}
               >
-                {item.venue}
+                {typeof item.venue === "string"
+                  ? item.venue
+                  : String(
+                      item.venue?.displayName ||
+                        item.venue?.name ||
+                        item.venue ||
+                        "",
+                    )}
               </Text>
             )}
-            {item.broadcast && (
+            {(item?.broadcast?.length >= 1 || item?.broadcasts?.length >= 1) && (!item?.isDomesticCup && !item?.leaguesData?.name?.includes("UEFA") && item?.season?.type !== 3 && item?.season?.type !== 4 && item?.season?.type !== 5) && (
               <Text
                 allowFontScaling={false}
                 style={[styles.broadcastText, { color: theme.textSecondary }]}
               >
-                {item.broadcast}
+                {Array.isArray(item.broadcast || item.broadcasts)
+                  ? (item.broadcast || item.broadcasts).join(", ")
+                  : typeof (item.broadcast || item.broadcasts) === "string"
+                  ? (item.broadcast || item.broadcasts)
+                  : String(
+                      item.broadcast?.displayName ||
+                        item.broadcast?.name ||
+                        ""
+                    )}
               </Text>
+            )}
+            {item.season?.slug && (item?.isDomesticCup || item?.leaguesData?.name?.includes("UEFA") || item?.season?.type === 3 || item?.season?.type === 4 || item?.season?.type === 5) && (
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Ionicons
+                name="trophy"
+                size={14}
+                color={colors.primary}
+                style={{ marginRight: 5, marginTop: 2 }}
+              />
+            
+              <Text
+                allowFontScaling={false}
+                style={[styles.venueText, { color: theme.textSecondary }]}
+              >
+                {(item.season.type === 3 || item.season.type === 4 || item.season.type === 5) ? item.notes : 
+                item.season.slug.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")}{item?.competitions?.[0]?.leg?.displayValue ? ` - ${item.competitions[0].leg.displayValue}` : ''
+                }
+              </Text>
+            </View>
             )}
           </View>
         </View>
@@ -658,7 +916,7 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
                       >
                         {w}
                       </Text>
-                    )
+                    ),
                   )}
                 </View>
 
@@ -676,7 +934,7 @@ const FinderScreen = ({ navigation, route, hideHeader = false }) => {
                   const mName = new Date(
                     viewMonth.getFullYear(),
                     i,
-                    1
+                    1,
                   ).toLocaleString(undefined, { month: "short" });
                   const enabled = canSelectMonth(viewMonth.getFullYear(), i);
                   return (

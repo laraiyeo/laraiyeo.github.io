@@ -166,7 +166,9 @@ const RacerDetailsScreen = ({ route }) => {
           '#6692ff': 'Racing Bulls',
           '#64c4ff': 'Williams',
           '#52e252': 'Sauber',
-          '#b6babd': 'Haas'
+          '#b6babd': 'Haas',
+          '#db0303': 'Audi',
+          '#a2aaad': 'Cadillac',
         };
 
         const normalized = (teamColorHex || '').toLowerCase();

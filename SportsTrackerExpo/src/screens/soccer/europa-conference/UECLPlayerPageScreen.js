@@ -1517,7 +1517,14 @@ const UECLPlayerPageScreen = ({ route, navigation }) => {
               No recent games available
             </Text>
           ) : (
-            gameLog.map((game, index) => (
+            gameLog
+              .filter((game) => {
+                const mins = Number(
+                  game.stats?.minutesPlayed ?? game.stats?.minutes ?? 0,
+                );
+                return mins > 0;
+              })
+              .map((game, index) => (
               <TouchableOpacity
                 key={game.gameId || index}
                 style={[styles.mlbGameCard, { backgroundColor: theme.surface }]}

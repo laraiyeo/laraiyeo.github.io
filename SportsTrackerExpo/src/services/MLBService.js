@@ -231,6 +231,11 @@ export class MLBService {
       date: game.gameDate,
       status: game.status?.detailedState || 'Unknown',
       statusType: game.status?.statusCode || 'U',
+      season: {
+        type: game.seriesDescription === "Regular Season" ? 1 : 3,
+        slug: game.seriesDescription === "Regular Season" ? null : "postseason"
+      },
+      notes: game?.description || game?.seriesDescription || '',
       isCompleted: game.status?.statusCode === 'F',
       isLive: game.status?.statusCode === 'I' || 
                game.status?.detailedState === 'In Progress' ||

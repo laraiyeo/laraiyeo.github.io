@@ -2,51 +2,59 @@
 // Handles API calls for German football leagues (Bundesliga, DFB Pokal, German Super Cup)
 // Combines soccer web logic with React Native patterns
 
-import React from 'react';
-import { normalizeLeagueCodeForStorage } from '../../utils/TeamIdMapping';
-import { BaseCacheService } from '../BaseCacheService';
+import React from "react";
+import { normalizeLeagueCodeForStorage } from "../../utils/TeamIdMapping";
+import { BaseCacheService } from "../BaseCacheService";
 
-const GERMANY_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1';
+const GERMANY_BASE_URL =
+  "https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1";
 
 // Helper function for general soccer year logic
 // For domestic leagues: July-December uses current year, else previous year
 const getSoccerYear = () => {
   const now = new Date();
   const currentMonth = now.getMonth() + 1; // getMonth() returns 0-11
-  return (currentMonth >= 7 && currentMonth <= 12) ? now.getFullYear() : now.getFullYear() - 1;
+  return currentMonth >= 7 && currentMonth <= 12
+    ? now.getFullYear()
+    : now.getFullYear() - 1;
 };
 
 // Competition configurations
 const GERMANY_COMPETITIONS = {
-  'ger.1': { name: 'Bundesliga', logo: '10', isPrimary: true },
-  'ger.dfb_pokal': { name: 'DFB Pokal', logo: '2061', isPrimary: false },
-  'ger.super_cup': { name: 'German Super Cup', logo: '2315', isPrimary: false }
+  "ger.1": { name: "Bundesliga", logo: "10", isPrimary: true },
+  "ger.dfb_pokal": { name: "DFB Pokal", logo: "2061", isPrimary: false },
+  "ger.super_cup": { name: "German Super Cup", logo: "2315", isPrimary: false },
 };
 
 export const GermanyServiceEnhanced = {
   // Logo cache to prevent repeated fetches
   logoCache: new Map(),
+  // Roster cache to avoid fetching rosters for the same team/season repeatedly
+  rosterCache: new Map(),
 
   // Smart live game detection for Soccer
   hasLiveEvents(games) {
     try {
       if (!Array.isArray(games)) return false;
-      return games.some(game => {
-        const status = game?.status?.type?.name?.toLowerCase() || 
-                      game?.competitions?.[0]?.status?.type?.name?.toLowerCase() ||
-                      '';
-        return status.includes('live') || 
-               status.includes('in progress') ||
-               status.includes('halftime') ||
-               status.includes('break') ||
-               status.includes('second half') ||
-               status.includes('first half') ||
-               status.includes('extra time') ||
-               status.includes('penalty') ||
-               status.includes('overtime');
+      return games.some((game) => {
+        const status =
+          game?.status?.type?.name?.toLowerCase() ||
+          game?.competitions?.[0]?.status?.type?.name?.toLowerCase() ||
+          "";
+        return (
+          status.includes("live") ||
+          status.includes("in progress") ||
+          status.includes("halftime") ||
+          status.includes("break") ||
+          status.includes("second half") ||
+          status.includes("first half") ||
+          status.includes("extra time") ||
+          status.includes("penalty") ||
+          status.includes("overtime")
+        );
       });
     } catch (error) {
-      console.error('GermanyService: Error detecting live events', error);
+      console.error("GermanyService: Error detecting live events", error);
       return false;
     }
   },
@@ -54,23 +62,33 @@ export const GermanyServiceEnhanced = {
   getDataType(data, context) {
     try {
       if (this.hasLiveEvents(data?.events || data)) {
-        return 'live';
+        return "live";
       }
-      
-      if (context?.includes('standings') || context?.includes('teams') || context?.includes('team') || context?.includes('player')) {
-        return 'static';
+
+      if (
+        context?.includes("standings") ||
+        context?.includes("teams") ||
+        context?.includes("team") ||
+        context?.includes("player")
+      ) {
+        return "static";
       }
-      
-      return 'scheduled'; // Default for matches/scoreboard
+
+      return "scheduled"; // Default for matches/scoreboard
     } catch (error) {
-      console.error('GermanyService: Error determining data type', error);
-      return 'scheduled';
+      console.error("GermanyService: Error determining data type", error);
+      return "scheduled";
     }
   },
 
   // Proxy method to use BaseCacheService caching
   async getCachedData(key, fetchFunction, context) {
-    return BaseCacheService.getCachedData(key, fetchFunction, context, this.getDataType.bind(this));
+    return BaseCacheService.getCachedData(
+      key,
+      fetchFunction,
+      context,
+      this.getDataType.bind(this),
+    );
   },
 
   // Proxy method for browser headers
@@ -88,31 +106,32 @@ export const GermanyServiceEnhanced = {
     return new Promise((resolve) => {
       const primaryUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500-dark/${teamId}.png&w=200&h=200`;
       const fallbackUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${teamId}.png&w=200&h=200`;
-      
+
       // Try primary URL first
-      fetch(primaryUrl, { method: 'HEAD' })
-        .then(response => {
+      fetch(primaryUrl, { method: "HEAD" })
+        .then((response) => {
           if (response.ok) {
             this.logoCache.set(teamId, primaryUrl);
             resolve(primaryUrl);
           } else {
-            throw new Error('Primary logo not found');
+            throw new Error("Primary logo not found");
           }
         })
         .catch(() => {
           // Try fallback URL
-          fetch(fallbackUrl, { method: 'HEAD' })
-            .then(response => {
+          fetch(fallbackUrl, { method: "HEAD" })
+            .then((response) => {
               if (response.ok) {
                 this.logoCache.set(teamId, fallbackUrl);
                 resolve(fallbackUrl);
               } else {
-                throw new Error('Fallback logo not found');
+                throw new Error("Fallback logo not found");
               }
             })
             .catch(() => {
               // Use default soccer ball
-              const defaultLogo = 'https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/default-team.png';
+              const defaultLogo =
+                "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/default-team.png";
               this.logoCache.set(teamId, defaultLogo);
               resolve(defaultLogo);
             });
@@ -122,10 +141,16 @@ export const GermanyServiceEnhanced = {
 
   // Helper function to get team color using alternate color logic (from soccer web logic)
   getTeamColorWithAlternateLogic(team) {
-    if (!team || !team.color) return '007bff'; // Default fallback
-    
-    const isUsingAlternateColor = ["ffffff", "ffee00", "ffff00", "81f733", "000000"].includes(team.color);
-    
+    if (!team || !team.color) return "007bff"; // Default fallback
+
+    const isUsingAlternateColor = [
+      "ffffff",
+      "ffee00",
+      "ffff00",
+      "81f733",
+      "000000",
+    ].includes(team.color);
+
     if (isUsingAlternateColor && team.alternateColor) {
       return team.alternateColor;
     } else {
@@ -136,54 +161,57 @@ export const GermanyServiceEnhanced = {
   // Helper function to format date for API (from soccer web logic)
   getAdjustedDateForSoccer() {
     const now = new Date();
-    const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const estNow = new Date(
+      now.toLocaleString("en-US", { timeZone: "America/New_York" }),
+    );
     if (estNow.getHours() < 2) {
       estNow.setDate(estNow.getDate() - 1);
     }
-    const adjustedDate = estNow.getFullYear() +
-                         String(estNow.getMonth() + 1).padStart(2, "0") +
-                         String(estNow.getDate()).padStart(2, "0");
+    const adjustedDate =
+      estNow.getFullYear() +
+      String(estNow.getMonth() + 1).padStart(2, "0") +
+      String(estNow.getDate()).padStart(2, "0");
     return adjustedDate;
   },
 
   // Format date range for API calls (like MLB service)
   formatDateForAPI(date) {
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
     return `${year}${month}${day}`;
   },
 
   // Get date ranges for different filters (like MLB service)
   getDateRange(dateFilter) {
     const today = new Date();
-    
+
     switch (dateFilter) {
-      case 'yesterday':
+      case "yesterday":
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
         return {
           startDate: yesterday,
-          endDate: yesterday
+          endDate: yesterday,
         };
-      case 'today':
+      case "today":
         return {
           startDate: today,
-          endDate: today
+          endDate: today,
         };
-      case 'upcoming':
+      case "upcoming":
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
         const endDate = new Date(tomorrow);
         endDate.setDate(endDate.getDate() + 6); // +7 days total from tomorrow
         return {
           startDate: tomorrow,
-          endDate: endDate
+          endDate: endDate,
         };
       default:
         return {
           startDate: today,
-          endDate: today
+          endDate: today,
         };
     }
   },
@@ -198,37 +226,45 @@ export const GermanyServiceEnhanced = {
   // Fetch games from all English competitions (main league + domestic cups)
   async fetchGamesFromAllCompetitions(dateRange) {
     const allGames = [];
-    
+
     // Get competitions for Germany
     const allCompetitionsToCheck = [
-      { code: 'ger.dfb_pokal', name: 'DFB Pokal' }, // Domestic cups FIRST (prioritized)
-      { code: 'ger.super_cup', name: 'German Super Cup' },
-      { code: 'ger.1', name: 'Bundesliga' } // Main league LAST
+      { code: "ger.dfb_pokal", name: "DFB Pokal" }, // Domestic cups FIRST (prioritized)
+      { code: "ger.super_cup", name: "German Super Cup" },
+      { code: "ger.1", name: "Bundesliga" }, // Main league LAST
     ];
-    
-    console.log(`Fetching Germany games from ${allCompetitionsToCheck.length} competitions:`, allCompetitionsToCheck.map(c => c.code));
-    
+
+    console.log(
+      `Fetching Germany games from ${allCompetitionsToCheck.length} competitions:`,
+      allCompetitionsToCheck.map((c) => c.code),
+    );
+
     // Create all fetch promises in parallel
     const fetchPromises = allCompetitionsToCheck.map(async (competition) => {
       try {
         console.log(`Starting fetch for ${competition.code}...`);
-        const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition.code}/scoreboard?dates=${dateRange}`);
-        
+        const response = await fetch(
+          `https://site.api.espn.com/apis/site/v2/sports/soccer/${competition.code}/scoreboard?dates=${dateRange}`,
+        );
+
         if (response.ok) {
           const data = await response.json();
           const competitionGames = data.events || [];
-          
+
           // Add competition information to each game
-          competitionGames.forEach(game => {
+          competitionGames.forEach((game) => {
             game.competitionCode = competition.code;
-            game.competitionName = GERMANY_COMPETITIONS[competition.code]?.name || competition.name;
-            game.isDomesticCup = competition.code !== 'ger.1';
-            game.priority = competition.code !== 'ger.1' ? 1 : 2; // Competition = 1, League = 2
+            game.competitionName =
+              GERMANY_COMPETITIONS[competition.code]?.name || competition.name;
+            game.isDomesticCup = competition.code !== "ger.1";
+            game.priority = competition.code !== "ger.1" ? 1 : 2; // Competition = 1, League = 2
             // Add leagues data for round information
             game.leaguesData = data.leagues?.[0];
           });
-          
-          console.log(`Found ${competitionGames.length} games in ${competition.code}`);
+
+          console.log(
+            `Found ${competitionGames.length} games in ${competition.code}`,
+          );
           return competitionGames;
         } else {
           console.log(`No data for ${competition.code} (${response.status})`);
@@ -239,15 +275,15 @@ export const GermanyServiceEnhanced = {
         return [];
       }
     });
-    
+
     // Wait for all promises to complete
     const allResults = await Promise.all(fetchPromises);
-    
+
     // Flatten and combine all games
-    allResults.forEach(games => {
+    allResults.forEach((games) => {
       allGames.push(...games);
     });
-    
+
     // Sort by priority (competitions first), then by date
     allGames.sort((a, b) => {
       if (a.priority !== b.priority) {
@@ -255,30 +291,58 @@ export const GermanyServiceEnhanced = {
       }
       return new Date(a.date) - new Date(b.date);
     });
-    
+
     console.log(`Total Germany games found: ${allGames.length}`);
     return allGames;
   },
 
   // Fetch current matches/scoreboard with date filter (like MLB service)
   async getScoreboard(dateFilter = 'today') {
-    try {
-      const { startDate, endDate } = this.getDateRange(dateFilter);
+    // Allow callers to pass explicit YYYYMMDD or YYYYMMDD-YYYYMMDD ranges
+    // If a raw date string is passed, build start/end accordingly instead of
+    // treating it as the presets ('today','yesterday','upcoming').
+    const cacheKey = `germany_scoreboard_${dateFilter}`;
+    return this.getCachedData(cacheKey, async () => {
+      let startDate, endDate;
+
+      try {
+        if (typeof dateFilter === 'string' && /^\d{8}(-\d{8})?$/.test(dateFilter)) {
+          // single date or range provided
+          if (dateFilter.includes('-')) {
+            const parts = dateFilter.split('-');
+            const s = parts[0];
+            const e = parts[1];
+            startDate = new Date(Number(s.substring(0,4)), Number(s.substring(4,6)) - 1, Number(s.substring(6,8)));
+            endDate = new Date(Number(e.substring(0,4)), Number(e.substring(4,6)) - 1, Number(e.substring(6,8)));
+          } else {
+            const s = dateFilter;
+            startDate = new Date(Number(s.substring(0,4)), Number(s.substring(4,6)) - 1, Number(s.substring(6,8)));
+            endDate = new Date(startDate);
+          }
+        } else {
+          const range = this.getDateRange(dateFilter);
+          startDate = range.startDate;
+          endDate = range.endDate;
+        }
+      } catch (err) {
+        // Fallback to default behavior
+        const range = this.getDateRange(dateFilter);
+        startDate = range.startDate;
+        endDate = range.endDate;
+      }
+
       const dateRange = this.createDateRangeString(startDate, endDate);
-      
+
       console.log(`Fetching Germany scoreboard for ${dateFilter}:`, dateRange);
-      
+
       // Fetch from all competitions
       const games = await this.fetchGamesFromAllCompetitions(dateRange);
-      
+
       return {
         events: games,
         leagues: games.length > 0 ? [games[0].leaguesData] : []
       };
-    } catch (error) {
-      console.error('Error fetching Germany scoreboard:', error);
-      throw error;
-    }
+    }, 'scoreboard');
   },
 
   // Fetch game details
@@ -292,13 +356,18 @@ export const GermanyServiceEnhanced = {
       if (!competitionHint) {
         try {
           // Try each Germany competition to find the right one
-          for (const comp of ['ger.1', 'ger.dfb_pokal', 'ger.super_cup']) {
-            const coreResponse = await fetch(`https://sports.core.api.espn.com/v2/sports/soccer/leagues/${comp}/events/${gameId}?lang=en&region=us`);
+          for (const comp of ["ger.1", "ger.dfb_pokal", "ger.super_cup"]) {
+            const coreResponse = await fetch(
+              `https://sports.core.api.espn.com/v2/sports/soccer/leagues/${comp}/events/${gameId}?lang=en&region=us`,
+            );
             if (coreResponse.ok) {
               const coreData = await coreResponse.json();
               // Try to read season.$ref or seasonType.$ref which include the league code
-              const seasonRef = coreData?.season?.$ref || coreData?.seasonType?.$ref || coreData?.$ref;
-              if (seasonRef && typeof seasonRef === 'string') {
+              const seasonRef =
+                coreData?.season?.$ref ||
+                coreData?.seasonType?.$ref ||
+                coreData?.$ref;
+              if (seasonRef && typeof seasonRef === "string") {
                 // seasonRef example: http://sports.core.api.espn.com/v2/sports/soccer/leagues/ger.dfb_pokal/seasons/2024?lang=en&region=us
                 const match = seasonRef.match(/leagues\/([^\/]+)\/seasons/);
                 if (match && match[1]) {
@@ -310,26 +379,37 @@ export const GermanyServiceEnhanced = {
           }
         } catch (coreErr) {
           // Ignore core API errors and continue with existing heuristics
-          console.log('Could not fetch core event resource for hint:', coreErr);
+          console.log("Could not fetch core event resource for hint:", coreErr);
         }
       }
 
       // Build competition order. If we have a hint (from params or core API),
       // put it first to prefer that endpoint. Otherwise use cup-first order.
-      let competitionOrder = ['ger.dfb_pokal', 'ger.super_cup', 'ger.1'];
+      let competitionOrder = ["ger.dfb_pokal", "ger.super_cup", "ger.1"];
       const effectiveHint = competitionHint || detectedHint;
       if (effectiveHint) {
         // Normalize hint to a key if it matches one of our known codes
-        const normalized = Object.keys(GERMANY_COMPETITIONS).find(k => k === effectiveHint || GERMANY_COMPETITIONS[k].name.toLowerCase() === String(effectiveHint).toLowerCase() || k === String(effectiveHint));
+        const normalized = Object.keys(GERMANY_COMPETITIONS).find(
+          (k) =>
+            k === effectiveHint ||
+            GERMANY_COMPETITIONS[k].name.toLowerCase() ===
+              String(effectiveHint).toLowerCase() ||
+            k === String(effectiveHint),
+        );
         if (normalized) {
           // Place the hinted competition at the front
-          competitionOrder = [normalized, ...competitionOrder.filter(c => c !== normalized)];
+          competitionOrder = [
+            normalized,
+            ...competitionOrder.filter((c) => c !== normalized),
+          ];
         }
       }
 
       for (const competition of competitionOrder) {
         try {
-          const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${gameId}`);
+          const response = await fetch(
+            `https://site.api.espn.com/apis/site/v2/sports/soccer/${competition}/summary?event=${gameId}`,
+          );
           if (response.ok) {
             const data = await response.json();
             // For Germany competitions, always use our mapping instead of API-provided names
@@ -344,7 +424,7 @@ export const GermanyServiceEnhanced = {
       }
       throw new Error(`Game ${gameId} not found in any English competition`);
     } catch (error) {
-      console.error('Error fetching Germany game details:', error);
+      console.error("Error fetching Germany game details:", error);
       throw error;
     }
   },
@@ -353,46 +433,54 @@ export const GermanyServiceEnhanced = {
   async getStandings() {
     try {
       const currentSeason = new Date().getFullYear().toString();
-      const leagueCode = 'ger.1'; // Bundesliga
-      
+      const leagueCode = "ger.1"; // Bundesliga
+
       // Use the same CDN endpoint that works in soccer web app
       const STANDINGS_URL = `https://cdn.espn.com/core/soccer/table?xhr=1&league=${leagueCode}&season=${currentSeason}`;
-      
-      console.log('Fetching standings from:', STANDINGS_URL);
+
+      console.log("Fetching standings from:", STANDINGS_URL);
       const response = await fetch(STANDINGS_URL);
       const standingsText = await response.text();
-      
-      console.log('Raw standings response:', standingsText.substring(0, 200) + '...');
-      
+
+      console.log(
+        "Raw standings response:",
+        standingsText.substring(0, 200) + "...",
+      );
+
       const data = JSON.parse(standingsText);
-      
+
       // Check if we have the expected structure
-      if (data.content && data.content.standings && data.content.standings.groups && data.content.standings.groups[0]) {
+      if (
+        data.content &&
+        data.content.standings &&
+        data.content.standings.groups &&
+        data.content.standings.groups[0]
+      ) {
         const standings = data.content.standings.groups[0].standings.entries;
-        console.log('Found standings entries:', standings.length);
-        
+        console.log("Found standings entries:", standings.length);
+
         // Log the first few entries to see the structure including note data
-        console.log('First 3 standings entries with full structure:');
+        console.log("First 3 standings entries with full structure:");
         standings.slice(0, 3).forEach((entry, index) => {
           console.log(`Entry ${index + 1}:`, {
             team: entry.team.displayName,
             note: entry.note,
-            fullEntry: entry
+            fullEntry: entry,
           });
         });
-        
+
         // Return in the exact format that soccer web app uses - no transformation
         return {
           standings: {
-            entries: standings // Keep the exact same structure as CDN provides
-          }
+            entries: standings, // Keep the exact same structure as CDN provides
+          },
         };
       } else {
-        console.log('Unexpected standings structure');
-        throw new Error('Unexpected standings structure');
+        console.log("Unexpected standings structure");
+        throw new Error("Unexpected standings structure");
       }
     } catch (error) {
-      console.error('Error fetching Germany standings:', error);
+      console.error("Error fetching Germany standings:", error);
       throw error;
     }
   },
@@ -400,11 +488,13 @@ export const GermanyServiceEnhanced = {
   // Fetch team information
   async getTeam(teamId) {
     try {
-      const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/teams/${teamId}`);
+      const response = await fetch(
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/teams/${teamId}`,
+      );
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error fetching Germany team:', error);
+      console.error("Error fetching Germany team:", error);
       throw error;
     }
   },
@@ -412,11 +502,13 @@ export const GermanyServiceEnhanced = {
   // Fetch player information
   async getPlayer(playerId) {
     try {
-      const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/players/${playerId}`);
+      const response = await fetch(
+        `https://site.api.espn.com/apis/site/v2/sports/soccer/players/${playerId}`,
+      );
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error fetching Germany player:', error);
+      console.error("Error fetching Germany player:", error);
       throw error;
     }
   },
@@ -427,15 +519,20 @@ export const GermanyServiceEnhanced = {
       const response = await fetch(`${GERMANY_BASE_URL}/teams?limit=50`);
       const data = await response.json();
 
-      if (data.sports && data.sports[0] && data.sports[0].leagues && data.sports[0].leagues[0]) {
+      if (
+        data.sports &&
+        data.sports[0] &&
+        data.sports[0].leagues &&
+        data.sports[0].leagues[0]
+      ) {
         const teams = data.sports[0].leagues[0].teams;
-        return teams.filter(team =>
-          team.team.displayName.toLowerCase().includes(query.toLowerCase())
+        return teams.filter((team) =>
+          team.team.displayName.toLowerCase().includes(query.toLowerCase()),
         );
       }
       return [];
     } catch (error) {
-      console.error('Error searching Germany teams:', error);
+      console.error("Error searching Germany teams:", error);
       throw error;
     }
   },
@@ -446,91 +543,126 @@ export const GermanyServiceEnhanced = {
       // Get all teams first
       const response = await fetch(`${GERMANY_BASE_URL}/teams`);
       const data = await response.json();
-      
-      if (!data.sports || !data.sports[0] || !data.sports[0].leagues || !data.sports[0].leagues[0]) {
+
+      if (
+        !data.sports ||
+        !data.sports[0] ||
+        !data.sports[0].leagues ||
+        !data.sports[0].leagues[0]
+      ) {
         return [];
       }
 
       const teams = data.sports[0].leagues[0].teams;
       const allPlayers = [];
-      
+
       // Fetch rosters for ALL teams (removed the slice limit)
       const teamPromises = teams.map(async (team) => {
         try {
           const teamId = team.team.id;
-          const rosterResponse = await fetch(`${GERMANY_BASE_URL}/teams/${teamId}/roster?season=${getSoccerYear()}`);
-          const rosterData = await rosterResponse.json();
-          
+          const year = getSoccerYear();
+          const rosterCacheKey = `${teamId}_${year}`;
+          let rosterData = null;
+
+          if (this.rosterCache.has(rosterCacheKey)) {
+            rosterData = this.rosterCache.get(rosterCacheKey);
+          } else {
+            const rosterResponse = await fetch(
+              `${GERMANY_BASE_URL}/teams/${teamId}/roster?season=${year}`,
+            );
+            rosterData = await rosterResponse.json();
+            try {
+              this.rosterCache.set(rosterCacheKey, rosterData);
+            } catch (e) {}
+          }
+
           if (rosterData.athletes) {
-            return rosterData.athletes.map(athlete => {
+            return rosterData.athletes.map((athlete) => {
               const player = athlete.athlete || athlete;
               let firstName, lastName;
 
               // Handle name splitting like in team-page.js
-              if (player.firstName && player.firstName.includes(' ')) {
-                const nameParts = player.firstName.split(' ');
+              if (player.firstName && player.firstName.includes(" ")) {
+                const nameParts = player.firstName.split(" ");
                 firstName = nameParts[0];
-                lastName = nameParts.slice(1).join(' ');
+                lastName = nameParts.slice(1).join(" ");
               } else {
                 firstName = player.firstName || "Unknown";
-                lastName = (player.lastName && player.lastName !== player.firstName) ? player.lastName : "";
+                lastName =
+                  player.lastName && player.lastName !== player.firstName
+                    ? player.lastName
+                    : "";
               }
 
-              const displayName = lastName ? `${firstName} ${lastName}`.trim() : firstName;
-              
+              const displayName = lastName
+                ? `${firstName} ${lastName}`.trim()
+                : firstName;
+
               return {
                 id: player.id,
                 firstName: firstName,
                 lastName: lastName,
                 displayName: displayName,
                 fullName: player.fullName || displayName,
-                position: player.position?.abbreviation || player.position?.name || 'N/A',
+                position:
+                  player.position?.abbreviation ||
+                  player.position?.name ||
+                  "N/A",
                 team: team.team.displayName,
-                teamAbbr: team.team.abbreviation || team.team.displayName.substring(0, 3).toUpperCase(),
+                teamAbbr:
+                  team.team.abbreviation ||
+                  team.team.displayName.substring(0, 3).toUpperCase(),
                 teamId: team.team.id,
-                jersey: player.jersey || 'N/A',
-                athlete: player // Keep original data
+                jersey: player.jersey || "N/A",
+                athlete: player, // Keep original data
               };
             });
           }
           return [];
         } catch (teamError) {
-          console.error(`Error fetching team ${team.team.displayName}:`, teamError);
+          console.error(
+            `Error fetching team ${team.team.displayName}:`,
+            teamError,
+          );
           return [];
         }
       });
-      
+
       // Use Promise.allSettled to continue even if some teams fail
       const teamRosters = await Promise.allSettled(teamPromises);
-      
+
       // Extract successful results and flatten
-      teamRosters.forEach(result => {
-        if (result.status === 'fulfilled' && result.value) {
+      teamRosters.forEach((result) => {
+        if (result.status === "fulfilled" && result.value) {
           allPlayers.push(...result.value);
         }
       });
-      
+
       // Filter players based on query (improved search)
       // If query is empty, return all players (for comparison screen)
-      if (!query || query.trim() === '') {
+      if (!query || query.trim() === "") {
         return allPlayers;
       }
-      
-      return allPlayers.filter(player => {
-        const fullName = `${player.firstName || ''} ${player.lastName || ''}`.toLowerCase();
-        const displayName = (player.displayName || '').toLowerCase();
-        const teamName = (player.team || '').toLowerCase();
+
+      return allPlayers.filter((player) => {
+        const fullName =
+          `${player.firstName || ""} ${player.lastName || ""}`.toLowerCase();
+        const displayName = (player.displayName || "").toLowerCase();
+        const teamName = (player.team || "").toLowerCase();
         const queryLower = query.toLowerCase();
-        
-        return fullName.includes(queryLower) || 
-               displayName.includes(queryLower) || 
-               teamName.includes(queryLower) ||
-               (player.firstName && player.firstName.toLowerCase().includes(queryLower)) ||
-               (player.lastName && player.lastName.toLowerCase().includes(queryLower));
+
+        return (
+          fullName.includes(queryLower) ||
+          displayName.includes(queryLower) ||
+          teamName.includes(queryLower) ||
+          (player.firstName &&
+            player.firstName.toLowerCase().includes(queryLower)) ||
+          (player.lastName &&
+            player.lastName.toLowerCase().includes(queryLower))
+        );
       }); // Removed the .slice(0, 50) limit to allow all matching players
-      
     } catch (error) {
-      console.error('Error searching Germany players:', error);
+      console.error("Error searching Germany players:", error);
       // Return empty array instead of throwing to prevent crashes
       return [];
     }
@@ -540,19 +672,19 @@ export const GermanyServiceEnhanced = {
   getCompetitionInfo() {
     return {
       leagues: GERMANY_COMPETITIONS,
-      apiCode: 'ger.1'
+      apiCode: "ger.1",
     };
   },
 
   // Get league information
   getLeagueInfo() {
     return {
-      id: 'germany',
-      name: 'Germany',
-      fullName: 'Bundesliga',
-      country: 'Germany',
-      flag: 'https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/ger.png',
-      apiCode: 'ger.1'
+      id: "germany",
+      name: "Germany",
+      fullName: "Bundesliga",
+      country: "Germany",
+      flag: "https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/ger.png",
+      apiCode: "ger.1",
     };
-  }
+  },
 };

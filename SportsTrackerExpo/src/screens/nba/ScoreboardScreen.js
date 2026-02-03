@@ -862,18 +862,7 @@ const NBAScoreboardScreen = ({ navigation }) => {
         {/* Game Info */}
         <View style={styles.gameFooter}>
           <View style={styles.gameFooterLeft}>
-            {/* If this game is part of the NBA Cup, show a trophy icon left of venue/broadcast */}
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-              {item.notes &&
-              typeof item.notes === "string" &&
-              item.notes.includes("NBA Cup") ? (
-                <Ionicons
-                  name="trophy"
-                  size={16}
-                  color={colors.primary}
-                  style={{ marginRight: 8 }}
-                />
-              ) : null}
               <View>
                 {item.venue && (
                   <Text
@@ -883,6 +872,22 @@ const NBAScoreboardScreen = ({ navigation }) => {
                     {item.venue}
                   </Text>
                 )}
+                {item.season &&
+                (item.season.type === 3 || item.season.type === 4 || item.season.type === 5) && item.notes ? (
+                <View style = {{ flexDirection: "row", alignItems: "center", marginBottom: 2 }}>
+                  <Ionicons
+                    name="trophy"
+                    size={16}
+                    color={colors.primary}
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.playoffIndicator, { color: colors.primary, fontWeight: '700' }]}>
+                    {item.notes}
+                  </Text>
+                </View>
+                ) : null}
                 {item.broadcast && (
                   <Text
                     allowFontScaling={false}

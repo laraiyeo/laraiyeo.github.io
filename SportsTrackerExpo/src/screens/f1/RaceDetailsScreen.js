@@ -1156,6 +1156,8 @@ const RaceDetailsScreen = ({ route }) => {
     Williams: "#64C4FF",
     Sauber: "#52E252",
     Haas: "#B6BABD",
+    Audi: "#db0303",
+    Cadillac: "#A2AAAD",
   };
 
   // Tire image mapping (from c2.txt)

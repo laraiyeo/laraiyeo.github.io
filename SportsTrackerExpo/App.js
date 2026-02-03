@@ -6,7 +6,7 @@ import {
 } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
-import { View, Text, StyleSheet, Image } from "react-native";
+import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import * as ExpoSplashScreen from "expo-splash-screen";
 
@@ -143,6 +143,7 @@ import F1VehiclesScreen from "./src/screens/f1/VehiclesScreen";
 
 // Soccer specific screens
 import SoccerHomeScreen from "./src/screens/soccer/SoccerHomeScreen";
+import SoccerMoreScreen from "./src/screens/soccer/SoccerMoreScreen";
 
 // NHL specific screens (added)
 import NHLScoreboardScreen from "./src/screens/nhl/ScoreboardScreen";
@@ -210,6 +211,7 @@ import ItalyTransferScreen from "./src/screens/soccer/italy/ItalyTransferScreen"
 import ItalyGameDetailsScreen from "./src/screens/soccer/italy/ItalyGameDetailsScreen";
 import ItalyTeamPageScreen from "./src/screens/soccer/italy/ItalyTeamPageScreen";
 import ItalyPlayerPageScreen from "./src/screens/soccer/italy/ItalyPlayerPageScreen";
+import ItalyMoreScreen from "./src/screens/soccer/italy/MoreScreen";
 
 // Spain enhanced screens
 import SpainScoreboardScreen from "./src/screens/soccer/spain/SpainScoreboardScreen";
@@ -220,6 +222,7 @@ import SpainTransferScreen from "./src/screens/soccer/spain/SpainTransferScreen"
 import SpainGameDetailsScreen from "./src/screens/soccer/spain/SpainGameDetailsScreen";
 import SpainTeamPageScreen from "./src/screens/soccer/spain/SpainTeamPageScreen";
 import SpainPlayerPageScreen from "./src/screens/soccer/spain/SpainPlayerPageScreen";
+import SpainMoreScreen from "./src/screens/soccer/spain/MoreScreen";
 
 // England enhanced screens
 import EnglandScoreboardScreen from "./src/screens/soccer/england/EnglandScoreboardScreen";
@@ -230,6 +233,7 @@ import EnglandTransferScreen from "./src/screens/soccer/england/EnglandTransferS
 import EnglandGameDetailsScreen from "./src/screens/soccer/england/EnglandGameDetailsScreen";
 import EnglandTeamPageScreen from "./src/screens/soccer/england/EnglandTeamPageScreen";
 import EnglandPlayerPageScreen from "./src/screens/soccer/england/EnglandPlayerPageScreen";
+import EnglandMoreScreen from "./src/screens/soccer/england/MoreScreen";
 
 // France enhanced screens
 import FranceScoreboardScreen from "./src/screens/soccer/france/FranceScoreboardScreen";
@@ -240,6 +244,7 @@ import FranceTransferScreen from "./src/screens/soccer/france/FranceTransferScre
 import FranceGameDetailsScreen from "./src/screens/soccer/france/FranceGameDetailsScreen";
 import FranceTeamPageScreen from "./src/screens/soccer/france/FranceTeamPageScreen";
 import FrancePlayerPageScreen from "./src/screens/soccer/france/FrancePlayerPageScreen";
+import FranceMoreScreen from "./src/screens/soccer/france/MoreScreen";
 
 // Germany enhanced screens
 import GermanyScoreboardScreen from "./src/screens/soccer/germany/GermanyScoreboardScreen";
@@ -250,6 +255,7 @@ import GermanyTransferScreen from "./src/screens/soccer/germany/GermanyTransferS
 import GermanyGameDetailsScreen from "./src/screens/soccer/germany/GermanyGameDetailsScreen";
 import GermanyTeamPageScreen from "./src/screens/soccer/germany/GermanyTeamPageScreen";
 import GermanyPlayerPageScreen from "./src/screens/soccer/germany/GermanyPlayerPageScreen";
+import GermanyMoreScreen from "./src/screens/soccer/germany/MoreScreen";
 
 // Champions League enhanced screens
 import UCLScoreboardScreen from "./src/screens/soccer/champions-league/UCLScoreboardScreen";
@@ -260,6 +266,7 @@ import UCLBracketScreen from "./src/screens/soccer/champions-league/UCLBracketSc
 import UCLGameDetailsScreen from "./src/screens/soccer/champions-league/UCLGameDetailsScreen";
 import UCLTeamPageScreen from "./src/screens/soccer/champions-league/UCLTeamPageScreen";
 import UCLPlayerPageScreen from "./src/screens/soccer/champions-league/UCLPlayerPageScreen";
+import UCLMoreScreen from "./src/screens/soccer/champions-league/MoreScreen";
 
 // Europa League enhanced screens
 import UELScoreboardScreen from "./src/screens/soccer/europa-league/UELScoreboardScreen";
@@ -270,6 +277,7 @@ import UELBracketScreen from "./src/screens/soccer/europa-league/UELBracketScree
 import UELGameDetailsScreen from "./src/screens/soccer/europa-league/UELGameDetailsScreen";
 import UELTeamPageScreen from "./src/screens/soccer/europa-league/UELTeamPageScreen";
 import UELPlayerPageScreen from "./src/screens/soccer/europa-league/UELPlayerPageScreen";
+import UELMoreScreen from "./src/screens/soccer/europa-league/MoreScreen";
 
 // Europa Conference League enhanced screens
 import UECLScoreboardScreen from "./src/screens/soccer/europa-conference/UECLScoreboardScreen";
@@ -280,6 +288,7 @@ import UECLBracketScreen from "./src/screens/soccer/europa-conference/UECLBracke
 import UECLGameDetailsScreen from "./src/screens/soccer/europa-conference/UECLGameDetailsScreen";
 import UECLTeamPageScreen from "./src/screens/soccer/europa-conference/UECLTeamPageScreen";
 import UECLPlayerPageScreen from "./src/screens/soccer/europa-conference/UECLPlayerPageScreen";
+import UECLMoreScreen from "./src/screens/soccer/europa-conference/MoreScreen";
 
 // FIFA World Cup screens
 import FIFAWorldScoreboardScreen from "./src/screens/soccer/fifa.world/FIFAWorldScoreboardScreen";
@@ -301,7 +310,7 @@ const HomeTabNavigator = () => {
   useFocusEffect(
     React.useCallback(() => {
       checkStatus();
-    }, [checkStatus])
+    }, [checkStatus]),
   );
 
   return (
@@ -490,7 +499,7 @@ const SportTabNavigator = ({ route }) => {
           StandingsScreen: SoccerHomeScreen,
           SearchScreen: SoccerHomeScreen,
           CompareScreen: SoccerHomeScreen,
-          StatsScreen: SoccerHomeScreen,
+          MoreScreen: SoccerMoreScreen,
         };
       default:
         // For other sports, return placeholder components (can be extended later)
@@ -615,7 +624,7 @@ const SportTabNavigator = ({ route }) => {
       />
       <Tab.Screen
         name="Stats"
-        component={screens.StatsScreen}
+        component={screens.StatsScreen || screens.MoreScreen}
         initialParams={{ sport }}
         options={{
           title:
@@ -623,7 +632,8 @@ const SportTabNavigator = ({ route }) => {
             sport?.toLowerCase() === "nfl" ||
             sport?.toLowerCase() === "wnba" ||
             sport?.toLowerCase() === "nhl" ||
-            sport?.toLowerCase() === "mlb"
+            sport?.toLowerCase() === "mlb" ||
+            sport?.toLowerCase() === "soccer"
               ? "More"
               : "Stats",
           tabBarIcon: ({ color, size }) => {
@@ -632,7 +642,8 @@ const SportTabNavigator = ({ route }) => {
               sport?.toLowerCase() === "nfl" ||
               sport?.toLowerCase() === "wnba" ||
               sport?.toLowerCase() === "nhl" ||
-              sport?.toLowerCase() === "mlb"
+              sport?.toLowerCase() === "mlb" ||
+              sport?.toLowerCase() === "soccer"
             ) {
               return <FontAwesome name="navicon" size={size} color={color} />;
             }
@@ -747,6 +758,7 @@ const SoccerTabNavigator = ({ route }) => {
           SearchScreen: EnglandSearchScreen,
           CompareScreen: EnglandCompareScreen,
           StatsScreen: EnglandTransferScreen,
+          MoreScreen: EnglandMoreScreen,
         };
       case "spain":
         return {
@@ -755,6 +767,7 @@ const SoccerTabNavigator = ({ route }) => {
           SearchScreen: SpainSearchScreen,
           CompareScreen: SpainCompareScreen,
           StatsScreen: SpainTransferScreen,
+          MoreScreen: SpainMoreScreen,
         };
       case "italy":
         return {
@@ -763,6 +776,7 @@ const SoccerTabNavigator = ({ route }) => {
           SearchScreen: ItalySearchScreen,
           CompareScreen: ItalyCompareScreen,
           StatsScreen: ItalyTransferScreen,
+          MoreScreen: ItalyMoreScreen,
         };
       case "germany":
         return {
@@ -771,6 +785,7 @@ const SoccerTabNavigator = ({ route }) => {
           SearchScreen: GermanySearchScreen,
           CompareScreen: GermanyCompareScreen,
           StatsScreen: GermanyTransferScreen,
+          MoreScreen: GermanyMoreScreen,
         };
       case "france":
         return {
@@ -779,6 +794,7 @@ const SoccerTabNavigator = ({ route }) => {
           SearchScreen: FranceSearchScreen,
           CompareScreen: FranceCompareScreen,
           StatsScreen: FranceTransferScreen,
+          MoreScreen: FranceMoreScreen,
         };
       case "champions-league":
         return {
@@ -787,6 +803,7 @@ const SoccerTabNavigator = ({ route }) => {
           SearchScreen: UCLSearchScreen,
           CompareScreen: UCLCompareScreen,
           StatsScreen: UCLBracketScreen,
+          MoreScreen: UCLMoreScreen,
         };
       case "europa-league":
         return {
@@ -795,6 +812,7 @@ const SoccerTabNavigator = ({ route }) => {
           SearchScreen: UELSearchScreen,
           CompareScreen: UELCompareScreen,
           StatsScreen: UELBracketScreen,
+          MoreScreen: UELMoreScreen,
         };
       case "europa-conference":
         return {
@@ -803,6 +821,7 @@ const SoccerTabNavigator = ({ route }) => {
           SearchScreen: UECLSearchScreen,
           CompareScreen: UECLCompareScreen,
           StatsScreen: UECLBracketScreen,
+          MoreScreen: UECLMoreScreen,
         };
       case "fifa.world":
         return {
@@ -824,22 +843,6 @@ const SoccerTabNavigator = ({ route }) => {
   };
 
   const screens = getLeagueComponents(leagueId);
-
-  // Check if it's a soccer league that should have Transfers instead of Stats
-  const shouldShowTransfers = [
-    "spain",
-    "england",
-    "italy",
-    "germany",
-    "france",
-  ].includes(leagueId);
-
-  // Check if it's a UEFA competition that should have Bracket instead of Stats
-  const shouldShowBracket = [
-    "champions-league",
-    "europa-conference",
-    "europa-league",
-  ].includes(leagueId);
 
   // Check if it's FIFA World Cup - should only show Scores, Standings, Stats
   const isFIFAWorldCup = leagueId === "fifa.world";
@@ -864,9 +867,15 @@ const SoccerTabNavigator = ({ route }) => {
             iconName = "cash";
           } else if (route.name === "Bracket") {
             iconName = "git-network";
+          } else if (route.name === "More") {
+            iconName = "navicon";
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return route.name === "More" ? (
+            <FontAwesome name={iconName} size={size} color={color} />
+          ) : (
+            <Ionicons name={iconName} size={size} color={color} />
+          );
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: theme.textTertiary,
@@ -914,25 +923,7 @@ const SoccerTabNavigator = ({ route }) => {
           }}
         />
       )}
-      {shouldShowBracket ? (
-        <Tab.Screen
-          name="Bracket"
-          component={screens.StatsScreen}
-          initialParams={{ leagueId, leagueName }}
-          options={{
-            title: "Bracket",
-          }}
-        />
-      ) : shouldShowTransfers ? (
-        <Tab.Screen
-          name="Transfers"
-          component={screens.StatsScreen}
-          initialParams={{ leagueId, leagueName }}
-          options={{
-            title: "Transfers",
-          }}
-        />
-      ) : (
+      {isFIFAWorldCup && (
         <Tab.Screen
           name="Stats"
           component={screens.StatsScreen}
@@ -941,6 +932,16 @@ const SoccerTabNavigator = ({ route }) => {
             title: "Stats",
           }}
         />
+      )}
+      {!isFIFAWorldCup && (
+      <Tab.Screen
+        name="More"
+        component={screens.MoreScreen}
+        initialParams={{ leagueId, leagueName }}
+        options={{
+          title: "More",
+        }}
+      />
       )}
     </Tab.Navigator>
   );
@@ -952,9 +953,40 @@ const MainStackNavigator = () => {
 
   return (
     <Stack.Navigator
-      screenOptions={{
+      screenOptions={({ navigation }) => ({
         headerBackTitle: "Back", // Always show "Back" instead of previous screen name
-      }}
+        headerLeft: (props) => (
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            onLongPress={() => navigation.navigate("Home")}
+            delayLongPress={500}
+            hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}
+            style={{
+              paddingHorizontal: 12,
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+            accessibilityLabel="Back"
+          >
+            <Ionicons
+              name="chevron-back"
+              size={24}
+              color={props?.tintColor || "#fff"}
+            />
+            <Text
+              allowFontScaling={false}
+              style={{
+                color: props?.tintColor || "#fff",
+                fontSize: 17,
+                marginLeft: 6,
+                fontWeight: "600",
+              }}
+            >
+              Back
+            </Text>
+          </TouchableOpacity>
+        ),
+      })}
     >
       <Stack.Screen
         name="Home"
@@ -1463,7 +1495,7 @@ const MainStackNavigator = () => {
             "TeamPage navigation - sport:",
             sport,
             "params:",
-            route?.params
+            route?.params,
           );
           const props = { route, navigation };
           switch (sport?.toLowerCase()) {
@@ -2081,7 +2113,7 @@ const AppContent = () => {
       // If profile already indicates Pro access (from provider or fetched), skip RevenueCat init.
       if (isPro || isProFromProfile) {
         console.log(
-          "initializeRevenueCat: skipping RevenueCat init because user is Pro from profile"
+          "initializeRevenueCat: skipping RevenueCat init because user is Pro from profile",
         );
         return;
       }
@@ -2095,7 +2127,7 @@ const AppContent = () => {
 
       const initRes = await initPurchases(
         "appl_mdoICWLxVPeKJjUzLbFUKhMrXAT",
-        userId
+        userId,
       );
 
       // Fetch offerings and customer info in parallel
