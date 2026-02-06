@@ -2819,6 +2819,8 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
       awayTeam?.team,
     );
 
+    const seriesName = competition?.series ? competition.series[0].title : gameData.header.season.name.split(", ")[1] || "Soccer";
+
     return (
       <View
         style={[styles.headerContainer, { backgroundColor: theme.surface }]}
@@ -2829,7 +2831,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
             allowFontScaling={false}
             style={[styles.competitionText, { color: theme.textSecondary }]}
           >
-            {gameData.competitionName || "Spain"}
+            {gameData.header.league.isTournament ? `${gameData.competitionName || "Soccer"} - ${seriesName} ${competition?.leg ? `- ${competition.leg.displayValue}` : ""}` : `${gameData.competitionName || "Soccer"}`}
           </Text>
         </View>
 

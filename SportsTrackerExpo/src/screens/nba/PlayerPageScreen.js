@@ -1004,6 +1004,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
                 athlete.team.shortDisplayName ||
                 convertTeamIdToAbbr(athlete.team.id),
               displayName: athlete.team.displayName || athlete.team.name,
+              color: athlete.team.color || undefined,
             }
           : basicPlayerData.team;
         const enhanced = {
@@ -1050,6 +1051,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
                 id,
                 abbreviation: convertTeamIdToAbbr(id) || undefined,
                 displayName: convertTeamIdToFullName(id) || "",
+                color: first.color || undefined,
               };
             }
           }
@@ -1258,7 +1260,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
       <View style={[styles.playerHeader, { backgroundColor: theme.surface }]}>
         <Image
           source={getHeadshotSource(playerData)}
-          style={styles.headshotLarge}
+          style={[styles.headshotLarge, { backgroundColor: `#${playerData.team ? playerData.team.color : colors.primary}` }]}
           onError={() => setHeadshotFailed(true)}
           resizeMode="cover"
         />
@@ -1276,6 +1278,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
               marginBottom: 8,
             }}
           >
+            {playerData.jersey && (
             <Text
               allowFontScaling={false}
               style={[
@@ -1285,11 +1288,15 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
             >
               #{playerData.jersey || ""}
             </Text>
+            )}
+            {playerData.jersey && playerData.position && (
+            <Text style={{ color: theme.textSecondary }}>•</Text>
+            )}
             <Text
               allowFontScaling={false}
-              style={[styles.playerDetails, { color: theme.textSecondary }]}
+              style={[styles.playerDetails, { color: theme.textSecondary, marginLeft: playerData.jersey ? 8 : 0 }]}
             >
-              • {playerData.position?.displayName || "N/A"}
+              {playerData.position?.displayName || "N/A"}
             </Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -2936,7 +2943,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   playerName: { fontSize: 24, fontWeight: "bold", marginBottom: 4 },
-  playerDetails: { fontSize: 16, marginBottom: 0, marginLeft: 5 },
+  playerDetails: { fontSize: 16, marginBottom: 0 },
   teamContainer: { flexDirection: "row", alignItems: "center", marginLeft: -2 },
   teamLogo: { width: 20, height: 20, marginRight: 6 },
   teamName: { fontSize: 16, fontWeight: "500" },

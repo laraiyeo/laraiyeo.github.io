@@ -591,7 +591,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
             allowFontScaling={false}
             style={[styles.leagueText, { color: colors.primary }]}
           >
-            {game.competitionName || "La Liga"}
+            {game.isDomesticCup ? `${game.competitionName || "Soccer"} - ${game.season.slug.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")} ${competition.leg ? `- ${competition.leg.displayValue}` : ""}` : `${game.competitionName || "Soccer"}`}
           </Text>
         </View>
 
@@ -642,6 +642,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
               {homeTeam?.team?.abbreviation ||
                 homeTeam?.team?.displayName ||
                 "TBD"}
+              <Text style={{color: colors.accent}}>{competition.leg && competition.series.competitors[0]?.aggregateScore >= 0 ? ` (${competition.series.competitors[0].aggregateScore})` : ""}</Text>
             </Text>
           </View>
 
@@ -721,6 +722,7 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
               {awayTeam?.team?.abbreviation ||
                 awayTeam?.team?.displayName ||
                 "TBD"}
+              <Text style={{color: colors.accent}}>{competition.leg && competition.series.competitors[1]?.aggregateScore >= 0 ? ` (${competition.series.competitors[1].aggregateScore})` : ""}</Text>
             </Text>
           </View>
         </View>

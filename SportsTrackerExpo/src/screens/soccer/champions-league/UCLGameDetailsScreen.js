@@ -2928,6 +2928,8 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
         awayTeam?.team,
       );
 
+    const title = competition?.series ? competition?.series[0]?.title === "Knockout Round Playoffs" ? "KO Playoffs" : competition?.series[0]?.title : gameData.header.season.name.split(", ")[1];
+
     return (
       <View
         style={[styles.headerContainer, { backgroundColor: theme.surface }]}
@@ -2936,9 +2938,9 @@ const UCLGameDetailsScreen = ({ route, navigation }) => {
         <View style={styles.competitionContainer}>
           <Text
             allowFontScaling={false}
-            style={[styles.competitionText, { color: theme.textSecondary }]}
+            style={[styles.competitionText, { color: theme.textSecondary, textAlign: 'center' }]}
           >
-            {gameData.competitionName || "UCL"}
+            {gameData.header.league.isTournament ? `${gameData.competitionName || "Soccer"} - ${title} ${competition.leg ? `- ${competition.leg.displayValue}` : ""}` : `${gameData.competitionName || "Soccer"}`}
           </Text>
         </View>
 

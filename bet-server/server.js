@@ -11371,9 +11371,10 @@ async function canSettleFromPayload(fresh, betslipId) {
     if (!Number.isFinite(totalBets) || !Number.isFinite(gamesCount))
       return true;
 
-    // Require exact match: totalBets must equal gamesCount. If they differ,
-    // the payload is incomplete and we must NOT settle yet.
-    if (totalBets >= gamesCount) return false;
+    // Ensure payload indicates all bets are present before settling.
+    // If there are fewer reported bets than games, the payload is incomplete
+    // and we must NOT settle yet.
+    if (totalBets < gamesCount) return false;
 
     // Additionally, scan payload events for explicit `won` flags. If any
     // reported bet has a non-boolean `won` value (e.g. "pending" / null),

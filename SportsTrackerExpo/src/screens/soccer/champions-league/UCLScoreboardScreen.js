@@ -573,6 +573,8 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
     const awayTeam = competition?.competitors[1];
     const matchStatus = getMatchStatus(game);
 
+    const slugName = game.season.slug === "knockout-round-playoffs" ? "KO-playoffs" : game.season.slug;
+
     return (
       <TouchableOpacity
         style={[styles.gameCard, { backgroundColor: theme.surface }]}
@@ -585,7 +587,7 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
             allowFontScaling={false}
             style={[styles.leagueText, { color: colors.primary }]}
           >
-            {game.competitionName || "La Liga"}
+            {`${game.competitionName || "Soccer"} - ${slugName.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")} ${competition.leg ? `- ${competition.leg.displayValue}` : ""}`}
           </Text>
         </View>
 
@@ -636,6 +638,7 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
               {homeTeam?.team?.abbreviation ||
                 homeTeam?.team?.displayName ||
                 "TBD"}
+                              <Text style={{color: colors.accent}}>{competition.leg && competition.series.competitors[0]?.aggregateScore >= 0 ? ` (${competition.series.competitors[0].aggregateScore})` : ""}</Text>
             </Text>
           </View>
 
@@ -715,6 +718,7 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
               {awayTeam?.team?.abbreviation ||
                 awayTeam?.team?.displayName ||
                 "TBD"}
+                              <Text style={{color: colors.accent}}>{competition.leg && competition.series.competitors[1]?.aggregateScore >= 0 ? ` (${competition.series.competitors[1].aggregateScore})` : ""}</Text>
             </Text>
           </View>
         </View>

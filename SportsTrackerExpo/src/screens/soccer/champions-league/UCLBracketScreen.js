@@ -1695,7 +1695,9 @@ const UCLBracketScreen = ({ navigation, route }) => {
               {
                 color: firstIsWinner && !isTie ? colors.primary : theme.text,
                 borderBottomWidth: 2,
-                borderBottomColor: `#${firstTeam.color}`,
+                borderBottomColor: firstTeam?.color
+                  ? `#${firstTeam.color}`
+                  : theme.border,
               },
             ]}
           >
@@ -1709,7 +1711,9 @@ const UCLBracketScreen = ({ navigation, route }) => {
               {
                 color: !firstIsWinner && !isTie ? colors.primary : theme.text,
                 borderBottomWidth: 2,
-                borderBottomColor: `#${secondTeam.color}`,
+                borderBottomColor: secondTeam?.color
+                  ? `#${secondTeam.color}`
+                  : theme.border,
               },
             ]}
           >
@@ -1850,7 +1854,9 @@ const UCLBracketScreen = ({ navigation, route }) => {
               {
                 color: homeTeam.id === winnerId ? colors.primary : theme.text,
                 borderBottomWidth: 2,
-                borderBottomColor: `#${homeTeam.color}`,
+                borderBottomColor: homeTeam?.color
+                  ? `#${homeTeam.color}`
+                  : theme.border,
               },
             ]}
           >
@@ -1864,7 +1870,9 @@ const UCLBracketScreen = ({ navigation, route }) => {
               {
                 color: awayTeam.id === winnerId ? colors.primary : theme.text,
                 borderBottomWidth: 2,
-                borderBottomColor: `#${awayTeam.color}`,
+                borderBottomColor: awayTeam?.color
+                  ? `#${awayTeam.color}`
+                  : theme.border,
               },
             ]}
           >
@@ -2004,8 +2012,10 @@ const UCLBracketScreen = ({ navigation, route }) => {
               {[1, 2].map((legNumber) => {
                 const match = sortedMatches.find((m) => m.leg === legNumber);
 
-                const hasHomeScore = match.homeScore != null || match.homeShootoutScore != null;
-                const hasAwayScore = match.awayScore != null || match.awayShootoutScore != null;
+                const hasHomeScore =
+                  match.homeScore != null || match.homeShootoutScore != null;
+                const hasAwayScore =
+                  match.awayScore != null || match.awayShootoutScore != null;
                 // If a match exists for this leg, render the whole card as a single touchable
                 if (match) {
                   return (
@@ -2065,10 +2075,7 @@ const UCLBracketScreen = ({ navigation, route }) => {
                                     match.homeScore > match.awayScore
                                       ? colors.primary
                                       : theme.text,
-                                  marginBottom:
-                                    hasHomeScore
-                                      ? 5
-                                      : 0,
+                                  marginBottom: hasHomeScore ? 5 : 0,
                                 },
                               ]}
                             >
@@ -2124,10 +2131,7 @@ const UCLBracketScreen = ({ navigation, route }) => {
                                     match.awayScore > match.homeScore
                                       ? colors.primary
                                       : theme.text,
-                                  marginBottom:
-                                    hasAwayScore
-                                      ? 5
-                                      : 0,
+                                  marginBottom: hasAwayScore ? 5 : 0,
                                 },
                               ]}
                             >
@@ -2314,6 +2318,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
     textAlign: "center",
+    borderBottomWidth: 0,
+    borderBottomColor: "transparent",
   },
   teamScore: {
     fontSize: 18,
