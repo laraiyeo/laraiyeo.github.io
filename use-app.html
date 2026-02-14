@@ -1,139 +1,248 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Open Our App</title>
-  <link rel="icon" href="assets/33115791.png" type="image/png" />
-  <link rel="preload" href="/assets/SportsHeart-AppStore.jpg" as="image">
-  <style>
-    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:1.5rem;color:#111;background:#f7f7f8}
-    .card{max-width:780px;margin:2rem auto;padding:1.5rem;border-radius:8px;border:1px solid #e6e6e6;background:#fff}
-    .banner{width:100%;height:auto;border-radius:6px;margin-bottom:1rem}
-    .store-buttons{display:flex;gap:1rem;flex-wrap:wrap;margin:1rem 0}
-    .store-btn{display:flex;align-items:center;gap:0.75rem;padding:0.6rem 1rem;background:#dc2626;color:#fff;border-radius:8px;text-decoration:none;border:none;cursor:pointer}
-    .store-btn img{height:28px;width:auto}
-    #googleForm{margin-top:1rem;display:none}
-    #googleForm input[type="email"]{padding:0.5rem;width:100%;max-width:360px;margin-right:0.5rem}
-    .muted{color:#666;font-size:0.95rem}
-    h2.small{font-size:1.05rem;margin-top:1.25rem}
-  </style>
-</head>
-<body>
-  <main class="card">
-    <img class="banner" src="/assets/SportsHeart-AppStore.jpg" alt="SportsHeart App Store banner">
-    <h1>Get the App</h1>
-    <p>For the best live-tracking experience, download our mobile app.</p>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Open Our App</title>
+    <link rel="icon" href="assets/33115791.png" type="image/png" />
+    <link rel="preload" href="/assets/SportsHeart-AppStore.jpg" as="image" />
+    <style>
+      body {
+        font-family:
+          system-ui,
+          Segoe UI,
+          Roboto,
+          Arial;
+        margin: 1.5rem;
+        color: #111;
+        background: #f7f7f8;
+      }
+      .card {
+        max-width: 780px;
+        margin: 2rem auto;
+        padding: 1.5rem;
+        border-radius: 8px;
+        border: 1px solid #e6e6e6;
+        background: #fff;
+      }
+      .banner {
+        width: 100%;
+        height: auto;
+        border-radius: 6px;
+        margin-bottom: 1rem;
+      }
+      .store-buttons {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin: 1rem 0;
+      }
+      .store-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6rem 1rem;
+        background: #dc2626;
+        color: #fff;
+        border-radius: 8px;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+      }
+      .store-btn img {
+        height: 28px;
+        width: auto;
+      }
+      #googleForm {
+        margin-top: 1rem;
+        display: none;
+      }
+      #googleForm input[type="email"] {
+        padding: 0.5rem;
+        width: 100%;
+        max-width: 360px;
+        margin-right: 0.5rem;
+      }
+      .muted {
+        color: #666;
+        font-size: 0.95rem;
+      }
+      h2.small {
+        font-size: 1.05rem;
+        margin-top: 1.25rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <img
+        class="banner"
+        src="/assets/SportsHeart-AppStore.jpg"
+        alt="SportsHeart App Store banner"
+      />
+      <h1>Get the App</h1>
+      <p>For the best live-tracking experience, download our mobile app.</p>
 
-    <div class="store-buttons">
-      <a id="appleBtn" class="store-btn" href="#" role="button" aria-label="Open on App Store">
-        <img src="/assets/apple.png" alt="Apple">
-        <span>App Store</span>
-      </a>
+      <div class="store-buttons">
+        <a
+          id="appleBtn"
+          class="store-btn"
+          href="#"
+          role="button"
+          aria-label="Open on App Store"
+        >
+          <img src="/assets/apple.png" alt="Apple" />
+          <span>App Store</span>
+        </a>
 
-      <button id="googleBtn" class="store-btn" type="button" aria-label="Request Google Play invite">
-        <img src="/assets/google.png" alt="Google Play">
-        <span>Google Play</span>
-      </button>
-    </div>
-
-    <form id="googleForm" onsubmit="return handleInviteSubmit(event)">
-      <label for="inviteEmail" class="muted">Google Play is in closed testing — enter your Gmail to request an invite:</label>
-      <div style="margin-top:.5rem">
-        <input id="inviteEmail" name="inviteEmail" type="email" placeholder="yourname@gmail.com" required>
-        <button type="submit" class="store-btn" style="margin-top:.5rem">Request Invite</button>
+        <button
+          id="googleBtn"
+          class="store-btn"
+          type="button"
+          aria-label="Request Google Play invite"
+        >
+          <img src="/assets/google.png" alt="Google Play" />
+          <span>Google Play</span>
+        </button>
       </div>
-      <p id="inviteMessage" class="muted" style="margin-top:.5rem"></p>
-    </form>
 
-    <h2 class="small">To Stream Games On The App</h2>
-    <p class="muted">In order to stream games on the app, go to the app settings, look for "Special Access" and click the confirm button 3 times. After, enter "20250417" and click confirm again.</p>
+      <form id="googleForm" onsubmit="return handleInviteSubmit(event);">
+        <label for="inviteEmail" class="muted"
+          >Google Play is in closed testing — enter your Gmail to request an
+          invite:</label
+        >
+        <div style="margin-top: 0.5rem">
+          <input
+            id="inviteEmail"
+            name="inviteEmail"
+            type="email"
+            placeholder="yourname@gmail.com"
+            required
+          />
+          <button type="submit" class="store-btn" style="margin-top: 0.5rem">
+            Request Invite
+          </button>
+        </div>
+        <p id="inviteMessage" class="muted" style="margin-top: 0.5rem"></p>
+      </form>
 
-    <h2 class="small">Important Notice</h2>
-    <p class="muted">The website is currently being re-worked and enhanced for better performance and user experience. So please use the app for now. Thank you for your patience.</p>
-  </main>
+      <h2 class="small">To Stream Games On The App</h2>
+      <p class="muted">
+        In order to stream games on the app, go to the app settings, look for
+        "Special Access" and click the confirm button 3 times. After, enter
+        "20250417" and click confirm again.
+      </p>
 
-  <script src="/assets/analytics.js"></script>
-  <script>
-    // Helper: send GA event if gtag exists
+      <h2 class="small">Important Notice</h2>
+      <p class="muted">
+        The website is currently being re-worked and enhanced for better
+        performance and user experience. So please use the app for now. Thank
+        you for your patience.
+      </p>
+    </main>
+
+    <script src="/assets/analytics.js"></script>
+    <script>
+      // Helper: send GA event if gtag exists
       function sendGAEvent(action, label) {
         try {
-          console.log('GA event:', action, label);
+          console.log("GA event:", action, label);
           if (window.gtag) {
-            gtag('event', action, { 'event_category': 'engagement', 'event_label': label });
-            console.log('gtag called for', action);
+            gtag("event", action, {
+              event_category: "engagement",
+              event_label: label,
+            });
+            console.log("gtag called for", action);
           } else {
-            console.log('gtag not available for', action);
+            console.log("gtag not available for", action);
           }
-        } catch (e) { console.warn('GA error', e) }
-    }
-
-    // Apple button behavior
-      document.getElementById('appleBtn').addEventListener('click', function (e) {
-        e.preventDefault();
-        sendGAEvent('apple_click', 'apple_button');
-        console.log('Apple button clicked');
-        // Replace with your real App Store URL
-        var appStoreUrl = 'https://apps.apple.com/app/sportsheart/id6754208862';
-        // open in a new tab/window after tracking
-        window.open(appStoreUrl, '_blank');
-      });
-
-    // Google Play button shows invite form
-    var googleBtn = document.getElementById('googleBtn');
-    var googleForm = document.getElementById('googleForm');
-      googleBtn.addEventListener('click', function () {
-        sendGAEvent('google_click', 'google_button');
-        console.log('Google Play button clicked');
-        googleForm.style.display = 'block';
-        document.getElementById('inviteEmail').focus();
-      });
-
-    // Invite form submission: try POST to /invite (if you add a backend), save to localStorage as fallback
-    function handleInviteSubmit(e) {
-      e.preventDefault();
-      var email = document.getElementById('inviteEmail').value.trim();
-      if (!email) return false;
-
-      sendGAEvent('invite_submit', 'google_invite');
-        console.log('Invite requested for', email);
-
-      // try to POST to /invite endpoint (no-op if missing)
-      try {
-        var inviteEndpoint = 'https://laraiyeogithubio-production-f5af.up.railway.app/api/invite';
-        if (navigator.sendBeacon) {
-          var payload = JSON.stringify({ email: email, ts: Date.now() });
-          navigator.sendBeacon(inviteEndpoint, payload);
-        } else {
-          fetch(inviteEndpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email }) }).catch(()=>{});
+        } catch (e) {
+          console.warn("GA error", e);
         }
-      } catch (err) { /* ignore */ }
-
-      // store locally so you can download later from this browser
-      try {
-        var invites = JSON.parse(localStorage.getItem('app_invites') || '[]');
-        invites.push({ email: email, ts: new Date().toISOString() });
-        localStorage.setItem('app_invites', JSON.stringify(invites));
-      } catch (err) { console.warn(err) }
-
-      document.getElementById('inviteMessage').textContent = 'Thanks — request saved. You will be contacted if accepted.';
-        console.log('Invite stored locally for', email);
-      document.getElementById('inviteEmail').value = '';
-      return false;
-    }
-
-    // Track users who close the tab or navigate away
-    var closedTracked = false;
-      function trackClose() {
-        if (closedTracked) return; closedTracked = true;
-        console.log('User closed or navigated away — tracking close event');
-        sendGAEvent('close_tab', 'user_left');
       }
 
-      document.addEventListener('visibilitychange', function() {
+      // Apple button behavior
+      document
+        .getElementById("appleBtn")
+        .addEventListener("click", function (e) {
+          e.preventDefault();
+          sendGAEvent("apple_click", "apple_button");
+          console.log("Apple button clicked");
+          // Replace with your real App Store URL
+          var appStoreUrl =
+            "https://apps.apple.com/app/sportsheart/id6754208862";
+          // open in a new tab/window after tracking
+          window.open(appStoreUrl, "_blank");
+        });
+
+      // Google Play button shows invite form
+      var googleBtn = document.getElementById("googleBtn");
+      var googleForm = document.getElementById("googleForm");
+      googleBtn.addEventListener("click", function () {
+        sendGAEvent("google_click", "google_button");
+        console.log("Google Play button clicked");
+        googleForm.style.display = "block";
+        document.getElementById("inviteEmail").focus();
+      });
+
+      // Invite form submission: try POST to /invite (if you add a backend), save to localStorage as fallback
+      function handleInviteSubmit(e) {
+        e.preventDefault();
+        var email = document.getElementById("inviteEmail").value.trim();
+        if (!email) return false;
+
+        sendGAEvent("invite_submit", "google_invite");
+        console.log("Invite requested for", email);
+
+        // try to POST to /invite endpoint (no-op if missing)
+        try {
+          var inviteEndpoint =
+            "https://laraiyeogithubio-production-f5af.up.railway.app/api/invite";
+          if (navigator.sendBeacon) {
+            var payload = JSON.stringify({ email: email, ts: Date.now() });
+            navigator.sendBeacon(inviteEndpoint, payload);
+          } else {
+            fetch(inviteEndpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: email }),
+            }).catch(() => {});
+          }
+        } catch (err) {
+          /* ignore */
+        }
+
+        // store locally so you can download later from this browser
+        try {
+          var invites = JSON.parse(localStorage.getItem("app_invites") || "[]");
+          invites.push({ email: email, ts: new Date().toISOString() });
+          localStorage.setItem("app_invites", JSON.stringify(invites));
+        } catch (err) {
+          console.warn(err);
+        }
+
+        document.getElementById("inviteMessage").textContent =
+          "Thanks — request saved. You will be contacted if accepted.";
+        console.log("Invite stored locally for", email);
+        document.getElementById("inviteEmail").value = "";
+        return false;
+      }
+
+      // Track users who close the tab or navigate away
+      var closedTracked = false;
+      function trackClose() {
+        if (closedTracked) return;
+        closedTracked = true;
+        console.log("User closed or navigated away — tracking close event");
+        sendGAEvent("close_tab", "user_left");
+      }
+
+      document.addEventListener("visibilitychange", function () {
         if (document.hidden) trackClose();
       });
-      window.addEventListener('beforeunload', function() { trackClose(); });
-  </script>
-</body>
+      window.addEventListener("beforeunload", function () {
+        trackClose();
+      });
+    </script>
+  </body>
 </html>
