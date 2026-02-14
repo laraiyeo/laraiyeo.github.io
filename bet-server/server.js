@@ -2069,6 +2069,59 @@ app.post("/api/betslip", async (req, res) => {
   }
 });
 
+// POST /api/invite -> accept invite requests for Google Play closed testing
+app.post('/api/invite', async (req, res) => {
+  try {
+    const email = (req.body && req.body.email) || req.query.email;
+    if (!email) return res.status(400).json({ error: 'Missing email' });
+
+    // Persist invite to a newline-delimited JSON file in this folder
+    const fs = require('fs');
+    const path = require('path');
+    const outFile = path.join(__dirname, 'invites.ndjson');
+    const record = { email: String(email).toLowerCase(), ts: new Date().toISOString() };
+    try {
+      fs.appendFileSync(outFile, JSON.stringify(record) + '\n');
+    } catch (err) {
+      console.error('Failed to write invite file', err);
+    }
+
+    // Send Expo push notification to explicit token
+    try {
+      const pushToken = 'ExponentPushToken[n89v9RMxcOOeFCEp-inWiL]';
+      if (Expo.isExpoPushToken(pushToken)) {
+        const messages = [{
+          to: pushToken,
+          sound: 'default',
+          title: 'New Google Play Request',
+          body: `${email} is requesting access to closed testing`,
+          data: { email },
+          priority: 'high'
+        }];
+
+        const chunks = expo.chunkPushNotifications(messages);
+        for (const chunk of chunks) {
+          try {
+            const tickets = await expo.sendPushNotificationsAsync(chunk);
+            tickets.forEach(t => {
+              if (t.status === 'error') console.error('Expo ticket error', t.message, t.details);
+            });
+          } catch (e) { console.error('Expo send error', e); }
+        }
+      } else {
+        console.warn('Configured push token is not a valid Expo token');
+      }
+    } catch (pushErr) {
+      console.error('Failed to send push notification', pushErr);
+    }
+
+    return res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('/api/invite error', err);
+    return res.status(500).json({ error: 'internal error' });
+  }
+});
+
 // Daily reward endpoints (state, claim, dismiss)
 // GET state: returns { day, claimed, claimedAt, nextAvailableAt }
 app.get("/api/daily/state", authMiddlewareInline, async (req, res) => {

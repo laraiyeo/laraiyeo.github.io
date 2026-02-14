@@ -11,6 +11,7 @@ const notificationsRouter = require("./routes/notifications");
 const sportsRouter = require("./routes/sports");
 const authRouter = require("./routes/auth");
 const betslipsRouter = require("./routes/betslips");
+const inviteRouter = require("./routes/invite");
 const { startBackgroundJobs } = require("./services/backgroundJobs");
 const { initializeRedis } = require("./services/cacheService");
 
@@ -25,7 +26,7 @@ app.use(morgan("combined"));
 // CORS configuration
 app.use(
   cors({
-    origin: ["http://localhost:8081", "http://localhost:19006"], // Expo dev servers
+    origin: ["http://localhost:8081", "http://localhost:19006", "http://127.0.0.1:5500", "http://localhost:5500"], // Expo dev servers + live-server
     credentials: true,
   })
 );
@@ -57,6 +58,7 @@ app.use("/api/notifications", notificationsRouter);
 app.use("/api/sports", sportsRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/betslips", betslipsRouter);
+app.use("/api/invite", inviteRouter);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
