@@ -146,15 +146,12 @@
       // Helper: send GA event if gtag exists
       function sendGAEvent(action, label) {
         try {
-          console.log("GA event:", action, label);
           if (window.gtag) {
             gtag("event", action, {
               event_category: "engagement",
               event_label: label,
             });
-            console.log("gtag called for", action);
           } else {
-            console.log("gtag not available for", action);
           }
         } catch (e) {
           console.warn("GA error", e);
@@ -167,7 +164,6 @@
         .addEventListener("click", function (e) {
           e.preventDefault();
           sendGAEvent("apple_click", "apple_button");
-          console.log("Apple button clicked");
           // Replace with your real App Store URL
           var appStoreUrl =
             "https://apps.apple.com/app/sportsheart/id6754208862";
@@ -180,7 +176,6 @@
       var googleForm = document.getElementById("googleForm");
       googleBtn.addEventListener("click", function () {
         sendGAEvent("google_click", "google_button");
-        console.log("Google Play button clicked");
         googleForm.style.display = "block";
         document.getElementById("inviteEmail").focus();
       });
@@ -192,7 +187,6 @@
         if (!email) return false;
 
         sendGAEvent("invite_submit", "google_invite");
-        console.log("Invite requested for", email);
 
         // try to POST to invite endpoint; prefer fetch(JSON) so Content-Type is correct.
         var inviteEndpoint =
@@ -200,14 +194,12 @@
         var inviteSent = false;
         try {
           // Attempt fetch first so the request uses application/json and is visible in DevTools
-          console.log("Sending invite via fetch to", inviteEndpoint);
           var resp = await fetch(inviteEndpoint, {
             method: "POST",
             mode: "cors",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email: email, ts: Date.now() }),
           });
-          console.log("Invite fetch response", resp && resp.status);
           if (resp && resp.ok) {
             inviteSent = true;
             document.getElementById("inviteMessage").textContent =
@@ -227,7 +219,6 @@
               var payload = JSON.stringify({ email: email, ts: Date.now() });
               var blob = new Blob([payload], { type: "application/json" });
               var beaconOk = navigator.sendBeacon(inviteEndpoint, blob);
-              console.log("sendBeacon result:", beaconOk);
               if (beaconOk) {
                 inviteSent = true;
                 document.getElementById("inviteMessage").textContent =
@@ -255,7 +246,6 @@
 
         document.getElementById("inviteMessage").textContent =
           "Thanks — request saved. You will be contacted if accepted.";
-        console.log("Invite stored locally for", email);
         document.getElementById("inviteEmail").value = "";
         return false;
       }
@@ -265,7 +255,6 @@
       function trackClose() {
         if (closedTracked) return;
         closedTracked = true;
-        console.log("User closed or navigated away — tracking close event");
         sendGAEvent("close_tab", "user_left");
       }
 

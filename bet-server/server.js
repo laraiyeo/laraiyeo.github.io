@@ -10587,7 +10587,12 @@ function startWatcherInline(betslipId) {
                   gameId: gid,
                   type: "moneyline",
                   team: ev.bets.moneyline.team,
-                  current: ev.bets.moneyline.current,
+                  // preserve authoritative won/current shape from payload
+                  won: ev.bets.moneyline.won,
+                  current:
+                    ev.bets.moneyline && typeof ev.bets.moneyline.current === "object"
+                      ? ev.bets.moneyline.current
+                      : { current: ev.bets.moneyline.current, won: ev.bets.moneyline.won },
                 });
               }
               // total points
@@ -10597,10 +10602,11 @@ function startWatcherInline(betslipId) {
                   gameId: gid,
                   type: "total",
                   line: ev.bets.totalPoints.line,
-                  current: {
-                    current: ev.bets.totalPoints.current,
-                    won: ev.bets.totalPoints.won,
-                  },
+                  // keep both top-level won and a structured current for watcher
+                  won: ev.bets.totalPoints.won,
+                  current: ev.bets.totalPoints.current && typeof ev.bets.totalPoints.current === "object"
+                    ? ev.bets.totalPoints.current
+                    : { current: ev.bets.totalPoints.current, won: ev.bets.totalPoints.won },
                 });
               }
               // spread
@@ -10610,7 +10616,15 @@ function startWatcherInline(betslipId) {
                   gameId: gid,
                   type: "spread",
                   team: ev.bets.spread.team,
-                  current: ev.bets.spread.current,
+                  // include authoritative won flag and line info so watcher
+                  // can rely on the betslip payload instead of heuristics
+                  won: ev.bets.spread.won,
+                  line: ev.bets.spread.line,
+                  lineDisplay: ev.bets.spread.lineDisplay || ev.bets.spread.lineDisplay,
+                  current:
+                    ev.bets.spread && typeof ev.bets.spread.current === "object"
+                      ? ev.bets.spread.current
+                      : { current: ev.bets.spread.current, won: ev.bets.spread.won },
                 });
               }
               // players

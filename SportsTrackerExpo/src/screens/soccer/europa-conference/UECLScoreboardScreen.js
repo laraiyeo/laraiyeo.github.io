@@ -574,6 +574,9 @@ const UECLScoreboardScreen = ({ navigation, route }) => {
         ? "KO-playoffs"
         : game.season.slug;
 
+    const aggHomeScore = competition.leg && competition.leg.value === 1 ? ` (${homeTeam?.score || 0})` : competition.series.competitors[0]?.aggregateScore >= 0 ? ` (${competition.series.competitors[0].aggregateScore})` : "";
+    const aggAwayScore = competition.leg && competition.leg.value === 1 ? ` (${awayTeam?.score || 0})` : competition.series.competitors[1]?.aggregateScore >= 0 ? ` (${competition.series.competitors[1].aggregateScore})` : "";
+
     return (
       <TouchableOpacity
         style={[styles.gameCard, { backgroundColor: theme.surface }]}
@@ -643,10 +646,7 @@ const UECLScoreboardScreen = ({ navigation, route }) => {
                 homeTeam?.team?.displayName ||
                 "TBD"}
               <Text style={{ color: colors.accent }}>
-                {competition.leg &&
-                competition.series.competitors[0]?.aggregateScore >= 0
-                  ? ` (${competition.series.competitors[0].aggregateScore})`
-                  : ""}
+                {aggHomeScore}
               </Text>
             </Text>
           </View>
@@ -728,10 +728,7 @@ const UECLScoreboardScreen = ({ navigation, route }) => {
                 awayTeam?.team?.displayName ||
                 "TBD"}
               <Text style={{ color: colors.accent }}>
-                {competition.leg &&
-                competition.series.competitors[1]?.aggregateScore >= 0
-                  ? ` (${competition.series.competitors[1].aggregateScore})`
-                  : ""}
+                {aggAwayScore}
               </Text>
             </Text>
           </View>

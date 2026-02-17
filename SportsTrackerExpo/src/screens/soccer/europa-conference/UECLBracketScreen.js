@@ -13,7 +13,7 @@ import {
   Image,
 } from "react-native";
 import { useTheme } from "../../../context/ThemeContext";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import {
   fetchScoreboardOnce,
   fetchStandingsOnce,
@@ -41,6 +41,7 @@ const LEAGUES = {
 
 const UECLBracketScreen = ({ navigation, route }) => {
   const { theme, colors, isDarkMode } = useTheme();
+  const nav = navigation ?? useNavigation();
 
   // View state: 'bracket' or 'knockout' (default to 'knockout')
   const [currentView, setCurrentView] = useState("knockout");
@@ -713,7 +714,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
   // Handle game press for navigation
   const handleGamePress = (gameId) => {
     setModalVisible(false);
-    navigation.navigate("UECLGameDetails", {
+    nav.navigate("UECLGameDetails", {
       gameId: gameId,
       sport: "Europa Conference League",
       competition: "UECL",
@@ -1679,44 +1680,63 @@ const UECLBracketScreen = ({ navigation, route }) => {
 
     return (
       <View style={styles.cardContent}>
-        <View
-          style={[
-            styles.teamInfo,
-            { flexDirection: "row", justifyContent: "center" },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[
-              styles.teamName,
-              {
-                color: firstIsWinner && !isTie ? colors.primary : theme.text,
-                borderBottomWidth: 2,
-                borderBottomColor: firstTeam?.color
-                  ? `#${firstTeam.color}`
-                  : theme.border,
-              },
-            ]}
-          >
-            {firstTeam.abbreviation || firstTeam.shortDisplayName}
-          </Text>
-          <Text style={{ color: theme.text }}> - </Text>
-          <Text
-            allowFontScaling={false}
-            style={[
-              styles.teamName,
-              {
-                color: !firstIsWinner && !isTie ? colors.primary : theme.text,
-                borderBottomWidth: 2,
-                borderBottomColor: secondTeam?.color
-                  ? `#${secondTeam.color}`
-                  : theme.border,
-              },
-            ]}
-          >
-            {secondTeam.abbreviation || secondTeam.shortDisplayName}
-          </Text>
-        </View>
+<View
+  style={[
+    styles.teamInfo,
+    { flexDirection: "row", justifyContent: "center" },
+  ]}
+>
+  <View
+    style={{
+      borderBottomWidth: 2,
+      borderBottomColor: firstTeam?.color
+        ? `#${firstTeam.color}`
+        : theme.border,
+    }}
+  >
+    <Text
+      allowFontScaling={false}
+      style={[
+        styles.teamName,
+        {
+          color:
+            firstIsWinner && !isTie
+              ? colors.primary
+              : theme.text,
+        },
+      ]}
+    >
+      {firstTeam.abbreviation || firstTeam.shortDisplayName}
+    </Text>
+  </View>
+
+  <Text style={{ color: theme.text }}> - </Text>
+
+  <View
+    style={{
+      borderBottomWidth: 2,
+      borderBottomColor: secondTeam?.color
+        ? `#${secondTeam.color}`
+        : theme.border,
+    }}
+  >
+    <Text
+      allowFontScaling={false}
+      style={[
+        styles.teamName,
+        {
+          color:
+            !firstIsWinner && !isTie
+              ? colors.primary
+              : theme.text,
+        },
+      ]}
+    >
+      {secondTeam.abbreviation || secondTeam.shortDisplayName}
+    </Text>
+  </View>
+</View>
+
         <View style={styles.scoreSection}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             {firstTeam?.id ? (
