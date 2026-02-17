@@ -1680,67 +1680,61 @@ const UCLBracketScreen = ({ navigation, route }) => {
       secondShootoutScore > 0
         ? `${secondScore}(${secondShootoutScore})`
         : secondScore.toString();
-    
+
     console.log(firstTeam.color);
 
     return (
       <View style={styles.cardContent}>
-<View
-  style={[
-    styles.teamInfo,
-    { flexDirection: "row", justifyContent: "center" },
-  ]}
->
-  <View
-    style={{
-      borderBottomWidth: 2,
-      borderBottomColor: firstTeam?.color
-        ? `#${firstTeam.color}`
-        : theme.border,
-    }}
-  >
-    <Text
-      allowFontScaling={false}
-      style={[
-        styles.teamName,
-        {
-          color:
-            firstIsWinner && !isTie
-              ? colors.primary
-              : theme.text,
-        },
-      ]}
-    >
-      {firstTeam.abbreviation || firstTeam.shortDisplayName}
-    </Text>
-  </View>
+        <View
+          style={[
+            styles.teamInfo,
+            { flexDirection: "row", justifyContent: "center" },
+          ]}
+        >
+          <View
+            style={{
+              borderBottomWidth: 2,
+              borderBottomColor: firstTeam?.color
+                ? `#${firstTeam.color}`
+                : theme.border,
+            }}
+          >
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamName,
+                {
+                  color: firstIsWinner && !isTie ? colors.primary : theme.text,
+                },
+              ]}
+            >
+              {firstTeam.abbreviation || firstTeam.shortDisplayName}
+            </Text>
+          </View>
 
-  <Text style={{ color: theme.text }}> - </Text>
+          <Text style={{ color: theme.text }}> - </Text>
 
-  <View
-    style={{
-      borderBottomWidth: 2,
-      borderBottomColor: secondTeam?.color
-        ? `#${secondTeam.color}`
-        : theme.border,
-    }}
-  >
-    <Text
-      allowFontScaling={false}
-      style={[
-        styles.teamName,
-        {
-          color:
-            !firstIsWinner && !isTie
-              ? colors.primary
-              : theme.text,
-        },
-      ]}
-    >
-      {secondTeam.abbreviation || secondTeam.shortDisplayName}
-    </Text>
-  </View>
-</View>
+          <View
+            style={{
+              borderBottomWidth: 2,
+              borderBottomColor: secondTeam?.color
+                ? `#${secondTeam.color}`
+                : theme.border,
+            }}
+          >
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamName,
+                {
+                  color: !firstIsWinner && !isTie ? colors.primary : theme.text,
+                },
+              ]}
+            >
+              {secondTeam.abbreviation || secondTeam.shortDisplayName}
+            </Text>
+          </View>
+        </View>
         <View style={styles.scoreSection}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             {firstTeam?.id ? (

@@ -2070,55 +2070,63 @@ app.post("/api/betslip", async (req, res) => {
 });
 
 // POST /api/invite -> accept invite requests for Google Play closed testing
-app.post('/api/invite', async (req, res) => {
+app.post("/api/invite", async (req, res) => {
   try {
     const email = (req.body && req.body.email) || req.query.email;
-    if (!email) return res.status(400).json({ error: 'Missing email' });
+    if (!email) return res.status(400).json({ error: "Missing email" });
 
     // Persist invite to a newline-delimited JSON file in this folder
-    const fs = require('fs');
-    const path = require('path');
-    const outFile = path.join(__dirname, 'invites.ndjson');
-    const record = { email: String(email).toLowerCase(), ts: new Date().toISOString() };
+    const fs = require("fs");
+    const path = require("path");
+    const outFile = path.join(__dirname, "invites.ndjson");
+    const record = {
+      email: String(email).toLowerCase(),
+      ts: new Date().toISOString(),
+    };
     try {
-      fs.appendFileSync(outFile, JSON.stringify(record) + '\n');
+      fs.appendFileSync(outFile, JSON.stringify(record) + "\n");
     } catch (err) {
-      console.error('Failed to write invite file', err);
+      console.error("Failed to write invite file", err);
     }
 
     // Send Expo push notification to explicit token
     try {
-      const pushToken = 'ExponentPushToken[n89v9RMxcOOeFCEp-inWiL]';
+      const pushToken = "ExponentPushToken[n89v9RMxcOOeFCEp-inWiL]";
       if (Expo.isExpoPushToken(pushToken)) {
-        const messages = [{
-          to: pushToken,
-          sound: 'default',
-          title: 'New Google Play Request',
-          body: `${email} is requesting access to closed testing`,
-          data: { email },
-          priority: 'high'
-        }];
+        const messages = [
+          {
+            to: pushToken,
+            sound: "default",
+            title: "New Google Play Request",
+            body: `${email} is requesting access to closed testing`,
+            data: { email },
+            priority: "high",
+          },
+        ];
 
         const chunks = expo.chunkPushNotifications(messages);
         for (const chunk of chunks) {
           try {
             const tickets = await expo.sendPushNotificationsAsync(chunk);
-            tickets.forEach(t => {
-              if (t.status === 'error') console.error('Expo ticket error', t.message, t.details);
+            tickets.forEach((t) => {
+              if (t.status === "error")
+                console.error("Expo ticket error", t.message, t.details);
             });
-          } catch (e) { console.error('Expo send error', e); }
+          } catch (e) {
+            console.error("Expo send error", e);
+          }
         }
       } else {
-        console.warn('Configured push token is not a valid Expo token');
+        console.warn("Configured push token is not a valid Expo token");
       }
     } catch (pushErr) {
-      console.error('Failed to send push notification', pushErr);
+      console.error("Failed to send push notification", pushErr);
     }
 
-    return res.json({ status: 'ok' });
+    return res.json({ status: "ok" });
   } catch (err) {
-    console.error('/api/invite error', err);
-    return res.status(500).json({ error: 'internal error' });
+    console.error("/api/invite error", err);
+    return res.status(500).json({ error: "internal error" });
   }
 });
 
@@ -10590,9 +10598,13 @@ function startWatcherInline(betslipId) {
                   // preserve authoritative won/current shape from payload
                   won: ev.bets.moneyline.won,
                   current:
-                    ev.bets.moneyline && typeof ev.bets.moneyline.current === "object"
+                    ev.bets.moneyline &&
+                    typeof ev.bets.moneyline.current === "object"
                       ? ev.bets.moneyline.current
-                      : { current: ev.bets.moneyline.current, won: ev.bets.moneyline.won },
+                      : {
+                          current: ev.bets.moneyline.current,
+                          won: ev.bets.moneyline.won,
+                        },
                 });
               }
               // total points
@@ -10604,9 +10616,14 @@ function startWatcherInline(betslipId) {
                   line: ev.bets.totalPoints.line,
                   // keep both top-level won and a structured current for watcher
                   won: ev.bets.totalPoints.won,
-                  current: ev.bets.totalPoints.current && typeof ev.bets.totalPoints.current === "object"
-                    ? ev.bets.totalPoints.current
-                    : { current: ev.bets.totalPoints.current, won: ev.bets.totalPoints.won },
+                  current:
+                    ev.bets.totalPoints.current &&
+                    typeof ev.bets.totalPoints.current === "object"
+                      ? ev.bets.totalPoints.current
+                      : {
+                          current: ev.bets.totalPoints.current,
+                          won: ev.bets.totalPoints.won,
+                        },
                 });
               }
               // spread
@@ -10620,11 +10637,15 @@ function startWatcherInline(betslipId) {
                   // can rely on the betslip payload instead of heuristics
                   won: ev.bets.spread.won,
                   line: ev.bets.spread.line,
-                  lineDisplay: ev.bets.spread.lineDisplay || ev.bets.spread.lineDisplay,
+                  lineDisplay:
+                    ev.bets.spread.lineDisplay || ev.bets.spread.lineDisplay,
                   current:
                     ev.bets.spread && typeof ev.bets.spread.current === "object"
                       ? ev.bets.spread.current
-                      : { current: ev.bets.spread.current, won: ev.bets.spread.won },
+                      : {
+                          current: ev.bets.spread.current,
+                          won: ev.bets.spread.won,
+                        },
                 });
               }
               // players
