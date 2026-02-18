@@ -1,0 +1,2221 @@
+const express = require("express");
+const axios = require("axios");
+const cors = require("cors");
+const compression = require("compression");
+const msgpack = require("@msgpack/msgpack");
+
+const app = express();
+app.use(cors());
+// enable gzip/deflate compression (and brotli when Node chooses)
+app.use(compression());
+
+const PORT = process.env.PORT || 3000;
+
+// Head URL for MLB stats API
+const BASE_URL = "https://statsapi.mlb.com/api/";
+
+// Cache store: { [key]: { data, fetchedAt } }
+const cache = new Map();
+const TTL_MS = 30 * 60 * 1000; // 30 minutes
+// Map of refresh intervals for keys that should be kept refreshed
+const refreshIntervals = new Map();
+// track special modes for bracket polling
+const bracketModes = new Map();
+
+// Embedded explicit allowedTree literal to preserve selected starred fields
+// NOTE: This is a static whitelist embedded to avoid runtime file reads.
+const allowedTree = {
+  gameData: {
+    game: {
+      pk: true,
+      type: true,
+    },
+    datetime: { dateTime: true, dayNight: true },
+    status: { codedGameState: true, detailedState: true },
+    teams: {
+      away: {
+        id: true,
+        name: true,
+        abbreviation: true,
+        record: { wins: true, losses: true, winningPercentage: true },
+      },
+      home: {
+        id: true,
+        name: true,
+        abbreviation: true,
+        record: { wins: true, losses: true },
+      },
+    },
+    players: {
+      "*": {
+        id: true,
+        fullName: true,
+        primaryNumber: true,
+        currentAge: true,
+        height: true,
+        batSide: { code: true },
+        pitchHand: { code: true },
+      },
+    },
+    venue: { name: true, fieldInfo: true },
+    weather: { condition: true, temp: true, wind: true },
+    gameInfo: { attendance: true, firstPitch: true, gameDurationMinutes: true },
+    review: {
+      away: { used: true, remaining: true },
+      home: { used: true, remaining: true },
+    },
+    probablePitchers: {
+      away: { id: true, fullName: true },
+      home: { id: true, fullName: true },
+    },
+  },
+  liveData: {
+    plays: {
+      allPlays: {
+        "*": {
+          result: {
+            type: true,
+            event: true,
+            description: true,
+            awayScore: true,
+            homeScore: true,
+          },
+          about: { isTopInning: true, inning: true, isScoringPlay: true },
+          count: { balls: true, strikes: true, outs: true },
+          matchup: {
+            batter: { id: true },
+            pitcher: { id: true },
+            postOnFirst: true,
+            postOnSecond: true,
+            postOnThird: true,
+            splits: { menOnBase: true },
+          },
+          playEvents: {
+            "*": {
+              details: {
+                call: true,
+                description: true,
+                event: true,
+                type: true,
+              },
+              count: { balls: true, strikes: true, outs: true },
+              pitchData: {
+                startSpeed: true,
+                endSpeed: true,
+                strikeZoneTop: true,
+                strikeZoneBottom: true,
+                coordinates: { pX: true, pZ: true },
+                breaks: { spinRate: true },
+              },
+              hitData: {
+                launchSpeed: true,
+                launchAngle: true,
+                totalDistance: true,
+              },
+            },
+          },
+        },
+      },
+      currentPlay: {
+        result: {
+          type: true,
+          event: true,
+          description: true,
+          awayScore: true,
+          homeScore: true,
+        },
+        about: { isTopInning: true, inning: true, isScoringPlay: true },
+        count: { balls: true, strikes: true, outs: true },
+        matchup: {
+          batter: { id: true },
+          pitcher: { id: true },
+          postOnFirst: true,
+          postOnSecond: true,
+          postOnThird: true,
+          splits: { menOnBase: true },
+        },
+        playEvents: {
+          "*": {
+            details: { call: true, description: true, event: true, type: true },
+            count: { balls: true, strikes: true, outs: true },
+            pitchData: {
+              startSpeed: true,
+              endSpeed: true,
+              strikeZoneTop: true,
+              strikeZoneBottom: true,
+              coordinates: { pX: true, pZ: true },
+              breaks: { spinRate: true },
+            },
+            hitData: {
+              launchSpeed: true,
+              launchAngle: true,
+              totalDistance: true,
+            },
+          },
+        },
+      },
+    },
+    linescore: {
+      currentInning: true,
+      isTopInning: true,
+      innings: { num: true, home: true, away: true },
+      teams: true,
+      defense: {
+        "*": {
+          id: true,
+        },
+      },
+      offense: {
+        "*": {
+          id: true,
+        },
+      },
+    },
+    boxscore: {
+      teams: {
+        "*": {
+          team: { id: true },
+          teamStats: {
+            "*": {
+              runs: true,
+              homeRuns: true,
+              strikeOuts: true,
+              baseOnBalls: true,
+              hits: true,
+              avg: true,
+              atBats: true,
+              obp: true,
+              slg: true,
+              ops: true,
+              stolenBases: true,
+              totalBases: true,
+              rbi: true,
+              era: true,
+              whip: true,
+              strikePercentage: true,
+            },
+          },
+          players: {
+            "*": {
+              person: { id: true },
+              position: { name: true, abbreviation: true },
+              stats: {
+                "*": {
+                  summary: true,
+                  runs: true,
+                  homeRuns: true,
+                  strikeOuts: true,
+                  baseOnBalls: true,
+                  hits: true,
+                  atBats: true,
+                  obp: true,
+                  slg: true,
+                  ops: true,
+                  plateAppearances: true,
+                  stolenBases: true,
+                  totalBases: true,
+                  leftOnBase: true,
+                  rbi: true,
+                  era: true,
+                  whip: true,
+                  numberOfPitches: true,
+                  inningsPitched: true,
+                  battersFaced: true,
+                  balls: true,
+                  strikes: true,
+                  strikePercentage: true,
+                  assists: true,
+                  putOuts: true,
+                },
+              },
+              gameStatus: { isOnBench: true, isSubstitute: true },
+              pitches: true,
+            },
+          },
+          batters: true,
+          pitchers: true,
+          bench: true,
+          bullpen: true,
+          battingOrder: true,
+        },
+      },
+      officials: {
+        "*": {
+          official: { fullName: true },
+          officialType: true,
+        },
+      },
+      topPerformers: {
+        "*": {
+          player: { person: { id: true } },
+          gameScore: true,
+        },
+      },
+    },
+    decisions: {
+      "*": {
+        id: true,
+      },
+    },
+  },
+};
+
+function pruneWithTree(obj, tree) {
+  if (tree === true) return obj;
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj !== "object") return obj;
+
+  // Arrays: apply element tree (use '*' entry if present)
+  if (Array.isArray(obj)) {
+    const elementTree = (tree && tree["*"]) || tree;
+    return obj
+      .map((it) => pruneWithTree(it, elementTree === true ? true : elementTree))
+      .filter((v) => v !== undefined);
+  }
+
+  const out = {};
+  for (const k of Object.keys(obj)) {
+    let childTree = undefined;
+    if (tree && Object.prototype.hasOwnProperty.call(tree, k))
+      childTree = tree[k];
+    else if (tree && Object.prototype.hasOwnProperty.call(tree, "*"))
+      childTree = tree["*"];
+    if (childTree === undefined) continue;
+    if (childTree === true) {
+      out[k] = obj[k];
+    } else {
+      const pr = pruneWithTree(obj[k], childTree);
+      if (pr !== undefined) out[k] = pr;
+    }
+  }
+  return out;
+}
+
+// Helper for custom TTL/cache builders
+async function getCachedCustom(key, ttlMs, builder) {
+  const entry = cache.get(key);
+  if (entry) {
+    const age = Date.now() - entry.fetchedAt;
+    if (age < ttlMs) {
+      return { data: entry.data, fromCache: true };
+    }
+  }
+  const data = await builder();
+  cache.set(key, { data, fetchedAt: Date.now() });
+  return { data, fromCache: false };
+}
+
+// helper to set Cache-Control and ETag-safe headers for cached responses
+function setCachingHeaders(res, ttlMs) {
+  // public caching for ttlMs seconds
+  const secs = Math.max(0, Math.floor((ttlMs || TTL_MS) / 1000));
+  res.setHeader("Cache-Control", `public, max-age=${secs}`);
+}
+
+async function fetchAndCache(key, url) {
+  try {
+    const res = await axios.get(url, { timeout: 10000 });
+    const payload = res.data;
+    cache.set(key, { data: payload, fetchedAt: Date.now() });
+    console.log(`Fetched and cached ${key}`);
+    return { data: payload, fromCache: false };
+  } catch (err) {
+    console.error(`Error fetching ${url}:`, err.message);
+    throw err;
+  }
+}
+
+async function getCached(key, url) {
+  const entry = cache.get(key);
+  if (entry) {
+    const age = Date.now() - entry.fetchedAt;
+    if (age < TTL_MS) {
+      return { data: entry.data, fromCache: true };
+    }
+  }
+  return await fetchAndCache(key, url);
+}
+
+// Specific endpoint required by the user
+app.get("/leagues", async (req, res) => {
+  const path = "v1/leagues?sportId=51";
+  const url = `${BASE_URL}${path}`;
+  const key = path;
+  try {
+    const { data, fromCache } = await getCached(key, url);
+    setCachingHeaders(res, TTL_MS);
+    setCachingHeaders(res, SEARCH_TTL_MS);
+    res.json({ source: fromCache ? "cache" : "origin", data });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch leagues", details: err.message });
+  }
+});
+
+// Generic proxy for future endpoints (caches per path+query)
+app.get("/proxy/*", async (req, res) => {
+  const path = req.params[0] || "";
+  const qs = req.url.split("?")[1] || "";
+  const fullPath = qs ? `${path}?${qs}` : path;
+  const url = `${BASE_URL}${fullPath}`;
+  const key = fullPath;
+  try {
+    const { data, fromCache } = await getCached(key, url);
+    setCachingHeaders(res, TTL_MS);
+    res.json({ source: fromCache ? "cache" : "origin", data });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch proxy", details: err.message });
+  }
+});
+
+// Health-check
+app.get("/health", (req, res) => {
+  const entries = {};
+  for (const [k, v] of cache.entries()) {
+    entries[k] = { ageMs: Date.now() - v.fetchedAt };
+  }
+  res.json({ status: "ok", cachedKeys: Object.keys(entries).length, entries });
+});
+
+app.get("/", (req, res) => {
+  res.json({ message: "Baseball server running", baseUrl: BASE_URL });
+});
+
+// Warm cache for leagues on startup and refresh periodically
+const LEAGUES_PATH = "v1/leagues?sportId=51";
+async function warmLeagues() {
+  const url = `${BASE_URL}${LEAGUES_PATH}`;
+  try {
+    await fetchAndCache(LEAGUES_PATH, url);
+  } catch (err) {
+    console.warn("Warm-up fetch failed:", err.message);
+  }
+}
+
+// Teams
+const TEAMS_PATH =
+  "v1/teams?leagueIds=159,160&fields=teams,id,name,venue,name,abbreviation,locationName,league,id,name,division,id,name";
+async function warmTeams() {
+  const url = `${BASE_URL}${TEAMS_PATH}`;
+  try {
+    await fetchAndCache(TEAMS_PATH, url);
+  } catch (err) {
+    console.warn("Warm-up teams failed:", err.message);
+  }
+}
+
+app.get("/wbc/teams", async (req, res) => {
+  const path = TEAMS_PATH;
+  const url = `${BASE_URL}${path}`;
+  const key = path;
+  try {
+    const { data, fromCache } = await getCached(key, url);
+    // ensure we have a refresh interval for teams
+    if (!refreshIntervals.has(key)) {
+      const id = setInterval(
+        () => fetchAndCache(key, url).catch(() => {}),
+        TTL_MS,
+      );
+      refreshIntervals.set(key, id);
+    }
+    setCachingHeaders(res, TTL_MS);
+    res.json({ source: fromCache ? "cache" : "origin", data });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch teams", details: err.message });
+  }
+});
+
+// Players
+const PLAYERS_PATH =
+  "v1/sports/51/players?fields=people,id,fullName,primaryNumber,currentTeam,id,primaryPosition,name,abbreviation";
+async function warmPlayers() {
+  const url = `${BASE_URL}${PLAYERS_PATH}`;
+  try {
+    await fetchAndCache(PLAYERS_PATH, url);
+  } catch (err) {
+    console.warn("Warm-up players failed:", err.message);
+  }
+}
+
+app.get("/wbc/players", async (req, res) => {
+  const path = PLAYERS_PATH;
+  const url = `${BASE_URL}${path}`;
+  const key = path;
+  try {
+    const { data, fromCache } = await getCached(key, url);
+    // ensure we have a refresh interval for players
+    if (!refreshIntervals.has(key)) {
+      const id = setInterval(
+        () => fetchAndCache(key, url).catch(() => {}),
+        TTL_MS,
+      );
+      refreshIntervals.set(key, id);
+    }
+    setCachingHeaders(res, TTL_MS);
+    res.json({ source: fromCache ? "cache" : "origin", data });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch players", details: err.message });
+  }
+});
+
+// Team schedule - merge schedule data for a team for 2025
+app.get("/wbc/teamSchedule/:code", async (req, res) => {
+  const code = req.params.code;
+  if (!code) return res.status(400).json({ error: "team code required" });
+
+  const FIELDS =
+    "dates,games,gamePk,gameType,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription";
+  const path = `v1/schedule/games?teamId=${encodeURIComponent(code)}&sportId=51&startDate=2025-01-01&endDate=2025-12-31&fields=${encodeURIComponent(FIELDS)}`;
+  const url = `${BASE_URL}${path}`;
+  const key = `teamSchedule:${code}:2025`;
+
+  try {
+    // fetch both 2025 and 2026 schedules (each uses 30m TTL via existing getCached)
+    const path2025 = `v1/schedule/games?teamId=${encodeURIComponent(code)}&sportId=51&startDate=2025-01-01&endDate=2025-12-31&fields=${encodeURIComponent(FIELDS)}`;
+    const url2025 = `${BASE_URL}${path2025}`;
+    const path2026 = `v1/schedule/games?teamId=${encodeURIComponent(code)}&sportId=51&startDate=2026-01-01&endDate=2026-12-31&fields=${encodeURIComponent(FIELDS)}`;
+    const url2026 = `${BASE_URL}${path2026}`;
+
+    const [
+      { data: payload2025, fromCache: fromCache2025 },
+      { data: payload2026, fromCache: fromCache2026 },
+    ] = await Promise.all([
+      getCached(path2025, url2025),
+      getCached(path2026, url2026),
+    ]);
+
+    // payload.dates -> flatten games and dedupe by gamePk
+    const gamesMap = new Map();
+    const addPayloadDates = (payload) => {
+      if (!payload || !Array.isArray(payload.dates)) return;
+      for (const dateObj of payload.dates) {
+        if (!Array.isArray(dateObj.games)) continue;
+        for (const g of dateObj.games) {
+          gamesMap.set(g.gamePk, g);
+        }
+      }
+    };
+    addPayloadDates(payload2025);
+    addPayloadDates(payload2026);
+
+    // Group by date (YYYY-MM-DD) and build dates array
+    const byDate = new Map();
+    for (const g of gamesMap.values()) {
+      const dateOnly = (g.gameDate || "").split("T")[0] || "unknown";
+      if (!byDate.has(dateOnly)) byDate.set(dateOnly, []);
+      byDate.get(dateOnly).push(g);
+    }
+
+    const dates = Array.from(byDate.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, games]) => ({ date, games }));
+
+    // cache merged schedule under our custom key for 30 minutes
+    cache.set(key, { data: { dates }, fetchedAt: Date.now() });
+    // set periodic refresh if not present - refresh both year sources
+    if (!refreshIntervals.has(key)) {
+      const id = setInterval(() => {
+        fetchAndCache(path2025, url2025).catch(() => {});
+        fetchAndCache(path2026, url2026).catch(() => {});
+      }, TTL_MS);
+      refreshIntervals.set(key, id);
+    }
+
+    // consider cached if both sources were cached
+    const fromCache = fromCache2025 && fromCache2026;
+    setCachingHeaders(res, TTL_MS);
+    res.json({ source: fromCache ? "cache" : "origin", data: { dates } });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch team schedule", details: err.message });
+  }
+});
+
+// Bracket endpoint with dynamic polling (30m default, 5s when live/near start)
+app.get("/wbc/bracket", async (req, res) => {
+  const path = `v1/schedule/games?sportId=51&startDate=2026-03-13&endDate=2026-03-17&fields=${encodeURIComponent(
+    "dates,date,games,gamePk,gameType,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,isWinner,home,team,id,name,leagueRecord,wins,losses,score,isWinner,venue,name,dayNight,description,seriesDescription",
+  )}`;
+  const url = `${BASE_URL}${path}`;
+  const key = path;
+
+  function evaluateNeedsFastPolling(payload) {
+    if (!payload || !Array.isArray(payload.dates)) return false;
+    const now = new Date();
+    let anyScheduledWithin5Min = false;
+    for (const d of payload.dates) {
+      if (!Array.isArray(d.games)) continue;
+      for (const g of d.games) {
+        const detailed = g?.status?.detailedState;
+        // if any game is in a state other than Scheduled or Final -> fast
+        if (detailed && detailed !== "Scheduled" && detailed !== "Final")
+          return true;
+        if (detailed === "Scheduled" && g.gameDate) {
+          const gd = new Date(g.gameDate);
+          const diff = gd - now;
+          if (diff <= 5 * 60 * 1000 && diff >= 0) anyScheduledWithin5Min = true;
+        }
+      }
+    }
+    return anyScheduledWithin5Min;
+  }
+
+  async function bracketPollIteration() {
+    try {
+      const { data } = await fetchAndCache(key, url);
+      const needFast = evaluateNeedsFastPolling(data);
+      const currentMode = bracketModes.get(key) || "normal";
+      const desired = needFast ? "fast" : "normal";
+      if (currentMode !== desired) {
+        // switch interval
+        const id = refreshIntervals.get(key);
+        if (id) clearInterval(id);
+        bracketModes.set(key, desired);
+        const intervalMs = needFast ? 5000 : TTL_MS;
+        const newId = setInterval(
+          () => bracketPollIteration().catch(() => {}),
+          intervalMs,
+        );
+        refreshIntervals.set(key, newId);
+      }
+      return data;
+    } catch (e) {
+      // swallow - the interval will try again
+      return null;
+    }
+  }
+
+  try {
+    const { data, fromCache } = await getCached(key, url);
+
+    // ensure a polling interval exists for bracket that can switch modes
+    if (!refreshIntervals.has(key)) {
+      const needFast = evaluateNeedsFastPolling(data);
+      bracketModes.set(key, needFast ? "fast" : "normal");
+      const intervalMs = needFast ? 5000 : TTL_MS;
+      const id = setInterval(
+        () => bracketPollIteration().catch(() => {}),
+        intervalMs,
+      );
+      refreshIntervals.set(key, id);
+    }
+
+    setCachingHeaders(res, TTL_MS);
+    res.json({ source: fromCache ? "cache" : "origin", data });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch bracket", details: err.message });
+  }
+});
+
+// Games endpoint: accepts `date=YYYYMMDD` or `date=YYYYMMDD-YYYYMMDD` (range)
+app.get("/wbc/games", async (req, res) => {
+  const raw = req.query.date || req.query.d || req.query.dates;
+  if (!raw)
+    return res
+      .status(400)
+      .json({ error: "date query required (YYYYMMDD or YYYYMMDD-YYYYMMDD)" });
+
+  const toIso = (s) => {
+    if (!s || typeof s !== "string" || s.length !== 8) return null;
+    return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+  };
+
+  let path;
+  try {
+    if (raw.includes("-")) {
+      const parts = raw.split("-");
+      if (parts.length !== 2) throw new Error("invalid range");
+      const start = toIso(parts[0]);
+      const end = toIso(parts[1]);
+      if (!start || !end) throw new Error("invalid date format");
+      path = `v1/schedule/games?sportId=51&startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}&fields=${encodeURIComponent(
+        "dates,date,games,gamePk,gameType,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,isWinner,home,team,id,name,leagueRecord,wins,losses,score,isWinner,venue,name,dayNight,description,seriesDescription",
+      )}`;
+    } else {
+      const iso = toIso(raw);
+      if (!iso) throw new Error("invalid date format");
+      path = `v1/schedule/games?sportId=51&date=${encodeURIComponent(iso)}&fields=${encodeURIComponent(
+        "dates,date,games,gamePk,gameType,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,isWinner,home,team,id,name,leagueRecord,wins,losses,score,isWinner,venue,name,dayNight,description,seriesDescription",
+      )}`;
+    }
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+
+  const url = `${BASE_URL}${path}`;
+  const key = path;
+
+  function evaluateNeedsFastPolling(payload) {
+    if (!payload || !Array.isArray(payload.dates)) return false;
+    const now = new Date();
+    let anyScheduledWithin5Min = false;
+    for (const d of payload.dates) {
+      if (!Array.isArray(d.games)) continue;
+      for (const g of d.games) {
+        const detailed = g?.status?.detailedState;
+        if (detailed && detailed !== "Scheduled" && detailed !== "Final")
+          return true;
+        if (detailed === "Scheduled" && g.gameDate) {
+          const gd = new Date(g.gameDate);
+          const diff = gd - now;
+          if (diff <= 5 * 60 * 1000 && diff >= 0) anyScheduledWithin5Min = true;
+        }
+      }
+    }
+    return anyScheduledWithin5Min;
+  }
+
+  async function gamesPollIteration() {
+    try {
+      const { data } = await fetchAndCache(key, url);
+      const needFast = evaluateNeedsFastPolling(data);
+      const currentMode = bracketModes.get(key) || "normal";
+      const desired = needFast ? "fast" : "normal";
+      if (currentMode !== desired) {
+        const id = refreshIntervals.get(key);
+        if (id) clearInterval(id);
+        bracketModes.set(key, desired);
+        const intervalMs = needFast ? 5000 : TTL_MS;
+        const newId = setInterval(
+          () => gamesPollIteration().catch(() => {}),
+          intervalMs,
+        );
+        refreshIntervals.set(key, newId);
+      }
+      return data;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  try {
+    const { data, fromCache } = await getCached(key, url);
+
+    if (!refreshIntervals.has(key)) {
+      const needFast = evaluateNeedsFastPolling(data);
+      bracketModes.set(key, needFast ? "fast" : "normal");
+      const intervalMs = needFast ? 5000 : TTL_MS;
+      const id = setInterval(
+        () => gamesPollIteration().catch(() => {}),
+        intervalMs,
+      );
+      refreshIntervals.set(key, id);
+    }
+
+    setCachingHeaders(res, TTL_MS);
+    res.json({ source: fromCache ? "cache" : "origin", data });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch games", details: err.message });
+  }
+});
+
+// Team roster - 40Man
+app.get("/wbc/teamRoster/:code", async (req, res) => {
+  const code = req.params.code;
+  if (!code) return res.status(400).json({ error: "team code required" });
+
+  const FIELDS =
+    "roster,person,id,fullName,jerseyNumber,position,name,abbreviation,status,description";
+  const path = `v1/teams/${encodeURIComponent(code)}/roster?fields=${encodeURIComponent(FIELDS)}&rosterType=40Man`;
+  const url = `${BASE_URL}${path}`;
+  const key = `teamRoster:${code}:40Man`;
+
+  try {
+    let { data, fromCache } = await getCached(path, url);
+
+    // If roster is empty on initial fetch, try again with season=2025
+    const isEmptyRoster =
+      !data || !Array.isArray(data.roster) || data.roster.length === 0;
+    if (isEmptyRoster) {
+      const pathSeason = `${path}&season=2025`;
+      const urlSeason = `${BASE_URL}${pathSeason}`;
+      try {
+        const seasonRes = await getCached(pathSeason, urlSeason).catch(
+          () => null,
+        );
+        if (
+          seasonRes &&
+          seasonRes.data &&
+          Array.isArray(seasonRes.data.roster) &&
+          seasonRes.data.roster.length > 0
+        ) {
+          data = seasonRes.data;
+          fromCache = false;
+          // update primary cache key so subsequent requests use this result
+          cache.set(key, { data, fetchedAt: Date.now() });
+        }
+      } catch (e) {
+        // ignore fallback error
+      }
+    }
+
+    // set periodic refresh if not present
+    if (!refreshIntervals.has(key)) {
+      const id = setInterval(
+        () => fetchAndCache(path, url).catch(() => {}),
+        TTL_MS,
+      );
+      refreshIntervals.set(key, id);
+    }
+
+    res.json({ source: fromCache ? "cache" : "origin", data });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch team roster", details: err.message });
+  }
+});
+
+// Team coaches
+app.get("/wbc/teamCoaches/:code", async (req, res) => {
+  const code = req.params.code;
+  if (!code) return res.status(400).json({ error: "team code required" });
+
+  const path = `v1/teams/${encodeURIComponent(code)}/coaches?fields=roster,person,fullName`;
+  const url = `${BASE_URL}${path}`;
+  const key = `teamCoaches:${code}`;
+
+  try {
+    const { data, fromCache } = await getCached(path, url);
+
+    const coaches = Array.isArray(data?.roster)
+      ? data.roster.map((r) => ({
+          fullName: r?.person?.fullName ?? null,
+          jerseyNumber: r?.jerseyNumber ?? null,
+          job: r?.job ?? null,
+        }))
+      : [];
+
+    if (!refreshIntervals.has(key)) {
+      const id = setInterval(
+        () => fetchAndCache(path, url).catch(() => {}),
+        TTL_MS,
+      );
+      refreshIntervals.set(key, id);
+    }
+
+    res.json({ source: fromCache ? "cache" : "origin", data: { coaches } });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch team coaches", details: err.message });
+  }
+});
+
+// Team leaders
+app.get("/wbc/teamLeaders/:code", async (req, res) => {
+  const code = req.params.code;
+  if (!code) return res.status(400).json({ error: "team code required" });
+
+  const LEADER_CATEGORIES =
+    "homeRuns,hits,atBats,runs,stolenBases,avg,obp,slg,ops,totalBases,rbi,strikeOuts,baseOnBalls,era,inningsPitched,whip,numberOfPitches";
+  const FIELDS =
+    "teamLeaders,leaderCategory,leaders,rank,value,person,id,fullName,statGroup";
+  const path = `v1/teams/${encodeURIComponent(code)}/leaders?leaderCategories=${encodeURIComponent(LEADER_CATEGORIES)}&limit=40&fields=${encodeURIComponent(FIELDS)}`;
+  const url = `${BASE_URL}${path}`;
+  const key = `teamLeaders:${code}`;
+
+  // category filters
+  const hittingCategories = new Set([
+    "homeRuns",
+    "hits",
+    "atBats",
+    "runs",
+    "stolenBases",
+    "avg",
+    "battingAverage",
+    "obp",
+    "onBasePercentage",
+    "slg",
+    "sluggingPercentage",
+    "ops",
+    "onBasePlusSlugging",
+    "totalBases",
+    "rbi",
+    "runsBattedIn",
+  ]);
+  const pitchingCategories = new Set([
+    "strikeOuts",
+    "strikeouts",
+    "baseOnBalls",
+    "walks",
+    "hits",
+    "earnedRunAverage",
+    "era",
+    "inningsPitched",
+    "walksAndHitsPerInningPitched",
+    "whip",
+    "numberOfPitches",
+  ]);
+
+  function friendlyName(cat) {
+    if (!cat || typeof cat !== "string") return cat;
+    // insert spaces before capitals and numbers
+    let s = cat
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/([A-Za-z])([0-9])/g, "$1 $2")
+      .replace(/([0-9])([A-Za-z])/g, "$1 $2");
+    // split camelCase/underscores/dashes
+    s = s.replace(/[_-]/g, " ");
+    // capitalize words
+    return s
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  }
+
+  try {
+    const { data, fromCache } = await getCached(path, url);
+
+    const persons = new Map();
+
+    const teamLeaders = data?.teamLeaders ?? [];
+    for (const entry of teamLeaders) {
+      const category = entry.leaderCategory;
+      const statGroup = entry.statGroup;
+
+      // determine filtering rules
+      const inHitting = hittingCategories.has(category);
+      const inPitching = pitchingCategories.has(category);
+      // if category is in hitting only, require statGroup === 'hitting'
+      // if in pitching only, require statGroup === 'pitching'
+      // if in both or neither, don't filter by statGroup
+      const requireHitting = inHitting && !inPitching;
+      const requirePitching = inPitching && !inHitting;
+
+      const leaders = Array.isArray(entry.leaders) ? entry.leaders : [];
+      for (const l of leaders) {
+        if (!l?.person) continue;
+        // apply statGroup filter
+        if (requireHitting && statGroup !== "hitting") continue;
+        if (requirePitching && statGroup !== "pitching") continue;
+
+        const pid = String(l.person.id);
+        if (!persons.has(pid)) {
+          persons.set(pid, {
+            id: l.person.id,
+            fullName: l.person.fullName,
+            stats: {},
+          });
+        }
+        const p = persons.get(pid);
+        const keyName = friendlyName(category);
+        p.stats[keyName] = { rank: l.rank, value: l.value };
+      }
+    }
+
+    // periodic refresh
+    if (!refreshIntervals.has(key)) {
+      const id = setInterval(
+        () => fetchAndCache(path, url).catch(() => {}),
+        TTL_MS,
+      );
+      refreshIntervals.set(key, id);
+    }
+
+    const result = { persons: Array.from(persons.values()) };
+    res.json({ source: fromCache ? "cache" : "origin", data: result });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch team leaders", details: err.message });
+  }
+});
+
+// Global leaders
+app.get("/wbc/leaders", async (req, res) => {
+  const LEADER_CATEGORIES =
+    "homeRuns,hits,atBats,runs,stolenBases,avg,obp,slg,ops,totalBases,rbi,strikeOuts,baseOnBalls,era,inningsPitched,whip,numberOfPitches";
+  const path = `v1/stats/leaders?leaderCategories=${encodeURIComponent(
+    LEADER_CATEGORIES,
+  )}&sportIds=51&limit=10&statGroup=hitting,pitching&fields=${encodeURIComponent(
+    "leagueLeaders,leaderCategory,leaders,rank,value,team,id,name,person,id,fullName",
+  )}`;
+  const url = `${BASE_URL}${path}`;
+  const key = path;
+
+  try {
+    const { data, fromCache } = await getCached(key, url);
+
+    // Normalize the returned leagueLeaders structure to a compact shape
+    const raw = data ?? {};
+    const leagueLeaders = Array.isArray(raw.leagueLeaders)
+      ? raw.leagueLeaders.map((entry) => {
+          const leaders = Array.isArray(entry.leaders)
+            ? entry.leaders.map((l) => ({
+                rank: l.rank ?? null,
+                value: l.value ?? null,
+                person: l.person
+                  ? { id: l.person.id, fullName: l.person.fullName }
+                  : null,
+                team: l.team ? { id: l.team.id, name: l.team.name } : null,
+              }))
+            : [];
+          return { leaderCategory: entry.leaderCategory, leaders };
+        })
+      : [];
+
+    // periodic refresh
+    if (!refreshIntervals.has(key)) {
+      const id = setInterval(
+        () => fetchAndCache(key, url).catch(() => {}),
+        TTL_MS,
+      );
+      refreshIntervals.set(key, id);
+    }
+
+    res.json({
+      source: fromCache ? "cache" : "origin",
+      data: { leagueLeaders },
+    });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch leaders", details: err.message });
+  }
+});
+
+// Team stats (combined seasons 2025 & 2026)
+app.get("/wbc/stats", async (req, res) => {
+  try {
+    const seasons = ["2025", "2026"];
+    const paths = seasons.map((season) => ({
+      season,
+      path: `v1/teams/stats?sportIds=51&group=hitting,pitching&season=${season}`,
+    }));
+
+    const results = await Promise.all(
+      paths.map((p) => getCached(p.path, `${BASE_URL}${p.path}`)),
+    );
+
+    // allowed stat keys to keep
+    const allowed = new Set([
+      "gamesPlayed",
+      "runs",
+      "doubles",
+      "triples",
+      "homeRuns",
+      "strikeOuts",
+      "baseOnBalls",
+      "hits",
+      "avg",
+      "atBats",
+      "obp",
+      "slg",
+      "ops",
+      "stolenBases",
+      "totalBases",
+      "rbi",
+      "era",
+      "inningsPitched",
+      "whip",
+      "earnedRuns",
+      "shutouts",
+      "strikePercentage",
+      "strikeoutsPer9Inn",
+    ]);
+
+    function friendlyName(cat) {
+      if (!cat || typeof cat !== "string") return cat;
+      let s = cat
+        .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+        .replace(/([A-Za-z])([0-9])/g, "$1 $2")
+        .replace(/([0-9])([A-Za-z])/g, "$1 $2");
+      s = s.replace(/[_-]/g, " ");
+      return s
+        .split(/\s+/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+    }
+
+    const teamMap = new Map();
+
+    for (let i = 0; i < results.length; i++) {
+      const season = paths[i].season;
+      const data = results[i].data;
+      const statsArr = data?.stats ?? [];
+
+      for (const statEntry of statsArr) {
+        const groupNameRaw =
+          statEntry?.group?.displayName || statEntry?.group || "unknown";
+        const groupKey = String(groupNameRaw).toLowerCase(); // hitting or pitching
+        const splits = statEntry?.splits ?? [];
+
+        for (const split of splits) {
+          const team = split.team;
+          if (!team || !team.id) continue;
+          const tid = String(team.id);
+          if (!teamMap.has(tid)) {
+            teamMap.set(tid, {
+              id: team.id,
+              name: team.name,
+              stats: { hitting: {}, pitching: {} },
+            });
+          }
+          const teamObj = teamMap.get(tid);
+
+          // filter stat object
+          const rawStat = split.stat || {};
+          const filtered = {};
+          for (const k of Object.keys(rawStat)) {
+            if (allowed.has(k)) {
+              filtered[friendlyName(k)] = rawStat[k];
+            }
+          }
+
+          // include rank
+          const out = { rank: split.rank ?? null, stat: filtered };
+
+          // attach under team.stats[groupKey][season]
+          if (!teamObj.stats[groupKey]) teamObj.stats[groupKey] = {};
+          teamObj.stats[groupKey][season] = out;
+        }
+      }
+    }
+
+    // build array
+    const teams = Array.from(teamMap.values());
+
+    res.json({ source: "origin", data: { teams } });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch stats", details: err.message });
+  }
+});
+
+// Single player endpoint: profile, season stats, and gameLog
+app.get("/wbc/player/:code", async (req, res) => {
+  const code = req.params.code;
+  if (!code) return res.status(400).json({ error: "player code required" });
+
+  const pPath = `v1/people/${encodeURIComponent(code)}`;
+  const seasonPath = `v1/people/${encodeURIComponent(code)}/stats?stats=season&group=hitting,pitching&sportId=51`;
+  const gameLogPath = `v1/people/${encodeURIComponent(code)}/stats?stats=gameLog&group=hitting,pitching&sportId=51&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&gameType=S`;
+
+  try {
+    const [pRes, seasonRes, gameLogRes] = await Promise.all([
+      getCached(pPath, `${BASE_URL}${pPath}`),
+      getCached(seasonPath, `${BASE_URL}${seasonPath}`),
+      getCached(gameLogPath, `${BASE_URL}${gameLogPath}`),
+    ]);
+
+    const peopleData = pRes?.data?.people
+      ? pRes.data.people[0]
+      : pRes?.data || null;
+
+    // Build profile with selected fields
+    const profile = {};
+    if (peopleData) {
+      profile.id = peopleData.id ?? null;
+      profile.fullName = peopleData.fullName ?? null;
+      profile.firstName = peopleData.firstName ?? null;
+      profile.lastName = peopleData.lastName ?? null;
+      profile.birthDate = peopleData.birthDate ?? null;
+      profile.currentAge = peopleData.currentAge ?? null;
+      profile.birthCountry = peopleData.birthCountry ?? null;
+      profile.height = peopleData.height ?? null;
+      profile.weight = peopleData.weight ?? null;
+      profile.primaryPosition = {
+        name: peopleData.primaryPosition?.name ?? null,
+        abbreviation: peopleData.primaryPosition?.abbreviation ?? null,
+      };
+      profile.batSide = {
+        description: peopleData.batSide?.description ?? null,
+      };
+      profile.pitchHand = {
+        description: peopleData.pitchHand?.description ?? null,
+      };
+      profile.pronunciation =
+        peopleData.pronunciation ?? peopleData.pronounciation ?? null;
+    }
+
+    // Season stats: keep payload but move first split's team & league into profile (no links)
+    const seasonPayload = seasonRes?.data ?? null;
+    let seasonStats = seasonPayload?.stats ?? [];
+    if (Array.isArray(seasonStats) && seasonStats.length > 0) {
+      // allowed raw stat keys (keep only these)
+      const allowedRaw = new Set([
+        "gamesPlayed",
+        "runs",
+        "doubles",
+        "triples",
+        "homeRuns",
+        "strikeOuts",
+        "baseOnBalls",
+        "hits",
+        "avg",
+        "atBats",
+        "obp",
+        "slg",
+        "ops",
+        "stolenBases",
+        "totalBases",
+        "rbi",
+        // pitching extras
+        "era",
+        "inningsPitched",
+        "earnedRuns",
+        "whip",
+        "shutouts",
+        "strikePercentage",
+        "strikeoutsPer9Inn",
+      ]);
+
+      const humanize = (k) => {
+        const map = {
+          gamesPlayed: "Games Played",
+          runs: "Runs",
+          doubles: "Doubles",
+          triples: "Triples",
+          homeRuns: "Home Runs",
+          strikeOuts: "Strike Outs",
+          baseOnBalls: "Base On Balls",
+          hits: "Hits",
+          avg: "Avg",
+          atBats: "At Bats",
+          obp: "Obp",
+          slg: "Slg",
+          ops: "Ops",
+          stolenBases: "Stolen Bases",
+          totalBases: "Total Bases",
+          rbi: "Rbi",
+          era: "Era",
+          inningsPitched: "Innings Pitched",
+          earnedRuns: "Earned Runs",
+          whip: "Whip",
+          shutouts: "Shutouts",
+          strikePercentage: "Strike Percentage",
+          strikeoutsPer9Inn: "Strikeouts Per 9 Inn",
+        };
+        return map[k] ?? k;
+      };
+
+      // extract team/league from first split if present
+      for (const statBlock of seasonStats) {
+        const splits = statBlock.splits || [];
+        if (splits.length > 0) {
+          const firstSplit = splits[0];
+          if (firstSplit.team && !profile.team) {
+            profile.team = {
+              id: firstSplit.team.id ?? null,
+              name: firstSplit.team.name ?? null,
+            };
+          }
+          if (firstSplit.league && !profile.league) {
+            profile.league = {
+              id: firstSplit.league.id ?? null,
+              name: firstSplit.league.name ?? null,
+            };
+          }
+        }
+      }
+
+      // prune wrapper fields and keep only allowed/humanized stats in splits
+      seasonStats = seasonStats.map((statBlock) => {
+        const sb = JSON.parse(JSON.stringify(statBlock));
+        if (sb.hasOwnProperty("type")) delete sb.type;
+        if (sb.hasOwnProperty("exemptions")) delete sb.exemptions;
+
+        if (Array.isArray(sb.splits)) {
+          sb.splits = sb.splits.map((sp) => {
+            // remove player and sport nested objects
+            if (sp.player) delete sp.player;
+            if (sp.sport) delete sp.sport;
+
+            const rawStat = sp.stat || {};
+            const filtered = {};
+            for (const k of Object.keys(rawStat)) {
+              if (!allowedRaw.has(k)) continue;
+              const display = humanize(k);
+              filtered[display] = rawStat[k];
+            }
+            sp.stat = filtered;
+
+            // remove team/league wrappers if present
+            if (sp.team) delete sp.team;
+            if (sp.league) delete sp.league;
+
+            return sp;
+          });
+        }
+        return sb;
+      });
+    }
+
+    // GameLog: keep stat + summary and present requested fields
+    const gameLogPayload = gameLogRes?.data ?? null;
+    let gameLogStats = [];
+    if (Array.isArray(gameLogPayload?.stats)) {
+      for (const block of gameLogPayload.stats) {
+        const splits = Array.isArray(block.splits) ? block.splits : [];
+        for (const sp of splits) {
+          const item = {};
+          item.season = sp.season ?? null;
+
+          // Filter and humanize stats to the same allowed set as seasonStats
+          const allowedRawGL = new Set([
+            "gamesPlayed",
+            "runs",
+            "doubles",
+            "triples",
+            "homeRuns",
+            "strikeOuts",
+            "baseOnBalls",
+            "hits",
+            "avg",
+            "atBats",
+            "obp",
+            "slg",
+            "ops",
+            "stolenBases",
+            "totalBases",
+            "rbi",
+            "era",
+            "inningsPitched",
+            "earnedRuns",
+            "whip",
+            "shutouts",
+            "strikePercentage",
+            "strikeoutsPer9Inn",
+          ]);
+
+          const humanizeGL = (k) => {
+            const map = {
+              gamesPlayed: "Games Played",
+              runs: "Runs",
+              doubles: "Doubles",
+              triples: "Triples",
+              homeRuns: "Home Runs",
+              strikeOuts: "Strike Outs",
+              baseOnBalls: "Base On Balls",
+              hits: "Hits",
+              avg: "Avg",
+              atBats: "At Bats",
+              obp: "Obp",
+              slg: "Slg",
+              ops: "Ops",
+              stolenBases: "Stolen Bases",
+              totalBases: "Total Bases",
+              rbi: "Rbi",
+              era: "Era",
+              inningsPitched: "Innings Pitched",
+              earnedRuns: "Earned Runs",
+              whip: "Whip",
+              shutouts: "Shutouts",
+              strikePercentage: "Strike Percentage",
+              strikeoutsPer9Inn: "Strikeouts Per 9 Inn",
+            };
+            return map[k] ?? k;
+          };
+
+          const rawStat = sp.stat || {};
+          const filtered = {};
+          for (const k of Object.keys(rawStat)) {
+            if (!allowedRawGL.has(k)) continue;
+            filtered[humanizeGL(k)] = rawStat[k];
+          }
+          item.stat = filtered;
+          if (rawStat && rawStat.summary) item.summary = rawStat.summary;
+
+          if (sp.league)
+            item.league = {
+              id: sp.league.id ?? null,
+              name: sp.league.name ?? null,
+            };
+          if (sp.opponent)
+            item.opponent = {
+              id: sp.opponent.id ?? null,
+              name: sp.opponent.name ?? null,
+            };
+          item.date = sp.date ?? null;
+          item.isHome = sp.isHome ?? null;
+          item.isWin = sp.isWin ?? null;
+          item.positionsPlayed = Array.isArray(sp.positionsPlayed)
+            ? sp.positionsPlayed.map((p) => ({
+                name: p?.name ?? null,
+                abbreviation: p?.abbreviation ?? null,
+              }))
+            : [];
+          item.gamePk = sp.game?.gamePk ?? null;
+          gameLogStats.push(item);
+        }
+      }
+    }
+
+    const fromCacheAll =
+      pRes.fromCache && seasonRes.fromCache && gameLogRes.fromCache;
+
+    res.json({
+      source: fromCacheAll ? "cache" : "origin",
+      data: {
+        profile,
+        seasonStats,
+        gameLog: gameLogStats,
+      },
+    });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch player data", details: err.message });
+  }
+});
+
+// Full team aggregation endpoint
+app.get("/wbc/team/:code", async (req, res) => {
+  const code = req.params.code;
+  if (!code) return res.status(400).json({ error: "team code required" });
+
+  try {
+    // 1) Get teams and find the team object
+    const { data: teamsPayload } = await getCached(
+      TEAMS_PATH,
+      `${BASE_URL}${TEAMS_PATH}`,
+    );
+    const teamsList = teamsPayload?.teams || [];
+    const teamIdNum = Number(code);
+    const teamObj = teamsList.find((t) => t && t.id === teamIdNum);
+    if (!teamObj) return res.status(404).json({ error: "team not found" });
+
+    const result = { team: teamObj };
+
+    // 2) Fetch standings for the team's league id via our internal route
+    const leagueId = teamObj?.league?.id;
+    if (leagueId) {
+      const standingsRes = await axios.get(
+        `http://localhost:${PORT}/wbc/standings/${leagueId}`,
+      );
+      let standingsData = standingsRes.data?.data ?? standingsRes.data;
+
+      // If we have records, attempt to reduce to the division and the single teamRecord for this team
+      try {
+        if (standingsData && Array.isArray(standingsData.records)) {
+          const divId = teamObj?.division?.id;
+
+          // First try to find the record for the team's division
+          let matched = standingsData.records.find(
+            (r) => r && r.division && r.division.id === divId,
+          );
+
+          // If not found by division id, try to find any record that includes the team
+          if (!matched) {
+            for (const r of standingsData.records) {
+              if (!Array.isArray(r.teamRecords)) continue;
+              const found = r.teamRecords.find(
+                (tr) => tr && tr.team && Number(tr.team.id) === teamIdNum,
+              );
+              if (found) {
+                matched = r;
+                break;
+              }
+            }
+          }
+
+          if (matched) {
+            // deep clone then filter teamRecords to only this team
+            const recClone = JSON.parse(JSON.stringify(matched));
+            recClone.teamRecords = Array.isArray(recClone.teamRecords)
+              ? recClone.teamRecords.filter(
+                  (tr) => Number(tr?.team?.id) === teamIdNum,
+                )
+              : [];
+            standingsData = { records: [recClone] };
+          } else {
+            // fallback: keep original standingsData
+          }
+        }
+      } catch (e) {
+        // ignore transform errors and fall back to full standings
+      }
+
+      result.standings = standingsData;
+    }
+
+    // 3) Fetch combined stats and find this team's entry, also compute max/min per stat across teams
+    const statsRes = await axios.get(`http://localhost:${PORT}/wbc/stats`);
+    const statsTeams = statsRes.data?.data?.teams || [];
+
+    // build maps for max/min per group/season/statKey
+    const extremes = {}; // { [groupKey]: { [season]: { [statKey]: { min, max } } } }
+    for (const t of statsTeams) {
+      const tid = String(t.id);
+      for (const groupKey of ["hitting", "pitching"]) {
+        const groupObj = (t.stats && t.stats[groupKey]) || {};
+        for (const season of Object.keys(groupObj)) {
+          const entry = groupObj[season];
+          const statObj = entry?.stat || {};
+          for (const statKey of Object.keys(statObj)) {
+            const raw = statObj[statKey];
+            const n = Number(String(raw).replace(/[^0-9.+-eE]/g, ""));
+            if (!Number.isFinite(n)) continue;
+            extremes[groupKey] = extremes[groupKey] || {};
+            extremes[groupKey][season] = extremes[groupKey][season] || {};
+            const cur = extremes[groupKey][season][statKey];
+            if (!cur) extremes[groupKey][season][statKey] = { min: n, max: n };
+            else {
+              if (n < cur.min) cur.min = n;
+              if (n > cur.max) cur.max = n;
+            }
+          }
+        }
+      }
+    }
+
+    // find this team's stats and augment with extremes
+    const thisTeamStats = statsTeams.find((t) => t.id === teamIdNum) || {
+      stats: { hitting: {}, pitching: {} },
+    };
+    const augmentedStats = { hitting: {}, pitching: {} };
+    for (const groupKey of ["hitting", "pitching"]) {
+      const groupObj =
+        (thisTeamStats.stats && thisTeamStats.stats[groupKey]) || {};
+      for (const season of Object.keys(groupObj)) {
+        const entry = groupObj[season];
+        const statObj = entry?.stat || {};
+        const outStats = {};
+        for (const statKey of Object.keys(statObj)) {
+          const raw = statObj[statKey];
+          const n = Number(String(raw).replace(/[^0-9.+-eE]/g, ""));
+          const ext =
+            (extremes[groupKey] &&
+              extremes[groupKey][season] &&
+              extremes[groupKey][season][statKey]) ||
+            null;
+          outStats[statKey] = {
+            teamValue: raw,
+            max: ext ? ext.max : null,
+            min: ext ? ext.min : null,
+          };
+        }
+        augmentedStats[groupKey][season] = {
+          rank: entry?.rank ?? null,
+          stat: outStats,
+        };
+      }
+    }
+    result.stats = augmentedStats;
+
+    // 4) Fetch schedule, leaders, roster, coaches from our internal routes
+    const [scheduleRes, leadersRes, rosterRes, coachesRes] = await Promise.all([
+      axios
+        .get(`http://localhost:${PORT}/wbc/teamSchedule/${teamIdNum}`)
+        .catch(() => null),
+      axios
+        .get(`http://localhost:${PORT}/wbc/teamLeaders/${teamIdNum}`)
+        .catch(() => null),
+      axios
+        .get(`http://localhost:${PORT}/wbc/teamRoster/${teamIdNum}`)
+        .catch(() => null),
+      axios
+        .get(`http://localhost:${PORT}/wbc/teamCoaches/${teamIdNum}`)
+        .catch(() => null),
+    ]);
+
+    result.schedule = scheduleRes?.data?.data ?? null;
+    const leadersPersons = leadersRes?.data?.data?.persons ?? [];
+    const roster =
+      rosterRes?.data?.data?.roster ?? rosterRes?.data?.roster ?? [];
+    // merge leaders into roster by person.id (put leader stats on roster entries)
+    const leaderMap = new Map(
+      leadersPersons.map((p) => [String(p.id), p.stats || {}]),
+    );
+    const mergedRoster = (roster || []).map((r) => {
+      const pid = String(r?.person?.id ?? "");
+      const stats = leaderMap.get(pid) || {};
+      const out = Object.assign({}, r, { stats, parentTeamId: teamIdNum });
+      return out;
+    });
+    // attach merged roster and drop separate leaders array (roster now contains leader stats)
+    result.roster = mergedRoster;
+    result.coaches = coachesRes?.data?.data ?? null;
+
+    res.json({ source: "origin", data: result });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to build team payload", details: err.message });
+  }
+});
+
+// Search - combines players and trimmed teams (TTL 12 hours)
+const SEARCH_KEY = "search:players_teams";
+const SEARCH_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+app.get("/wbc/search", async (req, res) => {
+  try {
+    const { data, fromCache } = await getCachedCustom(
+      SEARCH_KEY,
+      SEARCH_TTL_MS,
+      async () => {
+        // Ensure we have fresh players and teams (these use their own 30m caching)
+        const teamsUrl = `${BASE_URL}${TEAMS_PATH}`;
+        const playersUrl = `${BASE_URL}${PLAYERS_PATH}`;
+        const [{ data: teamsPayload }, { data: playersPayload }] =
+          await Promise.all([
+            getCached(TEAMS_PATH, teamsUrl),
+            getCached(PLAYERS_PATH, playersUrl),
+          ]);
+
+        const teams = Array.isArray(teamsPayload?.teams)
+          ? teamsPayload.teams.map((t) => ({
+              id: t.id,
+              name: t.name,
+              abbreviation: t.abbreviation,
+              divisionName: t.division?.name || null,
+            }))
+          : [];
+
+        const players = playersPayload?.people ?? playersPayload ?? [];
+
+        return { teams, players };
+      },
+    );
+
+    // ensure periodic refresh for the combined search cache
+    if (!refreshIntervals.has(SEARCH_KEY)) {
+      const id = setInterval(
+        () =>
+          getCachedCustom(SEARCH_KEY, SEARCH_TTL_MS, async () => {
+            const teamsUrl = `${BASE_URL}${TEAMS_PATH}`;
+            const playersUrl = `${BASE_URL}${PLAYERS_PATH}`;
+            const [{ data: teamsPayload }, { data: playersPayload }] =
+              await Promise.all([
+                getCached(TEAMS_PATH, teamsUrl),
+                getCached(PLAYERS_PATH, playersUrl),
+              ]);
+            const teams = Array.isArray(teamsPayload?.teams)
+              ? teamsPayload.teams.map((t) => ({
+                  id: t.id,
+                  name: t.name,
+                  abbreviation: t.abbreviation,
+                  divisionName: t.division?.name || null,
+                }))
+              : [];
+            const players = playersPayload?.people ?? playersPayload ?? [];
+            return { teams, players };
+          }).catch(() => {}),
+        SEARCH_TTL_MS,
+      );
+      refreshIntervals.set(SEARCH_KEY, id);
+    }
+
+    res.json({ source: fromCache ? "cache" : "origin", data });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to build search", details: err.message });
+  }
+});
+
+// Standings - accepts path param /wbc/standings/:code where code is the leagueId number
+app.get("/wbc/standings/:code", async (req, res) => {
+  const code = req.params.code;
+  if (!code) {
+    return res.status(400).json({ error: "leagueId (path param) required" });
+  }
+  const fields =
+    "records,teamRecords,team,id,name,streak,streakCode,divisionRank,leagueRank,gamesPlayed,leagueGamesBack,records,splitRecords,wins,losses,type,divisionRecords,wins,losses,division,id,name,runsAllowed,runsScored";
+  const path = `v1/standings/byDivision?leagueId=${encodeURIComponent(code)}&fields=${encodeURIComponent(fields)}`;
+  const url = `${BASE_URL}${path}`;
+  const key = path;
+  try {
+    const { data, fromCache } = await getCached(key, url);
+    // If the response body contains { records: [] } (empty), reply with message
+    if (data && Array.isArray(data.records) && data.records.length === 0) {
+      return res.json({ message: "No standings found" });
+    }
+
+    // Transform the standings payload according to rules:
+    // - Each record.division may only have id; find its name by inspecting teamRecords' divisionRecords
+    // - Remove teamRecords[].records.splitRecords
+    // - For teamRecords[].records.divisionRecords keep only the entry for this record's division and remove the nested division object (show only wins/losses)
+    // - Remove teamRecords[].records.leagueRecords
+    // - For teamRecords[].records.expectedRecords keep only the first item
+    const transformed = JSON.parse(JSON.stringify(data));
+    if (Array.isArray(transformed.records)) {
+      for (const rec of transformed.records) {
+        const divId = rec?.division?.id;
+        // find division name from any teamRecords' divisionRecords
+        let divName = undefined;
+        if (Array.isArray(rec.teamRecords)) {
+          for (const tr of rec.teamRecords) {
+            const divRecs = tr?.records?.divisionRecords;
+            if (Array.isArray(divRecs)) {
+              const match = divRecs.find(
+                (d) => d?.division?.id === divId && d?.division?.name,
+              );
+              if (match && match.division && match.division.name) {
+                divName = match.division.name;
+                break;
+              }
+            }
+          }
+        }
+        if (divId !== undefined) {
+          rec.division = { id: divId, name: divName };
+        }
+
+        if (Array.isArray(rec.teamRecords)) {
+          for (const tr of rec.teamRecords) {
+            const r = tr.records || {};
+            // remove splitRecords
+            if (r.hasOwnProperty("splitRecords")) delete r.splitRecords;
+            // keep only the division record for this division (without nested division object)
+            if (Array.isArray(r.divisionRecords)) {
+              const match = r.divisionRecords.find(
+                (d) => d?.division?.id === divId,
+              );
+              if (match) {
+                r.divisionRecords = { wins: match.wins, losses: match.losses };
+              } else {
+                r.divisionRecords = null;
+              }
+            }
+            // remove leagueRecords
+            if (r.hasOwnProperty("leagueRecords")) delete r.leagueRecords;
+            // expectedRecords -> only first item
+            if (Array.isArray(r.expectedRecords)) {
+              r.expectedRecords =
+                r.expectedRecords.length > 0 ? [r.expectedRecords[0]] : [];
+            }
+            tr.records = r;
+          }
+        }
+      }
+    }
+
+    // set up periodic refresh for this league if not already
+    if (!refreshIntervals.has(key)) {
+      const id = setInterval(
+        () => fetchAndCache(key, url).catch(() => {}),
+        TTL_MS,
+      );
+      refreshIntervals.set(key, id);
+    }
+
+    res.json({ source: fromCache ? "cache" : "origin", data: transformed });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch standings", details: err.message });
+  }
+});
+
+// Game feed - reduced payload
+app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
+  const gamePk = req.params.gamePk;
+  if (!gamePk) return res.status(400).json({ error: "gamePk required" });
+
+  const path = `v1.1/game/${encodeURIComponent(gamePk)}/feed/live`;
+  const url = `${BASE_URL}${path}`;
+  const key = path;
+
+  function pickPlayer(p) {
+    if (!p) return null;
+    return {
+      id: p.id ?? null,
+      fullName: p.fullName ?? null,
+      link: p.link ?? null,
+      currentTeam: p.currentTeam
+        ? { id: p.currentTeam.id ?? null, name: p.currentTeam.name ?? null }
+        : null,
+      position: p.position
+        ? { code: p.position.code, name: p.position.name }
+        : null,
+    };
+  }
+
+  function reducePlay(play) {
+    if (!play) return null;
+    const out = {};
+    out.about = play.about || null;
+    out.result = play.result || null;
+    out.matchup = play.matchup || null;
+    out.count = play.count || null;
+    if (Array.isArray(play.playEvents)) {
+      out.playEvents = play.playEvents.map((pe) => ({
+        result: pe.result || null,
+        players: Array.isArray(pe.players)
+          ? pe.players.map((pp) => ({
+              id: pp?.player?.id ?? null,
+              fullName: pp?.player?.fullName ?? null,
+              type: pp?.player?.type ?? null,
+            }))
+          : [],
+      }));
+    }
+    return out;
+  }
+
+  try {
+    const { data, fromCache } = await getCached(key, url);
+
+    // reduce heavy payload
+    const reduced = {};
+    const raw = data || {};
+
+    // Build per-batter pitch lists by scanning liveData.plays (allPlays and currentPlay).
+    // We record an overall pitch order index and collect pitchData coordinates, type, description,
+    // and strike zone top/bottom. Coordinates are compacted into single-line strings per pitch type.
+    const pitchesByBatter = new Map();
+    let globalPitchIndex = 0;
+
+    function processPlayForPitches(play) {
+      if (!play || !play.matchup) return;
+      const batterId = String(play.matchup?.batter?.id || "");
+      if (!batterId) return;
+      // debug logging: play context
+      try {
+        const playIdx = play?.about?.playIndex ?? play?.about?.playId ?? "-";
+        const desc = play?.result?.event || play?.result?.description || "(no event)";
+      } catch (e) {
+        // ignore logging errors
+      }
+      const events = Array.isArray(play.playEvents) ? play.playEvents : [];
+      // use a batter-local array to compute per-batter order
+      const existingArr = pitchesByBatter.get(batterId) || [];
+      for (const pe of events) {
+        if (!pe || !pe.isPitch || !pe.pitchData) continue;
+        globalPitchIndex += 1;
+        const pd = pe.pitchData || {};
+        const coords = pd.coordinates || {};
+        const pX = coords.pX ?? coords.x ?? null;
+        const pZ = coords.pZ ?? coords.y ?? null;
+        const typeDesc = (pe.details && (pe.details.type?.description || pe.details.type)) || (pe.type ?? null) || "unknown";
+        const desc = pe.details?.description ?? (pe.details?.call?.description ?? null);
+        const top = typeof pd.strikeZoneTop === "number" ? pd.strikeZoneTop : null;
+        const bot = typeof pd.strikeZoneBottom === "number" ? pd.strikeZoneBottom : null;
+
+        const orderLocal = existingArr.length + 1;
+        const entry = {
+          order: orderLocal,
+          type: String(typeDesc),
+          coords: `${pX !== null ? pX : ""},${pZ !== null ? pZ : ""}`,
+          top,
+          bot,
+        };
+        // debug log each found pitch (concise)
+        try {
+        } catch (e) {}
+
+        existingArr.push(entry);
+        pitchesByBatter.set(batterId, existingArr);
+      }
+    }
+
+    // Process allPlays in order (support both `live` and `liveData` shapes)
+    const allPlaysArr = Array.isArray(raw.live?.plays?.allPlays)
+      ? raw.live.plays.allPlays
+      : Array.isArray(raw.liveData?.plays?.allPlays)
+      ? raw.liveData.plays.allPlays
+      : [];
+    const currentPlayExists =
+      Boolean(raw.live?.plays?.currentPlay) || Boolean(raw.liveData?.plays?.currentPlay);
+    for (const p of allPlaysArr) processPlayForPitches(p);
+    // Also include currentPlay if present (may include ongoing pitch events)
+    if (raw.live?.plays?.currentPlay) processPlayForPitches(raw.live.plays.currentPlay);
+    else if (raw.liveData?.plays?.currentPlay) processPlayForPitches(raw.liveData.plays.currentPlay);
+
+    // summary log of collected pitches
+    try {
+      const sample = Array.from(pitchesByBatter.entries()).slice(0, 5).map(([k, v]) => [k, v.length]);
+    } catch (e) {}
+
+    // Determine polling mode based on game status: Scheduled/Final => normal (30m), else fast (5s)
+    try {
+      const statusDetailed =
+        raw.gameData?.status?.detailedState ||
+        raw.gameData?.status?.status ||
+        null;
+      const needFast = !(
+        statusDetailed === "Scheduled" || statusDetailed === "Final"
+      );
+      const currentMode = bracketModes.get(key) || "normal";
+      const desired = needFast ? "fast" : "normal";
+      if (!refreshIntervals.has(key) || currentMode !== desired) {
+        const existing = refreshIntervals.get(key);
+        if (existing) clearInterval(existing);
+        bracketModes.set(key, desired);
+        const intervalMs = needFast ? 5000 : TTL_MS;
+        const id = setInterval(
+          () => fetchAndCache(key, url).catch(() => {}),
+          intervalMs,
+        );
+        refreshIntervals.set(key, id);
+      }
+    } catch (e) {
+      // ignore polling setup errors
+    }
+
+    reduced.gamePk = raw.gamePk ?? Number(gamePk);
+    reduced.gameData = {
+      gameDate:
+        raw.gameData?.datetime?.dateTime ??
+        raw.gameData?.game?.dateTime ??
+        null,
+      status: raw.gameData?.status || null,
+      teams: {
+        away: raw.gameData?.teams?.away
+          ? {
+              id: raw.gameData.teams.away.id,
+              name: raw.gameData.teams.away.name,
+            }
+          : null,
+        home: raw.gameData?.teams?.home
+          ? {
+              id: raw.gameData.teams.home.id,
+              name: raw.gameData.teams.home.name,
+            }
+          : null,
+      },
+      venue: raw.gameData?.venue?.name ?? null,
+    };
+
+    // plays: allPlays (reduced) and currentPlay
+    reduced.plays = {};
+    if (Array.isArray(raw.live?.plays?.allPlays)) {
+      reduced.plays.allPlays = raw.live.plays.allPlays
+        .map((p) => reducePlay(p))
+        .filter(Boolean);
+    } else {
+      reduced.plays.allPlays = [];
+    }
+    reduced.plays.currentPlay =
+      reducePlay(raw.live?.plays?.currentPlay) || null;
+
+    // linescore (support `live` or `liveData` top-level)
+    const ls = raw.live?.linescore ?? raw.liveData?.linescore;
+    if (ls) {
+      reduced.linescore = {
+        currentInning: ls.currentInning ?? null,
+        inningState: ls.inningState ?? null,
+        teams: {
+          away: ls.teams?.away
+            ? {
+                runs: ls.teams.away.runs ?? null,
+                hits: ls.teams.away.hits ?? null,
+                errors: ls.teams.away.errors ?? null,
+              }
+            : null,
+          home: ls.teams?.home
+            ? {
+                runs: ls.teams.home.runs ?? null,
+                hits: ls.teams.home.hits ?? null,
+                errors: ls.teams.home.errors ?? null,
+              }
+            : null,
+        },
+        innings: Array.isArray(ls.innings)
+          ? ls.innings.map((inn) => ({
+              num: inn.num ?? null,
+              away: inn.away?.runs ?? null,
+              home: inn.home?.runs ?? null,
+            }))
+          : [],
+      };
+    }
+
+    // boxscore: teams -> players (reduced)
+    if (raw.gameData?.boxscore) {
+      const bs = raw.gameData.boxscore;
+      reduced.boxscore = { teams: {} };
+      for (const side of ["away", "home"]) {
+        const teamObj = bs.teams?.[side];
+        if (!teamObj) {
+          reduced.boxscore.teams[side] = null;
+          continue;
+        }
+        const players = [];
+        const pMap = teamObj?.players || {};
+        for (const pid of Object.keys(pMap)) {
+          const p = pMap[pid];
+          const personId = p?.person?.id ?? null;
+
+          // compute compacted pitch data for this batter if available
+          const batterPitches = pitchesByBatter.get(String(personId)) || [];
+            const byType = {};
+          let maxTop = null;
+          let minBot = null;
+          for (const e of batterPitches) {
+            const typeKey = e.type || "unknown";
+            if (!byType[typeKey]) byType[typeKey] = { coords: [] };
+            // store as compact "order:pX,pZ" entries (order is per-batter)
+            byType[typeKey].coords.push(`${e.order}:${e.coords}`);
+            if (typeof e.top === "number") {
+              maxTop = maxTop === null ? e.top : Math.max(maxTop, e.top);
+            }
+            if (typeof e.bot === "number") {
+              minBot = minBot === null ? e.bot : Math.min(minBot, e.bot);
+            }
+          }
+          // convert coords array into a single-line semicolon-separated string per type
+          for (const k of Object.keys(byType)) {
+            byType[k].coordinates = byType[k].coords.join(";");
+            delete byType[k].coords;
+          }
+
+          const pitches = {
+            byType: Object.keys(byType).length > 0 ? byType : null,
+            strikeZone: { maxTop: maxTop, minBottom: minBot },
+          };
+
+          players.push({
+            id: personId,
+            fullName: p?.person?.fullName ?? null,
+            jerseyNumber: p?.jerseyNumber ?? null,
+            position: p?.position ?? null,
+            stats: p?.stats || null,
+            gameStatus: p?.gameStatus || null,
+            pitches,
+          });
+        }
+        reduced.boxscore.teams[side] = {
+          team: teamObj.team
+            ? { id: teamObj.team.id, name: teamObj.team.name }
+            : null,
+          players,
+        };
+      }
+    }
+
+    // players object (roster mapping) - reduced to id/fullName/position/team
+    if (raw.gameData?.players) {
+      reduced.players = {};
+      for (const pid of Object.keys(raw.gameData.players)) {
+        reduced.players[pid] = pickPlayer(raw.gameData.players[pid]);
+      }
+    }
+
+    // officials (reduced)
+    if (Array.isArray(raw.gameData?.officials)) {
+      reduced.officials = raw.gameData.officials.map((o) => ({
+        id: o?.official?.id ?? null,
+        fullName: o?.official?.fullName ?? null,
+        officialType: o?.officialType ?? null,
+      }));
+    }
+
+    // topPerformers reduced
+    if (
+      Array.isArray(raw.live?.boxscore?.teams?.away?.topPerformers) ||
+      Array.isArray(raw.live?.boxscore?.teams?.home?.topPerformers)
+    ) {
+      reduced.topPerformers = {
+        away: Array.isArray(raw.live?.boxscore?.teams?.away?.topPerformers)
+          ? raw.live.boxscore.teams.away.topPerformers.map((t) => ({
+              person: {
+                id: t?.person?.id ?? null,
+                fullName: t?.person?.fullName ?? null,
+              },
+              position: t?.position ?? null,
+              stats: t?.stats ?? null,
+            }))
+          : [],
+        home: Array.isArray(raw.live?.boxscore?.teams?.home?.topPerformers)
+          ? raw.live.boxscore.teams.home.topPerformers.map((t) => ({
+              person: {
+                id: t?.person?.id ?? null,
+                fullName: t?.person?.fullName ?? null,
+              },
+              position: t?.position ?? null,
+              stats: t?.stats ?? null,
+            }))
+          : [],
+      };
+    }
+
+    const accept = String(req.headers["accept"] || "");
+    const wantMsgpack =
+      req.query.format === "msgpack" || accept.includes("application/msgpack");
+
+    if (allowedTree) {
+      const pruned = {};
+      for (const k of Object.keys(allowedTree)) {
+        const subtree = allowedTree[k] === true ? true : allowedTree[k];
+
+        // 1) If the raw payload contains this top-level key, prune directly from raw
+        if (raw && Object.prototype.hasOwnProperty.call(raw, k)) {
+          pruned[k] = pruneWithTree(raw[k], subtree);
+          continue;
+        }
+
+        // 2) Special handling: the live/game feed sometimes uses `live` at top-level
+        // while our whitelist is authored as `liveData`. If allowedTree requests
+        // `liveData`, try to pull from raw.live (or from reduced synthetic fields)
+        if (k === "liveData") {
+          // prefer raw.live if present
+          if (raw && Object.prototype.hasOwnProperty.call(raw, "live")) {
+            pruned[k] = pruneWithTree(raw.live, subtree);
+            continue;
+          }
+
+          // Otherwise, build a small synthetic object from our reduced fields
+          // so pruning can operate against the same structure (plays, linescore, boxscore)
+          const synth = {};
+          if (reduced.plays) synth.plays = reduced.plays;
+          if (reduced.linescore) synth.linescore = reduced.linescore;
+          if (reduced.boxscore) synth.boxscore = reduced.boxscore;
+          // debug: inspect synthesized boxscore players and their pitches
+          try {
+            if (synth.boxscore && synth.boxscore.teams) {
+              for (const s of ["home", "away"]) {
+                const pls = synth.boxscore.teams[s]?.players;
+                if (Array.isArray(pls) && pls.length>0) {
+                  const sample = pls[0];
+                  // show a trimmed sample of the pitches if present
+                  if (sample && sample.pitches && sample.pitches.byType) {
+                    const tks = Object.keys(sample.pitches.byType).slice(0,3);
+                  }
+                }
+              }
+            }
+          } catch (e) {}
+          if (Object.keys(synth).length > 0) {
+            // Show the player tree expected by allowedTree (for debugging)
+            try {
+              const playerTree = subtree && subtree.boxscore && subtree.boxscore.teams && subtree.boxscore.teams['*'] && subtree.boxscore.teams['*'].players && subtree.boxscore.teams['*'].players['*'];
+            } catch (e) {}
+            pruned[k] = pruneWithTree(synth, subtree);
+            // debug: inspect pruned sample player
+            try {
+              const prPls = pruned[k].boxscore?.teams?.home?.players;
+              if (Array.isArray(prPls) && prPls.length>0) {
+              }
+            } catch (e) {}
+            continue;
+          }
+        }
+
+        // 3) Fall back: if reduced contains the requested top-level key, prune from reduced
+        if (Object.prototype.hasOwnProperty.call(reduced, k)) {
+          pruned[k] = pruneWithTree(reduced[k], subtree);
+          continue;
+        }
+      }
+
+      // quick check: log whether pruned contains any pitches under liveData.boxscore
+      try {
+        let foundPitches = false;
+        if (pruned.liveData && pruned.liveData.boxscore && pruned.liveData.boxscore.teams) {
+          for (const s of ["home", "away"]) {
+            const pls = pruned.liveData.boxscore.teams[s]?.players;
+            if (Array.isArray(pls)) {
+              for (const pl of pls) {
+                if (pl && pl.pitches) {
+                  foundPitches = true;
+                  break;
+                }
+              }
+            }
+            if (foundPitches) break;
+          }
+        }
+      } catch (e) {}
+
+      setCachingHeaders(res, TTL_MS);
+      // Attach a top-level `pitches` object derived from our computed pitchesByBatter
+      try {
+        const pitchesOut = {};
+        for (const [bid, arr] of pitchesByBatter.entries()) {
+          const byType = {};
+          let maxTop = null;
+          let minBottom = null;
+          for (const e of arr) {
+            const t = e.type || "unknown";
+            if (!byType[t]) byType[t] = { coords: [] };
+            // order is per-batter now
+            byType[t].coords.push(`${e.order}:${e.coords}`);
+            if (typeof e.top === "number") {
+              maxTop = maxTop === null ? e.top : Math.max(maxTop, e.top);
+            }
+            if (typeof e.bot === "number") {
+              minBottom = minBottom === null ? e.bot : Math.min(minBottom, e.bot);
+            }
+          }
+          for (const k of Object.keys(byType)) {
+            byType[k].coordinates = byType[k].coords.join(";");
+            delete byType[k].coords;
+          }
+          pitchesOut[bid] = { byType: Object.keys(byType).length>0?byType:null, strikeZone: { maxTop: maxTop, minBottom: minBottom } };
+        }
+        pruned.pitches = pitchesOut;
+      } catch (e) {
+        // ignore
+      }
+
+      if (wantMsgpack) {
+        try {
+          const encoded = msgpack.encode(pruned);
+          res.setHeader("Content-Type", "application/msgpack");
+          return res.send(Buffer.from(encoded));
+        } catch (e) {
+          // fall through to JSON fallback
+        }
+      }
+      return res.json({ source: fromCache ? "cache" : "origin", data: pruned });
+    }
+
+    // Attach a top-level `pitches` object so clients can access computed pitches
+    try {
+      const pitchesOut = {};
+      for (const [bid, arr] of pitchesByBatter.entries()) {
+        const byType = {};
+        let maxTop = null;
+        let minBottom = null;
+        for (const e of arr) {
+          const t = e.type || "unknown";
+          if (!byType[t]) byType[t] = { description: t, coords: [] };
+          byType[t].coords.push(`${e.order}:${e.coords}`);
+          if (typeof e.top === "number") {
+            maxTop = maxTop === null ? e.top : Math.max(maxTop, e.top);
+          }
+          if (typeof e.bot === "number") {
+            minBottom = minBottom === null ? e.bot : Math.min(minBottom, e.bot);
+          }
+        }
+        for (const k of Object.keys(byType)) {
+          byType[k].coordinates = byType[k].coords.join(";");
+          delete byType[k].coords;
+        }
+        pitchesOut[bid] = { byType: Object.keys(byType).length>0?byType:null, strikeZone: { maxTop: maxTop, minBottom: minBottom } };
+      }
+      reduced.pitches = pitchesOut;
+    } catch (e) {}
+
+    setCachingHeaders(res, TTL_MS);
+    if (wantMsgpack) {
+      try {
+        const encoded = msgpack.encode(reduced);
+        res.setHeader("Content-Type", "application/msgpack");
+        return res.send(Buffer.from(encoded));
+      } catch (e) {
+        // fall back to JSON
+      }
+    }
+
+    res.json({ source: fromCache ? "cache" : "origin", data: reduced });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch game feed", details: err.message });
+  }
+});
+
+// Start server and warm cache
+app.listen(PORT, async () => {
+  console.log(`Baseball server listening on port ${PORT}`);
+  await warmLeagues();
+  // Refresh leagues periodically (every TTL_MS)
+  setInterval(warmLeagues, TTL_MS);
+});

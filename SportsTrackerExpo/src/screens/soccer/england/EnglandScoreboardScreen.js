@@ -579,8 +579,8 @@ const EnglandScoreboardScreen = ({ navigation, route }) => {
     const awayTeam = competition?.competitors[1];
     const matchStatus = getMatchStatus(game);
 
-    const aggHomeScore = competition.leg && competition.leg.value === 1 ? ` (${homeTeam?.score || 0})` : competition.series.competitors[0]?.aggregateScore >= 0 ? ` (${competition.series.competitors[0].aggregateScore})` : "";
-    const aggAwayScore = competition.leg && competition.leg.value === 1 ? ` (${awayTeam?.score || 0})` : competition.series.competitors[1]?.aggregateScore >= 0 ? ` (${competition.series.competitors[1].aggregateScore})` : "";
+    const aggHomeScore = competition.leg && competition.leg.value === 1 ? ` (${homeTeam?.score || 0})` : competition.series?.competitors?.[0]?.aggregateScore >= 0 ? ` (${competition.series.competitors[0].aggregateScore})` : "";
+    const aggAwayScore = competition.leg && competition.leg.value === 1 ? ` (${awayTeam?.score || 0})` : competition.series?.competitors?.[1]?.aggregateScore >= 0 ? ` (${competition.series.competitors[1].aggregateScore})` : "";
 
     return (
       <TouchableOpacity

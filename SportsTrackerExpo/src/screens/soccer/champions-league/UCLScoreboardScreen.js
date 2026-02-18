@@ -144,7 +144,7 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
 
       return () => {
         console.log(
-          "UCLScoreboardScreen: Screen unfocused, clearing intervals"
+          "UCLScoreboardScreen: Screen unfocused, clearing intervals",
         );
         setIsScreenFocused(false);
         // Clear any existing interval when screen loses focus
@@ -153,7 +153,7 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
           return null;
         });
       };
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
@@ -161,7 +161,7 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
       "UCLScoreboardScreen: Main useEffect triggered for filter:",
       selectedDateFilter,
       "focused:",
-      isScreenFocused
+      isScreenFocused,
     );
     // Load the current filter first
     loadScoreboard();
@@ -193,7 +193,7 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
   useEffect(() => {
     console.log(
       "UCLScoreboardScreen: Preload useEffect triggered, hasPreloaded:",
-      hasPreloadedRef.current
+      hasPreloadedRef.current,
     );
     // Only preload if we haven't done it before
     if (hasPreloadedRef.current) {
@@ -222,13 +222,13 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
 
   const loadScoreboard = async (
     silentUpdate = false,
-    dateFilter = selectedDateFilter
+    dateFilter = selectedDateFilter,
   ) => {
     console.log(
       "UCLScoreboardScreen: loadScoreboard called - silentUpdate:",
       silentUpdate,
       "dateFilter:",
-      dateFilter
+      dateFilter,
     );
     const now = Date.now();
     const cachedData = gameCache[dateFilter];
@@ -250,9 +250,8 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
       }
 
       console.log("UCLScoreboardScreen: Fetching fresh data for", dateFilter);
-      const data = await ChampionsLeagueServiceEnhanced.getScoreboard(
-        dateFilter
-      );
+      const data =
+        await ChampionsLeagueServiceEnhanced.getScoreboard(dateFilter);
 
       // Process games with enhanced data
       const processedGames = await Promise.all(
@@ -260,11 +259,11 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
           // Get team logos
           const awayLogo =
             await ChampionsLeagueServiceEnhanced.getTeamLogoWithFallback(
-              game.competitions[0]?.competitors[1]?.team?.id
+              game.competitions[0]?.competitors[1]?.team?.id,
             );
           const homeLogo =
             await ChampionsLeagueServiceEnhanced.getTeamLogoWithFallback(
-              game.competitions[0]?.competitors[0]?.team?.id
+              game.competitions[0]?.competitors[0]?.team?.id,
             );
 
           return {
@@ -272,7 +271,7 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
             awayLogo,
             homeLogo,
           };
-        })
+        }),
       );
 
       // Stable enhanced sorting: group by day, then by status priority (live/pre/post),
@@ -325,7 +324,7 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
           awayScore: g.competitions[0]?.competitors[1]?.score,
           homeScore: g.competitions[0]?.competitors[0]?.score,
           clock: g.status?.displayClock,
-        }))
+        })),
       );
 
       // Update cache
@@ -386,7 +385,7 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
     if (isCacheValid) {
       console.log(
         "UCLScoreboardScreen: Using cached data for filter change to:",
-        filter
+        filter,
       );
       setGames(cachedData);
       setLoading(false);
@@ -394,7 +393,7 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
       console.log(
         "UCLScoreboardScreen: No valid cache for filter:",
         filter,
-        "- will fetch fresh data"
+        "- will fetch fresh data",
       );
     }
   };
@@ -503,7 +502,7 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
       const awayName = awayTeam?.displayName || awayTeam?.abbreviation || "";
       const matchedId = LiveTrackerService.findMatchIdByTeams(
         homeName,
-        awayName
+        awayName,
       );
       console.log("UCLScoreboardScreen: matched live-tracker id ->", matchedId);
 
@@ -573,10 +572,23 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
     const awayTeam = competition?.competitors[1];
     const matchStatus = getMatchStatus(game);
 
-    const slugName = game.season.slug === "knockout-round-playoffs" ? "KO-playoffs" : game.season.slug;
+    const slugName =
+      game.season.slug === "knockout-round-playoffs"
+        ? "KO-playoffs"
+        : game.season.slug;
 
-    const aggHomeScore = competition.leg && competition.leg.value === 1 ? ` (${homeTeam?.score || 0})` : competition.series.competitors[0]?.aggregateScore >= 0 ? ` (${competition.series.competitors[0].aggregateScore})` : "";
-    const aggAwayScore = competition.leg && competition.leg.value === 1 ? ` (${awayTeam?.score || 0})` : competition.series.competitors[1]?.aggregateScore >= 0 ? ` (${competition.series.competitors[1].aggregateScore})` : "";
+    const aggHomeScore =
+      competition.leg && competition.leg.value === 1
+        ? ` (${homeTeam?.score || 0})`
+        : competition.series?.competitors?.[0]?.aggregateScore >= 0
+          ? ` (${competition.series.competitors[0].aggregateScore})`
+          : "";
+    const aggAwayScore =
+      competition.leg && competition.leg.value === 1
+        ? ` (${awayTeam?.score || 0})`
+        : competition.series?.competitors?.[1]?.aggregateScore >= 0
+          ? ` (${competition.series.competitors[1].aggregateScore})`
+          : "";
 
     return (
       <TouchableOpacity
@@ -590,7 +602,12 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
             allowFontScaling={false}
             style={[styles.leagueText, { color: colors.primary }]}
           >
-            {`${game.competitionName || "Soccer"} - ${slugName.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")} ${competition.leg ? `- ${competition.leg.displayValue}` : ""}`}
+            {`${game.competitionName || "Soccer"} - ${slugName
+              .split("-")
+              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(
+                " ",
+              )} ${competition.leg ? `- ${competition.leg.displayValue}` : ""}`}
           </Text>
         </View>
 
@@ -641,7 +658,7 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
               {homeTeam?.team?.abbreviation ||
                 homeTeam?.team?.displayName ||
                 "TBD"}
-                              <Text style={{color: colors.accent}}>{aggHomeScore}</Text>
+              <Text style={{ color: colors.accent }}>{aggHomeScore}</Text>
             </Text>
           </View>
 
@@ -721,7 +738,7 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
               {awayTeam?.team?.abbreviation ||
                 awayTeam?.team?.displayName ||
                 "TBD"}
-                              <Text style={{color: colors.accent}}>{aggAwayScore}</Text>
+              <Text style={{ color: colors.accent }}>{aggAwayScore}</Text>
             </Text>
           </View>
         </View>
@@ -740,7 +757,10 @@ const UCLScoreboardScreen = ({ navigation, route }) => {
 
         {/* Live Viewer Section */}
         <View style={[styles.viewerSection, { borderTopColor: theme.border }]}>
-          <LiveViewerBadge gameId={competition.id} status={competition.status.type.state} />
+          <LiveViewerBadge
+            gameId={competition.id}
+            status={competition.status.type.state}
+          />
         </View>
       </TouchableOpacity>
     );

@@ -34,7 +34,7 @@ const DraftScreen = () => {
       const fields =
         "drafts,rounds,round,picks,person,currentAge,fullName,firstName,lastName,height,weight,primaryPosition,name,pickNumber,roundPickNumber,school,name,schoolClass,team,name,id,batSide,description,pitchHand,description,signingBonus";
       const res = await fetch(
-        `${API_URL}?year=${season}&fields=${encodeURIComponent(fields)}`
+        `${API_URL}/${season}?fields=${encodeURIComponent(fields)}`
       );
       const json = await res.json();
       setData(json);

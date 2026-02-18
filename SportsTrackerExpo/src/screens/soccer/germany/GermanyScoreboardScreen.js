@@ -578,8 +578,18 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
     const awayTeam = competition?.competitors[1];
     const matchStatus = getMatchStatus(game);
 
-    const aggHomeScore = competition.leg && competition.leg.value === 1 ? ` (${homeTeam?.score || 0})` : competition.series.competitors[0]?.aggregateScore >= 0 ? ` (${competition.series.competitors[0].aggregateScore})` : "";
-    const aggAwayScore = competition.leg && competition.leg.value === 1 ? ` (${awayTeam?.score || 0})` : competition.series.competitors[1]?.aggregateScore >= 0 ? ` (${competition.series.competitors[1].aggregateScore})` : "";
+    const aggHomeScore =
+      competition.leg && competition.leg.value === 1
+        ? ` (${homeTeam?.score || 0})`
+        : competition.series?.competitors?.[0]?.aggregateScore >= 0
+          ? ` (${competition.series.competitors[0].aggregateScore})`
+          : "";
+    const aggAwayScore =
+      competition.leg && competition.leg.value === 1
+        ? ` (${awayTeam?.score || 0})`
+        : competition.series?.competitors?.[1]?.aggregateScore >= 0
+          ? ` (${competition.series.competitors[1].aggregateScore})`
+          : "";
 
     return (
       <TouchableOpacity
@@ -593,7 +603,14 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
             allowFontScaling={false}
             style={[styles.leagueText, { color: colors.primary }]}
           >
-            {game.isDomesticCup ? `${game.competitionName || "Soccer"} - ${game.season.slug.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")} ${competition.leg ? `- ${competition.leg.displayValue}` : ""}` : `${game.competitionName || "Soccer"}`}
+            {game.isDomesticCup
+              ? `${game.competitionName || "Soccer"} - ${game.season.slug
+                  .split("-")
+                  .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(
+                    " ",
+                  )} ${competition.leg ? `- ${competition.leg.displayValue}` : ""}`
+              : `${game.competitionName || "Soccer"}`}
           </Text>
         </View>
 
@@ -644,7 +661,7 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
               {homeTeam?.team?.abbreviation ||
                 homeTeam?.team?.displayName ||
                 "TBD"}
-                              <Text style={{color: colors.accent}}>{aggHomeScore}</Text>
+              <Text style={{ color: colors.accent }}>{aggHomeScore}</Text>
             </Text>
           </View>
 
@@ -724,7 +741,7 @@ const GermanyScoreboardScreen = ({ navigation, route }) => {
               {awayTeam?.team?.abbreviation ||
                 awayTeam?.team?.displayName ||
                 "TBD"}
-                              <Text style={{color: colors.accent}}>{aggAwayScore}</Text>
+              <Text style={{ color: colors.accent }}>{aggAwayScore}</Text>
             </Text>
           </View>
         </View>

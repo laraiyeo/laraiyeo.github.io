@@ -359,7 +359,7 @@ export class MLBService {
     const cacheKey = 'mlb_standings';
     
     return this.getCachedData(cacheKey, async () => {
-      const url = `${this.BASE_URL}/api/v1/standings?leagueId=103,104&season=2024&standingsTypes=regularSeason`;
+      const url = `${this.BASE_URL}/api/v1/standings?leagueId=103,104&standingsTypes=regularSeason`;
       console.log('MLBService.getStandings called');
       console.log('MLBService.getStandings: Using standings endpoint:', url);
       
@@ -456,7 +456,7 @@ export class MLBService {
     
     return this.getCachedData(cacheKey, async () => {
       try {
-        const response = await fetch(`${this.BASE_URL}/api/v1/teams/${teamId}/roster`);
+        const response = await fetch(`${this.BASE_URL}/api/v1/teams/${teamId}/roster?fields=roster,person,id,fullName,jerseyNumber,position,name,abbreviation,status,description&rosterType=40Man`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
