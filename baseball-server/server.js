@@ -1778,7 +1778,8 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
       // debug logging: play context
       try {
         const playIdx = play?.about?.playIndex ?? play?.about?.playId ?? "-";
-        const desc = play?.result?.event || play?.result?.description || "(no event)";
+        const desc =
+          play?.result?.event || play?.result?.description || "(no event)";
       } catch (e) {
         // ignore logging errors
       }
@@ -1792,10 +1793,16 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
         const coords = pd.coordinates || {};
         const pX = coords.pX ?? coords.x ?? null;
         const pZ = coords.pZ ?? coords.y ?? null;
-        const typeDesc = (pe.details && (pe.details.type?.description || pe.details.type)) || (pe.type ?? null) || "unknown";
-        const desc = pe.details?.description ?? (pe.details?.call?.description ?? null);
-        const top = typeof pd.strikeZoneTop === "number" ? pd.strikeZoneTop : null;
-        const bot = typeof pd.strikeZoneBottom === "number" ? pd.strikeZoneBottom : null;
+        const typeDesc =
+          (pe.details && (pe.details.type?.description || pe.details.type)) ||
+          (pe.type ?? null) ||
+          "unknown";
+        const desc =
+          pe.details?.description ?? pe.details?.call?.description ?? null;
+        const top =
+          typeof pd.strikeZoneTop === "number" ? pd.strikeZoneTop : null;
+        const bot =
+          typeof pd.strikeZoneBottom === "number" ? pd.strikeZoneBottom : null;
 
         const orderLocal = existingArr.length + 1;
         const entry = {
@@ -1818,18 +1825,23 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
     const allPlaysArr = Array.isArray(raw.live?.plays?.allPlays)
       ? raw.live.plays.allPlays
       : Array.isArray(raw.liveData?.plays?.allPlays)
-      ? raw.liveData.plays.allPlays
-      : [];
+        ? raw.liveData.plays.allPlays
+        : [];
     const currentPlayExists =
-      Boolean(raw.live?.plays?.currentPlay) || Boolean(raw.liveData?.plays?.currentPlay);
+      Boolean(raw.live?.plays?.currentPlay) ||
+      Boolean(raw.liveData?.plays?.currentPlay);
     for (const p of allPlaysArr) processPlayForPitches(p);
     // Also include currentPlay if present (may include ongoing pitch events)
-    if (raw.live?.plays?.currentPlay) processPlayForPitches(raw.live.plays.currentPlay);
-    else if (raw.liveData?.plays?.currentPlay) processPlayForPitches(raw.liveData.plays.currentPlay);
+    if (raw.live?.plays?.currentPlay)
+      processPlayForPitches(raw.live.plays.currentPlay);
+    else if (raw.liveData?.plays?.currentPlay)
+      processPlayForPitches(raw.liveData.plays.currentPlay);
 
     // summary log of collected pitches
     try {
-      const sample = Array.from(pitchesByBatter.entries()).slice(0, 5).map(([k, v]) => [k, v.length]);
+      const sample = Array.from(pitchesByBatter.entries())
+        .slice(0, 5)
+        .map(([k, v]) => [k, v.length]);
     } catch (e) {}
 
     // Determine polling mode based on game status: Scheduled/Final => normal (30m), else fast (5s)
@@ -1944,7 +1956,7 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
 
           // compute compacted pitch data for this batter if available
           const batterPitches = pitchesByBatter.get(String(personId)) || [];
-            const byType = {};
+          const byType = {};
           let maxTop = null;
           let minBot = null;
           for (const e of batterPitches) {
@@ -2071,11 +2083,11 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
             if (synth.boxscore && synth.boxscore.teams) {
               for (const s of ["home", "away"]) {
                 const pls = synth.boxscore.teams[s]?.players;
-                if (Array.isArray(pls) && pls.length>0) {
+                if (Array.isArray(pls) && pls.length > 0) {
                   const sample = pls[0];
                   // show a trimmed sample of the pitches if present
                   if (sample && sample.pitches && sample.pitches.byType) {
-                    const tks = Object.keys(sample.pitches.byType).slice(0,3);
+                    const tks = Object.keys(sample.pitches.byType).slice(0, 3);
                   }
                 }
               }
@@ -2084,13 +2096,19 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
           if (Object.keys(synth).length > 0) {
             // Show the player tree expected by allowedTree (for debugging)
             try {
-              const playerTree = subtree && subtree.boxscore && subtree.boxscore.teams && subtree.boxscore.teams['*'] && subtree.boxscore.teams['*'].players && subtree.boxscore.teams['*'].players['*'];
+              const playerTree =
+                subtree &&
+                subtree.boxscore &&
+                subtree.boxscore.teams &&
+                subtree.boxscore.teams["*"] &&
+                subtree.boxscore.teams["*"].players &&
+                subtree.boxscore.teams["*"].players["*"];
             } catch (e) {}
             pruned[k] = pruneWithTree(synth, subtree);
             // debug: inspect pruned sample player
             try {
               const prPls = pruned[k].boxscore?.teams?.home?.players;
-              if (Array.isArray(prPls) && prPls.length>0) {
+              if (Array.isArray(prPls) && prPls.length > 0) {
               }
             } catch (e) {}
             continue;
@@ -2107,7 +2125,11 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
       // quick check: log whether pruned contains any pitches under liveData.boxscore
       try {
         let foundPitches = false;
-        if (pruned.liveData && pruned.liveData.boxscore && pruned.liveData.boxscore.teams) {
+        if (
+          pruned.liveData &&
+          pruned.liveData.boxscore &&
+          pruned.liveData.boxscore.teams
+        ) {
           for (const s of ["home", "away"]) {
             const pls = pruned.liveData.boxscore.teams[s]?.players;
             if (Array.isArray(pls)) {
@@ -2140,14 +2162,18 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
               maxTop = maxTop === null ? e.top : Math.max(maxTop, e.top);
             }
             if (typeof e.bot === "number") {
-              minBottom = minBottom === null ? e.bot : Math.min(minBottom, e.bot);
+              minBottom =
+                minBottom === null ? e.bot : Math.min(minBottom, e.bot);
             }
           }
           for (const k of Object.keys(byType)) {
             byType[k].coordinates = byType[k].coords.join(";");
             delete byType[k].coords;
           }
-          pitchesOut[bid] = { byType: Object.keys(byType).length>0?byType:null, strikeZone: { maxTop: maxTop, minBottom: minBottom } };
+          pitchesOut[bid] = {
+            byType: Object.keys(byType).length > 0 ? byType : null,
+            strikeZone: { maxTop: maxTop, minBottom: minBottom },
+          };
         }
         pruned.pitches = pitchesOut;
       } catch (e) {
@@ -2188,7 +2214,10 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
           byType[k].coordinates = byType[k].coords.join(";");
           delete byType[k].coords;
         }
-        pitchesOut[bid] = { byType: Object.keys(byType).length>0?byType:null, strikeZone: { maxTop: maxTop, minBottom: minBottom } };
+        pitchesOut[bid] = {
+          byType: Object.keys(byType).length > 0 ? byType : null,
+          strikeZone: { maxTop: maxTop, minBottom: minBottom },
+        };
       }
       reduced.pitches = pitchesOut;
     } catch (e) {}
