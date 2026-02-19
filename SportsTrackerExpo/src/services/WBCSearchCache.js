@@ -2,9 +2,9 @@
 // Both SearchScreen and CompareScreen import this so the fetch happens at most once
 // per app session, regardless of which screen the user opens first.
 
-import WBCService from './WBCService';
+import WBCService from "./WBCService";
 
-let _cache = null;   // { teams: [], players: [] }
+let _cache = null; // { teams: [], players: [] }
 let _pending = null; // in-flight Promise – prevents parallel duplicate fetches
 
 /**

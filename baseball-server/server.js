@@ -1376,29 +1376,67 @@ app.get("/wbc/player/:code", async (req, res) => {
 // Player compare endpoint: /wbc/compare/:codes  e.g. /wbc/compare/831348-692922
 app.get("/wbc/compare/:codes", async (req, res) => {
   const raw = req.params.codes || "";
-  const parts = raw.split("-").map((s) => s.trim()).filter(Boolean);
+  const parts = raw
+    .split("-")
+    .map((s) => s.trim())
+    .filter(Boolean);
   if (parts.length !== 2) {
-    return res.status(400).json({ error: "Two player codes required, e.g. 831348-692922" });
+    return res
+      .status(400)
+      .json({ error: "Two player codes required, e.g. 831348-692922" });
   }
   const [codeA, codeB] = parts;
 
   const allowedRaw = new Set([
-    "gamesPlayed", "runs", "doubles", "triples", "homeRuns", "strikeOuts",
-    "baseOnBalls", "hits", "avg", "atBats", "obp", "slg", "ops",
-    "stolenBases", "totalBases", "rbi",
-    "era", "inningsPitched", "earnedRuns", "whip", "shutouts",
-    "strikePercentage", "strikeoutsPer9Inn",
+    "gamesPlayed",
+    "runs",
+    "doubles",
+    "triples",
+    "homeRuns",
+    "strikeOuts",
+    "baseOnBalls",
+    "hits",
+    "avg",
+    "atBats",
+    "obp",
+    "slg",
+    "ops",
+    "stolenBases",
+    "totalBases",
+    "rbi",
+    "era",
+    "inningsPitched",
+    "earnedRuns",
+    "whip",
+    "shutouts",
+    "strikePercentage",
+    "strikeoutsPer9Inn",
   ]);
 
   const humanize = (k) => {
     const map = {
-      gamesPlayed: "Games Played", runs: "Runs", doubles: "Doubles",
-      triples: "Triples", homeRuns: "Home Runs", strikeOuts: "Strike Outs",
-      baseOnBalls: "Base On Balls", hits: "Hits", avg: "Avg", atBats: "At Bats",
-      obp: "Obp", slg: "Slg", ops: "Ops", stolenBases: "Stolen Bases",
-      totalBases: "Total Bases", rbi: "Rbi", era: "Era",
-      inningsPitched: "Innings Pitched", earnedRuns: "Earned Runs", whip: "Whip",
-      shutouts: "Shutouts", strikePercentage: "Strike Percentage",
+      gamesPlayed: "Games Played",
+      runs: "Runs",
+      doubles: "Doubles",
+      triples: "Triples",
+      homeRuns: "Home Runs",
+      strikeOuts: "Strike Outs",
+      baseOnBalls: "Base On Balls",
+      hits: "Hits",
+      avg: "Avg",
+      atBats: "At Bats",
+      obp: "Obp",
+      slg: "Slg",
+      ops: "Ops",
+      stolenBases: "Stolen Bases",
+      totalBases: "Total Bases",
+      rbi: "Rbi",
+      era: "Era",
+      inningsPitched: "Innings Pitched",
+      earnedRuns: "Earned Runs",
+      whip: "Whip",
+      shutouts: "Shutouts",
+      strikePercentage: "Strike Percentage",
       strikeoutsPer9Inn: "Strikeouts Per 9 Inn",
     };
     return map[k] ?? k;
@@ -1412,7 +1450,9 @@ app.get("/wbc/compare/:codes", async (req, res) => {
       getCached(seasonPath, `${BASE_URL}${seasonPath}`),
     ]);
 
-    const peopleData = pRes?.data?.people ? pRes.data.people[0] : pRes?.data || null;
+    const peopleData = pRes?.data?.people
+      ? pRes.data.people[0]
+      : pRes?.data || null;
 
     const profile = {};
     if (peopleData) {
@@ -1429,9 +1469,14 @@ app.get("/wbc/compare/:codes", async (req, res) => {
         name: peopleData.primaryPosition?.name ?? null,
         abbreviation: peopleData.primaryPosition?.abbreviation ?? null,
       };
-      profile.batSide = { description: peopleData.batSide?.description ?? null };
-      profile.pitchHand = { description: peopleData.pitchHand?.description ?? null };
-      profile.pronunciation = peopleData.pronunciation ?? peopleData.pronounciation ?? null;
+      profile.batSide = {
+        description: peopleData.batSide?.description ?? null,
+      };
+      profile.pitchHand = {
+        description: peopleData.pitchHand?.description ?? null,
+      };
+      profile.pronunciation =
+        peopleData.pronunciation ?? peopleData.pronounciation ?? null;
     }
 
     let seasonStats = seasonRes?.data?.stats ?? [];
@@ -1441,10 +1486,16 @@ app.get("/wbc/compare/:codes", async (req, res) => {
         if (splits.length > 0) {
           const firstSplit = splits[0];
           if (firstSplit.team && !profile.team) {
-            profile.team = { id: firstSplit.team.id ?? null, name: firstSplit.team.name ?? null };
+            profile.team = {
+              id: firstSplit.team.id ?? null,
+              name: firstSplit.team.name ?? null,
+            };
           }
           if (firstSplit.league && !profile.league) {
-            profile.league = { id: firstSplit.league.id ?? null, name: firstSplit.league.name ?? null };
+            profile.league = {
+              id: firstSplit.league.id ?? null,
+              name: firstSplit.league.name ?? null,
+            };
           }
         }
       }
@@ -1483,7 +1534,12 @@ app.get("/wbc/compare/:codes", async (req, res) => {
       }
     }
 
-    return { profile, seasonStats, primaryGroup, fromCache: pRes.fromCache && seasonRes.fromCache };
+    return {
+      profile,
+      seasonStats,
+      primaryGroup,
+      fromCache: pRes.fromCache && seasonRes.fromCache,
+    };
   }
 
   try {
@@ -1511,7 +1567,9 @@ app.get("/wbc/compare/:codes", async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(502).json({ error: "Failed to fetch compare data", details: err.message });
+    res
+      .status(502)
+      .json({ error: "Failed to fetch compare data", details: err.message });
   }
 });
 
@@ -2041,8 +2099,12 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
     if (wpData) {
       probabilityOut = {
         amount: wpData.length,
-        home: wpData.map((e) => Math.round(e.homeTeamWinProbability * 10) / 10).join(","),
-        away: wpData.map((e) => Math.round(e.awayTeamWinProbability * 10) / 10).join(","),
+        home: wpData
+          .map((e) => Math.round(e.homeTeamWinProbability * 10) / 10)
+          .join(","),
+        away: wpData
+          .map((e) => Math.round(e.awayTeamWinProbability * 10) / 10)
+          .join(","),
       };
     }
 

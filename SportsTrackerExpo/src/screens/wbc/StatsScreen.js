@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,10 +9,10 @@ import {
   ActivityIndicator,
   Modal,
   FlatList,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '../../context/ThemeContext';
-import WBCService from '../../services/WBCService';
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { useTheme } from "../../context/ThemeContext";
+import WBCService from "../../services/WBCService";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -24,12 +24,12 @@ import WBCService from '../../services/WBCService';
  */
 const formatCategoryName = (key) =>
   key
-    .replace(/([A-Z])/g, ' $1')   // insert space before each uppercase letter
-    .replace(/([0-9]+)/g, ' $1')  // insert space before each run of digits
+    .replace(/([A-Z])/g, " $1") // insert space before each uppercase letter
+    .replace(/([0-9]+)/g, " $1") // insert space before each run of digits
     .trim()
     .split(/\s+/)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
+    .join(" ");
 
 /**
  * For categories that appear twice in the leaders array, specify which
@@ -38,65 +38,65 @@ const formatCategoryName = (key) =>
  * Change a value here to flip which occurrence goes where.
  */
 const DUPLICATE_CATEGORY_HITTING_OCCURRENCE = {
-  strikeouts:          1,  // 1st = batter strikeouts (hitting), 2nd = pitcher strikeouts
-  homeRuns:            2,
-  stolenBases:         1,
-  walks:               1,
-  hits:                2,
-  runs:                1,
-  battingAverage:      2,
-  onBasePercentage:    2,
-  sluggingPercentage:  1,
-  onBasePlusSlugging:  1,
-  totalBases:          2,
-  atBats:              1,
-  runsBattedIn:        1,
+  strikeouts: 1, // 1st = batter strikeouts (hitting), 2nd = pitcher strikeouts
+  homeRuns: 2,
+  stolenBases: 1,
+  walks: 1,
+  hits: 2,
+  runs: 1,
+  battingAverage: 2,
+  onBasePercentage: 2,
+  sluggingPercentage: 1,
+  onBasePlusSlugging: 1,
+  totalBases: 2,
+  atBats: 1,
+  runsBattedIn: 1,
 };
 
 // Categories that always belong to pitching (even on first occurrence)
 const PITCHING_ONLY = new Set([
-  'earnedRunAverage',
-  'inningsPitched',
-  'walksAndHitsPerInningPitched',
-  'numberOfPitches',
-  'wins',
-  'saves',
-  'shutouts',
-  'completeGames',
-  'strikeoutsPer9Inn',
-  'strikeoutWalkRatio',
+  "earnedRunAverage",
+  "inningsPitched",
+  "walksAndHitsPerInningPitched",
+  "numberOfPitches",
+  "wins",
+  "saves",
+  "shutouts",
+  "completeGames",
+  "strikeoutsPer9Inn",
+  "strikeoutWalkRatio",
 ]);
 
 // Preferred display order within each group (unlisted keys are appended)
 const HITTING_ORDER = [
-  'battingAverage',
-  'homeRuns',
-  'runsBattedIn',
-  'hits',
-  'runs',
-  'stolenBases',
-  'onBasePercentage',
-  'sluggingPercentage',
-  'onBasePlusSlugging',
-  'walks',
-  'totalBases',
-  'atBats',
+  "battingAverage",
+  "homeRuns",
+  "runsBattedIn",
+  "hits",
+  "runs",
+  "stolenBases",
+  "onBasePercentage",
+  "sluggingPercentage",
+  "onBasePlusSlugging",
+  "walks",
+  "totalBases",
+  "atBats",
 ];
 
 const PITCHING_ORDER = [
-  'earnedRunAverage',
-  'walksAndHitsPerInningPitched',
-  'strikeouts',
-  'inningsPitched',
-  'wins',
-  'saves',
-  'numberOfPitches',
-  'stolenBases',
-  'runs',
-  'battingAverage',
-  'onBasePercentage',
-  'sluggingPercentage',
-  'onBasePlusSlugging',
+  "earnedRunAverage",
+  "walksAndHitsPerInningPitched",
+  "strikeouts",
+  "inningsPitched",
+  "wins",
+  "saves",
+  "numberOfPitches",
+  "stolenBases",
+  "runs",
+  "battingAverage",
+  "onBasePercentage",
+  "sluggingPercentage",
+  "onBasePlusSlugging",
 ];
 
 /** Return keys of `obj` sorted by the given order array (extras appended). */
@@ -110,23 +110,28 @@ const sortedKeys = (obj, order) => {
 // ─── Team stat category definitions ───────────────────────────────────────────
 
 const TEAM_HITTING_CATS = [
-  { key: 'Avg',          name: 'Batting Average',    abbr: 'AVG',  higherBetter: true  },
-  { key: 'Home Runs',    name: 'Home Runs',           abbr: 'HR',   higherBetter: true  },
-  { key: 'Rbi',          name: 'RBIs',                abbr: 'RBI',  higherBetter: true  },
-  { key: 'Runs',         name: 'Runs',                abbr: 'R',    higherBetter: true  },
-  { key: 'Hits',         name: 'Hits',                abbr: 'H',    higherBetter: true  },
-  { key: 'Stolen Bases', name: 'Stolen Bases',        abbr: 'SB',   higherBetter: true  },
-  { key: 'Ops',          name: 'OPS',                 abbr: 'OPS',  higherBetter: true  },
-  { key: 'Obp',          name: 'On-Base Percentage',  abbr: 'OBP',  higherBetter: true  },
-  { key: 'Slg',          name: 'Slugging Percentage', abbr: 'SLG',  higherBetter: true  },
+  { key: "Avg", name: "Batting Average", abbr: "AVG", higherBetter: true },
+  { key: "Home Runs", name: "Home Runs", abbr: "HR", higherBetter: true },
+  { key: "Rbi", name: "RBIs", abbr: "RBI", higherBetter: true },
+  { key: "Runs", name: "Runs", abbr: "R", higherBetter: true },
+  { key: "Hits", name: "Hits", abbr: "H", higherBetter: true },
+  { key: "Stolen Bases", name: "Stolen Bases", abbr: "SB", higherBetter: true },
+  { key: "Ops", name: "OPS", abbr: "OPS", higherBetter: true },
+  { key: "Obp", name: "On-Base Percentage", abbr: "OBP", higherBetter: true },
+  { key: "Slg", name: "Slugging Percentage", abbr: "SLG", higherBetter: true },
 ];
 
 const TEAM_PITCHING_CATS = [
-  { key: 'Era',                  name: 'ERA',             abbr: 'ERA',  higherBetter: false },
-  { key: 'Whip',                 name: 'WHIP',            abbr: 'WHIP', higherBetter: false },
-  { key: 'Strike Outs',          name: 'Strikeouts',      abbr: 'SO',   higherBetter: true  },
-  { key: 'Innings Pitched',      name: 'Innings Pitched', abbr: 'IP',   higherBetter: true  },
-  { key: 'Strikeouts Per 9 Inn', name: 'K/9',             abbr: 'K/9',  higherBetter: true  },
+  { key: "Era", name: "ERA", abbr: "ERA", higherBetter: false },
+  { key: "Whip", name: "WHIP", abbr: "WHIP", higherBetter: false },
+  { key: "Strike Outs", name: "Strikeouts", abbr: "SO", higherBetter: true },
+  {
+    key: "Innings Pitched",
+    name: "Innings Pitched",
+    abbr: "IP",
+    higherBetter: true,
+  },
+  { key: "Strikeouts Per 9 Inn", name: "K/9", abbr: "K/9", higherBetter: true },
 ];
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -136,14 +141,14 @@ const StatsScreen = ({ route }) => {
   const { theme, colors, isDarkMode } = useTheme();
   const navigation = useNavigation();
 
-  const [selectedTab, setSelectedTab] = useState('Players');
-  const [hittingLeaders, setHittingLeaders] = useState({});   // categoryKey → leaders[]
+  const [selectedTab, setSelectedTab] = useState("Players");
+  const [hittingLeaders, setHittingLeaders] = useState({}); // categoryKey → leaders[]
   const [pitchingLeaders, setPitchingLeaders] = useState({}); // categoryKey → leaders[]
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalData, setModalData] = useState([]);
-  const [modalTitle, setModalTitle] = useState('');
+  const [modalTitle, setModalTitle] = useState("");
 
   useEffect(() => {
     fetchAll();
@@ -159,7 +164,7 @@ const StatsScreen = ({ route }) => {
       processLeaders(leadersRes?.data?.leagueLeaders || []);
       setTeams(statsRes?.data?.teams || []);
     } catch (e) {
-      console.error('WBC stats fetch error:', e);
+      console.error("WBC stats fetch error:", e);
     } finally {
       setLoading(false);
     }
@@ -179,7 +184,8 @@ const StatsScreen = ({ route }) => {
     leagueLeaders.forEach(({ leaderCategory, leaders }) => {
       if (!leaderCategory || !leaders?.length) return;
 
-      occurrenceCount[leaderCategory] = (occurrenceCount[leaderCategory] || 0) + 1;
+      occurrenceCount[leaderCategory] =
+        (occurrenceCount[leaderCategory] || 0) + 1;
       const thisOccurrence = occurrenceCount[leaderCategory];
 
       if (PITCHING_ONLY.has(leaderCategory)) {
@@ -190,7 +196,8 @@ const StatsScreen = ({ route }) => {
         return;
       }
 
-      const hittingOccurrence = DUPLICATE_CATEGORY_HITTING_OCCURRENCE[leaderCategory] ?? 1;
+      const hittingOccurrence =
+        DUPLICATE_CATEGORY_HITTING_OCCURRENCE[leaderCategory] ?? 1;
       if (thisOccurrence === hittingOccurrence) {
         hitting[leaderCategory] = leaders;
       } else if (thisOccurrence !== hittingOccurrence) {
@@ -224,19 +231,30 @@ const StatsScreen = ({ route }) => {
           key={`${leader.person?.id}-first`}
           style={[styles.firstLeaderRow, { borderBottomColor: theme.border }]}
           onPress={() =>
-            navigation.navigate('PlayerPage', {
+            navigation.navigate("PlayerPage", {
               playerId: leader.person?.id,
-              sport: 'wbc',
+              sport: "wbc",
             })
           }
         >
-          <View style={[styles.headshotBorder, { borderColor: teamColor || colors.primary }]}>
-            <Image source={{ uri: headshotUri }} style={styles.playerHeadshot} />
+          <View
+            style={[
+              styles.headshotBorder,
+              { borderColor: teamColor || colors.primary },
+            ]}
+          >
+            <Image
+              source={{ uri: headshotUri }}
+              style={styles.playerHeadshot}
+            />
           </View>
           <View style={styles.firstLeaderInfo}>
             <View style={styles.playerNameRow}>
               {teamLogo ? (
-                <Image source={{ uri: teamLogo }} style={styles.teamLogoSmall} />
+                <Image
+                  source={{ uri: teamLogo }}
+                  style={styles.teamLogoSmall}
+                />
               ) : null}
               <Text
                 allowFontScaling={false}
@@ -267,9 +285,9 @@ const StatsScreen = ({ route }) => {
         key={`${leader.person?.id}-${index}`}
         style={styles.leaderRow}
         onPress={() =>
-          navigation.navigate('PlayerPage', {
+          navigation.navigate("PlayerPage", {
             playerId: leader.person?.id,
-            sport: 'wbc',
+            sport: "wbc",
           })
         }
       >
@@ -316,7 +334,7 @@ const StatsScreen = ({ route }) => {
           {categoryName}
         </Text>
         {displayLeaders.map((leader, index) =>
-          renderPlayerLeaderRow(leader, index, index === 0)
+          renderPlayerLeaderRow(leader, index, index === 0),
         )}
         {leaders.length > 5 && (
           <Text
@@ -334,17 +352,23 @@ const StatsScreen = ({ route }) => {
 
   const getTeamsSortedByCat = (statType, catKey, higherBetter) => {
     const filtered = teams.filter(
-      (t) => t.stats?.[statType]?.['2025']?.stat?.[catKey] != null
+      (t) => t.stats?.[statType]?.["2025"]?.stat?.[catKey] != null,
     );
     return [...filtered].sort((a, b) => {
-      const va = parseFloat(a.stats[statType]['2025'].stat[catKey]);
-      const vb = parseFloat(b.stats[statType]['2025'].stat[catKey]);
+      const va = parseFloat(a.stats[statType]["2025"].stat[catKey]);
+      const vb = parseFloat(b.stats[statType]["2025"].stat[catKey]);
       return higherBetter ? vb - va : va - vb;
     });
   };
 
-  const renderTeamLeaderRow = (team, index, statType, catKey, isFirst = false) => {
-    const value = team.stats?.[statType]?.['2025']?.stat?.[catKey];
+  const renderTeamLeaderRow = (
+    team,
+    index,
+    statType,
+    catKey,
+    isFirst = false,
+  ) => {
+    const value = team.stats?.[statType]?.["2025"]?.stat?.[catKey];
     const logo = WBCService.getTeamLogo(team.id, isDarkMode);
     const teamColor = WBCService.getTeamColor(team.id);
 
@@ -352,7 +376,10 @@ const StatsScreen = ({ route }) => {
       return (
         <View
           key={`${team.id}-first`}
-          style={[styles.firstLeaderRow, { borderBottomColor: teamColor || theme.border }]}
+          style={[
+            styles.firstLeaderRow,
+            { borderBottomColor: teamColor || theme.border },
+          ]}
         >
           {logo ? (
             <Image source={{ uri: logo }} style={styles.teamLogoLarge} />
@@ -403,12 +430,16 @@ const StatsScreen = ({ route }) => {
   };
 
   const renderTeamCategory = (catDef, statType) => {
-    const sorted = getTeamsSortedByCat(statType, catDef.key, catDef.higherBetter);
+    const sorted = getTeamsSortedByCat(
+      statType,
+      catDef.key,
+      catDef.higherBetter,
+    );
     const display = sorted.slice(0, 5);
     const modalItems = sorted.map((t, i) => ({
       ...t,
       _rank: i + 1,
-      _value: t.stats?.[statType]?.['2025']?.stat?.[catDef.key],
+      _value: t.stats?.[statType]?.["2025"]?.stat?.[catDef.key],
     }));
 
     return (
@@ -424,7 +455,7 @@ const StatsScreen = ({ route }) => {
           {catDef.name}
         </Text>
         {display.map((team, index) =>
-          renderTeamLeaderRow(team, index, statType, catDef.key, index === 0)
+          renderTeamLeaderRow(team, index, statType, catDef.key, index === 0),
         )}
         {sorted.length > 5 && (
           <Text
@@ -450,9 +481,9 @@ const StatsScreen = ({ route }) => {
           style={[styles.modalItem, { backgroundColor: theme.surface }]}
           onPress={() => {
             setModalVisible(false);
-            navigation.navigate('PlayerPage', {
+            navigation.navigate("PlayerPage", {
               playerId: item.person.id,
-              sport: 'wbc',
+              sport: "wbc",
             });
           }}
         >
@@ -462,7 +493,12 @@ const StatsScreen = ({ route }) => {
           >
             {item.rank}
           </Text>
-          <View style={[styles.modalHeadshotBorder, { borderColor: playerTeamColor || colors.primary }]}>
+          <View
+            style={[
+              styles.modalHeadshotBorder,
+              { borderColor: playerTeamColor || colors.primary },
+            ]}
+          >
             <Image
               source={{
                 uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${item.person.id}/headshot/67/current`,
@@ -506,7 +542,11 @@ const StatsScreen = ({ route }) => {
       <View
         style={[
           styles.modalItem,
-          { backgroundColor: theme.surface, borderBottomWidth: 2, borderBottomColor: modalTeamColor || theme.border },
+          {
+            backgroundColor: theme.surface,
+            borderBottomWidth: 2,
+            borderBottomColor: modalTeamColor || theme.border,
+          },
         ]}
       >
         <Text
@@ -542,7 +582,9 @@ const StatsScreen = ({ route }) => {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+      <View
+        style={[styles.loadingContainer, { backgroundColor: theme.background }]}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
         <Text
           allowFontScaling={false}
@@ -565,13 +607,14 @@ const StatsScreen = ({ route }) => {
           { backgroundColor: theme.surface, borderBottomColor: theme.border },
         ]}
       >
-        {['Players', 'Teams'].map((tab) => (
+        {["Players", "Teams"].map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[
               styles.tabButton,
               {
-                backgroundColor: selectedTab === tab ? colors.primary : 'transparent',
+                backgroundColor:
+                  selectedTab === tab ? colors.primary : "transparent",
                 borderColor: colors.primary,
               },
             ]}
@@ -581,7 +624,7 @@ const StatsScreen = ({ route }) => {
               allowFontScaling={false}
               style={[
                 styles.tabButtonText,
-                { color: selectedTab === tab ? '#fff' : colors.primary },
+                { color: selectedTab === tab ? "#fff" : colors.primary },
               ]}
             >
               {tab}
@@ -590,18 +633,24 @@ const StatsScreen = ({ route }) => {
         ))}
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {selectedTab === 'Players' ? (
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
+        {selectedTab === "Players" ? (
           <>
             {/* Hitting Leaders */}
             <Text
               allowFontScaling={false}
-              style={[styles.sectionTitle, { color: theme.text, marginTop: -5 }]}
+              style={[
+                styles.sectionTitle,
+                { color: theme.text, marginTop: -5 },
+              ]}
             >
               Hitting Leaders
             </Text>
             {sortedKeys(hittingLeaders, HITTING_ORDER).map((k) =>
-              renderPlayerCategory(k, hittingLeaders)
+              renderPlayerCategory(k, hittingLeaders),
             )}
 
             {/* Pitching Leaders */}
@@ -612,7 +661,7 @@ const StatsScreen = ({ route }) => {
               Pitching Leaders
             </Text>
             {sortedKeys(pitchingLeaders, PITCHING_ORDER).map((k) =>
-              renderPlayerCategory(k, pitchingLeaders)
+              renderPlayerCategory(k, pitchingLeaders),
             )}
           </>
         ) : (
@@ -620,11 +669,14 @@ const StatsScreen = ({ route }) => {
             {/* Hitting Teams */}
             <Text
               allowFontScaling={false}
-              style={[styles.sectionTitle, { color: theme.text, marginTop: -5 }]}
+              style={[
+                styles.sectionTitle,
+                { color: theme.text, marginTop: -5 },
+              ]}
             >
               Hitting Leaders
             </Text>
-            {TEAM_HITTING_CATS.map((cat) => renderTeamCategory(cat, 'hitting'))}
+            {TEAM_HITTING_CATS.map((cat) => renderTeamCategory(cat, "hitting"))}
 
             {/* Pitching Teams */}
             <Text
@@ -633,7 +685,9 @@ const StatsScreen = ({ route }) => {
             >
               Pitching Leaders
             </Text>
-            {TEAM_PITCHING_CATS.map((cat) => renderTeamCategory(cat, 'pitching'))}
+            {TEAM_PITCHING_CATS.map((cat) =>
+              renderTeamCategory(cat, "pitching"),
+            )}
           </>
         )}
         <View style={{ height: 32 }} />
@@ -646,11 +700,16 @@ const StatsScreen = ({ route }) => {
         presentationStyle="pageSheet"
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
+        <View
+          style={[styles.modalContainer, { backgroundColor: theme.background }]}
+        >
           <View
             style={[
               styles.modalHeader,
-              { backgroundColor: theme.surface, borderBottomColor: theme.border },
+              {
+                backgroundColor: theme.surface,
+                borderBottomColor: theme.border,
+              },
             ]}
           >
             <Text
@@ -691,16 +750,16 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
   },
   tabSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
@@ -711,11 +770,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     minWidth: 60,
-    alignItems: 'center',
+    alignItems: "center",
   },
   tabButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   scrollView: {
     flex: 1,
@@ -723,16 +782,16 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 22,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginTop: 20,
     marginBottom: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   categoryContainer: {
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
@@ -740,13 +799,13 @@ const styles = StyleSheet.create({
   },
   categoryTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   firstLeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 12,
     borderBottomWidth: 1,
     marginBottom: 8,
@@ -767,45 +826,45 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 6,
     marginRight: 12,
-    resizeMode: 'contain',
+    resizeMode: "contain",
   },
   firstLeaderInfo: {
     flex: 1,
   },
   playerNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 4,
   },
   teamLogoSmall: {
     width: 20,
     height: 20,
     marginRight: 8,
-    resizeMode: 'contain',
+    resizeMode: "contain",
   },
   playerName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   teamName: {
     fontSize: 14,
   },
   statValue: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     minWidth: 60,
-    textAlign: 'right',
+    textAlign: "right",
   },
   leaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 8,
   },
   rank: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     width: 30,
-    textAlign: 'center',
+    textAlign: "center",
   },
   playerNameCompact: {
     flex: 1,
@@ -814,53 +873,53 @@ const styles = StyleSheet.create({
   },
   statValueCompact: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     minWidth: 50,
-    textAlign: 'right',
+    textAlign: "right",
   },
   viewMore: {
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 8,
     fontSize: 12,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   modalContainer: {
     flex: 1,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
   },
   modalHeaderTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   modalCloseButton: {
     padding: 8,
   },
   modalCloseText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   modalList: {
     flex: 1,
     padding: 16,
   },
   modalItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
   },
   modalRank: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     width: 30,
-    textAlign: 'center',
+    textAlign: "center",
   },
   modalHeadshotBorder: {
     borderRadius: 22,
@@ -878,34 +937,34 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 6,
     marginHorizontal: 12,
-    resizeMode: 'contain',
+    resizeMode: "contain",
   },
   modalPlayerInfo: {
     flex: 1,
   },
   modalNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 2,
   },
   modalTeamLogo: {
     width: 16,
     height: 16,
     marginRight: 6,
-    resizeMode: 'contain',
+    resizeMode: "contain",
   },
   modalPlayerName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   modalTeamName: {
     fontSize: 12,
   },
   modalStatValue: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     minWidth: 60,
-    textAlign: 'right',
+    textAlign: "right",
   },
 });
 
