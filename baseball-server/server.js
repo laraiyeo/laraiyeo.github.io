@@ -50,7 +50,6 @@ const allowedTree = {
       "*": {
         id: true,
         fullName: true,
-        primaryNumber: true,
         currentAge: true,
         height: true,
         batSide: { code: true },
@@ -198,6 +197,7 @@ const allowedTree = {
           players: {
             "*": {
               person: { id: true },
+              jerseyNumber: true,
               position: { name: true, abbreviation: true },
               stats: {
                 "*": {

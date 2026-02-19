@@ -185,7 +185,7 @@ const UpcomingMatchesSection = ({
             const awayScore = game.teams?.away?.score;
             const homeScore = game.teams?.home?.score;
             const { time, ampm } = formatTimeEST(game.gameDate);
-            const isFinished = ["F", "FT", "FO"].includes(
+            const isFinished = ["S", "P", "D", "C", "O", "F", "Q", "R"].includes(
               game.status?.codedGameState,
             );
             const homeWinner = isFinished && game.teams?.home?.isWinner;
