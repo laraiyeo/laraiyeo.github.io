@@ -133,7 +133,9 @@ const PlayerCard = ({ playerId, playerInfo, bsPlayer, theme }) => {
   const cols = statMode === "pitching" ? PITCHING_COLS : BATTING_COLS;
   const stats = statMode === "pitching" ? pitching : batting;
   const fullName = playerInfo?.fullName ?? `Player ${playerId}`;
-  const number = playerInfo?.primaryNumber ? `#${playerInfo.primaryNumber}` : "";
+  const number = playerInfo?.primaryNumber
+    ? `#${playerInfo.primaryNumber}`
+    : "";
 
   return (
     <View
@@ -182,8 +184,7 @@ const PlayerCard = ({ playerId, playerInfo, bsPlayer, theme }) => {
                   style={[
                     pcStyles.toggleLabel,
                     {
-                      color:
-                        statMode === m ? "#fff" : theme.textSecondary,
+                      color: statMode === m ? "#fff" : theme.textSecondary,
                     },
                   ]}
                 >
@@ -287,12 +288,18 @@ const BoxScorePanel = ({ bsTeamData, playersMap, theme }) => {
     ? battingOrder
     : Object.keys(bsPlayers)
         .map((k) => Number(k.replace("ID", "")))
-        .filter((id) => Object.keys(bsPlayers[`ID${id}`]?.stats?.batting ?? {}).length > 0);
+        .filter(
+          (id) =>
+            Object.keys(bsPlayers[`ID${id}`]?.stats?.batting ?? {}).length > 0,
+        );
 
   // Collect pitchers (players with pitching stats)
   const pitcherIds = Object.keys(bsPlayers)
     .map((k) => Number(k.replace("ID", "")))
-    .filter((id) => Object.keys(bsPlayers[`ID${id}`]?.stats?.pitching ?? {}).length > 0);
+    .filter(
+      (id) =>
+        Object.keys(bsPlayers[`ID${id}`]?.stats?.pitching ?? {}).length > 0,
+    );
 
   const ids = section === "batting" ? batterIds : pitcherIds;
 
@@ -334,9 +341,7 @@ const BoxScorePanel = ({ bsTeamData, playersMap, theme }) => {
       ))}
 
       {ids.length === 0 && (
-        <Text
-          style={[bsStyles.empty, { color: theme.textSecondary }]}
-        >
+        <Text style={[bsStyles.empty, { color: theme.textSecondary }]}>
           No {section} data available.
         </Text>
       )}
