@@ -1373,6 +1373,148 @@ app.get("/wbc/player/:code", async (req, res) => {
   }
 });
 
+// Player compare endpoint: /wbc/compare/:codes  e.g. /wbc/compare/831348-692922
+app.get("/wbc/compare/:codes", async (req, res) => {
+  const raw = req.params.codes || "";
+  const parts = raw.split("-").map((s) => s.trim()).filter(Boolean);
+  if (parts.length !== 2) {
+    return res.status(400).json({ error: "Two player codes required, e.g. 831348-692922" });
+  }
+  const [codeA, codeB] = parts;
+
+  const allowedRaw = new Set([
+    "gamesPlayed", "runs", "doubles", "triples", "homeRuns", "strikeOuts",
+    "baseOnBalls", "hits", "avg", "atBats", "obp", "slg", "ops",
+    "stolenBases", "totalBases", "rbi",
+    "era", "inningsPitched", "earnedRuns", "whip", "shutouts",
+    "strikePercentage", "strikeoutsPer9Inn",
+  ]);
+
+  const humanize = (k) => {
+    const map = {
+      gamesPlayed: "Games Played", runs: "Runs", doubles: "Doubles",
+      triples: "Triples", homeRuns: "Home Runs", strikeOuts: "Strike Outs",
+      baseOnBalls: "Base On Balls", hits: "Hits", avg: "Avg", atBats: "At Bats",
+      obp: "Obp", slg: "Slg", ops: "Ops", stolenBases: "Stolen Bases",
+      totalBases: "Total Bases", rbi: "Rbi", era: "Era",
+      inningsPitched: "Innings Pitched", earnedRuns: "Earned Runs", whip: "Whip",
+      shutouts: "Shutouts", strikePercentage: "Strike Percentage",
+      strikeoutsPer9Inn: "Strikeouts Per 9 Inn",
+    };
+    return map[k] ?? k;
+  };
+
+  async function fetchPlayerData(code) {
+    const pPath = `v1/people/${encodeURIComponent(code)}`;
+    const seasonPath = `v1/people/${encodeURIComponent(code)}/stats?stats=season&group=hitting,pitching&sportId=51`;
+    const [pRes, seasonRes] = await Promise.all([
+      getCached(pPath, `${BASE_URL}${pPath}`),
+      getCached(seasonPath, `${BASE_URL}${seasonPath}`),
+    ]);
+
+    const peopleData = pRes?.data?.people ? pRes.data.people[0] : pRes?.data || null;
+
+    const profile = {};
+    if (peopleData) {
+      profile.id = peopleData.id ?? null;
+      profile.fullName = peopleData.fullName ?? null;
+      profile.firstName = peopleData.firstName ?? null;
+      profile.lastName = peopleData.lastName ?? null;
+      profile.birthDate = peopleData.birthDate ?? null;
+      profile.currentAge = peopleData.currentAge ?? null;
+      profile.birthCountry = peopleData.birthCountry ?? null;
+      profile.height = peopleData.height ?? null;
+      profile.weight = peopleData.weight ?? null;
+      profile.primaryPosition = {
+        name: peopleData.primaryPosition?.name ?? null,
+        abbreviation: peopleData.primaryPosition?.abbreviation ?? null,
+      };
+      profile.batSide = { description: peopleData.batSide?.description ?? null };
+      profile.pitchHand = { description: peopleData.pitchHand?.description ?? null };
+      profile.pronunciation = peopleData.pronunciation ?? peopleData.pronounciation ?? null;
+    }
+
+    let seasonStats = seasonRes?.data?.stats ?? [];
+    if (Array.isArray(seasonStats) && seasonStats.length > 0) {
+      for (const statBlock of seasonStats) {
+        const splits = statBlock.splits || [];
+        if (splits.length > 0) {
+          const firstSplit = splits[0];
+          if (firstSplit.team && !profile.team) {
+            profile.team = { id: firstSplit.team.id ?? null, name: firstSplit.team.name ?? null };
+          }
+          if (firstSplit.league && !profile.league) {
+            profile.league = { id: firstSplit.league.id ?? null, name: firstSplit.league.name ?? null };
+          }
+        }
+      }
+
+      seasonStats = seasonStats.map((statBlock) => {
+        const sb = JSON.parse(JSON.stringify(statBlock));
+        if (sb.hasOwnProperty("type")) delete sb.type;
+        if (sb.hasOwnProperty("exemptions")) delete sb.exemptions;
+        if (Array.isArray(sb.splits)) {
+          sb.splits = sb.splits.map((sp) => {
+            if (sp.player) delete sp.player;
+            if (sp.sport) delete sp.sport;
+            const rawStat = sp.stat || {};
+            const filtered = {};
+            for (const k of Object.keys(rawStat)) {
+              if (!allowedRaw.has(k)) continue;
+              filtered[humanize(k)] = rawStat[k];
+            }
+            sp.stat = filtered;
+            if (sp.team) delete sp.team;
+            if (sp.league) delete sp.league;
+            return sp;
+          });
+        }
+        return sb;
+      });
+    }
+
+    // Determine primary stat group (first non-empty group found)
+    let primaryGroup = null;
+    for (const sb of seasonStats) {
+      const gn = (sb?.group?.displayName || "").toLowerCase();
+      if (gn && Array.isArray(sb.splits) && sb.splits.length > 0) {
+        primaryGroup = gn;
+        break;
+      }
+    }
+
+    return { profile, seasonStats, primaryGroup, fromCache: pRes.fromCache && seasonRes.fromCache };
+  }
+
+  try {
+    const [playerA, playerB] = await Promise.all([
+      fetchPlayerData(codeA),
+      fetchPlayerData(codeB),
+    ]);
+
+    // If both have a determined group and they differ, reject comparison
+    if (
+      playerA.primaryGroup &&
+      playerB.primaryGroup &&
+      playerA.primaryGroup !== playerB.primaryGroup
+    ) {
+      return res.status(400).json({ error: "Positions are different" });
+    }
+
+    const fromCacheAll = playerA.fromCache && playerB.fromCache;
+
+    res.json({
+      source: fromCacheAll ? "cache" : "origin",
+      data: {
+        playerA: { profile: playerA.profile, seasonStats: playerA.seasonStats },
+        playerB: { profile: playerB.profile, seasonStats: playerB.seasonStats },
+      },
+    });
+  } catch (err) {
+    res.status(502).json({ error: "Failed to fetch compare data", details: err.message });
+  }
+});
+
 // Full team aggregation endpoint
 app.get("/wbc/team/:code", async (req, res) => {
   const code = req.params.code;
@@ -1721,6 +1863,10 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
   const url = `${BASE_URL}${path}`;
   const key = path;
 
+  const wpPath = `v1/game/${encodeURIComponent(gamePk)}/winProbability?fields=homeTeamWinProbability,awayTeamWinProbability`;
+  const wpUrl = `${BASE_URL}${wpPath}`;
+  const wpKey = wpPath;
+
   function pickPlayer(p) {
     if (!p) return null;
     return {
@@ -1759,7 +1905,11 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
   }
 
   try {
-    const { data, fromCache } = await getCached(key, url);
+    const [{ data, fromCache }, wpResult] = await Promise.all([
+      getCached(key, url),
+      getCached(wpKey, wpUrl).catch(() => ({ data: null, fromCache: false })),
+    ]);
+    const wpData = Array.isArray(wpResult?.data) ? wpResult.data : null;
 
     // reduce heavy payload
     const reduced = {};
@@ -1865,9 +2015,35 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
           intervalMs,
         );
         refreshIntervals.set(key, id);
+        // mirror same polling interval for win probability
+        const existingWp = refreshIntervals.get(wpKey);
+        if (existingWp) clearInterval(existingWp);
+        const wpId = setInterval(
+          () => fetchAndCache(wpKey, wpUrl).catch(() => {}),
+          intervalMs,
+        );
+        refreshIntervals.set(wpKey, wpId);
+      } else if (!refreshIntervals.has(wpKey)) {
+        // ensure win probability has a polling interval even if main feed mode didn't change
+        const intervalMs = needFast ? 5000 : TTL_MS;
+        const wpId = setInterval(
+          () => fetchAndCache(wpKey, wpUrl).catch(() => {}),
+          intervalMs,
+        );
+        refreshIntervals.set(wpKey, wpId);
       }
     } catch (e) {
       // ignore polling setup errors
+    }
+
+    // Build compact win probability object
+    let probabilityOut = null;
+    if (wpData) {
+      probabilityOut = {
+        amount: wpData.length,
+        home: wpData.map((e) => Math.round(e.homeTeamWinProbability * 10) / 10).join(","),
+        away: wpData.map((e) => Math.round(e.awayTeamWinProbability * 10) / 10).join(","),
+      };
     }
 
     reduced.gamePk = raw.gamePk ?? Number(gamePk);
@@ -2175,6 +2351,7 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
             strikeZone: { maxTop: maxTop, minBottom: minBottom },
           };
         }
+        if (probabilityOut) pitchesOut.probability = probabilityOut;
         pruned.pitches = pitchesOut;
       } catch (e) {
         // ignore
@@ -2219,6 +2396,7 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
           strikeZone: { maxTop: maxTop, minBottom: minBottom },
         };
       }
+      if (probabilityOut) pitchesOut.probability = probabilityOut;
       reduced.pitches = pitchesOut;
     } catch (e) {}
 

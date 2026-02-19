@@ -23,6 +23,12 @@ const HOME_SPORTS_BASE = [
     icon: require("../../assets/mlb.png"),
   },
   {
+    id: "wbc",
+    title: "WBC",
+    description: "World Baseball Classic — scores, teams, and details.",
+    icon: require("../../assets/wbc_logo.png"),
+  },
+  {
     id: "nhl",
     title: "NHL",
     description: "View all live NHL games happening right now.",
@@ -84,7 +90,7 @@ const HomeScreen = () => {
   }));
 
   const [sportsState] = useState(
-    defaultSports.map((s) => ({ ...s, hidden: false }))
+    defaultSports.map((s) => ({ ...s, hidden: false })),
   );
   const [isReady] = useState(true);
 

@@ -271,7 +271,7 @@ const TeamPageScreen = ({ route, navigation }) => {
         console.log('Searching for upcoming games from:', startSearchDate, 'to:', end);
 
         const upcomingResponse = await fetch(
-          `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId=${mlbApiId}&startDate=${startSearchDate}&endDate=${end}`
+          `https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId=${mlbApiId}&startDate=${startSearchDate}&endDate=${end}&hydrate=team,linescore,decisions`
         );
         const upcomingData = await upcomingResponse.json();
 
@@ -317,7 +317,7 @@ const TeamPageScreen = ({ route, navigation }) => {
       // Get current year season games
       const currentYear = new Date().getFullYear();
       const response = await fetch(
-        `https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${mlbApiId}&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&gameType=S`
+        `https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${mlbApiId}&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&gameType=S&hydrate=team,linescore,decisions`
       );
       const data = await response.json();
       

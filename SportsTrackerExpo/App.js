@@ -106,6 +106,16 @@ import MLBMoreScreen from "./src/screens/mlb/MoreScreen";
 import MLBTransactionsScreen from "./src/screens/mlb/TransactionsScreen";
 import MLBDraftScreen from "./src/screens/mlb/DraftScreen";
 
+// WBC specific screens (lightweight re-exports)
+import WBCScoreboardScreen from "./src/screens/wbc/ScoreboardScreen";
+import WBCStandingsScreen from "./src/screens/wbc/StandingsScreen";
+import WBCSearchScreen from "./src/screens/wbc/SearchScreen";
+import WBCCompareScreen from "./src/screens/wbc/CompareScreen";
+import WBCGameDetailsScreen from "./src/screens/wbc/GameDetailsScreen";
+import WBCTeamPageScreen from "./src/screens/wbc/TeamPageScreen";
+import WBCPlayerPageScreen from "./src/screens/wbc/PlayerPageScreen";
+import WBCStatsScreen from "./src/screens/wbc/StatsScreen";
+
 // NBA specific screens
 import NBAScoreboardScreen from "./src/screens/nba/ScoreboardScreen";
 import NBAStandingsScreen from "./src/screens/nba/StandingsScreen";
@@ -425,6 +435,15 @@ const SportTabNavigator = ({ route }) => {
           StatsScreen: MLBMoreScreen,
           TransactionsScreen: MLBTransactionsScreen,
           DraftScreen: MLBDraftScreen,
+        };
+      case "wbc":
+        return {
+          // Use lightweight WBC-specific screens (currently re-exports of MLB implementations)
+          ScoreboardScreen: WBCScoreboardScreen,
+          StandingsScreen: WBCStandingsScreen,
+          SearchScreen: WBCSearchScreen,
+          CompareScreen: WBCCompareScreen,
+          StatsScreen: WBCStatsScreen,
         };
       case "nba":
         return {
@@ -934,14 +953,14 @@ const SoccerTabNavigator = ({ route }) => {
         />
       )}
       {!isFIFAWorldCup && (
-      <Tab.Screen
-        name="More"
-        component={screens.MoreScreen}
-        initialParams={{ leagueId, leagueName }}
-        options={{
-          title: "More",
-        }}
-      />
+        <Tab.Screen
+          name="More"
+          component={screens.MoreScreen}
+          initialParams={{ leagueId, leagueName }}
+          options={{
+            title: "More",
+          }}
+        />
       )}
     </Tab.Navigator>
   );
@@ -1052,6 +1071,8 @@ const MainStackNavigator = () => {
               return <NFLGameDetailsScreen {...props} />;
             case "mlb":
               return <MLBGameDetailsScreen {...props} />;
+            case "wbc":
+              return <WBCGameDetailsScreen {...props} />;
             case "nba":
               return <NBAGameDetailsScreen {...props} />;
             case "wnba":
@@ -1505,6 +1526,9 @@ const MainStackNavigator = () => {
             case "mlb":
               console.log("Rendering MLB TeamPage");
               return <MLBTeamPageScreen {...props} />;
+            case "wbc":
+              console.log("Rendering WBC TeamPage");
+              return <WBCTeamPageScreen {...props} />;
             case "nba":
               console.log("Rendering NBA TeamPage");
               return <NBATeamPageScreen {...props} />;
@@ -1757,6 +1781,8 @@ const MainStackNavigator = () => {
               return <NFLPlayerPageScreen {...props} />;
             case "mlb":
               return <MLBPlayerPageScreen {...props} />;
+            case "wbc":
+              return <WBCPlayerPageScreen {...props} />;
             case "nba":
               return <NBAPlayerPageScreen {...props} />;
             case "wnba":
