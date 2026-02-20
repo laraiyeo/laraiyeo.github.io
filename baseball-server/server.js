@@ -100,11 +100,9 @@ const allowedTree = {
               count: { balls: true, strikes: true, outs: true },
               pitchData: {
                 startSpeed: true,
-                endSpeed: true,
                 strikeZoneTop: true,
                 strikeZoneBottom: true,
                 coordinates: { pX: true, pZ: true },
-                breaks: { spinRate: true },
               },
               hitData: {
                 launchSpeed: true,
@@ -2005,8 +2003,8 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
           (pe.details && (pe.details.type?.description || pe.details.type)) ||
           (pe.type ?? null) ||
           "unknown";
-        const desc =
-          pe.details?.description ?? pe.details?.call?.description ?? null;
+        const call =
+          pe.details?.call?.code ?? null;
         const top =
           typeof pd.strikeZoneTop === "number" ? pd.strikeZoneTop : null;
         const bot =
@@ -2016,7 +2014,7 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
         const entry = {
           order: orderLocal,
           type: String(typeDesc),
-          coords: `${pX !== null ? pX : ""},${pZ !== null ? pZ : ""}`,
+          coords: `${pX !== null ? pX : ""},${pZ !== null ? pZ : ""},${call !== null ? call : ""}`,
           top,
           bot,
         };

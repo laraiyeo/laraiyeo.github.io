@@ -184,6 +184,8 @@ const UpcomingMatchesSection = ({
             const home = game.teams?.home?.team || {};
             const awayScore = game.teams?.away?.score;
             const homeScore = game.teams?.home?.score;
+            const awayRecord = game.teams?.away?.leagueRecord;
+            const homeRecord = game.teams?.home?.leagueRecord;
             const { time, ampm } = formatTimeEST(game.gameDate);
             const isFinished = ["S", "P", "D", "C", "O", "F", "Q", "R"].includes(
               game.status?.codedGameState,
@@ -271,12 +273,20 @@ const UpcomingMatchesSection = ({
                           </View>
                         )}
                       </View>
+                      <View style={{ flex: 1 }}>
                       <Text
                         style={[styles.stackedTeamName, { color: theme.text }]}
                         numberOfLines={1}
                       >
                         {away.name || "Away"}
                       </Text>
+                      <Text
+                        style={[styles.stackedTeamName, { color: theme.textSecondary, fontSize: 11 }]}
+                        numberOfLines={1}
+                      >
+                        {awayRecord?.wins || 0}-{awayRecord?.losses || 0}
+                      </Text>
+                      </View>
                       {awayScore != null && (
                         <Text
                           style={[
@@ -313,12 +323,20 @@ const UpcomingMatchesSection = ({
                           </View>
                         )}
                       </View>
+                      <View style={{ flex: 1 }}>
                       <Text
                         style={[styles.stackedTeamName, { color: theme.text }]}
                         numberOfLines={1}
                       >
                         {home.name || "Home"}
                       </Text>
+                      <Text
+                        style={[styles.stackedTeamName, { color: theme.textSecondary, fontSize: 11 }]}
+                        numberOfLines={1}
+                      >
+                        {homeRecord?.wins || 0}-{homeRecord?.losses || 0}
+                      </Text>
+                      </View>
                       {homeScore != null && (
                         <Text
                           style={[
@@ -351,7 +369,7 @@ const UpcomingMatchesSection = ({
                   <View style={styles.gameFooterRight}>
                     <LiveViewerBadge
                       gameId={game.gamePk}
-                      status={game.status}
+                      status={game.status.detailedState}
                       style={styles.viewerBadge}
                     />
                   </View>
