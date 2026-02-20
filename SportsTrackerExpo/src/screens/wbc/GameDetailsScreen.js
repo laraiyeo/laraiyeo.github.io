@@ -506,13 +506,21 @@ const PlayerDetailModal = ({
     const batting = {};
     const pitching = {};
     Object.values(allBsPlayers ?? {}).forEach((p) => {
-      const hasBat = Object.keys(p?.stats?.batting ?? {}).filter((k) => k !== "summary").length > 0;
-      const hasPit = Object.keys(p?.stats?.pitching ?? {}).filter((k) => k !== "summary").length > 0;
+      const hasBat =
+        Object.keys(p?.stats?.batting ?? {}).filter((k) => k !== "summary")
+          .length > 0;
+      const hasPit =
+        Object.keys(p?.stats?.pitching ?? {}).filter((k) => k !== "summary")
+          .length > 0;
       const entries = [
         // primary batter only → no pitching stats
-        ...(!hasPit && hasBat ? Object.entries(p.stats.batting) : []).map(([k, v]) => ({ bucket: batting, k, v })),
+        ...(!hasPit && hasBat ? Object.entries(p.stats.batting) : []).map(
+          ([k, v]) => ({ bucket: batting, k, v }),
+        ),
         // primary pitcher only → no batting stats
-        ...(!hasBat && hasPit ? Object.entries(p.stats.pitching) : []).map(([k, v]) => ({ bucket: pitching, k, v })),
+        ...(!hasBat && hasPit ? Object.entries(p.stats.pitching) : []).map(
+          ([k, v]) => ({ bucket: pitching, k, v }),
+        ),
       ];
       entries.forEach(({ bucket, k, v }) => {
         if (k === "summary") return;
@@ -745,42 +753,46 @@ const PlayerDetailModal = ({
                   Batting
                 </Text>
               )}
-              {buildStatRows(batting, BATTING_LOWER_IS_BETTER, statMinMax.batting).map(
-                ({ key, label, value, pct }) => (
-                  <View key={`bat-${key}`} style={pdStyles.statRow}>
+              {buildStatRows(
+                batting,
+                BATTING_LOWER_IS_BETTER,
+                statMinMax.batting,
+              ).map(({ key, label, value, pct }) => (
+                <View key={`bat-${key}`} style={pdStyles.statRow}>
+                  <Text
+                    style={[
+                      pdStyles.statRowLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {label}
+                  </Text>
+                  <View style={pdStyles.statRowRight}>
                     <Text
-                      style={[
-                        pdStyles.statRowLabel,
-                        { color: theme.textSecondary },
-                      ]}
-                      numberOfLines={1}
+                      style={[pdStyles.statRowValue, { color: theme.text }]}
                     >
-                      {label}
+                      {value}
                     </Text>
-                    <View style={pdStyles.statRowRight}>
-                      <Text style={[pdStyles.statRowValue, { color: theme.text }]}>
-                        {value}
-                      </Text>
+                    <View
+                      style={[
+                        pdStyles.statBarTrack,
+                        { backgroundColor: theme.border },
+                      ]}
+                    >
                       <View
                         style={[
-                          pdStyles.statBarTrack,
-                          { backgroundColor: theme.border },
+                          pdStyles.statBarFill,
+                          {
+                            width: `${Math.round(pct * 100)}%`,
+                            backgroundColor: teamColor,
+                          },
                         ]}
-                      >
-                        <View
-                          style={[
-                            pdStyles.statBarFill,
-                            {
-                              width: `${Math.round(pct * 100)}%`,
-                              backgroundColor: teamColor,
-                            },
-                          ]}
-                        />
-                      </View>
+                      />
                     </View>
                   </View>
-                ),
-              )}
+                </View>
+              ))}
             </>
           )}
           {hasPitStats && (
@@ -795,42 +807,46 @@ const PlayerDetailModal = ({
                   Pitching
                 </Text>
               )}
-              {buildStatRows(pitching, PITCHING_LOWER_IS_BETTER, statMinMax.pitching).map(
-                ({ key, label, value, pct }) => (
-                  <View key={`pit-${key}`} style={pdStyles.statRow}>
+              {buildStatRows(
+                pitching,
+                PITCHING_LOWER_IS_BETTER,
+                statMinMax.pitching,
+              ).map(({ key, label, value, pct }) => (
+                <View key={`pit-${key}`} style={pdStyles.statRow}>
+                  <Text
+                    style={[
+                      pdStyles.statRowLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {label}
+                  </Text>
+                  <View style={pdStyles.statRowRight}>
                     <Text
-                      style={[
-                        pdStyles.statRowLabel,
-                        { color: theme.textSecondary },
-                      ]}
-                      numberOfLines={1}
+                      style={[pdStyles.statRowValue, { color: theme.text }]}
                     >
-                      {label}
+                      {value}
                     </Text>
-                    <View style={pdStyles.statRowRight}>
-                      <Text style={[pdStyles.statRowValue, { color: theme.text }]}>
-                        {value}
-                      </Text>
+                    <View
+                      style={[
+                        pdStyles.statBarTrack,
+                        { backgroundColor: theme.border },
+                      ]}
+                    >
                       <View
                         style={[
-                          pdStyles.statBarTrack,
-                          { backgroundColor: theme.border },
+                          pdStyles.statBarFill,
+                          {
+                            width: `${Math.round(pct * 100)}%`,
+                            backgroundColor: teamColor,
+                          },
                         ]}
-                      >
-                        <View
-                          style={[
-                            pdStyles.statBarFill,
-                            {
-                              width: `${Math.round(pct * 100)}%`,
-                              backgroundColor: teamColor,
-                            },
-                          ]}
-                        />
-                      </View>
+                      />
                     </View>
                   </View>
-                ),
-              )}
+                </View>
+              ))}
             </>
           )}
         </ScrollView>
