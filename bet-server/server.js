@@ -10925,6 +10925,16 @@ function startWatcherInline(betslipId) {
           const gameCompleted = !!gameStatus?.completed;
           isCompleted = Boolean(isCompleted) || gameCompleted;
 
+          // If the game is now marked completed by ESPN but the betslip payload
+          // still reports "in progress" (it may lag behind the game ending),
+          // clear newState so the score-based heuristics below can resolve the
+          // correct outcome. Without this, the spread/moneyline heuristic block
+          // is skipped (it only runs when newState === null) and allFinal never
+          // becomes true, permanently blocking settlement.
+          if (isCompleted && newState === "in progress") {
+            newState = null;
+          }
+
           // detect game started and ended and emit once per event (skip on first tick)
           const prevEvent = lastEventStatus[evId];
           const competitors =

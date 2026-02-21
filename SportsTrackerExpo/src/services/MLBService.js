@@ -1,97 +1,151 @@
 // MLB API Service for Mobile App
 // Adapted from MLB scoreboard.js and live.js
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export class MLBService {
   static BASE_URL = "https://statsapi.mlb.com";
   static SCHEDULE_URL = `${this.BASE_URL}/api/v1/schedule/games/?sportId=1`;
-  
+
   // Cache for API responses (fallback in-memory cache)
   static cache = new Map();
   static cacheTimestamps = new Map();
   static CACHE_DURATION = 2000; // 2 seconds for live sports data (faster updates)
   static STALE_CACHE_DURATION = 10000; // 10 seconds - ESPN's max-age for fallback
+  static STANDINGS_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes for standings
 
   // Team abbreviation mapping for ESPN logos
   static teamAbbrMap = {
-    "Arizona Diamondbacks": "ari", "Atlanta Braves": "atl", "Baltimore Orioles": "bal", "Boston Red Sox": "bos",
-    "Chicago White Sox": "cws", "Chicago Cubs": "chc", "Cincinnati Reds": "cin", "Cleveland Guardians": "cle",
-    "Colorado Rockies": "col", "Detroit Tigers": "det", "Houston Astros": "hou", "Kansas City Royals": "kc",
-    "Los Angeles Angels": "laa", "Los Angeles Dodgers": "lad", "Miami Marlins": "mia", "Milwaukee Brewers": "mil",
-    "Minnesota Twins": "min", "New York Yankees": "nyy", "New York Mets": "nym", "Athletics": "oak",
-    "Philadelphia Phillies": "phi", "Pittsburgh Pirates": "pit", "San Diego Padres": "sd", "San Francisco Giants": "sf",
-    "Seattle Mariners": "sea", "St. Louis Cardinals": "stl", "Tampa Bay Rays": "tb", "Texas Rangers": "tex",
-    "Toronto Blue Jays": "tor", "Washington Nationals": "wsh"
+    "Arizona Diamondbacks": "ari",
+    "Atlanta Braves": "atl",
+    "Baltimore Orioles": "bal",
+    "Boston Red Sox": "bos",
+    "Chicago White Sox": "cws",
+    "Chicago Cubs": "chc",
+    "Cincinnati Reds": "cin",
+    "Cleveland Guardians": "cle",
+    "Colorado Rockies": "col",
+    "Detroit Tigers": "det",
+    "Houston Astros": "hou",
+    "Kansas City Royals": "kc",
+    "Los Angeles Angels": "laa",
+    "Los Angeles Dodgers": "lad",
+    "Miami Marlins": "mia",
+    "Milwaukee Brewers": "mil",
+    "Minnesota Twins": "min",
+    "New York Yankees": "nyy",
+    "New York Mets": "nym",
+    Athletics: "oak",
+    "Philadelphia Phillies": "phi",
+    "Pittsburgh Pirates": "pit",
+    "San Diego Padres": "sd",
+    "San Francisco Giants": "sf",
+    "Seattle Mariners": "sea",
+    "St. Louis Cardinals": "stl",
+    "Tampa Bay Rays": "tb",
+    "Texas Rangers": "tex",
+    "Toronto Blue Jays": "tor",
+    "Washington Nationals": "wsh",
   };
 
   // Team colors mapping
   static teamColors = {
-    "Arizona Diamondbacks": "#A71930", "Atlanta Braves": "#CE1141", "Baltimore Orioles": "#DF4601", "Boston Red Sox": "#BD3039",
-    "Chicago White Sox": "#27251F", "Chicago Cubs": "#0E3386", "Cincinnati Reds": "#C6011F", "Cleveland Guardians": "#E50022",
-    "Colorado Rockies": "#333366", "Detroit Tigers": "#0C2340", "Houston Astros": "#002D62", "Kansas City Royals": "#004687",
-    "Los Angeles Angels": "#BA0021", "Los Angeles Dodgers": "#005A9C", "Miami Marlins": "#00A3E0", "Milwaukee Brewers": "#FFC52F",
-    "Minnesota Twins": "#002B5C", "New York Yankees": "#003087", "New York Mets": "#FF5910", "Athletics": "#EFB21E",
-    "Philadelphia Phillies": "#E81828", "Pittsburgh Pirates": "#FDB827", "San Diego Padres": "#2F241D", "San Francisco Giants": "#FD5A1E",
-    "Seattle Mariners": "#005C5C", "St. Louis Cardinals": "#C41E3A", "Tampa Bay Rays": "#092C5C", "Texas Rangers": "#003278",
-    "Toronto Blue Jays": "#134A8E", "Washington Nationals": "#AB0003"
+    "Arizona Diamondbacks": "#A71930",
+    "Atlanta Braves": "#CE1141",
+    "Baltimore Orioles": "#DF4601",
+    "Boston Red Sox": "#BD3039",
+    "Chicago White Sox": "#27251F",
+    "Chicago Cubs": "#0E3386",
+    "Cincinnati Reds": "#C6011F",
+    "Cleveland Guardians": "#E50022",
+    "Colorado Rockies": "#333366",
+    "Detroit Tigers": "#0C2340",
+    "Houston Astros": "#002D62",
+    "Kansas City Royals": "#004687",
+    "Los Angeles Angels": "#BA0021",
+    "Los Angeles Dodgers": "#005A9C",
+    "Miami Marlins": "#00A3E0",
+    "Milwaukee Brewers": "#FFC52F",
+    "Minnesota Twins": "#002B5C",
+    "New York Yankees": "#003087",
+    "New York Mets": "#FF5910",
+    Athletics: "#EFB21E",
+    "Philadelphia Phillies": "#E81828",
+    "Pittsburgh Pirates": "#FDB827",
+    "San Diego Padres": "#2F241D",
+    "San Francisco Giants": "#FD5A1E",
+    "Seattle Mariners": "#005C5C",
+    "St. Louis Cardinals": "#C41E3A",
+    "Tampa Bay Rays": "#092C5C",
+    "Texas Rangers": "#003278",
+    "Toronto Blue Jays": "#134A8E",
+    "Washington Nationals": "#AB0003",
   };
 
   // Generic cache method with AsyncStorage persistence
-  static async getCachedData(key, fetchFunction, isLiveData = false) {
+  static async getCachedData(
+    key,
+    fetchFunction,
+    isLiveData = false,
+    customDuration = null,
+  ) {
     const now = Date.now();
     const cacheKey = `mlb_cache_${key}`;
-    
+
     // Use shorter cache for live games, longer for scheduled/finished games
-    const cacheDuration = isLiveData ? 2000 : this.CACHE_DURATION; // 2s for live, 10s for others
-    
+    const cacheDuration =
+      customDuration ?? (isLiveData ? 2000 : this.CACHE_DURATION);
+
     try {
       // 1️⃣ Try to read from AsyncStorage
       const cachedItem = await AsyncStorage.getItem(cacheKey);
       if (cachedItem) {
         const { data, timestamp } = JSON.parse(cachedItem);
         const age = (now - timestamp) / 1000;
-        const isFresh = (now - timestamp) < cacheDuration;
+        const isFresh = now - timestamp < cacheDuration;
 
         if (isFresh) {
           console.log(
-            `%c[MLBService Cache HIT] %c${key} %c(${age.toFixed(1)}s old)${isLiveData ? ' [LIVE]' : ''}`,
-            'color: limegreen; font-weight: bold;',
-            'color: white;',
-            'color: gray;'
+            `%c[MLBService Cache HIT] %c${key} %c(${age.toFixed(1)}s old)${isLiveData ? " [LIVE]" : ""}`,
+            "color: limegreen; font-weight: bold;",
+            "color: white;",
+            "color: gray;",
           );
           return data;
         } else {
           console.log(
-            `%c[MLBService Cache STALE] %c${key} %c(${age.toFixed(1)}s old — refreshing...)${isLiveData ? ' [LIVE]' : ''}`,
-            'color: orange; font-weight: bold;',
-            'color: white;',
-            'color: gray;'
+            `%c[MLBService Cache STALE] %c${key} %c(${age.toFixed(1)}s old — refreshing...)${isLiveData ? " [LIVE]" : ""}`,
+            "color: orange; font-weight: bold;",
+            "color: white;",
+            "color: gray;",
           );
         }
       }
 
       // 2️⃣ Fetch from network if not cached or stale
       console.log(
-        `%c[MLBService Fetch] %c${key} %c(network request)${isLiveData ? ' [LIVE]' : ''}`,
-        'color: cyan; font-weight: bold;',
-        'color: white;',
-        'color: gray;'
+        `%c[MLBService Fetch] %c${key} %c(network request)${isLiveData ? " [LIVE]" : ""}`,
+        "color: cyan; font-weight: bold;",
+        "color: white;",
+        "color: gray;",
       );
 
       const data = await fetchFunction();
-      await AsyncStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: now }));
+      await AsyncStorage.setItem(
+        cacheKey,
+        JSON.stringify({ data, timestamp: now }),
+      );
 
       return data;
     } catch (err) {
-      console.warn('⚠️ Cache read/write failed:', err);
+      console.warn("⚠️ Cache read/write failed:", err);
 
       // fallback: in-memory cache
       if (this.cache.has(key)) {
         console.log(
           `%c[MLBService Fallback Memory Cache] %c${key}`,
-          'color: yellow; font-weight: bold;',
-          'color: white;'
+          "color: yellow; font-weight: bold;",
+          "color: white;",
         );
         return this.cache.get(key);
       }
@@ -99,8 +153,8 @@ export class MLBService {
       // last resort: fetch from network
       console.log(
         `%c[MLBService Network Fallback] %c${key}`,
-        'color: red; font-weight: bold;',
-        'color: white;'
+        "color: red; font-weight: bold;",
+        "color: white;",
       );
 
       const data = await fetchFunction();
@@ -110,19 +164,19 @@ export class MLBService {
   }
 
   // Get logo URL for team using ESPN CDN
-  static getLogoUrl(teamName, teamAbbr = null, variant = 'light') {
+  static getLogoUrl(teamName, teamAbbr = null, variant = "light") {
     // First try to get abbreviation from our mapping
     let abbr = this.teamAbbrMap[teamName];
-    
+
     // If not found in mapping, use the provided abbreviation (from API)
     if (!abbr && teamAbbr) {
       abbr = teamAbbr.toLowerCase();
     }
-    
+
     if (!abbr) return "";
-    
+
     // Use different URL based on variant
-    if (variant === 'dark') {
+    if (variant === "dark") {
       return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500-dark/${abbr}.png`;
     } else {
       return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/${abbr}.png`;
@@ -132,16 +186,21 @@ export class MLBService {
   // Get adjusted date for MLB (accounting for games that end after midnight)
   static getAdjustedDateForMLB() {
     const now = new Date();
-    const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-    
+    const estNow = new Date(
+      now.toLocaleString("en-US", { timeZone: "America/New_York" }),
+    );
+
     // If it's before 2 AM EST, use previous day's schedule
     if (estNow.getHours() < 2) {
       estNow.setDate(estNow.getDate() - 1);
     }
 
-    const adjustedDate = estNow.getFullYear() + "-" +
-                        String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
-                        String(estNow.getDate()).padStart(2, "0");
+    const adjustedDate =
+      estNow.getFullYear() +
+      "-" +
+      String(estNow.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(estNow.getDate()).padStart(2, "0");
 
     return adjustedDate;
   }
@@ -149,15 +208,15 @@ export class MLBService {
   // Format date for MLB API
   static formatDateForAPI(date) {
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
 
   // Fetch MLB scoreboard (games for date range)
   static async getScoreboard(startDate = null, endDate = null) {
-    const cacheKey = `scoreboard_${startDate || 'today'}_${endDate || startDate || 'today'}`;
-    
+    const cacheKey = `scoreboard_${startDate || "today"}_${endDate || startDate || "today"}`;
+
     // First check if we have cached data to determine if there are live games
     let hasLiveGames = false;
     try {
@@ -169,163 +228,199 @@ export class MLBService {
     } catch (err) {
       // Ignore cache read errors
     }
-    
-    return this.getCachedData(cacheKey, async () => {
-      let url = this.SCHEDULE_URL;
-      console.log('MLBService.getScoreboard called with:', { startDate, endDate });
-      
-      if (startDate) {
-        if (endDate && endDate !== startDate) {
-          // Date range format
-          url += `&startDate=${startDate}&endDate=${endDate}`;
-          console.log('MLBService: Using date range format:', `${startDate} to ${endDate}`);
-        } else {
-          // Single date format
-          url += `&startDate=${startDate}&endDate=${startDate}`;
-          console.log('MLBService: Using single date format:', startDate);
-        }
-      } else {
-        // Use adjusted date for "today"
-        const today = this.getAdjustedDateForMLB();
-        url += `&startDate=${today}&endDate=${today}`;
-        console.log('MLBService: Using adjusted today date:', today);
-      }
-      
-      console.log('MLBService: Final API URL:', url);
-      const response = await fetch(url);
-      const data = await response.json();
-      
-      // Process and return the data in a consistent format
-      const processedData = {
-        events: []
-      };
 
-      if (data.dates && data.dates.length > 0) {
-        data.dates.forEach(dateObj => {
-          if (dateObj.games && dateObj.games.length > 0) {
-            dateObj.games.forEach(game => {
-              const processedGame = this.processGameData(game);
-              processedData.events.push(processedGame);
-            });
-          }
+    return this.getCachedData(
+      cacheKey,
+      async () => {
+        let url = this.SCHEDULE_URL;
+        console.log("MLBService.getScoreboard called with:", {
+          startDate,
+          endDate,
         });
-      }
 
-      return processedData;
-    }, hasLiveGames); // Use pre-checked live games status
+        if (startDate) {
+          if (endDate && endDate !== startDate) {
+            // Date range format
+            url += `&startDate=${startDate}&endDate=${endDate}&hydrate=linescore&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription`;
+            console.log(
+              "MLBService: Using date range format:",
+              `${startDate} to ${endDate}`,
+            );
+          } else {
+            // Single date format
+            url += `&startDate=${startDate}&endDate=${startDate}&hydrate=linescore&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription`;
+            console.log("MLBService: Using single date format:", startDate);
+          }
+        } else {
+          // Use adjusted date for "today"
+          const today = this.getAdjustedDateForMLB();
+          url += `&startDate=${today}&endDate=${today}&hydrate=linescore&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription`;
+          console.log("MLBService: Using adjusted today date:", today);
+        }
+
+        console.log("MLBService: Final API URL:", url);
+        // Bypass native HTTP cache so auto-poll always gets fresh data
+        const response = await fetch(url, {
+          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" },
+        });
+        const data = await response.json();
+
+        // Process and return the data in a consistent format
+        const processedData = {
+          events: [],
+        };
+
+        if (data.dates && data.dates.length > 0) {
+          data.dates.forEach((dateObj) => {
+            if (dateObj.games && dateObj.games.length > 0) {
+              dateObj.games.forEach((game) => {
+                const processedGame = this.processGameData(game);
+                processedData.events.push(processedGame);
+              });
+            }
+          });
+        }
+
+        return processedData;
+      },
+      hasLiveGames,
+    ); // Use pre-checked live games status
   }
 
   // Check if there are any live games in the data
   static hasLiveGames(data) {
     if (!data || !data.events) return false;
-    return data.events.some(game => game.isLive);
+    return data.events.some((game) => game.isLive);
   }
 
   // Process game data to match our expected format
   static processGameData(game) {
     const awayTeam = game.teams?.away;
     const homeTeam = game.teams?.home;
-    
+
     return {
       id: game.gamePk?.toString(),
       date: game.gameDate,
-      status: game.status?.detailedState || 'Unknown',
-      statusType: game.status?.statusCode || 'U',
+      status: game.status?.detailedState || "Unknown",
+      statusType: game.status?.statusCode || "U",
       season: {
         type: game.seriesDescription === "Regular Season" ? 1 : 3,
-        slug: game.seriesDescription === "Regular Season" ? null : "postseason"
+        slug: game.seriesDescription === "Regular Season" ? null : "postseason",
       },
-      notes: game?.description || game?.seriesDescription || '',
-      isCompleted: game.status?.statusCode === 'F',
-      isLive: game.status?.statusCode === 'I' || 
-               game.status?.detailedState === 'In Progress' ||
-               game.status?.detailedState === 'Manager challenge' ||
-               game.status?.codedGameState === 'M',
+      notes: game?.description || game?.seriesDescription || "",
+      isCompleted: game.status?.statusCode === "F",
+      isLive:
+        game.status?.statusCode === "I" ||
+        game.status?.detailedState === "In Progress" ||
+        game.status?.detailedState === "Manager challenge" ||
+        game.status?.codedGameState === "M",
       displayClock: this.getGameTimeDisplay(game),
-      venue: game.venue?.name || '',
+      venue: game.venue?.name || "",
       broadcasts: this.getBroadcasts(game),
       awayTeam: {
         id: awayTeam?.team?.id?.toString(),
-        displayName: awayTeam?.team?.name || '',
-        abbreviation: awayTeam?.team?.abbreviation || '',
-        score: awayTeam?.score?.toString() || '0',
+        displayName: awayTeam?.team?.name || "",
+        abbreviation: awayTeam?.team?.abbreviation || "",
+        score: awayTeam?.score?.toString() || "0",
         record: this.formatRecord(awayTeam?.leagueRecord),
-        logo: this.getLogoUrl(awayTeam?.team?.name || '', awayTeam?.team?.abbreviation),
-        color: this.teamColors[awayTeam?.team?.name] || '#333333'
+        logo: this.getLogoUrl(
+          awayTeam?.team?.name || "",
+          awayTeam?.team?.abbreviation,
+        ),
+        color: this.teamColors[awayTeam?.team?.name] || "#333333",
       },
       homeTeam: {
         id: homeTeam?.team?.id?.toString(),
-        displayName: homeTeam?.team?.name || '',
-        abbreviation: homeTeam?.team?.abbreviation || '',
-        score: homeTeam?.score?.toString() || '0',
+        displayName: homeTeam?.team?.name || "",
+        abbreviation: homeTeam?.team?.abbreviation || "",
+        score: homeTeam?.score?.toString() || "0",
         record: this.formatRecord(homeTeam?.leagueRecord),
-        logo: this.getLogoUrl(homeTeam?.team?.name || '', homeTeam?.team?.abbreviation),
-        color: this.teamColors[homeTeam?.team?.name] || '#333333'
+        logo: this.getLogoUrl(
+          homeTeam?.team?.name || "",
+          homeTeam?.team?.abbreviation,
+        ),
+        color: this.teamColors[homeTeam?.team?.name] || "#333333",
       },
       // MLB-specific data
       inning: game.linescore?.currentInning || 0,
-      inningState: game.linescore?.inningState || '',
-      situation: this.getGameSituation(game)
+      inningState:
+        game.linescore?.isTopInning === true
+          ? "Top"
+          : game.linescore?.isTopInning === false
+            ? "Bottom"
+            : "",
+      balls: game.linescore?.balls ?? 0,
+      strikes: game.linescore?.strikes ?? 0,
+      outs: game.linescore?.outs ?? 0,
+      situation: this.getGameSituation(game),
     };
   }
 
   // Get game time display
   static getGameTimeDisplay(game) {
-    if (game.status?.statusCode === 'F') {
-      return 'Final';
+    if (game.status?.statusCode === "F") {
+      return "Final";
     }
-    
-    if (game.status?.statusCode === 'I' || 
-        game.status?.detailedState === 'In Progress' ||
-        game.status?.detailedState === 'Manager challenge' ||
-        game.status?.codedGameState === 'M') {
+
+    if (
+      game.status?.statusCode === "I" ||
+      game.status?.detailedState === "In Progress" ||
+      game.status?.detailedState === "Manager challenge" ||
+      game.status?.codedGameState === "M"
+    ) {
       // In progress - show inning
       const inning = game.linescore?.currentInning || 0;
-      const inningState = game.linescore?.inningState || '';
+      const inningState = game.linescore?.inningState || "";
       const ordinal = this.getOrdinalSuffix(inning);
-      return inningState === 'Top' ? `Top ${ordinal}` : `Bot ${ordinal}`;
+      return inningState === "Top" ? `Top ${ordinal}` : `Bot ${ordinal}`;
     }
-    
-    if (game.status?.statusCode === 'S' || game.status?.statusCode === 'P') {
+
+    if (game.status?.statusCode === "S" || game.status?.statusCode === "P") {
       // Scheduled - show game time
       const gameDate = new Date(game.gameDate);
-      return gameDate.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        timeZone: 'America/New_York'
+      return gameDate.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: "America/New_York",
       });
     }
-    
-    return game.status?.detailedState || 'Unknown';
+
+    return game.status?.detailedState || "Unknown";
   }
 
   // Get ordinal suffix for inning numbers
   static getOrdinalSuffix(num) {
     if (num % 100 >= 11 && num % 100 <= 13) return `${num}th`;
     switch (num % 10) {
-      case 1: return `${num}st`;
-      case 2: return `${num}nd`;
-      case 3: return `${num}rd`;
-      default: return `${num}th`;
+      case 1:
+        return `${num}st`;
+      case 2:
+        return `${num}nd`;
+      case 3:
+        return `${num}rd`;
+      default:
+        return `${num}th`;
     }
   }
 
   // Format team record
   static formatRecord(record) {
-    if (!record) return '';
+    if (!record) return "";
     return `${record.wins}-${record.losses}`;
   }
 
   // Get broadcasts
   static getBroadcasts(game) {
     if (!game.broadcasts) return [];
-    return game.broadcasts.map(broadcast => broadcast.name || '').filter(name => name);
+    return game.broadcasts
+      .map((broadcast) => broadcast.name || "")
+      .filter((name) => name);
   }
 
   // Get game situation (bases, count, etc.)
   static getGameSituation(game) {
     if (!game.linescore) return {};
-    
+
     return {
       balls: game.linescore.balls || 0,
       strikes: game.linescore.strikes || 0,
@@ -333,49 +428,57 @@ export class MLBService {
       bases: {
         first: !!game.linescore.offense?.first,
         second: !!game.linescore.offense?.second,
-        third: !!game.linescore.offense?.third
-      }
+        third: !!game.linescore.offense?.third,
+      },
     };
   }
 
   // Fetch game details with caching
   static async getGameDetails(gameId) {
     const cacheKey = `gameDetails_${gameId}`;
-    
+
     return this.getCachedData(cacheKey, async () => {
       const url = `${this.BASE_URL}/api/v1.1/game/${gameId}/feed/live`;
-      console.log('MLBService.getGameDetails called with gameId:', gameId);
-      console.log('MLBService.getGameDetails: Using feed endpoint:', url);
-      
+      console.log("MLBService.getGameDetails called with gameId:", gameId);
+      console.log("MLBService.getGameDetails: Using feed endpoint:", url);
+
       const response = await fetch(url);
       const data = await response.json();
-      
+
       return data;
     });
   }
 
-  // Get team standings
+  // Get team standings (cached for 10 minutes — shared by StandingsScreen and TeamPageScreen)
   static async getStandings() {
-    const cacheKey = 'mlb_standings';
-    
-    return this.getCachedData(cacheKey, async () => {
-      const url = `${this.BASE_URL}/api/v1/standings?leagueId=103,104&standingsTypes=regularSeason`;
-      console.log('MLBService.getStandings called');
-      console.log('MLBService.getStandings: Using standings endpoint:', url);
-      
-      const response = await fetch(url);
-      const data = await response.json();
-      
-      return data;
-    });
+    const cacheKey = "mlb_standings";
+
+    return this.getCachedData(
+      cacheKey,
+      async () => {
+        const url = `${this.BASE_URL}/api/v1/standings/byDivision?leagueId=103,104&fields=records,teamRecords,team,id,name,streak,streakCode,clinchIndicator,divisionRank,leagueRank,sportRank,gamesPlayed,leagueGamesBack,records,splitRecords,wins,losses,type,divisionRecords,wins,losses,division,id,name,runsAllowed,runsScored`;
+        console.log("MLBService.getStandings called");
+        console.log("MLBService.getStandings: Using standings endpoint:", url);
+
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+
+        return data;
+      },
+      false,
+      this.STANDINGS_CACHE_DURATION,
+    );
   }
 
   // Get play-by-play data
   static async getPlayByPlay(gameId) {
     const cacheKey = `playByPlay_${gameId}`;
-    
+
     return this.getCachedData(cacheKey, async () => {
-      const response = await fetch(`${this.BASE_URL}/api/v1.1/game/${gameId}/feed/live`);
+      const response = await fetch(
+        `${this.BASE_URL}/api/v1.1/game/${gameId}/feed/live`,
+      );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -387,9 +490,11 @@ export class MLBService {
   // Get team stats for a game
   static async getTeamStats(gameId) {
     const cacheKey = `teamStats_${gameId}`;
-    
+
     return this.getCachedData(cacheKey, async () => {
-      const response = await fetch(`${this.BASE_URL}/api/v1.1/game/${gameId}/feed/live`);
+      const response = await fetch(
+        `${this.BASE_URL}/api/v1.1/game/${gameId}/feed/live`,
+      );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -397,52 +502,54 @@ export class MLBService {
       return {
         away: data.liveData?.boxscore?.teams?.away || null,
         home: data.liveData?.boxscore?.teams?.home || null,
-        gameData: data.gameData || null
+        gameData: data.gameData || null,
       };
     });
   }
 
   // Get team color by team name
   static getTeamColor(teamName) {
-    return this.teamColors[teamName] || '#666666';
+    return this.teamColors[teamName] || "#666666";
   }
 
   // Get player headshot URL
   static getHeadshotUrl(playerId) {
-    if (!playerId) return 'https://via.placeholder.com/80x80?text=Player';
+    if (!playerId) return "https://via.placeholder.com/80x80?text=Player";
     return `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${playerId}/headshot/67/current`;
   }
 
   // Get player game stats
   static async getPlayerGameStats(gameId, playerId) {
     if (!gameId || !playerId) return null;
-    
+
     const cacheKey = `playerGameStats_${gameId}_${playerId}`;
-    
+
     return this.getCachedData(cacheKey, async () => {
       try {
-        const response = await fetch(`${this.BASE_URL}/api/v1.1/game/${gameId}/feed/live`);
+        const response = await fetch(
+          `${this.BASE_URL}/api/v1.1/game/${gameId}/feed/live`,
+        );
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         const boxscore = data.liveData?.boxscore;
-        
+
         if (!boxscore) return null;
 
         // Check both teams for the player
         const awayPlayers = boxscore.teams?.away?.players || {};
         const homePlayers = boxscore.teams?.home?.players || {};
-        
+
         const playerKey = `ID${playerId}`;
         const playerData = awayPlayers[playerKey] || homePlayers[playerKey];
-        
+
         if (!playerData || !playerData.stats) return null;
 
         return playerData.stats;
       } catch (error) {
-        console.error('Error fetching player game stats:', error);
+        console.error("Error fetching player game stats:", error);
         return null;
       }
     });
@@ -451,20 +558,22 @@ export class MLBService {
   // Get team roster
   static async getTeamRoster(teamId) {
     if (!teamId) return null;
-    
+
     const cacheKey = `teamRoster_${teamId}`;
-    
+
     return this.getCachedData(cacheKey, async () => {
       try {
-        const response = await fetch(`${this.BASE_URL}/api/v1/teams/${teamId}/roster?fields=roster,person,id,fullName,jerseyNumber,position,name,abbreviation,status,description&rosterType=40Man`);
+        const response = await fetch(
+          `${this.BASE_URL}/api/v1/teams/${teamId}/roster?fields=roster,person,id,fullName,jerseyNumber,position,name,abbreviation,status,code,description&rosterType=40Man`,
+        );
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         return data.roster || [];
       } catch (error) {
-        console.error('Error fetching team roster:', error);
+        console.error("Error fetching team roster:", error);
         return [];
       }
     });
@@ -473,31 +582,37 @@ export class MLBService {
   // Get team season stats
   static async getTeamSeasonStats(teamId, season = new Date().getFullYear()) {
     if (!teamId) return null;
-    
+
     const cacheKey = `teamSeasonStats_${teamId}_${season}`;
-    
+
     return this.getCachedData(cacheKey, async () => {
       try {
         const [hittingResponse, pitchingResponse] = await Promise.all([
-          fetch(`${this.BASE_URL}/api/v1/teams/${teamId}/stats?stats=season&group=hitting&season=${season}`),
-          fetch(`${this.BASE_URL}/api/v1/teams/${teamId}/stats?stats=season&group=pitching&season=${season}`)
+          fetch(
+            `${this.BASE_URL}/api/v1/teams/${teamId}/stats?stats=season&group=hitting&season=${season}`,
+          ),
+          fetch(
+            `${this.BASE_URL}/api/v1/teams/${teamId}/stats?stats=season&group=pitching&season=${season}`,
+          ),
         ]);
 
         if (!hittingResponse.ok || !pitchingResponse.ok) {
-          throw new Error(`HTTP error! hitting: ${hittingResponse.status}, pitching: ${pitchingResponse.status}`);
+          throw new Error(
+            `HTTP error! hitting: ${hittingResponse.status}, pitching: ${pitchingResponse.status}`,
+          );
         }
 
         const [hittingData, pitchingData] = await Promise.all([
           hittingResponse.json(),
-          pitchingResponse.json()
+          pitchingResponse.json(),
         ]);
 
         return {
           hitting: hittingData.stats?.[0]?.splits?.[0]?.stat || {},
-          pitching: pitchingData.stats?.[0]?.splits?.[0]?.stat || {}
+          pitching: pitchingData.stats?.[0]?.splits?.[0]?.stat || {},
         };
       } catch (error) {
-        console.error('Error fetching team season stats:', error);
+        console.error("Error fetching team season stats:", error);
         return { hitting: {}, pitching: {} };
       }
     });
@@ -506,50 +621,63 @@ export class MLBService {
   // Get top team hitters
   static async getTopTeamHitters(teamId, season = new Date().getFullYear()) {
     if (!teamId) return [];
-    
+
     const cacheKey = `topHittersAVG_${teamId}_${season}`; // Changed cache key to force refresh
-    
+
     return this.getCachedData(cacheKey, async () => {
       try {
-        const response = await fetch(`${this.BASE_URL}/api/v1/stats?stats=season&group=hitting&season=${season}&teamId=${teamId}&sportId=1`);
+        const response = await fetch(
+          `${this.BASE_URL}/api/v1/stats?stats=season&group=hitting&season=${season}&teamId=${teamId}&sportId=1`,
+        );
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         const players = data.stats?.[0]?.splits || [];
-        
+
         // Take top 3 players (already sorted by rank from API)
         return players.slice(0, 3);
       } catch (error) {
-        console.error('Error fetching top hitters:', error);
+        console.error("Error fetching top hitters:", error);
         return [];
       }
     });
   }
 
   // Get player season stats
-  static async getPlayerSeasonStats(playerId, season = new Date().getFullYear()) {
+  static async getPlayerSeasonStats(
+    playerId,
+    season = new Date().getFullYear(),
+  ) {
     if (!playerId) return null;
-    
+
     const cacheKey = `playerSeasonStats_${playerId}_${season}`;
-    
+
     return this.getCachedData(cacheKey, async () => {
       try {
         const [hittingResponse, pitchingResponse] = await Promise.all([
-          fetch(`${this.BASE_URL}/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${season}`),
-          fetch(`${this.BASE_URL}/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${season}`)
+          fetch(
+            `${this.BASE_URL}/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${season}`,
+          ),
+          fetch(
+            `${this.BASE_URL}/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${season}`,
+          ),
         ]);
 
-        const hittingData = hittingResponse.ok ? await hittingResponse.json() : null;
-        const pitchingData = pitchingResponse.ok ? await pitchingResponse.json() : null;
+        const hittingData = hittingResponse.ok
+          ? await hittingResponse.json()
+          : null;
+        const pitchingData = pitchingResponse.ok
+          ? await pitchingResponse.json()
+          : null;
 
         return {
           hitting: hittingData?.stats?.[0]?.splits?.[0]?.stat || {},
-          pitching: pitchingData?.stats?.[0]?.splits?.[0]?.stat || {}
+          pitching: pitchingData?.stats?.[0]?.splits?.[0]?.stat || {},
         };
       } catch (error) {
-        console.error('Error fetching player season stats:', error);
+        console.error("Error fetching player season stats:", error);
         return { hitting: {}, pitching: {} };
       }
     });

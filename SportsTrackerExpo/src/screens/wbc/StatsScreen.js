@@ -539,7 +539,7 @@ const StatsScreen = ({ route }) => {
     const logo = WBCService.getTeamLogo(item.id, isDarkMode);
     const modalTeamColor = WBCService.getTeamColor(item.id);
     return (
-      <View
+      <TouchableOpacity
         style={[
           styles.modalItem,
           {
@@ -548,6 +548,11 @@ const StatsScreen = ({ route }) => {
             borderBottomColor: modalTeamColor || theme.border,
           },
         ]}
+        onPress={() => {
+          setModalVisible(false);
+          navigation.navigate("TeamPage", { teamId: item.id, sport: "wbc" });
+        }}
+        activeOpacity={0.7}
       >
         <Text
           allowFontScaling={false}
@@ -574,7 +579,7 @@ const StatsScreen = ({ route }) => {
         >
           {item._value}
         </Text>
-      </View>
+      </TouchableOpacity>
     );
   };
 

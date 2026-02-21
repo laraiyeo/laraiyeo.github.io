@@ -152,7 +152,7 @@ const SearchScreen = ({ route, navigation }) => {
       allTeams.find((t) => t.id === item.currentTeam?.id)?.name || "";
     const teamColor = WBCService.getTeamColor(item.currentTeam?.id);
     return (
-      <TouchableOpacity
+      <View
         style={[
           styles.resultItem,
           {
@@ -161,8 +161,6 @@ const SearchScreen = ({ route, navigation }) => {
             borderLeftColor: teamColor || colors.primary,
           },
         ]}
-        onPress={() => handleItemPress(item)}
-        activeOpacity={0.7}
       >
         <Image
           source={{
@@ -193,7 +191,7 @@ const SearchScreen = ({ route, navigation }) => {
             resizeMode="contain"
           />
         ) : null}
-      </TouchableOpacity>
+      </View>
     );
   };
 

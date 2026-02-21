@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Modal,
 } from "react-native";
 import { useTheme } from "../../context/ThemeContext";
+import TeamLogoImage from "../../components/TeamLogoImage";
 
 const PlayerPageScreen = ({ route, navigation }) => {
   const { playerId, playerName, teamId, sport } = route.params;
@@ -46,7 +47,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       "playerName:",
       playerName,
       "teamId:",
-      teamId
+      teamId,
     );
     fetchPlayerData();
   }, [playerId]);
@@ -60,7 +61,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
       if (selectedMonthNum > currentMonth) {
         console.log(
-          `Resetting invalid future month ${selectedMonthNum} to full season`
+          `Resetting invalid future month ${selectedMonthNum} to full season`,
         );
         setSelectedMonth("");
       }
@@ -144,7 +145,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
         "isPitcher:",
         isPitcher,
         "isTwoWay:",
-        isTwoWay
+        isTwoWay,
       );
 
       let statsUrl;
@@ -182,7 +183,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
         const pitchingStatsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${preferredYear}`;
         console.log(
           "Fetching two-way player pitching stats from:",
-          pitchingStatsUrl
+          pitchingStatsUrl,
         );
 
         const pitchingResponse = await fetch(pitchingStatsUrl);
@@ -223,7 +224,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
         "isPitcher:",
         isPitcher,
         "isTwoWay:",
-        isTwoWay
+        isTwoWay,
       );
 
       let gameLogData = {};
@@ -231,19 +232,19 @@ const PlayerPageScreen = ({ route, navigation }) => {
       if (isPitcher) {
         // Fetch pitching game log
         const pitchingResponse = await fetch(
-          `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=pitching&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&gameType=S`
+          `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=pitching&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&gameType=S`,
         );
         const pitchingData = await pitchingResponse.json();
         gameLogData.pitching = pitchingData.stats?.[0]?.splits || [];
       } else if (isTwoWay) {
         // Fetch both hitting and pitching game logs for two-way players
         const hittingResponse = await fetch(
-          `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=hitting&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&gameType=S`
+          `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=hitting&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&gameType=S`,
         );
         const hittingData = await hittingResponse.json();
 
         const pitchingResponse = await fetch(
-          `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=pitching&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&gameType=S`
+          `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=pitching&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&gameType=S`,
         );
         const pitchingData = await pitchingResponse.json();
 
@@ -252,7 +253,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       } else {
         // Fetch hitting game log
         const hittingResponse = await fetch(
-          `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=hitting&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&gameType=S`
+          `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=hitting&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&gameType=S`,
         );
         const hittingData = await hittingResponse.json();
         gameLogData.hitting = hittingData.stats?.[0]?.splits || [];
@@ -271,7 +272,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     if (!playerData?.id) {
       console.log(
         "No player ID available for career data. PlayerData:",
-        playerData
+        playerData,
       );
       return;
     }
@@ -290,7 +291,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
         "isPitcher:",
         isPitcher,
         "isTwoWay:",
-        isTwoWay
+        isTwoWay,
       );
 
       let careerStats = {};
@@ -361,7 +362,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
         "vs Team ID:",
         selectedTeam.id,
         "Position:",
-        position
+        position,
       );
 
       let vsTeamStatsData = {};
@@ -375,7 +376,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
         console.log("Pitching VS team response:", pitchingData);
         // Find the vsTeamTotal stats (not individual pitcher breakdowns)
         const pitchingTotalStats = pitchingData.stats?.find(
-          (stat) => stat.type?.displayName === "vsTeamTotal"
+          (stat) => stat.type?.displayName === "vsTeamTotal",
         );
 
         vsTeamStatsData.pitching = pitchingTotalStats?.splits?.[0]?.stat || {};
@@ -396,10 +397,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
         // Find the vsTeamTotal stats (not individual pitcher breakdowns)
         const hittingTotalStats = hittingData.stats?.find(
-          (stat) => stat.type?.displayName === "vsTeamTotal"
+          (stat) => stat.type?.displayName === "vsTeamTotal",
         );
         const pitchingTotalStats = pitchingData.stats?.find(
-          (stat) => stat.type?.displayName === "vsTeamTotal"
+          (stat) => stat.type?.displayName === "vsTeamTotal",
         );
 
         vsTeamStatsData.hitting = hittingTotalStats?.splits?.[0]?.stat || {};
@@ -413,7 +414,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
         console.log("Hitting VS team response:", hittingData);
         // Find the vsTeamTotal stats (not individual pitcher breakdowns)
         const hittingTotalStats = hittingData.stats?.find(
-          (stat) => stat.type?.displayName === "vsTeamTotal"
+          (stat) => stat.type?.displayName === "vsTeamTotal",
         );
 
         vsTeamStatsData.hitting = hittingTotalStats?.splits?.[0]?.stat || {};
@@ -444,7 +445,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
         "isPitcher:",
         isPitcher,
         "isTwoWay:",
-        isTwoWay
+        isTwoWay,
       );
 
       let playerStatsData = {};
@@ -458,12 +459,12 @@ const PlayerPageScreen = ({ route, navigation }) => {
           const daysInMonth = new Date(
             year,
             parseInt(selectedMonth),
-            0
+            0,
           ).getDate();
           const startDate = `${year}-${selectedMonth.padStart(2, "0")}-01`;
           const endDate = `${year}-${selectedMonth.padStart(
             2,
-            "0"
+            "0",
           )}-${daysInMonth.toString().padStart(2, "0")}`;
           // Use playoff games (gameType=P) for October and November, regular season (gameType=R) for all other months
           const gameType =
@@ -484,12 +485,12 @@ const PlayerPageScreen = ({ route, navigation }) => {
           const daysInMonth = new Date(
             year,
             parseInt(selectedMonth),
-            0
+            0,
           ).getDate();
           const startDate = `${year}-${selectedMonth.padStart(2, "0")}-01`;
           const endDate = `${year}-${selectedMonth.padStart(
             2,
-            "0"
+            "0",
           )}-${daysInMonth.toString().padStart(2, "0")}`;
           return `${baseUrl}?stats=byDateRange&group=${group}&season=${year}&gameType=${gameType}&sportId=1&limit=2000&playerPool=all&startDate=${startDate}&endDate=${endDate}`;
         } else {
@@ -503,7 +504,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
         const pitchingData = await pitchingResponse.json();
 
         const leaguePitchingResponse = await fetch(
-          buildLeagueStatsUrl("pitching")
+          buildLeagueStatsUrl("pitching"),
         );
         const leaguePitchingData = await leaguePitchingResponse.json();
 
@@ -519,12 +520,12 @@ const PlayerPageScreen = ({ route, navigation }) => {
         const pitchingData = await pitchingResponse.json();
 
         const leagueHittingResponse = await fetch(
-          buildLeagueStatsUrl("hitting")
+          buildLeagueStatsUrl("hitting"),
         );
         const leagueHittingData = await leagueHittingResponse.json();
 
         const leaguePitchingResponse = await fetch(
-          buildLeagueStatsUrl("pitching")
+          buildLeagueStatsUrl("pitching"),
         );
         const leaguePitchingData = await leaguePitchingResponse.json();
 
@@ -540,7 +541,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
         const hittingData = await hittingResponse.json();
 
         const leagueHittingResponse = await fetch(
-          buildLeagueStatsUrl("hitting")
+          buildLeagueStatsUrl("hitting"),
         );
         const leagueHittingData = await leagueHittingResponse.json();
 
@@ -574,7 +575,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       const leagueData = leagueStatsData.hitting;
       rankings.hitting = await calculatePlayerStatRankings(
         leagueData,
-        playerStatsData.hitting
+        playerStatsData.hitting,
       );
     }
 
@@ -583,7 +584,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       const leagueData = leagueStatsData.pitching;
       rankings.pitching = await calculatePitcherStatRankings(
         leagueData,
-        playerStatsData.pitching
+        playerStatsData.pitching,
       );
     }
 
@@ -631,16 +632,16 @@ const PlayerPageScreen = ({ route, navigation }) => {
         }
 
         console.log(
-          `Fetching monthly games for month ${month}: ${startDate} to ${endDate}`
+          `Fetching monthly games for month ${month}: ${startDate} to ${endDate}`,
         );
 
         // Fetch standings for start and end of month
         const [startResponse, endResponse] = await Promise.all([
           fetch(
-            `https://statsapi.mlb.com/api/v1/standings/regularSeason?season=${currentYear}&leagueId=104&fields=records,teamRecords,gamesPlayed&date=${startDate}`
+            `https://statsapi.mlb.com/api/v1/standings/regularSeason?season=${currentYear}&leagueId=104&fields=records,teamRecords,gamesPlayed&date=${startDate}`,
           ),
           fetch(
-            `https://statsapi.mlb.com/api/v1/standings/regularSeason?season=${currentYear}&leagueId=104&fields=records,teamRecords,gamesPlayed&date=${endDate}`
+            `https://statsapi.mlb.com/api/v1/standings/regularSeason?season=${currentYear}&leagueId=104&fields=records,teamRecords,gamesPlayed&date=${endDate}`,
           ),
         ]);
 
@@ -668,7 +669,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
           // Handle case where one or both records arrays are empty
           if (startData.records.length === 0 && endData.records.length === 0) {
             console.log(
-              `Both start and end records empty for month ${month}, treating as 0 games played`
+              `Both start and end records empty for month ${month}, treating as 0 games played`,
             );
             return 0;
           }
@@ -676,7 +677,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
           // If start month has no data, treat as 0 games played at start
           if (startData.records.length === 0) {
             console.log(
-              `Start of month ${month} has no records, using 0 as starting games`
+              `Start of month ${month} has no records, using 0 as starting games`,
             );
             // Use end month data as the total games played in the month
             for (const record of endData.records) {
@@ -696,7 +697,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
           // If end month has no data, treat as same games as start (0 games played in month)
           else if (endData.records.length === 0) {
             console.log(
-              `End of month ${month} has no records, treating as 0 games played in month`
+              `End of month ${month} has no records, treating as 0 games played in month`,
             );
             return 0;
           }
@@ -721,7 +722,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   j <
                   Math.min(
                     startRecord.teamRecords.length,
-                    endRecord.teamRecords.length
+                    endRecord.teamRecords.length,
                   );
                   j++
                 ) {
@@ -734,7 +735,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   ) {
                     const monthlyGames = Math.max(
                       0,
-                      endTeam.gamesPlayed - startTeam.gamesPlayed
+                      endTeam.gamesPlayed - startTeam.gamesPlayed,
                     );
 
                     if (!foundData || monthlyGames < minMonthlyGames) {
@@ -749,7 +750,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
           if (foundData) {
             console.log(
-              `Minimum games played in month ${month}: ${minMonthlyGames}`
+              `Minimum games played in month ${month}: ${minMonthlyGames}`,
             );
             return minMonthlyGames;
           }
@@ -759,12 +760,12 @@ const PlayerPageScreen = ({ route, navigation }) => {
       } else {
         // Season-long calculation (existing logic)
         const response = await fetch(
-          `https://statsapi.mlb.com/api/v1/standings/regularSeason?season=${currentYear}&leagueId=104&fields=records,teamRecords,gamesPlayed`
+          `https://statsapi.mlb.com/api/v1/standings/regularSeason?season=${currentYear}&leagueId=104&fields=records,teamRecords,gamesPlayed`,
         );
 
         if (!response.ok) {
           console.warn(
-            "Failed to fetch standings data, using default 162 games"
+            "Failed to fetch standings data, using default 162 games",
           );
           return 162;
         }
@@ -814,7 +815,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     // If no games played (future month), return empty rankings
     if (minGamesPlayed === 0) {
       console.log(
-        "No games played in selected period, returning empty rankings"
+        "No games played in selected period, returning empty rankings",
       );
       return {};
     }
@@ -822,12 +823,12 @@ const PlayerPageScreen = ({ route, navigation }) => {
     const minPlateAppearances = Math.floor(minGamesPlayed * 3.1); // 3.1 PA per game, rounded down
 
     console.log(
-      `Calculating hitting rankings from ${allPlayers.length} players`
+      `Calculating hitting rankings from ${allPlayers.length} players`,
     );
     console.log(
       `Using minimum PA threshold: ${minPlateAppearances} (based on ${minGamesPlayed} games)${
         selectedMonth ? ` for month ${selectedMonth}` : ""
-      }`
+      }`,
     );
 
     // Helper function to calculate ranking for a stat
@@ -862,7 +863,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       // Find player's position in the sorted array
       const position =
         allValues.findIndex((value) =>
-          isLowerBetter ? value >= playerValue : value <= playerValue
+          isLowerBetter ? value >= playerValue : value <= playerValue,
         ) + 1;
 
       // Return position if valid
@@ -910,7 +911,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
     // If no games played (future month), return empty rankings
     if (minGamesPlayed === 0) {
       console.log(
-        "No games played in selected period, returning empty rankings"
+        "No games played in selected period, returning empty rankings",
       );
       return {};
     }
@@ -918,12 +919,12 @@ const PlayerPageScreen = ({ route, navigation }) => {
     const minInningsPitched = minGamesPlayed * 1.0; // 1.0 IP per game
 
     console.log(
-      `Calculating pitcher rankings from ${allPlayers.length} players`
+      `Calculating pitcher rankings from ${allPlayers.length} players`,
     );
     console.log(
       `Using minimum IP threshold: ${minInningsPitched} (based on ${minGamesPlayed} games)${
         selectedMonth ? ` for month ${selectedMonth}` : ""
-      }`
+      }`,
     );
 
     // Helper function to calculate ranking for a pitching stat
@@ -953,7 +954,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       // Find player's position in the sorted array
       const position =
         allValues.findIndex((value) =>
-          isLowerBetter ? value >= playerValue : value <= playerValue
+          isLowerBetter ? value >= playerValue : value <= playerValue,
         ) + 1;
 
       // Return position if valid
@@ -1012,7 +1013,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
       if (selectedMonthNum > currentMonth) {
         console.warn(
-          `Cannot select future month ${selectedMonthNum}, current month is ${currentMonth}`
+          `Cannot select future month ${selectedMonthNum}, current month is ${currentMonth}`,
         );
         return; // Don't change the month
       }
@@ -1069,7 +1070,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
         "Team ID:",
         team?.id,
         "Team abbreviation from API:",
-        team?.abbreviation
+        team?.abbreviation,
       );
 
       // First try direct abbreviation if available
@@ -1084,7 +1085,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
           "Using ID mapping for team ID:",
           team.id,
           "-> abbreviation:",
-          abbr
+          abbr,
         );
         return abbr;
       }
@@ -1092,7 +1093,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       console.warn(
         "No abbreviation mapping found for team ID:",
         team?.id,
-        "Using fallback"
+        "Using fallback",
       );
       return team?.name?.substring(0, 3)?.toUpperCase() || "MLB";
     };
@@ -1131,10 +1132,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
           </Text>
           {playerData.currentTeam && (
             <View style={styles.teamContainer}>
-              <Image
+              <TeamLogoImage
                 source={{
                   uri: getTeamLogoUrl(
-                    getMLBTeamAbbreviation(playerData.currentTeam)
+                    getMLBTeamAbbreviation(playerData.currentTeam),
                   ),
                 }}
                 style={styles.teamLogo}
@@ -1311,7 +1312,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
               const ranking = rankings ? rankings[key] : null;
               return renderStatBox(label, value, `${title}-${key}`, ranking);
             })}
-          </View>
+          </View>,
         );
       }
       return statsRows;
@@ -1436,7 +1437,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   { key: "atBats", label: "AB" },
                   { key: "plateAppearances", label: "PA" },
                 ],
-                statRankings?.hitting
+                statRankings?.hitting,
               )}
             </View>
           )}
@@ -1471,7 +1472,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   { key: "strikeoutWalkRatio", label: "K/BB" },
                   { key: "gamesPlayed", label: "G" },
                 ],
-                statRankings?.pitching
+                statRankings?.pitching,
               )}
             </View>
           )}
@@ -1783,7 +1784,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
           activeOpacity={0.7}
           disabled={!gameId}
         >
-          <Image
+          <TeamLogoImage
             source={{ uri: getTeamLogoUrl(teamAbbr) }}
             style={styles.gameLogTeamLogo}
             defaultSource={{
@@ -1808,7 +1809,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
           >
             {oppAbbr}
           </Text>
-          <Image
+          <TeamLogoImage
             source={{ uri: getTeamLogoUrl(oppAbbr) }}
             style={styles.gameLogTeamLogo}
             defaultSource={{
@@ -2632,7 +2633,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
               </Text>
               <View style={styles.modalTeamMatchup}>
                 <View style={styles.modalTeamContainer}>
-                  <Image
+                  <TeamLogoImage
                     source={{ uri: getThemeTeamLogoUrl("mlb", teamAbbr) }}
                     style={styles.modalTeamLogo}
                     defaultSource={{
@@ -2653,7 +2654,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   {isHome ? "vs" : "@"}
                 </Text>
                 <View style={styles.modalTeamContainer}>
-                  <Image
+                  <TeamLogoImage
                     source={{ uri: getThemeTeamLogoUrl("mlb", oppAbbr) }}
                     style={styles.modalTeamLogo}
                     defaultSource={{
@@ -2809,7 +2810,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
           {sectionTitle}
         </Text>
         {sortedSeasons.map((season, index) =>
-          renderCareerSeasonItem(season, type, index)
+          renderCareerSeasonItem(season, type, index),
         )}
       </View>
     );
@@ -2885,7 +2886,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       >
         <View style={styles.careerSeasonHeader}>
           <View style={styles.careerTeamInfo}>
-            <Image
+            <TeamLogoImage
               source={{ uri: getTeamLogoUrl(team.id) }}
               style={styles.careerTeamLogo}
               defaultSource={{
@@ -3137,12 +3138,9 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   </Text>
                 </View>
                 <View style={styles.modalTeamContainer}>
-                  <Image
+                  <TeamLogoImage
                     source={{ uri: getModalTeamLogoUrl(team.id) }}
                     style={styles.modalSeasonTeamLogo}
-                    defaultSource={{
-                      uri: "https://via.placeholder.com/50x50?text=MLB",
-                    }}
                   />
                   <Text
                     allowFontScaling={false}
@@ -3809,7 +3807,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   }}
                   activeOpacity={0.7}
                 >
-                  <Image
+                  <TeamLogoImage
                     source={{ uri: getThemeTeamLogoUrl("mlb", team.abbr) }}
                     style={styles.teamCardLogo}
                     defaultSource={{
@@ -3898,7 +3896,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
               </Text>
             </TouchableOpacity>
             <View style={styles.selectedTeamInfo}>
-              <Image
+              <TeamLogoImage
                 source={{ uri: getThemeTeamLogoUrl("mlb", selectedTeam.abbr) }}
                 style={styles.selectedTeamLogo}
                 defaultSource={{
@@ -3974,7 +3972,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
               return renderStatBox(label, value, `${title}-${key}`);
             })}
-          </View>
+          </View>,
         );
       }
       return statsRows;
@@ -4005,7 +4003,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
               </Text>
             </TouchableOpacity>
             <View style={styles.selectedTeamInfo}>
-              <Image
+              <TeamLogoImage
                 source={{ uri: getThemeTeamLogoUrl("mlb", selectedTeam.abbr) }}
                 style={styles.selectedTeamLogo}
                 defaultSource={{
@@ -4031,14 +4029,11 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 >
                   Hitting Statistics vs{" "}
                 </Text>
-                <Image
+                <TeamLogoImage
                   source={{
                     uri: getThemeTeamLogoUrl("mlb", selectedTeam.abbr),
                   }}
                   style={styles.vsTeamStatLogo}
-                  defaultSource={{
-                    uri: "https://via.placeholder.com/24x24?text=MLB",
-                  }}
                 />
               </View>
               {renderStatsGrid(vsTeamStats.hitting, "hitting", [
@@ -4071,14 +4066,11 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 >
                   Pitching Statistics vs{" "}
                 </Text>
-                <Image
+                <TeamLogoImage
                   source={{
                     uri: getThemeTeamLogoUrl("mlb", selectedTeam.abbr),
                   }}
                   style={styles.vsTeamStatLogo}
-                  defaultSource={{
-                    uri: "https://via.placeholder.com/24x24?text=MLB",
-                  }}
                 />
               </View>
               {renderStatsGrid(vsTeamStats.pitching, "pitching", [

@@ -21,8 +21,6 @@ const CompareScreen = ({ route }) => {
 
   const [player1, setPlayer1] = useState(null);
   const [player2, setPlayer2] = useState(null);
-  const [player1Year, setPlayer1Year] = useState(new Date().getFullYear());
-  const [player2Year, setPlayer2Year] = useState(new Date().getFullYear());
   const [comparisonStats, setComparisonStats] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -33,18 +31,8 @@ const CompareScreen = ({ route }) => {
   const [searchingForPlayer, setSearchingForPlayer] = useState(null);
   const [allPlayersLoading, setAllPlayersLoading] = useState(false);
 
-  const [showYear1Picker, setShowYear1Picker] = useState(false);
-  const [showYear2Picker, setShowYear2Picker] = useState(false);
-
   // All WBC players in compare-ready shape
   const [allWBCPlayers, setAllWBCPlayers] = useState([]);
-
-  const currentYear = new Date().getFullYear();
-  const startYear = 2022;
-  const yearOptions = Array.from(
-    { length: currentYear - startYear + 1 },
-    (_, i) => currentYear - i,
-  );
 
   // Load from cache on mount
   useEffect(() => {
@@ -82,7 +70,7 @@ const CompareScreen = ({ route }) => {
 
   useEffect(() => {
     if (player1 && player2) loadComparison();
-  }, [player1, player2, player1Year, player2Year]);
+  }, [player1, player2]);
 
   // Debounced client-side search
   useEffect(() => {
@@ -125,33 +113,26 @@ const CompareScreen = ({ route }) => {
     if (!player1 || !player2) return;
     setLoading(true);
     try {
+      const res = await WBCService.fetchJson(
+        `/wbc/compare/${player1.id}-${player2.id}`,
+      );
+
+      const statsA = res?.data?.playerA?.seasonStats ?? [];
+      const statsB = res?.data?.playerB?.seasonStats ?? [];
+
+      const getStats = (seasonStats, group) =>
+        seasonStats.find((s) => s.group?.displayName === group)?.splits?.[0]
+          ?.stat ?? null;
+
       const isPitcher = (pos) =>
         ["P", "SP", "RP", "CP", "Pitcher"].includes(pos);
-      const isPitcher1 = isPitcher(player1.position);
-      const isPitcher2 = isPitcher(player2.position);
+      const group =
+        isPitcher(player1.position) || isPitcher(player2.position)
+          ? "pitching"
+          : "hitting";
 
-      if (isPitcher1 !== isPitcher2) {
-        Alert.alert(
-          "Invalid Comparison",
-          "Can only compare pitchers with pitchers or hitters with hitters.",
-        );
-        setComparisonStats(null);
-        setLoading(false);
-        return;
-      }
-
-      const group = isPitcher1 ? "pitching" : "hitting";
-      const [res1, res2] = await Promise.all([
-        fetch(
-          `https://statsapi.mlb.com/api/v1/people/${player1.id}/stats?stats=season&group=${group}&season=${player1Year}`,
-        ),
-        fetch(
-          `https://statsapi.mlb.com/api/v1/people/${player2.id}/stats?stats=season&group=${group}&season=${player2Year}`,
-        ),
-      ]);
-      const [d1, d2] = await Promise.all([res1.json(), res2.json()]);
-      const stats1 = d1.stats?.[0]?.splits?.[0]?.stat;
-      const stats2 = d2.stats?.[0]?.splits?.[0]?.stat;
+      const stats1 = getStats(statsA, group);
+      const stats2 = getStats(statsB, group);
 
       if (!stats1 && !stats2) {
         setComparisonStats({ error: "No statistics available for comparison" });
@@ -159,37 +140,37 @@ const CompareScreen = ({ route }) => {
         return;
       }
 
-      const defs = isPitcher1
-        ? [
-            { key: "era", label: "ERA", higherIsBetter: false },
-            { key: "whip", label: "WHIP", higherIsBetter: false },
-            { key: "wins", label: "W", higherIsBetter: true },
-            { key: "strikeOuts", label: "SO", higherIsBetter: true },
-            { key: "saves", label: "SV", higherIsBetter: true },
-            { key: "inningsPitched", label: "IP", higherIsBetter: true },
-            { key: "baseOnBalls", label: "BB", higherIsBetter: false },
-            { key: "losses", label: "L", higherIsBetter: false },
-            { key: "hits", label: "H", higherIsBetter: false },
-            { key: "homeRuns", label: "HR", higherIsBetter: false },
-          ]
-        : [
-            { key: "avg", label: "AVG", higherIsBetter: true },
-            { key: "homeRuns", label: "HR", higherIsBetter: true },
-            { key: "rbi", label: "RBI", higherIsBetter: true },
-            { key: "obp", label: "OBP", higherIsBetter: true },
-            { key: "slg", label: "SLG", higherIsBetter: true },
-            { key: "ops", label: "OPS", higherIsBetter: true },
-            { key: "hits", label: "H", higherIsBetter: true },
-            { key: "runs", label: "R", higherIsBetter: true },
-            { key: "stolenBases", label: "SB", higherIsBetter: true },
-            { key: "strikeOuts", label: "SO", higherIsBetter: false },
-          ];
+      const hitDefs = [
+        { key: "Avg", label: "AVG", higherIsBetter: true },
+        { key: "Home Runs", label: "HR", higherIsBetter: true },
+        { key: "Rbi", label: "RBI", higherIsBetter: true },
+        { key: "Obp", label: "OBP", higherIsBetter: true },
+        { key: "Slg", label: "SLG", higherIsBetter: true },
+        { key: "Ops", label: "OPS", higherIsBetter: true },
+        { key: "Hits", label: "H", higherIsBetter: true },
+        { key: "Runs", label: "R", higherIsBetter: true },
+        { key: "Stolen Bases", label: "SB", higherIsBetter: true },
+        { key: "Strike Outs", label: "K", higherIsBetter: false },
+      ];
+      const pitDefs = [
+        { key: "Era", label: "ERA", higherIsBetter: false },
+        { key: "Whip", label: "WHIP", higherIsBetter: false },
+        { key: "Wins", label: "W", higherIsBetter: true },
+        { key: "Strike Outs", label: "K", higherIsBetter: true },
+        { key: "Saves", label: "SV", higherIsBetter: true },
+        { key: "Innings Pitched", label: "IP", higherIsBetter: true },
+        { key: "Base On Balls", label: "BB", higherIsBetter: false },
+        { key: "Losses", label: "L", higherIsBetter: false },
+        { key: "Hits", label: "H", higherIsBetter: false },
+        { key: "Home Runs", label: "HR", higherIsBetter: false },
+      ];
+
+      const defs = group === "pitching" ? pitDefs : hitDefs;
+      const isDecimalKey = (k) =>
+        ["Avg", "Obp", "Slg", "Ops", "Era", "Whip"].includes(k);
 
       const compData = defs.map((def) => {
-        const isDecimal = ["avg", "obp", "slg", "ops", "era", "whip"].includes(
-          def.key,
-        );
-        const fallback = isDecimal ? "0.000" : "0";
+        const fallback = isDecimalKey(def.key) ? "0.000" : "0";
         const v1 = stats1?.[def.key] ?? fallback;
         const v2 = stats2?.[def.key] ?? fallback;
         const n1 = parseFloat(v1) || 0;
@@ -215,9 +196,8 @@ const CompareScreen = ({ route }) => {
       });
 
       setComparisonStats({
-        isPitcher: isPitcher1,
         stats: compData,
-        comparisonType: isPitcher1 ? "Pitching" : "Hitting",
+        comparisonType: group === "pitching" ? "Pitching" : "Hitting",
       });
     } catch (e) {
       console.error("Compare error:", e);
@@ -227,13 +207,21 @@ const CompareScreen = ({ route }) => {
   };
 
   const renderPlayerCard = (player, playerNumber) => {
-    const isP1 = playerNumber === 1;
+    const teamColor = player?.teamId
+      ? WBCService.getTeamColor(player.teamId)
+      : null;
     const logo = player?.teamId
       ? WBCService.getTeamLogo(player.teamId, isDarkMode)
       : null;
 
     return (
-      <View style={[styles.playerCard, { backgroundColor: theme.surface }]}>
+      <View
+        style={[
+          styles.playerCard,
+          { backgroundColor: theme.surface },
+          teamColor ? { borderWidth: 2, borderColor: teamColor } : null,
+        ]}
+      >
         {player ? (
           <>
             <TouchableOpacity
@@ -282,40 +270,6 @@ const CompareScreen = ({ route }) => {
               >
                 #{player.jersey} | {player.position}
               </Text>
-            </View>
-
-            <View style={styles.yearSelector}>
-              <Text
-                allowFontScaling={false}
-                style={[styles.yearLabel, { color: theme.text }]}
-              >
-                Year:
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.yearButton,
-                  { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-                onPress={() =>
-                  isP1 ? setShowYear1Picker(true) : setShowYear2Picker(true)
-                }
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.yearButtonText, { color: theme.text }]}
-                >
-                  {isP1 ? player1Year : player2Year}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.yearButtonArrow,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  ▼
-                </Text>
-              </TouchableOpacity>
             </View>
           </>
         ) : (
@@ -501,12 +455,16 @@ const CompareScreen = ({ route }) => {
           ) : (
             searchResults.map((player) => {
               const logo = WBCService.getTeamLogo(player.teamId, isDarkMode);
+              const itemColor = WBCService.getTeamColor(player.teamId);
               return (
                 <TouchableOpacity
                   key={player.id}
                   style={[
                     styles.searchResultItem,
                     { backgroundColor: theme.surface },
+                    itemColor
+                      ? { borderLeftWidth: 3, borderLeftColor: itemColor }
+                      : null,
                   ]}
                   onPress={() => selectPlayer(player, searchingForPlayer)}
                 >
@@ -554,73 +512,6 @@ const CompareScreen = ({ route }) => {
             })
           )}
         </ScrollView>
-      </View>
-    </Modal>
-  );
-
-  const renderYearPicker = (
-    visible,
-    onClose,
-    currentVal,
-    onSelect,
-    playerName,
-  ) => (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View
-          style={[styles.yearPickerModal, { backgroundColor: theme.surface }]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.yearPickerTitle, { color: theme.text }]}
-          >
-            Select Year for {playerName}
-          </Text>
-          <ScrollView style={styles.yearOptions}>
-            {yearOptions.map((year) => (
-              <TouchableOpacity
-                key={year}
-                style={[
-                  styles.yearOption,
-                  {
-                    backgroundColor:
-                      year === currentVal ? colors.primary : "transparent",
-                  },
-                ]}
-                onPress={() => {
-                  onSelect(year);
-                  onClose();
-                }}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.yearOptionText,
-                    { color: year === currentVal ? "white" : theme.text },
-                  ]}
-                >
-                  {year}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-          <TouchableOpacity
-            style={[styles.yearPickerCancel, { borderTopColor: theme.border }]}
-            onPress={onClose}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.yearPickerCancelText, { color: colors.primary }]}
-            >
-              Cancel
-            </Text>
-          </TouchableOpacity>
-        </View>
       </View>
     </Modal>
   );
@@ -676,20 +567,6 @@ const CompareScreen = ({ route }) => {
       </ScrollView>
 
       {renderSearchModal()}
-      {renderYearPicker(
-        showYear1Picker,
-        () => setShowYear1Picker(false),
-        player1Year,
-        setPlayer1Year,
-        player1?.fullName,
-      )}
-      {renderYearPicker(
-        showYear2Picker,
-        () => setShowYear2Picker(false),
-        player2Year,
-        setPlayer2Year,
-        player2?.fullName,
-      )}
     </View>
   );
 };
@@ -718,7 +595,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     position: "relative",
-    minHeight: 240,
+    minHeight: 200,
     justifyContent: "flex-start",
   },
   teamHeader: { alignItems: "center", marginBottom: 8 },
@@ -751,21 +628,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 4,
   },
-  playerDetails: { fontSize: 14, textAlign: "center", marginBottom: 16 },
-  yearSelector: { alignItems: "center", gap: 8 },
-  yearLabel: { fontSize: 14, fontWeight: "500" },
-  yearButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    minWidth: 80,
-  },
-  yearButtonText: { fontSize: 16, fontWeight: "500" },
-  yearButtonArrow: { fontSize: 12, marginLeft: 8 },
+  playerDetails: { fontSize: 14, textAlign: "center", marginBottom: 8 },
   addPlayerButton: {
     flex: 1,
     alignItems: "center",
@@ -826,26 +689,6 @@ const styles = StyleSheet.create({
   searchResultDetails: { fontSize: 14, marginTop: 2 },
   searchResultTeam: { fontSize: 12, marginTop: 2, fontWeight: "500" },
   searchResultTeamLogo: { width: 24, height: 24 },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  yearPickerModal: { width: 280, maxHeight: 400, borderRadius: 12, margin: 20 },
-  yearPickerTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    textAlign: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ddd",
-  },
-  yearOptions: { maxHeight: 250 },
-  yearOption: { padding: 16, alignItems: "center" },
-  yearOptionText: { fontSize: 16, fontWeight: "500" },
-  yearPickerCancel: { padding: 16, alignItems: "center", borderTopWidth: 1 },
-  yearPickerCancelText: { fontSize: 16, fontWeight: "500" },
 });
 
 export default CompareScreen;

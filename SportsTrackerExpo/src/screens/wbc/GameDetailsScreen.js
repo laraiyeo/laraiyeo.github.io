@@ -20,14 +20,24 @@ import {
   RefreshControl,
   TouchableOpacity,
   TouchableWithoutFeedback,
+  Alert,
 } from "react-native";
-import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
+import Svg, {
+  Defs,
+  LinearGradient,
+  Stop,
+  Rect,
+  Path,
+  G,
+} from "react-native-svg";
 import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import WBCService from "../../services/WBCService";
 import { useGamePresence } from "../../hooks/useGamePresence";
+import { useStreamingAccess } from "../../utils/streamingUtils";
+import { WebView } from "react-native-webview";
 
 const { width } = Dimensions.get("window");
 
@@ -62,6 +72,7 @@ const HeaderGradient = ({ awayColor, homeColor, theme, height }) => (
 
 // ─── Team column (logo + name + score) ───────────────────────────────────────
 const TeamColumn = ({
+  status,
   team,
   score,
   isWinner,
@@ -69,8 +80,12 @@ const TeamColumn = ({
   isDarkMode,
   theme,
   scoreOpacity,
+  onPress,
 }) => {
   const logo = WBCService.getTeamLogo(team?.id, isDarkMode);
+  const isLive = !["S", "P", "D", "C", "O", "F", "Q", "R"].includes(
+    status?.codedGameState,
+  );
 
   return (
     <View style={[styles.teamColumn, { alignItems: "center" }]}>
@@ -79,8 +94,12 @@ const TeamColumn = ({
           style={[
             styles.teamScore,
             {
-              color: isWinner ? theme.text : theme.textSecondary,
-              fontWeight: isWinner ? "800" : "400",
+              color: isLive
+                ? theme.text
+                : isWinner
+                  ? theme.text
+                  : theme.textSecondary,
+              fontWeight: isLive ? "800" : isWinner ? "800" : "400",
               opacity: scoreOpacity ?? 1,
             },
           ]}
@@ -88,32 +107,41 @@ const TeamColumn = ({
           {score}
         </Animated.Text>
       )}
-      {logo ? (
-        <Image
-          source={{ uri: logo }}
-          style={styles.teamLogo}
-          resizeMode="contain"
-        />
-      ) : (
-        <View
-          style={[
-            styles.teamLogoPlaceholder,
-            { backgroundColor: theme.surfaceSecondary },
-          ]}
-        >
-          <Text
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={onPress ? 0.7 : 1}
+        style={{ alignItems: "center", alignSelf: "stretch" }}
+      >
+        {logo ? (
+          <Image
+            source={{ uri: logo }}
+            style={styles.teamLogo}
+            resizeMode="contain"
+          />
+        ) : (
+          <View
             style={[
-              styles.teamLogoPlaceholderText,
-              { color: theme.textSecondary },
+              styles.teamLogoPlaceholder,
+              { backgroundColor: theme.surfaceSecondary },
             ]}
           >
-            {(team?.name || "?").charAt(0).toUpperCase()}
-          </Text>
-        </View>
-      )}
-      <Text style={[styles.teamName, { color: theme.text }]} numberOfLines={2}>
-        {team?.name || "—"}
-      </Text>
+            <Text
+              style={[
+                styles.teamLogoPlaceholderText,
+                { color: theme.textSecondary },
+              ]}
+            >
+              {(team?.name || "?").charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
+        <Text
+          style={[styles.teamName, { color: theme.text }]}
+          numberOfLines={2}
+        >
+          {team?.name || "—"}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -135,7 +163,7 @@ const BATTING_COLS = [
 const PITCHING_COLS = [
   { key: "inningsPitched", label: "IP" },
   { key: "hits", label: "H" },
-  { key: "runs", label: "ER" },
+  { key: "runs", label: "R" },
   { key: "baseOnBalls", label: "BB" },
   { key: "strikeOuts", label: "K" },
   { key: "numberOfPitches", label: "NP" },
@@ -318,8 +346,15 @@ const BoxScorePanel = ({
   teamColor,
   team,
   boxscore,
+  pitchesData,
+  awayTeam,
+  homeTeam,
+  awayScore,
+  homeScore,
+  isScheduled,
+  isFinished,
 }) => {
-  const [section, setSection] = useState("batting");
+  const [section, setSection] = useState(isScheduled ? "bench" : "batting");
   const [selectedPlayer, setSelectedPlayer] = useState(null); // { playerId, playerInfo, bsPlayer }
 
   const bsPlayers = bsTeamData?.players ?? {};
@@ -352,9 +387,31 @@ const BoxScorePanel = ({
     ...batterIds.map(Number),
     ...pitcherIds.map(Number),
   ]);
-  const benchIds = Object.keys(bsPlayers)
+  const rawBenchIds = Object.keys(bsPlayers)
     .map((k) => Number(k.replace("ID", "")))
     .filter((id) => !activeSets.has(id));
+
+  // Sort bench: batters (AB > 0) by AB desc → pitchers (pitching stats) by IP desc → rest
+  const benchGetAB = (id) => bsPlayers[`ID${id}`]?.stats?.batting?.atBats ?? 0;
+  const benchGetIP = (id) =>
+    parseFloat(bsPlayers[`ID${id}`]?.stats?.pitching?.inningsPitched ?? 0);
+  const benchHasBat = (id) => benchGetAB(id) > 0;
+  const benchHasPit = (id) =>
+    !benchHasBat(id) &&
+    Object.keys(bsPlayers[`ID${id}`]?.stats?.pitching ?? {}).length > 0;
+  const benchBatters = rawBenchIds
+    .filter(benchHasBat)
+    .sort((a, b) => benchGetAB(b) - benchGetAB(a));
+  const benchPitchers = rawBenchIds
+    .filter(benchHasPit)
+    .sort((a, b) => benchGetIP(b) - benchGetIP(a));
+  const benchOthers = rawBenchIds.filter(
+    (id) => !benchHasBat(id) && !benchHasPit(id),
+  );
+  // Finished: hide no-stats players. Live/pre-game: show all (no-stats at bottom).
+  const benchIds = isFinished
+    ? [...benchBatters, ...benchPitchers]
+    : [...benchBatters, ...benchPitchers, ...benchOthers];
 
   const ids =
     section === "batting"
@@ -365,33 +422,35 @@ const BoxScorePanel = ({
 
   return (
     <View style={{ paddingBottom: 24 }}>
-      {/* Section toggle */}
-      <View style={bsStyles.sectionToggle}>
-        {["batting", "pitching", "bench"].map((s) => (
-          <TouchableOpacity
-            key={s}
-            style={[
-              bsStyles.sectionBtn,
-              section === s && bsStyles.sectionBtnActive,
-            ]}
-            onPress={() => setSection(s)}
-            activeOpacity={0.8}
-          >
-            <Text
+      {/* Section toggle — hidden when game is scheduled (bench only) */}
+      {!isScheduled && (
+        <View style={bsStyles.sectionToggle}>
+          {["batting", "pitching", "bench"].map((s) => (
+            <TouchableOpacity
+              key={s}
               style={[
-                bsStyles.sectionLabel,
-                { color: section === s ? theme.text : theme.textSecondary },
+                bsStyles.sectionBtn,
+                section === s && bsStyles.sectionBtnActive,
               ]}
+              onPress={() => setSection(s)}
+              activeOpacity={0.8}
             >
-              {s === "batting"
-                ? "Batting"
-                : s === "pitching"
-                  ? "Pitching"
-                  : "Bench"}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+              <Text
+                style={[
+                  bsStyles.sectionLabel,
+                  { color: section === s ? theme.text : theme.textSecondary },
+                ]}
+              >
+                {s === "batting"
+                  ? "Batting"
+                  : s === "pitching"
+                    ? "Pitching"
+                    : "Bench"}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {/* Player cards */}
       {ids.map((id) => (
@@ -427,7 +486,13 @@ const BoxScorePanel = ({
         bsPlayer={selectedPlayer?.bsPlayer}
         teamColor={teamColor}
         teamName={team?.name ?? ""}
+        teamId={team?.id}
         allBsPlayers={allBsPlayers}
+        pitchesData={pitchesData}
+        awayTeam={awayTeam}
+        homeTeam={homeTeam}
+        awayScore={awayScore}
+        homeScore={homeScore}
         theme={theme}
       />
     </View>
@@ -464,6 +529,388 @@ const bsStyles = StyleSheet.create({
   },
 });
 
+// ─── Batter pitch map helpers ────────────────────────────────────────────────
+const BPM_W = 240;
+const BPM_H = 220;
+const BPM_X_MIN = -2.5;
+const BPM_X_MAX = 2.5;
+const BPM_Y_MIN = 0.0;
+const BPM_Y_MAX = 6.0;
+const BPM_PLATE_HALF = 0.7083; // 17 in / 2 ≈ 0.708 ft
+const BPM_BALL_R = 8;
+
+const parseBatterPitches = (playerPitchData) => {
+  if (!playerPitchData?.byType) return [];
+  const result = [];
+  Object.entries(playerPitchData.byType).forEach(([pitchType, info]) => {
+    const coords = info?.coordinates ?? "";
+    coords.split(";").forEach((segment) => {
+      const s = segment.trim();
+      if (!s) return;
+      const colonIdx = s.indexOf(":");
+      if (colonIdx === -1) return;
+      const num = parseInt(s.substring(0, colonIdx), 10);
+      const rest = s.substring(colonIdx + 1);
+      const parts = rest.split(",");
+      if (parts.length < 3) return;
+      const pX = parseFloat(parts[0]);
+      const pZ = parseFloat(parts[1]);
+      const code = parts[2].trim();
+      if (!isNaN(pX) && !isNaN(pZ))
+        result.push({ num, pitchType, pX, pZ, code });
+    });
+  });
+  result.sort((a, b) => a.num - b.num);
+  return result;
+};
+
+const BPM_CALL_COLORS = {
+  B: "#4CAF50",
+  "*B": "#492300",
+  C: "#E53935",
+  S: "#E53935",
+  T: "#E53935",
+  W: "#E53935",
+  F: "#FF9800",
+  X: "#2196F3",
+  E: "#2196F3",
+  D: "#2196F3",
+  H: "#9C27B0",
+};
+
+const BPM_CALL_LABELS = {
+  B: "Ball",
+  "*B": "Ball",
+  C: "Called Strike",
+  S: "Swinging Strike",
+  T: "Foul Tip",
+  F: "Foul",
+  X: "In Play",
+  E: "In Play",
+  D: "In Play",
+  H: "HBP",
+};
+
+const BatterPitchMapView = ({ playerPitchData, teamColor, theme }) => {
+  const allPitches = useMemo(
+    () => parseBatterPitches(playerPitchData),
+    [playerPitchData],
+  );
+  const [selTypes, setSelTypes] = useState(new Set());
+  const [selCodes, setSelCodes] = useState(new Set());
+
+  const pitchTypes = useMemo(() => {
+    const s = new Set();
+    allPitches.forEach((p) => s.add(p.pitchType));
+    return [...s];
+  }, [allPitches]);
+
+  const callCodes = useMemo(() => {
+    const s = new Set();
+    allPitches.forEach((p) => s.add(p.code));
+    return [...s];
+  }, [allPitches]);
+
+  const visiblePitches = useMemo(
+    () =>
+      allPitches.filter((p) => {
+        if (selTypes.size > 0 && !selTypes.has(p.pitchType)) return false;
+        if (selCodes.size > 0 && !selCodes.has(p.code)) return false;
+        return true;
+      }),
+    [allPitches, selTypes, selCodes],
+  );
+
+  const szTop = playerPitchData?.strikeZone?.maxTop ?? 3.5;
+  const szBot = playerPitchData?.strikeZone?.minBottom ?? 1.5;
+  const xRange = BPM_X_MAX - BPM_X_MIN;
+  const yRange = BPM_Y_MAX - BPM_Y_MIN;
+  const szRectLeft = ((-BPM_PLATE_HALF - BPM_X_MIN) / xRange) * BPM_W;
+  const szRectWidth = ((BPM_PLATE_HALF * 2) / xRange) * BPM_W;
+  const szRectTop = ((BPM_Y_MAX - szTop) / yRange) * BPM_H;
+  const szRectHeight = ((szTop - szBot) / yRange) * BPM_H;
+
+  const toggleType = (t) =>
+    setSelTypes((prev) => {
+      const next = new Set(prev);
+      next.has(t) ? next.delete(t) : next.add(t);
+      return next;
+    });
+
+  // Group codes that share the same human-readable label so we never show
+  // two buttons with the same name (e.g. X, E, D all mean "In Play").
+  const callGroups = useMemo(() => {
+    const map = new Map(); // label → { label, codes[], color }
+    callCodes.forEach((code) => {
+      const label = BPM_CALL_LABELS[code] ?? code;
+      if (!map.has(label)) {
+        map.set(label, {
+          label,
+          codes: [],
+          color: BPM_CALL_COLORS[code] ?? "#9E9E9E",
+        });
+      }
+      map.get(label).codes.push(code);
+    });
+    return [...map.values()];
+  }, [callCodes]);
+
+  const toggleGroup = (group) =>
+    setSelCodes((prev) => {
+      const next = new Set(prev);
+      const anyActive = group.codes.some((c) => next.has(c));
+      if (anyActive) {
+        group.codes.forEach((c) => next.delete(c));
+      } else {
+        group.codes.forEach((c) => next.add(c));
+      }
+      return next;
+    });
+
+  if (allPitches.length === 0)
+    return (
+      <View style={{ alignItems: "center", paddingTop: 40, paddingBottom: 24 }}>
+        <Text style={{ color: theme.textSecondary, fontSize: 14 }}>
+          No pitch data available
+        </Text>
+      </View>
+    );
+
+  return (
+    <View>
+      {/* Strike zone chart */}
+      <View style={{ alignItems: "center", marginBottom: 12 }}>
+        <View
+          style={[
+            bpmStyles.chart,
+            { backgroundColor: theme.background, borderColor: theme.border },
+          ]}
+        >
+          {/* Strike zone rectangle */}
+          <View
+            style={[
+              bpmStyles.szRect,
+              {
+                left: szRectLeft,
+                top: szRectTop,
+                width: szRectWidth,
+                height: szRectHeight,
+                borderColor: theme.textSecondary,
+              },
+            ]}
+          />
+          {/* Pitch dots */}
+          {visiblePitches.map((p) => {
+            const dotX = ((p.pX - BPM_X_MIN) / xRange) * BPM_W - BPM_BALL_R;
+            const dotY = ((BPM_Y_MAX - p.pZ) / yRange) * BPM_H - BPM_BALL_R;
+            const color = BPM_CALL_COLORS[p.code] ?? "#9E9E9E";
+            return (
+              <View
+                key={`bpm-${p.num}-${p.pitchType}`}
+                style={[
+                  bpmStyles.dot,
+                  {
+                    left: Math.max(0, Math.min(BPM_W - BPM_BALL_R * 2, dotX)),
+                    top: Math.max(0, Math.min(BPM_H - BPM_BALL_R * 2, dotY)),
+                    backgroundColor: color,
+                    borderColor: "white",
+                  },
+                ]}
+              />
+            );
+          })}
+        </View>
+
+        {/* Legend */}
+        {callGroups.length > 0 && (
+          <View style={bpmStyles.legendRow}>
+            {callGroups.map((group) => (
+              <View key={group.label} style={bpmStyles.legendItem}>
+                <View
+                  style={[
+                    bpmStyles.legendDot,
+                    { backgroundColor: group.color },
+                  ]}
+                />
+                <Text
+                  style={[bpmStyles.legendText, { color: theme.textSecondary }]}
+                >
+                  {group.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+
+      {/* Pitch type filter */}
+      {pitchTypes.length > 0 && (
+        <View style={{ marginBottom: 10 }}>
+          <Text style={[bpmStyles.filterLabel, { color: theme.textSecondary }]}>
+            Pitch Type
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={bpmStyles.filterRow}
+          >
+            {pitchTypes.map((t) => {
+              const active = selTypes.has(t);
+              return (
+                <TouchableOpacity
+                  key={t}
+                  style={[
+                    bpmStyles.filterBtn,
+                    {
+                      borderColor: active ? teamColor : theme.border,
+                      backgroundColor: active
+                        ? teamColor + "22"
+                        : "transparent",
+                    },
+                  ]}
+                  onPress={() => toggleType(t)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      bpmStyles.filterBtnText,
+                      { color: active ? teamColor : theme.textSecondary },
+                    ]}
+                  >
+                    {t}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Result filter */}
+      {callGroups.length > 0 && (
+        <View style={{ marginBottom: 10 }}>
+          <Text style={[bpmStyles.filterLabel, { color: theme.textSecondary }]}>
+            Result
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={bpmStyles.filterRow}
+          >
+            {callGroups.map((group) => {
+              const active = group.codes.some((c) => selCodes.has(c));
+              const { color, label } = group;
+              return (
+                <TouchableOpacity
+                  key={label}
+                  style={[
+                    bpmStyles.filterBtn,
+                    {
+                      borderColor: active ? color : theme.border,
+                      backgroundColor: active ? color + "22" : "transparent",
+                    },
+                  ]}
+                  onPress={() => toggleGroup(group)}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[bpmStyles.filterBtnDot, { backgroundColor: color }]}
+                  />
+                  <Text
+                    style={[
+                      bpmStyles.filterBtnText,
+                      { color: active ? color : theme.textSecondary },
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+    </View>
+  );
+};
+
+const bpmStyles = StyleSheet.create({
+  chart: {
+    width: BPM_W,
+    height: BPM_H,
+    borderRadius: 8,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  szRect: {
+    position: "absolute",
+    borderWidth: 1.5,
+    borderRadius: 2,
+  },
+  dot: {
+    position: "absolute",
+    width: BPM_BALL_R * 2,
+    height: BPM_BALL_R * 2,
+    borderRadius: BPM_BALL_R,
+    borderWidth: 1,
+  },
+  legendRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    marginTop: 8,
+    gap: 10,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "white",
+  },
+  legendText: {
+    fontSize: 10,
+    fontWeight: "500",
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 6,
+    paddingHorizontal: 20,
+  },
+  filterRow: {
+    paddingHorizontal: 20,
+    paddingBottom: 2,
+    gap: 6,
+    flexDirection: "row",
+  },
+  filterBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 5,
+  },
+  filterBtnDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  filterBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+});
+
 // ─── Player detail modal ──────────────────────────────────────────────────────
 const PlayerDetailModal = ({
   visible,
@@ -473,7 +920,13 @@ const PlayerDetailModal = ({
   bsPlayer,
   teamColor,
   teamName,
+  teamId,
   allBsPlayers,
+  pitchesData,
+  awayTeam,
+  homeTeam,
+  awayScore,
+  homeScore,
   theme,
 }) => {
   const panY = useRef(new Animated.Value(0)).current;
@@ -536,6 +989,13 @@ const PlayerDetailModal = ({
     return { batting, pitching };
   }, [allBsPlayers]);
 
+  const [pdActiveTab, setPdActiveTab] = useState("Stats");
+  const [playerShareVisible, setPlayerShareVisible] = useState(false);
+  useEffect(() => {
+    setPdActiveTab("Stats");
+    setPlayerShareVisible(false);
+  }, [playerId]);
+
   if (!playerId) return null;
 
   const fullName = playerInfo?.fullName ?? `Player ${playerId}`;
@@ -558,6 +1018,13 @@ const PlayerDetailModal = ({
   const pitching = bsPlayer?.stats?.pitching ?? {};
   const hasBatStats = Object.keys(batting).length > 0;
   const hasPitStats = Object.keys(pitching).length > 0;
+
+  const playerPitches = pitchesData?.[String(playerId)] ?? null;
+  const hasPitchDisplay =
+    playerPitches != null &&
+    Object.values(playerPitches?.byType ?? {}).some(
+      (info) => (info?.coordinates ?? "").length > 0,
+    );
 
   let handValue = "—";
   let handLabel = "Bats";
@@ -659,6 +1126,7 @@ const PlayerDetailModal = ({
             />
             <View style={{ flexDirection: "row", gap: 8 }}>
               <TouchableOpacity
+                onPress={() => setPlayerShareVisible(true)}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 style={[
                   pdStyles.iconBtn,
@@ -736,6 +1204,35 @@ const PlayerDetailModal = ({
           </View>
         </View>
 
+        {/* Stats / Pitches tab toggle */}
+        {hasPitchDisplay && (
+          <View style={pdStyles.pdTabBar}>
+            {["Stats", "Pitches"].map((tab) => (
+              <TouchableOpacity
+                key={tab}
+                style={[
+                  pdStyles.pdTabBtn,
+                  pdActiveTab === tab && pdStyles.pdTabBtnActive,
+                ]}
+                onPress={() => setPdActiveTab(tab)}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    pdStyles.pdTabLabel,
+                    {
+                      color:
+                        pdActiveTab === tab ? theme.text : theme.textSecondary,
+                    },
+                  ]}
+                >
+                  {tab}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {/* Stats list */}
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -746,7 +1243,14 @@ const PlayerDetailModal = ({
             paddingBottom: 48,
           }}
         >
-          {hasBatStats && (
+          {hasPitchDisplay && pdActiveTab === "Pitches" && (
+            <BatterPitchMapView
+              playerPitchData={playerPitches}
+              teamColor={teamColor}
+              theme={theme}
+            />
+          )}
+          {(!hasPitchDisplay || pdActiveTab === "Stats") && hasBatStats && (
             <>
               {hasPitStats && (
                 <Text style={[pdStyles.statSection, { color: teamColor }]}>
@@ -795,7 +1299,7 @@ const PlayerDetailModal = ({
               ))}
             </>
           )}
-          {hasPitStats && (
+          {(!hasPitchDisplay || pdActiveTab === "Stats") && hasPitStats && (
             <>
               {hasBatStats && (
                 <Text
@@ -851,6 +1355,21 @@ const PlayerDetailModal = ({
           )}
         </ScrollView>
       </Animated.View>
+      <PlayerShareCardModal
+        visible={playerShareVisible}
+        onClose={() => setPlayerShareVisible(false)}
+        playerId={playerId}
+        playerInfo={playerInfo}
+        bsPlayer={bsPlayer}
+        teamColor={teamColor}
+        teamName={teamName}
+        teamId={teamId}
+        awayTeam={awayTeam}
+        homeTeam={homeTeam}
+        awayScore={awayScore}
+        homeScore={homeScore}
+        theme={theme}
+      />
     </Modal>
   );
 };
@@ -990,6 +1509,28 @@ const pdStyles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "right",
   },
+  pdTabBar: {
+    flexDirection: "row",
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    borderRadius: 10,
+    backgroundColor: "rgba(128,128,128,0.1)",
+    padding: 3,
+  },
+  pdTabBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  pdTabBtnActive: {
+    backgroundColor: "rgba(128,128,128,0.25)",
+  },
+  pdTabLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
 });
 
 // ─── Pitch call-code → color ─────────────────────────────────────────────────
@@ -1000,55 +1541,484 @@ const getPitchColor = (callCode) => {
 };
 
 // ─── Strike zone visualizer ───────────────────────────────────────────────────
-const StrikeZoneView = ({ pitches, theme }) => (
-  <View
-    style={[
-      modalStyles.strikeZoneContainer,
-      { backgroundColor: theme.background, borderColor: theme.border },
-    ]}
-  >
-    {/* inner zone rectangle */}
+const StrikeZoneView = ({ pitches, theme, animatedIndex, animTrigger }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (animatedIndex == null || animTrigger == null) return;
+
+    // Reset to baseline
+    scaleAnim.stopAnimation();
+    overlayOpacity.stopAnimation();
+    scaleAnim.setValue(1);
+    overlayOpacity.setValue(0);
+
+    // Phase 1: pop out → shrink back → slow pulse x3
+    Animated.sequence([
+      // Expand
+      Animated.timing(scaleAnim, {
+        toValue: 2.4,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+      // Shrink back to normal
+      Animated.timing(scaleAnim, {
+        toValue: 1.0,
+        duration: 280,
+        useNativeDriver: true,
+      }),
+      // 3 slow dark pulses (~1 s each = 3 s total)
+      Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(scaleAnim, {
+              toValue: 1.28,
+              duration: 500,
+              useNativeDriver: true,
+            }),
+            Animated.timing(scaleAnim, {
+              toValue: 1.0,
+              duration: 500,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.timing(overlayOpacity, {
+              toValue: 0.55,
+              duration: 500,
+              useNativeDriver: true,
+            }),
+            Animated.timing(overlayOpacity, {
+              toValue: 0,
+              duration: 500,
+              useNativeDriver: true,
+            }),
+          ]),
+        ]),
+        { iterations: 3 },
+      ),
+    ]).start();
+  }, [animTrigger]);
+
+  return (
     <View
       style={[
-        modalStyles.strikeZoneOutline,
-        { borderColor: theme.textTertiary },
+        modalStyles.strikeZoneContainer,
+        { backgroundColor: theme.background, borderColor: theme.border },
       ]}
-    />
-    {pitches.map((pitch, i) => {
-      const coords = pitch?.pitchData?.coordinates;
-      if (!coords || coords.pX == null || coords.pZ == null) return null;
+    >
+      {/* inner zone rectangle */}
+      <View
+        style={[
+          modalStyles.strikeZoneOutline,
+          { borderColor: theme.textTertiary },
+        ]}
+      />
+      {pitches.map((pitch, i) => {
+        const coords = pitch?.pitchData?.coordinates;
+        if (!coords || coords.pX == null || coords.pZ == null) return null;
 
-      const xPct = ((coords.pX + 2.0) / 3.75) * 100;
-      const szTop = pitch.pitchData?.strikeZoneTop;
-      const szBot = pitch.pitchData?.strikeZoneBottom;
-      const yPct =
-        szTop && szBot ? ((szTop - coords.pZ) / (szTop - szBot)) * 60 + 20 : 50;
+        const xPct = ((coords.pX + 2.0) / 3.75) * 100;
+        const szTop = pitch.pitchData?.strikeZoneTop;
+        const szBot = pitch.pitchData?.strikeZoneBottom;
+        const yPct =
+          szTop && szBot
+            ? ((szTop - coords.pZ) / (szTop - szBot)) * 60 + 20
+            : 50;
 
-      const finalX = (Math.max(5, Math.min(95, xPct)) / 100) * 145 - 5;
-      const finalY = (Math.max(5, Math.min(95, yPct)) / 100) * 125 + 5;
-      const color = getPitchColor(pitch?.details?.call?.code);
+        const finalX = (Math.max(5, Math.min(95, xPct)) / 100) * 145 - 5;
+        const finalY = (Math.max(5, Math.min(95, yPct)) / 100) * 125 + 5;
+        const color = getPitchColor(pitch?.details?.call?.code);
+        const isAnimated = i === animatedIndex;
 
-      return (
-        <View
-          key={i}
-          style={[
-            modalStyles.pitchDot,
-            {
-              backgroundColor: color,
-              borderColor: color,
-              left: finalX,
-              top: finalY,
-            },
-          ]}
-        >
-          <Text style={modalStyles.pitchNum}>{i + 1}</Text>
-        </View>
-      );
-    })}
-  </View>
-);
+        if (isAnimated) {
+          return (
+            <Animated.View
+              key={i}
+              style={[
+                modalStyles.pitchDot,
+                {
+                  backgroundColor: color,
+                  borderColor: color,
+                  left: finalX,
+                  top: finalY,
+                  transform: [{ scale: scaleAnim }],
+                  zIndex: 20,
+                },
+              ]}
+            >
+              <Text style={modalStyles.pitchNum}>{i + 1}</Text>
+              {/* Dark pulse overlay */}
+              <Animated.View
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  borderRadius: 10,
+                  backgroundColor: "rgba(0,0,0,0.55)",
+                  opacity: overlayOpacity,
+                }}
+                pointerEvents="none"
+              />
+            </Animated.View>
+          );
+        }
+
+        return (
+          <View
+            key={i}
+            style={[
+              modalStyles.pitchDot,
+              {
+                backgroundColor: color,
+                borderColor: color,
+                left: finalX,
+                top: finalY,
+              },
+            ]}
+          >
+            <Text style={modalStyles.pitchNum}>{i + 1}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+};
 
 // ─── Share card modal ───────────────────────────────────────────────────────
+// ─── Player Share Card Modal ─────────────────────────────────────────────────
+const PLAYER_CARD_BAT_STATS = [
+  { key: "atBats", label: "AB" },
+  { key: "hits", label: "H" },
+  { key: "runs", label: "R" },
+  { key: "rbi", label: "RBI" },
+  { key: "homeRuns", label: "HR" },
+  { key: "baseOnBalls", label: "BB" },
+  { key: "strikeOuts", label: "K" },
+  { key: "stolenBases", label: "SB" },
+  { key: "leftOnBase", label: "LOB" },
+];
+const PLAYER_CARD_PIT_STATS = [
+  { key: "inningsPitched", label: "IP" },
+  { key: "hits", label: "H" },
+  { key: "runs", label: "R" },
+  { key: "baseOnBalls", label: "BB" },
+  { key: "strikeOuts", label: "K" },
+  { key: "homeRuns", label: "HR" },
+  { key: "strikePercentage", label: "K%" },
+  { key: "numberOfPitches", label: "NP" },
+  { key: "battersFaced", label: "BF" },
+];
+
+const PlayerShareCardModal = ({
+  visible,
+  onClose,
+  playerId,
+  playerInfo,
+  bsPlayer,
+  teamColor,
+  teamName,
+  teamId,
+  awayTeam,
+  homeTeam,
+  awayScore,
+  homeScore,
+  theme,
+}) => {
+  const cardRef = useRef(null);
+  const [sharing, setSharing] = useState(false);
+  const { isDarkMode } = useTheme();
+
+  if (!playerId || !playerInfo) return null;
+
+  const batting = bsPlayer?.stats?.batting ?? {};
+  const pitching = bsPlayer?.stats?.pitching ?? {};
+  const isPitcher =
+    Object.keys(pitching).filter((k) => k !== "summary").length > 0;
+  const statsObj = isPitcher ? pitching : batting;
+  const statSummary = isPitcher ? pitching.summary : batting.summary;
+  const statDefs = isPitcher ? PLAYER_CARD_PIT_STATS : PLAYER_CARD_BAT_STATS;
+
+  const posAbbr =
+    bsPlayer?.position?.abbreviation ??
+    playerInfo?.primaryPosition?.abbreviation ??
+    "—";
+  const posFullName =
+    bsPlayer?.position?.name ?? playerInfo?.primaryPosition?.name ?? "";
+  const fullName = playerInfo?.fullName ?? `Player ${playerId}`;
+  const teamLogoUri = teamId
+    ? WBCService.getTeamLogo(teamId, isDarkMode)
+    : null;
+  const CARD_SIZE = width - 48;
+
+  const handleShare = async () => {
+    if (!cardRef.current || sharing) return;
+    try {
+      setSharing(true);
+      const uri = await cardRef.current.capture();
+      await Sharing.shareAsync(uri, { mimeType: "image/png" });
+    } catch (e) {
+      console.warn("Share failed", e);
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <View style={scStyles.overlay}>
+        <ViewShot
+          ref={cardRef}
+          options={{ format: "png", quality: 1 }}
+          style={{ overflow: "hidden" }}
+        >
+          <View
+            style={[
+              scStyles.card,
+              { width: CARD_SIZE, backgroundColor: theme.surface },
+            ]}
+          >
+            {/* ── Header ── */}
+            <View
+              style={[
+                psStyles.cardHeader,
+                {
+                  backgroundColor: teamColor + "22",
+                  borderBottomColor: teamColor,
+                },
+              ]}
+            >
+              {/* Top row: position badge + score */}
+              <View style={psStyles.headerTopRow}>
+                <View
+                  style={[psStyles.posBadge, { backgroundColor: teamColor }]}
+                >
+                  <Text
+                    style={[
+                      psStyles.posBadgeText,
+                      { color: getTextOnColor(teamColor) },
+                    ]}
+                  >
+                    {posAbbr}
+                    {posFullName ? ` • ${posFullName}` : ""}
+                  </Text>
+                </View>
+                {awayScore != null && homeScore != null && (
+                  <Text style={[scStyles.cardScore, { color: theme.text }]}>
+                    {awayTeam?.abbreviation ?? "A"} {awayScore} – {homeScore}{" "}
+                    {homeTeam?.abbreviation ?? "H"}
+                  </Text>
+                )}
+              </View>
+
+              {/* Headshot + name/summary */}
+              <View style={psStyles.headshotRow}>
+                <Image
+                  source={{ uri: playerHeadshotUrl(playerId) }}
+                  style={[psStyles.cardHeadshot, { borderColor: teamColor }]}
+                  resizeMode="cover"
+                />
+                <View style={psStyles.nameBlock}>
+                  {!!statSummary && (
+                    <Text
+                      style={[psStyles.statSummary, { color: theme.text }]}
+                      numberOfLines={2}
+                    >
+                      {statSummary}
+                    </Text>
+                  )}
+                  <Text
+                    style={[psStyles.fullName, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {fullName}
+                  </Text>
+                  {!!teamName && (
+                    <View style={psStyles.teamNameRow}>
+                      {!!teamLogoUri && (
+                        <Image
+                          source={{ uri: teamLogoUri }}
+                          style={psStyles.teamNameLogo}
+                          resizeMode="contain"
+                        />
+                      )}
+                      <Text
+                        style={[
+                          psStyles.teamNameLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {teamName}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+
+            {/* ── Body: 3×3 stat grid ── */}
+            <View style={psStyles.statGrid}>
+              {statDefs.map(({ key, label }, i) => (
+                <View
+                  key={key}
+                  style={[
+                    psStyles.statCell,
+                    { borderColor: theme.border },
+                    i % 3 !== 2 && {
+                      borderRightWidth: StyleSheet.hairlineWidth,
+                    },
+                    i < 6 && { borderBottomWidth: StyleSheet.hairlineWidth },
+                  ]}
+                >
+                  <Text style={[psStyles.statVal, { color: theme.text }]}>
+                    {statsObj[key] ?? "—"}
+                  </Text>
+                  <Text
+                    style={[psStyles.statLbl, { color: theme.textSecondary }]}
+                  >
+                    {label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Footer */}
+            <View
+              style={[scStyles.cardFooter, { borderTopColor: theme.border }]}
+            >
+              <Text style={[scStyles.cardBrand, { color: theme.text }]}>
+                SportsHeart <Ionicons name="heart" size={10} color="#dc2626" />
+              </Text>
+            </View>
+          </View>
+        </ViewShot>
+
+        {/* Actions */}
+        <View style={scStyles.actions}>
+          <TouchableOpacity
+            onPress={handleShare}
+            disabled={sharing}
+            style={[scStyles.actionBtn, { backgroundColor: teamColor }]}
+          >
+            {sharing ? (
+              <Text style={scStyles.actionBtnTxt}>Sharing…</Text>
+            ) : (
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+              >
+                <Ionicons name="share-outline" size={18} color="#fff" />
+                <Text style={scStyles.actionBtnTxt}>Share</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onClose}
+            style={[scStyles.actionBtn, { backgroundColor: theme.border }]}
+          >
+            <Text style={[scStyles.actionBtnTxt, { color: theme.text }]}>
+              Close
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const psStyles = StyleSheet.create({
+  cardHeader: {
+    padding: 14,
+    borderBottomWidth: 2,
+  },
+  headerTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  posBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  posBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  headshotRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  cardHeadshot: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2.5,
+    backgroundColor: "rgba(128,128,128,0.1)",
+  },
+  nameBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  statSummary: {
+    fontSize: 15,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  fullName: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  teamNameLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  teamNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    flexWrap: "wrap",
+  },
+  teamNameLogo: {
+    width: 16,
+    height: 16,
+  },
+  statGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  statCell: {
+    width: "33.333%",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+  },
+  statVal: {
+    fontSize: 18,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  statLbl: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 3,
+  },
+});
+
 const ShareCardModal = ({
   visible,
   onClose,
@@ -1073,7 +2043,6 @@ const ShareCardModal = ({
     : (homeTeam?.abbreviation ?? "");
   const inning = play?.about?.inning;
   const event = play?.result?.event ?? "";
-  const description = play?.result?.description ?? "";
   const isScoringPlay = play?.about?.isScoringPlay === true;
   const awayScore = play?.result?.awayScore;
   const homeScore = play?.result?.homeScore;
@@ -1082,6 +2051,9 @@ const ShareCardModal = ({
   const pitcherId = play?.matchup?.pitcher?.id;
   const batterInfo = playersMap?.[`ID${batterId}`] ?? null;
   const pitcherInfo = playersMap?.[`ID${pitcherId}`] ?? null;
+  const description =
+    play?.result?.description ??
+    `${batterInfo?.fullName ?? "Batter"} vs ${pitcherInfo?.fullName ?? "Pitcher"}`;
   const batterTeamColor = isTop ? awayColor : homeColor;
   const pitcherTeamColor = isTop ? homeColor : awayColor;
 
@@ -1119,7 +2091,7 @@ const ShareCardModal = ({
     const statItems = isPitcher
       ? [
           { l: "IP", v: pStats?.inningsPitched },
-          { l: "ER", v: pStats?.runs },
+          { l: "R", v: pStats?.runs },
           { l: "K", v: pStats?.strikeOuts },
         ]
       : [
@@ -1193,7 +2165,7 @@ const ShareCardModal = ({
               ]}
             >
               <View style={scStyles.cardTopRow}>
-                <Text style={[scStyles.cardInning, { color: teamColor }]}>
+                <Text style={[scStyles.cardInning, { color: theme.text }]}>
                   {isTop ? "▲" : "▼"} {toOrdinal(inning)}
                   {teamAbbr ? ` • ${teamAbbr}` : ""}
                 </Text>
@@ -1551,7 +2523,7 @@ const scStyles = StyleSheet.create({
   },
   cardBasesRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 17.5,
   },
   cardBaseDiamond: {
     width: 11,
@@ -1650,7 +2622,6 @@ const PlayDetailModal = ({
     : (homeTeam?.abbreviation ?? "");
   const inning = play?.about?.inning;
   const event = play?.result?.event ?? "";
-  const description = play?.result?.description ?? "";
   const isScoringPlay = play?.about?.isScoringPlay === true;
   const awayScore = play?.result?.awayScore;
   const homeScore = play?.result?.homeScore;
@@ -1660,6 +2631,9 @@ const PlayDetailModal = ({
   const pitcherId = play?.matchup?.pitcher?.id;
   const batterInfo = playersMap?.[`ID${batterId}`] ?? null;
   const pitcherInfo = playersMap?.[`ID${pitcherId}`] ?? null;
+  const description =
+    play?.result?.description ??
+    `${batterInfo?.fullName ?? "Batter"} vs ${pitcherInfo?.fullName ?? "Pitcher"}`;
 
   // top inning → batter is away, pitcher is home
   const batterTeamColor = isTop ? awayColor : homeColor;
@@ -1761,7 +2735,7 @@ const PlayDetailModal = ({
           {/* Title row */}
           <View style={modalStyles.titleRow}>
             <View style={{ flex: 1 }}>
-              <Text style={[modalStyles.sheetInning, { color: teamColor }]}>
+              <Text style={[modalStyles.sheetInning, { color: theme.text }]}>
                 {isTop ? "▲" : "▼"} {toOrdinal(inning)}
                 {teamAbbr ? ` • ${teamAbbr}` : ""}
               </Text>
@@ -1977,7 +2951,7 @@ const PlayDetailModal = ({
                   <View style={modalStyles.matchupStats}>
                     {[
                       { label: "IP", val: pitcherPitching.inningsPitched },
-                      { label: "ER", val: pitcherPitching.runs },
+                      { label: "R", val: pitcherPitching.runs },
                       { label: "K", val: pitcherPitching.strikeOuts },
                     ].map(({ label, val }) => (
                       <View key={label} style={modalStyles.matchupStat}>
@@ -2607,8 +3581,14 @@ const PlaysPanel = ({
             ? (awayTeam?.abbreviation ?? "")
             : (homeTeam?.abbreviation ?? "");
           const inning = play?.about?.inning;
-          const event = play?.result?.event ?? "";
-          const description = play?.result?.description ?? "";
+          const event = play?.result?.event ?? ""; // Resolve batter + pitcher from playersMap
+          const batterId = play?.matchup?.batter?.id;
+          const pitcherId = play?.matchup?.pitcher?.id;
+          const batterInfo = playersMap?.[`ID${batterId}`] ?? null;
+          const pitcherInfo = playersMap?.[`ID${pitcherId}`] ?? null;
+          const description =
+            play?.result?.description ??
+            `${batterInfo?.fullName ?? "Batter"} vs ${pitcherInfo?.fullName ?? "Pitcher"}`;
           const isScoringPlay = play?.about?.isScoringPlay === true;
           const awayScore = play?.result?.awayScore;
           const homeScore = play?.result?.homeScore;
@@ -2648,7 +3628,7 @@ const PlaysPanel = ({
                     <Text
                       style={[
                         plStyles.playInning,
-                        { color: isScoringPlay ? onColor : teamColor },
+                        { color: isScoringPlay ? onColor : theme.text },
                       ]}
                     >
                       {isTop ? "▲" : "▼"} {toOrdinal(inning)}
@@ -2982,21 +3962,61 @@ const plStyles = StyleSheet.create({
   },
 });
 
+// Short game time: "Mar 3 · 8:08 PM"
+const fmtGameTime = (isoString) => {
+  if (!isoString) return null;
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return null;
+  const yr = d.getUTCFullYear();
+  const march1 = new Date(Date.UTC(yr, 2, 1));
+  const edtStart = new Date(
+    Date.UTC(yr, 2, 8 + ((7 - march1.getUTCDay()) % 7), 7),
+  );
+  const nov1 = new Date(Date.UTC(yr, 10, 1));
+  const edtEnd = new Date(
+    Date.UTC(yr, 10, 1 + ((7 - nov1.getUTCDay()) % 7), 6),
+  );
+  const offsetMs = d >= edtStart && d < edtEnd ? -4 * 3600000 : -5 * 3600000;
+  const local = new Date(d.getTime() + offsetMs);
+  const MONTHS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  const month = MONTHS[local.getUTCMonth()];
+  const day = local.getUTCDate();
+  let hr = local.getUTCHours();
+  const min = local.getUTCMinutes().toString().padStart(2, "0");
+  const ampm = hr >= 12 ? "PM" : "AM";
+  hr = hr % 12 || 12;
+  return `${month} ${day} \u00b7 ${hr}:${min} ${ampm}`;
+};
+
 // ─── Center status badge ──────────────────────────────────────────────────────
-const StatusBadge = ({ status, linescore, theme }) => {
+const StatusBadge = ({ status, linescore, gameDateTime, theme }) => {
   const state = status?.detailedState || "";
   const isLive = !["S", "P", "D", "C", "O", "F", "Q", "R"].includes(
     status?.codedGameState,
   );
   const inning = linescore?.currentInning;
   const inningState = linescore?.inningState;
+  const gameTimeStr = fmtGameTime(gameDateTime);
 
   let topLabel = state;
   let bottomLabel = "";
 
   if (isLive && inning) {
-    topLabel = `${inningState || ""} ${inning}`.trim();
-    bottomLabel = state.startsWith("In Progress") ? "In Progress" : state;
+    topLabel = state.startsWith("In Progress") ? "In Progress" : state;
+    bottomLabel = "";
   } else if (state === "Final") {
     topLabel = "Final";
     if (inning && inning !== 9) bottomLabel = `F/${inning}`;
@@ -3007,6 +4027,14 @@ const StatusBadge = ({ status, linescore, theme }) => {
       {isLive && inning != null && (
         <Text style={[styles.inningLabel, { color: theme.text }]}>
           {linescore?.isTopInning === false ? "Bot" : "Top"} {toOrdinal(inning)}
+        </Text>
+      )}
+      {!isLive && !!gameTimeStr && (
+        <Text
+          style={[styles.gameTimeLabel, { color: theme.text }]}
+          numberOfLines={1}
+        >
+          {gameTimeStr}
         </Text>
       )}
       <Text
@@ -3022,10 +4050,1719 @@ const StatusBadge = ({ status, linescore, theme }) => {
           {bottomLabel}
         </Text>
       )}
-      {!isLive && !inning && (
-        <Text style={[styles.statusBottom, { color: theme.textTertiary }]}>
-          {state === "Scheduled" ? "Upcoming" : ""}
+    </View>
+  );
+};
+
+// ─── Game Info helpers ──────────────────────────────────────────────────────
+const utcToEastern = (isoString) => {
+  if (!isoString) return null;
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return null;
+  // Determine US Eastern offset: EDT starts 2nd Sun of March, EST resumes 1st Sun of Nov.
+  const yr = d.getUTCFullYear();
+  // 2nd Sunday of March
+  const march1 = new Date(Date.UTC(yr, 2, 1));
+  const edtStart = new Date(
+    Date.UTC(yr, 2, 8 + ((7 - march1.getUTCDay()) % 7), 7),
+  ); // 2:00 AM EST → 7:00 UTC
+  // 1st Sunday of November
+  const nov1 = new Date(Date.UTC(yr, 10, 1));
+  const edtEnd = new Date(
+    Date.UTC(yr, 10, 1 + ((7 - nov1.getUTCDay()) % 7), 6),
+  ); // 2:00 AM EDT → 6:00 UTC
+  const offsetMs = d >= edtStart && d < edtEnd ? -4 * 3600000 : -5 * 3600000;
+  const suffix = d >= edtStart && d < edtEnd ? "EDT" : "EST";
+  const local = new Date(d.getTime() + offsetMs);
+  const MONTHS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  const month = MONTHS[local.getUTCMonth()];
+  const day = local.getUTCDate();
+  const year = local.getUTCFullYear();
+  let hr = local.getUTCHours();
+  const min = local.getUTCMinutes().toString().padStart(2, "0");
+  const ampm = hr >= 12 ? "PM" : "AM";
+  hr = hr % 12 || 12;
+  return `${month} ${day}, ${year} @ ${hr}:${min} ${ampm} ${suffix}`;
+};
+
+const fmtDuration = (mins) => {
+  if (mins == null) return null;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 ? `${h}hr ${m}m` : `${m}m`;
+};
+
+// ─── Game Info Bubble ────────────────────────────────────────────────────────
+const OFFICIAL_TYPE_LABEL = {
+  "Home Plate": "Home",
+  "First Base": "1st Base",
+  "Second Base": "2nd Base",
+  "Third Base": "3rd Base",
+};
+const OFFICIAL_TYPE_ORDER = [
+  "Home Plate",
+  "First Base",
+  "Second Base",
+  "Third Base",
+];
+
+const GameInfoBubble = ({ gameData, officials, theme }) => {
+  const venueObj = gameData?.venue ?? {};
+  const venueName = venueObj?.name ?? null;
+  const fi = venueObj?.fieldInfo ?? {};
+  const weather = gameData?.weather ?? {};
+  const gameInfo = gameData?.gameInfo ?? {};
+
+  const hasVenue = !!(venueName || Object.keys(fi).length);
+  const hasWeather = !!(weather.condition || weather.temp || weather.wind);
+  const hasGame = !!(
+    gameInfo.firstPitch ||
+    gameInfo.gameDurationMinutes != null ||
+    gameInfo.attendance != null
+  );
+  const officialList = (officials ?? []).filter(
+    (o) => OFFICIAL_TYPE_LABEL[o?.officialType],
+  );
+  const hasOfficials = officialList.length > 0;
+
+  if (!hasVenue && !hasWeather && !hasGame && !hasOfficials) return null;
+
+  const borderCol = theme.border ?? "rgba(128,128,128,0.2)";
+  const divider = (
+    <View style={[giStyles.divider, { backgroundColor: borderCol }]} />
+  );
+
+  const StatCell = ({ label, value }) => (
+    <View style={giStyles.statCell}>
+      <Text style={[giStyles.statVal, { color: theme.text }]} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text style={[giStyles.statLbl, { color: theme.textSecondary }]}>
+        {label}
+      </Text>
+    </View>
+  );
+
+  const SectionHeader = ({ title }) => (
+    <Text style={[giStyles.sectionHdr, { color: theme.textSecondary }]}>
+      {title.toUpperCase()}
+    </Text>
+  );
+
+  return (
+    <View style={[giStyles.bubble, { backgroundColor: theme.surface }]}>
+      {/* ── Header ── */}
+      <View style={[giStyles.header, { borderBottomColor: borderCol }]}>
+        <Text style={[giStyles.headerTitle, { color: theme.text }]}>
+          Game Info
         </Text>
+      </View>
+
+      {/* ── Venue ── */}
+      {hasVenue && (
+        <View style={giStyles.section}>
+          <SectionHeader title="Venue" />
+          {!!venueName && (
+            <Text
+              style={[giStyles.venueName, { color: theme.text }]}
+              numberOfLines={2}
+            >
+              {venueName}
+            </Text>
+          )}
+          {/* Row 1: Capacity / Turf / Roof */}
+          {(fi.capacity != null || fi.turfType || fi.roofType) && (
+            <View style={giStyles.statRow}>
+              {fi.capacity != null && (
+                <StatCell
+                  label="Capacity"
+                  value={fi.capacity.toLocaleString()}
+                />
+              )}
+              {!!fi.turfType && (
+                <StatCell label="Surface" value={fi.turfType} />
+              )}
+              {!!fi.roofType && <StatCell label="Roof" value={fi.roofType} />}
+            </View>
+          )}
+          {/* Row 2: field distances (leftLine - left - center - right - rightLine) */}
+          {(fi.leftLine != null ||
+            fi.left != null ||
+            fi.center != null ||
+            fi.right != null ||
+            fi.rightLine != null) && (
+            <View style={[giStyles.statRow, { marginTop: 8 }]}>
+              {fi.leftLine != null && (
+                <StatCell label="LF Line" value={`${fi.leftLine}ft`} />
+              )}
+              {fi.left != null && (
+                <StatCell label="LF" value={`${fi.left}ft`} />
+              )}
+              {fi.center != null && (
+                <StatCell label="CF" value={`${fi.center}ft`} />
+              )}
+              {fi.right != null && (
+                <StatCell label="RF" value={`${fi.right}ft`} />
+              )}
+              {fi.rightLine != null && (
+                <StatCell label="RF Line" value={`${fi.rightLine}ft`} />
+              )}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* ── Weather ── */}
+      {hasVenue && hasWeather && divider}
+      {hasWeather && (
+        <View style={giStyles.section}>
+          <SectionHeader title="Weather" />
+          <View style={giStyles.statRow}>
+            {!!weather.condition && (
+              <StatCell label="Condition" value={weather.condition} />
+            )}
+            {!!weather.temp && (
+              <StatCell label="Temp" value={`${weather.temp}°F`} />
+            )}
+            {!!weather.wind && <StatCell label="Wind" value={weather.wind} />}
+          </View>
+        </View>
+      )}
+
+      {/* ── Game Info ── */}
+      {(hasVenue || hasWeather) && hasGame && divider}
+      {hasGame && (
+        <View style={giStyles.section}>
+          <SectionHeader title="Game" />
+          {!!gameInfo.firstPitch && (
+            <View style={giStyles.fullRowCentered}>
+              <Text style={[giStyles.statLbl, { color: theme.textSecondary }]}>
+                First Pitch
+              </Text>
+              <Text style={[giStyles.firstPitchVal, { color: theme.text }]}>
+                {utcToEastern(gameInfo.firstPitch)}
+              </Text>
+            </View>
+          )}
+          <View
+            style={[
+              giStyles.statRow,
+              { marginTop: gameInfo.firstPitch ? 8 : 0 },
+            ]}
+          >
+            {gameInfo.gameDurationMinutes != null && (
+              <StatCell
+                label="Duration"
+                value={fmtDuration(gameInfo.gameDurationMinutes)}
+              />
+            )}
+            {gameInfo.attendance != null && (
+              <StatCell
+                label="Attendance"
+                value={gameInfo.attendance.toLocaleString()}
+              />
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* ── Officials ── */}
+      {(hasVenue || hasWeather || hasGame) && hasOfficials && divider}
+      {hasOfficials && (
+        <View style={giStyles.section}>
+          <SectionHeader title="Umpires" />
+          <View style={giStyles.officialsRow}>
+            {OFFICIAL_TYPE_ORDER.map((type) => {
+              const entry = officialList.find((o) => o.officialType === type);
+              if (!entry) return null;
+              const words = (entry.official?.fullName ?? "—").split(" ");
+              const split = Math.ceil(words.length / 2);
+              const line1 = words.slice(0, split).join(" ");
+              const line2 = words.slice(split).join(" ") || " ";
+              return (
+                <View key={type} style={giStyles.officialCell}>
+                  <Text style={[giStyles.officialName, { color: theme.text }]}>
+                    {line1}
+                  </Text>
+                  <Text style={[giStyles.officialName, { color: theme.text }]}>
+                    {line2}
+                  </Text>
+                  <Text
+                    style={[
+                      giStyles.officialType,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {OFFICIAL_TYPE_LABEL[type]}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+};
+
+const giStyles = StyleSheet.create({
+  bubble: {
+    borderRadius: 12,
+    overflow: "hidden",
+    marginBottom: 16,
+  },
+  header: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  section: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  sectionHdr: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 8,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+  },
+  venueName: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 10,
+    lineHeight: 18,
+  },
+  statRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+  },
+  statCell: {
+    flex: 1,
+    minWidth: 52,
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  statVal: {
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  statLbl: {
+    fontSize: 10,
+    fontWeight: "500",
+    textAlign: "center",
+    marginTop: 2,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  fullRow: {
+    marginBottom: 2,
+  },
+  fullRowCentered: {
+    marginBottom: 2,
+    alignItems: "center",
+  },
+  firstPitchVal: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 2,
+    textAlign: "center",
+  },
+  officialsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 4,
+  },
+  officialCell: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  officialName: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 15,
+  },
+  officialType: {
+    fontSize: 10,
+    fontWeight: "500",
+    textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+    marginTop: 4,
+  },
+});
+
+// ─── Linescore Bubble ───────────────────────────────────────────────────────
+const LinescoreBubble = ({
+  linescore,
+  awayTeam,
+  homeTeam,
+  awayColor,
+  homeColor,
+  theme,
+}) => {
+  const innings = linescore?.innings ?? [];
+  const awayTotals = linescore?.teams?.away ?? {};
+  const homeTotals = linescore?.teams?.home ?? {};
+
+  if (innings.length === 0) return null;
+
+  const CELL_W = 30; // minimum inning cell width
+  const ROW_H = 34; // row height
+  const LABEL_W = 44; // team abbr column width
+  const TOTAL_W = 32; // R/H/E column width
+
+  // Measure the available width for the innings area so we can stretch cells
+  // to fill when there aren't enough innings to make it scrollable.
+  const [availableW, setAvailableW] = React.useState(0);
+  const cellW =
+    availableW > 0 && innings.length > 0
+      ? Math.max(CELL_W, availableW / innings.length)
+      : CELL_W;
+
+  const headerBg = theme.surfaceSecondary ?? "rgba(128,128,128,0.08)";
+  const borderCol = theme.border ?? "rgba(128,128,128,0.2)";
+
+  return (
+    <View style={[lsStyles.bubble, { backgroundColor: theme.surface }]}>
+      {/* ── outer row: [fixed left] [scrollable innings] [fixed totals] ── */}
+      <View style={{ flexDirection: "row" }}>
+        {/* ── Fixed left: team abbreviations ── */}
+        <View style={{ width: LABEL_W }}>
+          {/* header spacer */}
+          <View
+            style={[
+              lsStyles.cell,
+              {
+                height: ROW_H,
+                borderBottomColor: borderCol,
+                backgroundColor: headerBg,
+              },
+            ]}
+          />
+          {/* away abbr */}
+          <View
+            style={[
+              lsStyles.cell,
+              {
+                height: ROW_H,
+                borderBottomColor: awayColor,
+                borderBottomWidth: 2,
+                backgroundColor: theme.surface,
+              },
+            ]}
+          >
+            <Text
+              style={[lsStyles.teamAbbr, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {awayTeam?.abbreviation ?? "AWY"}
+            </Text>
+          </View>
+          {/* home abbr */}
+          <View
+            style={[
+              lsStyles.cell,
+              {
+                height: ROW_H,
+                borderBottomColor: homeColor,
+                borderBottomWidth: 2,
+                backgroundColor: theme.surface,
+              },
+            ]}
+          >
+            <Text
+              style={[lsStyles.teamAbbr, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {homeTeam?.abbreviation ?? "HME"}
+            </Text>
+          </View>
+        </View>
+
+        {/* ── Scrollable inning columns ── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          bounces={false}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexDirection: "column" }}
+          onLayout={(e) => setAvailableW(e.nativeEvent.layout.width)}
+        >
+          {/* inning number header row */}
+          <View style={{ flexDirection: "row" }}>
+            {innings.map((inn) => (
+              <View
+                key={`hdr-${inn.num}`}
+                style={[
+                  lsStyles.cell,
+                  {
+                    width: cellW,
+                    height: ROW_H,
+                    backgroundColor: headerBg,
+                    borderBottomColor: borderCol,
+                  },
+                ]}
+              >
+                <Text
+                  style={[lsStyles.inningNum, { color: theme.textSecondary }]}
+                >
+                  {inn.num}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* away runs row */}
+          <View style={{ flexDirection: "row" }}>
+            {innings.map((inn) => (
+              <View
+                key={`away-${inn.num}`}
+                style={[
+                  lsStyles.cell,
+                  {
+                    width: cellW,
+                    height: ROW_H,
+                    borderBottomColor: awayColor,
+                    borderBottomWidth: 2,
+                  },
+                ]}
+              >
+                <Text style={[lsStyles.runsText, { color: theme.text }]}>
+                  {inn.away?.runs ?? "-"}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* home runs row */}
+          <View style={{ flexDirection: "row" }}>
+            {innings.map((inn) => (
+              <View
+                key={`home-${inn.num}`}
+                style={[
+                  lsStyles.cell,
+                  {
+                    width: cellW,
+                    height: ROW_H,
+                    borderBottomColor: homeColor,
+                    borderBottomWidth: 2,
+                  },
+                ]}
+              >
+                <Text style={[lsStyles.runsText, { color: theme.text }]}>
+                  {inn.home?.runs ?? "-"}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* ── Fixed right: R / H / E totals ── */}
+        <View style={[lsStyles.totalsSection, { borderLeftColor: borderCol }]}>
+          {/* totals header */}
+          <View
+            style={[
+              lsStyles.totalsRow,
+              {
+                height: ROW_H,
+                backgroundColor: headerBg,
+                borderBottomColor: borderCol,
+              },
+            ]}
+          >
+            {["R", "H", "E"].map((label) => (
+              <View
+                key={label}
+                style={{ width: TOTAL_W, alignItems: "center" }}
+              >
+                <Text
+                  style={[lsStyles.totalHeader, { color: theme.textSecondary }]}
+                >
+                  {label}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* away totals */}
+          <View
+            style={[
+              lsStyles.totalsRow,
+              {
+                height: ROW_H,
+                borderBottomColor: awayColor,
+                borderBottomWidth: 2,
+              },
+            ]}
+          >
+            {[
+              awayTotals.runs ?? "-",
+              awayTotals.hits ?? "-",
+              awayTotals.errors ?? "-",
+            ].map((val, i) => (
+              <View key={i} style={{ width: TOTAL_W, alignItems: "center" }}>
+                <Text style={[lsStyles.totalVal, { color: theme.text }]}>
+                  {val}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* home totals */}
+          <View
+            style={[
+              lsStyles.totalsRow,
+              {
+                height: ROW_H,
+                borderBottomColor: homeColor,
+                borderBottomWidth: 2,
+              },
+            ]}
+          >
+            {[
+              homeTotals.runs ?? "-",
+              homeTotals.hits ?? "-",
+              homeTotals.errors ?? "-",
+            ].map((val, i) => (
+              <View key={i} style={{ width: TOTAL_W, alignItems: "center" }}>
+                <Text style={[lsStyles.totalVal, { color: theme.text }]}>
+                  {val}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const lsStyles = StyleSheet.create({
+  bubble: {
+    borderRadius: 12,
+    overflow: "hidden",
+    marginBottom: 12,
+  },
+  cell: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderBottomWidth: 1,
+  },
+  teamAbbr: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+    paddingHorizontal: 4,
+    textAlign: "center",
+  },
+  inningNum: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  runsText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  totalsSection: {
+    borderLeftWidth: 1,
+    flexDirection: "column",
+  },
+  totalsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderBottomWidth: 1,
+  },
+  totalHeader: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  totalVal: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+});
+
+// ─── Team Stats Bubble ────────────────────────────────────────────────────────
+const fmtStatLabel = (key) =>
+  key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/([0-9]+)/g, " $1")
+    .trim()
+    .replace(/^\w/, (c) => c.toUpperCase());
+
+const STAT_SECTIONS = [
+  {
+    key: "batting",
+    label: "BATTING",
+    stats: [
+      { key: "hits", lowerBetter: false },
+      { key: "runs", lowerBetter: false },
+      { key: "homeRuns", lowerBetter: false },
+      { key: "rbi", lowerBetter: false },
+      { key: "avg", lowerBetter: false },
+      { key: "obp", lowerBetter: false },
+      { key: "strikeOuts", lowerBetter: true },
+      { key: "baseOnBalls", lowerBetter: false },
+      { key: "stolenBases", lowerBetter: false },
+    ],
+  },
+  {
+    key: "pitching",
+    label: "PITCHING",
+    stats: [
+      { key: "strikeOuts", lowerBetter: false },
+      { key: "baseOnBalls", lowerBetter: true },
+      { key: "hits", lowerBetter: true },
+      { key: "era", lowerBetter: true },
+      { key: "whip", lowerBetter: true },
+      { key: "strikePercentage", lowerBetter: false },
+    ],
+  },
+  {
+    key: "fielding",
+    label: "FIELDING",
+    stats: [
+      { key: "errors", lowerBetter: true },
+      { key: "assists", lowerBetter: false },
+      { key: "putOuts", lowerBetter: false },
+      { key: "stolenBases", lowerBetter: true },
+    ],
+  },
+];
+
+const TeamStatsBubble = ({
+  awayTeam,
+  homeTeam,
+  awayColor,
+  homeColor,
+  bsAwayTeam,
+  bsHomeTeam,
+  theme,
+}) => {
+  const awayTs = bsAwayTeam?.teamStats ?? {};
+  const homeTs = bsHomeTeam?.teamStats ?? {};
+
+  const sections = STAT_SECTIONS.map((sec) => {
+    const aw = awayTs[sec.key] ?? {};
+    const hm = homeTs[sec.key] ?? {};
+    const rows = sec.stats.filter(
+      (s) => aw[s.key] != null || hm[s.key] != null,
+    );
+    return { ...sec, rows, aw, hm };
+  }).filter((sec) => sec.rows.length > 0);
+
+  if (sections.length === 0) return null;
+
+  return (
+    <View style={[tsStyles.container, { backgroundColor: theme.surface }]}>
+      {sections.map((sec, si) => (
+        <View key={sec.key}>
+          {si > 0 && (
+            <View
+              style={[
+                tsStyles.sectionDivider,
+                { backgroundColor: theme.border },
+              ]}
+            />
+          )}
+
+          {/* Section header: away abbr — CATEGORY — home abbr */}
+          <View style={tsStyles.sectionHeader}>
+            <Text
+              style={[tsStyles.teamAbbr, { color: awayColor }]}
+              numberOfLines={1}
+            >
+              {awayTeam?.abbreviation ?? ""}
+            </Text>
+            <Text
+              style={[
+                tsStyles.sectionLabel,
+                { color: theme.subText ?? theme.textSecondary },
+              ]}
+            >
+              {sec.label}
+            </Text>
+            <Text
+              style={[
+                tsStyles.teamAbbr,
+                { color: homeColor, textAlign: "right" },
+              ]}
+              numberOfLines={1}
+            >
+              {homeTeam?.abbreviation ?? ""}
+            </Text>
+          </View>
+
+          {/* Stat comparison rows */}
+          {sec.rows.map((s, ri) => {
+            const aRaw = sec.aw[s.key];
+            const hRaw = sec.hm[s.key];
+            const aNum = parseFloat(aRaw) || 0;
+            const hNum = parseFloat(hRaw) || 0;
+            const total = aNum + hNum;
+
+            // awayFrac: fraction of bar filled from away (left) side
+            // lowerBetter → winning side is the one with lower value,
+            //   so give more bar space to the team with the lower value
+            let awayFrac =
+              total === 0
+                ? 0.5
+                : s.lowerBetter
+                  ? hNum / total // away lower → away gets hNum/(a+h) portion (bigger if away is smaller)
+                  : aNum / total; // higher is better → straight proportion
+
+            awayFrac = Math.max(0.05, Math.min(0.95, awayFrac));
+
+            return (
+              <View
+                key={s.key}
+                style={[tsStyles.statRow, { marginTop: ri === 0 ? 0 : 10 }]}
+              >
+                {/* Away value */}
+                <Text
+                  style={[
+                    tsStyles.statVal,
+                    { color: theme.text, textAlign: "right" },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {aRaw ?? "—"}
+                </Text>
+
+                {/* Split bar + label */}
+                <View style={tsStyles.barWrap}>
+                  <View style={tsStyles.barTrack}>
+                    <View
+                      style={[
+                        tsStyles.barSegment,
+                        { flex: awayFrac, backgroundColor: awayColor },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        tsStyles.barDivider,
+                        { backgroundColor: theme.card },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        tsStyles.barSegment,
+                        { flex: 1 - awayFrac, backgroundColor: homeColor },
+                      ]}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      tsStyles.barLabel,
+                      { color: theme.subText ?? theme.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {fmtStatLabel(s.key)}
+                  </Text>
+                </View>
+
+                {/* Home value */}
+                <Text
+                  style={[
+                    tsStyles.statVal,
+                    { color: theme.text, textAlign: "left" },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {hRaw ?? "—"}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+};
+
+const tsStyles = StyleSheet.create({
+  container: {
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+  },
+  sectionDivider: {
+    height: 1,
+    marginVertical: 14,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  teamAbbr: {
+    width: 40,
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textAlign: "center",
+  },
+  statRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  statVal: {
+    width: 40,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  barWrap: {
+    flex: 1,
+    marginHorizontal: 8,
+    alignItems: "center",
+  },
+  barTrack: {
+    flexDirection: "row",
+    width: "100%",
+    height: 8,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  barSegment: {
+    height: 8,
+  },
+  barDivider: {
+    width: 2,
+    height: 8,
+  },
+  barLabel: {
+    fontSize: 10,
+    fontWeight: "500",
+    marginTop: 3,
+  },
+});
+
+// ─── Current At-Bat Bubble ───────────────────────────────────────────────────
+const ORDINAL = (n) => {
+  if (n === 1) return "1st";
+  if (n === 2) return "2nd";
+  if (n === 3) return "3rd";
+  return `${n}th`;
+};
+
+const CurrentAtBatBubble = ({
+  currentPlay,
+  linescore,
+  playersMap,
+  boxscore,
+  awayTeam,
+  homeTeam,
+  awayColor,
+  homeColor,
+  animTrigger,
+  theme,
+}) => {
+  if (!currentPlay) return null;
+
+  const isTop =
+    currentPlay?.about?.halfInning === "top" ||
+    (currentPlay?.about?.halfInning == null &&
+      currentPlay?.about?.isTopInning !== false);
+  const teamColor = isTop ? awayColor : homeColor;
+  const batterTeamColor = isTop ? awayColor : homeColor;
+  const pitcherTeamColor = isTop ? homeColor : awayColor;
+
+  const inning = currentPlay?.about?.inning ?? null;
+  const balls = currentPlay?.count?.balls ?? 0;
+  const strikes = currentPlay?.count?.strikes ?? 0;
+  const outs = currentPlay?.count?.outs ?? 0;
+
+  const batterId = currentPlay?.matchup?.batter?.id;
+  const pitcherId = currentPlay?.matchup?.pitcher?.id;
+  const batterInfo = batterId ? (playersMap?.[`ID${batterId}`] ?? null) : null;
+  const pitcherInfo = pitcherId
+    ? (playersMap?.[`ID${pitcherId}`] ?? null)
+    : null;
+
+  const allBsPlayers = {
+    ...(boxscore?.teams?.away?.players ?? {}),
+    ...(boxscore?.teams?.home?.players ?? {}),
+  };
+  const batterBatting = allBsPlayers[`ID${batterId}`]?.stats?.batting ?? {};
+  const pitcherPitching = allBsPlayers[`ID${pitcherId}`]?.stats?.pitching ?? {};
+
+  const playEvents = currentPlay?.playEvents ?? [];
+  const pitches = playEvents.filter(
+    (e) => e?.pitchData?.coordinates?.pX != null,
+  );
+
+  // Most recent event that has a call code
+  const lastPitch = [...playEvents]
+    .reverse()
+    .find((e) => e?.details?.call?.code != null);
+  const lastCallCode = lastPitch?.details?.call?.code ?? null;
+  const lastCallLabel = lastCallCode
+    ? (BPM_CALL_LABELS[lastCallCode] ?? lastCallCode)
+    : null;
+  const lastCallColor = lastCallCode
+    ? (BPM_CALL_COLORS[lastCallCode] ?? theme.textSecondary)
+    : null;
+  const lastPitchType = lastPitch?.details?.type?.description ?? null;
+  const lastSpeed = lastPitch?.pitchData?.startSpeed ?? null;
+  const lastDesc = lastPitch?.details?.description ?? null;
+
+  // On deck / In hole from linescore.offense (the batting team)
+  const offense = linescore?.offense ?? null;
+  const onDeckId = offense?.onDeck?.id ?? null;
+  const inHoleId = offense?.inHole?.id ?? null;
+  const onDeckInfo = onDeckId ? (playersMap?.[`ID${onDeckId}`] ?? null) : null;
+  const inHoleInfo = inHoleId ? (playersMap?.[`ID${inHoleId}`] ?? null) : null;
+
+  return (
+    <View
+      style={[
+        cabStyles.container,
+        { backgroundColor: theme.surface, borderColor: teamColor },
+      ]}
+    >
+      {/* ── Header: inning label + B/S/O count ── */}
+      <View style={cabStyles.headerRow}>
+        <Text style={[cabStyles.headerTitle, { color: teamColor }]}>
+          {isTop ? "Top" : "Bot"} {inning != null ? ORDINAL(inning) : "—"}
+        </Text>
+        <View style={cabStyles.countRow}>
+          {[
+            { label: "B", value: balls, color: "#4CAF50" },
+            { label: "S", value: strikes, color: "#f44336" },
+            { label: "O", value: outs, color: theme.textSecondary },
+          ].map(({ label, value, color }) => (
+            <View key={label} style={cabStyles.countItem}>
+              <Text style={[cabStyles.countVal, { color }]}>{value}</Text>
+              <Text
+                style={[cabStyles.countLabel, { color: theme.textSecondary }]}
+              >
+                {label}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* ── Last pitch event ── */}
+      {!!lastCallLabel && (
+        <View
+          style={[
+            cabStyles.lastEventRow,
+            {
+              borderColor: theme.border,
+              backgroundColor: theme.surface ?? theme.background,
+            },
+          ]}
+        >
+          <View
+            style={[cabStyles.callBadge, { backgroundColor: lastCallColor }]}
+          >
+            <Text style={cabStyles.callBadgeText}>{lastCallCode}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            {!!lastDesc && (
+              <Text
+                style={[cabStyles.lastEventDesc, { color: theme.text }]}
+                numberOfLines={2}
+              >
+                {lastDesc}
+              </Text>
+            )}
+            {(!!lastPitchType || lastSpeed != null) && (
+              <Text
+                style={[
+                  cabStyles.lastEventMeta,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                {[
+                  lastPitchType,
+                  lastSpeed != null ? `${Math.round(lastSpeed)} mph` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* ── Matchup: batter | bases diamond | pitcher ── */}
+      <View style={cabStyles.matchupRow}>
+        {/* Batter */}
+        <View style={[cabStyles.playerCol, { alignItems: "flex-start" }]}>
+          <Image
+            source={{ uri: playerHeadshotUrl(batterId) }}
+            style={[cabStyles.headshot, { borderColor: batterTeamColor }]}
+            resizeMode="cover"
+          />
+          <Text
+            style={[cabStyles.playerName, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {shortName(batterInfo?.fullName) ?? "—"}
+          </Text>
+          <Text style={[cabStyles.playerRole, { color: batterTeamColor }]}>
+            Batter
+          </Text>
+          <View style={cabStyles.miniStats}>
+            {[
+              { label: "AB", val: batterBatting.atBats },
+              { label: "H", val: batterBatting.hits },
+              { label: "K", val: batterBatting.strikeOuts },
+            ].map(({ label, val }) => (
+              <View key={label} style={cabStyles.miniStat}>
+                <Text style={[cabStyles.miniStatVal, { color: theme.text }]}>
+                  {val ?? "—"}
+                </Text>
+                <Text
+                  style={[
+                    cabStyles.miniStatLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Bases diamond */}
+        <View style={cabStyles.basesWrap}>
+          {/* 2nd base (top) */}
+          <View
+            style={[
+              cabStyles.baseDiamond,
+              currentPlay?.matchup?.postOnSecond
+                ? {
+                    backgroundColor: teamColor,
+                    shadowColor: teamColor,
+                    shadowOpacity: 0.7,
+                    shadowRadius: 3,
+                    elevation: 3,
+                  }
+                : {
+                    backgroundColor: "transparent",
+                    borderWidth: 1.5,
+                    borderColor: theme.textSecondary,
+                  },
+            ]}
+          />
+          {/* 3rd (left) and 1st (right) */}
+          <View style={cabStyles.basesMiddleRow}>
+            <View
+              style={[
+                cabStyles.baseDiamond,
+                currentPlay?.matchup?.postOnThird
+                  ? {
+                      backgroundColor: teamColor,
+                      shadowColor: teamColor,
+                      shadowOpacity: 0.7,
+                      shadowRadius: 3,
+                      elevation: 3,
+                    }
+                  : {
+                      backgroundColor: "transparent",
+                      borderWidth: 1.5,
+                      borderColor: theme.textSecondary,
+                    },
+              ]}
+            />
+            <View
+              style={[
+                cabStyles.baseDiamond,
+                currentPlay?.matchup?.postOnFirst
+                  ? {
+                      backgroundColor: teamColor,
+                      shadowColor: teamColor,
+                      shadowOpacity: 0.7,
+                      shadowRadius: 3,
+                      elevation: 3,
+                    }
+                  : {
+                      backgroundColor: "transparent",
+                      borderWidth: 1.5,
+                      borderColor: theme.textSecondary,
+                    },
+              ]}
+            />
+          </View>
+        </View>
+
+        {/* Pitcher */}
+        <View style={[cabStyles.playerCol, { alignItems: "flex-end" }]}>
+          <Image
+            source={{ uri: playerHeadshotUrl(pitcherId) }}
+            style={[cabStyles.headshot, { borderColor: pitcherTeamColor }]}
+            resizeMode="cover"
+          />
+          <Text
+            style={[cabStyles.playerName, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {shortName(pitcherInfo?.fullName) ?? "—"}
+          </Text>
+          <Text style={[cabStyles.playerRole, { color: pitcherTeamColor }]}>
+            Pitcher
+          </Text>
+          <View style={cabStyles.miniStats}>
+            {[
+              { label: "IP", val: pitcherPitching.inningsPitched },
+              { label: "K", val: pitcherPitching.strikeOuts },
+              { label: "BB", val: pitcherPitching.baseOnBalls },
+            ].map(({ label, val }) => (
+              <View key={label} style={cabStyles.miniStat}>
+                <Text style={[cabStyles.miniStatVal, { color: theme.text }]}>
+                  {val ?? "—"}
+                </Text>
+                <Text
+                  style={[
+                    cabStyles.miniStatLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      {/* ── Pitch locations ── */}
+      {pitches.length > 0 && (
+        <View style={[cabStyles.zoneWrap, { borderTopColor: theme.border }]}>
+          <Text style={[cabStyles.zoneLabel, { color: theme.textSecondary }]}>
+            Pitch Locations
+          </Text>
+          <StrikeZoneView
+            pitches={pitches}
+            theme={theme}
+            animatedIndex={pitches.length - 1}
+            animTrigger={animTrigger}
+          />
+          <View style={cabStyles.legend}>
+            {[
+              { label: "Ball", color: "#4CAF50" },
+              { label: "Strike / Foul", color: "#f44336" },
+              { label: "In Play", color: "#2196F3" },
+            ].map(({ label, color }) => (
+              <View key={label} style={cabStyles.legendItem}>
+                <View
+                  style={[cabStyles.legendDot, { backgroundColor: color }]}
+                />
+                <Text
+                  style={[
+                    cabStyles.legendLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* ── On Deck / In Hole ── */}
+      {(!!onDeckId || !!inHoleId) && (
+        <View style={[cabStyles.nextRow, { borderTopColor: theme.border }]}>
+          {[
+            { id: onDeckId, info: onDeckInfo, label: "On Deck" },
+            { id: inHoleId, info: inHoleInfo, label: "In Hole" },
+          ].map(({ id, info, label }, idx) => (
+            <View
+              key={label}
+              style={[
+                cabStyles.nextPlayer,
+                idx === 0 && {
+                  borderRightWidth: 1,
+                  borderRightColor: theme.border,
+                },
+              ]}
+            >
+              <Image
+                source={{ uri: playerHeadshotUrl(id) }}
+                style={[
+                  cabStyles.nextHeadshot,
+                  { borderColor: batterTeamColor },
+                ]}
+                resizeMode="cover"
+              />
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[cabStyles.nextName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {shortName(info?.fullName) ?? "—"}
+                </Text>
+                <Text
+                  style={[cabStyles.nextLabel, { color: theme.textSecondary }]}
+                >
+                  {label}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
+const cabStyles = StyleSheet.create({
+  container: {
+    borderRadius: 12,
+    borderWidth: 2,
+    marginBottom: 10,
+    overflow: "hidden",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  headerTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  countRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  countItem: {
+    alignItems: "center",
+    minWidth: 24,
+  },
+  countVal: {
+    fontSize: 17,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  countLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 1,
+  },
+  lastEventRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginHorizontal: 14,
+    marginBottom: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  callBadge: {
+    marginTop: 6,
+    borderRadius: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    alignSelf: "flex-start",
+  },
+  callBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  lastEventDesc: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  lastEventMeta: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  matchupRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    marginBottom: 12,
+  },
+  playerCol: {
+    flex: 1,
+  },
+  headshot: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 2,
+    marginBottom: 4,
+  },
+  playerName: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 1,
+  },
+  playerRole: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  miniStats: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  miniStat: {
+    alignItems: "center",
+  },
+  miniStatVal: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  miniStatLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+  },
+  basesWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+    gap: 6,
+  },
+  baseDiamond: {
+    width: 18,
+    height: 18,
+    borderRadius: 2,
+    transform: [{ rotate: "45deg" }],
+  },
+  basesMiddleRow: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  zoneWrap: {
+    borderTopWidth: 1,
+    paddingTop: 12,
+    paddingBottom: 10,
+    alignItems: "center",
+  },
+  zoneLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    marginBottom: 8,
+  },
+  legend: {
+    flexDirection: "row",
+    gap: 16,
+    marginTop: 6,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendLabel: {
+    fontSize: 10,
+    fontWeight: "500",
+  },
+  nextRow: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+  },
+  nextPlayer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  nextHeadshot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+  },
+  nextName: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 1,
+  },
+  nextLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+});
+
+// ─── Win Probability Chart ────────────────────────────────────────────────────
+// WBC probability object: { amount: N, home: "46.4,49.8,...", away: "53.6,..." }
+const WinProbabilityChart = ({
+  probabilityData,
+  allPlays,
+  awayTeam,
+  homeTeam,
+  awayColor,
+  homeColor,
+  theme,
+}) => {
+  const chartData = useMemo(() => {
+    if (!probabilityData?.home || !probabilityData?.away) return null;
+    const homeArr = probabilityData.home.split(",").map(Number);
+    const awayArr = probabilityData.away.split(",").map(Number);
+    if (!homeArr.length) return null;
+
+    const total = homeArr.length;
+
+    // Build inning-label x positions by finding inning transitions in allPlays.
+    const inningLabels = [];
+    let lastInning = null;
+    const playsLen = allPlays?.length ?? 0;
+    if (playsLen > 0) {
+      allPlays.forEach((play, playIndex) => {
+        const inning = play?.about?.inning;
+        const half = play?.about?.halfInning;
+        if (inning == null || half !== "top") return;
+        if (inning !== lastInning) {
+          lastInning = inning;
+          const xPct = playsLen > 1 ? (playIndex / (playsLen - 1)) * 100 : 0;
+          const suffix =
+            inning === 1
+              ? "1st"
+              : inning === 2
+                ? "2nd"
+                : inning === 3
+                  ? "3rd"
+                  : `${inning}th`;
+          inningLabels.push({ xPct, label: suffix });
+        }
+      });
+    }
+
+    // Sample down to ≤100 points for rendering performance.
+    const maxPts = Math.min(total, 100);
+    const sampled = [];
+    if (total <= maxPts) {
+      for (let i = 0; i < total; i++)
+        sampled.push({ h: homeArr[i], a: awayArr[i] });
+    } else {
+      const step = total / maxPts;
+      for (let i = 0; i < maxPts; i++) {
+        const idx = Math.floor(i * step);
+        sampled.push({ h: homeArr[idx], a: awayArr[idx] });
+      }
+      const last = { h: homeArr[total - 1], a: awayArr[total - 1] };
+      const tail = sampled[sampled.length - 1];
+      if (tail.h !== last.h || tail.a !== last.a) sampled.push(last);
+    }
+
+    return { sampled, inningLabels };
+  }, [probabilityData, allPlays]);
+
+  if (!chartData) return null;
+  const { sampled, inningLabels } = chartData;
+  const n = sampled.length;
+
+  const homePath = sampled.reduce((p, pt, i) => {
+    const x = (i / (n - 1)) * 100;
+    const y = 100 - pt.h;
+    return p + (i === 0 ? `M${x},${y}` : ` L${x},${y}`);
+  }, "");
+  const awayPath = sampled.reduce((p, pt, i) => {
+    const x = (i / (n - 1)) * 100;
+    const y = 100 - pt.a;
+    return p + (i === 0 ? `M${x},${y}` : ` L${x},${y}`);
+  }, "");
+
+  return (
+    <View
+      style={[
+        styles.winProbContainer,
+        { backgroundColor: theme.surface, borderRadius: 12, padding: 12 },
+      ]}
+    >
+      <Text style={[styles.sectionTitle, { color: theme.text }]}>
+        Win Probability
+      </Text>
+
+      {/* Legend */}
+      <View style={styles.winProbLegend}>
+        <View style={styles.winProbLegendItem}>
+          <View
+            style={[styles.winProbLegendDot, { backgroundColor: awayColor }]}
+          />
+          <Text style={[styles.winProbLegendText, { color: theme.text }]}>
+            {awayTeam?.abbreviation ?? "Away"}
+          </Text>
+        </View>
+        <View style={styles.winProbLegendItem}>
+          <View
+            style={[styles.winProbLegendDot, { backgroundColor: homeColor }]}
+          />
+          <Text style={[styles.winProbLegendText, { color: theme.text }]}>
+            {homeTeam?.abbreviation ?? "Home"}
+          </Text>
+        </View>
+      </View>
+
+      {/* Graph */}
+      <View style={styles.winProbGraphContainer}>
+        {/* Y-axis */}
+        <View style={styles.winProbYAxis}>
+          {["100%", "75%", "50%", "25%", "0%"].map((l) => (
+            <Text
+              key={l}
+              style={[styles.winProbYLabel, { color: theme.textSecondary }]}
+            >
+              {l}
+            </Text>
+          ))}
+        </View>
+
+        {/* Chart area */}
+        <View style={styles.winProbGraphArea}>
+          {/* Grid lines */}
+          {[0, 25, 50, 75, 100].map((pct) => (
+            <View
+              key={pct}
+              style={[
+                styles.winProbGridLine,
+                {
+                  bottom: `${pct}%`,
+                  borderBottomColor: theme.textSecondary + "20",
+                },
+              ]}
+            />
+          ))}
+          {/* 50% centre line */}
+          <View
+            style={[
+              styles.winProbCentreLine,
+              { borderBottomColor: theme.textSecondary + "50" },
+            ]}
+          />
+          {/* SVG lines + fills */}
+          <View style={StyleSheet.absoluteFillObject}>
+            <Svg
+              style={StyleSheet.absoluteFillObject}
+              width="100%"
+              height="100%"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+            >
+              {sampled.map((pt, i) => {
+                if (i === 0) return null;
+                const prev = sampled[i - 1];
+                const x1 = ((i - 1) / (n - 1)) * 100;
+                const x2 = (i / (n - 1)) * 100;
+                const hY1 = 100 - prev.h;
+                const hY2 = 100 - pt.h;
+                const aY1 = 100 - prev.a;
+                const aY2 = 100 - pt.a;
+                return (
+                  <G key={i}>
+                    {aY1 < hY1 ? (
+                      <>
+                        <Path
+                          d={`M${x1},100 L${x1},${hY1} L${x2},${hY2} L${x2},100 Z`}
+                          fill={homeColor}
+                          fillOpacity="0.3"
+                        />
+                        <Path
+                          d={`M${x1},${hY1} L${x1},${aY1} L${x2},${aY2} L${x2},${hY2} Z`}
+                          fill={awayColor}
+                          fillOpacity="0.3"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <Path
+                          d={`M${x1},100 L${x1},${aY1} L${x2},${aY2} L${x2},100 Z`}
+                          fill={awayColor}
+                          fillOpacity="0.3"
+                        />
+                        <Path
+                          d={`M${x1},${aY1} L${x1},${hY1} L${x2},${hY2} L${x2},${aY2} Z`}
+                          fill={homeColor}
+                          fillOpacity="0.3"
+                        />
+                      </>
+                    )}
+                  </G>
+                );
+              })}
+              <Path
+                d={homePath}
+                fill="none"
+                stroke={homeColor}
+                strokeWidth="0.5"
+              />
+              <Path
+                d={awayPath}
+                fill="none"
+                stroke={awayColor}
+                strokeWidth="0.5"
+              />
+            </Svg>
+          </View>
+        </View>
+      </View>
+
+      {/* Inning labels */}
+      {inningLabels.length > 0 && (
+        <View style={[styles.winProbInningRow, { marginLeft: 48 }]}>
+          {inningLabels.map((lbl) => (
+            <Text
+              key={lbl.label}
+              style={[
+                styles.winProbInningLabel,
+                { color: theme.textSecondary, left: `${lbl.xPct}%` },
+              ]}
+            >
+              {lbl.label}
+            </Text>
+          ))}
+        </View>
       )}
     </View>
   );
@@ -3042,6 +5779,29 @@ const GameDetailsScreen = ({ navigation, route }) => {
   const [error, setError] = useState(null);
   const { viewerData, isJoined } = useGamePresence(gamePk);
 
+  // Streaming state
+  const [streamModalVisible, setStreamModalVisible] = useState(false);
+  const [currentStreamType, setCurrentStreamType] = useState("alpha1");
+  const [availableStreams, setAvailableStreams] = useState({});
+  const [streamUrl, setStreamUrl] = useState("");
+  const [isStreamLoading, setIsStreamLoading] = useState(true);
+  const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
+
+  // Mirror streamModalVisible into a ref so the polling interval can check it
+  // without a stale closure (same pattern as feedRef below).
+  const streamModalVisibleRef = useRef(false);
+  useEffect(() => {
+    streamModalVisibleRef.current = streamModalVisible;
+  }, [streamModalVisible]);
+
+  // Mirror feed into a ref so the polling interval can read the latest value
+  // without being listed as an effect dependency (avoids restarting the timer
+  // on every data update).
+  const feedRef = useRef(null);
+  useEffect(() => {
+    feedRef.current = feed;
+  }, [feed]);
+
   const loadFeed = useCallback(
     async (silent = false) => {
       if (!silent) setLoading(true);
@@ -3051,17 +5811,39 @@ const GameDetailsScreen = ({ navigation, route }) => {
         setFeed(res?.data ?? null);
       } catch (err) {
         console.error("WBC gameFeed error:", err);
-        setError("Failed to load game data.");
+        if (!silent) setError("Failed to load game data.");
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
     },
     [gamePk],
   );
 
+  // Initial load
   useEffect(() => {
     if (gamePk) loadFeed(false);
   }, [gamePk]);
+
+  // Auto-refresh every 5 s — only while the game is live.
+  // Silent fetch so no spinner / scroll-position reset.
+  useEffect(() => {
+    if (!gamePk) return;
+
+    const intervalId = setInterval(() => {
+      const current = feedRef.current;
+      const isLive = !["S", "P", "D", "C", "O", "F", "Q", "R"].includes(
+        current?.gameData?.status?.codedGameState,
+      );
+      if (!isLive) {
+        clearInterval(intervalId);
+        return;
+      }
+      if (streamModalVisibleRef.current) return;
+      loadFeed(true);
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [gamePk, loadFeed]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -3082,6 +5864,11 @@ const GameDetailsScreen = ({ navigation, route }) => {
   const status = gameData?.status ?? {};
   const isFinished =
     status?.codedGameState === "F" || status?.detailedState === "Final";
+  const codedGameState = status?.codedGameState ?? "";
+  const isScheduled = ["S", "P"].includes(codedGameState);
+  const isGameFinished = ["D", "C", "O", "F", "Q", "R"].includes(
+    codedGameState,
+  );
   const homeWinner =
     isFinished &&
     homeScore != null &&
@@ -3095,9 +5882,25 @@ const GameDetailsScreen = ({ navigation, route }) => {
 
   const [headerHeight, setHeaderHeight] = useState(0);
   const [activeTab, setActiveTab] = useState("Main");
+  const [mainTabKey, setMainTabKey] = useState(0);
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  const TABS = ["Main", "Away", "Home", "Plays"];
+  // Increment mainTabKey every time the Main tab becomes active so the
+  // CurrentAtBatBubble pitch animation re-triggers.
+  useEffect(() => {
+    if (activeTab === "Main") {
+      setMainTabKey((k) => k + 1);
+    }
+  }, [activeTab]);
+
+  const TABS = isScheduled
+    ? ["Main", "Away", "Home"]
+    : ["Main", "Away", "Home", "Plays"];
+
+  // Reset to Main if Plays tab is active but no longer available
+  useEffect(() => {
+    if (isScheduled && activeTab === "Plays") setActiveTab("Main");
+  }, [isScheduled]);
 
   // ── Scroll-driven animations ───────────────────────────────────────────
   const threshold = headerHeight > 0 ? headerHeight - 40 : 120;
@@ -3120,8 +5923,12 @@ const GameDetailsScreen = ({ navigation, route }) => {
   const awayColor = WBCService.getTeamColor(awayTeam?.id) || colors.primary;
   const homeColor = WBCService.getTeamColor(homeTeam?.id) || colors.secondary;
 
+  const currentPlay = feed?.liveData?.plays?.currentPlay ?? null;
+  const gameDateTime = gameData?.datetime?.dateTime ?? null;
+
   const boxscore = feed?.liveData?.boxscore ?? null;
   const playersMap = gameData?.players ?? {};
+  const pitchesData = feed?.pitches ?? {};
   const bsAwayTeam = boxscore?.teams?.away ?? null;
   const bsHomeTeam = boxscore?.teams?.home ?? null;
   const allPlays = feed?.liveData?.plays?.allPlays ?? [];
@@ -3129,6 +5936,322 @@ const GameDetailsScreen = ({ navigation, route }) => {
   const venueRaw = gameData?.venue ?? null;
   const venue =
     typeof venueRaw === "string" ? venueRaw : (venueRaw?.name ?? null);
+
+  // ── Streaming helpers ──────────────────────────────────────────────────────
+  const STREAM_API_BASE = "https://streamed.pk/api";
+  let liveMatchesCache = null;
+  let cacheTimestamp = 0;
+  const CACHE_DURATION = 30000; // 30 seconds cache
+
+  const fetchLiveMatches = async () => {
+    try {
+      const now = Date.now();
+      if (liveMatchesCache && now - cacheTimestamp < CACHE_DURATION) {
+        return liveMatchesCache;
+      }
+
+      const response = await fetch(`${STREAM_API_BASE}/matches/baseball`);
+      if (!response.ok) {
+        throw new Error(`API responded with status: ${response.status}`);
+      }
+
+      const allMatches = await response.json();
+      const matches = allMatches.filter((match) => {
+        const matchSport = match.sport || match.category;
+        return matchSport === "baseball";
+      });
+
+      liveMatchesCache = matches;
+      cacheTimestamp = now;
+      return matches;
+    } catch (error) {
+      console.error("Error fetching live matches:", error);
+      return null;
+    }
+  };
+
+  const fetchStreamsForSource = async (source, sourceId) => {
+    try {
+      const response = await fetch(
+        `${STREAM_API_BASE}/stream/${source}/${sourceId}`,
+      );
+      if (!response.ok) {
+        throw new Error(`API responded with status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error(`Error fetching streams for ${source}:`, error);
+      return [];
+    }
+  };
+
+  const normalizeTeamName = (teamName) => {
+    const nameMap = {
+      "Arizona Diamondbacks": "arizona-diamondbacks",
+      "Atlanta Braves": "atlanta-braves",
+      "Baltimore Orioles": "baltimore-orioles",
+      "Boston Red Sox": "boston-red-sox",
+      "Chicago White Sox": "chicago-white-sox",
+      "Chicago Cubs": "chicago-cubs",
+      "Cincinnati Reds": "cincinnati-reds",
+      "Cleveland Guardians": "cleveland-guardians",
+      "Colorado Rockies": "colorado-rockies",
+      "Detroit Tigers": "detroit-tigers",
+      "Houston Astros": "houston-astros",
+      "Kansas City Royals": "kansas-city-royals",
+      "Los Angeles Angels": "los-angeles-angels",
+      "Los Angeles Dodgers": "los-angeles-dodgers",
+      "Miami Marlins": "miami-marlins",
+      "Milwaukee Brewers": "milwaukee-brewers",
+      "Minnesota Twins": "minnesota-twins",
+      "New York Yankees": "new-york-yankees",
+      "New York Mets": "new-york-mets",
+      Athletics: "athletics",
+      "Philadelphia Phillies": "philadelphia-phillies",
+      "Pittsburgh Pirates": "pittsburgh-pirates",
+      "San Diego Padres": "san-diego-padres",
+      "San Francisco Giants": "san-francisco-giants",
+      "Seattle Mariners": "seattle-mariners",
+      "St. Louis Cardinals": "st-louis-cardinals",
+      "Tampa Bay Rays": "tampa-bay-rays",
+      "Texas Rangers": "texas-rangers",
+      "Toronto Blue Jays": "toronto-blue-jays",
+      "Washington Nationals": "washington-nationals",
+    };
+
+    if (nameMap[teamName]) return nameMap[teamName];
+
+    return teamName
+      .toLowerCase()
+      .replace(
+        /[áéíóúüñçßëïöäåø]/g,
+        (c) =>
+          ({
+            á: "a",
+            é: "e",
+            í: "i",
+            ó: "o",
+            ú: "u",
+            ü: "u",
+            ñ: "n",
+            ç: "c",
+            ß: "ss",
+            ë: "e",
+            ï: "i",
+            ö: "o",
+            ä: "a",
+            å: "a",
+            ø: "o",
+          })[c] || c,
+      )
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9\-]/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  };
+
+  const findMatchStreams = async (homeTeamName, awayTeamName) => {
+    try {
+      const liveMatches = await fetchLiveMatches();
+      if (
+        !liveMatches ||
+        !Array.isArray(liveMatches) ||
+        liveMatches.length === 0
+      ) {
+        return {};
+      }
+
+      const homeNormalized = normalizeTeamName(homeTeamName).toLowerCase();
+      const awayNormalized = normalizeTeamName(awayTeamName).toLowerCase();
+      const homeFirstWord = homeNormalized.split("-")[0];
+      const awayFirstWord = awayNormalized.split("-")[0];
+      const hasSameCity = homeFirstWord === awayFirstWord;
+
+      let bestMatch = null;
+      let bestScore = 0;
+
+      const quickMatches = liveMatches
+        .slice(0, Math.min(liveMatches.length, 100))
+        .filter((match) => {
+          const title = match.title.toLowerCase();
+          if (hasSameCity) {
+            return (
+              title.includes(homeNormalized) && title.includes(awayNormalized)
+            );
+          }
+          const homeHasMatch =
+            title.includes(homeNormalized.split("-")[0]) ||
+            title.includes(homeNormalized.split("-")[1] || "") ||
+            match.teams?.home?.name
+              ?.toLowerCase()
+              .includes(homeNormalized.split("-")[0]);
+          const awayHasMatch =
+            title.includes(awayNormalized.split("-")[0]) ||
+            title.includes(awayNormalized.split("-")[1] || "") ||
+            match.teams?.away?.name
+              ?.toLowerCase()
+              .includes(awayNormalized.split("-")[0]);
+          return homeHasMatch && awayHasMatch;
+        });
+
+      const matchesToProcess =
+        quickMatches.length > 0 ? quickMatches : liveMatches.slice(0, 100);
+
+      for (const match of matchesToProcess) {
+        if (!match.sources || match.sources.length === 0) continue;
+
+        const matchTitle = match.title.toLowerCase();
+        let totalScore = 0;
+
+        const titleWords = matchTitle.split(/[\s\-]+/);
+        const homeParts = homeNormalized.split("-").filter((w) => w.length > 2);
+        const awayParts = awayNormalized.split("-").filter((w) => w.length > 2);
+
+        homeParts.forEach((part) => {
+          if (titleWords.some((w) => w.includes(part) || part.includes(w)))
+            totalScore += 0.4;
+        });
+        awayParts.forEach((part) => {
+          if (titleWords.some((w) => w.includes(part) || part.includes(w)))
+            totalScore += 0.4;
+        });
+
+        if (match.teams) {
+          const homeApiName = match.teams.home?.name?.toLowerCase() || "";
+          const awayApiName = match.teams.away?.name?.toLowerCase() || "";
+          homeParts.forEach((part) => {
+            if (homeApiName.includes(part)) totalScore += 0.6;
+          });
+          awayParts.forEach((part) => {
+            if (awayApiName.includes(part)) totalScore += 0.6;
+          });
+        }
+
+        if (totalScore > bestScore) {
+          bestScore = totalScore;
+          bestMatch = match;
+          if (bestScore >= 1.0) break;
+        }
+      }
+
+      if (!bestMatch || bestScore < 0.3) return {};
+
+      const allStreams = {};
+      for (const source of bestMatch.sources) {
+        try {
+          const sourceStreams = await fetchStreamsForSource(
+            source.source,
+            source.id,
+          );
+          if (sourceStreams && sourceStreams.length > 0) {
+            const firstStream = sourceStreams[0];
+            allStreams[source.source] = {
+              url: firstStream.embedUrl || firstStream.url,
+              embedUrl: firstStream.embedUrl || firstStream.url,
+              source: source.source,
+              title: `${source.source.charAt(0).toUpperCase() + source.source.slice(1)} Stream`,
+            };
+          }
+        } catch (error) {
+          console.error(`Error fetching streams for ${source.source}:`, error);
+        }
+      }
+
+      return allStreams;
+    } catch (error) {
+      console.error("Error in findMatchStreams:", error);
+      return {};
+    }
+  };
+
+  const generateStreamUrl = (
+    awayTeamName,
+    homeTeamName,
+    streamType = "alpha1",
+  ) => {
+    const normalizedAway = normalizeTeamName(awayTeamName);
+    const normalizedHome = normalizeTeamName(homeTeamName);
+    const streamUrls = {
+      alpha1: `https://weakstreams.com/mlb-live-streams/${normalizedAway}-vs-${normalizedHome}-live-stream`,
+      alpha2: `https://weakstreams.com/mlb-live-streams/${normalizedHome}-vs-${normalizedAway}-live-stream`,
+      bravo: `https://sportsurge.club/mlb/${normalizedAway}-vs-${normalizedHome}`,
+      charlie: `https://sportshd.me/mlb/${normalizedAway}-${normalizedHome}`,
+    };
+    return streamUrls[streamType] || streamUrls.alpha1;
+  };
+
+  const openStreamModal = async () => {
+    const unlock = isStreamingUnlocked
+      ? true
+      : gameData?.game?.type === "S"
+        ? true
+        : false;
+
+    if (!unlock) {
+      Alert.alert(
+        "Streaming Locked",
+        "Please enter the streaming code in Settings to access live streams.",
+        [{ text: "OK" }],
+      );
+      return;
+    }
+
+    if (!awayTeam?.name || !homeTeam?.name) {
+      Alert.alert("Error", "Team information not available");
+      return;
+    }
+
+    setStreamModalVisible(true);
+    setIsStreamLoading(true);
+
+    const streams = await findMatchStreams(homeTeam.name, awayTeam.name);
+    setAvailableStreams(streams);
+
+    let initialUrl = "";
+    let initialStreamType = "";
+    const streamKeys = Object.keys(streams);
+    if (streamKeys.length > 0) {
+      const preferredOrder = ["admin", "alpha", "bravo", "charlie", "delta"];
+      initialStreamType =
+        preferredOrder.find((type) => streamKeys.includes(type)) ||
+        streamKeys[0];
+      const streamData = streams[initialStreamType];
+      initialUrl = streamData.embedUrl || streamData.url || streamData;
+      setCurrentStreamType(initialStreamType);
+    } else {
+      initialStreamType = "alpha";
+      initialUrl = generateStreamUrl(
+        awayTeam.name,
+        homeTeam.name,
+        initialStreamType,
+      );
+      setCurrentStreamType(initialStreamType);
+    }
+
+    setStreamUrl(initialUrl);
+    setIsStreamLoading(false);
+  };
+
+  const switchStream = (streamType) => {
+    setCurrentStreamType(streamType);
+    setIsStreamLoading(true);
+    let newUrl = "";
+    if (availableStreams[streamType]) {
+      const streamData = availableStreams[streamType];
+      newUrl = streamData.embedUrl || streamData.url || streamData;
+    } else {
+      newUrl = generateStreamUrl(awayTeam?.name, homeTeam?.name, streamType);
+    }
+    setStreamUrl(newUrl);
+    setTimeout(() => setIsStreamLoading(false), 1000);
+  };
+
+  const closeStreamModal = () => {
+    setStreamModalVisible(false);
+    setStreamUrl("");
+    setCurrentStreamType("alpha1");
+    setAvailableStreams({});
+  };
 
   // ── Loading / error states ────────────────────────────────────────────────
   if (loading) {
@@ -3178,6 +6301,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
           {/* Team row */}
           <View style={styles.teamsRow}>
             <TeamColumn
+              status={status}
               team={awayTeam}
               score={awayScore}
               isWinner={awayWinner}
@@ -3185,11 +6309,49 @@ const GameDetailsScreen = ({ navigation, route }) => {
               isDarkMode={isDarkMode}
               theme={theme}
               scoreOpacity={gameScoreOpacity}
+              onPress={() =>
+                awayTeam?.id != null &&
+                navigation.navigate("TeamPage", {
+                  teamId: awayTeam.id,
+                  sport: "wbc",
+                })
+              }
             />
 
-            <StatusBadge status={status} linescore={linescore} theme={theme} />
+            <View style={{ flex: 1, alignItems: "center" }}>
+              <StatusBadge
+                status={status}
+                linescore={linescore}
+                gameDateTime={gameDateTime}
+                theme={theme}
+              />
+
+              {/* Live Stream Button — sits below the status badge in the centre column */}
+              {!isScheduled && !isGameFinished && (
+                <TouchableOpacity
+                  style={[styles.streamBtn, { borderColor: colors.primary }]}
+                  onPress={openStreamModal}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.streamBtnInner}>
+                    <View
+                      style={[
+                        styles.streamBtnDot,
+                        { backgroundColor: colors.primary },
+                      ]}
+                    />
+                    <Text
+                      style={[styles.streamBtnText, { color: colors.primary }]}
+                    >
+                      Stream
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
 
             <TeamColumn
+              status={status}
               team={homeTeam}
               score={homeScore}
               isWinner={homeWinner}
@@ -3197,6 +6359,13 @@ const GameDetailsScreen = ({ navigation, route }) => {
               isDarkMode={isDarkMode}
               theme={theme}
               scoreOpacity={gameScoreOpacity}
+              onPress={() =>
+                homeTeam?.id != null &&
+                navigation.navigate("TeamPage", {
+                  teamId: homeTeam.id,
+                  sport: "wbc",
+                })
+              }
             />
           </View>
         </View>
@@ -3238,7 +6407,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   },
                 ]}
               >
-                {awayScore ?? "-"}
+                {awayScore ?? ""}
               </Text>
             </View>
             {/* Status */}
@@ -3256,6 +6425,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
                 ].includes(status?.codedGameState);
                 const inning = linescore?.currentInning;
                 const isTop = linescore?.isTopInning !== false;
+                const currentOuts =
+                  currentPlay?.count?.outs ?? linescore?.outs ?? 0;
                 if (isLive && inning) {
                   return (
                     <>
@@ -3273,8 +6444,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
                           { color: theme.textTertiary },
                         ]}
                       >
-                        {linescore?.outs ?? 0} out
-                        {linescore?.outs !== 1 ? "s" : ""}
+                        {currentOuts} out{currentOuts !== 1 ? "s" : ""}
                       </Text>
                     </>
                   );
@@ -3284,6 +6454,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   status?.detailedState === "Final"
                     ? "Final"
                     : (status?.detailedState ?? "");
+                const miniTimeStr = fmtGameTime(gameDateTime);
                 const inningLabel = inning && inning > 9 ? `F/${inning}` : null;
                 return (
                   <>
@@ -3295,7 +6466,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
                     >
                       {label}
                     </Text>
-                    {inningLabel && (
+                    {inningLabel ? (
                       <Text
                         style={[
                           styles.miniStatusSub,
@@ -3304,7 +6475,17 @@ const GameDetailsScreen = ({ navigation, route }) => {
                       >
                         {inningLabel}
                       </Text>
-                    )}
+                    ) : miniTimeStr ? (
+                      <Text
+                        style={[
+                          styles.miniStatusSub,
+                          { color: theme.textTertiary },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {miniTimeStr}
+                      </Text>
+                    ) : null}
                   </>
                 );
               })()}
@@ -3320,7 +6501,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   },
                 ]}
               >
-                {homeScore ?? "-"}
+                {homeScore ?? ""}
               </Text>
               <Text style={[styles.miniAbbr, { color: homeColor }]}>
                 {homeTeam?.abbreviation ?? ""}
@@ -3384,6 +6565,105 @@ const GameDetailsScreen = ({ navigation, route }) => {
         )}
 
         {/* ── TAB CONTENT ──────────────────────────────────────────── */}
+        {activeTab === "Main" && (
+          <View style={{ paddingHorizontal: 12, paddingTop: 12 }}>
+            {/* Scheduled: only game info */}
+            {isScheduled && (
+              <GameInfoBubble
+                gameData={gameData}
+                officials={boxscore?.officials ?? []}
+                theme={theme}
+              />
+            )}
+
+            {/* Finished: linescore + team stats + win probability + game info */}
+            {isGameFinished && (
+              <>
+                <LinescoreBubble
+                  linescore={linescore}
+                  awayTeam={awayTeam}
+                  homeTeam={homeTeam}
+                  awayColor={awayColor}
+                  homeColor={homeColor}
+                  theme={theme}
+                />
+                <TeamStatsBubble
+                  awayTeam={awayTeam}
+                  homeTeam={homeTeam}
+                  awayColor={awayColor}
+                  homeColor={homeColor}
+                  bsAwayTeam={bsAwayTeam}
+                  bsHomeTeam={bsHomeTeam}
+                  theme={theme}
+                />
+                <WinProbabilityChart
+                  probabilityData={feed?.pitches?.probability ?? null}
+                  allPlays={allPlays}
+                  awayTeam={awayTeam}
+                  homeTeam={homeTeam}
+                  awayColor={awayColor}
+                  homeColor={homeColor}
+                  theme={theme}
+                />
+                <GameInfoBubble
+                  gameData={gameData}
+                  officials={boxscore?.officials ?? []}
+                  theme={theme}
+                />
+              </>
+            )}
+
+            {/* Live / in-progress: all bubbles */}
+            {!isScheduled && !isGameFinished && (
+              <>
+                <LinescoreBubble
+                  linescore={linescore}
+                  awayTeam={awayTeam}
+                  homeTeam={homeTeam}
+                  awayColor={awayColor}
+                  homeColor={homeColor}
+                  theme={theme}
+                />
+                <CurrentAtBatBubble
+                  currentPlay={currentPlay}
+                  linescore={linescore}
+                  playersMap={playersMap}
+                  boxscore={boxscore}
+                  awayTeam={awayTeam}
+                  homeTeam={homeTeam}
+                  awayColor={awayColor}
+                  homeColor={homeColor}
+                  animTrigger={mainTabKey}
+                  theme={theme}
+                />
+                <TeamStatsBubble
+                  awayTeam={awayTeam}
+                  homeTeam={homeTeam}
+                  awayColor={awayColor}
+                  homeColor={homeColor}
+                  bsAwayTeam={bsAwayTeam}
+                  bsHomeTeam={bsHomeTeam}
+                  theme={theme}
+                />
+                <WinProbabilityChart
+                  probabilityData={feed?.pitches?.probability ?? null}
+                  allPlays={allPlays}
+                  awayTeam={awayTeam}
+                  homeTeam={homeTeam}
+                  awayColor={awayColor}
+                  homeColor={homeColor}
+                  theme={theme}
+                />
+                <GameInfoBubble
+                  gameData={gameData}
+                  officials={boxscore?.officials ?? []}
+                  theme={theme}
+                />
+              </>
+            )}
+          </View>
+        )}
+
         {activeTab === "Away" && (
           <BoxScorePanel
             bsTeamData={bsAwayTeam}
@@ -3392,6 +6672,13 @@ const GameDetailsScreen = ({ navigation, route }) => {
             teamColor={awayColor}
             team={awayTeam}
             boxscore={boxscore}
+            pitchesData={pitchesData}
+            awayTeam={awayTeam}
+            homeTeam={homeTeam}
+            awayScore={awayScore}
+            homeScore={homeScore}
+            isScheduled={isScheduled}
+            isFinished={isFinished}
           />
         )}
 
@@ -3403,6 +6690,13 @@ const GameDetailsScreen = ({ navigation, route }) => {
             teamColor={homeColor}
             team={homeTeam}
             boxscore={boxscore}
+            pitchesData={pitchesData}
+            awayTeam={awayTeam}
+            homeTeam={homeTeam}
+            awayScore={awayScore}
+            homeScore={homeScore}
+            isScheduled={isScheduled}
+            isFinished={isFinished}
           />
         )}
 
@@ -3421,6 +6715,201 @@ const GameDetailsScreen = ({ navigation, route }) => {
 
         <View style={styles.bottomPadding} />
       </Animated.ScrollView>
+
+      {/* ── Stream Modal ───────────────────────────────────────────────── */}
+      {(isStreamingUnlocked || gameData?.game?.type === "S") && (
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={streamModalVisible}
+          onRequestClose={closeStreamModal}
+        >
+          <View style={styles.streamModalOverlay}>
+            <View
+              style={[
+                styles.streamModalContainer,
+                { backgroundColor: theme.surface },
+              ]}
+            >
+              {/* Modal Header */}
+              <View
+                style={[
+                  styles.streamModalHeader,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    borderBottomColor: theme.border,
+                  },
+                ]}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.streamModalTitle, { color: colors.primary }]}
+                >
+                  Live Stream
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.streamCloseButton,
+                    { backgroundColor: theme.surfaceSecondary },
+                  ]}
+                  onPress={closeStreamModal}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.streamCloseText, { color: colors.primary }]}
+                  >
+                    ×
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Stream Buttons */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={[
+                  styles.streamButtonsContainer,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    borderBottomColor: theme.border,
+                  },
+                ]}
+                contentContainerStyle={styles.streamButtonsContent}
+              >
+                {Object.keys(availableStreams).map((streamKey) => {
+                  const capitalizedName =
+                    streamKey.charAt(0).toUpperCase() + streamKey.slice(1);
+                  return (
+                    <TouchableOpacity
+                      key={streamKey}
+                      style={[
+                        styles.streamButton,
+                        {
+                          backgroundColor:
+                            currentStreamType === streamKey
+                              ? colors.secondary
+                              : theme.surfaceSecondary,
+                        },
+                        { borderColor: theme.border },
+                      ]}
+                      onPress={() => switchStream(streamKey)}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.streamButtonText,
+                          {
+                            color:
+                              currentStreamType === streamKey
+                                ? "#fff"
+                                : colors.primary,
+                          },
+                        ]}
+                      >
+                        {capitalizedName}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                {Object.keys(availableStreams).length === 0 && (
+                  <View style={styles.noStreamsMessage}>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.noStreamsText,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      No live streams found for this game
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+
+              {/* WebView Container */}
+              <View style={styles.webViewContainer}>
+                {isStreamLoading && (
+                  <View style={styles.streamLoadingOverlay}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.streamLoadingText, { color: "#fff" }]}
+                    >
+                      Loading stream...
+                    </Text>
+                  </View>
+                )}
+                {streamUrl ? (
+                  <WebView
+                    source={{ uri: streamUrl }}
+                    style={styles.webView}
+                    onLoadStart={() => setIsStreamLoading(true)}
+                    onLoadEnd={() => setIsStreamLoading(false)}
+                    onError={() => setIsStreamLoading(false)}
+                    javaScriptEnabled={true}
+                    domStorageEnabled={true}
+                    allowsInlineMediaPlayback={true}
+                    mediaPlaybackRequiresUserAction={false}
+                    userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                    onShouldStartLoadWithRequest={(request) => {
+                      if (request.url === streamUrl) return true;
+                      const popupKeywords = [
+                        "popup",
+                        "ad",
+                        "ads",
+                        "click",
+                        "redirect",
+                        "promo",
+                      ];
+                      const urlLower = request.url.toLowerCase();
+                      const hasPopupKeywords = popupKeywords.some((k) =>
+                        urlLower.includes(k),
+                      );
+                      const currentDomain = new URL(streamUrl).hostname;
+                      let requestDomain = "";
+                      try {
+                        requestDomain = new URL(request.url).hostname;
+                      } catch {
+                        return (
+                          urlLower.startsWith("about:blank") ||
+                          urlLower.startsWith("data:")
+                        );
+                      }
+                      const sameRootDomain =
+                        requestDomain === currentDomain ||
+                        requestDomain.endsWith(`.${currentDomain}`) ||
+                        currentDomain.endsWith(`.${requestDomain}`);
+                      const allowPatterns = [
+                        "/embed/",
+                        "/player/",
+                        ".html",
+                        ".m3u8",
+                        ".mpd",
+                        "about:blank",
+                        "data:",
+                      ];
+                      const allowIfEmbed = allowPatterns.some((p) =>
+                        urlLower.includes(p),
+                      );
+                      if (hasPopupKeywords && !allowIfEmbed) return false;
+                      return sameRootDomain || allowIfEmbed;
+                    }}
+                  />
+                ) : (
+                  <View style={styles.noStreamContainer}>
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.noStreamText, { color: "#fff" }]}
+                    >
+                      No stream URL available
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -3481,13 +6970,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 6,
-    flex: 1,
   },
   inningLabel: {
     fontSize: 20,
     fontWeight: "800",
     textAlign: "center",
     marginBottom: 12,
+  },
+  gameTimeLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 4,
   },
   statusTop: {
     fontSize: 14,
@@ -3573,6 +7067,214 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   bottomPadding: { height: 32 },
+  // ── Win Probability chart ──
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  winProbContainer: {
+    marginBottom: 10,
+  },
+  winProbLegend: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 12,
+    gap: 24,
+  },
+  winProbLegendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  winProbLegendDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  winProbLegendText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  winProbGraphContainer: {
+    flexDirection: "row",
+    height: 200,
+    marginBottom: 8,
+  },
+  winProbYAxis: {
+    width: 40,
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    paddingRight: 8,
+    paddingVertical: 4,
+  },
+  winProbYLabel: {
+    fontSize: 10,
+  },
+  winProbGraphArea: {
+    flex: 1,
+    position: "relative",
+    backgroundColor: "rgba(0,0,0,0.02)",
+    borderRadius: 4,
+  },
+  winProbGridLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    borderBottomWidth: 1,
+  },
+  winProbCentreLine: {
+    position: "absolute",
+    bottom: "50%",
+    left: 0,
+    right: 0,
+    borderBottomWidth: 2,
+  },
+  winProbInningRow: {
+    position: "relative",
+    height: 20,
+    marginTop: 4,
+  },
+  winProbInningLabel: {
+    position: "absolute",
+    fontSize: 10,
+    fontWeight: "500",
+    transform: [{ translateX: -8 }],
+  },
+  // ── Live Stream Button ──
+  streamBtn: {
+    alignSelf: "center",
+    marginTop: 10,
+    marginBottom: 6,
+    borderWidth: 1.5,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  streamBtnInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  streamBtnDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  streamBtnText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  // ── Stream Modal ──
+  streamModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  streamModalContainer: {
+    borderRadius: 12,
+    width: "95%",
+    maxWidth: 800,
+    height: "85%",
+    maxHeight: 600,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  streamModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 15,
+    borderBottomWidth: 1,
+  },
+  streamModalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  streamCloseButton: {
+    width: 35,
+    height: 35,
+    borderRadius: 17.5,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  streamCloseText: {
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  streamButtonsContainer: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    maxHeight: 60,
+  },
+  streamButtonsContent: {
+    paddingHorizontal: 10,
+    gap: 10,
+    alignItems: "center",
+  },
+  streamButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: "center",
+    borderWidth: 1,
+    marginHorizontal: 5,
+  },
+  streamButtonText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  webViewContainer: {
+    flex: 1,
+    position: "relative",
+  },
+  webView: {
+    flex: 1,
+  },
+  streamLoadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  streamLoadingText: {
+    marginTop: 10,
+    fontSize: 16,
+  },
+  noStreamContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#1a1a1a",
+  },
+  noStreamText: {
+    fontSize: 16,
+  },
+  noStreamsMessage: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  noStreamsText: {
+    fontSize: 14,
+    fontStyle: "italic",
+    textAlign: "center",
+  },
 });
 
 export default GameDetailsScreen;

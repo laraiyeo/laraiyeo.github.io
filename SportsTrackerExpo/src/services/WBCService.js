@@ -106,14 +106,22 @@ function _setTeamLogoMappings(mappings) {
 class WBCService {
   static async fetchJson(path, options = {}) {
     const url = `${BASE_BACKEND}${path}`;
-    const res = await fetch(url, options);
+    // Bypass native HTTP cache so auto-poll always gets fresh data
+    const res = await fetch(url, {
+      ...options,
+      headers: {
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+        ...options.headers,
+      },
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
     return res.json();
   }
 
   static async getScoreboard(date) {
     // date format: YYYYMMDD or YYYYMMDD-YYYYMMDD
-    const qs = date ? `?date=20250302` : "";
+    const qs = date ? `?date=${encodeURIComponent(String(date))}` : "";
     return this.fetchJson(`/wbc/games${qs}`);
   }
 

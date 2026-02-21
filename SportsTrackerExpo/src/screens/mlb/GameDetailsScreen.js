@@ -1,171 +1,5933 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+﻿import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import {
   View,
   Text,
   ScrollView,
+  Animated,
+  FlatList,
+  Modal,
+  PanResponder,
   StyleSheet,
   ActivityIndicator,
-  Alert,
-  TouchableOpacity,
   Image,
-  Animated,
-  Modal,
   Dimensions,
+  RefreshControl,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  Alert,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { WebView } from "react-native-webview";
-import { captureRef } from "react-native-view-shot";
+import Svg, {
+  Defs,
+  LinearGradient,
+  Stop,
+  Rect,
+  Path,
+  G,
+} from "react-native-svg";
+import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
-import { MLBService } from "../../services/MLBService";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
-import { useFavorites } from "../../context/FavoritesContext";
-import { convertMLBIdToESPNId } from "../../utils/TeamIdMapping";
-import ChatComponent from "../../components/ChatComponent";
-import { useStreamingAccess } from "../../utils/streamingUtils";
+import WBCService from "../../services/WBCService";
 import { useGamePresence } from "../../hooks/useGamePresence";
+import { useStreamingAccess } from "../../utils/streamingUtils";
+import { WebView } from "react-native-webview";
 
-// Color similarity detection utility
-const calculateColorSimilarity = (color1, color2) => {
-  // Convert hex colors to RGB
-  const hexToRgb = (hex) => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result
-      ? {
-          r: parseInt(result[1], 16),
-          g: parseInt(result[2], 16),
-          b: parseInt(result[3], 16),
-        }
-      : null;
-  };
+const { width } = Dimensions.get("window");
 
-  const rgb1 = hexToRgb(color1);
-  const rgb2 = hexToRgb(color2);
+// ─── Ordinal helper ───────────────────────────────────────────────────────────
+const toOrdinal = (n) => {
+  if (!n) return "";
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+};
 
-  if (!rgb1 || !rgb2) return false;
+// ─── Horizontal header gradient ──────────────────────────────────────────────
+// away color bleeds in from the left, home color bleeds in from the right
+const HeaderGradient = ({ awayColor, homeColor, theme, height }) => (
+  <Svg
+    style={StyleSheet.absoluteFill}
+    width="115%"
+    height={height || 300}
+    pointerEvents="none"
+  >
+    <Defs>
+      <LinearGradient id="hGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <Stop offset="0%" stopColor={awayColor} stopOpacity="0.25" />
+        <Stop offset="40%" stopColor={theme.secondary} stopOpacity="0" />
+        <Stop offset="60%" stopColor={theme.secondary} stopOpacity="0" />
+        <Stop offset="100%" stopColor={homeColor} stopOpacity="0.25" />
+      </LinearGradient>
+    </Defs>
+    <Rect width="100%" height="100%" fill="url(#hGrad)" />
+  </Svg>
+);
 
-  // Calculate Euclidean distance in RGB space
-  const distance = Math.sqrt(
-    Math.pow(rgb1.r - rgb2.r, 2) +
-      Math.pow(rgb1.g - rgb2.g, 2) +
-      Math.pow(rgb1.b - rgb2.b, 2),
+// ─── Team column (logo + name + score) ───────────────────────────────────────
+const TeamColumn = ({
+  status,
+  team,
+  score,
+  isWinner,
+  side,
+  isDarkMode,
+  theme,
+  scoreOpacity,
+  onPress,
+}) => {
+  const logo = WBCService.getTeamLogo(team?.id, isDarkMode);
+  const isLive = !["S", "P", "D", "C", "O", "F", "Q", "R"].includes(
+    status?.codedGameState,
   );
 
-  // Normalize distance (max distance is sqrt(3 * 255^2) ≈ 441)
-  const normalizedDistance = distance / 441;
-
-  // Consider colors similar if distance is less than 0.3 (30% of max distance)
-  return normalizedDistance < 0.3;
+  return (
+    <View style={[styles.teamColumn, { alignItems: "center" }]}>
+      {score != null && (
+        <Animated.Text
+          style={[
+            styles.teamScore,
+            {
+              color: isLive ? theme.text : isWinner ? theme.text : theme.textSecondary,
+              fontWeight: isLive ? "800" : isWinner ? "800" : "400",
+              opacity: scoreOpacity ?? 1,
+            },
+          ]}
+        >
+          {score}
+        </Animated.Text>
+      )}
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={onPress ? 0.7 : 1}
+        style={{ alignItems: "center", alignSelf: "stretch" }}
+      >
+        {logo ? (
+          <Image
+            source={{ uri: logo }}
+            style={styles.teamLogo}
+            resizeMode="contain"
+          />
+        ) : (
+          <View
+            style={[
+              styles.teamLogoPlaceholder,
+              { backgroundColor: theme.surfaceSecondary },
+            ]}
+          >
+            <Text
+              style={[
+                styles.teamLogoPlaceholderText,
+                { color: theme.textSecondary },
+              ]}
+            >
+              {(team?.name || "?").charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
+        <Text
+          style={[styles.teamName, { color: theme.text }]}
+          numberOfLines={2}
+        >
+          {team?.name || "—"}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
 };
 
-// Smart color selection utility for MLB - works with MLBService
-const getSmartMLBTeamColors = (homeTeam, awayTeam, colors) => {
-  const homeTeamName = homeTeam?.name || homeTeam?.teamName;
-  const awayTeamName = awayTeam?.name || awayTeam?.teamName;
+// ─── Player headshot URL ────────────────────────────────────────────────────────
+const playerHeadshotUrl = (playerId) =>
+  `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${playerId}/headshot/67/current`;
 
-  let homeColor = MLBService.getTeamColor(homeTeamName) || colors.primary;
-  let awayColor = MLBService.getTeamColor(awayTeamName) || colors.secondary;
+// ─── Batting stat columns ────────────────────────────────────────────────────
+const BATTING_COLS = [
+  { key: "atBats", label: "AB" },
+  { key: "hits", label: "H" },
+  { key: "runs", label: "R" },
+  { key: "rbi", label: "RBI" },
+  { key: "homeRuns", label: "HR" },
+  { key: "baseOnBalls", label: "BB" },
+];
 
-  // Ensure colors have # prefix
-  if (homeColor && !homeColor.startsWith("#")) homeColor = `#${homeColor}`;
-  if (awayColor && !awayColor.startsWith("#")) awayColor = `#${awayColor}`;
+const PITCHING_COLS = [
+  { key: "inningsPitched", label: "IP" },
+  { key: "hits", label: "H" },
+  { key: "runs", label: "R" },
+  { key: "baseOnBalls", label: "BB" },
+  { key: "strikeOuts", label: "K" },
+  { key: "numberOfPitches", label: "NP" },
+];
 
-  // Check if colors are similar
-  if (calculateColorSimilarity(homeColor, awayColor)) {
-    // For MLB, try getting alternate colors from MLBService or use fallbacks
-    const awayAlternate = MLBService.getTeamAlternateColor?.(awayTeamName);
-    if (awayAlternate) {
-      awayColor = awayAlternate.startsWith("#")
-        ? awayAlternate
-        : `#${awayAlternate}`;
+// ─── Individual player card ───────────────────────────────────────────────────
+const PlayerCard = ({
+  playerId,
+  playerInfo,
+  bsPlayer,
+  theme,
+  teamColor,
+  onPress,
+}) => {
+  const pos = bsPlayer?.position?.abbreviation ?? "";
+  const position = bsPlayer?.position?.name ?? "";
+  const isPitcher = pos === "P" || pos === "SP" || pos === "RP";
+  const batting = bsPlayer?.stats?.batting ?? {};
+  const pitching = bsPlayer?.stats?.pitching ?? {};
+  const hasBatting = Object.keys(batting).length > 0;
+  const hasPitching = Object.keys(pitching).length > 0;
 
-      // If still similar, try home team alternate
-      if (calculateColorSimilarity(homeColor, awayColor)) {
-        const homeAlternate = MLBService.getTeamAlternateColor?.(homeTeamName);
-        if (homeAlternate) {
-          homeColor = homeAlternate.startsWith("#")
-            ? homeAlternate
-            : `#${homeAlternate}`;
+  // Default stat mode: pitching if pitcher, else batting
+  const [statMode, setStatMode] = useState(isPitcher ? "pitching" : "batting");
+
+  const cols = statMode === "pitching" ? PITCHING_COLS : BATTING_COLS;
+  const stats = statMode === "pitching" ? pitching : batting;
+  const fullName = playerInfo?.fullName ?? `Player ${playerId}`;
+  const number = bsPlayer?.jerseyNumber ? `#${bsPlayer.jerseyNumber}` : "";
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.75}
+      style={[
+        pcStyles.card,
+        {
+          backgroundColor: theme.surface,
+          borderColor: teamColor ?? theme.border,
+        },
+      ]}
+    >
+      {/* Top row: headshot + name block + stat toggle */}
+      <View style={pcStyles.topRow}>
+        {/* Headshot */}
+        <Image
+          source={{ uri: playerHeadshotUrl(playerId) }}
+          style={pcStyles.headshot}
+          resizeMode="cover"
+        />
+
+        {/* Name / position */}
+        <View style={pcStyles.nameBlock}>
+          <Text
+            style={[pcStyles.playerName, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {fullName}
+          </Text>
+          <Text style={[pcStyles.playerMeta, { color: theme.textSecondary }]}>
+            {[number, position].filter(Boolean).join(" • ")}
+          </Text>
+        </View>
+
+        {/* Toggle batting / pitching — only show if player has both */}
+        {hasBatting && hasPitching && (
+          <View style={pcStyles.toggleRow}>
+            {["batting", "pitching"].map((m) => (
+              <TouchableOpacity
+                key={m}
+                onPress={() => setStatMode(m)}
+                style={[
+                  pcStyles.toggleBtn,
+                  statMode === m && {
+                    backgroundColor: theme.primary ?? "#3B82F6",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    pcStyles.toggleLabel,
+                    {
+                      color: statMode === m ? "#fff" : theme.textSecondary,
+                    },
+                  ]}
+                >
+                  {m === "batting" ? "Bat" : "Pit"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
+
+      {/* Stats row */}
+      <View style={pcStyles.statsRow}>
+        {cols.map(({ key, label }) => (
+          <View key={key} style={pcStyles.statCell}>
+            <Text style={[pcStyles.statValue, { color: theme.text }]}>
+              {stats[key] ?? "—"}
+            </Text>
+            <Text style={[pcStyles.statLabel, { color: theme.textSecondary }]}>
+              {label}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+const pcStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  headshot: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "rgba(128,128,128,0.1)",
+  },
+  nameBlock: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  playerName: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  playerMeta: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  toggleRow: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  toggleBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: "rgba(128,128,128,0.12)",
+  },
+  toggleLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  statCell: {
+    flex: 1,
+    alignItems: "center",
+  },
+  statValue: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  statLabel: {
+    fontSize: 10,
+    marginTop: 2,
+  },
+});
+
+// ─── Box score panel (one team) ───────────────────────────────────────────────
+const BoxScorePanel = ({
+  bsTeamData,
+  playersMap,
+  theme,
+  teamColor,
+  team,
+  boxscore,
+  pitchesData,
+  awayTeam,
+  homeTeam,
+  awayScore,
+  homeScore,
+  isScheduled,
+  isFinished,
+}) => {
+  const [section, setSection] = useState(isScheduled ? "bench" : "batting");
+  const [selectedPlayer, setSelectedPlayer] = useState(null); // { playerId, playerInfo, bsPlayer }
+
+  const bsPlayers = bsTeamData?.players ?? {};
+  const allBsPlayers = {
+    ...(boxscore?.teams?.away?.players ?? {}),
+    ...(boxscore?.teams?.home?.players ?? {}),
+  };
+  const battingOrder = bsTeamData?.battingOrder ?? [];
+
+  // Collect ordered batters (by batting order, fallback to all with batting stats)
+  const batterIds = battingOrder.length
+    ? battingOrder
+    : Object.keys(bsPlayers)
+        .map((k) => Number(k.replace("ID", "")))
+        .filter(
+          (id) =>
+            Object.keys(bsPlayers[`ID${id}`]?.stats?.batting ?? {}).length > 0,
+        );
+
+  // Collect pitchers (players with pitching stats)
+  const pitcherIds = Object.keys(bsPlayers)
+    .map((k) => Number(k.replace("ID", "")))
+    .filter(
+      (id) =>
+        Object.keys(bsPlayers[`ID${id}`]?.stats?.pitching ?? {}).length > 0,
+    );
+
+  // Bench: everyone not in the batting order and not a pitcher
+  const activeSets = new Set([
+    ...batterIds.map(Number),
+    ...pitcherIds.map(Number),
+  ]);
+  const rawBenchIds = Object.keys(bsPlayers)
+    .map((k) => Number(k.replace("ID", "")))
+    .filter((id) => !activeSets.has(id));
+
+  // Sort bench: batters (AB > 0) by AB desc → pitchers (pitching stats) by IP desc → rest
+  const benchGetAB = (id) => bsPlayers[`ID${id}`]?.stats?.batting?.atBats ?? 0;
+  const benchGetIP = (id) =>
+    parseFloat(bsPlayers[`ID${id}`]?.stats?.pitching?.inningsPitched ?? 0);
+  const benchHasBat = (id) => benchGetAB(id) > 0;
+  const benchHasPit = (id) =>
+    !benchHasBat(id) &&
+    Object.keys(bsPlayers[`ID${id}`]?.stats?.pitching ?? {}).length > 0;
+  const benchBatters = rawBenchIds
+    .filter(benchHasBat)
+    .sort((a, b) => benchGetAB(b) - benchGetAB(a));
+  const benchPitchers = rawBenchIds
+    .filter(benchHasPit)
+    .sort((a, b) => benchGetIP(b) - benchGetIP(a));
+  const benchOthers = rawBenchIds.filter(
+    (id) => !benchHasBat(id) && !benchHasPit(id),
+  );
+  // Finished: hide no-stats players. Live/pre-game: show all (no-stats at bottom).
+  const benchIds = isFinished
+    ? [...benchBatters, ...benchPitchers]
+    : [...benchBatters, ...benchPitchers, ...benchOthers];
+
+  const ids =
+    section === "batting"
+      ? batterIds
+      : section === "pitching"
+        ? pitcherIds
+        : benchIds;
+
+  return (
+    <View style={{ paddingBottom: 24 }}>
+      {/* Section toggle — hidden when game is scheduled (bench only) */}
+      {!isScheduled && (
+        <View style={bsStyles.sectionToggle}>
+          {["batting", "pitching", "bench"].map((s) => (
+            <TouchableOpacity
+              key={s}
+              style={[
+                bsStyles.sectionBtn,
+                section === s && bsStyles.sectionBtnActive,
+              ]}
+              onPress={() => setSection(s)}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  bsStyles.sectionLabel,
+                  { color: section === s ? theme.text : theme.textSecondary },
+                ]}
+              >
+                {s === "batting"
+                  ? "Batting"
+                  : s === "pitching"
+                    ? "Pitching"
+                    : "Bench"}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Player cards */}
+      {ids.map((id) => (
+        <PlayerCard
+          key={id}
+          playerId={id}
+          playerInfo={playersMap?.[`ID${id}`] ?? null}
+          bsPlayer={bsPlayers[`ID${id}`] ?? null}
+          theme={theme}
+          teamColor={teamColor}
+          onPress={() =>
+            setSelectedPlayer({
+              playerId: id,
+              playerInfo: playersMap?.[`ID${id}`] ?? null,
+              bsPlayer: bsPlayers[`ID${id}`] ?? null,
+            })
+          }
+        />
+      ))}
+
+      {ids.length === 0 && (
+        <Text style={[bsStyles.empty, { color: theme.textSecondary }]}>
+          No {section} data available.
+        </Text>
+      )}
+
+      {/* Player detail modal */}
+      <PlayerDetailModal
+        visible={selectedPlayer != null}
+        onClose={() => setSelectedPlayer(null)}
+        playerId={selectedPlayer?.playerId}
+        playerInfo={selectedPlayer?.playerInfo}
+        bsPlayer={selectedPlayer?.bsPlayer}
+        teamColor={teamColor}
+        teamName={team?.name ?? ""}
+        teamId={team?.id}
+        allBsPlayers={allBsPlayers}
+        pitchesData={pitchesData}
+        awayTeam={awayTeam}
+        homeTeam={homeTeam}
+        awayScore={awayScore}
+        homeScore={homeScore}
+        theme={theme}
+      />
+    </View>
+  );
+};
+
+const bsStyles = StyleSheet.create({
+  sectionToggle: {
+    flexDirection: "row",
+    marginHorizontal: 12,
+    marginTop: 14,
+    marginBottom: 4,
+    borderRadius: 10,
+    backgroundColor: "rgba(128,128,128,0.1)",
+    padding: 3,
+  },
+  sectionBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  sectionBtnActive: {
+    backgroundColor: "rgba(128,128,128,0.25)",
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  empty: {
+    textAlign: "center",
+    marginTop: 32,
+    fontSize: 14,
+  },
+});
+
+// ─── Batter pitch map helpers ────────────────────────────────────────────────
+const BPM_W = 240;
+const BPM_H = 220;
+const BPM_X_MIN = -2.5;
+const BPM_X_MAX = 2.5;
+const BPM_Y_MIN = 0.0;
+const BPM_Y_MAX = 6.0;
+const BPM_PLATE_HALF = 0.7083; // 17 in / 2 ≈ 0.708 ft
+const BPM_BALL_R = 8;
+
+const parseBatterPitches = (playerPitchData) => {
+  if (!playerPitchData?.byType) return [];
+  const result = [];
+  Object.entries(playerPitchData.byType).forEach(([pitchType, info]) => {
+    const coords = info?.coordinates ?? "";
+    coords.split(";").forEach((segment) => {
+      const s = segment.trim();
+      if (!s) return;
+      const colonIdx = s.indexOf(":");
+      if (colonIdx === -1) return;
+      const num = parseInt(s.substring(0, colonIdx), 10);
+      const rest = s.substring(colonIdx + 1);
+      const parts = rest.split(",");
+      if (parts.length < 3) return;
+      const pX = parseFloat(parts[0]);
+      const pZ = parseFloat(parts[1]);
+      const code = parts[2].trim();
+      if (!isNaN(pX) && !isNaN(pZ))
+        result.push({ num, pitchType, pX, pZ, code });
+    });
+  });
+  result.sort((a, b) => a.num - b.num);
+  return result;
+};
+
+const BPM_CALL_COLORS = {
+  B: "#4CAF50",
+  "*B": "#492300",
+  C: "#E53935",
+  S: "#E53935",
+  T: "#E53935",
+  W: "#E53935",
+  F: "#FF9800",
+  X: "#2196F3",
+  E: "#2196F3",
+  D: "#2196F3",
+  H: "#9C27B0",
+};
+
+const BPM_CALL_LABELS = {
+  B: "Ball",
+  "*B": "Ball",
+  C: "Called Strike",
+  S: "Swinging Strike",
+  T: "Foul Tip",
+  F: "Foul",
+  X: "In Play",
+  E: "In Play",
+  D: "In Play",
+  H: "HBP",
+};
+
+const BatterPitchMapView = ({ playerPitchData, teamColor, theme }) => {
+  const allPitches = useMemo(
+    () => parseBatterPitches(playerPitchData),
+    [playerPitchData],
+  );
+  const [selTypes, setSelTypes] = useState(new Set());
+  const [selCodes, setSelCodes] = useState(new Set());
+
+  const pitchTypes = useMemo(() => {
+    const s = new Set();
+    allPitches.forEach((p) => s.add(p.pitchType));
+    return [...s];
+  }, [allPitches]);
+
+  const callCodes = useMemo(() => {
+    const s = new Set();
+    allPitches.forEach((p) => s.add(p.code));
+    return [...s];
+  }, [allPitches]);
+
+  const visiblePitches = useMemo(
+    () =>
+      allPitches.filter((p) => {
+        if (selTypes.size > 0 && !selTypes.has(p.pitchType)) return false;
+        if (selCodes.size > 0 && !selCodes.has(p.code)) return false;
+        return true;
+      }),
+    [allPitches, selTypes, selCodes],
+  );
+
+  const szTop = playerPitchData?.strikeZone?.maxTop ?? 3.5;
+  const szBot = playerPitchData?.strikeZone?.minBottom ?? 1.5;
+  const xRange = BPM_X_MAX - BPM_X_MIN;
+  const yRange = BPM_Y_MAX - BPM_Y_MIN;
+  const szRectLeft = ((-BPM_PLATE_HALF - BPM_X_MIN) / xRange) * BPM_W;
+  const szRectWidth = ((BPM_PLATE_HALF * 2) / xRange) * BPM_W;
+  const szRectTop = ((BPM_Y_MAX - szTop) / yRange) * BPM_H;
+  const szRectHeight = ((szTop - szBot) / yRange) * BPM_H;
+
+  const toggleType = (t) =>
+    setSelTypes((prev) => {
+      const next = new Set(prev);
+      next.has(t) ? next.delete(t) : next.add(t);
+      return next;
+    });
+
+  // Group codes that share the same human-readable label so we never show
+  // two buttons with the same name (e.g. X, E, D all mean "In Play").
+  const callGroups = useMemo(() => {
+    const map = new Map(); // label → { label, codes[], color }
+    callCodes.forEach((code) => {
+      const label = BPM_CALL_LABELS[code] ?? code;
+      if (!map.has(label)) {
+        map.set(label, {
+          label,
+          codes: [],
+          color: BPM_CALL_COLORS[code] ?? "#9E9E9E",
+        });
+      }
+      map.get(label).codes.push(code);
+    });
+    return [...map.values()];
+  }, [callCodes]);
+
+  const toggleGroup = (group) =>
+    setSelCodes((prev) => {
+      const next = new Set(prev);
+      const anyActive = group.codes.some((c) => next.has(c));
+      if (anyActive) {
+        group.codes.forEach((c) => next.delete(c));
+      } else {
+        group.codes.forEach((c) => next.add(c));
+      }
+      return next;
+    });
+
+  if (allPitches.length === 0)
+    return (
+      <View style={{ alignItems: "center", paddingTop: 40, paddingBottom: 24 }}>
+        <Text style={{ color: theme.textSecondary, fontSize: 14 }}>
+          No pitch data available
+        </Text>
+      </View>
+    );
+
+  return (
+    <View>
+      {/* Strike zone chart */}
+      <View style={{ alignItems: "center", marginBottom: 12 }}>
+        <View
+          style={[
+            bpmStyles.chart,
+            { backgroundColor: theme.background, borderColor: theme.border },
+          ]}
+        >
+          {/* Strike zone rectangle */}
+          <View
+            style={[
+              bpmStyles.szRect,
+              {
+                left: szRectLeft,
+                top: szRectTop,
+                width: szRectWidth,
+                height: szRectHeight,
+                borderColor: theme.textSecondary,
+              },
+            ]}
+          />
+          {/* Pitch dots */}
+          {visiblePitches.map((p) => {
+            const dotX = ((p.pX - BPM_X_MIN) / xRange) * BPM_W - BPM_BALL_R;
+            const dotY = ((BPM_Y_MAX - p.pZ) / yRange) * BPM_H - BPM_BALL_R;
+            const color = BPM_CALL_COLORS[p.code] ?? "#9E9E9E";
+            return (
+              <View
+                key={`bpm-${p.num}-${p.pitchType}`}
+                style={[
+                  bpmStyles.dot,
+                  {
+                    left: Math.max(0, Math.min(BPM_W - BPM_BALL_R * 2, dotX)),
+                    top: Math.max(0, Math.min(BPM_H - BPM_BALL_R * 2, dotY)),
+                    backgroundColor: color,
+                    borderColor: "white",
+                  },
+                ]}
+              />
+            );
+          })}
+        </View>
+
+        {/* Legend */}
+        {callGroups.length > 0 && (
+          <View style={bpmStyles.legendRow}>
+            {callGroups.map((group) => (
+              <View key={group.label} style={bpmStyles.legendItem}>
+                <View
+                  style={[
+                    bpmStyles.legendDot,
+                    { backgroundColor: group.color },
+                  ]}
+                />
+                <Text
+                  style={[bpmStyles.legendText, { color: theme.textSecondary }]}
+                >
+                  {group.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+
+      {/* Pitch type filter */}
+      {pitchTypes.length > 0 && (
+        <View style={{ marginBottom: 10 }}>
+          <Text style={[bpmStyles.filterLabel, { color: theme.textSecondary }]}>
+            Pitch Type
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={bpmStyles.filterRow}
+          >
+            {pitchTypes.map((t) => {
+              const active = selTypes.has(t);
+              return (
+                <TouchableOpacity
+                  key={t}
+                  style={[
+                    bpmStyles.filterBtn,
+                    {
+                      borderColor: active ? teamColor : theme.border,
+                      backgroundColor: active
+                        ? teamColor + "22"
+                        : "transparent",
+                    },
+                  ]}
+                  onPress={() => toggleType(t)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      bpmStyles.filterBtnText,
+                      { color: active ? teamColor : theme.textSecondary },
+                    ]}
+                  >
+                    {t}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Result filter */}
+      {callGroups.length > 0 && (
+        <View style={{ marginBottom: 10 }}>
+          <Text style={[bpmStyles.filterLabel, { color: theme.textSecondary }]}>
+            Result
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={bpmStyles.filterRow}
+          >
+            {callGroups.map((group) => {
+              const active = group.codes.some((c) => selCodes.has(c));
+              const { color, label } = group;
+              return (
+                <TouchableOpacity
+                  key={label}
+                  style={[
+                    bpmStyles.filterBtn,
+                    {
+                      borderColor: active ? color : theme.border,
+                      backgroundColor: active ? color + "22" : "transparent",
+                    },
+                  ]}
+                  onPress={() => toggleGroup(group)}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[bpmStyles.filterBtnDot, { backgroundColor: color }]}
+                  />
+                  <Text
+                    style={[
+                      bpmStyles.filterBtnText,
+                      { color: active ? color : theme.textSecondary },
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+    </View>
+  );
+};
+
+const bpmStyles = StyleSheet.create({
+  chart: {
+    width: BPM_W,
+    height: BPM_H,
+    borderRadius: 8,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  szRect: {
+    position: "absolute",
+    borderWidth: 1.5,
+    borderRadius: 2,
+  },
+  dot: {
+    position: "absolute",
+    width: BPM_BALL_R * 2,
+    height: BPM_BALL_R * 2,
+    borderRadius: BPM_BALL_R,
+    borderWidth: 1,
+  },
+  legendRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    marginTop: 8,
+    gap: 10,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "white",
+  },
+  legendText: {
+    fontSize: 10,
+    fontWeight: "500",
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 6,
+    paddingHorizontal: 20,
+  },
+  filterRow: {
+    paddingHorizontal: 20,
+    paddingBottom: 2,
+    gap: 6,
+    flexDirection: "row",
+  },
+  filterBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 5,
+  },
+  filterBtnDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  filterBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+});
+
+// ─── Player detail modal ──────────────────────────────────────────────────────
+const PlayerDetailModal = ({
+  visible,
+  onClose,
+  playerId,
+  playerInfo,
+  bsPlayer,
+  teamColor,
+  teamName,
+  teamId,
+  allBsPlayers,
+  pitchesData,
+  awayTeam,
+  homeTeam,
+  awayScore,
+  homeScore,
+  theme,
+}) => {
+  const panY = useRef(new Animated.Value(0)).current;
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gs) =>
+        gs.dy > 8 && Math.abs(gs.dy) > Math.abs(gs.dx),
+      onPanResponderMove: (_, gs) => {
+        if (gs.dy > 0) panY.setValue(gs.dy);
+      },
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dy > 60) {
+          onClose();
+          panY.setValue(0);
+        } else {
+          Animated.spring(panY, { toValue: 0, useNativeDriver: true }).start();
         }
-      }
-    } else {
-      // Fallback: use generic contrasting colors
-      awayColor = colors.secondary || "#666";
-      if (calculateColorSimilarity(homeColor, awayColor)) {
-        homeColor = colors.primary;
-      }
-    }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(panY, { toValue: 0, useNativeDriver: true }).start();
+      },
+    }),
+  ).current;
+
+  // Compute min/max across all players — must be before early return (hook rule).
+  // Only primary-role players feed each bucket so WBC pitchers' tiny at-bat counts
+  // don't drag down the batting range (and vice-versa).
+  const statMinMax = useMemo(() => {
+    const batting = {};
+    const pitching = {};
+    Object.values(allBsPlayers ?? {}).forEach((p) => {
+      const hasBat =
+        Object.keys(p?.stats?.batting ?? {}).filter((k) => k !== "summary")
+          .length > 0;
+      const hasPit =
+        Object.keys(p?.stats?.pitching ?? {}).filter((k) => k !== "summary")
+          .length > 0;
+      const entries = [
+        // primary batter only → no pitching stats
+        ...(!hasPit && hasBat ? Object.entries(p.stats.batting) : []).map(
+          ([k, v]) => ({ bucket: batting, k, v }),
+        ),
+        // primary pitcher only → no batting stats
+        ...(!hasBat && hasPit ? Object.entries(p.stats.pitching) : []).map(
+          ([k, v]) => ({ bucket: pitching, k, v }),
+        ),
+      ];
+      entries.forEach(({ bucket, k, v }) => {
+        if (k === "summary") return;
+        const n = parseFloat(v);
+        if (isNaN(n)) return;
+        if (!bucket[k]) bucket[k] = { min: n, max: n };
+        else {
+          bucket[k].min = Math.min(bucket[k].min, n);
+          bucket[k].max = Math.max(bucket[k].max, n);
+        }
+      });
+    });
+    return { batting, pitching };
+  }, [allBsPlayers]);
+
+  const [pdActiveTab, setPdActiveTab] = useState("Stats");
+  const [playerShareVisible, setPlayerShareVisible] = useState(false);
+  useEffect(() => {
+    setPdActiveTab("Stats");
+    setPlayerShareVisible(false);
+  }, [playerId]);
+
+  if (!playerId) return null;
+
+  const fullName = playerInfo?.fullName ?? `Player ${playerId}`;
+  const jerseyNum = bsPlayer?.jerseyNumber ? `#${bsPlayer.jerseyNumber}` : "";
+  const posAbbr =
+    bsPlayer?.position?.abbreviation ??
+    playerInfo?.primaryPosition?.abbreviation ??
+    "—";
+  const posName =
+    bsPlayer?.position?.name ?? playerInfo?.primaryPosition?.name ?? "Position";
+
+  // Height: MLB API may return "6' 2\"" — strip any backslashes
+  const rawHeight = playerInfo?.height ?? "";
+  const height = rawHeight.replace(/\\/g, "") || "—";
+
+  // Handedness
+  const batCode = playerInfo?.batSide?.code ?? null;
+  const pitchCode = playerInfo?.pitchHand?.code ?? null;
+  const batting = bsPlayer?.stats?.batting ?? {};
+  const pitching = bsPlayer?.stats?.pitching ?? {};
+  const hasBatStats = Object.keys(batting).length > 0;
+  const hasPitStats = Object.keys(pitching).length > 0;
+
+  const playerPitches = pitchesData?.[String(playerId)] ?? null;
+  const hasPitchDisplay =
+    playerPitches != null &&
+    Object.values(playerPitches?.byType ?? {}).some(
+      (info) => (info?.coordinates ?? "").length > 0,
+    );
+
+  let handValue = "—";
+  let handLabel = "Bats";
+  if (hasBatStats && hasPitStats) {
+    handValue = `${batCode ?? "—"} / ${pitchCode ?? "—"}`;
+    handLabel = "Bat / Pitch";
+  } else if (hasPitStats && pitchCode) {
+    handValue = pitchCode;
+    handLabel = "Throws";
+  } else if (batCode) {
+    handValue = batCode;
+    handLabel = "Bats";
   }
 
-  return { homeColor, awayColor };
+  // ── Stat helpers ─────────────────────────────────────────────────────────
+  const PITCHING_LOWER_IS_BETTER = new Set([
+    "runs",
+    "hits",
+    "homeRuns",
+    "baseOnBalls",
+    "earnedRuns",
+    "wildPitches",
+    "hitBatsmen",
+    "blownSaves",
+    "rbi",
+    "stolenBases",
+  ]);
+  const BATTING_LOWER_IS_BETTER = new Set([
+    "strikeOuts",
+    "groundIntoDoublePlay",
+    "catchersInterference",
+  ]);
+
+  const formatStatName = (key) =>
+    key
+      .replace(/([A-Z])/g, " $1")
+      .replace(/([a-zA-Z])(\d)/g, "$1 $2")
+      .replace(/(\d)([a-zA-Z])/g, "$1 $2")
+      .replace(/^./, (s) => s.toUpperCase())
+      .trim();
+
+  const buildStatRows = (statsObj, lowerSet, minMaxBucket) =>
+    Object.entries(statsObj)
+      .filter(([key]) => key !== "summary")
+      .map(([key, rawVal]) => {
+        const n = parseFloat(rawVal);
+        const range = minMaxBucket[key];
+        const isLower = lowerSet.has(key);
+        let pct = 0;
+        if (range && !isNaN(n)) {
+          if (range.max !== range.min) {
+            const norm = (n - range.min) / (range.max - range.min);
+            pct = isLower ? 1 - norm : norm;
+          } else {
+            pct = isLower ? 0 : 1;
+          }
+        }
+        return {
+          key,
+          label: formatStatName(key),
+          value: String(rawVal),
+          pct,
+          isLower,
+        };
+      });
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={pdStyles.backdrop} />
+      </TouchableWithoutFeedback>
+
+      <Animated.View
+        style={[
+          pdStyles.sheet,
+          {
+            backgroundColor: theme.surface,
+            borderTopColor: theme.surface,
+            transform: [{ translateY: panY }],
+          },
+        ]}
+      >
+        {/* Drag strip */}
+        <View
+          {...panResponder.panHandlers}
+          style={[pdStyles.dragStrip, { borderBottomColor: teamColor }]}
+        >
+          {/* Handle + close/share buttons row */}
+          <View style={pdStyles.handleRow}>
+            <View style={{ width: 28 + 8 + 28 }} />
+            <View
+              style={[pdStyles.handle, { backgroundColor: theme.surface }]}
+            />
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => setPlayerShareVisible(true)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={[
+                  pdStyles.iconBtn,
+                  { backgroundColor: teamColor + "33" },
+                ]}
+              >
+                <Ionicons name="share-outline" size={16} color={teamColor} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={onClose}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={[pdStyles.iconBtn, { backgroundColor: theme.border }]}
+              >
+                <Text style={[pdStyles.iconBtnText, { color: theme.text }]}>
+                  ✕
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Headshot centered */}
+          <View style={pdStyles.headshotWrap}>
+            <Image
+              source={{ uri: playerHeadshotUrl(playerId) }}
+              style={[pdStyles.headshot, { borderColor: teamColor }]}
+              resizeMode="cover"
+            />
+          </View>
+
+          {/* Full name + jersey • team */}
+          <Text
+            style={[pdStyles.playerName, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {fullName}
+          </Text>
+          {(jerseyNum || teamName) && (
+            <Text style={[pdStyles.jerseyNum, { color: theme.textSecondary }]}>
+              {[jerseyNum, teamName].filter(Boolean).join(" • ")}
+            </Text>
+          )}
+
+          {/* 3-col stats: position | height | hand */}
+          <View style={pdStyles.triRow}>
+            <View style={pdStyles.triCell}>
+              <Text style={[pdStyles.triValue, { color: theme.text }]}>
+                {posAbbr}
+              </Text>
+              <Text style={[pdStyles.triLabel, { color: theme.textSecondary }]}>
+                {posName}
+              </Text>
+            </View>
+            <View
+              style={[
+                pdStyles.triCell,
+                pdStyles.triCellMid,
+                { borderColor: theme.border },
+              ]}
+            >
+              <Text style={[pdStyles.triValue, { color: theme.text }]}>
+                {height}
+              </Text>
+              <Text style={[pdStyles.triLabel, { color: theme.textSecondary }]}>
+                Height
+              </Text>
+            </View>
+            <View style={pdStyles.triCell}>
+              <Text style={[pdStyles.triValue, { color: theme.text }]}>
+                {handValue}
+              </Text>
+              <Text style={[pdStyles.triLabel, { color: theme.textSecondary }]}>
+                {handLabel}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Stats / Pitches tab toggle */}
+        {hasPitchDisplay && (
+          <View style={pdStyles.pdTabBar}>
+            {["Stats", "Pitches"].map((tab) => (
+              <TouchableOpacity
+                key={tab}
+                style={[
+                  pdStyles.pdTabBtn,
+                  pdActiveTab === tab && pdStyles.pdTabBtnActive,
+                ]}
+                onPress={() => setPdActiveTab(tab)}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    pdStyles.pdTabLabel,
+                    {
+                      color:
+                        pdActiveTab === tab ? theme.text : theme.textSecondary,
+                    },
+                  ]}
+                >
+                  {tab}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Stats list */}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 16,
+            paddingBottom: 48,
+          }}
+        >
+          {hasPitchDisplay && pdActiveTab === "Pitches" && (
+            <BatterPitchMapView
+              playerPitchData={playerPitches}
+              teamColor={teamColor}
+              theme={theme}
+            />
+          )}
+          {(!hasPitchDisplay || pdActiveTab === "Stats") && hasBatStats && (
+            <>
+              {hasPitStats && (
+                <Text style={[pdStyles.statSection, { color: teamColor }]}>
+                  Batting
+                </Text>
+              )}
+              {buildStatRows(
+                batting,
+                BATTING_LOWER_IS_BETTER,
+                statMinMax.batting,
+              ).map(({ key, label, value, pct }) => (
+                <View key={`bat-${key}`} style={pdStyles.statRow}>
+                  <Text
+                    style={[
+                      pdStyles.statRowLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {label}
+                  </Text>
+                  <View style={pdStyles.statRowRight}>
+                    <Text
+                      style={[pdStyles.statRowValue, { color: theme.text }]}
+                    >
+                      {value}
+                    </Text>
+                    <View
+                      style={[
+                        pdStyles.statBarTrack,
+                        { backgroundColor: theme.border },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          pdStyles.statBarFill,
+                          {
+                            width: `${Math.round(pct * 100)}%`,
+                            backgroundColor: teamColor,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
+          {(!hasPitchDisplay || pdActiveTab === "Stats") && hasPitStats && (
+            <>
+              {hasBatStats && (
+                <Text
+                  style={[
+                    pdStyles.statSection,
+                    { color: teamColor, marginTop: 14 },
+                  ]}
+                >
+                  Pitching
+                </Text>
+              )}
+              {buildStatRows(
+                pitching,
+                PITCHING_LOWER_IS_BETTER,
+                statMinMax.pitching,
+              ).map(({ key, label, value, pct }) => (
+                <View key={`pit-${key}`} style={pdStyles.statRow}>
+                  <Text
+                    style={[
+                      pdStyles.statRowLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {label}
+                  </Text>
+                  <View style={pdStyles.statRowRight}>
+                    <Text
+                      style={[pdStyles.statRowValue, { color: theme.text }]}
+                    >
+                      {value}
+                    </Text>
+                    <View
+                      style={[
+                        pdStyles.statBarTrack,
+                        { backgroundColor: theme.border },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          pdStyles.statBarFill,
+                          {
+                            width: `${Math.round(pct * 100)}%`,
+                            backgroundColor: teamColor,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
+        </ScrollView>
+      </Animated.View>
+      <PlayerShareCardModal
+        visible={playerShareVisible}
+        onClose={() => setPlayerShareVisible(false)}
+        playerId={playerId}
+        playerInfo={playerInfo}
+        bsPlayer={bsPlayer}
+        teamColor={teamColor}
+        teamName={teamName}
+        teamId={teamId}
+        awayTeam={awayTeam}
+        homeTeam={homeTeam}
+        awayScore={awayScore}
+        homeScore={homeScore}
+        theme={theme}
+      />
+    </Modal>
+  );
 };
 
-const MLBGameDetailsScreen = ({ route, navigation }) => {
-  const { gameId, sport } = route?.params || {};
-  const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
-  const { isFavorite, toggleFavorite } = useFavorites();
-  const [gameData, setGameData] = useState(null);
+const pdStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  sheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    maxHeight: "85%",
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderTopWidth: 2,
+    overflow: "hidden",
+  },
+  dragStrip: {
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 2,
+  },
+  handleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    paddingTop: 10,
+    marginBottom: 16,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+  },
+  iconBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  iconBtnText: {
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 16,
+  },
+  headshotWrap: {
+    marginBottom: 12,
+  },
+  headshot: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 3,
+    backgroundColor: "rgba(128,128,128,0.1)",
+  },
+  playerName: {
+    fontSize: 20,
+    fontWeight: "800",
+    textAlign: "center",
+    marginBottom: 2,
+  },
+  jerseyNum: {
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  triRow: {
+    flexDirection: "row",
+    width: "100%",
+    marginTop: 4,
+  },
+  triCell: {
+    flex: 1,
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 4,
+  },
+  triCellMid: {
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderRightWidth: StyleSheet.hairlineWidth,
+  },
+  triValue: {
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  triLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    textAlign: "center",
+  },
+  // ── stat rows ──
+  statSection: {
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 8,
+  },
+  statRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  statRowLabel: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "500",
+    paddingRight: 12,
+  },
+  statRowRight: {
+    alignItems: "flex-end",
+    gap: 3,
+  },
+  statBarTrack: {
+    width: 64,
+    height: 4,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  statBarFill: {
+    height: "100%",
+    borderRadius: 2,
+    minWidth: 2,
+  },
+  statRowValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "right",
+  },
+  pdTabBar: {
+    flexDirection: "row",
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    borderRadius: 10,
+    backgroundColor: "rgba(128,128,128,0.1)",
+    padding: 3,
+  },
+  pdTabBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  pdTabBtnActive: {
+    backgroundColor: "rgba(128,128,128,0.25)",
+  },
+  pdTabLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+});
+
+// ─── Pitch call-code → color ─────────────────────────────────────────────────
+const getPitchColor = (callCode) => {
+  if (["X", "E", "H", "D"].includes(callCode)) return "#2196F3"; // in play
+  if (["B", "D"].includes(callCode)) return "#4CAF50"; // ball
+  return "#f44336"; // strike / foul
+};
+
+// ─── Strike zone visualizer ───────────────────────────────────────────────────
+const StrikeZoneView = ({ pitches, theme, animatedIndex, animTrigger }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (animatedIndex == null || animTrigger == null) return;
+
+    // Reset to baseline
+    scaleAnim.stopAnimation();
+    overlayOpacity.stopAnimation();
+    scaleAnim.setValue(1);
+    overlayOpacity.setValue(0);
+
+    // Phase 1: pop out → shrink back → slow pulse x3
+    Animated.sequence([
+      // Expand
+      Animated.timing(scaleAnim, {
+        toValue: 2.4,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+      // Shrink back to normal
+      Animated.timing(scaleAnim, {
+        toValue: 1.0,
+        duration: 280,
+        useNativeDriver: true,
+      }),
+      // 3 slow dark pulses (~1 s each = 3 s total)
+      Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(scaleAnim, {
+              toValue: 1.28,
+              duration: 500,
+              useNativeDriver: true,
+            }),
+            Animated.timing(scaleAnim, {
+              toValue: 1.0,
+              duration: 500,
+              useNativeDriver: true,
+            }),
+          ]),
+          Animated.sequence([
+            Animated.timing(overlayOpacity, {
+              toValue: 0.55,
+              duration: 500,
+              useNativeDriver: true,
+            }),
+            Animated.timing(overlayOpacity, {
+              toValue: 0,
+              duration: 500,
+              useNativeDriver: true,
+            }),
+          ]),
+        ]),
+        { iterations: 3 },
+      ),
+    ]).start();
+  }, [animTrigger]);
+
+  return (
+    <View
+      style={[
+        modalStyles.strikeZoneContainer,
+        { backgroundColor: theme.background, borderColor: theme.border },
+      ]}
+    >
+      {/* inner zone rectangle */}
+      <View
+        style={[
+          modalStyles.strikeZoneOutline,
+          { borderColor: theme.textTertiary },
+        ]}
+      />
+      {pitches.map((pitch, i) => {
+        const coords = pitch?.pitchData?.coordinates;
+        if (!coords || coords.pX == null || coords.pZ == null) return null;
+
+        const xPct = ((coords.pX + 2.0) / 3.75) * 100;
+        const szTop = pitch.pitchData?.strikeZoneTop;
+        const szBot = pitch.pitchData?.strikeZoneBottom;
+        const yPct =
+          szTop && szBot
+            ? ((szTop - coords.pZ) / (szTop - szBot)) * 60 + 20
+            : 50;
+
+        const finalX = (Math.max(5, Math.min(95, xPct)) / 100) * 145 - 5;
+        const finalY = (Math.max(5, Math.min(95, yPct)) / 100) * 125 + 5;
+        const color = getPitchColor(pitch?.details?.call?.code);
+        const isAnimated = i === animatedIndex;
+
+        if (isAnimated) {
+          return (
+            <Animated.View
+              key={i}
+              style={[
+                modalStyles.pitchDot,
+                {
+                  backgroundColor: color,
+                  borderColor: color,
+                  left: finalX,
+                  top: finalY,
+                  transform: [{ scale: scaleAnim }],
+                  zIndex: 20,
+                },
+              ]}
+            >
+              <Text style={modalStyles.pitchNum}>{i + 1}</Text>
+              {/* Dark pulse overlay */}
+              <Animated.View
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  borderRadius: 10,
+                  backgroundColor: "rgba(0,0,0,0.55)",
+                  opacity: overlayOpacity,
+                }}
+                pointerEvents="none"
+              />
+            </Animated.View>
+          );
+        }
+
+        return (
+          <View
+            key={i}
+            style={[
+              modalStyles.pitchDot,
+              {
+                backgroundColor: color,
+                borderColor: color,
+                left: finalX,
+                top: finalY,
+              },
+            ]}
+          >
+            <Text style={modalStyles.pitchNum}>{i + 1}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+};
+
+// ─── Share card modal ───────────────────────────────────────────────────────
+// ─── Player Share Card Modal ─────────────────────────────────────────────────
+const PLAYER_CARD_BAT_STATS = [
+  { key: "atBats", label: "AB" },
+  { key: "hits", label: "H" },
+  { key: "runs", label: "R" },
+  { key: "rbi", label: "RBI" },
+  { key: "homeRuns", label: "HR" },
+  { key: "baseOnBalls", label: "BB" },
+  { key: "strikeOuts", label: "K" },
+  { key: "stolenBases", label: "SB" },
+  { key: "leftOnBase", label: "LOB" },
+];
+const PLAYER_CARD_PIT_STATS = [
+  { key: "inningsPitched", label: "IP" },
+  { key: "hits", label: "H" },
+  { key: "runs", label: "R" },
+  { key: "baseOnBalls", label: "BB" },
+  { key: "strikeOuts", label: "K" },
+  { key: "homeRuns", label: "HR" },
+  { key: "strikePercentage", label: "K%" },
+  { key: "numberOfPitches", label: "NP" },
+  { key: "battersFaced", label: "BF" },
+];
+
+const PlayerShareCardModal = ({
+  visible,
+  onClose,
+  playerId,
+  playerInfo,
+  bsPlayer,
+  teamColor,
+  teamName,
+  teamId,
+  awayTeam,
+  homeTeam,
+  awayScore,
+  homeScore,
+  theme,
+}) => {
+  const cardRef = useRef(null);
+  const [sharing, setSharing] = useState(false);
+  const { isDarkMode } = useTheme();
+
+  if (!playerId || !playerInfo) return null;
+
+  const batting = bsPlayer?.stats?.batting ?? {};
+  const pitching = bsPlayer?.stats?.pitching ?? {};
+  const isPitcher =
+    Object.keys(pitching).filter((k) => k !== "summary").length > 0;
+  const statsObj = isPitcher ? pitching : batting;
+  const statSummary = isPitcher ? pitching.summary : batting.summary;
+  const statDefs = isPitcher ? PLAYER_CARD_PIT_STATS : PLAYER_CARD_BAT_STATS;
+
+  const posAbbr =
+    bsPlayer?.position?.abbreviation ??
+    playerInfo?.primaryPosition?.abbreviation ??
+    "—";
+  const posFullName =
+    bsPlayer?.position?.name ?? playerInfo?.primaryPosition?.name ?? "";
+  const fullName = playerInfo?.fullName ?? `Player ${playerId}`;
+  const teamLogoUri = teamId
+    ? WBCService.getTeamLogo(teamId, isDarkMode)
+    : null;
+  const CARD_SIZE = width - 48;
+
+  const handleShare = async () => {
+    if (!cardRef.current || sharing) return;
+    try {
+      setSharing(true);
+      const uri = await cardRef.current.capture();
+      await Sharing.shareAsync(uri, { mimeType: "image/png" });
+    } catch (e) {
+      console.warn("Share failed", e);
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <View style={scStyles.overlay}>
+        <ViewShot
+          ref={cardRef}
+          options={{ format: "png", quality: 1 }}
+          style={{ overflow: "hidden" }}
+        >
+          <View
+            style={[
+              scStyles.card,
+              { width: CARD_SIZE, backgroundColor: theme.surface },
+            ]}
+          >
+            {/* ── Header ── */}
+            <View
+              style={[
+                psStyles.cardHeader,
+                {
+                  backgroundColor: teamColor + "22",
+                  borderBottomColor: teamColor,
+                },
+              ]}
+            >
+              {/* Top row: position badge + score */}
+              <View style={psStyles.headerTopRow}>
+                <View
+                  style={[psStyles.posBadge, { backgroundColor: teamColor }]}
+                >
+                  <Text
+                    style={[
+                      psStyles.posBadgeText,
+                      { color: getTextOnColor(teamColor) },
+                    ]}
+                  >
+                    {posAbbr}
+                    {posFullName ? ` • ${posFullName}` : ""}
+                  </Text>
+                </View>
+                {awayScore != null && homeScore != null && (
+                  <Text style={[scStyles.cardScore, { color: theme.text }]}>
+                    {awayTeam?.abbreviation ?? "A"} {awayScore} – {homeScore}{" "}
+                    {homeTeam?.abbreviation ?? "H"}
+                  </Text>
+                )}
+              </View>
+
+              {/* Headshot + name/summary */}
+              <View style={psStyles.headshotRow}>
+                <Image
+                  source={{ uri: playerHeadshotUrl(playerId) }}
+                  style={[psStyles.cardHeadshot, { borderColor: teamColor }]}
+                  resizeMode="cover"
+                />
+                <View style={psStyles.nameBlock}>
+                  {!!statSummary && (
+                    <Text
+                      style={[psStyles.statSummary, { color: theme.text }]}
+                      numberOfLines={2}
+                    >
+                      {statSummary}
+                    </Text>
+                  )}
+                  <Text
+                    style={[psStyles.fullName, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {fullName}
+                  </Text>
+                  {!!teamName && (
+                    <View style={psStyles.teamNameRow}>
+                      {!!teamLogoUri && (
+                        <Image
+                          source={{ uri: teamLogoUri }}
+                          style={psStyles.teamNameLogo}
+                          resizeMode="contain"
+                        />
+                      )}
+                      <Text
+                        style={[
+                          psStyles.teamNameLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {teamName}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+
+            {/* ── Body: 3×3 stat grid ── */}
+            <View style={psStyles.statGrid}>
+              {statDefs.map(({ key, label }, i) => (
+                <View
+                  key={key}
+                  style={[
+                    psStyles.statCell,
+                    { borderColor: theme.border },
+                    i % 3 !== 2 && {
+                      borderRightWidth: StyleSheet.hairlineWidth,
+                    },
+                    i < 6 && { borderBottomWidth: StyleSheet.hairlineWidth },
+                  ]}
+                >
+                  <Text style={[psStyles.statVal, { color: theme.text }]}>
+                    {statsObj[key] ?? "—"}
+                  </Text>
+                  <Text
+                    style={[psStyles.statLbl, { color: theme.textSecondary }]}
+                  >
+                    {label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Footer */}
+            <View
+              style={[scStyles.cardFooter, { borderTopColor: theme.border }]}
+            >
+              <Text style={[scStyles.cardBrand, { color: theme.text }]}>
+                SportsHeart <Ionicons name="heart" size={10} color="#dc2626" />
+              </Text>
+            </View>
+          </View>
+        </ViewShot>
+
+        {/* Actions */}
+        <View style={scStyles.actions}>
+          <TouchableOpacity
+            onPress={handleShare}
+            disabled={sharing}
+            style={[scStyles.actionBtn, { backgroundColor: teamColor }]}
+          >
+            {sharing ? (
+              <Text style={scStyles.actionBtnTxt}>Sharing…</Text>
+            ) : (
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+              >
+                <Ionicons name="share-outline" size={18} color="#fff" />
+                <Text style={scStyles.actionBtnTxt}>Share</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onClose}
+            style={[scStyles.actionBtn, { backgroundColor: theme.border }]}
+          >
+            <Text style={[scStyles.actionBtnTxt, { color: theme.text }]}>
+              Close
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const psStyles = StyleSheet.create({
+  cardHeader: {
+    padding: 14,
+    borderBottomWidth: 2,
+  },
+  headerTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  posBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  posBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  headshotRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  cardHeadshot: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2.5,
+    backgroundColor: "rgba(128,128,128,0.1)",
+  },
+  nameBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  statSummary: {
+    fontSize: 15,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  fullName: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  teamNameLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  teamNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    flexWrap: "wrap",
+  },
+  teamNameLogo: {
+    width: 16,
+    height: 16,
+  },
+  statGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  statCell: {
+    width: "33.333%",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+  },
+  statVal: {
+    fontSize: 18,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  statLbl: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 3,
+  },
+});
+
+const ShareCardModal = ({
+  visible,
+  onClose,
+  play,
+  awayTeam,
+  homeTeam,
+  awayColor,
+  homeColor,
+  playersMap,
+  boxscore,
+  theme,
+}) => {
+  const cardRef = useRef(null);
+  const [sharing, setSharing] = useState(false);
+
+  if (!play) return null;
+
+  const isTop = play?.about?.isTopInning !== false;
+  const teamColor = isTop ? awayColor : homeColor;
+  const teamAbbr = isTop
+    ? (awayTeam?.abbreviation ?? "")
+    : (homeTeam?.abbreviation ?? "");
+  const inning = play?.about?.inning;
+  const event = play?.result?.event ?? "";
+  const isScoringPlay = play?.about?.isScoringPlay === true;
+  const awayScore = play?.result?.awayScore;
+  const homeScore = play?.result?.homeScore;
+
+  const batterId = play?.matchup?.batter?.id;
+  const pitcherId = play?.matchup?.pitcher?.id;
+  const batterInfo = playersMap?.[`ID${batterId}`] ?? null;
+  const pitcherInfo = playersMap?.[`ID${pitcherId}`] ?? null;
+  const description = play?.result?.description ?? `${batterInfo?.fullName ?? "Batter"} vs ${pitcherInfo?.fullName ?? "Pitcher"}`;
+  const batterTeamColor = isTop ? awayColor : homeColor;
+  const pitcherTeamColor = isTop ? homeColor : awayColor;
+
+  const allBsPlayers = {
+    ...(boxscore?.teams?.away?.players ?? {}),
+    ...(boxscore?.teams?.home?.players ?? {}),
+  };
+  const batterBatting = allBsPlayers[`ID${batterId}`]?.stats?.batting ?? {};
+  const pitcherPitching = allBsPlayers[`ID${pitcherId}`]?.stats?.pitching ?? {};
+
+  const playEvents = play?.playEvents ?? [];
+  const pitches = playEvents.filter(
+    (e) => e?.pitchData?.coordinates?.pX != null,
+  );
+
+  const CARD_SIZE = width - 48;
+
+  const handleShare = async () => {
+    if (!cardRef.current || sharing) return;
+    try {
+      setSharing(true);
+      const uri = await cardRef.current.capture();
+      await Sharing.shareAsync(uri, { mimeType: "image/png" });
+    } catch (e) {
+      console.warn("Share failed", e);
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  // Inline mini-player for the card
+  const PlayerMini = ({ info, bsColor, bStats, pStats, role }) => {
+    if (!info) return null;
+    const isPitcher = role === "pitcher";
+    const statItems = isPitcher
+      ? [
+          { l: "IP", v: pStats?.inningsPitched },
+          { l: "R", v: pStats?.runs },
+          { l: "K", v: pStats?.strikeOuts },
+        ]
+      : [
+          { l: "AB", v: bStats?.atBats },
+          { l: "H", v: bStats?.hits },
+          { l: "RBI", v: bStats?.rbi },
+        ];
+    return (
+      <View style={scStyles.miniPlayer}>
+        <Image
+          source={{ uri: playerHeadshotUrl(info.id) }}
+          style={[scStyles.miniHeadshot, { borderColor: bsColor }]}
+          resizeMode="cover"
+        />
+        <Text
+          style={[scStyles.miniName, { color: theme.text }]}
+          numberOfLines={1}
+        >
+          {shortName(info.fullName)}
+        </Text>
+        <Text style={[scStyles.miniRole, { color: bsColor }]}>
+          {isPitcher ? "Pitcher" : "Batter"}
+        </Text>
+        <View style={scStyles.miniStats}>
+          {statItems.map(({ l, v }) => (
+            <View key={l} style={scStyles.miniStat}>
+              <Text style={[scStyles.miniStatVal, { color: theme.text }]}>
+                {v ?? "—"}
+              </Text>
+              <Text
+                style={[scStyles.miniStatLbl, { color: theme.textSecondary }]}
+              >
+                {l}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <View style={scStyles.overlay}>
+        {/* Capturable card */}
+        <ViewShot
+          ref={cardRef}
+          options={{ format: "png", quality: 1 }}
+          style={{ overflow: "hidden" }}
+        >
+          <View
+            style={[
+              scStyles.card,
+              { width: CARD_SIZE, backgroundColor: theme.surface },
+            ]}
+          >
+            {/* ── Top: inning + score + event + description ── */}
+            <View
+              style={[
+                scStyles.cardTop,
+                {
+                  backgroundColor: teamColor + "22",
+                  borderBottomColor: teamColor,
+                },
+              ]}
+            >
+              <View style={scStyles.cardTopRow}>
+                <Text style={[scStyles.cardInning, { color: theme.text }]}>
+                  {isTop ? "▲" : "▼"} {toOrdinal(inning)}
+                  {teamAbbr ? ` • ${teamAbbr}` : ""}
+                </Text>
+                {awayScore != null && homeScore != null && (
+                  <Text style={[scStyles.cardScore, { color: theme.text }]}>
+                    {awayTeam?.abbreviation ?? "A"} {awayScore} – {homeScore}{" "}
+                    {homeTeam?.abbreviation ?? "H"}
+                  </Text>
+                )}
+              </View>
+              {!!event && (
+                <Text style={[scStyles.cardEvent, { color: theme.text }]}>
+                  {event}
+                </Text>
+              )}
+              {!!description && (
+                <Text
+                  style={[scStyles.cardDesc, { color: theme.textSecondary }]}
+                  numberOfLines={2}
+                >
+                  {description}
+                </Text>
+              )}
+            </View>
+
+            {/* ── Bottom: pitch chart (left) | matchup + bases (right) ── */}
+            <View style={scStyles.cardBottom}>
+              {/* Left – pitch locations + hit data */}
+              <View style={scStyles.cardLeft}>
+                {pitches.length > 0 ? (
+                  <StrikeZoneView pitches={pitches} theme={theme} size={120} />
+                ) : (
+                  <View
+                    style={[scStyles.noPitchBox, { borderColor: theme.border }]}
+                  >
+                    <Text
+                      style={{
+                        color: theme.textSecondary,
+                        fontSize: 10,
+                        textAlign: "center",
+                      }}
+                    >
+                      No pitch data
+                    </Text>
+                  </View>
+                )}
+                {(() => {
+                  const ev = playEvents.find(
+                    (e) => e?.hitData?.launchSpeed != null,
+                  );
+                  if (!ev) return null;
+                  const hd = ev.hitData;
+                  return (
+                    <View
+                      style={[
+                        scStyles.hitDataBox,
+                        { borderTopColor: theme.surface },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          scStyles.hitDataTitle,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        Hit Data
+                      </Text>
+                      <View style={scStyles.hitDataCols}>
+                        {[
+                          {
+                            label: "Speed",
+                            value: `${Math.round(hd.launchSpeed)} mph`,
+                          },
+                          {
+                            label: "Angle",
+                            value: `${Math.round(hd.launchAngle)}°`,
+                          },
+                          {
+                            label: "Dist",
+                            value: `${Math.round(hd.totalDistance)} ft`,
+                          },
+                        ].map(({ label, value }) => (
+                          <View key={label} style={scStyles.hitDataCol}>
+                            <Text
+                              style={[
+                                scStyles.hitDataVal,
+                                { color: theme.text },
+                              ]}
+                            >
+                              {value}
+                            </Text>
+                            <Text
+                              style={[
+                                scStyles.hitDataLbl,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {label}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  );
+                })()}
+              </View>
+
+              {/* Right – batter → bases → pitcher */}
+              <View
+                style={[scStyles.cardRight, { borderLeftColor: theme.border }]}
+              >
+                <PlayerMini
+                  info={batterInfo}
+                  bsColor={batterTeamColor}
+                  bStats={batterBatting}
+                  pStats={{}}
+                  role="batter"
+                />
+
+                {/* Bases diamond */}
+                <View style={scStyles.cardBases}>
+                  <View
+                    style={[
+                      scStyles.cardBaseDiamond,
+                      play?.matchup?.postOnSecond
+                        ? { backgroundColor: teamColor }
+                        : {
+                            backgroundColor: "transparent",
+                            borderWidth: 1.5,
+                            borderColor: theme.textSecondary,
+                          },
+                    ]}
+                  />
+                  <View style={scStyles.cardBasesRow}>
+                    <View
+                      style={[
+                        scStyles.cardBaseDiamond,
+                        play?.matchup?.postOnThird
+                          ? { backgroundColor: teamColor }
+                          : {
+                              backgroundColor: "transparent",
+                              borderWidth: 1.5,
+                              borderColor: theme.textSecondary,
+                            },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        scStyles.cardBaseDiamond,
+                        play?.matchup?.postOnFirst
+                          ? { backgroundColor: teamColor }
+                          : {
+                              backgroundColor: "transparent",
+                              borderWidth: 1.5,
+                              borderColor: theme.textSecondary,
+                            },
+                      ]}
+                    />
+                  </View>
+                </View>
+
+                <PlayerMini
+                  info={pitcherInfo}
+                  bsColor={pitcherTeamColor}
+                  bStats={{}}
+                  pStats={pitcherPitching}
+                  role="pitcher"
+                />
+              </View>
+            </View>
+
+            {/* Branding footer */}
+            <View
+              style={[scStyles.cardFooter, { borderTopColor: theme.border }]}
+            >
+              <Text style={[scStyles.cardBrand, { color: theme.text }]}>
+                SportsHeart <Ionicons name="heart" size={10} color="#dc2626" />
+              </Text>
+            </View>
+          </View>
+        </ViewShot>
+
+        {/* Action buttons */}
+        <View style={scStyles.actions}>
+          <TouchableOpacity
+            onPress={handleShare}
+            disabled={sharing}
+            style={[scStyles.actionBtn, { backgroundColor: teamColor }]}
+          >
+            {sharing ? (
+              <Text style={scStyles.actionBtnTxt}>Sharing…</Text>
+            ) : (
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+              >
+                <Ionicons name="share-outline" size={18} color="#fff" />
+                <Text style={scStyles.actionBtnTxt}>Share</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onClose}
+            style={[scStyles.actionBtn, { backgroundColor: theme.border }]}
+          >
+            <Text style={[scStyles.actionBtnTxt, { color: theme.text }]}>
+              Close
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const scStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.88)",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 20,
+    padding: 24,
+  },
+  card: {
+    overflow: "hidden",
+  },
+  cardTop: {
+    padding: 14,
+    borderBottomWidth: 2,
+  },
+  cardTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  cardInning: {
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  cardScore: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  cardEvent: {
+    fontSize: 17,
+    fontWeight: "800",
+    marginBottom: 3,
+  },
+  cardDesc: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  cardBottom: {
+    flexDirection: "row",
+    minHeight: 180,
+  },
+  cardLeft: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 10,
+  },
+  noPitchBox: {
+    width: 110,
+    height: 110,
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 8,
+  },
+  cardRight: {
+    flex: 1,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "space-evenly",
+    gap: 8,
+  },
+  cardFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignItems: "flex-end",
+  },
+  cardBrand: {
+    fontSize: 9,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+    opacity: 0.6,
+  },
+  actions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  actionBtn: {
+    paddingHorizontal: 28,
+    paddingVertical: 13,
+    borderRadius: 28,
+    minWidth: 120,
+    alignItems: "center",
+  },
+  actionBtnTxt: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  // mini player card
+  miniPlayer: {
+    alignItems: "center",
+    gap: 2,
+  },
+  miniHeadshot: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 2,
+    backgroundColor: "rgba(128,128,128,0.1)",
+  },
+  miniName: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  miniRole: {
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 2,
+  },
+  miniStats: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  miniStat: {
+    alignItems: "center",
+  },
+  miniStatVal: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  miniStatLbl: {
+    fontSize: 9,
+    marginTop: 1,
+  },
+  // bases
+  cardBases: {
+    alignItems: "center",
+    gap: 5,
+  },
+  cardBasesRow: {
+    flexDirection: "row",
+    gap: 17.5,
+  },
+  cardBaseDiamond: {
+    width: 11,
+    height: 11,
+    borderRadius: 1.5,
+    transform: [{ rotate: "45deg" }],
+  },
+  // hit data in share card
+  hitDataBox: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    width: "100%",
+    alignItems: "center",
+  },
+  hitDataTitle: {
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  hitDataCols: {
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+  },
+  hitDataCol: {
+    alignItems: "center",
+    gap: 1,
+  },
+  hitDataVal: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  hitDataLbl: {
+    fontSize: 8,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+});
+
+// Returns "J. Smith" from "John Smith"
+const shortName = (fullName) => {
+  if (!fullName) return "";
+  const parts = fullName.trim().split(" ");
+  if (parts.length === 1) return parts[0];
+  return `${parts[0][0]}. ${parts.slice(1).join(" ")}`;
+};
+
+// ─── Play detail bottom-sheet modal ──────────────────────────────────────────
+const PlayDetailModal = ({
+  play,
+  awayTeam,
+  homeTeam,
+  awayColor,
+  homeColor,
+  playersMap,
+  boxscore,
+  theme,
+  visible,
+  onClose,
+}) => {
+  // Swipe-down to dismiss
+  const [shareVisible, setShareVisible] = useState(false);
+  const panY = useRef(new Animated.Value(0)).current;
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gs) =>
+        gs.dy > 8 && Math.abs(gs.dy) > Math.abs(gs.dx),
+      onPanResponderMove: (_, gs) => {
+        if (gs.dy > 0) panY.setValue(gs.dy);
+      },
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dy > 80) {
+          onClose();
+          panY.setValue(0);
+        } else {
+          Animated.spring(panY, { toValue: 0, useNativeDriver: true }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(panY, { toValue: 0, useNativeDriver: true }).start();
+      },
+    }),
+  ).current;
+
+  if (!play) return null;
+
+  const isTop = play?.about?.isTopInning !== false;
+  const teamColor = isTop ? awayColor : homeColor;
+  const teamAbbr = isTop
+    ? (awayTeam?.abbreviation ?? "")
+    : (homeTeam?.abbreviation ?? "");
+  const inning = play?.about?.inning;
+  const event = play?.result?.event ?? "";
+  const isScoringPlay = play?.about?.isScoringPlay === true;
+  const awayScore = play?.result?.awayScore;
+  const homeScore = play?.result?.homeScore;
+
+  // Resolve batter + pitcher from playersMap
+  const batterId = play?.matchup?.batter?.id;
+  const pitcherId = play?.matchup?.pitcher?.id;
+  const batterInfo = playersMap?.[`ID${batterId}`] ?? null;
+  const pitcherInfo = playersMap?.[`ID${pitcherId}`] ?? null;
+  const description = play?.result?.description ?? `${batterInfo?.fullName ?? "Batter"} vs ${pitcherInfo?.fullName ?? "Pitcher"}`;
+
+  // top inning → batter is away, pitcher is home
+  const batterTeamColor = isTop ? awayColor : homeColor;
+  const pitcherTeamColor = isTop ? homeColor : awayColor;
+
+  // Boxscore stats
+  const allBsPlayers = {
+    ...(boxscore?.teams?.away?.players ?? {}),
+    ...(boxscore?.teams?.home?.players ?? {}),
+  };
+  const batterBs = allBsPlayers[`ID${batterId}`] ?? null;
+  const pitcherBs = allBsPlayers[`ID${pitcherId}`] ?? null;
+  const batterBatting = batterBs?.stats?.batting ?? {};
+  const pitcherPitching = pitcherBs?.stats?.pitching ?? {};
+
+  // Pitch text builder (FavoritesScreen naming logic)
+  const buildPitchText = (ev) => {
+    const details = ev.details || {};
+    const desc = details.description || "";
+    const bName = shortName(batterInfo?.fullName) || "Batter";
+    const pName = shortName(pitcherInfo?.fullName) || "Pitcher";
+    const speed = ev.pitchData?.startSpeed ?? null;
+    const pitchType = details.type?.description || "";
+    const balls = ev.count?.balls ?? "";
+    const strikes = ev.count?.strikes ?? "";
+    const callCode = details.call?.code
+      ? String(details.call.code).toUpperCase()
+      : null;
+
+    if (callCode === "F") {
+      const spd = speed ? `${Math.round(speed)} mph ` : "";
+      return `${bName} fouls off ${spd}${pitchType} from ${pName}. Strike ${strikes}`.trim();
+    }
+    if (callCode === "B") {
+      const spd = speed ? `${Math.round(speed)} mph ` : "";
+      return `${pName} throws ${spd}${pitchType}. Ball ${balls}`.trim();
+    }
+    if (callCode === "*B") {
+      return `Wild pitch. Ball ${balls}`.trim();
+    }
+    if (callCode === "C") {
+      return `${bName} takes strike ${strikes} looking from ${pName}`.trim();
+    }
+    if (callCode === "S") {
+      const spd = speed ? `${Math.round(speed)} mph ` : "";
+      return `${bName} swings at ${spd}${pitchType} from ${pName}. Strike ${strikes}`.trim();
+    }
+    if (["X", "E", "H", "D"].includes(callCode ?? "")) return desc || "In play";
+    return desc || details.event || "";
+  };
+
+  // Left-border color per event
+  const getEventBorderColor = (ev) => {
+    const code = ev.details?.call?.code?.toUpperCase();
+    if (["X", "E", "H", "D"].includes(code ?? "")) return "#2196F3";
+    if (["B", "D", "*B"].includes(code ?? "")) return "#4CAF50";
+    if (["C", "S", "F", "T", "L", "W"].includes(code ?? "")) return "#f44336";
+    return theme.border;
+  };
+
+  const playEvents = play?.playEvents ?? [];
+  const pitches = playEvents.filter(
+    (e) => e?.pitchData?.coordinates?.pX != null,
+  );
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      {/* Backdrop tap-to-close */}
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={modalStyles.backdrop} />
+      </TouchableWithoutFeedback>
+
+      <Animated.View
+        style={[
+          modalStyles.sheet,
+          {
+            backgroundColor: theme.surface,
+            borderTopColor: isScoringPlay ? teamColor : theme.border,
+            transform: [{ translateY: panY }],
+          },
+        ]}
+      >
+        {/* ── Draggable header strip (swipe here to dismiss) ── */}
+        <View
+          {...panResponder.panHandlers}
+          style={[modalStyles.dragStrip, { borderBottomColor: theme.border }]}
+        >
+          {/* Drag pip */}
+          <View
+            style={[modalStyles.handle, { backgroundColor: theme.surface }]}
+          />
+
+          {/* Title row */}
+          <View style={modalStyles.titleRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={[modalStyles.sheetInning, { color: theme.text }]}>
+                {isTop ? "▲" : "▼"} {toOrdinal(inning)}
+                {teamAbbr ? ` • ${teamAbbr}` : ""}
+              </Text>
+              {!!event && (
+                <Text style={[modalStyles.sheetEvent, { color: theme.text }]}>
+                  {event}
+                </Text>
+              )}
+              {isScoringPlay && awayScore != null && homeScore != null && (
+                <Text style={[modalStyles.sheetScore, { color: teamColor }]}>
+                  {awayTeam?.abbreviation ?? "Away"} {awayScore} –{" "}
+                  {homeTeam?.abbreviation ?? "Home"} {homeScore}
+                </Text>
+              )}
+            </View>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => setShareVisible(true)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={[
+                  modalStyles.closeBtn,
+                  { backgroundColor: teamColor + "33" },
+                ]}
+              >
+                <Ionicons name="share-outline" size={16} color={teamColor} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={onClose}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={[modalStyles.closeBtn, { backgroundColor: theme.error }]}
+              >
+                <Text style={[modalStyles.closeBtnText, { color: theme.text }]}>
+                  ✕
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {!!description && (
+            <Text
+              style={[modalStyles.sheetDesc, { color: theme.textSecondary }]}
+            >
+              {description}
+            </Text>
+          )}
+        </View>
+
+        {/* ── Scrollable content ── */}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          contentContainerStyle={{ paddingBottom: 32 }}
+        >
+          {/* ── Matchup ── */}
+          {(batterInfo || pitcherInfo) && (
+            <View
+              style={[
+                modalStyles.matchupRow,
+                { borderBottomColor: theme.surface },
+              ]}
+            >
+              {/* Batter – left */}
+              {batterInfo ? (
+                <View style={modalStyles.matchupPlayer}>
+                  <Image
+                    source={{ uri: playerHeadshotUrl(batterId) }}
+                    style={[
+                      modalStyles.matchupHeadshot,
+                      { borderColor: batterTeamColor },
+                    ]}
+                    resizeMode="cover"
+                  />
+                  <Text
+                    style={[modalStyles.matchupName, { color: theme.text }]}
+                  >
+                    {shortName(batterInfo.fullName)}
+                  </Text>
+                  <Text
+                    style={[
+                      modalStyles.matchupRole,
+                      { color: batterTeamColor },
+                    ]}
+                  >
+                    Batter
+                  </Text>
+                  <View style={modalStyles.matchupStats}>
+                    {[
+                      { label: "AB", val: batterBatting.atBats },
+                      { label: "H", val: batterBatting.hits },
+                      { label: "RBI", val: batterBatting.rbi },
+                    ].map(({ label, val }) => (
+                      <View key={label} style={modalStyles.matchupStat}>
+                        <Text
+                          style={[
+                            modalStyles.matchupStatVal,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {val ?? "—"}
+                        </Text>
+                        <Text
+                          style={[
+                            modalStyles.matchupStatLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {label}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : (
+                <View style={modalStyles.matchupPlayer} />
+              )}
+
+              {/* Bases diamond */}
+              <View style={modalStyles.basesColumn}>
+                {/* 2nd base */}
+                <View
+                  style={[
+                    modalStyles.baseDiamond,
+                    modalStyles.base2nd,
+                    play?.matchup?.postOnSecond
+                      ? {
+                          backgroundColor: teamColor,
+                          shadowColor: teamColor,
+                          shadowOpacity: 0.7,
+                          shadowRadius: 3,
+                          shadowOffset: { width: 0, height: 0 },
+                          elevation: 3,
+                        }
+                      : {
+                          backgroundColor: "transparent",
+                          borderWidth: 1.5,
+                          borderColor: theme.textSecondary,
+                        },
+                  ]}
+                />
+                <View style={modalStyles.basesMiddleRow}>
+                  {/* 3rd base */}
+                  <View
+                    style={[
+                      modalStyles.baseDiamond,
+                      play?.matchup?.postOnThird
+                        ? {
+                            backgroundColor: teamColor,
+                            shadowColor: teamColor,
+                            shadowOpacity: 0.7,
+                            shadowRadius: 3,
+                            shadowOffset: { width: 0, height: 0 },
+                            elevation: 3,
+                          }
+                        : {
+                            backgroundColor: "transparent",
+                            borderWidth: 1.5,
+                            borderColor: theme.textSecondary,
+                          },
+                    ]}
+                  />
+                  {/* 1st base */}
+                  <View
+                    style={[
+                      modalStyles.baseDiamond,
+                      play?.matchup?.postOnFirst
+                        ? {
+                            backgroundColor: teamColor,
+                            shadowColor: teamColor,
+                            shadowOpacity: 0.7,
+                            shadowRadius: 3,
+                            shadowOffset: { width: 0, height: 0 },
+                            elevation: 3,
+                          }
+                        : {
+                            backgroundColor: "transparent",
+                            borderWidth: 1.5,
+                            borderColor: theme.textSecondary,
+                          },
+                    ]}
+                  />
+                </View>
+              </View>
+
+              {/* Pitcher – right */}
+              {pitcherInfo ? (
+                <View
+                  style={[
+                    modalStyles.matchupPlayer,
+                    { alignItems: "flex-end" },
+                  ]}
+                >
+                  <Image
+                    source={{ uri: playerHeadshotUrl(pitcherId) }}
+                    style={[
+                      modalStyles.matchupHeadshot,
+                      { borderColor: pitcherTeamColor },
+                    ]}
+                    resizeMode="cover"
+                  />
+                  <Text
+                    style={[modalStyles.matchupName, { color: theme.text }]}
+                  >
+                    {shortName(pitcherInfo.fullName)}
+                  </Text>
+                  <Text
+                    style={[
+                      modalStyles.matchupRole,
+                      { color: pitcherTeamColor },
+                    ]}
+                  >
+                    Pitcher
+                  </Text>
+                  <View style={modalStyles.matchupStats}>
+                    {[
+                      { label: "IP", val: pitcherPitching.inningsPitched },
+                      { label: "R", val: pitcherPitching.runs },
+                      { label: "K", val: pitcherPitching.strikeOuts },
+                    ].map(({ label, val }) => (
+                      <View key={label} style={modalStyles.matchupStat}>
+                        <Text
+                          style={[
+                            modalStyles.matchupStatVal,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {val ?? "—"}
+                        </Text>
+                        <Text
+                          style={[
+                            modalStyles.matchupStatLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {label}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : (
+                <View
+                  style={[
+                    modalStyles.matchupPlayer,
+                    { alignItems: "flex-end" },
+                  ]}
+                />
+              )}
+            </View>
+          )}
+
+          {/* ── Pitch chart (+ optional hit data) ── */}
+          {pitches.length > 0 && (
+            <View style={modalStyles.zoneSection}>
+              <Text
+                style={[
+                  modalStyles.zoneSectionTitle,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                Pitch Locations
+              </Text>
+
+              {/* Chart row: strike zone left, hit data right */}
+              <View style={modalStyles.zoneRow}>
+                <StrikeZoneView pitches={pitches} theme={theme} />
+
+                {/* Hit data — only when present in any playEvent */}
+                {(() => {
+                  const ev = playEvents.find(
+                    (e) => e?.hitData?.launchSpeed != null,
+                  );
+                  if (!ev) return null;
+                  const hd = ev.hitData;
+                  const items = [
+                    {
+                      icon: "💨",
+                      label: "Speed",
+                      value: `${Math.round(hd.launchSpeed)} mph`,
+                    },
+                    {
+                      icon: "📐",
+                      label: "Angle",
+                      value: `${Math.round(hd.launchAngle)}°`,
+                    },
+                    {
+                      icon: "📏",
+                      label: "Dist",
+                      value: `${Math.round(hd.totalDistance)} ft`,
+                    },
+                  ];
+                  return (
+                    <View
+                      style={[
+                        modalStyles.hitDataPanel,
+                        {
+                          backgroundColor: theme.background,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          modalStyles.zoneSectionTitle,
+                          { color: theme.textSecondary, marginBottom: -2 },
+                        ]}
+                      >
+                        Hit Data
+                      </Text>
+                      {items.map(({ icon, label, value }) => (
+                        <View key={label} style={modalStyles.hitDataRow}>
+                          <Text style={modalStyles.hitDataIcon}>{icon}</Text>
+                          <View style={modalStyles.hitDataText}>
+                            <Text
+                              style={[
+                                modalStyles.hitDataValue,
+                                { color: theme.text },
+                              ]}
+                            >
+                              {value}
+                            </Text>
+                            <Text
+                              style={[
+                                modalStyles.hitDataLabel,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {label}
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })()}
+              </View>
+
+              <View style={modalStyles.legend}>
+                {[
+                  { label: "Ball", color: "#4CAF50" },
+                  { label: "Strike / Foul", color: "#f44336" },
+                  { label: "In Play", color: "#2196F3" },
+                ].map(({ label, color }) => (
+                  <View key={label} style={modalStyles.legendItem}>
+                    <View
+                      style={[
+                        modalStyles.legendDot,
+                        { backgroundColor: color },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        modalStyles.legendLabel,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* ── Play events ── */}
+          {playEvents.length > 0 && (
+            <View style={modalStyles.eventsSection}>
+              {[...playEvents].reverse().map((ev, i) => {
+                const borderCol = getEventBorderColor(ev);
+                const hasPitch = !!ev.pitchData;
+                const label = hasPitch
+                  ? buildPitchText(ev)
+                  : ev.details?.description ||
+                    ev.details?.event ||
+                    ev.type ||
+                    "";
+                if (!label) return null;
+                const speedStr =
+                  hasPitch && ev.pitchData?.startSpeed
+                    ? `${Math.round(ev.pitchData.startSpeed)} mph`
+                    : null;
+                const pitchTypeStr = ev.details?.type?.description ?? null;
+                return (
+                  <View
+                    key={i}
+                    style={[
+                      modalStyles.eventBubble,
+                      {
+                        backgroundColor:
+                          theme.surfaceSecondary ?? theme.background,
+                        borderColor: theme.border,
+                        borderLeftColor: borderCol,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[modalStyles.eventText, { color: theme.text }]}
+                    >
+                      {label}
+                    </Text>
+                    {hasPitch && (speedStr || pitchTypeStr) && (
+                      <Text
+                        style={[
+                          modalStyles.eventMeta,
+                          { color: theme.textTertiary ?? theme.textSecondary },
+                        ]}
+                      >
+                        {[pitchTypeStr, speedStr].filter(Boolean).join(" · ")}
+                      </Text>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </ScrollView>
+      </Animated.View>
+      {/* Share card modal */}
+      <ShareCardModal
+        visible={shareVisible}
+        onClose={() => setShareVisible(false)}
+        play={play}
+        awayTeam={awayTeam}
+        homeTeam={homeTeam}
+        awayColor={awayColor}
+        homeColor={homeColor}
+        playersMap={playersMap}
+        boxscore={boxscore}
+        theme={theme}
+      />
+    </Modal>
+  );
+};
+
+const modalStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  sheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    maxHeight: "85%",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: 2,
+    overflow: "hidden",
+  },
+  // draggable strip (handle + title row) — panHandlers attached here
+  dragStrip: {
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  closeBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  closeBtnText: {
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 16,
+  },
+  sheetInning: {
+    fontSize: 12,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  sheetEvent: {
+    fontSize: 20,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  sheetDesc: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  sheetScore: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 4,
+  },
+  // ── events list ──
+  eventsSection: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    gap: 6,
+  },
+  eventBubble: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderLeftWidth: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  eventText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  eventMeta: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  // ── pitch chart ──
+  zoneSection: {
+    alignItems: "center",
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  zoneRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  hitDataPanel: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+    justifyContent: "center",
+    gap: 10,
+  },
+  hitDataRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  hitDataIcon: {
+    fontSize: 16,
+    width: 22,
+    textAlign: "center",
+  },
+  hitDataText: {
+    gap: 1,
+  },
+  hitDataValue: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  hitDataLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  zoneSectionTitle: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    marginBottom: 10,
+  },
+  strikeZoneContainer: {
+    width: 160,
+    height: 160,
+    position: "relative",
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  strikeZoneOutline: {
+    position: "absolute",
+    width: 70,
+    height: 80,
+    borderWidth: 2,
+    backgroundColor: "rgba(128,128,128,0.06)",
+    borderRadius: 2,
+    top: "50%",
+    left: "50%",
+    marginLeft: -35,
+    marginTop: -40,
+  },
+  pitchDot: {
+    position: "absolute",
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  pitchNum: {
+    color: "#fff",
+    fontSize: 9,
+    fontWeight: "800",
+  },
+  legend: {
+    flexDirection: "row",
+    gap: 16,
+    marginTop: 12,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendLabel: {
+    fontSize: 11,
+  },
+  noPitches: {
+    textAlign: "center",
+    fontSize: 13,
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  // ── matchup ──
+  matchupRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
+    marginBottom: 0,
+  },
+  matchupPlayer: {
+    flex: 1,
+    alignItems: "flex-start",
+  },
+  matchupHeadshot: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
+    marginBottom: 6,
+    backgroundColor: "rgba(128,128,128,0.1)",
+  },
+  matchupName: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  matchupRole: {
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 1,
+    marginBottom: 8,
+  },
+  matchupStats: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  matchupStat: {
+    alignItems: "center",
+  },
+  matchupStatVal: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  matchupStatLabel: {
+    fontSize: 10,
+    marginTop: 1,
+  },
+  matchupDivider: {
+    width: 1,
+    height: 80,
+    marginHorizontal: 12,
+    marginTop: 4,
+  },
+  // bases in modal matchup
+  basesColumn: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 40,
+    marginHorizontal: 10,
+    gap: 5,
+  },
+  basesMiddleRow: {
+    flexDirection: "row",
+    gap: 27.5,
+  },
+  baseDiamond: {
+    width: 20,
+    height: 20,
+    borderRadius: 2,
+    transform: [{ rotate: "45deg" }],
+  },
+  base2nd: {
+    // just reuses baseDiamond
+  },
+});
+
+// ─── Luminance helper: picks black or white text for a given bg hex ───────────
+const getTextOnColor = (hex) => {
+  if (!hex || !hex.startsWith("#")) return "#ffffff";
+  const c = hex.replace("#", "");
+  const r = parseInt(c.substr(0, 2), 16) / 255;
+  const g = parseInt(c.substr(2, 2), 16) / 255;
+  const b = parseInt(c.substr(4, 2), 16) / 255;
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return lum > 0.45 ? "#000000" : "#ffffff";
+};
+
+// ─── Ball / Strike circle row ────────────────────────────────────────────────
+const CountIndicator = ({ balls, strikes, theme, onColor }) => {
+  // On scoring cards use the contrast color; otherwise use semantic colors
+  const ballColor = onColor ?? theme.success ?? "#22c55e";
+  const strikeColor = onColor ?? theme.error ?? "#ef4444";
+  const labelColor = onColor ?? theme.textSecondary;
+
+  return (
+    <View style={plStyles.countBlock}>
+      {/* Balls row */}
+      <View style={plStyles.countRow}>
+        <Text style={[plStyles.countLabel, { color: labelColor }]}>B</Text>
+        {[0, 1, 2, 3].map((i) => (
+          <View
+            key={i}
+            style={[
+              plStyles.countDot,
+              {
+                backgroundColor: i < balls ? ballColor : "transparent",
+                borderColor: ballColor,
+              },
+            ]}
+          />
+        ))}
+      </View>
+      {/* Strikes row */}
+      <View style={plStyles.countRow}>
+        <Text style={[plStyles.countLabel, { color: labelColor }]}>S</Text>
+        {[0, 1, 2].map((i) => (
+          <View
+            key={i}
+            style={[
+              plStyles.countDot,
+              {
+                backgroundColor: i < strikes ? strikeColor : "transparent",
+                borderColor: strikeColor,
+              },
+            ]}
+          />
+        ))}
+      </View>
+    </View>
+  );
+};
+
+// ─── Plays panel ─────────────────────────────────────────────────────────────
+const PlaysPanel = ({
+  allPlays,
+  awayTeam,
+  homeTeam,
+  awayColor,
+  homeColor,
+  playersMap,
+  boxscore,
+  theme,
+}) => {
+  const [selectedPlay, setSelectedPlay] = useState(null);
+
+  // Innings sorted descending (most recent first)
+  const innings = useMemo(() => {
+    return [
+      ...new Set((allPlays ?? []).map((p) => p?.about?.inning).filter(Boolean)),
+    ].sort((a, b) => b - a);
+  }, [allPlays]);
+
+  // Auto-select the most recent inning on load / when innings change
+  const [inningFilter, setInningFilter] = useState(null);
+  useEffect(() => {
+    if (innings.length > 0) {
+      setInningFilter((prev) =>
+        prev == null || !innings.includes(prev) ? innings[0] : prev,
+      );
+    }
+  }, [innings]);
+
+  const plays = useMemo(() => {
+    if (inningFilter == null) return [];
+    return [...(allPlays ?? [])]
+      .filter((p) => p?.about?.inning === inningFilter)
+      .reverse();
+  }, [allPlays, inningFilter]);
+
+  return (
+    <View style={{ paddingBottom: 24 }}>
+      {/* ── Inning filter ── styled like the Away/Home section toggle */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={plStyles.filterScroll}
+        contentContainerStyle={plStyles.filterRow}
+      >
+        {innings.map((item) => {
+          const active = inningFilter === item;
+          return (
+            <TouchableOpacity
+              key={String(item)}
+              onPress={() => setInningFilter(item)}
+              style={[plStyles.filterChip, active && plStyles.filterChipActive]}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  plStyles.filterChipLabel,
+                  {
+                    color: active ? theme.text : theme.textSecondary,
+                  },
+                ]}
+              >
+                {`Inn. ${item}`}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* ── Play list ── */}
+      {plays.length === 0 ? (
+        <Text style={[plStyles.empty, { color: theme.textSecondary }]}>
+          No plays available.
+        </Text>
+      ) : (
+        plays.map((play, idx) => {
+          const isTop = play?.about?.isTopInning !== false;
+          const teamColor = isTop ? awayColor : homeColor;
+          const teamAbbr = isTop
+            ? (awayTeam?.abbreviation ?? "")
+            : (homeTeam?.abbreviation ?? "");
+          const inning = play?.about?.inning;
+          const event = play?.result?.event ?? "";  // Resolve batter + pitcher from playersMap
+          const batterId = play?.matchup?.batter?.id;
+          const pitcherId = play?.matchup?.pitcher?.id;
+          const batterInfo = playersMap?.[`ID${batterId}`] ?? null;
+          const pitcherInfo = playersMap?.[`ID${pitcherId}`] ?? null;
+          const description = play?.result?.description ?? `${batterInfo?.fullName ?? "Batter"} vs ${pitcherInfo?.fullName ?? "Pitcher"}`;
+          const isScoringPlay = play?.about?.isScoringPlay === true;
+          const awayScore = play?.result?.awayScore;
+          const homeScore = play?.result?.homeScore;
+          const balls = play?.count?.balls ?? 0;
+          const strikes = play?.count?.strikes ?? 0;
+          const outs = play?.count?.outs;
+
+          // Scoring plays: fill card with team color, compute contrast text
+          const onColor = isScoringPlay ? getTextOnColor(teamColor) : null;
+          const cardBg = isScoringPlay ? teamColor : theme.surface;
+          const cardBorderColor = isScoringPlay ? teamColor : theme.border;
+          const cardBorderLeftColor = isScoringPlay ? teamColor : teamColor;
+
+          const primaryText = onColor ?? theme.text;
+          const secondaryText = onColor ? `${onColor}cc` : theme.textSecondary;
+          const tertiaryText = onColor ? `${onColor}99` : theme.textTertiary;
+
+          return (
+            <TouchableOpacity
+              key={idx}
+              onPress={() => setSelectedPlay(play)}
+              activeOpacity={0.75}
+            >
+              <View
+                style={[
+                  plStyles.playCard,
+                  {
+                    backgroundColor: cardBg,
+                    borderColor: cardBorderColor,
+                    borderLeftColor: cardBorderLeftColor,
+                  },
+                ]}
+              >
+                {/* Header row */}
+                <View style={plStyles.playHeader}>
+                  <View style={plStyles.playMeta}>
+                    <Text
+                      style={[
+                        plStyles.playInning,
+                        { color: isScoringPlay ? onColor : theme.text },
+                      ]}
+                    >
+                      {isTop ? "▲" : "▼"} {toOrdinal(inning)}
+                    </Text>
+                    {!!teamAbbr && (
+                      <Text
+                        style={[plStyles.playTeam, { color: secondaryText }]}
+                      >
+                        {teamAbbr}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={plStyles.playRight}>
+                    {isScoringPlay && (
+                      <Text
+                        style={[
+                          plStyles.scoringBadge,
+                          { color: isScoringPlay ? onColor : teamColor },
+                        ]}
+                      >
+                        SCORES
+                      </Text>
+                    )}
+                    {outs != null && (
+                      <Text
+                        style={[plStyles.outsLabel, { color: tertiaryText }]}
+                      >
+                        {outs} {outs === 1 ? "out" : "outs"}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                {/* Event */}
+                {!!event && (
+                  <Text style={[plStyles.eventLabel, { color: primaryText }]}>
+                    {event}
+                  </Text>
+                )}
+
+                {/* Description */}
+                {!!description && (
+                  <Text
+                    style={[plStyles.description, { color: secondaryText }]}
+                  >
+                    {description}
+                  </Text>
+                )}
+
+                {/* Bottom row: score stack + count indicator */}
+                <View style={plStyles.bottomRow}>
+                  {/* Score stack */}
+                  {awayScore != null && homeScore != null && (
+                    <View style={plStyles.scoreBlock}>
+                      <View style={plStyles.scoreTeamRow}>
+                        <Text
+                          style={[
+                            plStyles.scoreAbbr,
+                            {
+                              color: isScoringPlay ? `${onColor}bb` : awayColor,
+                            },
+                          ]}
+                        >
+                          {awayTeam?.abbreviation ?? "Away"}
+                        </Text>
+                        <Text
+                          style={[plStyles.scoreNum, { color: primaryText }]}
+                        >
+                          {awayScore}
+                        </Text>
+                      </View>
+                      <View style={plStyles.scoreTeamRow}>
+                        <Text
+                          style={[
+                            plStyles.scoreAbbr,
+                            {
+                              color: isScoringPlay ? `${onColor}bb` : homeColor,
+                            },
+                          ]}
+                        >
+                          {homeTeam?.abbreviation ?? "Home"}
+                        </Text>
+                        <Text
+                          style={[plStyles.scoreNum, { color: primaryText }]}
+                        >
+                          {homeScore}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Bases (small) */}
+                  <View style={plStyles.basesSmall}>
+                    <View
+                      style={[
+                        plStyles.baseDiamondSmall,
+                        play?.matchup?.postOnSecond
+                          ? [
+                              plStyles.baseOccupied,
+                              {
+                                backgroundColor: isScoringPlay
+                                  ? primaryText
+                                  : teamColor,
+                              },
+                            ]
+                          : [plStyles.baseEmpty, { borderColor: tertiaryText }],
+                      ]}
+                    />
+                    <View style={plStyles.basesSmallRow}>
+                      <View
+                        style={[
+                          plStyles.baseDiamondSmall,
+                          play?.matchup?.postOnThird
+                            ? [
+                                plStyles.baseOccupied,
+                                {
+                                  backgroundColor: isScoringPlay
+                                    ? primaryText
+                                    : teamColor,
+                                },
+                              ]
+                            : [
+                                plStyles.baseEmpty,
+                                { borderColor: tertiaryText },
+                              ],
+                        ]}
+                      />
+                      <View
+                        style={[
+                          plStyles.baseDiamondSmall,
+                          play?.matchup?.postOnFirst
+                            ? [
+                                plStyles.baseOccupied,
+                                {
+                                  backgroundColor: isScoringPlay
+                                    ? primaryText
+                                    : teamColor,
+                                },
+                              ]
+                            : [
+                                plStyles.baseEmpty,
+                                { borderColor: tertiaryText },
+                              ],
+                        ]}
+                      />
+                    </View>
+                  </View>
+
+                  {/* Count indicator */}
+                  <CountIndicator
+                    balls={balls}
+                    strikes={strikes}
+                    theme={theme}
+                    onColor={onColor}
+                  />
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        })
+      )}
+      {/* Play detail modal */}
+      <PlayDetailModal
+        play={selectedPlay}
+        awayTeam={awayTeam}
+        homeTeam={homeTeam}
+        awayColor={awayColor}
+        homeColor={homeColor}
+        playersMap={playersMap}
+        boxscore={boxscore}
+        theme={theme}
+        visible={selectedPlay != null}
+        onClose={() => setSelectedPlay(null)}
+      />
+    </View>
+  );
+};
+
+const plStyles = StyleSheet.create({
+  // ── filter ──
+  filterScroll: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    marginBottom: 4,
+    borderRadius: 10,
+    backgroundColor: "rgba(128,128,128,0.1)",
+    padding: 3,
+  },
+  filterRow: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  filterChip: {
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  filterChipActive: {
+    backgroundColor: "rgba(128,128,128,0.25)",
+  },
+  filterChipLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  // ── play cards ──
+  playCard: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderLeftWidth: 4,
+    padding: 12,
+  },
+  playHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  playMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  playInning: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  playTeam: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  playRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  scoringBadge: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  outsLabel: {
+    fontSize: 10,
+  },
+  eventLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  description: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  // ── bottom row: score + count ──
+  bottomRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    marginTop: 8,
+  },
+  scoreBlock: {
+    gap: 4,
+  },
+  scoreTeamRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  scoreAbbr: {
+    fontSize: 11,
+    fontWeight: "700",
+    width: 28,
+  },
+  scoreNum: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  // ── count indicator ──
+  countBlock: {
+    alignItems: "flex-end",
+    gap: 5,
+  },
+  countRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  countLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    width: 10,
+    marginRight: 2,
+  },
+  countDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    borderWidth: 1.5,
+  },
+  // ── misc ──
+  empty: {
+    textAlign: "center",
+    marginTop: 32,
+    fontSize: 14,
+  },
+  // bases (small) in play card
+  basesSmall: {
+    alignItems: "center",
+    gap: 3,
+    marginBottom: 6,
+  },
+  basesSmallRow: {
+    flexDirection: "row",
+    gap: 15,
+  },
+  baseDiamondSmall: {
+    width: 10,
+    height: 10,
+    borderRadius: 0.5,
+    transform: [{ rotate: "45deg" }],
+  },
+  baseOccupied: {
+    // backgroundColor applied inline
+  },
+  baseEmpty: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+  },
+});
+
+// Short game time: "Mar 3 · 8:08 PM"
+const fmtGameTime = (isoString) => {
+  if (!isoString) return null;
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return null;
+  const yr = d.getUTCFullYear();
+  const march1 = new Date(Date.UTC(yr, 2, 1));
+  const edtStart = new Date(
+    Date.UTC(yr, 2, 8 + ((7 - march1.getUTCDay()) % 7), 7),
+  );
+  const nov1 = new Date(Date.UTC(yr, 10, 1));
+  const edtEnd = new Date(
+    Date.UTC(yr, 10, 1 + ((7 - nov1.getUTCDay()) % 7), 6),
+  );
+  const offsetMs = d >= edtStart && d < edtEnd ? -4 * 3600000 : -5 * 3600000;
+  const local = new Date(d.getTime() + offsetMs);
+  const MONTHS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  const month = MONTHS[local.getUTCMonth()];
+  const day = local.getUTCDate();
+  let hr = local.getUTCHours();
+  const min = local.getUTCMinutes().toString().padStart(2, "0");
+  const ampm = hr >= 12 ? "PM" : "AM";
+  hr = hr % 12 || 12;
+  return `${month} ${day} \u00b7 ${hr}:${min} ${ampm}`;
+};
+
+// ─── Center status badge ──────────────────────────────────────────────────────
+const StatusBadge = ({ status, linescore, gameDateTime, theme }) => {
+  const state = status?.detailedState || "";
+  const isLive = !["S", "P", "D", "C", "O", "F", "Q", "R"].includes(
+    status?.codedGameState,
+  );
+  const inning = linescore?.currentInning;
+  const inningState = linescore?.inningState;
+  const gameTimeStr = fmtGameTime(gameDateTime);
+
+  let topLabel = state;
+  let bottomLabel = "";
+
+  if (isLive && inning) {
+    topLabel = state.startsWith("In Progress") ? "In Progress" : state;
+    bottomLabel = "";
+  } else if (state === "Final") {
+    topLabel = "Final";
+    if (inning && inning !== 9) bottomLabel = `F/${inning}`;
+  }
+
+  return (
+    <View style={styles.statusBadge}>
+      {isLive && inning != null && (
+        <Text style={[styles.inningLabel, { color: theme.text }]}>
+          {linescore?.isTopInning === false ? "Bot" : "Top"} {toOrdinal(inning)}
+        </Text>
+      )}
+      {!isLive && !!gameTimeStr && (
+        <Text
+          style={[styles.gameTimeLabel, { color: theme.text }]}
+          numberOfLines={1}
+        >
+          {gameTimeStr}
+        </Text>
+      )}
+      <Text
+        style={[
+          styles.statusTop,
+          { color: isLive ? theme.success : theme.textSecondary },
+        ]}
+      >
+        {topLabel || "—"}
+      </Text>
+      {!!bottomLabel && (
+        <Text style={[styles.statusBottom, { color: theme.textSecondary }]}>
+          {bottomLabel}
+        </Text>
+      )}
+    </View>
+  );
+};
+
+// ─── Game Info helpers ──────────────────────────────────────────────────────
+const utcToEastern = (isoString) => {
+  if (!isoString) return null;
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return null;
+  // Determine US Eastern offset: EDT starts 2nd Sun of March, EST resumes 1st Sun of Nov.
+  const yr = d.getUTCFullYear();
+  // 2nd Sunday of March
+  const march1 = new Date(Date.UTC(yr, 2, 1));
+  const edtStart = new Date(
+    Date.UTC(yr, 2, 8 + ((7 - march1.getUTCDay()) % 7), 7),
+  ); // 2:00 AM EST → 7:00 UTC
+  // 1st Sunday of November
+  const nov1 = new Date(Date.UTC(yr, 10, 1));
+  const edtEnd = new Date(
+    Date.UTC(yr, 10, 1 + ((7 - nov1.getUTCDay()) % 7), 6),
+  ); // 2:00 AM EDT → 6:00 UTC
+  const offsetMs = d >= edtStart && d < edtEnd ? -4 * 3600000 : -5 * 3600000;
+  const suffix = d >= edtStart && d < edtEnd ? "EDT" : "EST";
+  const local = new Date(d.getTime() + offsetMs);
+  const MONTHS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  const month = MONTHS[local.getUTCMonth()];
+  const day = local.getUTCDate();
+  const year = local.getUTCFullYear();
+  let hr = local.getUTCHours();
+  const min = local.getUTCMinutes().toString().padStart(2, "0");
+  const ampm = hr >= 12 ? "PM" : "AM";
+  hr = hr % 12 || 12;
+  return `${month} ${day}, ${year} @ ${hr}:${min} ${ampm} ${suffix}`;
+};
+
+const fmtDuration = (mins) => {
+  if (mins == null) return null;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 ? `${h}hr ${m}m` : `${m}m`;
+};
+
+// ─── Game Info Bubble ────────────────────────────────────────────────────────
+const OFFICIAL_TYPE_LABEL = {
+  "Home Plate": "Home",
+  "First Base": "1st Base",
+  "Second Base": "2nd Base",
+  "Third Base": "3rd Base",
+};
+const OFFICIAL_TYPE_ORDER = [
+  "Home Plate",
+  "First Base",
+  "Second Base",
+  "Third Base",
+];
+
+const GameInfoBubble = ({ gameData, officials, theme }) => {
+  const venueObj = gameData?.venue ?? {};
+  const venueName = venueObj?.name ?? null;
+  const fi = venueObj?.fieldInfo ?? {};
+  const weather = gameData?.weather ?? {};
+  const gameInfo = gameData?.gameInfo ?? {};
+
+  const hasVenue = !!(venueName || Object.keys(fi).length);
+  const hasWeather = !!(weather.condition || weather.temp || weather.wind);
+  const hasGame = !!(
+    gameInfo.firstPitch ||
+    gameInfo.gameDurationMinutes != null ||
+    gameInfo.attendance != null
+  );
+  const officialList = (officials ?? []).filter(
+    (o) => OFFICIAL_TYPE_LABEL[o?.officialType],
+  );
+  const hasOfficials = officialList.length > 0;
+
+  if (!hasVenue && !hasWeather && !hasGame && !hasOfficials) return null;
+
+  const borderCol = theme.border ?? "rgba(128,128,128,0.2)";
+  const divider = (
+    <View style={[giStyles.divider, { backgroundColor: borderCol }]} />
+  );
+
+  const StatCell = ({ label, value }) => (
+    <View style={giStyles.statCell}>
+      <Text style={[giStyles.statVal, { color: theme.text }]} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text style={[giStyles.statLbl, { color: theme.textSecondary }]}>
+        {label}
+      </Text>
+    </View>
+  );
+
+  const SectionHeader = ({ title }) => (
+    <Text style={[giStyles.sectionHdr, { color: theme.textSecondary }]}>
+      {title.toUpperCase()}
+    </Text>
+  );
+
+  return (
+    <View style={[giStyles.bubble, { backgroundColor: theme.surface }]}>
+      {/* ── Header ── */}
+      <View style={[giStyles.header, { borderBottomColor: borderCol }]}>
+        <Text style={[giStyles.headerTitle, { color: theme.text }]}>
+          Game Info
+        </Text>
+      </View>
+
+      {/* ── Venue ── */}
+      {hasVenue && (
+        <View style={giStyles.section}>
+          <SectionHeader title="Venue" />
+          {!!venueName && (
+            <Text
+              style={[giStyles.venueName, { color: theme.text }]}
+              numberOfLines={2}
+            >
+              {venueName}
+            </Text>
+          )}
+          {/* Row 1: Capacity / Turf / Roof */}
+          {(fi.capacity != null || fi.turfType || fi.roofType) && (
+            <View style={giStyles.statRow}>
+              {fi.capacity != null && (
+                <StatCell
+                  label="Capacity"
+                  value={fi.capacity.toLocaleString()}
+                />
+              )}
+              {!!fi.turfType && (
+                <StatCell label="Surface" value={fi.turfType} />
+              )}
+              {!!fi.roofType && <StatCell label="Roof" value={fi.roofType} />}
+            </View>
+          )}
+          {/* Row 2: field distances (leftLine - left - center - right - rightLine) */}
+          {(fi.leftLine != null ||
+            fi.left != null ||
+            fi.center != null ||
+            fi.right != null ||
+            fi.rightLine != null) && (
+            <View style={[giStyles.statRow, { marginTop: 8 }]}>
+              {fi.leftLine != null && (
+                <StatCell label="LF Line" value={`${fi.leftLine}ft`} />
+              )}
+              {fi.left != null && (
+                <StatCell label="LF" value={`${fi.left}ft`} />
+              )}
+              {fi.center != null && (
+                <StatCell label="CF" value={`${fi.center}ft`} />
+              )}
+              {fi.right != null && (
+                <StatCell label="RF" value={`${fi.right}ft`} />
+              )}
+              {fi.rightLine != null && (
+                <StatCell label="RF Line" value={`${fi.rightLine}ft`} />
+              )}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* ── Weather ── */}
+      {hasVenue && hasWeather && divider}
+      {hasWeather && (
+        <View style={giStyles.section}>
+          <SectionHeader title="Weather" />
+          <View style={giStyles.statRow}>
+            {!!weather.condition && (
+              <StatCell label="Condition" value={weather.condition} />
+            )}
+            {!!weather.temp && (
+              <StatCell label="Temp" value={`${weather.temp}°F`} />
+            )}
+            {!!weather.wind && <StatCell label="Wind" value={weather.wind} />}
+          </View>
+        </View>
+      )}
+
+      {/* ── Game Info ── */}
+      {(hasVenue || hasWeather) && hasGame && divider}
+      {hasGame && (
+        <View style={giStyles.section}>
+          <SectionHeader title="Game" />
+          {!!gameInfo.firstPitch && (
+            <View style={giStyles.fullRowCentered}>
+              <Text style={[giStyles.statLbl, { color: theme.textSecondary }]}>
+                First Pitch
+              </Text>
+              <Text style={[giStyles.firstPitchVal, { color: theme.text }]}>
+                {utcToEastern(gameInfo.firstPitch)}
+              </Text>
+            </View>
+          )}
+          <View
+            style={[
+              giStyles.statRow,
+              { marginTop: gameInfo.firstPitch ? 8 : 0 },
+            ]}
+          >
+            {gameInfo.gameDurationMinutes != null && (
+              <StatCell
+                label="Duration"
+                value={fmtDuration(gameInfo.gameDurationMinutes)}
+              />
+            )}
+            {gameInfo.attendance != null && (
+              <StatCell
+                label="Attendance"
+                value={gameInfo.attendance.toLocaleString()}
+              />
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* ── Officials ── */}
+      {(hasVenue || hasWeather || hasGame) && hasOfficials && divider}
+      {hasOfficials && (
+        <View style={giStyles.section}>
+          <SectionHeader title="Umpires" />
+          <View style={giStyles.officialsRow}>
+            {OFFICIAL_TYPE_ORDER.map((type) => {
+              const entry = officialList.find((o) => o.officialType === type);
+              if (!entry) return null;
+              const words = (entry.official?.fullName ?? "—").split(" ");
+              const split = Math.ceil(words.length / 2);
+              const line1 = words.slice(0, split).join(" ");
+              const line2 = words.slice(split).join(" ") || " ";
+              return (
+                <View key={type} style={giStyles.officialCell}>
+                  <Text style={[giStyles.officialName, { color: theme.text }]}>
+                    {line1}
+                  </Text>
+                  <Text style={[giStyles.officialName, { color: theme.text }]}>
+                    {line2}
+                  </Text>
+                  <Text
+                    style={[
+                      giStyles.officialType,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {OFFICIAL_TYPE_LABEL[type]}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+};
+
+const giStyles = StyleSheet.create({
+  bubble: {
+    borderRadius: 12,
+    overflow: "hidden",
+    marginBottom: 16,
+  },
+  header: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  section: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  sectionHdr: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 8,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+  },
+  venueName: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 10,
+    lineHeight: 18,
+  },
+  statRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+  },
+  statCell: {
+    flex: 1,
+    minWidth: 52,
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  statVal: {
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  statLbl: {
+    fontSize: 10,
+    fontWeight: "500",
+    textAlign: "center",
+    marginTop: 2,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  fullRow: {
+    marginBottom: 2,
+  },
+  fullRowCentered: {
+    marginBottom: 2,
+    alignItems: "center",
+  },
+  firstPitchVal: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 2,
+    textAlign: "center",
+  },
+  officialsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 4,
+  },
+  officialCell: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  officialName: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 15,
+  },
+  officialType: {
+    fontSize: 10,
+    fontWeight: "500",
+    textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+    marginTop: 4,
+  },
+});
+
+// ─── Linescore Bubble ───────────────────────────────────────────────────────
+const LinescoreBubble = ({
+  linescore,
+  awayTeam,
+  homeTeam,
+  awayColor,
+  homeColor,
+  theme,
+}) => {
+  const innings = linescore?.innings ?? [];
+  const awayTotals = linescore?.teams?.away ?? {};
+  const homeTotals = linescore?.teams?.home ?? {};
+
+  if (innings.length === 0) return null;
+
+  const CELL_W = 30; // minimum inning cell width
+  const ROW_H = 34; // row height
+  const LABEL_W = 44; // team abbr column width
+  const TOTAL_W = 32; // R/H/E column width
+
+  // Measure the available width for the innings area so we can stretch cells
+  // to fill when there aren't enough innings to make it scrollable.
+  const [availableW, setAvailableW] = React.useState(0);
+  const cellW =
+    availableW > 0 && innings.length > 0
+      ? Math.max(CELL_W, availableW / innings.length)
+      : CELL_W;
+
+  const headerBg = theme.surfaceSecondary ?? "rgba(128,128,128,0.08)";
+  const borderCol = theme.border ?? "rgba(128,128,128,0.2)";
+
+  return (
+    <View style={[lsStyles.bubble, { backgroundColor: theme.surface }]}>
+      {/* ── outer row: [fixed left] [scrollable innings] [fixed totals] ── */}
+      <View style={{ flexDirection: "row" }}>
+        {/* ── Fixed left: team abbreviations ── */}
+        <View style={{ width: LABEL_W }}>
+          {/* header spacer */}
+          <View
+            style={[
+              lsStyles.cell,
+              {
+                height: ROW_H,
+                borderBottomColor: borderCol,
+                backgroundColor: headerBg,
+              },
+            ]}
+          />
+          {/* away abbr */}
+          <View
+            style={[
+              lsStyles.cell,
+              {
+                height: ROW_H,
+                borderBottomColor: awayColor,
+                borderBottomWidth: 2,
+                backgroundColor: theme.surface,
+              },
+            ]}
+          >
+            <Text
+              style={[lsStyles.teamAbbr, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {awayTeam?.abbreviation ?? "AWY"}
+            </Text>
+          </View>
+          {/* home abbr */}
+          <View
+            style={[
+              lsStyles.cell,
+              {
+                height: ROW_H,
+                borderBottomColor: homeColor,
+                borderBottomWidth: 2,
+                backgroundColor: theme.surface,
+              },
+            ]}
+          >
+            <Text
+              style={[lsStyles.teamAbbr, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {homeTeam?.abbreviation ?? "HME"}
+            </Text>
+          </View>
+        </View>
+
+        {/* ── Scrollable inning columns ── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          bounces={false}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexDirection: "column" }}
+          onLayout={(e) => setAvailableW(e.nativeEvent.layout.width)}
+        >
+          {/* inning number header row */}
+          <View style={{ flexDirection: "row" }}>
+            {innings.map((inn) => (
+              <View
+                key={`hdr-${inn.num}`}
+                style={[
+                  lsStyles.cell,
+                  {
+                    width: cellW,
+                    height: ROW_H,
+                    backgroundColor: headerBg,
+                    borderBottomColor: borderCol,
+                  },
+                ]}
+              >
+                <Text
+                  style={[lsStyles.inningNum, { color: theme.textSecondary }]}
+                >
+                  {inn.num}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* away runs row */}
+          <View style={{ flexDirection: "row" }}>
+            {innings.map((inn) => (
+              <View
+                key={`away-${inn.num}`}
+                style={[
+                  lsStyles.cell,
+                  {
+                    width: cellW,
+                    height: ROW_H,
+                    borderBottomColor: awayColor,
+                    borderBottomWidth: 2,
+                  },
+                ]}
+              >
+                <Text style={[lsStyles.runsText, { color: theme.text }]}>
+                  {inn.away?.runs ?? "-"}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* home runs row */}
+          <View style={{ flexDirection: "row" }}>
+            {innings.map((inn) => (
+              <View
+                key={`home-${inn.num}`}
+                style={[
+                  lsStyles.cell,
+                  {
+                    width: cellW,
+                    height: ROW_H,
+                    borderBottomColor: homeColor,
+                    borderBottomWidth: 2,
+                  },
+                ]}
+              >
+                <Text style={[lsStyles.runsText, { color: theme.text }]}>
+                  {inn.home?.runs ?? "-"}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* ── Fixed right: R / H / E totals ── */}
+        <View style={[lsStyles.totalsSection, { borderLeftColor: borderCol }]}>
+          {/* totals header */}
+          <View
+            style={[
+              lsStyles.totalsRow,
+              {
+                height: ROW_H,
+                backgroundColor: headerBg,
+                borderBottomColor: borderCol,
+              },
+            ]}
+          >
+            {["R", "H", "E"].map((label) => (
+              <View
+                key={label}
+                style={{ width: TOTAL_W, alignItems: "center" }}
+              >
+                <Text
+                  style={[lsStyles.totalHeader, { color: theme.textSecondary }]}
+                >
+                  {label}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* away totals */}
+          <View
+            style={[
+              lsStyles.totalsRow,
+              {
+                height: ROW_H,
+                borderBottomColor: awayColor,
+                borderBottomWidth: 2,
+              },
+            ]}
+          >
+            {[
+              awayTotals.runs ?? "-",
+              awayTotals.hits ?? "-",
+              awayTotals.errors ?? "-",
+            ].map((val, i) => (
+              <View key={i} style={{ width: TOTAL_W, alignItems: "center" }}>
+                <Text style={[lsStyles.totalVal, { color: theme.text }]}>
+                  {val}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* home totals */}
+          <View
+            style={[
+              lsStyles.totalsRow,
+              {
+                height: ROW_H,
+                borderBottomColor: homeColor,
+                borderBottomWidth: 2,
+              },
+            ]}
+          >
+            {[
+              homeTotals.runs ?? "-",
+              homeTotals.hits ?? "-",
+              homeTotals.errors ?? "-",
+            ].map((val, i) => (
+              <View key={i} style={{ width: TOTAL_W, alignItems: "center" }}>
+                <Text style={[lsStyles.totalVal, { color: theme.text }]}>
+                  {val}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const lsStyles = StyleSheet.create({
+  bubble: {
+    borderRadius: 12,
+    overflow: "hidden",
+    marginBottom: 12,
+  },
+  cell: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderBottomWidth: 1,
+  },
+  teamAbbr: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+    paddingHorizontal: 4,
+    textAlign: "center",
+  },
+  inningNum: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  runsText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  totalsSection: {
+    borderLeftWidth: 1,
+    flexDirection: "column",
+  },
+  totalsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderBottomWidth: 1,
+  },
+  totalHeader: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  totalVal: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+});
+
+// ─── Team Stats Bubble ────────────────────────────────────────────────────────
+const fmtStatLabel = (key) =>
+  key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/([0-9]+)/g, " $1")
+    .trim()
+    .replace(/^\w/, (c) => c.toUpperCase());
+
+const STAT_SECTIONS = [
+  {
+    key: "batting",
+    label: "BATTING",
+    stats: [
+      { key: "hits", lowerBetter: false },
+      { key: "runs", lowerBetter: false },
+      { key: "homeRuns", lowerBetter: false },
+      { key: "rbi", lowerBetter: false },
+      { key: "avg", lowerBetter: false },
+      { key: "obp", lowerBetter: false },
+      { key: "strikeOuts", lowerBetter: true },
+      { key: "baseOnBalls", lowerBetter: false },
+      { key: "stolenBases", lowerBetter: false },
+    ],
+  },
+  {
+    key: "pitching",
+    label: "PITCHING",
+    stats: [
+      { key: "strikeOuts", lowerBetter: false },
+      { key: "baseOnBalls", lowerBetter: true },
+      { key: "hits", lowerBetter: true },
+      { key: "era", lowerBetter: true },
+      { key: "whip", lowerBetter: true },
+      { key: "strikePercentage", lowerBetter: false },
+    ],
+  },
+  {
+    key: "fielding",
+    label: "FIELDING",
+    stats: [
+      { key: "errors", lowerBetter: true },
+      { key: "assists", lowerBetter: false },
+      { key: "putOuts", lowerBetter: false },
+      { key: "stolenBases", lowerBetter: true },
+    ],
+  },
+];
+
+const TeamStatsBubble = ({
+  awayTeam,
+  homeTeam,
+  awayColor,
+  homeColor,
+  bsAwayTeam,
+  bsHomeTeam,
+  theme,
+}) => {
+  const awayTs = bsAwayTeam?.teamStats ?? {};
+  const homeTs = bsHomeTeam?.teamStats ?? {};
+
+  const sections = STAT_SECTIONS.map((sec) => {
+    const aw = awayTs[sec.key] ?? {};
+    const hm = homeTs[sec.key] ?? {};
+    const rows = sec.stats.filter(
+      (s) => aw[s.key] != null || hm[s.key] != null,
+    );
+    return { ...sec, rows, aw, hm };
+  }).filter((sec) => sec.rows.length > 0);
+
+  if (sections.length === 0) return null;
+
+  return (
+    <View style={[tsStyles.container, { backgroundColor: theme.surface }]}>
+      {sections.map((sec, si) => (
+        <View key={sec.key}>
+          {si > 0 && (
+            <View
+              style={[
+                tsStyles.sectionDivider,
+                { backgroundColor: theme.border },
+              ]}
+            />
+          )}
+
+          {/* Section header: away abbr — CATEGORY — home abbr */}
+          <View style={tsStyles.sectionHeader}>
+            <Text
+              style={[tsStyles.teamAbbr, { color: awayColor }]}
+              numberOfLines={1}
+            >
+              {awayTeam?.abbreviation ?? ""}
+            </Text>
+            <Text
+              style={[
+                tsStyles.sectionLabel,
+                { color: theme.subText ?? theme.textSecondary },
+              ]}
+            >
+              {sec.label}
+            </Text>
+            <Text
+              style={[
+                tsStyles.teamAbbr,
+                { color: homeColor, textAlign: "right" },
+              ]}
+              numberOfLines={1}
+            >
+              {homeTeam?.abbreviation ?? ""}
+            </Text>
+          </View>
+
+          {/* Stat comparison rows */}
+          {sec.rows.map((s, ri) => {
+            const aRaw = sec.aw[s.key];
+            const hRaw = sec.hm[s.key];
+            const aNum = parseFloat(aRaw) || 0;
+            const hNum = parseFloat(hRaw) || 0;
+            const total = aNum + hNum;
+
+            // awayFrac: fraction of bar filled from away (left) side
+            // lowerBetter → winning side is the one with lower value,
+            //   so give more bar space to the team with the lower value
+            let awayFrac =
+              total === 0
+                ? 0.5
+                : s.lowerBetter
+                  ? hNum / total // away lower → away gets hNum/(a+h) portion (bigger if away is smaller)
+                  : aNum / total; // higher is better → straight proportion
+
+            awayFrac = Math.max(0.05, Math.min(0.95, awayFrac));
+
+            return (
+              <View
+                key={s.key}
+                style={[tsStyles.statRow, { marginTop: ri === 0 ? 0 : 10 }]}
+              >
+                {/* Away value */}
+                <Text
+                  style={[
+                    tsStyles.statVal,
+                    { color: theme.text, textAlign: "right" },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {aRaw ?? "—"}
+                </Text>
+
+                {/* Split bar + label */}
+                <View style={tsStyles.barWrap}>
+                  <View style={tsStyles.barTrack}>
+                    <View
+                      style={[
+                        tsStyles.barSegment,
+                        { flex: awayFrac, backgroundColor: awayColor },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        tsStyles.barDivider,
+                        { backgroundColor: theme.card },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        tsStyles.barSegment,
+                        { flex: 1 - awayFrac, backgroundColor: homeColor },
+                      ]}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      tsStyles.barLabel,
+                      { color: theme.subText ?? theme.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {fmtStatLabel(s.key)}
+                  </Text>
+                </View>
+
+                {/* Home value */}
+                <Text
+                  style={[
+                    tsStyles.statVal,
+                    { color: theme.text, textAlign: "left" },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {hRaw ?? "—"}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+};
+
+const tsStyles = StyleSheet.create({
+  container: {
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+  },
+  sectionDivider: {
+    height: 1,
+    marginVertical: 14,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  teamAbbr: {
+    width: 40,
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textAlign: "center",
+  },
+  statRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  statVal: {
+    width: 40,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  barWrap: {
+    flex: 1,
+    marginHorizontal: 8,
+    alignItems: "center",
+  },
+  barTrack: {
+    flexDirection: "row",
+    width: "100%",
+    height: 8,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  barSegment: {
+    height: 8,
+  },
+  barDivider: {
+    width: 2,
+    height: 8,
+  },
+  barLabel: {
+    fontSize: 10,
+    fontWeight: "500",
+    marginTop: 3,
+  },
+});
+
+// ─── Current At-Bat Bubble ───────────────────────────────────────────────────
+const ORDINAL = (n) => {
+  if (n === 1) return "1st";
+  if (n === 2) return "2nd";
+  if (n === 3) return "3rd";
+  return `${n}th`;
+};
+
+const CurrentAtBatBubble = ({
+  currentPlay,
+  linescore,
+  playersMap,
+  boxscore,
+  awayTeam,
+  homeTeam,
+  awayColor,
+  homeColor,
+  animTrigger,
+  theme,
+}) => {
+  if (!currentPlay) return null;
+
+  const isTop =
+    currentPlay?.about?.halfInning === "top" ||
+    (currentPlay?.about?.halfInning == null &&
+      currentPlay?.about?.isTopInning !== false);
+  const teamColor = isTop ? awayColor : homeColor;
+  const batterTeamColor = isTop ? awayColor : homeColor;
+  const pitcherTeamColor = isTop ? homeColor : awayColor;
+
+  const inning = currentPlay?.about?.inning ?? null;
+  const balls = currentPlay?.count?.balls ?? 0;
+  const strikes = currentPlay?.count?.strikes ?? 0;
+  const outs = currentPlay?.count?.outs ?? 0;
+
+  const batterId = currentPlay?.matchup?.batter?.id;
+  const pitcherId = currentPlay?.matchup?.pitcher?.id;
+  const batterInfo = batterId ? (playersMap?.[`ID${batterId}`] ?? null) : null;
+  const pitcherInfo = pitcherId
+    ? (playersMap?.[`ID${pitcherId}`] ?? null)
+    : null;
+
+  const allBsPlayers = {
+    ...(boxscore?.teams?.away?.players ?? {}),
+    ...(boxscore?.teams?.home?.players ?? {}),
+  };
+  const batterBatting = allBsPlayers[`ID${batterId}`]?.stats?.batting ?? {};
+  const pitcherPitching = allBsPlayers[`ID${pitcherId}`]?.stats?.pitching ?? {};
+
+  const playEvents = currentPlay?.playEvents ?? [];
+  const pitches = playEvents.filter(
+    (e) => e?.pitchData?.coordinates?.pX != null,
+  );
+
+  // Most recent event that has a call code
+  const lastPitch = [...playEvents]
+    .reverse()
+    .find((e) => e?.details?.call?.code != null);
+  const lastCallCode = lastPitch?.details?.call?.code ?? null;
+  const lastCallLabel = lastCallCode
+    ? (BPM_CALL_LABELS[lastCallCode] ?? lastCallCode)
+    : null;
+  const lastCallColor = lastCallCode
+    ? (BPM_CALL_COLORS[lastCallCode] ?? theme.textSecondary)
+    : null;
+  const lastPitchType = lastPitch?.details?.type?.description ?? null;
+  const lastSpeed = lastPitch?.pitchData?.startSpeed ?? null;
+  const lastDesc = lastPitch?.details?.description ?? null;
+
+  // On deck / In hole from linescore.offense (the batting team)
+  const offense = linescore?.offense ?? null;
+  const onDeckId = offense?.onDeck?.id ?? null;
+  const inHoleId = offense?.inHole?.id ?? null;
+  const onDeckInfo = onDeckId ? (playersMap?.[`ID${onDeckId}`] ?? null) : null;
+  const inHoleInfo = inHoleId ? (playersMap?.[`ID${inHoleId}`] ?? null) : null;
+
+  return (
+    <View
+      style={[
+        cabStyles.container,
+        { backgroundColor: theme.surface, borderColor: teamColor },
+      ]}
+    >
+      {/* ── Header: inning label + B/S/O count ── */}
+      <View style={cabStyles.headerRow}>
+        <Text style={[cabStyles.headerTitle, { color: teamColor }]}>
+          {isTop ? "Top" : "Bot"} {inning != null ? ORDINAL(inning) : "—"}
+        </Text>
+        <View style={cabStyles.countRow}>
+          {[
+            { label: "B", value: balls, color: "#4CAF50" },
+            { label: "S", value: strikes, color: "#f44336" },
+            { label: "O", value: outs, color: theme.textSecondary },
+          ].map(({ label, value, color }) => (
+            <View key={label} style={cabStyles.countItem}>
+              <Text style={[cabStyles.countVal, { color }]}>{value}</Text>
+              <Text
+                style={[cabStyles.countLabel, { color: theme.textSecondary }]}
+              >
+                {label}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* ── Last pitch event ── */}
+      {!!lastCallLabel && (
+        <View
+          style={[
+            cabStyles.lastEventRow,
+            {
+              borderColor: theme.border,
+              backgroundColor: theme.surface ?? theme.background,
+            },
+          ]}
+        >
+          <View
+            style={[cabStyles.callBadge, { backgroundColor: lastCallColor }]}
+          >
+            <Text style={cabStyles.callBadgeText}>{lastCallCode}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            {!!lastDesc && (
+              <Text
+                style={[cabStyles.lastEventDesc, { color: theme.text }]}
+                numberOfLines={2}
+              >
+                {lastDesc}
+              </Text>
+            )}
+            {(!!lastPitchType || lastSpeed != null) && (
+              <Text
+                style={[
+                  cabStyles.lastEventMeta,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                {[
+                  lastPitchType,
+                  lastSpeed != null ? `${Math.round(lastSpeed)} mph` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* ── Matchup: batter | bases diamond | pitcher ── */}
+      <View style={cabStyles.matchupRow}>
+        {/* Batter */}
+        <View style={[cabStyles.playerCol, { alignItems: "flex-start" }]}>
+          <Image
+            source={{ uri: playerHeadshotUrl(batterId) }}
+            style={[cabStyles.headshot, { borderColor: batterTeamColor }]}
+            resizeMode="cover"
+          />
+          <Text
+            style={[cabStyles.playerName, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {shortName(batterInfo?.fullName) ?? "—"}
+          </Text>
+          <Text style={[cabStyles.playerRole, { color: batterTeamColor }]}>
+            Batter
+          </Text>
+          <View style={cabStyles.miniStats}>
+            {[
+              { label: "AB", val: batterBatting.atBats },
+              { label: "H", val: batterBatting.hits },
+              { label: "K", val: batterBatting.strikeOuts },
+            ].map(({ label, val }) => (
+              <View key={label} style={cabStyles.miniStat}>
+                <Text style={[cabStyles.miniStatVal, { color: theme.text }]}>
+                  {val ?? "—"}
+                </Text>
+                <Text
+                  style={[
+                    cabStyles.miniStatLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Bases diamond */}
+        <View style={cabStyles.basesWrap}>
+          {/* 2nd base (top) */}
+          <View
+            style={[
+              cabStyles.baseDiamond,
+              currentPlay?.matchup?.postOnSecond
+                ? {
+                    backgroundColor: teamColor,
+                    shadowColor: teamColor,
+                    shadowOpacity: 0.7,
+                    shadowRadius: 3,
+                    elevation: 3,
+                  }
+                : {
+                    backgroundColor: "transparent",
+                    borderWidth: 1.5,
+                    borderColor: theme.textSecondary,
+                  },
+            ]}
+          />
+          {/* 3rd (left) and 1st (right) */}
+          <View style={cabStyles.basesMiddleRow}>
+            <View
+              style={[
+                cabStyles.baseDiamond,
+                currentPlay?.matchup?.postOnThird
+                  ? {
+                      backgroundColor: teamColor,
+                      shadowColor: teamColor,
+                      shadowOpacity: 0.7,
+                      shadowRadius: 3,
+                      elevation: 3,
+                    }
+                  : {
+                      backgroundColor: "transparent",
+                      borderWidth: 1.5,
+                      borderColor: theme.textSecondary,
+                    },
+              ]}
+            />
+            <View
+              style={[
+                cabStyles.baseDiamond,
+                currentPlay?.matchup?.postOnFirst
+                  ? {
+                      backgroundColor: teamColor,
+                      shadowColor: teamColor,
+                      shadowOpacity: 0.7,
+                      shadowRadius: 3,
+                      elevation: 3,
+                    }
+                  : {
+                      backgroundColor: "transparent",
+                      borderWidth: 1.5,
+                      borderColor: theme.textSecondary,
+                    },
+              ]}
+            />
+          </View>
+        </View>
+
+        {/* Pitcher */}
+        <View style={[cabStyles.playerCol, { alignItems: "flex-end" }]}>
+          <Image
+            source={{ uri: playerHeadshotUrl(pitcherId) }}
+            style={[cabStyles.headshot, { borderColor: pitcherTeamColor }]}
+            resizeMode="cover"
+          />
+          <Text
+            style={[cabStyles.playerName, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {shortName(pitcherInfo?.fullName) ?? "—"}
+          </Text>
+          <Text style={[cabStyles.playerRole, { color: pitcherTeamColor }]}>
+            Pitcher
+          </Text>
+          <View style={cabStyles.miniStats}>
+            {[
+              { label: "IP", val: pitcherPitching.inningsPitched },
+              { label: "K", val: pitcherPitching.strikeOuts },
+              { label: "BB", val: pitcherPitching.baseOnBalls },
+            ].map(({ label, val }) => (
+              <View key={label} style={cabStyles.miniStat}>
+                <Text style={[cabStyles.miniStatVal, { color: theme.text }]}>
+                  {val ?? "—"}
+                </Text>
+                <Text
+                  style={[
+                    cabStyles.miniStatLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      {/* ── Pitch locations ── */}
+      {pitches.length > 0 && (
+        <View style={[cabStyles.zoneWrap, { borderTopColor: theme.border }]}>
+          <Text style={[cabStyles.zoneLabel, { color: theme.textSecondary }]}>
+            Pitch Locations
+          </Text>
+          <StrikeZoneView
+            pitches={pitches}
+            theme={theme}
+            animatedIndex={pitches.length - 1}
+            animTrigger={animTrigger}
+          />
+          <View style={cabStyles.legend}>
+            {[
+              { label: "Ball", color: "#4CAF50" },
+              { label: "Strike / Foul", color: "#f44336" },
+              { label: "In Play", color: "#2196F3" },
+            ].map(({ label, color }) => (
+              <View key={label} style={cabStyles.legendItem}>
+                <View
+                  style={[cabStyles.legendDot, { backgroundColor: color }]}
+                />
+                <Text
+                  style={[
+                    cabStyles.legendLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* ── On Deck / In Hole ── */}
+      {(!!onDeckId || !!inHoleId) && (
+        <View style={[cabStyles.nextRow, { borderTopColor: theme.border }]}>
+          {[
+            { id: onDeckId, info: onDeckInfo, label: "On Deck" },
+            { id: inHoleId, info: inHoleInfo, label: "In Hole" },
+          ].map(({ id, info, label }, idx) => (
+            <View
+              key={label}
+              style={[
+                cabStyles.nextPlayer,
+                idx === 0 && {
+                  borderRightWidth: 1,
+                  borderRightColor: theme.border,
+                },
+              ]}
+            >
+              <Image
+                source={{ uri: playerHeadshotUrl(id) }}
+                style={[
+                  cabStyles.nextHeadshot,
+                  { borderColor: batterTeamColor },
+                ]}
+                resizeMode="cover"
+              />
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[cabStyles.nextName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {shortName(info?.fullName) ?? "—"}
+                </Text>
+                <Text
+                  style={[cabStyles.nextLabel, { color: theme.textSecondary }]}
+                >
+                  {label}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
+const cabStyles = StyleSheet.create({
+  container: {
+    borderRadius: 12,
+    borderWidth: 2,
+    marginBottom: 10,
+    overflow: "hidden",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  headerTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  countRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  countItem: {
+    alignItems: "center",
+    minWidth: 24,
+  },
+  countVal: {
+    fontSize: 17,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  countLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 1,
+  },
+  lastEventRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginHorizontal: 14,
+    marginBottom: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  callBadge: {
+    marginTop: 6,
+    borderRadius: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    alignSelf: "flex-start",
+  },
+  callBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  lastEventDesc: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  lastEventMeta: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  matchupRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    marginBottom: 12,
+  },
+  playerCol: {
+    flex: 1,
+  },
+  headshot: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 2,
+    marginBottom: 4,
+  },
+  playerName: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 1,
+  },
+  playerRole: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  miniStats: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  miniStat: {
+    alignItems: "center",
+  },
+  miniStatVal: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  miniStatLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+  },
+  basesWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+    gap: 6,
+  },
+  baseDiamond: {
+    width: 18,
+    height: 18,
+    borderRadius: 2,
+    transform: [{ rotate: "45deg" }],
+  },
+  basesMiddleRow: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  zoneWrap: {
+    borderTopWidth: 1,
+    paddingTop: 12,
+    paddingBottom: 10,
+    alignItems: "center",
+  },
+  zoneLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    marginBottom: 8,
+  },
+  legend: {
+    flexDirection: "row",
+    gap: 16,
+    marginTop: 6,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendLabel: {
+    fontSize: 10,
+    fontWeight: "500",
+  },
+  nextRow: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+  },
+  nextPlayer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  nextHeadshot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+  },
+  nextName: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 1,
+  },
+  nextLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+});
+
+// ─── Win Probability Chart ────────────────────────────────────────────────────
+// WBC probability object: { amount: N, home: "46.4,49.8,...", away: "53.6,..." }
+const WinProbabilityChart = ({
+  probabilityData,
+  allPlays,
+  awayTeam,
+  homeTeam,
+  awayColor,
+  homeColor,
+  theme,
+}) => {
+  const chartData = useMemo(() => {
+    if (!probabilityData?.home || !probabilityData?.away) return null;
+    const homeArr = probabilityData.home.split(",").map(Number);
+    const awayArr = probabilityData.away.split(",").map(Number);
+    if (!homeArr.length) return null;
+
+    const total = homeArr.length;
+
+    // Build inning-label x positions by finding inning transitions in allPlays.
+    const inningLabels = [];
+    let lastInning = null;
+    const playsLen = allPlays?.length ?? 0;
+    if (playsLen > 0) {
+      allPlays.forEach((play, playIndex) => {
+        const inning = play?.about?.inning;
+        const half = play?.about?.halfInning;
+        if (inning == null || half !== "top") return;
+        if (inning !== lastInning) {
+          lastInning = inning;
+          const xPct = playsLen > 1 ? (playIndex / (playsLen - 1)) * 100 : 0;
+          const suffix =
+            inning === 1
+              ? "1st"
+              : inning === 2
+                ? "2nd"
+                : inning === 3
+                  ? "3rd"
+                  : `${inning}th`;
+          inningLabels.push({ xPct, label: suffix });
+        }
+      });
+    }
+
+    // Sample down to ≤100 points for rendering performance.
+    const maxPts = Math.min(total, 100);
+    const sampled = [];
+    if (total <= maxPts) {
+      for (let i = 0; i < total; i++)
+        sampled.push({ h: homeArr[i], a: awayArr[i] });
+    } else {
+      const step = total / maxPts;
+      for (let i = 0; i < maxPts; i++) {
+        const idx = Math.floor(i * step);
+        sampled.push({ h: homeArr[idx], a: awayArr[idx] });
+      }
+      const last = { h: homeArr[total - 1], a: awayArr[total - 1] };
+      const tail = sampled[sampled.length - 1];
+      if (tail.h !== last.h || tail.a !== last.a) sampled.push(last);
+    }
+
+    return { sampled, inningLabels };
+  }, [probabilityData, allPlays]);
+
+  if (!chartData) return null;
+  const { sampled, inningLabels } = chartData;
+  const n = sampled.length;
+
+  const homePath = sampled.reduce((p, pt, i) => {
+    const x = (i / (n - 1)) * 100;
+    const y = 100 - pt.h;
+    return p + (i === 0 ? `M${x},${y}` : ` L${x},${y}`);
+  }, "");
+  const awayPath = sampled.reduce((p, pt, i) => {
+    const x = (i / (n - 1)) * 100;
+    const y = 100 - pt.a;
+    return p + (i === 0 ? `M${x},${y}` : ` L${x},${y}`);
+  }, "");
+
+  return (
+    <View
+      style={[
+        styles.winProbContainer,
+        { backgroundColor: theme.surface, borderRadius: 12, padding: 12 },
+      ]}
+    >
+      <Text style={[styles.sectionTitle, { color: theme.text }]}>
+        Win Probability
+      </Text>
+
+      {/* Legend */}
+      <View style={styles.winProbLegend}>
+        <View style={styles.winProbLegendItem}>
+          <View
+            style={[styles.winProbLegendDot, { backgroundColor: awayColor }]}
+          />
+          <Text style={[styles.winProbLegendText, { color: theme.text }]}>
+            {awayTeam?.abbreviation ?? "Away"}
+          </Text>
+        </View>
+        <View style={styles.winProbLegendItem}>
+          <View
+            style={[styles.winProbLegendDot, { backgroundColor: homeColor }]}
+          />
+          <Text style={[styles.winProbLegendText, { color: theme.text }]}>
+            {homeTeam?.abbreviation ?? "Home"}
+          </Text>
+        </View>
+      </View>
+
+      {/* Graph */}
+      <View style={styles.winProbGraphContainer}>
+        {/* Y-axis */}
+        <View style={styles.winProbYAxis}>
+          {["100%", "75%", "50%", "25%", "0%"].map((l) => (
+            <Text
+              key={l}
+              style={[styles.winProbYLabel, { color: theme.textSecondary }]}
+            >
+              {l}
+            </Text>
+          ))}
+        </View>
+
+        {/* Chart area */}
+        <View style={styles.winProbGraphArea}>
+          {/* Grid lines */}
+          {[0, 25, 50, 75, 100].map((pct) => (
+            <View
+              key={pct}
+              style={[
+                styles.winProbGridLine,
+                {
+                  bottom: `${pct}%`,
+                  borderBottomColor: theme.textSecondary + "20",
+                },
+              ]}
+            />
+          ))}
+          {/* 50% centre line */}
+          <View
+            style={[
+              styles.winProbCentreLine,
+              { borderBottomColor: theme.textSecondary + "50" },
+            ]}
+          />
+          {/* SVG lines + fills */}
+          <View style={StyleSheet.absoluteFillObject}>
+            <Svg
+              style={StyleSheet.absoluteFillObject}
+              width="100%"
+              height="100%"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+            >
+              {sampled.map((pt, i) => {
+                if (i === 0) return null;
+                const prev = sampled[i - 1];
+                const x1 = ((i - 1) / (n - 1)) * 100;
+                const x2 = (i / (n - 1)) * 100;
+                const hY1 = 100 - prev.h;
+                const hY2 = 100 - pt.h;
+                const aY1 = 100 - prev.a;
+                const aY2 = 100 - pt.a;
+                return (
+                  <G key={i}>
+                    {aY1 < hY1 ? (
+                      <>
+                        <Path
+                          d={`M${x1},100 L${x1},${hY1} L${x2},${hY2} L${x2},100 Z`}
+                          fill={homeColor}
+                          fillOpacity="0.3"
+                        />
+                        <Path
+                          d={`M${x1},${hY1} L${x1},${aY1} L${x2},${aY2} L${x2},${hY2} Z`}
+                          fill={awayColor}
+                          fillOpacity="0.3"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <Path
+                          d={`M${x1},100 L${x1},${aY1} L${x2},${aY2} L${x2},100 Z`}
+                          fill={awayColor}
+                          fillOpacity="0.3"
+                        />
+                        <Path
+                          d={`M${x1},${aY1} L${x1},${hY1} L${x2},${hY2} L${x2},${aY2} Z`}
+                          fill={homeColor}
+                          fillOpacity="0.3"
+                        />
+                      </>
+                    )}
+                  </G>
+                );
+              })}
+              <Path
+                d={homePath}
+                fill="none"
+                stroke={homeColor}
+                strokeWidth="0.5"
+              />
+              <Path
+                d={awayPath}
+                fill="none"
+                stroke={awayColor}
+                strokeWidth="0.5"
+              />
+            </Svg>
+          </View>
+        </View>
+      </View>
+
+      {/* Inning labels */}
+      {inningLabels.length > 0 && (
+        <View style={[styles.winProbInningRow, { marginLeft: 48 }]}>
+          {inningLabels.map((lbl) => (
+            <Text
+              key={lbl.label}
+              style={[
+                styles.winProbInningLabel,
+                { color: theme.textSecondary, left: `${lbl.xPct}%` },
+              ]}
+            >
+              {lbl.label}
+            </Text>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
+// ─── Main screen ─────────────────────────────────────────────────────────────
+const GameDetailsScreen = ({ navigation, route }) => {
+  const { colors, theme, isDarkMode } = useTheme();
+  const gamePk = route?.params?.gamePk;
+
+  const [feed, setFeed] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [updateInterval, setUpdateInterval] = useState(null);
-  const [lastUpdateHash, setLastUpdateHash] = useState("");
-  const [lastPlaysHash, setLastPlaysHash] = useState("");
-  const [showStickyHeader, setShowStickyHeader] = useState(false);
-  const [activeTab, setActiveTab] = useState("stats");
-  const [playsData, setPlaysData] = useState(null);
-  const [teamStatsData, setTeamStatsData] = useState(null);
-  const [loadingPlays, setLoadingPlays] = useState(false);
-  const [loadingTeamStats, setLoadingTeamStats] = useState(false);
-  const [openPlays, setOpenPlays] = useState(new Set());
-  const [isIncrementalUpdate, setIsIncrementalUpdate] = useState(false);
-  const loadingPlaysRef = useRef(false);
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
-  const [playerModalVisible, setPlayerModalVisible] = useState(false);
-  const [playerStats, setPlayerStats] = useState(null);
-  const [loadingPlayerStats, setLoadingPlayerStats] = useState(false);
-  const [selectedStatsType, setSelectedStatsType] = useState("batting"); // 'batting' or 'pitching'
-  const [chatModalVisible, setChatModalVisible] = useState(false);
-  const [shareCardPlay, setShareCardPlay] = useState(null);
-  const [shareCardPlayer, setShareCardPlayer] = useState(null); // { player, statsType, teamName, teamLogo, teamColor }
-  const mlbPlaysShareCardRef = useRef(null);
-  const mlbPlayerShareCardRef = useRef(null);
-  const [awayRoster, setAwayRoster] = useState(null);
-  const [homeRoster, setHomeRoster] = useState(null);
-  const [loadingRoster, setLoadingRoster] = useState(false);
-  const [collapsedRosterSections, setCollapsedRosterSections] = useState({
-    awayPitchers: true,
-    awayCatchers: true,
-    awayInfielders: true,
-    awayOutfielders: true,
-    awayOthers: true,
-    homePitchers: true,
-    homeCatchers: true,
-    homeInfielders: true,
-    homeOutfielders: true,
-    homeOthers: true,
-  });
-  const [seasonStats, setSeasonStats] = useState({ away: null, home: null });
-  const [topHitters, setTopHitters] = useState({ away: [], home: [] });
-  const [probablePitcherStats, setProbablePitcherStats] = useState({
-    away: null,
-    home: null,
-  });
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const { viewerData, isJoined } = useGamePresence(gamePk);
+
+  // Streaming state
   const [streamModalVisible, setStreamModalVisible] = useState(false);
   const [currentStreamType, setCurrentStreamType] = useState("alpha1");
   const [availableStreams, setAvailableStreams] = useState({});
   const [streamUrl, setStreamUrl] = useState("");
   const [isStreamLoading, setIsStreamLoading] = useState(true);
-
-  // Streaming access check
   const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
 
-  // Game presence tracking
-  const { viewerData, isJoined } = useGamePresence(gameId);
+  // Mirror streamModalVisible into a ref so the polling interval can check it
+  // without a stale closure (same pattern as feedRef below).
+  const streamModalVisibleRef = useRef(false);
+  useEffect(() => {
+    streamModalVisibleRef.current = streamModalVisible;
+  }, [streamModalVisible]);
 
-  const scrollViewRef = useRef(null);
-  const playsScrollViewRef = useRef(null);
-  const [playsScrollPosition, setPlaysScrollPosition] = useState(0);
-  const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
+  // Mirror feed into a ref so the polling interval can read the latest value
+  // without being listed as an effect dependency (avoids restarting the timer
+  // on every data update).
+  const feedRef = useRef(null);
+  useEffect(() => {
+    feedRef.current = feed;
+  }, [feed]);
 
-  // Stream API functions
+  const loadFeed = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      setError(null);
+      try {
+        const res = await WBCService.getGameFeed(gamePk);
+        setFeed(res?.data ?? null);
+      } catch (err) {
+        console.error("WBC gameFeed error:", err);
+        if (!silent) setError("Failed to load game data.");
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [gamePk],
+  );
+
+  // Initial load
+  useEffect(() => {
+    if (gamePk) loadFeed(false);
+  }, [gamePk]);
+
+  // Auto-refresh every 5 s — only while the game is live.
+  // Silent fetch so no spinner / scroll-position reset.
+  useEffect(() => {
+    if (!gamePk) return;
+
+    const intervalId = setInterval(() => {
+      const current = feedRef.current;
+      const isLive = !["S", "P", "D", "C", "O", "F", "Q", "R"].includes(
+        current?.gameData?.status?.codedGameState,
+      );
+      if (!isLive) {
+        clearInterval(intervalId);
+        return;
+      }
+      if (streamModalVisibleRef.current) return;
+      loadFeed(true);
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [gamePk, loadFeed]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadFeed(true);
+    setRefreshing(false);
+  };
+
+  // ── Derived data ─────────────────────────────────────────────────────────
+  const gameData = feed?.gameData ?? {};
+  // linescore lives under liveData in the pruned payload
+  const linescore = feed?.liveData?.linescore ?? feed?.linescore ?? null;
+
+  const awayTeam = gameData?.teams?.away ?? {};
+  const homeTeam = gameData?.teams?.home ?? {};
+  const awayScore = linescore?.teams?.away?.runs ?? null;
+  const homeScore = linescore?.teams?.home?.runs ?? null;
+
+  const status = gameData?.status ?? {};
+  const isFinished =
+    status?.codedGameState === "F" || status?.detailedState === "Final";
+  const codedGameState = status?.codedGameState ?? "";
+  const isScheduled = ["S", "P"].includes(codedGameState);
+  const isGameFinished = ["D", "C", "O", "F", "Q", "R"].includes(
+    codedGameState,
+  );
+  const homeWinner =
+    isFinished &&
+    homeScore != null &&
+    awayScore != null &&
+    homeScore > awayScore;
+  const awayWinner =
+    isFinished &&
+    homeScore != null &&
+    awayScore != null &&
+    awayScore > homeScore;
+
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [activeTab, setActiveTab] = useState("Main");
+  const [mainTabKey, setMainTabKey] = useState(0);
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  // Increment mainTabKey every time the Main tab becomes active so the
+  // CurrentAtBatBubble pitch animation re-triggers.
+  useEffect(() => {
+    if (activeTab === "Main") {
+      setMainTabKey((k) => k + 1);
+    }
+  }, [activeTab]);
+
+  const TABS = isScheduled
+    ? ["Main", "Away", "Home"]
+    : ["Main", "Away", "Home", "Plays"];
+
+  // Reset to Main if Plays tab is active but no longer available
+  useEffect(() => {
+    if (isScheduled && activeTab === "Plays") setActiveTab("Main");
+  }, [isScheduled]);
+
+  // ── Scroll-driven animations ───────────────────────────────────────────
+  const threshold = headerHeight > 0 ? headerHeight - 40 : 120;
+  const stickyOpacity = scrollY.interpolate({
+    inputRange: [threshold, threshold + 40],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+  const gameScoreOpacity = scrollY.interpolate({
+    inputRange: [threshold, threshold + 40],
+    outputRange: [1, 0],
+    extrapolate: "clamp",
+  });
+  const stickyMiniHeight = scrollY.interpolate({
+    inputRange: [threshold, threshold + 40],
+    outputRange: [0, 54],
+    extrapolate: "clamp",
+  });
+
+  const awayColor = WBCService.getTeamColor(awayTeam?.id) || colors.primary;
+  const homeColor = WBCService.getTeamColor(homeTeam?.id) || colors.secondary;
+
+  const currentPlay = feed?.liveData?.plays?.currentPlay ?? null;
+  const gameDateTime = gameData?.datetime?.dateTime ?? null;
+
+  const boxscore = feed?.liveData?.boxscore ?? null;
+  const playersMap = gameData?.players ?? {};
+  const pitchesData = feed?.pitches ?? {};
+  const bsAwayTeam = boxscore?.teams?.away ?? null;
+  const bsHomeTeam = boxscore?.teams?.home ?? null;
+  const allPlays = feed?.liveData?.plays?.allPlays ?? [];
+
+  const venueRaw = gameData?.venue ?? null;
+  const venue =
+    typeof venueRaw === "string" ? venueRaw : (venueRaw?.name ?? null);
+
+  // ── Streaming helpers ──────────────────────────────────────────────────────
   const STREAM_API_BASE = "https://streamed.pk/api";
   let liveMatchesCache = null;
   let cacheTimestamp = 0;
@@ -184,18 +5946,13 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       }
 
       const allMatches = await response.json();
-      console.log(`Found ${allMatches.length} total live matches`);
-
-      // Filter matches by baseball
       const matches = allMatches.filter((match) => {
         const matchSport = match.sport || match.category;
         return matchSport === "baseball";
       });
-      console.log(`Filtered to ${matches.length} MLB matches`);
 
       liveMatchesCache = matches;
       cacheTimestamp = now;
-
       return matches;
     } catch (error) {
       console.error("Error fetching live matches:", error);
@@ -250,31 +6007,19 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       "Texas Rangers": "texas-rangers",
       "Toronto Blue Jays": "toronto-blue-jays",
       "Washington Nationals": "washington-nationals",
-      "American League All-Stars": "american-league-all-stars",
-      "National League All-Stars": "national-league-all-stars",
     };
 
-    if (nameMap[teamName]) {
-      return nameMap[teamName];
-    }
+    if (nameMap[teamName]) return nameMap[teamName];
 
     return teamName
       .toLowerCase()
-      .replace(/á/g, "a")
-      .replace(/é/g, "e")
-      .replace(/í/g, "i")
-      .replace(/ó/g, "o")
-      .replace(/ú/g, "u")
-      .replace(/ü/g, "u")
-      .replace(/ñ/g, "n")
-      .replace(/ç/g, "c")
-      .replace(/ß/g, "ss")
-      .replace(/ë/g, "e")
-      .replace(/ï/g, "i")
-      .replace(/ö/g, "o")
-      .replace(/ä/g, "a")
-      .replace(/å/g, "a")
-      .replace(/ø/g, "o")
+      .replace(/[áéíóúüñçßëïöäåø]/g, (c) =>
+        ({
+          á: "a", é: "e", í: "i", ó: "o", ú: "u", ü: "u",
+          ñ: "n", ç: "c", ß: "ss", ë: "e", ï: "i", ö: "o",
+          ä: "a", å: "a", ø: "o",
+        }[c] || c),
+      )
       .replace(/\s+/g, "-")
       .replace(/[^a-z0-9\-]/g, "")
       .replace(/-+/g, "-")
@@ -283,415 +6028,91 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
 
   const findMatchStreams = async (homeTeamName, awayTeamName) => {
     try {
-      console.log(`Finding streams for: ${awayTeamName} vs ${homeTeamName}`);
-
       const liveMatches = await fetchLiveMatches();
-      if (
-        !liveMatches ||
-        !Array.isArray(liveMatches) ||
-        liveMatches.length === 0
-      ) {
-        console.log("No live matches data available");
+      if (!liveMatches || !Array.isArray(liveMatches) || liveMatches.length === 0) {
         return {};
       }
 
-      // Try to find our match
       const homeNormalized = normalizeTeamName(homeTeamName).toLowerCase();
       const awayNormalized = normalizeTeamName(awayTeamName).toLowerCase();
-
-      console.log(
-        `Normalized team names: {homeNormalized: '${homeNormalized}', awayNormalized: '${awayNormalized}'}`,
-      );
-
-      // Check if both teams have the same first word (city name) - this causes confusion
       const homeFirstWord = homeNormalized.split("-")[0];
       const awayFirstWord = awayNormalized.split("-")[0];
       const hasSameCity = homeFirstWord === awayFirstWord;
 
-      console.log(
-        `Team analysis: Home first word: "${homeFirstWord}", Away first word: "${awayFirstWord}", Same city: ${hasSameCity}`,
-      );
-
       let bestMatch = null;
       let bestScore = 0;
 
-      // Quick pre-filter to reduce processing
-      const quickMatches = liveMatches
-        .slice(0, Math.min(liveMatches.length, 100))
-        .filter((match) => {
-          const title = match.title.toLowerCase();
-
-          if (hasSameCity) {
-            // If teams have same city, require BOTH full team names to be present
-            const hasHomeTeam =
-              title.includes(homeNormalized) ||
-              match.teams?.home?.name?.toLowerCase().includes(homeNormalized);
-            const hasAwayTeam =
-              title.includes(awayNormalized) ||
-              match.teams?.away?.name?.toLowerCase().includes(awayNormalized);
-            return hasHomeTeam && hasAwayTeam;
-          } else {
-            // Normal case: require BOTH teams to have some match, not just one
-            const homeHasMatch =
-              title.includes(homeNormalized.split("-")[0]) ||
-              title.includes(homeNormalized.split("-")[1] || "") ||
-              match.teams?.home?.name
-                ?.toLowerCase()
-                .includes(homeNormalized.split("-")[0]);
-            const awayHasMatch =
-              title.includes(awayNormalized.split("-")[0]) ||
-              title.includes(awayNormalized.split("-")[1] || "") ||
-              match.teams?.away?.name
-                ?.toLowerCase()
-                .includes(awayNormalized.split("-")[0]);
-
-            // Require BOTH teams to match, not just one
-            return homeHasMatch && awayHasMatch;
-          }
-        });
-
-      // If we found quick matches, prioritize them
-      const matchesToProcess =
-        quickMatches.length > 0
-          ? quickMatches
-          : liveMatches.slice(0, Math.min(liveMatches.length, 100));
-
-      console.log(
-        `Processing ${matchesToProcess.length} matches (${
-          quickMatches.length > 0 ? "pre-filtered" : "full set"
-        })`,
-      );
-
-      // Debug: Show first few matches to understand API format
-      if (liveMatches.length > 0) {
-        console.log("Sample matches from API:");
-        for (let i = 0; i < Math.min(5, liveMatches.length); i++) {
-          const match = liveMatches[i];
-          console.log(`  ${i + 1}. Title: "${match.title}"`);
-          if (match.teams) {
-            console.log(
-              `     Home: ${match.teams.home?.name}, Away: ${match.teams.away?.name}`,
-            );
-          }
-          if (match.sources) {
-            console.log(
-              `     Sources: ${match.sources.map((s) => s.source).join(", ")}`,
-            );
-          }
+      const quickMatches = liveMatches.slice(0, Math.min(liveMatches.length, 100)).filter((match) => {
+        const title = match.title.toLowerCase();
+        if (hasSameCity) {
+          return (
+            title.includes(homeNormalized) && title.includes(awayNormalized)
+          );
         }
-      }
+        const homeHasMatch =
+          title.includes(homeNormalized.split("-")[0]) ||
+          title.includes(homeNormalized.split("-")[1] || "") ||
+          match.teams?.home?.name?.toLowerCase().includes(homeNormalized.split("-")[0]);
+        const awayHasMatch =
+          title.includes(awayNormalized.split("-")[0]) ||
+          title.includes(awayNormalized.split("-")[1] || "") ||
+          match.teams?.away?.name?.toLowerCase().includes(awayNormalized.split("-")[0]);
+        return homeHasMatch && awayHasMatch;
+      });
 
-      // Process the filtered matches
-      for (let i = 0; i < matchesToProcess.length; i++) {
-        const match = matchesToProcess[i];
+      const matchesToProcess = quickMatches.length > 0 ? quickMatches : liveMatches.slice(0, 100);
 
+      for (const match of matchesToProcess) {
         if (!match.sources || match.sources.length === 0) continue;
 
         const matchTitle = match.title.toLowerCase();
         let totalScore = 0;
 
-        // Multiple matching strategies with rough/fuzzy matching
-        const strategies = [
-          // Strategy 1: Rough name matching in title (more flexible)
-          () => {
-            let score = 0;
-            const titleWords = matchTitle.split(/[\s\-]+/);
+        const titleWords = matchTitle.split(/[\s\-]+/);
+        const homeParts = homeNormalized.split("-").filter((w) => w.length > 2);
+        const awayParts = awayNormalized.split("-").filter((w) => w.length > 2);
 
-            if (hasSameCity) {
-              // For same-city teams, require both full team names to be present
-              if (
-                matchTitle.includes(homeNormalized) &&
-                matchTitle.includes(awayNormalized)
-              ) {
-                score += 1.0; // High score for exact matches
-              } else {
-                // Check for partial matches but be more strict
-                const homeParts = homeNormalized
-                  .split("-")
-                  .filter((word) => word.length > 2);
-                const awayParts = awayNormalized
-                  .split("-")
-                  .filter((word) => word.length > 2);
-
-                let homeMatches = 0;
-                let awayMatches = 0;
-
-                homeParts.forEach((part) => {
-                  if (titleWords.some((word) => word.includes(part)))
-                    homeMatches++;
-                });
-                awayParts.forEach((part) => {
-                  if (titleWords.some((word) => word.includes(part)))
-                    awayMatches++;
-                });
-
-                // Require at least 2 parts to match for each team when they have same city
-                if (homeMatches >= 2 && awayMatches >= 2) {
-                  score += 0.8;
-                } else if (homeMatches >= 1 && awayMatches >= 1) {
-                  score += 0.4;
-                }
-              }
-            } else {
-              // Normal case: check if major parts of team names appear in title
-              const homeParts = homeNormalized
-                .split("-")
-                .filter((word) => word.length > 2);
-              const awayParts = awayNormalized
-                .split("-")
-                .filter((word) => word.length > 2);
-
-              homeParts.forEach((part) => {
-                if (
-                  titleWords.some(
-                    (word) => word.includes(part) || part.includes(word),
-                  )
-                )
-                  score += 0.4;
-              });
-              awayParts.forEach((part) => {
-                if (
-                  titleWords.some(
-                    (word) => word.includes(part) || part.includes(word),
-                  )
-                )
-                  score += 0.4;
-              });
-            }
-
-            return score;
-          },
-          // Strategy 2: Check team objects if available (rough matching)
-          () => {
-            let score = 0;
-            if (match.teams) {
-              const homeApiName = match.teams.home?.name?.toLowerCase() || "";
-              const awayApiName = match.teams.away?.name?.toLowerCase() || "";
-
-              if (hasSameCity) {
-                // For same-city teams, require both API team names to match our normalized names
-                if (
-                  homeApiName.includes(homeNormalized) &&
-                  awayApiName.includes(awayNormalized)
-                ) {
-                  score += 1.2; // Very high score for exact API matches
-                } else {
-                  // Check for partial matches but be more strict
-                  const homeParts = homeNormalized
-                    .split("-")
-                    .filter((word) => word.length > 2);
-                  const awayParts = awayNormalized
-                    .split("-")
-                    .filter((word) => word.length > 2);
-
-                  let homeMatches = 0;
-                  let awayMatches = 0;
-
-                  homeParts.forEach((part) => {
-                    if (homeApiName.includes(part)) homeMatches++;
-                  });
-                  awayParts.forEach((part) => {
-                    if (awayApiName.includes(part)) awayMatches++;
-                  });
-
-                  // Require at least 2 parts to match for each team when they have same city
-                  if (homeMatches >= 2 && awayMatches >= 2) {
-                    score += 0.9;
-                  } else if (homeMatches >= 1 && awayMatches >= 1) {
-                    score += 0.5;
-                  }
-                }
-              } else {
-                // Normal case: rough matching against API team names
-                const homeParts = homeNormalized
-                  .split("-")
-                  .filter((word) => word.length > 2);
-                const awayParts = awayNormalized
-                  .split("-")
-                  .filter((word) => word.length > 2);
-
-                homeParts.forEach((part) => {
-                  if (homeApiName.includes(part)) score += 0.6;
-                });
-                awayParts.forEach((part) => {
-                  if (awayApiName.includes(part)) score += 0.6;
-                });
-              }
-            }
-            return score;
-          },
-          // Strategy 3: MLB-specific abbreviations and common names
-          () => {
-            const abbreviations = {
-              arizona: ["arizona", "diamondbacks", "arizona-diamondbacks"],
-              atlanta: ["atlanta", "braves", "atlanta-braves"],
-              baltimore: ["baltimore", "orioles", "baltimore-orioles"],
-              boston: ["boston", "red-sox", "boston-red-sox"],
-              chicago: [
-                "chicago",
-                "white-sox",
-                "cubs",
-                "chicago-white-sox",
-                "chicago-cubs",
-              ],
-              cincinnati: ["cincinnati", "reds", "cincinnati-reds"],
-              cleveland: ["cleveland", "guardians", "cleveland-guardians"],
-              colorado: ["colorado", "rockies", "colorado-rockies"],
-              detroit: ["detroit", "tigers", "detroit-tigers"],
-              houston: ["houston", "astros", "houston-astros"],
-              kansas: ["kansas", "royals", "kansas-city-royals"],
-              "los-angeles": [
-                "los-angeles",
-                "angels",
-                "dodgers",
-                "los-angeles-angels",
-                "los-angeles-dodgers",
-              ],
-              miami: ["miami", "marlins", "miami-marlins"],
-              milwaukee: ["milwaukee", "brewers", "milwaukee-brewers"],
-              minnesota: ["minnesota", "twins", "minnesota-twins"],
-              "new-york": [
-                "new-york",
-                "yankees",
-                "mets",
-                "new-york-yankees",
-                "new-york-mets",
-              ],
-              oakland: ["oakland", "athletics", "oakland-athletics"],
-              philadelphia: [
-                "philadelphia",
-                "phillies",
-                "philadelphia-phillies",
-              ],
-              pittsburgh: ["pittsburgh", "pirates", "pittsburgh-pirates"],
-              "san-diego": ["san-diego", "padres", "san-diego-padres"],
-              "san-francisco": [
-                "san-francisco",
-                "giants",
-                "san-francisco-giants",
-              ],
-              seattle: ["seattle", "mariners", "seattle-mariners"],
-              "st-louis": ["st-louis", "cardinals", "st-louis-cardinals"],
-              tampa: ["tampa", "rays", "tampa-bay-rays"],
-              texas: ["texas", "rangers", "texas-rangers"],
-              toronto: ["toronto", "blue-jays", "toronto-blue-jays"],
-              washington: ["washington", "nationals", "washington-nationals"],
-            };
-
-            let score = 0;
-            const titleWords = matchTitle.split(/[\s\-]+/);
-
-            // Check home team abbreviations
-            const homeParts = homeNormalized.split("-");
-            homeParts.forEach((part) => {
-              if (abbreviations[part]) {
-                abbreviations[part].forEach((abbr) => {
-                  if (
-                    titleWords.some(
-                      (word) => word.includes(abbr) || abbr.includes(word),
-                    )
-                  )
-                    score += 0.3;
-                });
-              }
-            });
-
-            // Check away team abbreviations
-            const awayParts = awayNormalized.split("-");
-            awayParts.forEach((part) => {
-              if (abbreviations[part]) {
-                abbreviations[part].forEach((abbr) => {
-                  if (
-                    titleWords.some(
-                      (word) => word.includes(abbr) || abbr.includes(word),
-                    )
-                  )
-                    score += 0.3;
-                });
-              }
-            });
-
-            return score;
-          },
-        ];
-
-        // Apply all strategies and sum scores
-        strategies.forEach((strategy) => {
-          totalScore += strategy();
+        homeParts.forEach((part) => {
+          if (titleWords.some((w) => w.includes(part) || part.includes(w))) totalScore += 0.4;
+        });
+        awayParts.forEach((part) => {
+          if (titleWords.some((w) => w.includes(part) || part.includes(w))) totalScore += 0.4;
         });
 
-        console.log(
-          `Match "${match.title.substring(
-            0,
-            50,
-          )}..." score: ${totalScore.toFixed(2)}`,
-        );
+        if (match.teams) {
+          const homeApiName = match.teams.home?.name?.toLowerCase() || "";
+          const awayApiName = match.teams.away?.name?.toLowerCase() || "";
+          homeParts.forEach((part) => { if (homeApiName.includes(part)) totalScore += 0.6; });
+          awayParts.forEach((part) => { if (awayApiName.includes(part)) totalScore += 0.6; });
+        }
 
         if (totalScore > bestScore) {
           bestScore = totalScore;
           bestMatch = match;
-
-          // Early exit if we find a very good match (score >= 1.0 for rough matching)
-          if (bestScore >= 1.0) {
-            console.log(
-              `Found excellent match with score ${bestScore}, stopping search early`,
-            );
-            break;
-          }
+          if (bestScore >= 1.0) break;
         }
       }
 
-      if (!bestMatch || bestScore < 0.3) {
-        console.log(
-          `No good matching live match found in API (best score: ${bestScore.toFixed(
-            2,
-          )})`,
-        );
-        console.log(`Searched for: ${homeNormalized} vs ${awayNormalized}`);
-        console.log(
-          `Processed: ${matchesToProcess.length} matches out of ${liveMatches.length} total`,
-        );
-        return {};
-      }
+      if (!bestMatch || bestScore < 0.3) return {};
 
-      console.log(
-        `Found matching match: ${bestMatch.title} (score: ${bestScore.toFixed(
-          2,
-        )})`,
-      );
-
-      // Collect only the first stream from each source (like soccer does)
       const allStreams = {};
       for (const source of bestMatch.sources) {
         try {
-          const sourceStreams = await fetchStreamsForSource(
-            source.source,
-            source.id,
-          );
-
+          const sourceStreams = await fetchStreamsForSource(source.source, source.id);
           if (sourceStreams && sourceStreams.length > 0) {
-            // Only use the first stream from each source type
             const firstStream = sourceStreams[0];
-            const sourceKey = source.source; // Use clean source name as key (admin, alpha, bravo, etc.)
-            allStreams[sourceKey] = {
+            allStreams[source.source] = {
               url: firstStream.embedUrl || firstStream.url,
               embedUrl: firstStream.embedUrl || firstStream.url,
               source: source.source,
-              title: `${
-                source.source.charAt(0).toUpperCase() + source.source.slice(1)
-              } Stream`,
+              title: `${source.source.charAt(0).toUpperCase() + source.source.slice(1)} Stream`,
             };
-            console.log(
-              `Added stream for ${source.source}:`,
-              allStreams[sourceKey],
-            );
           }
         } catch (error) {
           console.error(`Error fetching streams for ${source.source}:`, error);
         }
       }
 
-      console.log(`Final streams found:`, allStreams);
       return allStreams;
     } catch (error) {
       console.error("Error in findMatchStreams:", error);
@@ -699,899 +6120,26 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     }
   };
 
-  const generateStreamUrl = (
-    awayTeamName,
-    homeTeamName,
-    streamType = "alpha1",
-  ) => {
+  const generateStreamUrl = (awayTeamName, homeTeamName, streamType = "alpha1") => {
     const normalizedAway = normalizeTeamName(awayTeamName);
     const normalizedHome = normalizeTeamName(homeTeamName);
-
     const streamUrls = {
       alpha1: `https://weakstreams.com/mlb-live-streams/${normalizedAway}-vs-${normalizedHome}-live-stream`,
       alpha2: `https://weakstreams.com/mlb-live-streams/${normalizedHome}-vs-${normalizedAway}-live-stream`,
       bravo: `https://sportsurge.club/mlb/${normalizedAway}-vs-${normalizedHome}`,
       charlie: `https://sportshd.me/mlb/${normalizedAway}-${normalizedHome}`,
     };
-
     return streamUrls[streamType] || streamUrls.alpha1;
   };
 
-  useEffect(() => {
-    console.log(
-      "MLBGameDetailsScreen: Main useEffect triggered, gameId:",
-      gameId,
-    );
-
-    if (!gameId) {
-      Alert.alert("Error", "Game ID not provided");
-      navigation.goBack();
-      return;
-    }
-
-    loadGameDetails();
-  }, [gameId]);
-
-  // Set up live updates after gameData is loaded
-  useEffect(() => {
-    if (!gameData) return;
-
-    const isLiveGame =
-      gameData?.gameData?.status?.statusCode === "I" || // In progress
-      gameData?.gameData?.status?.detailedState === "In Progress" ||
-      gameData?.gameData?.status?.detailedState === "Manager challenge" ||
-      gameData?.gameData?.status?.codedGameState === "M"; // Manager challenge
-    console.log(
-      "MLBGameDetailsScreen: Setting up live updates, isLive:",
-      isLiveGame,
-    );
-
-    if (isLiveGame) {
-      const interval = setInterval(() => {
-        // Skip update if stream modal is open
-        if (streamModalVisible) {
-          console.log("Stream modal open, skipping MLB game update");
-          return;
-        }
-
-        console.log("MLBGameDetailsScreen: Live update tick");
-        loadLiveDataUpdate();
-      }, 2000); // Update every 2 seconds for live games
-
-      setUpdateInterval(interval);
-
-      return () => {
-        console.log("MLBGameDetailsScreen: Clearing live update interval");
-        clearInterval(interval);
-      };
-    }
-  }, [gameData]);
-
-  // Clear cache when component unmounts or gameId changes
-  useEffect(() => {
-    return () => {
-      MLBService.clearCache?.();
-    };
-  }, [gameId]);
-
-  // Refresh plays data when active tab is plays and game data changes
-  useEffect(() => {
-    console.log(
-      "MLB plays useEffect triggered - gameData:",
-      !!gameData,
-      "activeTab:",
-      activeTab,
-      "gameId:",
-      gameId,
-    );
-    if (gameData && activeTab === "plays" && gameId) {
-      console.log("Loading plays data...");
-      // Always refresh plays when switching to plays tab or when game data changes while on plays tab
-      loadPlaysData();
-    } else if (!gameData) {
-      console.log("No gameData available for plays");
-    } else if (activeTab !== "plays") {
-      console.log("Not on plays tab, current tab:", activeTab);
-    } else if (!gameId) {
-      console.log("No gameId available for plays");
-    }
-  }, [gameData, activeTab, gameId]);
-
-  // Load scheduled game data when game data is loaded and game is scheduled, pre-game, or warmup
-  useEffect(() => {
-    const status = gameData?.gameData?.status;
-    const isScheduled =
-      status?.statusCode === "S" ||
-      status?.detailedState === "Pre-Game" ||
-      status?.detailedState === "Warmup";
-
-    if (gameData && isScheduled) {
-      loadScheduledGameData();
-    }
-  }, [gameData]);
-
-  // Fetch immediately when stream modal closes
-  useEffect(() => {
-    if (streamModalVisible === false && gameData) {
-      const isLiveGame =
-        gameData?.gameData?.status?.statusCode === "I" || // In progress
-        gameData?.gameData?.status?.detailedState === "In Progress" ||
-        gameData?.gameData?.status?.detailedState === "Manager challenge" ||
-        gameData?.gameData?.status?.codedGameState === "M"; // Manager challenge
-
-      if (isLiveGame) {
-        console.log("Stream modal closed, immediately fetching MLB game data");
-        loadLiveDataUpdate();
-      }
-    }
-  }, [streamModalVisible]);
-
-  // Monitor for live updates specifically for plays
-  useEffect(() => {
-    if (gameData && activeTab === "plays") {
-      // Create a more detailed hash just for plays updates
-      const currentPlaysCount = gameData.liveData?.plays?.allPlays?.length || 0;
-      const currentPlayEvents =
-        gameData.liveData?.plays?.currentPlay?.playEvents?.length || 0;
-      const currentPlayResult =
-        gameData.liveData?.plays?.currentPlay?.result?.description || "";
-      const lastPlayId =
-        gameData.liveData?.plays?.allPlays?.[
-          gameData.liveData?.plays?.allPlays?.length - 1
-        ]?.about?.atBatIndex;
-
-      const playsHash = JSON.stringify({
-        playsCount: currentPlaysCount,
-        currentPlayEvents: currentPlayEvents,
-        currentPlayResult: currentPlayResult,
-        lastPlayId: lastPlayId,
-      });
-
-      if (playsHash !== lastPlaysHash && lastPlaysHash !== "") {
-        console.log("Plays data changed, updating incrementally...");
-
-        // Check if we have more plays than before (new plays added)
-        const existingPlaysCount = playsData?.allPlays?.length || 0;
-        if (currentPlaysCount > existingPlaysCount) {
-          // New plays added - update incrementally
-          setIsIncrementalUpdate(true);
-          updatePlaysDataIncremental(gameData.liveData?.plays);
-        } else {
-          // Play events changed for existing play - refresh all
-          setIsIncrementalUpdate(false);
-          loadPlaysData();
-        }
-      }
-      setLastPlaysHash(playsHash);
-    }
-  }, [gameData, activeTab, lastPlaysHash, playsData]);
-
-  // Preserve scroll position when plays data updates
-  useEffect(() => {
-    if (playsScrollViewRef.current && playsScrollPosition > 0 && playsData) {
-      // Small delay to ensure the content has rendered
-      setTimeout(() => {
-        playsScrollViewRef.current?.scrollTo({
-          y: playsScrollPosition,
-          animated: false,
-        });
-      }, 100);
-    }
-  }, [playsData]);
-
-  const createDataHash = (data) => {
-    if (!data) return "";
-
-    // Create a hash based on key game state data
-    const hashData = {
-      score: data.liveData?.linescore?.teams,
-      inning: data.liveData?.linescore?.currentInning,
-      inningState: data.liveData?.linescore?.inningState,
-      outs: data.liveData?.linescore?.outs,
-      balls: data.liveData?.linescore?.balls,
-      strikes: data.liveData?.linescore?.strikes,
-      status: data.gameData?.status?.detailedState,
-      playsCount: data.liveData?.plays?.allPlays?.length || 0,
-      currentPlay: data.liveData?.plays?.currentPlay?.playEvents?.length || 0,
-      currentPlayResult:
-        data.liveData?.plays?.currentPlay?.result?.description || "",
-      lastPlayTimestamp:
-        data.liveData?.plays?.allPlays?.[
-          data.liveData?.plays?.allPlays?.length - 1
-        ]?.about?.startTime,
-    };
-
-    return JSON.stringify(hashData);
-  };
-
-  const loadGameDetails = async (silentUpdate = false) => {
-    try {
-      if (!gameId) {
-        console.error("MLBGameDetailsScreen: No gameId provided");
-        return;
-      }
-
-      if (!silentUpdate) {
-        setLoading(true);
-      }
-
-      console.log(
-        "MLBGameDetailsScreen: Loading game details for gameId:",
-        gameId,
-      );
-      const data = await MLBService.getGameDetails(gameId);
-
-      // Check for changes
-      const newHash = createDataHash(data);
-      if (silentUpdate && newHash === lastUpdateHash) {
-        return; // No changes, skip update
-      }
-
-      setLastUpdateHash(newHash);
-      setGameData(data);
-    } catch (error) {
-      console.error("Error loading game details:", error);
-      if (!silentUpdate) {
-        Alert.alert("Error", "Failed to load game details");
-      }
-    } finally {
-      if (!silentUpdate) {
-        setLoading(false);
-      }
-    }
-  };
-
-  const loadLiveDataUpdate = async () => {
-    try {
-      if (!gameId) return;
-
-      console.log(
-        "MLBGameDetailsScreen: Loading live data update for gameId:",
-        gameId,
-      );
-      const data = await MLBService.getGameDetails(gameId);
-
-      // Check for changes in game data
-      const newHash = createDataHash(data);
-      if (newHash === lastUpdateHash) {
-        return; // No changes, skip update
-      }
-
-      // Only update specific live game parts to prevent full re-render
-      setGameData((prevGameData) => {
-        if (!prevGameData) return data;
-
-        return {
-          ...prevGameData,
-          liveData: {
-            ...prevGameData.liveData,
-            linescore: data.liveData?.linescore,
-            boxscore: data.liveData?.boxscore,
-            plays: data.liveData?.plays,
-          },
-          gameData: {
-            ...prevGameData.gameData,
-            status: data.gameData?.status,
-          },
-        };
-      });
-
-      setLastUpdateHash(newHash);
-
-      // Update plays data if there are changes
-      if (data.liveData?.plays) {
-        const playsHash = createDataHash(data.liveData.plays);
-        if (playsHash !== lastPlaysHash) {
-          setLastPlaysHash(playsHash);
-          updatePlaysDataIncremental(data.liveData.plays);
-        }
-      }
-    } catch (error) {
-      console.error("Error loading live data update:", error);
-      // Don't show alerts for live update failures
-    }
-  };
-
-  const loadPlaysData = async () => {
-    console.log(
-      "loadPlaysData called - gameId:",
-      gameId,
-      "loadingPlays:",
-      loadingPlays,
-      "loadingPlaysRef:",
-      loadingPlaysRef.current,
-    );
-    if (!gameId) {
-      console.log("Exiting loadPlaysData - no gameId");
-      return;
-    }
-
-    if (loadingPlaysRef.current) {
-      console.log("Exiting loadPlaysData - already loading (ref check)");
-      return;
-    }
-
-    try {
-      loadingPlaysRef.current = true;
-      setIsIncrementalUpdate(false);
-      setLoadingPlays(true);
-      console.log("Fetching plays data for gameId:", gameId);
-      const plays = await MLBService.getPlayByPlay(gameId);
-      console.log(
-        "Plays data received:",
-        !!plays,
-        plays ? Object.keys(plays).length : 0,
-        "keys",
-      );
-      setPlaysData(plays);
-      console.log("Successfully set plays data, setting loadingPlays to false");
-    } catch (error) {
-      console.error("Error loading plays:", error);
-      Alert.alert("Error", "Failed to load plays data");
-    } finally {
-      console.log("Finally block - setting loadingPlays to false");
-      loadingPlaysRef.current = false;
-      setLoadingPlays(false);
-    }
-  };
-
-  const updatePlaysDataIncremental = async (newPlaysData) => {
-    if (!newPlaysData || !playsData) {
-      // If we don't have existing data, load all plays
-      loadPlaysData();
-      return;
-    }
-
-    const newAllPlays = newPlaysData.allPlays || [];
-    const existingAllPlays = playsData.allPlays || [];
-
-    // Check if there are actually new plays
-    if (newAllPlays.length <= existingAllPlays.length) {
-      // No new plays, but still update existing play data (scores, descriptions, etc.)
-      // Create a map of existing plays by their unique identifier
-      const existingPlaysMap = new Map();
-      existingAllPlays.forEach((play, index) => {
-        const playKey = `${play.about?.atBatIndex || "unknown"}-${
-          play.about?.playIndex || 0
-        }-${play.about?.startTime || index}`;
-        existingPlaysMap.set(playKey, index);
-      });
-
-      // Update existing plays with new data
-      const updatedAllPlays = [...existingAllPlays];
-      newAllPlays.forEach((newPlay, newIndex) => {
-        const playKey = `${newPlay.about?.atBatIndex || "unknown"}-${
-          newPlay.about?.playIndex || 0
-        }-${newPlay.about?.startTime || newIndex}`;
-        const existingIndex = existingPlaysMap.get(playKey);
-        if (existingIndex !== undefined) {
-          // Update existing play with new data (scores, descriptions, etc.)
-          updatedAllPlays[existingIndex] = newPlay;
-        }
-      });
-
-      setPlaysData((prevData) => ({
-        ...prevData,
-        allPlays: updatedAllPlays,
-        currentPlay: newPlaysData.currentPlay,
-        scoringPlays: newPlaysData.scoringPlays,
-        playsByInning: newPlaysData.playsByInning,
-      }));
-      return;
-    }
-
-    // Get only the new plays (plays that weren't in the previous data)
-    const newPlays = newAllPlays.slice(existingAllPlays.length);
-    console.log(`Adding ${newPlays.length} new plays incrementally`);
-
-    // Update existing plays and add new ones
-    const existingPlaysMap = new Map();
-    existingAllPlays.forEach((play, index) => {
-      const playKey = `${play.about?.atBatIndex || "unknown"}-${
-        play.about?.playIndex || 0
-      }-${play.about?.startTime || index}`;
-      existingPlaysMap.set(playKey, index);
-    });
-
-    // Update existing plays with potentially new data
-    const updatedExistingPlays = [...existingAllPlays];
-    newAllPlays
-      .slice(0, existingAllPlays.length)
-      .forEach((newPlay, newIndex) => {
-        const playKey = `${newPlay.about?.atBatIndex || "unknown"}-${
-          newPlay.about?.playIndex || 0
-        }-${newPlay.about?.startTime || newIndex}`;
-        const existingIndex = existingPlaysMap.get(playKey);
-        if (existingIndex !== undefined) {
-          updatedExistingPlays[existingIndex] = newPlay;
-        }
-      });
-
-    // Use functional update to append new plays to updated existing array
-    setPlaysData((prevData) => ({
-      ...newPlaysData,
-      allPlays: [...updatedExistingPlays, ...newPlays],
-    }));
-
-    // Reset incremental update flag after a short delay
-    setTimeout(() => {
-      setIsIncrementalUpdate(false);
-    }, 100);
-  };
-
-  const loadTeamStats = async () => {
-    if (!gameId || loadingTeamStats) return;
-
-    try {
-      setLoadingTeamStats(true);
-      const stats = await MLBService.getTeamStats(gameId);
-      setTeamStatsData(stats);
-    } catch (error) {
-      console.error("Error loading team stats:", error);
-      Alert.alert("Error", "Failed to load team stats");
-    } finally {
-      setLoadingTeamStats(false);
-    }
-  };
-
-  const loadScheduledGameData = async () => {
-    const status = gameData?.gameData?.status;
-    const isScheduled =
-      status?.statusCode === "S" ||
-      status?.detailedState === "Pre-Game" ||
-      status?.detailedState === "Warmup";
-
-    if (!gameData || !isScheduled) return;
-
-    const awayTeamId = gameData.gameData?.teams?.away?.id;
-    const homeTeamId = gameData.gameData?.teams?.home?.id;
-
-    // Try to get probable pitchers from different possible locations
-    const awayPitcher =
-      gameData.gameData?.probablePitchers?.away ||
-      gameData.liveData?.boxscore?.teams?.away?.probablePitcher ||
-      gameData.gameData?.teams?.away?.probablePitcher;
-    const homePitcher =
-      gameData.gameData?.probablePitchers?.home ||
-      gameData.liveData?.boxscore?.teams?.home?.probablePitcher ||
-      gameData.gameData?.teams?.home?.probablePitcher;
-
-    if (!awayTeamId || !homeTeamId) return;
-
-    try {
-      setLoadingRoster(true);
-
-      // Load rosters
-      const [awayRosterData, homeRosterData] = await Promise.all([
-        MLBService.getTeamRoster(awayTeamId),
-        MLBService.getTeamRoster(homeTeamId),
-      ]);
-
-      setAwayRoster(awayRosterData);
-      setHomeRoster(homeRosterData);
-
-      // Load season stats
-      const [awaySeasonStats, homeSeasonStats] = await Promise.all([
-        MLBService.getTeamSeasonStats(awayTeamId),
-        MLBService.getTeamSeasonStats(homeTeamId),
-      ]);
-
-      setSeasonStats({ away: awaySeasonStats, home: homeSeasonStats });
-
-      // Load top hitters
-      const [awayTopHitters, homeTopHitters] = await Promise.all([
-        MLBService.getTopTeamHitters(awayTeamId),
-        MLBService.getTopTeamHitters(homeTeamId),
-      ]);
-
-      setTopHitters({ away: awayTopHitters, home: homeTopHitters });
-
-      // Load probable pitcher stats if available
-      if (awayPitcher?.id || homePitcher?.id) {
-        const [awayPitcherStats, homePitcherStats] = await Promise.all([
-          awayPitcher?.id
-            ? MLBService.getPlayerSeasonStats(awayPitcher.id)
-            : Promise.resolve(null),
-          homePitcher?.id
-            ? MLBService.getPlayerSeasonStats(homePitcher.id)
-            : Promise.resolve(null),
-        ]);
-
-        setProbablePitcherStats({
-          away: awayPitcherStats,
-          home: homePitcherStats,
-        });
-      }
-    } catch (error) {
-      console.error("Error loading scheduled game data:", error);
-    } finally {
-      setLoadingRoster(false);
-    }
-  };
-
-  const formatInning = (inning, inningState) => {
-    if (!inning) return "";
-    const ordinal = MLBService.getOrdinalSuffix(inning);
-    return inningState === "Top" ? `Top ${ordinal}` : `Bot ${ordinal}`;
-  };
-
-  const handlePlayerPress = async (player, team, statsType = "batting") => {
-    setSelectedPlayer({
-      ...player,
-      team: team,
-    });
-    setSelectedStatsType(statsType);
-    setPlayerModalVisible(true);
-    setLoadingPlayerStats(true);
-
-    try {
-      console.log(
-        "Fetching game stats for player ID:",
-        player.person?.id,
-        "in game:",
-        gameId,
-      );
-      const gameStats = await MLBService.getPlayerGameStats(
-        gameId,
-        player.person?.id,
-      );
-      console.log("Game stats received:", gameStats);
-
-      if (gameStats) {
-        setPlayerStats(gameStats);
-      } else {
-        console.log("No valid stats data received");
-        setPlayerStats(null);
-      }
-    } catch (error) {
-      console.error("Error loading player stats:", error);
-      setPlayerStats(null);
-    } finally {
-      setLoadingPlayerStats(false);
-    }
-  };
-
-  const closePlayerModal = () => {
-    setPlayerModalVisible(false);
-    setSelectedPlayer(null);
-    setPlayerStats(null);
-    setSelectedStatsType("batting");
-  };
-
-  const handleScroll = (event) => {
-    const offsetY = event.nativeEvent.contentOffset.y;
-
-    // Define the transition range - moved earlier
-    const fadeStartY = 100; // Start fading in when scrolled past this point
-    const fadeEndY = 150; // Fully visible at this point
-
-    // Calculate opacity based on scroll position within the transition range
-    let opacity = 0;
-    if (offsetY >= fadeStartY) {
-      if (offsetY >= fadeEndY) {
-        opacity = 1; // Fully visible
-      } else {
-        // Gradual transition between fadeStartY and fadeEndY
-        opacity = (offsetY - fadeStartY) / (fadeEndY - fadeStartY);
-      }
-    }
-
-    // Update state for conditional padding
-    const shouldShow = opacity > 0;
-    if (shouldShow !== showStickyHeader) {
-      setShowStickyHeader(shouldShow);
-    }
-
-    // Smoothly animate to the calculated opacity
-    Animated.timing(stickyHeaderOpacity, {
-      toValue: opacity,
-      duration: 0, // Immediate response to scroll
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const renderStickyHeader = () => {
-    if (!showStickyHeader || !gameData) return null;
-
-    const awayTeam = gameData.gameData?.teams?.away;
-    const homeTeam = gameData.gameData?.teams?.home;
-    const linescore = gameData.liveData?.linescore;
-    const status = gameData.gameData?.status;
-
-    const awayScore = linescore?.teams?.away?.runs || 0;
-    const homeScore = linescore?.teams?.home?.runs || 0;
-    const isGameFinal =
-      status?.statusCode === "F" || status?.statusCode === "O";
-    const isGameLive =
-      status?.statusCode === "I" ||
-      status?.detailedState === "In Progress" ||
-      status?.detailedState === "Manager challenge" ||
-      status?.codedGameState === "M";
-
-    const awayIsLosing = isGameFinal && awayScore < homeScore;
-    const homeIsLosing = isGameFinal && homeScore < awayScore;
-    const getStickyScoreColor = (isLosing) =>
-      isLosing ? theme.textSecondary : colors.primary;
-
-    return (
-      <Animated.View
-        style={[
-          styles.stickyHeader,
-          { backgroundColor: theme.surface, borderBottomColor: theme.border },
-          {
-            opacity: stickyHeaderOpacity,
-            transform: [
-              {
-                translateY: stickyHeaderOpacity.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [-20, 0], // Smaller, more subtle slide effect
-                }),
-              },
-            ],
-          },
-        ]}
-        pointerEvents={showStickyHeader ? "auto" : "none"}
-      >
-        {/* Away Team */}
-        <View style={styles.stickyTeamAway}>
-          <Image
-            source={{ uri: getTeamLogoUrl("mlb", awayTeam?.abbreviation) }}
-            style={styles.stickyTeamLogo}
-            defaultSource={{
-              uri: "https://via.placeholder.com/28x28?text=MLB",
-            }}
-          />
-          {isGameLive || isGameFinal ? (
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.stickyTeamScore,
-                { color: getStickyScoreColor(awayIsLosing) },
-              ]}
-            >
-              {awayScore}
-            </Text>
-          ) : (
-            ""
-          )}
-          <Text
-            allowFontScaling={false}
-            style={[
-              styles.stickyTeamName,
-              {
-                color: (() => {
-                  const mlbId = awayTeam?.id?.toString();
-                  const espnId = convertMLBIdToESPNId(mlbId) || mlbId;
-                  return isFavorite(espnId, "mlb")
-                    ? colors.primary
-                    : awayIsLosing
-                      ? theme.textSecondary
-                      : theme.text;
-                })(),
-              },
-            ]}
-          >
-            {(() => {
-              const mlbId = awayTeam?.id?.toString();
-              const espnId = convertMLBIdToESPNId(mlbId) || mlbId;
-              return (
-                isFavorite(espnId, "mlb") && (
-                  <Text
-                    allowFontScaling={false}
-                    style={{ color: colors.primary }}
-                  >
-                    ★{" "}
-                  </Text>
-                )
-              );
-            })()}
-            {awayTeam?.abbreviation || "AWAY"}
-          </Text>
-        </View>
-
-        {/* Game Status */}
-        <View style={styles.stickyStatus}>
-          {status?.statusCode === "F" ? (
-            <>
-              <Text
-                allowFontScaling={false}
-                style={[styles.stickyStatusText, { color: colors.secondary }]}
-              >
-                Final
-              </Text>
-              {gameData?.gameData?.datetime?.dateTime && (
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.stickyGameTime,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  {new Date(
-                    gameData.gameData.datetime.dateTime,
-                  ).toLocaleTimeString("en-US", {
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
-                </Text>
-              )}
-            </>
-          ) : status?.statusCode === "I" ||
-            status?.detailedState === "In Progress" ||
-            status?.detailedState === "Manager challenge" ||
-            status?.codedGameState === "M" ? (
-            <>
-              <Text
-                allowFontScaling={false}
-                style={[styles.stickyStatusText, { color: colors.primary }]}
-              >
-                {formatInning(linescore?.currentInning, linescore?.inningState)}
-              </Text>
-              <Text
-                allowFontScaling={false}
-                style={[styles.stickyClock, { color: theme.textSecondary }]}
-              >
-                {linescore?.balls || 0}-{linescore?.strikes || 0},{" "}
-                {linescore?.outs || 0} out
-                {(linescore?.outs || 0) !== 1 ? "s" : ""}
-              </Text>
-            </>
-          ) : (
-            <>
-              <Text
-                allowFontScaling={false}
-                style={[styles.stickyStatusText, { color: colors.secondary }]}
-              >
-                {status?.detailedState || "Scheduled"}
-              </Text>
-              {gameData?.gameData?.datetime?.dateTime && (
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.stickyGameTime,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  {new Date(
-                    gameData.gameData.datetime.dateTime,
-                  ).toLocaleTimeString("en-US", {
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
-                </Text>
-              )}
-            </>
-          )}
-        </View>
-
-        {/* Home Team */}
-        <View style={styles.stickyTeamHome}>
-          <Text
-            allowFontScaling={false}
-            style={[
-              styles.stickyTeamName,
-              {
-                color: (() => {
-                  const mlbId = homeTeam?.id?.toString();
-                  const espnId = convertMLBIdToESPNId(mlbId) || mlbId;
-                  return isFavorite(espnId, "mlb")
-                    ? colors.primary
-                    : homeIsLosing
-                      ? theme.textSecondary
-                      : theme.text;
-                })(),
-              },
-            ]}
-          >
-            {(() => {
-              const mlbId = homeTeam?.id?.toString();
-              const espnId = convertMLBIdToESPNId(mlbId) || mlbId;
-              return (
-                isFavorite(espnId, "mlb") && (
-                  <Text
-                    allowFontScaling={false}
-                    style={{ color: colors.primary }}
-                  >
-                    ★{" "}
-                  </Text>
-                )
-              );
-            })()}
-            {homeTeam?.abbreviation || "HOME"}
-          </Text>
-          {isGameLive || isGameFinal ? (
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.stickyTeamScore,
-                { color: getStickyScoreColor(homeIsLosing) },
-              ]}
-            >
-              {homeScore}
-            </Text>
-          ) : (
-            ""
-          )}
-          <Image
-            source={{ uri: getTeamLogoUrl("mlb", homeTeam?.abbreviation) }}
-            style={styles.stickyTeamLogo}
-            defaultSource={{
-              uri: "https://via.placeholder.com/28x28?text=MLB",
-            }}
-          />
-        </View>
-      </Animated.View>
-    );
-  };
-
-  const renderTabNavigation = () => {
-    const status = gameData?.gameData?.status;
-    // Include Pre-Game and Warmup in scheduled logic
-    const isScheduled =
-      status?.statusCode === "S" ||
-      status?.detailedState === "Pre-Game" ||
-      status?.detailedState === "Warmup";
-
-    const tabs = isScheduled
-      ? [
-          { key: "stats", label: "Stats" },
-          { key: "away", label: "Away" },
-          { key: "home", label: "Home" },
-        ]
-      : [
-          { key: "stats", label: "Stats" },
-          { key: "away", label: "Away" },
-          { key: "home", label: "Home" },
-          { key: "plays", label: "Plays" },
-        ];
-
-    return (
-      <View style={[styles.tabContainer, { backgroundColor: theme.surface }]}>
-        {tabs.map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[
-              styles.tabButton,
-              {
-                backgroundColor:
-                  activeTab === tab.key
-                    ? colors.secondary
-                    : theme.surfaceSecondary,
-              },
-              tab.key !== "plays" && { borderRightColor: theme.border },
-            ]}
-            onPress={() => {
-              setActiveTab(tab.key);
-              if (tab.key === "plays") {
-                if (!playsData) {
-                  loadPlaysData();
-                }
-              } else if (
-                (tab.key === "away" || tab.key === "home") &&
-                !teamStatsData
-              ) {
-                loadTeamStats();
-              }
-            }}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.tabText,
-                { color: activeTab === tab.key ? "#fff" : theme.text },
-              ]}
-            >
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    );
-  };
-
   const openStreamModal = async () => {
-    // Check if streaming is unlocked
-    if (!isStreamingUnlocked) {
+    const unlock = isStreamingUnlocked
+      ? true
+      : gameData?.game?.type === "S"
+        ? true
+        : false;
+
+    if (!unlock) {
       Alert.alert(
         "Streaming Locked",
         "Please enter the streaming code in Settings to access live streams.",
@@ -1600,10 +6148,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
       return;
     }
 
-    const awayTeam = gameData?.gameData?.teams?.away;
-    const homeTeam = gameData?.gameData?.teams?.home;
-
-    if (!awayTeam || !homeTeam) {
+    if (!awayTeam?.name || !homeTeam?.name) {
       Alert.alert("Error", "Team information not available");
       return;
     }
@@ -1611,33 +6156,22 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     setStreamModalVisible(true);
     setIsStreamLoading(true);
 
-    // Fetch available streams
     const streams = await findMatchStreams(homeTeam.name, awayTeam.name);
     setAvailableStreams(streams);
 
-    // Generate initial stream URL - use first available stream
     let initialUrl = "";
     let initialStreamType = "";
-
     const streamKeys = Object.keys(streams);
     if (streamKeys.length > 0) {
-      // Prioritize certain stream types if available
       const preferredOrder = ["admin", "alpha", "bravo", "charlie", "delta"];
       initialStreamType =
-        preferredOrder.find((type) => streamKeys.includes(type)) ||
-        streamKeys[0];
-
+        preferredOrder.find((type) => streamKeys.includes(type)) || streamKeys[0];
       const streamData = streams[initialStreamType];
       initialUrl = streamData.embedUrl || streamData.url || streamData;
       setCurrentStreamType(initialStreamType);
     } else {
-      // Fallback to manual URL construction
       initialStreamType = "alpha";
-      initialUrl = generateStreamUrl(
-        awayTeam.name,
-        homeTeam.name,
-        initialStreamType,
-      );
+      initialUrl = generateStreamUrl(awayTeam.name, homeTeam.name, initialStreamType);
       setCurrentStreamType(initialStreamType);
     }
 
@@ -1648,18 +6182,13 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
   const switchStream = (streamType) => {
     setCurrentStreamType(streamType);
     setIsStreamLoading(true);
-
     let newUrl = "";
     if (availableStreams[streamType]) {
       const streamData = availableStreams[streamType];
       newUrl = streamData.embedUrl || streamData.url || streamData;
     } else {
-      // Fallback to manual URL construction
-      const awayTeam = gameData?.gameData?.teams?.away;
-      const homeTeam = gameData?.gameData?.teams?.home;
       newUrl = generateStreamUrl(awayTeam?.name, homeTeam?.name, streamType);
     }
-
     setStreamUrl(newUrl);
     setTimeout(() => setIsStreamLoading(false), 1000);
   };
@@ -1671,3988 +6200,464 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
     setAvailableStreams({});
   };
 
-  const renderGameHeader = () => {
-    if (!gameData) return null;
-
-    const awayTeam = gameData.gameData?.teams?.away;
-    const homeTeam = gameData.gameData?.teams?.home;
-    const linescore = gameData.liveData?.linescore;
-    const status = gameData.gameData?.status;
-
-    const awayScore = linescore?.teams?.away?.runs || 0;
-    const homeScore = linescore?.teams?.home?.runs || 0;
-    const isGameFinal =
-      status?.statusCode === "F" || status?.statusCode === "O";
-
-    // Theme-aware color functions similar to ScoreboardScreen
-    // Enhanced color selection for scoring card with better team color handling
-    const getTeamScoringColor = (team, isLosing, context = "score") => {
-      if (!team) return colors.primary;
-
-      const teamName = team.name || team.teamName;
-      const teamColor = MLBService.getTeamColor(teamName);
-
-      // Define problematic team colors that need special handling
-      const problematicColors = {
-        // Teams with very dark colors that don't work well as text
-        "Baltimore Orioles": "#FF6600", // Use bright orange instead of black
-        "Chicago White Sox": "#C8C8C8", // Use silver instead of black
-        "San Francisco Giants": "#FF8C00", // Use orange instead of black
-        "Pittsburgh Pirates": "#FFD700", // Use gold instead of black/yellow
-        // Teams with colors too similar to background or poor contrast
-        "San Diego Padres": "#8B4513", // Use brown variant
-        "Detroit Tigers": "#FF6600", // Use orange instead of navy
-        "Cleveland Guardians": "#FF3030", // Brighter red
-        "Houston Astros": "#FF7F00", // Orange instead of navy
-        "Minnesota Twins": "#FF4444", // Brighter red instead of navy
-        "Tampa Bay Rays": "#4A90E2", // Brighter blue
-        "Colorado Rockies": "#9370DB", // Medium slate blue
-        "Seattle Mariners": "#008B8B", // Dark turquoise
-        "Toronto Blue Jays": "#1E90FF", // Dodger blue
-        "Kansas City Royals": "#4169E1", // Royal blue
-        // Adjust based on context and dark mode
-        "Los Angeles Dodgers": isDarkMode ? "#4A90E2" : "#005A9C",
-        "New York Yankees": isDarkMode ? "#6495ED" : "#003087",
-        "Chicago Cubs": isDarkMode ? "#4A90E2" : "#0E3386",
-        "New York Mets": isDarkMode ? "#FF6347" : "#FF5910",
-        "Boston Red Sox": isDarkMode ? "#FF4444" : "#BD3039",
-      };
-
-      // Use enhanced color if available, otherwise use original team color
-      const enhancedColor = problematicColors[teamName] || teamColor;
-
-      // For losing teams, use muted version in final games
-      if (isLosing && context === "score") {
-        return theme.textSecondary;
-      }
-
-      // For names, use text color for losing teams, enhanced color for others
-      if (context === "name") {
-        return isLosing ? theme.textSecondary : enhancedColor;
-      }
-
-      // Default: use enhanced team color
-      return enhancedColor;
-    };
-
-    const getScoreColor = (isLosing) =>
-      isLosing ? theme.textSecondary : colors.primary;
-    const getNameColor = (isLosing) =>
-      isLosing ? theme.textSecondary : theme.text;
-
-    const awayIsLosing = isGameFinal && awayScore < homeScore;
-    const homeIsLosing = isGameFinal && homeScore < awayScore;
-
-    // Check if game is live for stream functionality
-    const isGameLive =
-      status?.statusCode === "I" ||
-      status?.detailedState === "In Progress" ||
-      status?.detailedState === "Manager challenge" ||
-      status?.codedGameState === "M";
-
-    return (
-      <TouchableOpacity
-        style={[styles.gameHeader, { backgroundColor: theme.surface }]}
-        onPress={
-          isGameLive && isStreamingUnlocked ? openStreamModal : undefined
-        }
-        activeOpacity={isGameLive && isStreamingUnlocked ? 0.8 : 1}
-      >
-        <View style={styles.teamContainer}>
-          {/* Away Team */}
-          <View style={styles.team}>
-            {isGameLive || isGameFinal ? (
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.teamScore,
-                  { color: getScoreColor(awayIsLosing) },
-                ]}
-              >
-                {awayScore}
-              </Text>
-            ) : (
-              ""
-            )}
-            <Image
-              source={{ uri: getTeamLogoUrl("mlb", awayTeam?.abbreviation) }}
-              style={styles.teamLogo}
-              defaultSource={{
-                uri: "https://via.placeholder.com/50x50?text=MLB",
-              }}
-            />
-            <View style={styles.teamNameContainer}>
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.teamName,
-                  {
-                    color: (() => {
-                      const espnId = convertMLBIdToESPNId(
-                        awayTeam?.id?.toString(),
-                      );
-                      return isFavorite(espnId, "MLB")
-                        ? colors.primary
-                        : getNameColor(awayIsLosing);
-                    })(),
-                  },
-                ]}
-              >
-                {(() => {
-                  const espnId = convertMLBIdToESPNId(awayTeam?.id?.toString());
-                  return (
-                    isFavorite(espnId, "MLB") && (
-                      <Text
-                        allowFontScaling={false}
-                        style={{ color: colors.primary }}
-                      >
-                        ★{" "}
-                      </Text>
-                    )
-                  );
-                })()}
-                {awayTeam?.abbreviation || "AWAY"}
-              </Text>
-            </View>
-          </View>
-
-          {/* Game Status */}
-          <View style={styles.vsContainer}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.vsText, { color: theme.textSecondary }]}
-            >
-              vs
-            </Text>
-            {status?.statusCode === "F" ? (
-              <>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.gameStatus, { color: colors.secondary }]}
-                >
-                  Final
-                </Text>
-                {gameData.gameData?.datetime?.dateTime && (
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.gameTime, { color: theme.textSecondary }]}
-                  >
-                    {new Date(
-                      gameData.gameData.datetime.dateTime,
-                    ).toLocaleTimeString("en-US", {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
-                  </Text>
-                )}
-              </>
-            ) : status?.statusCode === "I" ||
-              status?.detailedState === "In Progress" ||
-              status?.detailedState === "Manager challenge" ||
-              status?.codedGameState === "M" ? (
-              <>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.gameStatus, { color: colors.secondary }]}
-                >
-                  {formatInning(
-                    linescore?.currentInning,
-                    linescore?.inningState,
-                  )}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.gameClock, { color: theme.textSecondary }]}
-                >
-                  {linescore?.balls || 0}-{linescore?.strikes || 0},{" "}
-                  {linescore?.outs || 0} out
-                  {(linescore?.outs || 0) !== 1 ? "s" : ""}
-                </Text>
-                {renderBases()}
-              </>
-            ) : (
-              <>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.gameStatus, { color: colors.secondary }]}
-                >
-                  {status?.detailedState || "Scheduled"}
-                </Text>
-                {gameData.gameData?.datetime?.dateTime && (
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.gameTime, { color: theme.textSecondary }]}
-                  >
-                    {new Date(
-                      gameData.gameData.datetime.dateTime,
-                    ).toLocaleTimeString("en-US", {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
-                  </Text>
-                )}
-              </>
-            )}
-          </View>
-
-          {/* Home Team */}
-          <View style={styles.team}>
-            {isGameLive || isGameFinal ? (
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.teamScore,
-                  { color: getScoreColor(homeIsLosing) },
-                ]}
-              >
-                {homeScore}
-              </Text>
-            ) : (
-              ""
-            )}
-            <Image
-              source={{ uri: getTeamLogoUrl("mlb", homeTeam?.abbreviation) }}
-              style={styles.teamLogo}
-              defaultSource={{
-                uri: "https://via.placeholder.com/50x50?text=MLB",
-              }}
-            />
-            <View style={styles.teamNameContainer}>
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.teamName,
-                  {
-                    color: (() => {
-                      const espnId = convertMLBIdToESPNId(
-                        homeTeam?.id?.toString(),
-                      );
-                      return isFavorite(espnId, "MLB")
-                        ? colors.primary
-                        : getNameColor(homeIsLosing);
-                    })(),
-                  },
-                ]}
-              >
-                {(() => {
-                  const espnId = convertMLBIdToESPNId(homeTeam?.id?.toString());
-                  return (
-                    isFavorite(espnId, "MLB") && (
-                      <Text
-                        allowFontScaling={false}
-                        style={{ color: colors.primary }}
-                      >
-                        ★{" "}
-                      </Text>
-                    )
-                  );
-                })()}
-                {homeTeam?.abbreviation || "HOME"}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={[styles.gameInfo, { borderTopColor: theme.border }]}>
-          <Text
-            allowFontScaling={false}
-            style={[styles.venue, { color: theme.text }]}
-          >
-            {gameData.gameData?.venue?.name || ""}
-          </Text>
-          {gameData.gameData?.datetime?.originalDate && (
-            <Text
-              allowFontScaling={false}
-              style={[styles.date, { color: theme.textSecondary }]}
-            >
-              {(() => {
-                // Parse date in a timezone-neutral way to avoid day shifting
-                const dateStr = gameData.gameData.datetime.originalDate;
-                const [year, month, day] = dateStr.split("-").map(Number);
-                const date = new Date(year, month - 1, day); // month is 0-indexed
-                return date.toLocaleDateString("en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                });
-              })()}
-            </Text>
-          )}
-          {isGameLive && isStreamingUnlocked && (
-            <Text
-              allowFontScaling={false}
-              style={[styles.streamHint, { color: colors.primary }]}
-            >
-              Tap to view streams
-            </Text>
-          )}
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderBases = () => {
-    if (!gameData?.liveData?.linescore?.offense) return null;
-
-    const offense = gameData.liveData.linescore.offense;
-    const hasFirst = !!offense.first;
-    const hasSecond = !!offense.second;
-    const hasThird = !!offense.third;
-
-    return (
-      <View style={styles.basesContainer}>
-        <View style={styles.basesDisplay}>
-          <View
-            style={[
-              styles.base,
-              styles.secondBase,
-              { backgroundColor: theme.border },
-              hasSecond && { backgroundColor: colors.primary },
-            ]}
-          />
-          <View style={styles.basesRow}>
-            <View
-              style={[
-                styles.base,
-                styles.thirdBase,
-                { backgroundColor: theme.border },
-                hasThird && { backgroundColor: colors.primary },
-              ]}
-            />
-            <View
-              style={[
-                styles.base,
-                styles.firstBase,
-                { backgroundColor: theme.border },
-                hasFirst && { backgroundColor: colors.primary },
-              ]}
-            />
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  const renderLineScore = () => {
-    if (!gameData?.liveData?.linescore) return null;
-
-    const status = gameData?.gameData?.status;
-    // Don't show line score for scheduled, pre-game, or warmup games
-    const isPreGame =
-      status?.statusCode === "S" ||
-      status?.detailedState === "Pre-Game" ||
-      status?.detailedState === "Warmup";
-
-    if (isPreGame) return null;
-
-    const linescore = gameData.liveData.linescore;
-    const innings = linescore.innings || [];
-    const awayTeam = gameData.gameData?.teams?.away;
-    const homeTeam = gameData.gameData?.teams?.home;
-
-    if (innings.length === 0) return null;
-
-    return (
-      <View
-        style={[
-          styles.lineScoreContainer,
-          {
-            backgroundColor: theme.surface,
-            shadowColor: isDarkMode ? "#ffffff" : "#000000",
-          },
-        ]}
-      >
-        <Text
-          allowFontScaling={false}
-          style={[styles.sectionTitle, { color: theme.text }]}
-        >
-          Line Score
-        </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.lineScoreTable}>
-            {/* Header Row */}
-            <View
-              style={[styles.lineScoreRow, { borderBottomColor: theme.border }]}
-            >
-              <View style={[styles.lineScoreCell, styles.teamCell]}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.lineScoreHeaderText, { color: theme.text }]}
-                >
-                  Team
-                </Text>
-              </View>
-              {innings.map((inning, index) => (
-                <View key={index} style={styles.lineScoreCell}>
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.lineScoreHeaderText, { color: theme.text }]}
-                  >
-                    {index + 1}
-                  </Text>
-                </View>
-              ))}
-              <View style={styles.lineScoreCell}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.lineScoreHeaderText, { color: theme.text }]}
-                >
-                  R
-                </Text>
-              </View>
-              <View style={styles.lineScoreCell}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.lineScoreHeaderText, { color: theme.text }]}
-                >
-                  H
-                </Text>
-              </View>
-              <View style={styles.lineScoreCell}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.lineScoreHeaderText, { color: theme.text }]}
-                >
-                  E
-                </Text>
-              </View>
-            </View>
-
-            {/* Away Team Row */}
-            <View
-              style={[styles.lineScoreRow, { borderBottomColor: theme.border }]}
-            >
-              <View style={[styles.lineScoreCell, styles.teamCell]}>
-                <View style={styles.lineScoreTeamContainer}>
-                  <Image
-                    source={{
-                      uri: getTeamLogoUrl("mlb", awayTeam?.abbreviation),
-                    }}
-                    style={styles.lineScoreTeamLogo}
-                  />
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.lineScoreTeamText,
-                      { color: colors.primary },
-                    ]}
-                  >
-                    {awayTeam?.abbreviation || "AWAY"}
-                  </Text>
-                </View>
-              </View>
-              {innings.map((inning, index) => (
-                <View key={index} style={styles.lineScoreCell}>
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.lineScoreText,
-                      { color: theme.textSecondary },
-                    ]}
-                  >
-                    {inning.away?.runs || "0"}
-                  </Text>
-                </View>
-              ))}
-              <View style={styles.lineScoreCell}>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.lineScoreText,
-                    { color: colors.primary },
-                    styles.lineScoreTotalText,
-                  ]}
-                >
-                  {linescore.teams?.away?.runs || 0}
-                </Text>
-              </View>
-              <View style={styles.lineScoreCell}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.lineScoreText, { color: theme.textSecondary }]}
-                >
-                  {linescore.teams?.away?.hits || 0}
-                </Text>
-              </View>
-              <View style={styles.lineScoreCell}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.lineScoreText, { color: theme.textSecondary }]}
-                >
-                  {linescore.teams?.away?.errors || 0}
-                </Text>
-              </View>
-            </View>
-
-            {/* Home Team Row */}
-            <View
-              style={[styles.lineScoreRow, { borderBottomColor: theme.border }]}
-            >
-              <View style={[styles.lineScoreCell, styles.teamCell]}>
-                <View style={styles.lineScoreTeamContainer}>
-                  <Image
-                    source={{
-                      uri: getTeamLogoUrl("mlb", homeTeam?.abbreviation),
-                    }}
-                    style={styles.lineScoreTeamLogo}
-                  />
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.lineScoreTeamText,
-                      { color: colors.primary },
-                    ]}
-                  >
-                    {homeTeam?.abbreviation || "HOME"}
-                  </Text>
-                </View>
-              </View>
-              {innings.map((inning, index) => {
-                const inningNumber = index + 1;
-                const isBottomInning = inning.home !== undefined;
-                const awayScore = linescore?.teams?.away?.runs || 0;
-                const homeScore = linescore?.teams?.home?.runs || 0;
-                const isGameFinal =
-                  gameData?.gameData?.status?.statusCode === "F" ||
-                  gameData?.gameData?.status?.statusCode === "O";
-
-                // Show "X" if home team is winning and didn't need to bat in bottom of inning
-                const shouldShowX =
-                  isBottomInning &&
-                  homeScore > awayScore &&
-                  inningNumber >= 9 &&
-                  (inning.home?.runs === undefined ||
-                    inning.home?.runs === null) &&
-                  isGameFinal;
-
-                return (
-                  <View key={index} style={styles.lineScoreCell}>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.lineScoreText,
-                        { color: theme.textSecondary },
-                      ]}
-                    >
-                      {shouldShowX ? "X" : inning.home?.runs || "0"}
-                    </Text>
-                  </View>
-                );
-              })}
-              <View style={styles.lineScoreCell}>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.lineScoreText,
-                    { color: colors.primary },
-                    styles.lineScoreTotalText,
-                  ]}
-                >
-                  {linescore.teams?.home?.runs || 0}
-                </Text>
-              </View>
-              <View style={styles.lineScoreCell}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.lineScoreText, { color: theme.textSecondary }]}
-                >
-                  {linescore.teams?.home?.hits || 0}
-                </Text>
-              </View>
-              <View style={styles.lineScoreCell}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.lineScoreText, { color: theme.textSecondary }]}
-                >
-                  {linescore.teams?.home?.errors || 0}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </ScrollView>
-      </View>
-    );
-  };
-
-  const renderCurrentPlay = () => {
-    if (!gameData?.liveData?.plays?.currentPlay) return null;
-
-    const currentPlay = gameData.liveData.plays.currentPlay;
-    const status = gameData.gameData?.status;
-
-    if (status?.statusCode !== "I") return null; // Only show for in-progress games
-
-    return (
-      <View
-        style={[
-          styles.currentPlayContainer,
-          { backgroundColor: theme.surface },
-        ]}
-      >
-        <Text
-          allowFontScaling={false}
-          style={[styles.sectionTitle, { color: theme.text }]}
-        >
-          Current Situation
-        </Text>
-        <View style={styles.currentPlayContent}>
-          {currentPlay.result?.description && (
-            <Text
-              allowFontScaling={false}
-              style={[styles.currentPlayText, { color: theme.text }]}
-            >
-              {currentPlay.result.description}
-            </Text>
-          )}
-          {currentPlay.about?.inning && (
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.currentPlayDetails,
-                { color: theme.textSecondary },
-              ]}
-            >
-              {formatInning(
-                currentPlay.about.inning,
-                currentPlay.about.halfInning,
-              )}
-            </Text>
-          )}
-        </View>
-      </View>
-    );
-  };
-
-  const renderStatsContent = () => {
-    const status = gameData?.gameData?.status;
-    // Include Pre-Game and Warmup in scheduled logic
-    const isScheduled =
-      status?.statusCode === "S" ||
-      status?.detailedState === "Pre-Game" ||
-      status?.detailedState === "Warmup";
-
-    if (isScheduled) {
-      return (
-        <View style={[styles.section, { backgroundColor: theme.surface }]}>
-          {renderLineScore()}
-          {renderProbablePitchers()}
-          {renderTopHitters()}
-          {renderSeasonStats()}
-        </View>
-      );
-    }
-
-    return (
-      <View style={[styles.section, { backgroundColor: theme.surface }]}>
-        {renderLineScore()}
-        {renderMomentumChart()}
-        {renderTeamStats()}
-      </View>
-    );
-  };
-
-  const renderTeamContent = (teamType) => {
-    if (!gameData) return null;
-
-    const team =
-      teamType === "away"
-        ? gameData.gameData?.teams?.away
-        : gameData.gameData?.teams?.home;
-    const teamStats =
-      teamType === "away"
-        ? gameData.liveData?.boxscore?.teams?.away
-        : gameData.liveData?.boxscore?.teams?.home;
-    const status = gameData?.gameData?.status;
-    // Include Pre-Game and Warmup in scheduled logic
-    const isScheduled =
-      status?.statusCode === "S" ||
-      status?.detailedState === "Pre-Game" ||
-      status?.detailedState === "Warmup";
-
-    if (isScheduled) {
-      return (
-        <View style={[styles.section, { backgroundColor: theme.surface }]}>
-          <View style={styles.teamRosterHeader}>
-            <Image
-              source={{ uri: getTeamLogoUrl("mlb", team?.abbreviation) }}
-              style={styles.teamRosterLogo}
-              defaultSource={{
-                uri: "https://via.placeholder.com/24x24?text=MLB",
-              }}
-            />
-            <Text
-              allowFontScaling={false}
-              style={[styles.sectionTitle, { color: theme.text }]}
-            >
-              {team?.name || `${teamType} Team`} Roster
-            </Text>
-          </View>
-          {renderTeamRoster(team)}
-        </View>
-      );
-    }
-
-    return (
-      <View style={[styles.section, { backgroundColor: theme.surface }]}>
-        <Text
-          allowFontScaling={false}
-          style={[styles.sectionTitle, { color: theme.text }]}
-        >
-          {team?.name || `${teamType} Team`} Box Score
-        </Text>
-        {renderTeamBoxScore(teamStats, team)}
-      </View>
-    );
-  };
-
-  const renderTeamBoxScore = (teamStats, team) => {
-    if (!teamStats) return null;
-
-    const batters = teamStats.batters || [];
-    const pitchers = teamStats.pitchers || [];
-
-    return (
-      <View
-        style={[
-          styles.teamBoxScoreContainer,
-          { backgroundColor: theme.surfaceSecondary },
-        ]}
-      >
-        <View style={styles.teamBoxScoreHeader}>
-          <Image
-            source={{ uri: getTeamLogoUrl("mlb", team?.abbreviation) }}
-            style={styles.teamBoxScoreLogo}
-            defaultSource={{
-              uri: "https://via.placeholder.com/30x30?text=MLB",
-            }}
-          />
-          <Text
-            allowFontScaling={false}
-            style={[styles.sectionTitle, { color: theme.text }]}
-          >
-            {team?.name || "Team"}
-          </Text>
-        </View>
-
-        {/* Batting Stats */}
-        <View
-          style={[
-            styles.statCategoryContainer,
-            { backgroundColor: theme.surface },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.statCategoryTitle, { color: colors.primary }]}
-          >
-            Batting
-          </Text>
-          <View
-            style={[
-              styles.statTableHeader,
-              {
-                backgroundColor: theme.cardBackground || theme.surfaceSecondary,
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.statTableHeaderPlayer, { color: theme.text }]}
-            >
-              Player
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statTableHeaderStat, { color: theme.text }]}
-            >
-              AB
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statTableHeaderStat, { color: theme.text }]}
-            >
-              R
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statTableHeaderStat, { color: theme.text }]}
-            >
-              H
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statTableHeaderStat, { color: theme.text }]}
-            >
-              RBI
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statTableHeaderStat, { color: theme.text }]}
-            >
-              AVG
-            </Text>
-          </View>
-          {(() => {
-            // Filter out pitchers from batters list (same logic as scoreboard.js)
-            const actualBatters = (batters || [])
-              .map((id) => teamStats.players?.[`ID${id}`])
-              .filter(
-                (player) => player && player.position?.abbreviation !== "P",
-              );
-
-            // Get batting order for substitution detection (same logic as scoreboard.js)
-            const battingOrder = teamStats.battingOrder || [];
-
-            return actualBatters.map((player, index) => {
-              if (!player) return null;
-
-              const stats = player.stats?.batting || {};
-              const playerId = player.person?.id;
-
-              // Use same substitution logic as scoreboard: player is subbed out if not in batting order
-              const isSubbedOut = !battingOrder.includes(playerId);
-              const rowColor = isSubbedOut ? theme.textTertiary : theme.text;
-
-              return (
-                <TouchableOpacity
-                  key={player.person?.id || index}
-                  style={[
-                    styles.statTableRow,
-                    {
-                      backgroundColor: theme.surface,
-                      borderBottomColor: theme.border,
-                    },
-                  ]}
-                  onPress={() => handlePlayerPress(player, team, "batting")}
-                  onLongPress={() =>
-                    handlePlayerLongPress(player, team, "batting")
-                  }
-                  delayLongPress={500}
-                >
-                  <View style={styles.statTablePlayerCell}>
-                    <Text
-                      allowFontScaling={false}
-                      style={[styles.statTablePlayerName, { color: rowColor }]}
-                    >
-                      {player.person?.fullName || "Unknown Player"}
-                    </Text>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.statTablePlayerNumber,
-                        { color: theme.textSecondary },
-                      ]}
-                    >
-                      #{player.jerseyNumber || "--"}{" "}
-                      {player.position?.abbreviation || ""}
-                    </Text>
-                  </View>
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.statTableStatCell, { color: rowColor }]}
-                  >
-                    {stats.atBats || 0}
-                  </Text>
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.statTableStatCell, { color: rowColor }]}
-                  >
-                    {stats.runs || 0}
-                  </Text>
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.statTableStatCell, { color: rowColor }]}
-                  >
-                    {stats.hits || 0}
-                  </Text>
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.statTableStatCell, { color: rowColor }]}
-                  >
-                    {stats.rbi || 0}
-                  </Text>
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.statTableStatCell, { color: rowColor }]}
-                  >
-                    {player.seasonStats?.batting?.avg || ".000"}
-                  </Text>
-                </TouchableOpacity>
-              );
-            });
-          })()}
-        </View>
-
-        {/* Pitching Stats */}
-        <View
-          style={[
-            styles.statCategoryContainer,
-            { backgroundColor: theme.surface },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.statCategoryTitle, { color: colors.primary }]}
-          >
-            Pitching
-          </Text>
-          <View
-            style={[
-              styles.statTableHeader,
-              {
-                backgroundColor: theme.cardBackground || theme.surfaceSecondary,
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.statTableHeaderPlayer, { color: theme.text }]}
-            >
-              Player
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statTableHeaderStat, { color: theme.text }]}
-            >
-              IP
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statTableHeaderStat, { color: theme.text }]}
-            >
-              H
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statTableHeaderStat, { color: theme.text }]}
-            >
-              R
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statTableHeaderStat, { color: theme.text }]}
-            >
-              ER
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statTableHeaderStat, { color: theme.text }]}
-            >
-              ERA
-            </Text>
-          </View>
-          {pitchers.map((pitcherId, index) => {
-            const player = teamStats.players?.[`ID${pitcherId}`];
-            if (!player) return null;
-
-            const stats = player.stats?.pitching || {};
-            return (
-              <TouchableOpacity
-                key={pitcherId}
-                style={[
-                  styles.statTableRow,
-                  {
-                    backgroundColor: theme.surface,
-                    borderBottomColor: theme.border,
-                  },
-                ]}
-                onPress={() => handlePlayerPress(player, team, "pitching")}
-                onLongPress={() =>
-                  handlePlayerLongPress(player, team, "pitching")
-                }
-                delayLongPress={500}
-              >
-                <View style={styles.statTablePlayerCell}>
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.statTablePlayerName, { color: theme.text }]}
-                  >
-                    {player.person?.fullName || "Unknown Player"}
-                  </Text>
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.statTablePlayerNumber,
-                      { color: theme.textSecondary },
-                    ]}
-                  >
-                    #{player.jerseyNumber || "--"}{" "}
-                    {player.position?.abbreviation || ""}
-                  </Text>
-                </View>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statTableStatCell, { color: theme.text }]}
-                >
-                  {stats.inningsPitched || "0.0"}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statTableStatCell, { color: theme.text }]}
-                >
-                  {stats.hits || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statTableStatCell, { color: theme.text }]}
-                >
-                  {stats.runs || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statTableStatCell, { color: theme.text }]}
-                >
-                  {stats.earnedRuns || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statTableStatCell, { color: theme.text }]}
-                >
-                  {player.seasonStats?.pitching?.era || "0.00"}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-    );
-  };
-
-  const renderTeamStats = () => {
-    if (!gameData?.liveData?.boxscore?.teams) return null;
-
-    const awayTeam = gameData.gameData?.teams?.away;
-    const homeTeam = gameData.gameData?.teams?.home;
-    const awayStats =
-      gameData.liveData.boxscore.teams.away?.teamStats?.batting || {};
-    const homeStats =
-      gameData.liveData.boxscore.teams.home?.teamStats?.batting || {};
-
-    const awayColor = MLBService.getTeamColor(
-      awayTeam?.name || awayTeam?.team?.name,
-    );
-    const homeColor = MLBService.getTeamColor(
-      homeTeam?.name || homeTeam?.team?.name,
-    );
-
-    // Helper function to render stats row with bars
-    const renderStatsRow = (label, awayValue, homeValue) => {
-      const awayNum =
-        typeof awayValue === "number" ? awayValue : parseFloat(awayValue) || 0;
-      const homeNum =
-        typeof homeValue === "number" ? homeValue : parseFloat(homeValue) || 0;
-      const total = awayNum + homeNum;
-      const awayPercent = total > 0 ? (awayNum / total) * 100 : 50;
-      const homePercent = total > 0 ? (homeNum / total) * 100 : 50;
-
-      return (
-        <View key={label} style={{ marginBottom: 28 }}>
-          <View style={styles.statsRow}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statsValue, { color: theme.text }]}
-            >
-              {awayValue}
-            </Text>
-            <View style={styles.statsBarContainer}>
-              <View
-                style={[
-                  styles.statsBar,
-                  {
-                    flexDirection: "row",
-                    overflow: "hidden",
-                    borderRadius: 10,
-                    backgroundColor: theme.surface,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.statsBarFill,
-                    {
-                      width: `${awayPercent}%`,
-                      backgroundColor: awayColor,
-                      height: "100%",
-                      borderTopLeftRadius: 10,
-                      borderBottomLeftRadius: 10,
-                      borderTopRightRadius: 0,
-                      borderBottomRightRadius: 0,
-                    },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.statsBarFill,
-                    {
-                      width: `${homePercent}%`,
-                      backgroundColor: homeColor,
-                      height: "100%",
-                      borderTopLeftRadius: 0,
-                      borderBottomLeftRadius: 0,
-                      borderTopRightRadius: 10,
-                      borderBottomRightRadius: 10,
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statsValue, { color: theme.text }]}
-            >
-              {homeValue}
-            </Text>
-          </View>
-          <View style={{ alignItems: "center", marginTop: -25 }}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statsLabel, { color: theme.textSecondary }]}
-            >
-              {label}
-            </Text>
-          </View>
-        </View>
-      );
-    };
-
-    return (
-      <View
-        style={[
-          styles.teamStatsContainer,
-          {
-            backgroundColor: theme.surface,
-            shadowColor: isDarkMode ? "#ffffff" : "#000000",
-          },
-        ]}
-      >
-        <Text
-          allowFontScaling={false}
-          style={[styles.sectionTitle, { color: theme.text }]}
-        >
-          Team Statistics
-        </Text>
-
-        {/* Team Headers */}
-        <View style={styles.statsTeams}>
-          <View style={styles.statsTeam}>
-            <Image
-              source={{ uri: getTeamLogoUrl("mlb", awayTeam?.abbreviation) }}
-              style={styles.statsTeamLogo}
-              defaultSource={{
-                uri: "https://via.placeholder.com/30x30?text=MLB",
-              }}
-            />
-            <Text
-              allowFontScaling={false}
-              style={[styles.statsTeamName, { color: theme.text }]}
-            >
-              {awayTeam?.name || "Away Team"}
-            </Text>
-          </View>
-          <View style={styles.statsTeam}>
-            <Image
-              source={{ uri: getTeamLogoUrl("mlb", homeTeam?.abbreviation) }}
-              style={styles.statsTeamLogo}
-              defaultSource={{
-                uri: "https://via.placeholder.com/30x30?text=MLB",
-              }}
-            />
-            <Text
-              allowFontScaling={false}
-              style={[styles.statsTeamName, { color: theme.text }]}
-            >
-              {homeTeam?.name || "Home Team"}
-            </Text>
-          </View>
-        </View>
-
-        {/* Stats Rows */}
-        <View style={styles.statsSection}>
-          {renderStatsRow("Hits", awayStats.hits || 0, homeStats.hits || 0)}
-          {renderStatsRow(
-            "At Bats",
-            awayStats.atBats || 0,
-            homeStats.atBats || 0,
-          )}
-          {renderStatsRow(
-            "Batting Avg",
-            parseFloat(awayStats.avg || 0).toFixed(3),
-            parseFloat(homeStats.avg || 0).toFixed(3),
-          )}
-          {renderStatsRow(
-            "OPS",
-            parseFloat(awayStats.ops || 0).toFixed(3),
-            parseFloat(homeStats.ops || 0).toFixed(3),
-          )}
-          {renderStatsRow(
-            "Strikeouts",
-            awayStats.strikeOuts || 0,
-            homeStats.strikeOuts || 0,
-          )}
-          {renderStatsRow(
-            "Walks",
-            awayStats.baseOnBalls || 0,
-            homeStats.baseOnBalls || 0,
-          )}
-          {renderStatsRow(
-            "Left on Base",
-            awayStats.leftOnBase || 0,
-            homeStats.leftOnBase || 0,
-          )}
-          {renderStatsRow(
-            "Home Runs",
-            awayStats.homeRuns || 0,
-            homeStats.homeRuns || 0,
-          )}
-          {renderStatsRow(
-            "Stolen Bases",
-            awayStats.stolenBases || 0,
-            homeStats.stolenBases || 0,
-          )}
-        </View>
-      </View>
-    );
-  };
-
-  const renderPlaysContent = () => {
-    console.log(
-      "renderPlaysContent called, loadingPlays:",
-      loadingPlays,
-      "isIncrementalUpdate:",
-      isIncrementalUpdate,
-      "playsData:",
-      !!playsData,
-      "playsData keys:",
-      playsData ? Object.keys(playsData) : "null",
-    );
-
-    // Show loading spinner only if we don't have data AND we're loading (not incremental)
-    if (!playsData && loadingPlays && !isIncrementalUpdate) {
-      console.log("Showing loading spinner - no data and loading");
-      return (
-        <View
-          style={[
-            styles.loadingContainer,
-            { backgroundColor: theme.background },
-          ]}
-        >
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text
-            allowFontScaling={false}
-            style={[styles.loadingText, { color: theme.textSecondary }]}
-          >
-            Loading Plays...
-          </Text>
-        </View>
-      );
-    }
-
-    if (!playsData) {
-      console.log("No playsData available - showing placeholder");
-      return (
-        <View style={styles.placeholderContainer}>
-          <Text
-            allowFontScaling={false}
-            style={[styles.placeholderText, { color: theme.textSecondary }]}
-          >
-            No plays data available
-          </Text>
-        </View>
-      );
-    }
-
-    console.log(
-      "Rendering plays section with",
-      playsData.allPlays?.length,
-      "plays",
-    );
-    return (
-      <View style={[styles.section, { backgroundColor: theme.surface }]}>
-        {renderPlayByPlay()}
-      </View>
-    );
-  };
-
-  const renderMomentumChart = () => {
-    if (!gameData?.liveData?.linescore?.innings) return null;
-
-    const awayTeam = gameData.gameData?.teams?.away;
-    const homeTeam = gameData.gameData?.teams?.home;
-    const innings = gameData.liveData.linescore.innings;
-
-    // Get team colors from the team data or use defaults
-    const awayColor = MLBService.getTeamColor(
-      awayTeam?.name || awayTeam?.team?.name,
-    );
-    const homeColor = MLBService.getTeamColor(
-      homeTeam?.name || homeTeam?.team?.name,
-    );
-
-    // Calculate momentum for each inning
-    let momentumPoints = [];
-    let cumulativeAwayRuns = 0;
-    let cumulativeHomeRuns = 0;
-    let cumulativeAwayHits = 0;
-    let cumulativeHomeHits = 0;
-
-    // Starting at balanced (50%)
-    momentumPoints.push(50);
-
-    innings.forEach((inning, index) => {
-      const awayRuns = inning.away?.runs || 0;
-      const homeRuns = inning.home?.runs || 0;
-      const awayHits = inning.away?.hits || 0;
-      const homeHits = inning.home?.hits || 0;
-
-      cumulativeAwayRuns += awayRuns;
-      cumulativeHomeRuns += homeRuns;
-      cumulativeAwayHits += awayHits;
-      cumulativeHomeHits += homeHits;
-
-      // Calculate momentum based on runs and hits
-      // Runs are weighted more heavily than hits
-      const runDiff = cumulativeHomeRuns - cumulativeAwayRuns;
-      const hitDiff = cumulativeHomeHits - cumulativeAwayHits;
-
-      // Momentum calculation: runs worth 3x hits, with diminishing returns
-      const momentumScore = runDiff * 3 + hitDiff * 1;
-
-      // Convert to percentage (0-100, where 50 is balanced)
-      // Use sigmoid-like function for smooth transitions
-      let momentum = 50 + momentumScore * 5;
-
-      // Add some recent inning bias (what happened this inning affects momentum more)
-      const recentRunDiff = homeRuns - awayRuns;
-      const recentHitDiff = homeHits - awayHits;
-      const recentMomentum = recentRunDiff * 2 + recentHitDiff * 0.5;
-      momentum += recentMomentum * 3;
-
-      // Cap between 10-90% for visual appeal
-      momentum = Math.max(10, Math.min(90, momentum));
-
-      momentumPoints.push(momentum);
-    });
-
-    // Ensure we have at least 9 innings for proper display
-    const totalInnings = Math.max(9, innings.length);
-
-    // Calculate individual inning data for both teams
-    let inningData = [];
-
-    for (let i = 0; i < totalInnings; i++) {
-      if (i < innings.length) {
-        const inning = innings[i];
-        const awayRuns = inning.away?.runs || 0;
-        const homeRuns = inning.home?.runs || 0;
-        const awayHits = inning.away?.hits || 0;
-        const homeHits = inning.home?.hits || 0;
-
-        // Calculate combined activity for each team (runs worth more than hits)
-        const awayActivity = awayRuns * 3 + awayHits;
-        const homeActivity = homeRuns * 3 + homeHits;
-
-        inningData.push({
-          inning: i + 1,
-          awayRuns: awayRuns,
-          homeRuns: homeRuns,
-          awayHits: awayHits,
-          homeHits: homeHits,
-          awayActivity: awayActivity,
-          homeActivity: homeActivity,
-        });
-      } else {
-        // For innings beyond current game, show no activity
-        inningData.push({
-          inning: i + 1,
-          awayRuns: 0,
-          homeRuns: 0,
-          awayHits: 0,
-          homeHits: 0,
-          awayActivity: 0,
-          homeActivity: 0,
-        });
-      }
-    }
-
-    // Find max activity for scaling bars
-    const maxActivity = Math.max(
-      ...inningData.map((d) => Math.max(d.awayActivity, d.homeActivity)),
-      1,
-    );
-
-    return (
-      <View
-        style={[styles.momentumContainer, { backgroundColor: theme.surface }]}
-      >
-        <View
-          style={[
-            styles.momentumChartWhite,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#ffffff" : "#000000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.sectionTitle, { color: theme.text }]}
-          >
-            Momentum
-          </Text>
-          <View style={styles.teamLabels}>
-            <View style={[styles.teamLabelContainer, styles.awayTeamLabel]}>
-              <Image
-                source={{ uri: getTeamLogoUrl("mlb", awayTeam?.abbreviation) }}
-                style={styles.momentumTeamLogoAway}
-              />
-              <Text
-                allowFontScaling={false}
-                style={[styles.teamLabel, { color: theme.text }]}
-              >
-                {awayTeam?.abbreviation || "AWAY"}
-              </Text>
-            </View>
-            <View style={[styles.teamLabelContainer, styles.homeTeamLabel]}>
-              <Text
-                allowFontScaling={false}
-                style={[styles.teamLabel, { color: theme.text }]}
-              >
-                {homeTeam?.abbreviation || "HOME"}
-              </Text>
-              <Image
-                source={{ uri: getTeamLogoUrl("mlb", homeTeam?.abbreviation) }}
-                style={styles.momentumTeamLogoHome}
-              />
-            </View>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.inningBarsContainer}>
-              {inningData.map((data, index) => {
-                const awayBarHeight =
-                  data.awayActivity > 0
-                    ? Math.max(8, (data.awayActivity / maxActivity) * 40)
-                    : 0;
-                const homeBarHeight =
-                  data.homeActivity > 0
-                    ? Math.max(8, (data.homeActivity / maxActivity) * 40)
-                    : 0;
-
-                return (
-                  <View key={index} style={styles.inningBar}>
-                    {/* Inning label at center */}
-                    <View style={styles.inningLabelContainer}>
-                      <Text
-                        allowFontScaling={false}
-                        style={[
-                          styles.inningLabel,
-                          { color: theme.textSecondary },
-                        ]}
-                      >
-                        {data.inning}
-                        {data.inning === 1
-                          ? "st"
-                          : data.inning === 2
-                            ? "nd"
-                            : data.inning === 3
-                              ? "rd"
-                              : "th"}
-                      </Text>
-                    </View>
-
-                    {/* Away team bar (extends upward from center) */}
-                    {data.awayActivity > 0 && (
-                      <View
-                        style={[
-                          styles.awayBarContainer,
-                          { height: awayBarHeight },
-                        ]}
-                      >
-                        <View
-                          style={[
-                            styles.activityBar,
-                            styles.awayBar,
-                            {
-                              height: awayBarHeight,
-                              backgroundColor: awayColor,
-                            },
-                          ]}
-                        />
-                        {(data.awayRuns > 0 || data.awayHits > 0) && (
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.barText,
-                              {
-                                position: "absolute",
-                                top: -25,
-                                color: theme.text,
-                              },
-                            ]}
-                          >
-                            {data.awayRuns}R {data.awayHits}H
-                          </Text>
-                        )}
-                      </View>
-                    )}
-
-                    {/* Home team bar (extends downward from center) */}
-                    {data.homeActivity > 0 && (
-                      <View
-                        style={[
-                          styles.homeBarContainer,
-                          { height: homeBarHeight },
-                        ]}
-                      >
-                        <View
-                          style={[
-                            styles.activityBar,
-                            styles.homeBar,
-                            {
-                              height: homeBarHeight,
-                              backgroundColor: homeColor,
-                            },
-                          ]}
-                        />
-                        {(data.homeRuns > 0 || data.homeHits > 0) && (
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.barText,
-                              {
-                                position: "absolute",
-                                bottom: -20,
-                                color: theme.text,
-                              },
-                            ]}
-                          >
-                            {data.homeRuns}R {data.homeHits}H
-                          </Text>
-                        )}
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-          </ScrollView>
-        </View>
-      </View>
-    );
-  };
-
-  const renderPlayByPlay = () => {
-    if (!playsData?.allPlays) return null;
-
-    console.log(
-      "renderPlayByPlay called with",
-      playsData.allPlays.length,
-      "plays",
-    );
-
-    // Show all plays, not just scoring plays - reverse to show most recent first
-    const allPlays = [...playsData.allPlays].reverse();
-
-    return (
-      <View style={styles.playsContainer}>
-        <Text
-          allowFontScaling={false}
-          style={[styles.sectionTitle, { color: theme.text }]}
-        >
-          Play-by-Play
-        </Text>
-        <ScrollView
-          ref={playsScrollViewRef}
-          style={styles.playsScrollView}
-          onScroll={(event) => {
-            const scrollY = event.nativeEvent.contentOffset.y;
-            setPlaysScrollPosition(scrollY);
-          }}
-          scrollEventThrottle={16}
-          showsVerticalScrollIndicator={true}
-          keyboardShouldPersistTaps="handled"
-        >
-          {allPlays.map((play, index) => {
-            // Use a more unique key that includes multiple identifiers
-            const playKey = `${play.about?.atBatIndex || "unknown"}-${
-              play.about?.playIndex || 0
-            }-${play.about?.startTime || index}-${index}`;
-            return renderPlayItem(play, playKey, index);
-          })}
-        </ScrollView>
-      </View>
-    );
-  };
-
-  const renderPitchVisualization = (pitches, play) => {
-    // Handle both single pitch and array of pitches for backward compatibility
-    const pitchArray = Array.isArray(pitches) ? pitches : [pitches];
-
-    if (!pitchArray || pitchArray.length === 0) {
-      return null;
-    }
-
-    // Get batter and pitcher from the play's matchup data
-    const batter = play?.matchup?.batter || {};
-    const pitcher = play?.matchup?.pitcher || {};
-
-    // Generate headshot URLs using MLB's official format
-    const batterHeadshot = batter.id
-      ? `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${batter.id}/headshot/67/current`
-      : null;
-    const pitcherHeadshot = pitcher.id
-      ? `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${pitcher.id}/headshot/67/current`
-      : null;
-
-    return (
-      <View
-        style={[
-          styles.pitchVisualization,
-          { backgroundColor: theme.background },
-        ]}
-      >
-        {/* Batter Section - Above the Box */}
-        <View style={styles.pitchPlayerSectionTop}>
-          {batterHeadshot && (
-            <View style={styles.pitchPlayerInfoTop}>
-              <Image
-                source={{ uri: batterHeadshot }}
-                style={[
-                  styles.pitchPlayerHeadshot,
-                  { borderColor: colors.primary },
-                ]}
-                defaultSource={{
-                  uri: "https://via.placeholder.com/40x40?text=B",
-                }}
-              />
-              <View style={styles.pitchPlayerTextContainer}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.pitchPlayerName, { color: colors.primary }]}
-                >
-                  {batter.fullName
-                    ? `${batter.fullName.split(" ")[0][0]}. ${batter.fullName
-                        .split(" ")
-                        .pop()}`
-                    : "Batter"}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.pitchPlayerRole,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  Batter
-                </Text>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Strike Zone Visualization */}
-        <View
-          style={[
-            styles.strikeZoneContainer,
-            { backgroundColor: theme.surface },
-          ]}
-        >
-          <View
-            style={[styles.strikeZoneOutline, { borderColor: theme.border }]}
-          />
-          {pitchArray.map((pitch, index) => {
-            // Try multiple coordinate sources
-            let pitchData = null;
-
-            if (pitch.pitchData?.coordinates) {
-              pitchData = pitch.pitchData;
-            } else if (pitch.coordinates) {
-              pitchData = { coordinates: pitch.coordinates };
-            } else if (
-              pitch.pitchData?.pX !== undefined &&
-              pitch.pitchData?.pZ !== undefined
-            ) {
-              pitchData = {
-                coordinates: { pX: pitch.pitchData.pX, pZ: pitch.pitchData.pZ },
-              };
-            } else if (
-              pitch.pitchNumber?.pX !== undefined &&
-              pitch.pitchNumber?.pZ !== undefined
-            ) {
-              pitchData = {
-                coordinates: {
-                  pX: pitch.pitchNumber.pX,
-                  pZ: pitch.pitchNumber.pZ,
-                },
-              };
-            } else if (pitch.pX !== undefined && pitch.pZ !== undefined) {
-              pitchData = { coordinates: { pX: pitch.pX, pZ: pitch.pZ } };
-            }
-
-            if (
-              !pitchData?.coordinates ||
-              pitchData.coordinates.pX === undefined ||
-              pitchData.coordinates.pZ === undefined
-            ) {
-              return null;
-            }
-
-            // Convert plate coordinates to percentage - exact web algorithm
-            const xPercent = ((pitchData.coordinates.pX + 2.0) / 3.75) * 100;
-            const yPercent =
-              pitchData.strikeZoneTop && pitchData.strikeZoneBottom
-                ? ((pitchData.strikeZoneTop - pitchData.coordinates.pZ) /
-                    (pitchData.strikeZoneTop - pitchData.strikeZoneBottom)) *
-                    60 +
-                  20
-                : 50;
-
-            // Constrain to visualization area
-            const finalXPercent = Math.max(5, Math.min(95, xPercent));
-            const finalYPercent = Math.max(5, Math.min(95, yPercent));
-
-            // Convert percentages to pixel positions for React Native (120px container)
-            const finalX = (finalXPercent / 100) * 145 - 5; // Center the 12px dot
-            const finalY = (finalYPercent / 100) * 125 + 5; // Center the 12px dot
-
-            // Determine pitch color based on call
-            let pitchColor = "#4CAF50"; // Green for balls
-            if (pitch.details?.isStrike) {
-              pitchColor = "#f44336"; // Red for strikes
-            } else if (pitch.details?.isInPlay) {
-              pitchColor = "#2196F3"; // Blue for in play
-            }
-
-            return (
-              <View
-                key={index}
-                style={[
-                  styles.pitchLocation,
-                  {
-                    backgroundColor: pitchColor,
-                    borderColor: pitchColor,
-                    left: finalX,
-                    top: finalY,
-                    position: "absolute",
-                    zIndex: 10,
-                    justifyContent: "center",
-                    alignItems: "center",
-                  },
-                ]}
-              >
-                <Text allowFontScaling={false} style={styles.pitchNumberOnBall}>
-                  {index + 1}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-
-        {/* Pitcher Section - Below the Box */}
-        <View style={styles.pitchPlayerSectionBottom}>
-          {pitcherHeadshot && (
-            <View style={styles.pitchPlayerInfoBottom}>
-              <View style={styles.pitchPlayerTextContainer}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.pitchPlayerName, { color: colors.primary }]}
-                >
-                  {pitcher.fullName
-                    ? `${pitcher.fullName.split(" ")[0][0]}. ${pitcher.fullName
-                        .split(" ")
-                        .pop()}`
-                    : "Pitcher"}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.pitchPlayerRole,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  Pitcher
-                </Text>
-              </View>
-              <Image
-                source={{ uri: pitcherHeadshot }}
-                style={[
-                  styles.pitchPlayerHeadshot,
-                  { borderColor: colors.primary },
-                ]}
-                defaultSource={{
-                  uri: "https://via.placeholder.com/40x40?text=P",
-                }}
-              />
-            </View>
-          )}
-        </View>
-      </View>
-    );
-  };
-
-  const renderPlayPitches = (play) => {
-    const pitches = play.playEvents?.filter((event) => event.isPitch) || [];
-
-    if (pitches.length === 0) {
-      return (
-        <View
-          style={[styles.pitchSequenceBox, { backgroundColor: theme.surface }]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.pitchSequenceTitle, { color: colors.primary }]}
-          >
-            At-Bat Result
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.pitchDescription, { color: theme.textSecondary }]}
-          >
-            {play.result?.description}
-          </Text>
-        </View>
-      );
-    }
-
-    return (
-      <View
-        style={[styles.pitchSequenceBox, { backgroundColor: theme.surface }]}
-      >
-        <Text
-          allowFontScaling={false}
-          style={[styles.pitchSequenceTitle, { color: colors.primary }]}
-        >
-          At-Bat Pitches ({pitches.length} pitches)
-        </Text>
-        {pitches.map((pitch, index) => {
-          // Determine pitch color based on call
-          let pitchColor = "#4CAF50"; // Green for balls
-          if (pitch.details?.isStrike) {
-            pitchColor = "#f44336"; // Red for strikes
-          } else if (pitch.details?.isInPlay) {
-            pitchColor = "#2196F3"; // Blue for in play
-          }
-
-          return (
-            <View
-              key={index}
-              style={[styles.pitchRow, { borderBottomColor: theme.border }]}
-            >
-              <View
-                style={[styles.pitchNumber, { backgroundColor: pitchColor }]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.pitchNumberText, { color: "#ffffff" }]}
-                >
-                  {index + 1}
-                </Text>
-              </View>
-              <View style={styles.pitchInfo}>
-                <View style={styles.pitchMainInfo}>
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.pitchTypeText, { color: pitchColor }]}
-                  >
-                    {pitch.details?.type?.description ||
-                      pitch.pitchData?.type?.description ||
-                      "Unknown"}
-                  </Text>
-                  {pitch.pitchData?.startSpeed && (
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.pitchSpeedText,
-                        { color: theme.textSecondary },
-                      ]}
-                    >
-                      {Math.round(pitch.pitchData.startSpeed)} mph
-                    </Text>
-                  )}
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.pitchCountText,
-                      { color: theme.textSecondary },
-                    ]}
-                  >
-                    ({pitch.count?.balls || 0}-{pitch.count?.strikes || 0})
-                  </Text>
-                </View>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.pitchActionText,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  {pitch.details?.description || "Pitch thrown"}
-                </Text>
-              </View>
-            </View>
-          );
-        })}
-        {renderPitchVisualization(pitches, play)}
-      </View>
-    );
-  };
-
-  const renderPlayBasesSmall = (play) => {
-    const hasFirst = !!play.matchup?.postOnFirst;
-    const hasSecond = !!play.matchup?.postOnSecond;
-    const hasThird = !!play.matchup?.postOnThird;
-
-    return (
-      <View style={styles.playBasesSmall}>
-        {/* Second base (top) */}
-        <View
-          style={[
-            styles.playBaseSmall,
-            styles.secondBaseSmall,
-            hasSecond && [
-              styles.occupiedBaseSmall,
-              { backgroundColor: colors.primary },
-            ],
-          ]}
-        />
-        {/* First and Third base row */}
-        <View style={styles.playBasesRowSmall}>
-          <View
-            style={[
-              styles.playBaseSmall,
-              styles.thirdBaseSmall,
-              hasThird && [
-                styles.occupiedBaseSmall,
-                { backgroundColor: colors.primary },
-              ],
-            ]}
-          />
-          <View
-            style={[
-              styles.playBaseSmall,
-              styles.firstBaseSmall,
-              hasFirst && [
-                styles.occupiedBaseSmall,
-                { backgroundColor: colors.primary },
-              ],
-            ]}
-          />
-        </View>
-      </View>
-    );
-  };
-
-  // Handler for long press on plays
-  const handlePlayLongPress = (play) => {
-    setShareCardPlay(play);
-  };
-
-  // Handler for long press on players
-  const handlePlayerLongPress = async (player, team, statsType) => {
-    // Capture team info
-    const teamName = team?.name || "Unknown Team";
-    const teamAbbrev = team?.abbreviation || team?.team?.abbreviation || "";
-    const teamLogo = getTeamLogoUrl("mlb", teamAbbrev);
-    const teamColor = MLBService.getTeamColor(teamName);
-
-    // Set the selected player with all necessary info
-    setShareCardPlayer({
-      ...player,
-      teamName,
-      teamLogo,
-      teamColor,
-      statsType, // 'batting' or 'pitching'
-    });
-  };
-
-  const renderPlayItem = (play, playKey, index) => {
-    const isOpen = openPlays.has(playKey);
-    const inning = play.about?.inning || 0;
-    const halfInning = play.about?.halfInning || "top";
-    const isTopInning = halfInning.toLowerCase() === "top";
-    const team = isTopInning
-      ? gameData.gameData?.teams?.away
-      : gameData.gameData?.teams?.home;
-
-    // Check if this is a scoring play - only when runs are actually scored
-    const isScoringPlay =
-      play.about?.isScoringPlay === true && play.about?.hasReview === false;
-
-    // Enhanced team color selection for scoring plays
-    const getScoringPlayColor = (teamName) => {
-      if (!teamName) return colors.primary;
-
-      const originalColor = MLBService.getTeamColor(teamName);
-
-      // Define enhanced colors for scoring plays that provide better contrast and visibility
-      const scoringPlayColors = {
-        // Teams with black/dark colors that don't work well as backgrounds
-        "San Francisco Giants": "#27251F",
-        Athletics: "#003831",
-        "Pittsburgh Pirates": "#27251F",
-        "New York Mets": "#002D72",
-      };
-
-      return scoringPlayColors[teamName] || originalColor;
-    };
-
-    const teamColor = getScoringPlayColor(team?.name || "");
-    const cardStyle = isScoringPlay
-      ? [
-          styles.playCard,
-          {
-            backgroundColor: teamColor,
-            shadowColor: isDarkMode ? "#ffffff" : "#000000",
-          },
-        ]
-      : [
-          styles.playCard,
-          {
-            backgroundColor: theme.surface,
-            shadowColor: isDarkMode ? "#ffffff" : "#000000",
-          },
-        ];
-
-    const textColor = isScoringPlay ? "#fff" : theme.text;
-
-    return (
-      <View key={playKey} style={cardStyle}>
-        <TouchableOpacity
-          style={[styles.playHeader, { borderBottomColor: theme.border }]}
-          onPress={() => {
-            const newOpenPlays = new Set(openPlays);
-            if (isOpen) {
-              newOpenPlays.delete(playKey);
-            } else {
-              newOpenPlays.add(playKey);
-            }
-            setOpenPlays(newOpenPlays);
-          }}
-          onLongPress={() => handlePlayLongPress(play)}
-          delayLongPress={500}
-        >
-          <View style={styles.playInfo}>
-            <Image
-              source={{
-                uri: isScoringPlay
-                  ? (() => {
-                      const teamAbbr = team?.abbreviation;
-                      if (!teamAbbr)
-                        return "https://via.placeholder.com/24x24?text=MLB";
-
-                      // Handle abbreviation mapping for ESPN logo URLs
-                      const abbreviationMap = {
-                        AZ: "ari", // Arizona Diamondbacks
-                        CWS: "chw", // Chicago White Sox
-                        KCR: "kc", // Kansas City Royals
-                        SFG: "sf", // San Francisco Giants
-                        TBR: "tb", // Tampa Bay Rays
-                      };
-
-                      const normalizedTeamId =
-                        abbreviationMap[teamAbbr?.toUpperCase()] ||
-                        teamAbbr?.toLowerCase();
-                      return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500-dark/${normalizedTeamId}.png&w=200&h=200`;
-                    })()
-                  : getTeamLogoUrl("mlb", team?.abbreviation),
-              }}
-              style={styles.playTeamLogo}
-              defaultSource={{
-                uri: "https://via.placeholder.com/24x24?text=MLB",
-              }}
-            />
-            <View style={styles.playSummary}>
-              <Text
-                allowFontScaling={false}
-                style={[styles.playTeamName, { color: textColor }]}
-              >
-                {team?.abbreviation || "TEAM"}
-              </Text>
-              <Text
-                allowFontScaling={false}
-                style={[styles.playResult, { color: textColor }]}
-              >
-                {play.result?.description ||
-                  `${play.matchup?.batter.fullName} vs ${play.matchup?.pitcher.fullName}`}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.playScoreSection}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.playInning, { color: textColor }]}
-            >
-              {isTopInning ? "Top" : "Bot"}{" "}
-              {MLBService.getOrdinalSuffix(inning)}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[styles.playScore, { color: textColor }]}
-            >
-              {play.result?.awayScore || 0}-{play.result?.homeScore || 0}
-            </Text>
-            {renderPlayBasesSmall(play)}
-          </View>
-          <Text
-            allowFontScaling={false}
-            style={[
-              styles.toggleIcon,
-              isOpen && styles.toggleIconOpen,
-              { color: textColor },
-            ]}
-          >
-            {isOpen ? "▼" : "▶"}
-          </Text>
-        </TouchableOpacity>
-
-        {isOpen && (
-          <View
-            style={[styles.playDetails, { backgroundColor: theme.background }]}
-          >
-            {renderPlayPitches(play)}
-          </View>
-        )}
-      </View>
-    );
-  };
-
-  const renderPlayBases = (play) => {
-    if (
-      !play.matchup?.postOnFirst &&
-      !play.matchup?.postOnSecond &&
-      !play.matchup?.postOnThird
-    ) {
-      return null;
-    }
-
-    const hasFirst = !!play.matchup?.postOnFirst;
-    const hasSecond = !!play.matchup?.postOnSecond;
-    const hasThird = !!play.matchup?.postOnThird;
-
-    return (
-      <View style={styles.playBasesContainer}>
-        <Text allowFontScaling={false} style={styles.basesTitle}>
-          Bases After Play
-        </Text>
-        <View style={styles.playBasesDisplay}>
-          <View style={styles.playBasesRow}>
-            <View
-              style={[
-                styles.playBase,
-                styles.thirdBase,
-                hasThird && [
-                  styles.occupiedBase,
-                  { backgroundColor: colors.primary },
-                ],
-              ]}
-            />
-            <View
-              style={[
-                styles.playBase,
-                styles.firstBase,
-                hasFirst && [
-                  styles.occupiedBase,
-                  { backgroundColor: colors.primary },
-                ],
-              ]}
-            />
-          </View>
-          <View
-            style={[
-              styles.playBase,
-              styles.secondBase,
-              hasSecond && [
-                styles.occupiedBase,
-                { backgroundColor: colors.primary },
-              ],
-            ]}
-          />
-        </View>
-      </View>
-    );
-  };
-
-  const renderProbablePitchers = () => {
-    if (!gameData?.gameData?.teams) return null;
-
-    const awayTeam = gameData.gameData.teams.away;
-    const homeTeam = gameData.gameData.teams.home;
-
-    // Try to get probable pitchers from different possible locations
-    const awayPitcher =
-      gameData.gameData.probablePitchers?.away ||
-      gameData.liveData?.boxscore?.teams?.away?.probablePitcher ||
-      awayTeam.probablePitcher;
-    const homePitcher =
-      gameData.gameData.probablePitchers?.home ||
-      gameData.liveData?.boxscore?.teams?.home?.probablePitcher ||
-      homeTeam.probablePitcher;
-
-    return (
-      <View
-        style={[
-          styles.section,
-          {
-            backgroundColor: theme.surface,
-            shadowColor: isDarkMode ? "#fff" : "#000",
-          },
-        ]}
-      >
-        <Text
-          allowFontScaling={false}
-          style={[styles.sectionTitle, { color: theme.text }]}
-        >
-          Probable Pitchers
-        </Text>
-        <View style={styles.probablePitchersContainer}>
-          {/* Away Pitcher */}
-          <View
-            style={[
-              styles.pitcherCard,
-              { backgroundColor: theme.surfaceSecondary },
-            ]}
-          >
-            <View style={styles.pitcherHeader}>
-              <Image
-                source={{ uri: getTeamLogoUrl("mlb", awayTeam?.abbreviation) }}
-                style={styles.pitcherTeamLogo}
-                defaultSource={{
-                  uri: "https://via.placeholder.com/24x24?text=MLB",
-                }}
-              />
-              <Text
-                allowFontScaling={false}
-                style={[styles.pitcherTeamName, { color: theme.text }]}
-              >
-                {awayTeam?.teamName || awayTeam?.name}
-              </Text>
-            </View>
-            {awayPitcher ? (
-              <View style={styles.pitcherInfo}>
-                <Image
-                  source={{ uri: MLBService.getHeadshotUrl(awayPitcher.id) }}
-                  style={styles.pitcherHeadshot}
-                  defaultSource={{
-                    uri: "https://via.placeholder.com/60x60?text=P",
-                  }}
-                />
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.pitcherName, { color: theme.text }]}
-                >
-                  {awayPitcher.fullName}
-                </Text>
-                {probablePitcherStats.away?.pitching ? (
-                  <View style={styles.pitcherStatsContainer}>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.pitcherStats,
-                        { color: theme.textTertiary },
-                      ]}
-                    >
-                      {probablePitcherStats.away.pitching.wins || 0}-
-                      {probablePitcherStats.away.pitching.losses || 0}
-                    </Text>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.pitcherStats,
-                        { color: theme.textTertiary },
-                      ]}
-                    >
-                      {probablePitcherStats.away.pitching.era || "0.00"} ERA
-                    </Text>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.pitcherStats,
-                        { color: theme.textTertiary },
-                      ]}
-                    >
-                      {probablePitcherStats.away.pitching.whip || "0.00"} WHIP
-                    </Text>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.pitcherStats,
-                        { color: theme.textTertiary },
-                      ]}
-                    >
-                      {probablePitcherStats.away.pitching.strikeOuts || 0} K
-                    </Text>
-                  </View>
-                ) : (
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.pitcherStats, { color: theme.textTertiary }]}
-                  >
-                    Loading stats...
-                  </Text>
-                )}
-              </View>
-            ) : (
-              <Text allowFontScaling={false} style={styles.noPitcher}>
-                TBD
-              </Text>
-            )}
-          </View>
-
-          {/* Home Pitcher */}
-          <View
-            style={[
-              styles.pitcherCard,
-              { backgroundColor: theme.surfaceSecondary },
-            ]}
-          >
-            <View style={styles.pitcherHeader}>
-              <Image
-                source={{ uri: getTeamLogoUrl("mlb", homeTeam?.abbreviation) }}
-                style={styles.pitcherTeamLogo}
-                defaultSource={{
-                  uri: "https://via.placeholder.com/24x24?text=MLB",
-                }}
-              />
-              <Text
-                allowFontScaling={false}
-                style={[styles.pitcherTeamName, { color: theme.text }]}
-              >
-                {homeTeam?.teamName || homeTeam?.name}
-              </Text>
-            </View>
-            {homePitcher ? (
-              <View style={styles.pitcherInfo}>
-                <Image
-                  source={{ uri: MLBService.getHeadshotUrl(homePitcher.id) }}
-                  style={styles.pitcherHeadshot}
-                  defaultSource={{
-                    uri: "https://via.placeholder.com/60x60?text=P",
-                  }}
-                />
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.pitcherName, { color: theme.text }]}
-                >
-                  {homePitcher.fullName}
-                </Text>
-                {probablePitcherStats.home?.pitching ? (
-                  <View style={styles.pitcherStatsContainer}>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.pitcherStats,
-                        { color: theme.textTertiary },
-                      ]}
-                    >
-                      {probablePitcherStats.home.pitching.wins || 0}-
-                      {probablePitcherStats.home.pitching.losses || 0}
-                    </Text>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.pitcherStats,
-                        { color: theme.textTertiary },
-                      ]}
-                    >
-                      {probablePitcherStats.home.pitching.era || "0.00"} ERA
-                    </Text>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.pitcherStats,
-                        { color: theme.textTertiary },
-                      ]}
-                    >
-                      {probablePitcherStats.home.pitching.whip || "0.00"} WHIP
-                    </Text>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.pitcherStats,
-                        { color: theme.textTertiary },
-                      ]}
-                    >
-                      {probablePitcherStats.home.pitching.strikeOuts || 0} K
-                    </Text>
-                  </View>
-                ) : (
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.pitcherStats, { color: theme.textTertiary }]}
-                  >
-                    Loading stats...
-                  </Text>
-                )}
-              </View>
-            ) : (
-              <Text allowFontScaling={false} style={styles.noPitcher}>
-                TBD
-              </Text>
-            )}
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  const renderTopHitters = () => {
-    if (!gameData?.gameData?.teams) return null;
-
-    const awayTeam = gameData.gameData.teams.away;
-    const homeTeam = gameData.gameData.teams.home;
-
-    return (
-      <View
-        style={[
-          styles.section,
-          {
-            backgroundColor: theme.surface,
-            shadowColor: isDarkMode ? "#fff" : "#000",
-          },
-        ]}
-      >
-        <Text
-          allowFontScaling={false}
-          style={[styles.sectionTitle, { color: theme.text }]}
-        >
-          Top Hitters
-        </Text>
-        <View style={styles.topHittersContainer}>
-          {/* Away Team */}
-          <View style={styles.topHittersTeam}>
-            <View style={styles.topHittersHeader}>
-              <Image
-                source={{ uri: getTeamLogoUrl("mlb", awayTeam?.abbreviation) }}
-                style={styles.topHittersTeamLogo}
-                defaultSource={{
-                  uri: "https://via.placeholder.com/24x24?text=MLB",
-                }}
-              />
-              <Text
-                allowFontScaling={false}
-                style={[styles.topHittersTeamName, { color: theme.text }]}
-              >
-                {awayTeam?.teamName || awayTeam?.name}
-              </Text>
-            </View>
-            {topHitters.away && topHitters.away.length > 0 ? (
-              topHitters.away.slice(0, 3).map((hitter, index) => (
-                <View
-                  key={hitter.player?.id || index}
-                  style={[
-                    styles.topHitterRow,
-                    { backgroundColor: theme.surfaceSecondary },
-                  ]}
-                >
-                  <View style={styles.topHitterLeft}>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.topHitterPosition,
-                        { color: theme.textTertiary },
-                      ]}
-                    >
-                      {hitter.position?.abbreviation || "N/A"}
-                    </Text>
-                    <Image
-                      source={{
-                        uri: MLBService.getHeadshotUrl(hitter.player?.id),
-                      }}
-                      style={styles.topHitterHeadshot}
-                      defaultSource={{
-                        uri: "https://via.placeholder.com/40x40?text=P",
-                      }}
-                    />
-                    <View style={styles.topHitterInfo}>
-                      <Text
-                        allowFontScaling={false}
-                        style={[styles.topHitterName, { color: theme.text }]}
-                      >
-                        {hitter.player?.fullName}
-                      </Text>
-                      <View style={styles.topHitterStatsRow}>
-                        <View style={styles.topHitterStatItem}>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.topHitterStatValue,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            {hitter.stat?.avg || ".000"}
-                          </Text>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.topHitterStatLabel,
-                              { color: theme.textTertiary },
-                            ]}
-                          >
-                            AVG
-                          </Text>
-                        </View>
-                        <View style={styles.topHitterStatItem}>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.topHitterStatValue,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            {hitter.stat?.ops || ".000"}
-                          </Text>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.topHitterStatLabel,
-                              { color: theme.textTertiary },
-                            ]}
-                          >
-                            OPS
-                          </Text>
-                        </View>
-                        <View style={styles.topHitterStatItem}>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.topHitterStatValue,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            {hitter.stat?.homeRuns || 0}
-                          </Text>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.topHitterStatLabel,
-                              { color: theme.textTertiary },
-                            ]}
-                          >
-                            HR
-                          </Text>
-                        </View>
-                        <View style={styles.topHitterStatItem}>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.topHitterStatValue,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            {hitter.stat?.rbi || 0}
-                          </Text>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.topHitterStatLabel,
-                              { color: theme.textTertiary },
-                            ]}
-                          >
-                            RBI
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              ))
-            ) : (
-              <Text
-                allowFontScaling={false}
-                style={[styles.loadingHitters, { color: theme.textTertiary }]}
-              >
-                Loading...
-              </Text>
-            )}
-          </View>
-
-          {/* Home Team */}
-          <View style={styles.topHittersTeam}>
-            <View style={styles.topHittersHeader}>
-              <Image
-                source={{ uri: getTeamLogoUrl("mlb", homeTeam?.abbreviation) }}
-                style={styles.topHittersTeamLogo}
-                defaultSource={{
-                  uri: "https://via.placeholder.com/24x24?text=MLB",
-                }}
-              />
-              <Text
-                allowFontScaling={false}
-                style={[styles.topHittersTeamName, { color: theme.text }]}
-              >
-                {homeTeam?.teamName || homeTeam?.name}
-              </Text>
-            </View>
-            {topHitters.home && topHitters.home.length > 0 ? (
-              topHitters.home.slice(0, 3).map((hitter, index) => (
-                <View
-                  key={hitter.player?.id || index}
-                  style={[
-                    styles.topHitterRow,
-                    { backgroundColor: theme.surfaceSecondary },
-                  ]}
-                >
-                  <View style={styles.topHitterLeft}>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.topHitterPosition,
-                        { color: theme.textTertiary },
-                      ]}
-                    >
-                      {hitter.position?.abbreviation || "N/A"}
-                    </Text>
-                    <Image
-                      source={{
-                        uri: MLBService.getHeadshotUrl(hitter.player?.id),
-                      }}
-                      style={styles.topHitterHeadshot}
-                      defaultSource={{
-                        uri: "https://via.placeholder.com/40x40?text=P",
-                      }}
-                    />
-                    <View style={styles.topHitterInfo}>
-                      <Text
-                        allowFontScaling={false}
-                        style={[styles.topHitterName, { color: theme.text }]}
-                      >
-                        {hitter.player?.fullName}
-                      </Text>
-                      <View style={styles.topHitterStatsRow}>
-                        <View style={styles.topHitterStatItem}>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.topHitterStatValue,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            {hitter.stat?.avg || ".000"}
-                          </Text>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.topHitterStatLabel,
-                              { color: theme.textTertiary },
-                            ]}
-                          >
-                            AVG
-                          </Text>
-                        </View>
-                        <View style={styles.topHitterStatItem}>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.topHitterStatValue,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            {hitter.stat?.ops || ".000"}
-                          </Text>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.topHitterStatLabel,
-                              { color: theme.textTertiary },
-                            ]}
-                          >
-                            OPS
-                          </Text>
-                        </View>
-                        <View style={styles.topHitterStatItem}>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.topHitterStatValue,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            {hitter.stat?.homeRuns || 0}
-                          </Text>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.topHitterStatLabel,
-                              { color: theme.textTertiary },
-                            ]}
-                          >
-                            HR
-                          </Text>
-                        </View>
-                        <View style={styles.topHitterStatItem}>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.topHitterStatValue,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            {hitter.stat?.rbi || 0}
-                          </Text>
-                          <Text
-                            allowFontScaling={false}
-                            style={[
-                              styles.topHitterStatLabel,
-                              { color: theme.textTertiary },
-                            ]}
-                          >
-                            RBI
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              ))
-            ) : (
-              <Text allowFontScaling={false} style={styles.loadingHitters}>
-                Loading...
-              </Text>
-            )}
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  const renderSeasonStats = () => {
-    if (!gameData?.gameData?.teams) return null;
-
-    const awayTeam = gameData.gameData.teams.away;
-    const homeTeam = gameData.gameData.teams.home;
-    const awayStats = seasonStats.away;
-    const homeStats = seasonStats.home;
-
-    if (!awayStats || !homeStats) {
-      return (
-        <View style={styles.teamStatsContainer}>
-          <Text
-            allowFontScaling={false}
-            style={[styles.sectionTitle, { color: theme.text }]}
-          >
-            Season Statistics
-          </Text>
-          <View style={styles.seasonStatsContainer}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.placeholderText, { color: theme.textTertiary }]}
-            >
-              Loading season statistics...
-            </Text>
-          </View>
-        </View>
-      );
-    }
-
-    const awayColor = MLBService.getTeamColor(
-      awayTeam?.name || awayTeam?.team?.name,
-    );
-    const homeColor = MLBService.getTeamColor(
-      homeTeam?.name || homeTeam?.team?.name,
-    );
-
-    // Helper function to render stats row with bars
-    const renderStatsRow = (label, awayValue, homeValue) => {
-      const awayNum =
-        typeof awayValue === "number" ? awayValue : parseFloat(awayValue) || 0;
-      const homeNum =
-        typeof homeValue === "number" ? homeValue : parseFloat(homeValue) || 0;
-      const total = awayNum + homeNum;
-      const awayPercent = total > 0 ? (awayNum / total) * 100 : 50;
-      const homePercent = total > 0 ? (homeNum / total) * 100 : 50;
-
-      return (
-        <View key={label} style={{ marginBottom: 28 }}>
-          <View style={styles.statsRow}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statsValue, { color: theme.text }]}
-            >
-              {awayValue}
-            </Text>
-            <View style={styles.statsBarContainer}>
-              <View
-                style={[
-                  styles.statsBar,
-                  {
-                    flexDirection: "row",
-                    overflow: "hidden",
-                    borderRadius: 10,
-                    backgroundColor: theme.surface,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.statsBarFill,
-                    {
-                      width: `${awayPercent}%`,
-                      backgroundColor: awayColor,
-                      height: "100%",
-                      borderTopLeftRadius: 10,
-                      borderBottomLeftRadius: 10,
-                      borderTopRightRadius: 0,
-                      borderBottomRightRadius: 0,
-                    },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.statsBarFill,
-                    {
-                      width: `${homePercent}%`,
-                      backgroundColor: homeColor,
-                      height: "100%",
-                      borderTopLeftRadius: 0,
-                      borderBottomLeftRadius: 0,
-                      borderTopRightRadius: 10,
-                      borderBottomRightRadius: 10,
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statsValue, { color: theme.text }]}
-            >
-              {homeValue}
-            </Text>
-          </View>
-          <View style={{ alignItems: "center", marginTop: -25 }}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.statsLabel, { color: theme.textSecondary }]}
-            >
-              {label}
-            </Text>
-          </View>
-        </View>
-      );
-    };
-
-    return (
-      <View
-        style={[
-          styles.teamStatsContainer,
-          {
-            backgroundColor: theme.surface,
-            shadowColor: isDarkMode ? "#fff" : "#000",
-          },
-        ]}
-      >
-        <Text
-          allowFontScaling={false}
-          style={[styles.sectionTitle, { color: theme.text }]}
-        >
-          Season Statistics
-        </Text>
-
-        {/* Team Headers */}
-        <View style={styles.statsTeams}>
-          <View style={styles.statsTeam}>
-            <Image
-              source={{ uri: getTeamLogoUrl("mlb", awayTeam?.abbreviation) }}
-              style={styles.statsTeamLogo}
-              defaultSource={{
-                uri: "https://via.placeholder.com/30x30?text=MLB",
-              }}
-            />
-            <Text
-              allowFontScaling={false}
-              style={[styles.statsTeamName, { color: theme.text }]}
-            >
-              {awayTeam?.name || "Away Team"}
-            </Text>
-          </View>
-          <View style={styles.statsTeam}>
-            <Image
-              source={{ uri: getTeamLogoUrl("mlb", homeTeam?.abbreviation) }}
-              style={styles.statsTeamLogo}
-              defaultSource={{
-                uri: "https://via.placeholder.com/30x30?text=MLB",
-              }}
-            />
-            <Text
-              allowFontScaling={false}
-              style={[styles.statsTeamName, { color: theme.text }]}
-            >
-              {homeTeam?.name || "Home Team"}
-            </Text>
-          </View>
-        </View>
-
-        {/* Stats Rows */}
-        <View style={styles.statsSection}>
-          {renderStatsRow(
-            "Runs Per Game",
-            parseFloat(
-              (awayStats.hitting?.runs || 0) /
-                (awayStats.hitting?.gamesPlayed || 1),
-            ).toFixed(3),
-            parseFloat(
-              (homeStats.hitting?.runs || 0) /
-                (homeStats.hitting?.gamesPlayed || 1),
-            ).toFixed(3),
-          )}
-          {renderStatsRow(
-            "Hits Per Game",
-            parseFloat(
-              (awayStats.hitting?.hits || 0) /
-                (awayStats.hitting?.gamesPlayed || 1),
-            ).toFixed(3),
-            parseFloat(
-              (homeStats.hitting?.hits || 0) /
-                (homeStats.hitting?.gamesPlayed || 1),
-            ).toFixed(3),
-          )}
-          {renderStatsRow(
-            "Batting Avg",
-            parseFloat(awayStats.hitting?.avg || 0).toFixed(3),
-            parseFloat(homeStats.hitting?.avg || 0).toFixed(3),
-          )}
-          {renderStatsRow(
-            "OPS",
-            parseFloat(awayStats.hitting?.ops || 0).toFixed(3),
-            parseFloat(homeStats.hitting?.ops || 0).toFixed(3),
-          )}
-          {renderStatsRow(
-            "Home Runs",
-            awayStats.hitting?.homeRuns || 0,
-            homeStats.hitting?.homeRuns || 0,
-          )}
-          {renderStatsRow(
-            "Stolen Base %",
-            awayStats.hitting?.stolenBasePercentage || 0,
-            homeStats.hitting?.stolenBasePercentage || 0,
-          )}
-          {renderStatsRow(
-            "ERA",
-            parseFloat(awayStats.pitching?.era || 0).toFixed(2),
-            parseFloat(homeStats.pitching?.era || 0).toFixed(2),
-          )}
-          {renderStatsRow(
-            "WHIP",
-            parseFloat(awayStats.pitching?.whip || 0).toFixed(2),
-            parseFloat(homeStats.pitching?.whip || 0).toFixed(2),
-          )}
-          {renderStatsRow(
-            "Strike %",
-            awayStats.pitching?.strikePercentage || 0,
-            homeStats.pitching?.strikePercentage || 0,
-          )}
-        </View>
-      </View>
-    );
-  };
-
-  const renderTeamRoster = (team) => {
-    if (!team) return null;
-
-    const teamType =
-      team.id === gameData?.gameData?.teams?.away?.id ? "away" : "home";
-    const roster = teamType === "away" ? awayRoster : homeRoster;
-
-    if (loadingRoster || !roster) {
-      return (
-        <View
-          style={[styles.rosterContainer, { backgroundColor: theme.surface }]}
-        >
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text
-            allowFontScaling={false}
-            style={[styles.placeholderText, { color: theme.textTertiary }]}
-          >
-            Loading roster...
-          </Text>
-        </View>
-      );
-    }
-
-    // Group players by position
-    const pitchers = roster.filter(
-      (player) => player.position?.abbreviation === "P",
-    );
-    const catchers = roster.filter(
-      (player) => player.position?.abbreviation === "C",
-    );
-    const infielders = roster.filter((player) =>
-      ["1B", "2B", "3B", "SS"].includes(player.position?.abbreviation),
-    );
-    const outfielders = roster.filter((player) =>
-      ["LF", "CF", "RF", "OF"].includes(player.position?.abbreviation),
-    );
-    const others = roster.filter(
-      (player) =>
-        !["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "OF"].includes(
-          player.position?.abbreviation,
-        ),
-    );
-
-    const renderPlayerSection = (title, players, sectionKey) => {
-      if (players.length === 0) return null;
-
-      const isCollapsed = collapsedRosterSections[sectionKey];
-
-      const toggleSection = () => {
-        setCollapsedRosterSections((prev) => ({
-          ...prev,
-          [sectionKey]: !prev[sectionKey],
-        }));
-      };
-
-      return (
-        <View style={styles.rosterSection}>
-          <TouchableOpacity
-            style={styles.rosterSectionHeader}
-            onPress={toggleSection}
-            activeOpacity={0.7}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.rosterSectionTitle, { color: theme.text }]}
-            >
-              {title} ({players.length})
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[styles.rosterSectionArrow, { color: theme.text }]}
-            >
-              {isCollapsed ? "▶" : "▼"}
-            </Text>
-          </TouchableOpacity>
-          {!isCollapsed && (
-            <View style={styles.rosterTableContainer}>
-              <View
-                style={[
-                  styles.rosterTableHeader,
-                  { backgroundColor: theme.surface },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.rosterTableHeaderPlayer,
-                    { color: theme.text },
-                  ]}
-                >
-                  Player
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.rosterTableHeaderStatus,
-                    { color: theme.text },
-                  ]}
-                >
-                  Status
-                </Text>
-              </View>
-              {players.map((player) => (
-                <View
-                  key={player.person.id}
-                  style={[
-                    styles.rosterTableRow,
-                    {
-                      borderBottomColor: theme.border,
-                      backgroundColor: theme.surfaceSecondary,
-                    },
-                  ]}
-                >
-                  <View style={styles.rosterTablePlayerCell}>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.rosterTablePlayerName,
-                        { color: theme.text },
-                      ]}
-                    >
-                      {player.person.fullName}
-                    </Text>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.rosterTablePlayerDetails,
-                        { color: theme.textTertiary },
-                      ]}
-                    >
-                      <Text
-                        allowFontScaling={false}
-                        style={[
-                          styles.rosterTablePlayerNumber,
-                          { color: theme.textTertiary },
-                        ]}
-                      >
-                        #{player.jerseyNumber || "--"}
-                      </Text>
-                      {" • "}
-                      {player.position?.abbreviation || "N/A"}
-                    </Text>
-                  </View>
-                  <View style={styles.rosterTableStatusCell}>
-                    <Text
-                      allowFontScaling={false}
-                      style={[
-                        styles.rosterTableStatusText,
-                        player.status?.code === "A"
-                          ? styles.activeStatus
-                          : styles.inactiveStatus,
-                      ]}
-                    >
-                      {player.status?.code === "A"
-                        ? "Active"
-                        : player.status?.description || "Inactive"}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-      );
-    };
-
-    return (
-      <ScrollView
-        style={[
-          styles.rosterContainer,
-          { backgroundColor: theme.surfaceSecondary },
-        ]}
-      >
-        {renderPlayerSection("Pitchers", pitchers, `${teamType}Pitchers`)}
-        {renderPlayerSection("Catchers", catchers, `${teamType}Catchers`)}
-        {renderPlayerSection("Infielders", infielders, `${teamType}Infielders`)}
-        {renderPlayerSection(
-          "Outfielders",
-          outfielders,
-          `${teamType}Outfielders`,
-        )}
-        {others.length > 0 &&
-          renderPlayerSection("Others", others, `${teamType}Others`)}
-      </ScrollView>
-    );
-  };
-
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case "stats":
-        return renderStatsContent();
-      case "away":
-        return renderTeamContent("away");
-      case "home":
-        return renderTeamContent("home");
-      case "plays":
-        return renderPlaysContent();
-      default:
-        return renderStatsContent();
-    }
-  };
-
-  const renderPlayerGameStats = (stats, player) => {
-    if (!stats) return null;
-
-    const isPitcher =
-      player.position?.abbreviation === "P" ||
-      player.allPositions?.some((pos) => pos.abbreviation === "P");
-    const battingStats = stats.batting || {};
-    const pitchingStats = stats.pitching || {};
-
-    // Determine which stats to show based on selectedStatsType and available data
-    const showBattingStats =
-      selectedStatsType === "batting" && Object.keys(battingStats).length > 0;
-    const showPitchingStats =
-      selectedStatsType === "pitching" && Object.keys(pitchingStats).length > 0;
-
-    // For two-way players, if selected type has no stats, fall back to the other type
-    const fallbackToBatting =
-      selectedStatsType === "pitching" &&
-      Object.keys(pitchingStats).length === 0 &&
-      Object.keys(battingStats).length > 0;
-    const fallbackToPitching =
-      selectedStatsType === "batting" &&
-      Object.keys(battingStats).length === 0 &&
-      Object.keys(pitchingStats).length > 0;
-
-    // Format game date properly
-    const formatGameDate = (dateStr) => {
-      // Parse date in a timezone-neutral way to avoid day shifting
-      const [year, month, day] = dateStr.split("-").map(Number);
-      const date = new Date(year, month - 1, day); // month is 0-indexed
-      const dayNum = date.getDate();
-      const monthName = date.toLocaleDateString("en-US", { month: "short" });
-      const yearNum = date.getFullYear();
-      return `${dayNum} ${monthName} ${yearNum}`;
-    };
-
-    const gameDate = gameData?.gameData?.datetime?.originalDate
-      ? formatGameDate(gameData.gameData.datetime.originalDate)
-      : formatGameDate(new Date());
-
-    return (
-      <View>
-        {/* Game Info */}
-        <View
-          style={[styles.gameStatsHeader, { borderBottomColor: theme.border }]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.gameStatsTitle, { color: colors.primary }]}
-          >
-            Game Statistics
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.gameStatsDate, { color: theme.textSecondary }]}
-          >
-            {gameDate}
-          </Text>
-        </View>
-
-        {/* Batting Stats */}
-        {(showBattingStats || fallbackToBatting) && (
-          <View
-            style={[
-              styles.statCategoryContainer,
-              { backgroundColor: theme.surface },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.statCategoryTitle, { color: colors.primary }]}
-            >
-              ⚾ Batting
-            </Text>
-
-            {/* First row: 3 stats */}
-            <View style={styles.statGridRow}>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {battingStats.hits || 0}/{battingStats.atBats || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  H/AB
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {battingStats.runs || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  R
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {battingStats.rbi || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  RBI
-                </Text>
-              </View>
-            </View>
-
-            {/* Second row: 3 stats */}
-            <View style={styles.statGridRow}>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {battingStats.homeRuns || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  HR
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {battingStats.baseOnBalls || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  BB
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {battingStats.strikeOuts || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  SO
-                </Text>
-              </View>
-            </View>
-
-            {/* Third row: 3 stats */}
-            <View style={styles.statGridRow}>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {battingStats.totalBases || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  TB
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {battingStats.stolenBases || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  SB
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {battingStats.leftOnBase || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  LOB
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Pitching Stats */}
-        {(showPitchingStats || fallbackToPitching) && (
-          <View
-            style={[
-              styles.statCategoryContainer,
-              { backgroundColor: theme.surface },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.statCategoryTitle, { color: colors.primary }]}
-            >
-              🥎 Pitching
-            </Text>
-
-            {/* First row: 3 stats */}
-            <View style={styles.statGridRow}>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {pitchingStats.inningsPitched || "0.0"}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  IP
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {pitchingStats.hits || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  H
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {pitchingStats.runs || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  R
-                </Text>
-              </View>
-            </View>
-
-            {/* Second row: 3 stats */}
-            <View style={styles.statGridRow}>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {pitchingStats.earnedRuns || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  ER
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {pitchingStats.baseOnBalls || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  BB
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {pitchingStats.strikeOuts || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  K
-                </Text>
-              </View>
-            </View>
-
-            {/* Third row: 3 stats (P and ST separated) */}
-            <View style={styles.statGridRow}>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {pitchingStats.numberOfPitches || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  P
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {pitchingStats.strikes || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  ST
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.statBox,
-                  {
-                    backgroundColor: theme.surface,
-                    shadowColor: isDarkMode ? "#fff" : "#000",
-                  },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxValue, { color: theme.text }]}
-                >
-                  {pitchingStats.strikePercentage || "0.00"}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-                >
-                  K%
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* No Stats Message */}
-        {!showBattingStats &&
-          !showPitchingStats &&
-          !fallbackToBatting &&
-          !fallbackToPitching && (
-            <View style={styles.noStatsContainer}>
-              <Text
-                allowFontScaling={false}
-                style={[styles.noStatsText, { color: theme.textSecondary }]}
-              >
-                No statistics available for this game
-              </Text>
-            </View>
-          )}
-      </View>
-    );
-  };
-
+  // ── Loading / error states ────────────────────────────────────────────────
   if (loading) {
     return (
-      <View
-        style={[styles.loadingContainer, { backgroundColor: theme.background }]}
-      >
+      <View style={[styles.centered, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text
-          allowFontScaling={false}
-          style={[styles.loadingText, { color: theme.textSecondary }]}
-        >
-          Loading Game Details...
+        <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+          Loading game…
         </Text>
-      </View>
-    );
-  }
-
-  if (!gameData) {
-    return (
-      <View
-        style={[styles.errorContainer, { backgroundColor: theme.background }]}
-      >
-        <Text
-          allowFontScaling={false}
-          style={[styles.errorText, { color: theme.textSecondary }]}
-        >
-          Game data not available
-        </Text>
-        <TouchableOpacity
-          style={[styles.retryButton, { backgroundColor: colors.primary }]}
-          onPress={() => loadGameDetails()}
-        >
-          <Text allowFontScaling={false} style={styles.retryButtonText}>
-            Retry
-          </Text>
-        </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        onScroll={handleScroll}
+    <View style={[styles.screen, { backgroundColor: theme.background }]}>
+      <Animated.ScrollView
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false },
+        )}
+        stickyHeaderIndices={[1]}
       >
-        <MemoizedGameHeader
-          gameData={gameData}
-          theme={theme}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          getTeamLogoUrl={getTeamLogoUrl}
-          renderGameHeader={renderGameHeader}
-        />
-        <MemoizedTabNavigation
-          gameData={gameData}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          theme={theme}
-          colors={colors}
-          renderTabNavigation={renderTabNavigation}
-        />
-        <MemoizedTabContent
-          activeTab={activeTab}
-          gameData={gameData}
-          playsData={playsData}
-          theme={theme}
-          colors={colors}
-          isDarkMode={isDarkMode}
-          probablePitcherStats={probablePitcherStats}
-          topHitters={topHitters}
-          seasonStats={seasonStats}
-          awayRoster={awayRoster}
-          homeRoster={homeRoster}
-          openPlays={openPlays}
-          collapsedRosterSections={collapsedRosterSections}
-          renderTabContent={renderTabContent}
-        />
-      </ScrollView>
-      {renderStickyHeader()}
+        {/* ── HEADER ───────────────────────────────────────────────── */}
+        <View
+          style={[styles.header, { backgroundColor: theme.surfaceSecondary }]}
+          onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+        >
+          <HeaderGradient
+            awayColor={awayColor}
+            homeColor={homeColor}
+            theme={theme}
+            height={headerHeight}
+          />
 
-      {/* Floating Chat Button */}
-      <TouchableOpacity
-        style={[
-          styles.floatingChatButton,
-          { backgroundColor: colors.secondary },
-        ]}
-        onPress={() => setChatModalVisible(true)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="chatbubble-ellipses-outline" size={24} color="#fff" />
-      </TouchableOpacity>
+          {/* Venue */}
+          {!!venue && (
+            <Text style={[styles.venue, { color: theme.textTertiary }]}>
+              {venue}
+            </Text>
+          )}
 
-      {/* Player Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={playerModalVisible}
-        onRequestClose={closePlayerModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View
-            style={[styles.modalContent, { backgroundColor: theme.surface }]}
-          >
-            {/* Close Button */}
-            <TouchableOpacity
-              style={[
-                styles.modalCloseButton,
-                { backgroundColor: theme.error },
-              ]}
-              onPress={closePlayerModal}
-            >
-              <Text allowFontScaling={false} style={styles.modalCloseText}>
-                ×
-              </Text>
-            </TouchableOpacity>
+          {/* Team row */}
+          <View style={styles.teamsRow}>
+            <TeamColumn
+              status={status}
+              team={awayTeam}
+              score={awayScore}
+              isWinner={awayWinner}
+              side="away"
+              isDarkMode={isDarkMode}
+              theme={theme}
+              scoreOpacity={gameScoreOpacity}
+              onPress={() =>
+                awayTeam?.id != null &&
+                navigation.navigate("TeamPage", {
+                  teamId: awayTeam.id,
+                  sport: "mlb",
+                })
+              }
+            />
 
-            {selectedPlayer && (
-              <>
-                {/* Player Header */}
-                <View style={styles.playerHeader}>
-                  <Image
-                    source={{
-                      uri: MLBService.getHeadshotUrl(selectedPlayer.person?.id),
-                    }}
-                    style={styles.playerHeadshot}
-                    defaultSource={{
-                      uri: "https://via.placeholder.com/80x80?text=Player",
-                    }}
-                  />
-                  <View style={styles.playerInfo}>
-                    <Text
-                      allowFontScaling={false}
-                      style={[styles.playerName, { color: theme.text }]}
-                    >
-                      {selectedPlayer.person?.fullName || "Unknown Player"}
+            <View style={{ flex: 1, alignItems: "center" }}>
+              <StatusBadge
+                status={status}
+                linescore={linescore}
+                gameDateTime={gameDateTime}
+                theme={theme}
+              />
+
+              {/* Live Stream Button — sits below the status badge in the centre column */}
+              {!isScheduled && !isGameFinished && (
+                <TouchableOpacity
+                  style={[styles.streamBtn, { borderColor: colors.primary }]}
+                  onPress={openStreamModal}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.streamBtnInner}>
+                    <View style={[styles.streamBtnDot, { backgroundColor: colors.primary }]} />
+                    <Text style={[styles.streamBtnText, { color: colors.primary }]}>
+                      Stream
                     </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <TeamColumn
+              status={status}
+              team={homeTeam}
+              score={homeScore}
+              isWinner={homeWinner}
+              side="home"
+              isDarkMode={isDarkMode}
+              theme={theme}
+              scoreOpacity={gameScoreOpacity}
+              onPress={() =>
+                homeTeam?.id != null &&
+                navigation.navigate("TeamPage", {
+                  teamId: homeTeam.id,
+                  sport: "mlb",
+                })
+              }
+            />
+          </View>
+        </View>
+
+        {/* ── STICKY UNIT (mini game header + tab bar) ─────────────────── */}
+        <View style={{ backgroundColor: theme.surface }}>
+          {/* Mini game header ─ slides in from behind tab bar */}
+          <Animated.View
+            style={[
+              styles.stickyMini,
+              {
+                height: stickyMiniHeight,
+                opacity: stickyOpacity,
+                backgroundColor: theme.surface,
+                borderBottomColor: theme.border,
+              },
+            ]}
+          >
+            {/* Away */}
+            <View style={[styles.miniSide, { justifyContent: "flex-start" }]}>
+              {WBCService.getTeamLogo(awayTeam?.id, isDarkMode) ? (
+                <Image
+                  source={{
+                    uri: WBCService.getTeamLogo(awayTeam?.id, isDarkMode),
+                  }}
+                  style={styles.miniLogo}
+                  resizeMode="contain"
+                />
+              ) : null}
+              <Text style={[styles.miniAbbr, { color: awayColor }]}>
+                {awayTeam?.abbreviation ?? ""}
+              </Text>
+              <Text
+                style={[
+                  styles.miniScore,
+                  {
+                    color: awayWinner ? theme.text : theme.textSecondary,
+                    fontWeight: awayWinner ? "800" : "500",
+                  },
+                ]}
+              >
+                {awayScore ?? ""}
+              </Text>
+            </View>
+            {/* Status */}
+            <View style={styles.miniStatusBlock}>
+              {(() => {
+                const isLive = ![
+                  "S",
+                  "P",
+                  "D",
+                  "C",
+                  "O",
+                  "F",
+                  "Q",
+                  "R",
+                ].includes(status?.codedGameState);
+                const inning = linescore?.currentInning;
+                const isTop = linescore?.isTopInning !== false;
+                const currentOuts =
+                  currentPlay?.count?.outs ?? linescore?.outs ?? 0;
+                if (isLive && inning) {
+                  return (
+                    <>
+                      <Text
+                        style={[
+                          styles.miniStatusLine,
+                          { color: theme.success },
+                        ]}
+                      >
+                        {isTop ? "▲" : "▼"} {toOrdinal(inning)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.miniStatusSub,
+                          { color: theme.textTertiary },
+                        ]}
+                      >
+                        {currentOuts} out{currentOuts !== 1 ? "s" : ""}
+                      </Text>
+                    </>
+                  );
+                }
+                const label =
+                  status?.codedGameState === "F" ||
+                  status?.detailedState === "Final"
+                    ? "Final"
+                    : (status?.detailedState ?? "");
+                const miniTimeStr = fmtGameTime(gameDateTime);
+                const inningLabel = inning && inning > 9 ? `F/${inning}` : null;
+                return (
+                  <>
                     <Text
-                      allowFontScaling={false}
                       style={[
-                        styles.playerDetails,
+                        styles.miniStatusLine,
                         { color: theme.textSecondary },
                       ]}
                     >
-                      #{selectedPlayer.jerseyNumber || "N/A"} •{" "}
-                      {selectedPlayer.position?.abbreviation || "N/A"}
+                      {label}
                     </Text>
-                    <View style={styles.playerTeamInfo}>
-                      <Image
-                        source={{
-                          uri: getTeamLogoUrl(
-                            "mlb",
-                            selectedPlayer.team?.abbreviation,
-                          ),
-                        }}
-                        style={styles.playerTeamLogo}
-                        defaultSource={{
-                          uri: "https://via.placeholder.com/20x20?text=MLB",
-                        }}
-                      />
+                    {inningLabel ? (
                       <Text
-                        allowFontScaling={false}
                         style={[
-                          styles.playerTeamName,
-                          { color: colors.primary },
+                          styles.miniStatusSub,
+                          { color: theme.textTertiary },
                         ]}
                       >
-                        {selectedPlayer.team?.name || "Unknown Team"}
+                        {inningLabel}
                       </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Stats Type Toggle for Two-Way Players */}
-                {selectedPlayer &&
-                  playerStats &&
-                  playerStats.batting &&
-                  playerStats.pitching &&
-                  Object.keys(playerStats.batting).length > 0 &&
-                  Object.keys(playerStats.pitching).length > 0 && (
-                    <View style={styles.statsToggleContainer}>
-                      <TouchableOpacity
+                    ) : miniTimeStr ? (
+                      <Text
                         style={[
-                          styles.statsToggleButton,
-                          selectedStatsType === "batting" &&
-                            styles.statsToggleButtonActive,
-                          {
-                            backgroundColor:
-                              selectedStatsType === "batting"
-                                ? colors.primary
-                                : theme.surface,
-                            borderColor: colors.primary,
-                          },
+                          styles.miniStatusSub,
+                          { color: theme.textTertiary },
                         ]}
-                        onPress={() => setSelectedStatsType("batting")}
+                        numberOfLines={1}
                       >
-                        <Text
-                          allowFontScaling={false}
-                          style={[
-                            styles.statsToggleButtonText,
-                            {
-                              color:
-                                selectedStatsType === "batting"
-                                  ? "#FFFFFF"
-                                  : colors.primary,
-                            },
-                          ]}
-                        >
-                          ⚾ Batting
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.statsToggleButton,
-                          selectedStatsType === "pitching" &&
-                            styles.statsToggleButtonActive,
-                          {
-                            backgroundColor:
-                              selectedStatsType === "pitching"
-                                ? colors.primary
-                                : theme.surface,
-                            borderColor: colors.primary,
-                          },
-                        ]}
-                        onPress={() => setSelectedStatsType("pitching")}
-                      >
-                        <Text
-                          allowFontScaling={false}
-                          style={[
-                            styles.statsToggleButtonText,
-                            {
-                              color:
-                                selectedStatsType === "pitching"
-                                  ? "#FFFFFF"
-                                  : colors.primary,
-                            },
-                          ]}
-                        >
-                          🥎 Pitching
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-
-                {/* Player Stats */}
-                <View style={styles.playerStatsContainer}>
-                  {loadingPlayerStats ? (
-                    <View style={styles.playerStatsLoading}>
-                      <ActivityIndicator size="large" color="#002D72" />
-                      <Text allowFontScaling={false} style={styles.loadingText}>
-                        Loading player stats...
+                        {miniTimeStr}
                       </Text>
-                    </View>
-                  ) : playerStats ? (
-                    <ScrollView style={styles.playerStatsContent}>
-                      {renderPlayerGameStats(playerStats, selectedPlayer)}
-                    </ScrollView>
-                  ) : (
-                    <Text allowFontScaling={false} style={styles.noStatsText}>
-                      Unable to load player statistics
-                    </Text>
-                  )}
-                </View>
+                    ) : null}
+                  </>
+                );
+              })()}
+            </View>
+            {/* Home */}
+            <View style={[styles.miniSide, { justifyContent: "flex-end" }]}>
+              <Text
+                style={[
+                  styles.miniScore,
+                  {
+                    color: homeWinner ? theme.text : theme.textSecondary,
+                    fontWeight: homeWinner ? "800" : "500",
+                  },
+                ]}
+              >
+                {homeScore ?? ""}
+              </Text>
+              <Text style={[styles.miniAbbr, { color: homeColor }]}>
+                {homeTeam?.abbreviation ?? ""}
+              </Text>
+              {WBCService.getTeamLogo(homeTeam?.id, isDarkMode) ? (
+                <Image
+                  source={{
+                    uri: WBCService.getTeamLogo(homeTeam?.id, isDarkMode),
+                  }}
+                  style={styles.miniLogo}
+                  resizeMode="contain"
+                />
+              ) : null}
+            </View>
+          </Animated.View>
+
+          {/* Tab bar */}
+          <View style={[styles.tabBar, { borderBottomColor: theme.border }]}>
+            {TABS.map((tab) => (
+              <TouchableOpacity
+                key={tab}
+                style={[
+                  styles.tabButton,
+                  activeTab === tab && {
+                    borderBottomColor: colors.primary,
+                    borderBottomWidth: 2,
+                  },
+                ]}
+                onPress={() => setActiveTab(tab)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    {
+                      color:
+                        activeTab === tab
+                          ? colors.primary
+                          : theme.textSecondary,
+                      fontWeight: activeTab === tab ? "700" : "400",
+                    },
+                  ]}
+                >
+                  {tab}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* ── Error notice (non-blocking) ──────────────────────────── */}
+        {!!error && (
+          <View
+            style={[
+              styles.errorBanner,
+              { backgroundColor: theme.surfaceSecondary },
+            ]}
+          >
+            <Text style={{ color: theme.textSecondary }}>{error}</Text>
+          </View>
+        )}
+
+        {/* ── TAB CONTENT ──────────────────────────────────────────── */}
+        {activeTab === "Main" && (
+          <View style={{ paddingHorizontal: 12, paddingTop: 12 }}>
+            {/* Scheduled: only game info */}
+            {isScheduled && (
+              <GameInfoBubble
+                gameData={gameData}
+                officials={boxscore?.officials ?? []}
+                theme={theme}
+              />
+            )}
+
+            {/* Finished: linescore + team stats + win probability + game info */}
+            {isGameFinished && (
+              <>
+                <LinescoreBubble
+                  linescore={linescore}
+                  awayTeam={awayTeam}
+                  homeTeam={homeTeam}
+                  awayColor={awayColor}
+                  homeColor={homeColor}
+                  theme={theme}
+                />
+                <TeamStatsBubble
+                  awayTeam={awayTeam}
+                  homeTeam={homeTeam}
+                  awayColor={awayColor}
+                  homeColor={homeColor}
+                  bsAwayTeam={bsAwayTeam}
+                  bsHomeTeam={bsHomeTeam}
+                  theme={theme}
+                />
+                <WinProbabilityChart
+                  probabilityData={feed?.pitches?.probability ?? null}
+                  allPlays={allPlays}
+                  awayTeam={awayTeam}
+                  homeTeam={homeTeam}
+                  awayColor={awayColor}
+                  homeColor={homeColor}
+                  theme={theme}
+                />
+                <GameInfoBubble
+                  gameData={gameData}
+                  officials={boxscore?.officials ?? []}
+                  theme={theme}
+                />
+              </>
+            )}
+
+            {/* Live / in-progress: all bubbles */}
+            {!isScheduled && !isGameFinished && (
+              <>
+                <LinescoreBubble
+                  linescore={linescore}
+                  awayTeam={awayTeam}
+                  homeTeam={homeTeam}
+                  awayColor={awayColor}
+                  homeColor={homeColor}
+                  theme={theme}
+                />
+                <CurrentAtBatBubble
+                  currentPlay={currentPlay}
+                  linescore={linescore}
+                  playersMap={playersMap}
+                  boxscore={boxscore}
+                  awayTeam={awayTeam}
+                  homeTeam={homeTeam}
+                  awayColor={awayColor}
+                  homeColor={homeColor}
+                  animTrigger={mainTabKey}
+                  theme={theme}
+                />
+                <TeamStatsBubble
+                  awayTeam={awayTeam}
+                  homeTeam={homeTeam}
+                  awayColor={awayColor}
+                  homeColor={homeColor}
+                  bsAwayTeam={bsAwayTeam}
+                  bsHomeTeam={bsHomeTeam}
+                  theme={theme}
+                />
+                <WinProbabilityChart
+                  probabilityData={feed?.pitches?.probability ?? null}
+                  allPlays={allPlays}
+                  awayTeam={awayTeam}
+                  homeTeam={homeTeam}
+                  awayColor={awayColor}
+                  homeColor={homeColor}
+                  theme={theme}
+                />
+                <GameInfoBubble
+                  gameData={gameData}
+                  officials={boxscore?.officials ?? []}
+                  theme={theme}
+                />
               </>
             )}
           </View>
-        </View>
-      </Modal>
+        )}
 
-      {/* Stream Modal - Only render when streaming is unlocked */}
-      {isStreamingUnlocked && (
+        {activeTab === "Away" && (
+          <BoxScorePanel
+            bsTeamData={bsAwayTeam}
+            playersMap={playersMap}
+            theme={theme}
+            teamColor={awayColor}
+            team={awayTeam}
+            boxscore={boxscore}
+            pitchesData={pitchesData}
+            awayTeam={awayTeam}
+            homeTeam={homeTeam}
+            awayScore={awayScore}
+            homeScore={homeScore}
+            isScheduled={isScheduled}
+            isFinished={isFinished}
+          />
+        )}
+
+        {activeTab === "Home" && (
+          <BoxScorePanel
+            bsTeamData={bsHomeTeam}
+            playersMap={playersMap}
+            theme={theme}
+            teamColor={homeColor}
+            team={homeTeam}
+            boxscore={boxscore}
+            pitchesData={pitchesData}
+            awayTeam={awayTeam}
+            homeTeam={homeTeam}
+            awayScore={awayScore}
+            homeScore={homeScore}
+            isScheduled={isScheduled}
+            isFinished={isFinished}
+          />
+        )}
+
+        {activeTab === "Plays" && (
+          <PlaysPanel
+            allPlays={allPlays}
+            awayTeam={awayTeam}
+            homeTeam={homeTeam}
+            awayColor={awayColor}
+            homeColor={homeColor}
+            playersMap={playersMap}
+            boxscore={boxscore}
+            theme={theme}
+          />
+        )}
+
+        <View style={styles.bottomPadding} />
+      </Animated.ScrollView>
+
+      {/* ── Stream Modal ───────────────────────────────────────────────── */}
+      {(isStreamingUnlocked || gameData?.game?.type === "S") && (
         <Modal
           animationType="fade"
           transparent={true}
@@ -5698,7 +6703,7 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 </TouchableOpacity>
               </View>
 
-              {/* Stream Buttons - Show all available stream types */}
+              {/* Stream Buttons */}
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -5711,12 +6716,9 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                 ]}
                 contentContainerStyle={styles.streamButtonsContent}
               >
-                {Object.keys(availableStreams).map((streamKey, index) => {
-                  // Use the clean source name (admin, alpha, bravo, etc.)
-                  const sourceName = streamKey;
+                {Object.keys(availableStreams).map((streamKey) => {
                   const capitalizedName =
-                    sourceName.charAt(0).toUpperCase() + sourceName.slice(1);
-
+                    streamKey.charAt(0).toUpperCase() + streamKey.slice(1);
                   return (
                     <TouchableOpacity
                       key={streamKey}
@@ -5749,16 +6751,11 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                     </TouchableOpacity>
                   );
                 })}
-
-                {/* Show message if no streams are available */}
                 {Object.keys(availableStreams).length === 0 && (
                   <View style={styles.noStreamsMessage}>
                     <Text
                       allowFontScaling={false}
-                      style={[
-                        styles.noStreamsText,
-                        { color: theme.textSecondary },
-                      ]}
+                      style={[styles.noStreamsText, { color: theme.textSecondary }]}
                     >
                       No live streams found for this game
                     </Text>
@@ -5791,128 +6788,26 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
                     allowsInlineMediaPlayback={true}
                     mediaPlaybackRequiresUserAction={false}
                     userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-                    injectedJavaScript={`(function(){
-                        function post(obj){ try{ window.ReactNativeWebView.postMessage(JSON.stringify(obj)); }catch(e){} }
-                        post({type:'instrumentation', event:'init'});
-                        window.addEventListener('load', function(){ post({type:'lifecycle', event:'load', href:location.href}); });
-                        document.addEventListener('DOMContentLoaded', function(){ post({type:'lifecycle', event:'domcontent', href:location.href}); });
-                        try{ const origAssign = Location.prototype.assign; Location.prototype.assign = function(url){ post({type:'nav', method:'assign', url:url}); return origAssign.call(this, url); }; }catch(e){}
-                        try{ const origReplace = Location.prototype.replace; Location.prototype.replace = function(url){ post({type:'nav', method:'replace', url:url}); return origReplace.call(this, url); }; }catch(e){}
-                        try{ const hrefDesc = Object.getOwnPropertyDescriptor(Location.prototype,'href')||{}; if(hrefDesc && hrefDesc.set){ const origHrefSet = hrefDesc.set; Object.defineProperty(Location.prototype,'href',{ set:function(url){ post({type:'nav', method:'href', url:url}); return origHrefSet.call(this,url); }, get: hrefDesc.get }); } }catch(e){}
-                        try{ const origOpen = window.open; window.open = function(url,target,features){ post({type:'nav', method:'window.open', url:url, target:target}); return origOpen.call(this,url,target,features); }; }catch(e){}
-                        try{ const observer = new MutationObserver(function(muts){ muts.forEach(m=>{ m.addedNodes && m.addedNodes.forEach(n=>{ if(n.nodeType===1){ const tag=n.tagName.toLowerCase(); if(tag==='video'||tag==='iframe'||(n.querySelector&&(n.querySelector('video')||n.querySelector('iframe')))){ post({type:'dom', action:'added', tag:tag, html:n.outerHTML?(n.outerHTML.substring(0,200)):null, href:location.href}); } } }); m.removedNodes && m.removedNodes.forEach(n=>{ if(n.nodeType===1){ const tag=n.tagName.toLowerCase(); if(tag==='video'||tag==='iframe'||(n.querySelector&&(n.querySelector('video')||n.querySelector('iframe')))){ post({type:'dom', action:'removed', tag:tag, href:location.href}); } } }); }); }); observer.observe(document.documentElement||document.body,{ childList:true, subtree:true }); post({type:'instrumentation', event:'observer_started'}); }catch(e){ post({type:'instrumentation', event:'observer_error', error:String(e)}); }
-                        function instrumentExistingVideos(){ const videos=document.querySelectorAll('video'); videos.forEach(v=>{ if(!v.__instrumented){ v.__instrumented=true; v.addEventListener('play',()=>post({type:'video', event:'play', src:v.currentSrc||v.src, href:location.href})); v.addEventListener('pause',()=>post({type:'video', event:'pause', src:v.currentSrc||v.src, href:location.href})); v.addEventListener('ended',()=>post({type:'video', event:'ended', src:v.currentSrc||v.src, href:location.href})); } }); }
-                        setInterval(instrumentExistingVideos,1000);
-                        true; })();`}
-                    onMessage={(event) => {
-                      try {
-                        const data = JSON.parse(event.nativeEvent.data);
-                        console.log("WebView instrumentation:", data);
-                      } catch (e) {
-                        console.log(
-                          "WebView message (raw):",
-                          event.nativeEvent.data,
-                        );
-                      }
-                    }}
-                    onNavigationStateChange={(navState) => {
-                      console.log("WebView navigation state change:", {
-                        url: navState.url,
-                        title: navState.title,
-                        loading: navState.loading,
-                      });
-                    }}
-                    // Block popup navigation within the WebView
                     onShouldStartLoadWithRequest={(request) => {
-                      console.log(
-                        "MLB WebView navigation request:",
-                        request.url,
-                      );
-
-                      // Allow the initial stream URL to load
-                      if (request.url === streamUrl) {
-                        return true;
-                      }
-
-                      // Keywords that often indicate popups/ads
-                      const popupKeywords = [
-                        "popup",
-                        "ad",
-                        "ads",
-                        "click",
-                        "redirect",
-                        "promo",
-                      ];
+                      if (request.url === streamUrl) return true;
+                      const popupKeywords = ["popup", "ad", "ads", "click", "redirect", "promo"];
                       const urlLower = request.url.toLowerCase();
-                      const hasPopupKeywords = popupKeywords.some((keyword) =>
-                        urlLower.includes(keyword),
-                      );
-
-                      // Determine domains and allow same root/subdomains
+                      const hasPopupKeywords = popupKeywords.some((k) => urlLower.includes(k));
                       const currentDomain = new URL(streamUrl).hostname;
                       let requestDomain = "";
                       try {
                         requestDomain = new URL(request.url).hostname;
-                      } catch (e) {
-                        if (
-                          urlLower.startsWith("about:blank") ||
-                          urlLower.startsWith("data:")
-                        ) {
-                          return true;
-                        }
-                        console.log("Invalid URL:", request.url);
-                        return false;
+                      } catch {
+                        return urlLower.startsWith("about:blank") || urlLower.startsWith("data:");
                       }
-
                       const sameRootDomain =
                         requestDomain === currentDomain ||
                         requestDomain.endsWith(`.${currentDomain}`) ||
                         currentDomain.endsWith(`.${requestDomain}`);
-
-                      // Allow certain embed/navigation patterns even when cross-domain
-                      const allowPatterns = [
-                        "/embed/",
-                        "/embed-noads/",
-                        "/player/",
-                        ".html",
-                        ".m3u8",
-                        ".mpd",
-                        "about:blank",
-                        "data:",
-                      ];
-                      const allowIfEmbed = allowPatterns.some((p) =>
-                        urlLower.includes(p),
-                      );
-
-                      // Block navigation if it looks like a popup/ad and not an embed/resource
-                      if (hasPopupKeywords && !allowIfEmbed) {
-                        console.log(
-                          "Blocked MLB popup/cross-domain navigation:",
-                          request.url,
-                        );
-                        return false;
-                      }
-
-                      // If it's same root domain or matches known embed/resource patterns, allow
-                      if (sameRootDomain || allowIfEmbed) {
-                        return true;
-                      }
-
-                      console.log(
-                        "Blocked MLB popup/cross-domain navigation:",
-                        request.url,
-                      );
-                      return false;
-                    }}
-                    // Handle when WebView tries to open a new window (popup)
-                    onOpenWindow={(syntheticEvent) => {
-                      const { nativeEvent } = syntheticEvent;
-                      console.log(
-                        "Blocked MLB popup window:",
-                        nativeEvent.targetUrl,
-                      );
-                      // Don't open the popup - just log it
-                      return false;
+                      const allowPatterns = ["/embed/", "/player/", ".html", ".m3u8", ".mpd", "about:blank", "data:"];
+                      const allowIfEmbed = allowPatterns.some((p) => urlLower.includes(p));
+                      if (hasPopupKeywords && !allowIfEmbed) return false;
+                      return sameRootDomain || allowIfEmbed;
                     }}
                   />
                 ) : (
@@ -5930,2642 +6825,264 @@ const MLBGameDetailsScreen = ({ route, navigation }) => {
           </View>
         </Modal>
       )}
-
-      {/* Chat Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={chatModalVisible}
-        onRequestClose={() => setChatModalVisible(false)}
-        presentationStyle="pageSheet"
-      >
-        <View style={styles.chatModalOverlay}>
-          <View
-            style={[
-              styles.chatModalContent,
-              { backgroundColor: theme.surface, paddingBottom: 20 },
-            ]}
-          >
-            {/* Chat Modal Header */}
-            <View
-              style={[
-                styles.chatModalHeader,
-                { borderBottomColor: theme.border },
-              ]}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[styles.chatModalTitle, { color: theme.text }]}
-              >
-                {gameData
-                  ? `${gameData.gameData?.teams?.away?.teamName || "Away"} vs ${
-                      gameData.gameData?.teams?.home?.teamName || "Home"
-                    }`
-                  : "Chat"}
-              </Text>
-              <TouchableOpacity
-                style={styles.chatModalCloseButton}
-                onPress={() => setChatModalVisible(false)}
-              >
-                <Ionicons name="close" size={24} color={theme.text} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Chat Content */}
-            <View style={styles.chatModalBody}>
-              {gameData && (
-                <ChatComponent
-                  gameId={gameId}
-                  gameData={gameData}
-                  hideHeader={true}
-                />
-              )}
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MLB Shareable Play Card Modal */}
-      <Modal
-        visible={!!shareCardPlay}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setShareCardPlay(null)}
-      >
-        <View
-          style={[styles.modalOverlay, { backgroundColor: "rgba(0,0,0,0.85)" }]}
-        >
-          <View
-            style={{ alignItems: "center", justifyContent: "center", flex: 1 }}
-          >
-            <View
-              ref={mlbPlaysShareCardRef}
-              collapsable={false}
-              style={[
-                styles.mlbPlaysShareCard,
-                { backgroundColor: theme.surface },
-              ]}
-            >
-              {shareCardPlay &&
-                (() => {
-                  const play = shareCardPlay;
-                  const pitches =
-                    play.playEvents?.filter((event) => event.isPitch) || [];
-                  const last4Pitches = pitches.slice(-4);
-
-                  // Get batter and pitcher info
-                  const batter = play.matchup?.batter;
-                  const pitcher = play.matchup?.pitcher;
-
-                  // Get game info for scores
-                  const inning = play.about?.inning || 0;
-                  const halfInning = play.about?.halfInning || "top";
-                  const isTopInning = halfInning.toLowerCase() === "top";
-                  const awayScore = play.result?.awayScore || 0;
-                  const homeScore = play.result?.homeScore || 0;
-
-                  // Get team info
-                  const awayTeam = gameData?.gameData?.teams?.away;
-                  const homeTeam = gameData?.gameData?.teams?.home;
-                  const awayLogo = getTeamLogoUrl(
-                    "mlb",
-                    awayTeam?.abbreviation,
-                  );
-                  const homeLogo = getTeamLogoUrl(
-                    "mlb",
-                    homeTeam?.abbreviation,
-                  );
-
-                  // Get ordinal suffix for inning
-                  const getOrdinalSuffix = (n) => {
-                    if (n > 3 && n < 21) return n + "th";
-                    switch (n % 10) {
-                      case 1:
-                        return n + "st";
-                      case 2:
-                        return n + "nd";
-                      case 3:
-                        return n + "rd";
-                      default:
-                        return n + "th";
-                    }
-                  };
-
-                  // Get runners on base
-                  const runners = {
-                    first: play.matchup?.postOnFirst?.fullName || false,
-                    second: play.matchup?.postOnSecond?.fullName || false,
-                    third: play.matchup?.postOnThird?.fullName || false,
-                  };
-
-                  // Get hit data from last pitch
-                  const lastPitch = pitches[pitches.length - 1];
-                  const hitData = lastPitch?.hitData;
-
-                  // Get player stats from boxscore
-                  let batterStats = null;
-                  let pitcherStats = null;
-
-                  if (gameData?.liveData?.boxscore) {
-                    const boxscore = gameData.liveData.boxscore;
-                    // Find batter stats
-                    const batterTeam = isTopInning
-                      ? boxscore.teams.away
-                      : boxscore.teams.home;
-                    const batterPlayer =
-                      batterTeam?.players?.[`ID${batter?.id}`];
-                    if (batterPlayer?.stats?.batting) {
-                      batterStats = batterPlayer.stats.batting;
-                    }
-
-                    // Find pitcher stats
-                    const pitcherTeam = isTopInning
-                      ? boxscore.teams.home
-                      : boxscore.teams.away;
-                    const pitcherPlayer =
-                      pitcherTeam?.players?.[`ID${pitcher?.id}`];
-                    if (pitcherPlayer?.stats?.pitching) {
-                      pitcherStats = pitcherPlayer.stats.pitching;
-                    }
-                  }
-
-                  return (
-                    <>
-                      {/* Score Header with team logos and inning */}
-                      <View style={styles.mlbPlaysShareCardScoreHeader}>
-                        {/* Away Team */}
-                        <View style={styles.mlbPlaysShareCardTeamScoreBlock}>
-                          <Image
-                            source={{ uri: awayLogo }}
-                            style={styles.mlbPlaysShareCardTeamLogoSmall}
-                          />
-                          <Text
-                            style={[
-                              styles.mlbPlaysShareCardTeamScore,
-                              {
-                                color:
-                                  awayScore > homeScore
-                                    ? colors.primary
-                                    : theme.text,
-                              },
-                            ]}
-                          >
-                            {awayScore}
-                          </Text>
-                        </View>
-
-                        {/* Inning Info */}
-                        <View style={styles.mlbPlaysShareCardInningBlock}>
-                          <Text
-                            style={[
-                              styles.mlbPlaysShareCardInningIndicator,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            {isTopInning ? "▲" : ""}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.mlbPlaysShareCardInningText,
-                              { color: colors.secondary },
-                            ]}
-                          >
-                            {getOrdinalSuffix(inning)}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.mlbPlaysShareCardInningIndicator,
-                              { color: colors.primary },
-                            ]}
-                          >
-                            {isTopInning ? "" : "▼"}
-                          </Text>
-                        </View>
-
-                        {/* Home Team */}
-                        <View style={styles.mlbPlaysShareCardTeamScoreBlock}>
-                          <Text
-                            style={[
-                              styles.mlbPlaysShareCardTeamScore,
-                              {
-                                color:
-                                  homeScore > awayScore
-                                    ? colors.primary
-                                    : theme.text,
-                              },
-                            ]}
-                          >
-                            {homeScore}
-                          </Text>
-                          <Image
-                            source={{ uri: homeLogo }}
-                            style={styles.mlbPlaysShareCardTeamLogoSmall}
-                          />
-                        </View>
-                      </View>
-
-                      {/* Top Section: Pitch visualization and pitch list */}
-                      <View style={styles.mlbPlaysShareCardTopSection}>
-                        {/* Left: Last 4 Pitches */}
-                        <View style={styles.mlbPlaysShareCardPitchesList}>
-                          <Text
-                            style={[
-                              styles.mlbPlaysShareCardSectionTitle,
-                              { color: theme.text },
-                            ]}
-                          >
-                            Pitches
-                          </Text>
-                          {last4Pitches.length > 0 ? (
-                            last4Pitches.map((pitch, index) => {
-                              let pitchColor = "#4CAF50";
-                              if (pitch.details?.isStrike) {
-                                pitchColor = "#f44336";
-                              } else if (pitch.details?.isInPlay) {
-                                pitchColor = "#2196F3";
-                              }
-
-                              return (
-                                <View
-                                  key={index}
-                                  style={styles.mlbPlaysShareCardPitchItem}
-                                >
-                                  <View
-                                    style={[
-                                      styles.mlbPlaysShareCardPitchBadge,
-                                      { backgroundColor: pitchColor },
-                                    ]}
-                                  >
-                                    <Text
-                                      style={
-                                        styles.mlbPlaysShareCardPitchNumber
-                                      }
-                                    >
-                                      {pitches.indexOf(pitch) + 1}
-                                    </Text>
-                                  </View>
-                                  <View
-                                    style={styles.mlbPlaysShareCardPitchDetails}
-                                  >
-                                    <Text
-                                      style={[
-                                        styles.mlbPlaysShareCardPitchType,
-                                        { color: theme.text },
-                                      ]}
-                                    >
-                                      {pitch.details?.type?.description ||
-                                        "Unknown"}
-                                    </Text>
-                                    <Text
-                                      style={[
-                                        styles.mlbPlaysShareCardPitchCount,
-                                        { color: theme.textSecondary },
-                                      ]}
-                                    >
-                                      {pitch.count?.balls || 0}-
-                                      {pitch.count?.strikes || 0}
-                                    </Text>
-                                  </View>
-                                  {pitch.pitchData?.startSpeed && (
-                                    <Text
-                                      style={[
-                                        styles.mlbPlaysShareCardPitchSpeed,
-                                        { color: theme.textSecondary },
-                                      ]}
-                                    >
-                                      {Math.round(pitch.pitchData.startSpeed)}{" "}
-                                      mph
-                                    </Text>
-                                  )}
-                                </View>
-                              );
-                            })
-                          ) : (
-                            <Text
-                              style={[
-                                styles.mlbPlaysShareCardNoPitches,
-                                { color: theme.textSecondary },
-                              ]}
-                            >
-                              No pitches
-                            </Text>
-                          )}
-                        </View>
-
-                        {/* Right: Pitch Container (Visualization) - Strike Zone Only */}
-                        <View style={styles.mlbPlaysShareCardPitchContainer}>
-                          <View
-                            style={[
-                              styles.strikeZoneContainer,
-                              { backgroundColor: theme.surface },
-                            ]}
-                          >
-                            <View
-                              style={[
-                                styles.strikeZoneOutline,
-                                { borderColor: theme.border },
-                              ]}
-                            />
-                            {pitches.map((pitch, index) => {
-                              // Try multiple coordinate sources
-                              let pitchData = null;
-
-                              if (pitch.pitchData?.coordinates) {
-                                pitchData = pitch.pitchData;
-                              } else if (pitch.coordinates) {
-                                pitchData = { coordinates: pitch.coordinates };
-                              } else if (
-                                pitch.pitchData?.pX !== undefined &&
-                                pitch.pitchData?.pZ !== undefined
-                              ) {
-                                pitchData = {
-                                  coordinates: {
-                                    pX: pitch.pitchData.pX,
-                                    pZ: pitch.pitchData.pZ,
-                                  },
-                                };
-                              } else if (
-                                pitch.pitchNumber?.pX !== undefined &&
-                                pitch.pitchNumber?.pZ !== undefined
-                              ) {
-                                pitchData = {
-                                  coordinates: {
-                                    pX: pitch.pitchNumber.pX,
-                                    pZ: pitch.pitchNumber.pZ,
-                                  },
-                                };
-                              } else if (
-                                pitch.pX !== undefined &&
-                                pitch.pZ !== undefined
-                              ) {
-                                pitchData = {
-                                  coordinates: { pX: pitch.pX, pZ: pitch.pZ },
-                                };
-                              }
-
-                              if (
-                                !pitchData?.coordinates ||
-                                pitchData.coordinates.pX === undefined ||
-                                pitchData.coordinates.pZ === undefined
-                              ) {
-                                return null;
-                              }
-
-                              // Convert plate coordinates to percentage
-                              const xPercent =
-                                ((pitchData.coordinates.pX + 2.0) / 3.75) * 100;
-                              const yPercent =
-                                pitchData.strikeZoneTop &&
-                                pitchData.strikeZoneBottom
-                                  ? ((pitchData.strikeZoneTop -
-                                      pitchData.coordinates.pZ) /
-                                      (pitchData.strikeZoneTop -
-                                        pitchData.strikeZoneBottom)) *
-                                      60 +
-                                    20
-                                  : 50;
-
-                              // Constrain to visualization area
-                              const finalXPercent = Math.max(
-                                5,
-                                Math.min(95, xPercent),
-                              );
-                              const finalYPercent = Math.max(
-                                5,
-                                Math.min(95, yPercent),
-                              );
-
-                              // Convert percentages to pixel positions
-                              const finalX = (finalXPercent / 100) * 145 - 5;
-                              const finalY = (finalYPercent / 100) * 125 + 5;
-
-                              // Determine pitch color based on call
-                              let pitchColor = "#4CAF50";
-                              if (pitch.details?.isStrike) {
-                                pitchColor = "#f44336";
-                              } else if (pitch.details?.isInPlay) {
-                                pitchColor = "#2196F3";
-                              }
-
-                              return (
-                                <View
-                                  key={index}
-                                  style={[
-                                    styles.pitchLocation,
-                                    {
-                                      backgroundColor: pitchColor,
-                                      borderColor: pitchColor,
-                                      left: finalX,
-                                      top: finalY,
-                                      position: "absolute",
-                                      zIndex: 10,
-                                      justifyContent: "center",
-                                      alignItems: "center",
-                                    },
-                                  ]}
-                                >
-                                  <Text
-                                    allowFontScaling={false}
-                                    style={styles.pitchNumberOnBall}
-                                  >
-                                    {index + 1}
-                                  </Text>
-                                </View>
-                              );
-                            })}
-                          </View>
-                        </View>
-                      </View>
-
-                      {/* Player Info Section */}
-                      <View style={styles.mlbPlaysShareCardPlayersSection}>
-                        {/* Batter (Left) */}
-                        <View style={styles.mlbPlaysShareCardPlayerInfo}>
-                          <Image
-                            source={{
-                              uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${batter?.id}/headshot/67/current`,
-                            }}
-                            style={styles.mlbPlaysShareCardPlayerImage}
-                          />
-                          <Text
-                            style={[
-                              styles.mlbPlaysShareCardPlayerName,
-                              { color: theme.text },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {batter?.fullName || "Batter"}
-                          </Text>
-                          {batterStats && (
-                            <Text
-                              style={[
-                                styles.mlbPlaysShareCardPlayerStats,
-                                { color: theme.textSecondary },
-                              ]}
-                            >
-                              {batterStats.hits || 0}-{batterStats.atBats || 0},{" "}
-                              {batterStats.rbi || 0} RBI
-                            </Text>
-                          )}
-                          <Text
-                            style={[
-                              styles.mlbPlaysShareCardPlayerRole,
-                              { color: theme.textSecondary },
-                            ]}
-                          >
-                            Batter
-                          </Text>
-                        </View>
-
-                        {/* VS Text */}
-                        <Text
-                          style={[
-                            styles.mlbPlaysShareCardVsText,
-                            { color: theme.textSecondary },
-                          ]}
-                        >
-                          vs
-                        </Text>
-
-                        {/* Pitcher (Right) */}
-                        <View style={styles.mlbPlaysShareCardPlayerInfo}>
-                          <Image
-                            source={{
-                              uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${pitcher?.id}/headshot/67/current`,
-                            }}
-                            style={styles.mlbPlaysShareCardPlayerImage}
-                          />
-                          <Text
-                            style={[
-                              styles.mlbPlaysShareCardPlayerName,
-                              { color: theme.text },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {pitcher?.fullName || "Pitcher"}
-                          </Text>
-                          {pitcherStats && (
-                            <Text
-                              style={[
-                                styles.mlbPlaysShareCardPlayerStats,
-                                { color: theme.textSecondary },
-                              ]}
-                            >
-                              {pitcherStats.inningsPitched || "0.0"} IP,{" "}
-                              {pitcherStats.strikeOuts || 0} K
-                            </Text>
-                          )}
-                          <Text
-                            style={[
-                              styles.mlbPlaysShareCardPlayerRole,
-                              { color: theme.textSecondary },
-                            ]}
-                          >
-                            Pitcher
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Play Text */}
-                      <View
-                        style={[
-                          styles.mlbPlaysShareCardPlayText,
-                          { backgroundColor: theme.surfaceSecondary },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.mlbPlaysShareCardPlayDescription,
-                            { color: theme.text },
-                          ]}
-                        >
-                          {play.result?.description || "Play result"}
-                        </Text>
-                      </View>
-
-                      {/* Bases and Hit Data Section */}
-                      <View style={styles.mlbPlaysShareCardBottomSection}>
-                        {/* Bases Visualizer */}
-                        <View style={styles.mlbPlaysShareCardBasesContainer}>
-                          <Text
-                            style={[
-                              styles.mlbPlaysShareCardSectionTitle,
-                              { color: theme.text, marginBottom: 20 },
-                            ]}
-                          >
-                            Bases
-                          </Text>
-                          <View style={styles.mlbPlaysShareCardDiamond}>
-                            <View
-                              style={[
-                                styles.mlbPlaysShareCardBase,
-                                styles.mlbPlaysShareCardSecondBase,
-                                runners.second && {
-                                  backgroundColor: colors.primary,
-                                },
-                              ]}
-                            />
-                            <View
-                              style={[
-                                styles.mlbPlaysShareCardBase,
-                                styles.mlbPlaysShareCardThirdBase,
-                                runners.third && {
-                                  backgroundColor: colors.primary,
-                                },
-                              ]}
-                            />
-                            <View
-                              style={[
-                                styles.mlbPlaysShareCardBase,
-                                styles.mlbPlaysShareCardFirstBase,
-                                runners.first && {
-                                  backgroundColor: colors.primary,
-                                },
-                              ]}
-                            />
-                          </View>
-                        </View>
-
-                        {/* Hit Data (if available) */}
-                        {hitData &&
-                          (hitData.launchSpeed ||
-                            hitData.launchAngle ||
-                            hitData.totalDistance) && (
-                            <View
-                              style={styles.mlbPlaysShareCardHitDataContainer}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlaysShareCardSectionTitle,
-                                  { color: theme.text, marginBottom: 8 },
-                                ]}
-                              >
-                                Hit Data
-                              </Text>
-                              {hitData.launchSpeed && (
-                                <Text
-                                  style={[
-                                    styles.mlbPlaysShareCardHitDataItem,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  Launch Speed: {hitData.launchSpeed.toFixed(1)}{" "}
-                                  mph
-                                </Text>
-                              )}
-                              {hitData.launchAngle && (
-                                <Text
-                                  style={[
-                                    styles.mlbPlaysShareCardHitDataItem,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  Launch Angle: {hitData.launchAngle.toFixed(1)}
-                                  °
-                                </Text>
-                              )}
-                              {hitData.totalDistance && (
-                                <Text
-                                  style={[
-                                    styles.mlbPlaysShareCardHitDataItem,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  Total Distance:{" "}
-                                  {hitData.totalDistance.toFixed(0)} ft
-                                </Text>
-                              )}
-                              {hitData.trajectory && (
-                                <Text
-                                  style={[
-                                    styles.mlbPlaysShareCardHitDataItem,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  Trajectory:{" "}
-                                  {hitData.trajectory
-                                    .split("_")
-                                    .map(
-                                      (word) =>
-                                        word.charAt(0).toUpperCase() +
-                                        word.slice(1).toLowerCase(),
-                                    )
-                                    .join(" ")}
-                                </Text>
-                              )}
-                            </View>
-                          )}
-                      </View>
-                    </>
-                  );
-                })()}
-              {/* Footer inside the card */}
-              <View style={styles.mlbPlayerShareCardFooter}>
-                <Text
-                  style={[
-                    styles.mlbPlayerShareCardFooterText,
-                    { color: theme.text },
-                  ]}
-                >
-                  SportsHeart{" "}
-                  <Ionicons name="heart" size={18} color={colors.primary} />
-                </Text>
-              </View>
-            </View>
-
-            {/* Action Buttons */}
-            <View style={styles.mlbPlaysShareCardActions}>
-              <View style={styles.mlbPlaysShareCardTopButtons}>
-                <TouchableOpacity
-                  style={[
-                    styles.mlbPlaysShareCardButton,
-                    { backgroundColor: colors.secondary },
-                  ]}
-                  onPress={async () => {
-                    try {
-                      const uri = await captureRef(mlbPlaysShareCardRef, {
-                        format: "png",
-                        quality: 2,
-                      });
-                      await Sharing.shareAsync(uri, {
-                        mimeType: "image/png",
-                        dialogTitle: "Share Play",
-                      });
-                    } catch (error) {
-                      console.error("Error sharing play:", error);
-                    }
-                  }}
-                >
-                  <Ionicons name="share-outline" size={24} color="#fff" />
-                  <Text
-                    style={[
-                      styles.mlbPlaysShareCardButtonText,
-                      { color: "#fff" },
-                    ]}
-                  >
-                    Share
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.mlbPlaysShareCardCancelButton,
-                    { backgroundColor: theme.surfaceSecondary },
-                  ]}
-                  onPress={() => setShareCardPlay(null)}
-                >
-                  <Ionicons name="close" size={24} color={theme.text} />
-                  <Text
-                    style={[
-                      styles.mlbPlaysShareCardButtonText,
-                      { color: theme.text },
-                    ]}
-                  >
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MLB Player Share Card Modal */}
-      <Modal
-        visible={!!shareCardPlayer}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setShareCardPlayer(null)}
-      >
-        <View
-          style={[styles.modalOverlay, { backgroundColor: "rgba(0,0,0,0.85)" }]}
-        >
-          <View
-            style={{ alignItems: "center", justifyContent: "center", flex: 1 }}
-          >
-            <View
-              ref={mlbPlayerShareCardRef}
-              collapsable={false}
-              style={[
-                styles.mlbPlayerShareCard,
-                { backgroundColor: theme.surface },
-              ]}
-            >
-              {shareCardPlayer &&
-                (() => {
-                  const player = shareCardPlayer;
-                  const statsType = player.statsType; // 'batting' or 'pitching'
-                  const battingStats = player.stats?.batting || {};
-                  const pitchingStats = player.stats?.pitching || {};
-                  const stats =
-                    statsType === "batting" ? battingStats : pitchingStats;
-
-                  // Get game date
-                  const formatGameDate = (dateStr) => {
-                    const [year, month, day] = dateStr.split("-").map(Number);
-                    const date = new Date(year, month - 1, day);
-                    const dayNum = date.getDate();
-                    const monthName = date.toLocaleDateString("en-US", {
-                      month: "short",
-                    });
-                    const yearNum = date.getFullYear();
-                    return `${dayNum} ${monthName} ${yearNum}`;
-                  };
-
-                  const gameDate = gameData?.gameData?.datetime?.originalDate
-                    ? formatGameDate(gameData.gameData.datetime.originalDate)
-                    : formatGameDate(new Date().toISOString().split("T")[0]);
-
-                  return (
-                    <>
-                      {/* Team Header */}
-                      <View
-                        style={[
-                          styles.mlbPlayerShareCardHeader,
-                          { backgroundColor: player.teamColor },
-                        ]}
-                      >
-                        <Image
-                          source={{ uri: player.teamLogo }}
-                          style={[styles.mlbPlayerShareCardTeamLogo]}
-                        />
-                        <Text
-                          style={[
-                            styles.mlbPlayerShareCardTeamName,
-                            { color: "#fff" },
-                          ]}
-                        >
-                          {player.teamName}
-                        </Text>
-                      </View>
-
-                      {/* Player Image */}
-                      <View
-                        style={styles.mlbPlayerShareCardPlayerImageContainer}
-                      >
-                        <Image
-                          source={{
-                            uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${player.person?.id}/headshot/67/current`,
-                          }}
-                          style={[
-                            styles.mlbPlayerShareCardPlayerImage,
-                            { borderColor: player.teamColor },
-                          ]}
-                        />
-                      </View>
-
-                      {/* Player Info */}
-                      <View style={styles.mlbPlayerShareCardPlayerInfo}>
-                        <Text
-                          style={[
-                            styles.mlbPlayerShareCardPlayerName,
-                            { color: theme.text },
-                          ]}
-                        >
-                          {player.person?.fullName}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.mlbPlayerShareCardPlayerPosition,
-                            { color: theme.textSecondary },
-                          ]}
-                        >
-                          #{player.jerseyNumber} • {player.position?.name}
-                        </Text>
-                      </View>
-
-                      {/* Game Date */}
-                      <Text
-                        style={[
-                          styles.mlbPlayerShareCardGameDate,
-                          { color: theme.textSecondary },
-                        ]}
-                      >
-                        {gameDate}
-                      </Text>
-
-                      {/* Stats Type Label */}
-                      <Text
-                        style={[
-                          styles.mlbPlayerShareCardStatsType,
-                          { color: colors.primary },
-                        ]}
-                      >
-                        {statsType === "batting"
-                          ? "⚾ Batting Stats"
-                          : "🥎 Pitching Stats"}
-                      </Text>
-
-                      {/* Stats Grid */}
-                      {statsType === "batting" ? (
-                        <View style={styles.mlbPlayerShareCardStatsGrid}>
-                          {/* Row 1 */}
-                          <View style={styles.mlbPlayerShareCardStatsRow}>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.hits || 0}/{stats.atBats || 0}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                H/AB
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.runs || 0}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                R
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.rbi || 0}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                RBI
-                              </Text>
-                            </View>
-                          </View>
-
-                          {/* Row 2 */}
-                          <View style={styles.mlbPlayerShareCardStatsRow}>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.homeRuns || 0}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                HR
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.baseOnBalls || 0}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                BB
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.strikeOuts || 0}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                SO
-                              </Text>
-                            </View>
-                          </View>
-
-                          {/* Row 3 */}
-                          <View style={styles.mlbPlayerShareCardStatsRow}>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.totalBases || 0}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                TB
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.stolenBases || 0}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                SB
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.leftOnBase || 0}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                LOB
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-                      ) : (
-                        <View style={styles.mlbPlayerShareCardStatsGrid}>
-                          {/* Row 1 */}
-                          <View style={styles.mlbPlayerShareCardStatsRow}>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.inningsPitched || "0.0"}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                IP
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.hits || 0}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                H
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.runs || 0}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                R
-                              </Text>
-                            </View>
-                          </View>
-
-                          {/* Row 2 */}
-                          <View style={styles.mlbPlayerShareCardStatsRow}>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.earnedRuns || 0}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                ER
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.baseOnBalls || 0}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                BB
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.strikeOuts || 0}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                K
-                              </Text>
-                            </View>
-                          </View>
-
-                          {/* Row 3 */}
-                          <View style={styles.mlbPlayerShareCardStatsRow}>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.numberOfPitches || 0}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                P
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.strikes || 0}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                ST
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.mlbPlayerShareCardStatBox,
-                                { backgroundColor: theme.surfaceSecondary },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatValue,
-                                  { color: theme.text },
-                                ]}
-                              >
-                                {stats.strikePercentage || "0.00"}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.mlbPlayerShareCardStatLabel,
-                                  { color: theme.textSecondary },
-                                ]}
-                              >
-                                K%
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-                      )}
-                    </>
-                  );
-                })()}
-              {/* Footer inside the card */}
-              <View
-                style={[
-                  styles.mlbPlayerShareCardFooter,
-                  { marginTop: -20, paddingBottom: 10 },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.mlbPlayerShareCardFooterText,
-                    { color: theme.text },
-                  ]}
-                >
-                  SportsHeart{" "}
-                  <Ionicons name="heart" size={18} color={colors.primary} />
-                </Text>
-              </View>
-            </View>
-
-            {/* Action Buttons */}
-            <View style={styles.mlbPlayerShareCardActions}>
-              <View style={styles.mlbPlayerShareCardTopButtons}>
-                <TouchableOpacity
-                  style={[
-                    styles.mlbPlayerShareCardButton,
-                    { backgroundColor: colors.secondary },
-                  ]}
-                  onPress={async () => {
-                    try {
-                      const uri = await captureRef(mlbPlayerShareCardRef, {
-                        format: "png",
-                        quality: 2,
-                      });
-                      await Sharing.shareAsync(uri, {
-                        mimeType: "image/png",
-                        dialogTitle: "Share Player Stats",
-                      });
-                    } catch (error) {
-                      console.error("Error sharing player stats:", error);
-                    }
-                  }}
-                >
-                  <Ionicons name="share-outline" size={24} color="#fff" />
-                  <Text
-                    style={[
-                      styles.mlbPlayerShareCardButtonText,
-                      { color: "#fff" },
-                    ]}
-                  >
-                    Share
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.mlbPlayerShareCardCancelButton,
-                    { backgroundColor: theme.surfaceSecondary },
-                  ]}
-                  onPress={() => setShareCardPlayer(null)}
-                >
-                  <Ionicons name="close" size={24} color={theme.text} />
-                  <Text
-                    style={[
-                      styles.mlbPlayerShareCardButtonText,
-                      { color: theme.text },
-                    ]}
-                  >
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };
 
+// ─── styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
+  screen: { flex: 1 },
+  centered: {
     flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
   },
-  scrollView: {
-    flex: 1,
+  loadingText: { fontSize: 14 },
+  // ── header ──
+  header: {
+    paddingTop: 20,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    overflow: "hidden",
+    position: "relative",
   },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 16,
-  },
-  stickyHeader: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "white",
+  teamsRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    zIndex: 1000,
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  stickyTeamAway: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    justifyContent: "flex-start",
-  },
-  stickyTeamHome: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  stickyTeamLogo: {
-    width: 28,
-    height: 28,
-    marginHorizontal: 8,
-  },
-  stickyTeamScore: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#002D72",
-    minWidth: 35,
-    textAlign: "center",
-  },
-  stickyTeamName: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginHorizontal: 4,
-  },
-  losingStickyTeamScore: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#999",
-    minWidth: 35,
-    textAlign: "center",
-  },
-  stickyStatus: {
-    flex: 1,
-    alignItems: "center",
-    paddingHorizontal: 16,
-  },
-  stickyStatusText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#002D72",
-    textAlign: "center",
-  },
-  stickyClock: {
-    fontSize: 12,
-    color: "#666",
-    textAlign: "center",
-    marginTop: 2,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: "#666",
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-  },
-  errorText: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 20,
-  },
-  retryButton: {
-    backgroundColor: "#002D72",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  gameHeader: {
-    backgroundColor: "white",
-    padding: 20,
-    marginBottom: 16,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  teamContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  team: {
-    alignItems: "center",
-    flex: 1,
-  },
-  teamLogo: {
-    width: 50,
-    height: 50,
-    marginVertical: 8,
-  },
-  teamNameContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 5,
-    gap: 5,
-  },
-  teamName: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#333",
-    textAlign: "center",
-  },
-  losingTeamName: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#999",
-    textAlign: "center",
-  },
-  teamScore: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#002D72",
-    marginBottom: 5,
-  },
-  losingTeamScore: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#999",
-    marginBottom: 5,
-  },
-  vsContainer: {
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  vsText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#666",
-    marginBottom: 5,
-  },
-  gameStatus: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#002D72",
-    marginBottom: 2,
-  },
-  gameClock: {
-    fontSize: 12,
-    color: "#666",
-  },
-  gameInfo: {
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
-    paddingTop: 15,
-  },
-  venue: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#333",
-    marginBottom: 5,
-  },
-  date: {
-    fontSize: 12,
-    color: "#666",
-  },
-  basesContainer: {
-    alignItems: "center",
-    marginTop: 8,
-  },
-  basesDisplay: {
-    alignItems: "center",
-  },
-  basesRow: {
-    flexDirection: "row",
-    marginTop: 4,
-  },
-  base: {
-    width: 8,
-    height: 8,
-    backgroundColor: "#ddd",
-    transform: [{ rotate: "45deg" }],
-    margin: 1,
-  },
-  firstBase: {
-    marginLeft: 12,
-  },
-  secondBase: {
-    marginBottom: 2,
-  },
-  thirdBase: {
-    marginRight: 12,
-  },
-  occupiedBase: {
-    backgroundColor: "#002D72",
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
     marginBottom: 12,
   },
-  section: {
-    padding: 20,
-    marginBottom: 10,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+  teamColumn: {
+    flex: 1,
+    maxWidth: (width - 40) * 0.38,
+    gap: 6,
   },
-  tabContainer: {
-    flexDirection: "row",
-    backgroundColor: "white",
-    marginBottom: 16,
+  teamLogo: {
+    width: 76,
+    height: 64,
+  },
+  teamLogoPlaceholder: {
+    width: 76,
+    height: 64,
     borderRadius: 8,
-    overflow: "hidden",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  teamLogoPlaceholderText: { fontSize: 20, fontWeight: "bold" },
+  teamName: {
+    fontSize: 15,
+    fontWeight: "600",
+    lineHeight: 18,
+    textAlign: "center",
+    width: "100%",
+  },
+  teamScore: {
+    fontSize: 38,
+    lineHeight: 42,
+  },
+  statusBadge: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+  },
+  inningLabel: {
+    fontSize: 20,
+    fontWeight: "800",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  gameTimeLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  statusTop: {
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+    flexWrap: "wrap",
+  },
+  statusBottom: {
+    fontSize: 11,
+    textAlign: "center",
+    marginTop: 2,
+    flexWrap: "wrap",
+  },
+  venue: {
+    fontSize: 12,
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  // ── tab bar ──
+  tabBar: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
   },
   tabButton: {
     flex: 1,
+    alignItems: "center",
     paddingVertical: 12,
-    paddingHorizontal: 8,
-    backgroundColor: "#f8f9fa",
-    alignItems: "center",
-    justifyContent: "center",
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
   },
-  tabButtonBorder: {
-    borderRightWidth: 1,
-    borderRightColor: "#e9ecef",
-  },
-  activeTabButton: {
-    backgroundColor: "#002D72",
-  },
-  tabText: {
+  tabLabel: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#666",
   },
-  activeTabText: {
-    color: "white",
-  },
-  teamBoxScoreContainer: {
-    backgroundColor: "#f8f9fa",
-    borderRadius: 8,
-    padding: 10,
-  },
-  teamBoxScoreHeader: {
+  // ── sticky mini game header ──
+  stickyMini: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 15,
-  },
-  teamBoxScoreLogo: {
-    width: 30,
-    height: 30,
-    marginRight: 12,
-  },
-  teamRosterHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  teamRosterLogo: {
-    width: 24,
-    height: 24,
-    marginRight: 8,
-  },
-  statCategoryContainer: {
-    backgroundColor: "white",
-    borderRadius: 6,
-    padding: 10,
-    marginBottom: 15,
-  },
-  statCategoryTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#002D72",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  statTableHeader: {
-    flexDirection: "row",
-    backgroundColor: "#e9ecef",
-    paddingVertical: 8,
-    paddingHorizontal: 5,
-    borderRadius: 4,
-    marginBottom: 5,
-  },
-  statTableHeaderPlayer: {
-    flex: 2,
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#495057",
-  },
-  statTableHeaderStat: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#495057",
-    textAlign: "center",
-  },
-  statTableRow: {
-    flexDirection: "row",
-    paddingVertical: 6,
-    paddingHorizontal: 5,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-    alignItems: "center",
-  },
-  mlbPlayerShareCardFooter: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 8,
-  },
-  mlbPlayerShareCardFooterText: {
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  statTablePlayerCell: {
-    flex: 2,
-    justifyContent: "center",
-  },
-  statTablePlayerName: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#333",
-  },
-  statTablePlayerNumber: {
-    fontSize: 11,
-    color: "#666",
-  },
-  statTableStatCell: {
-    flex: 1,
-    fontSize: 13,
-    color: "#333",
-    textAlign: "center",
-  },
-  placeholderContainer: {
-    padding: 40,
-    alignItems: "center",
-  },
-  placeholderText: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: "center",
-  },
-  momentumContainer: {
-    marginTop: 20,
-    marginBottom: -5,
-  },
-  momentumChart: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  momentumChartWhite: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  teamLabels: {
-    flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  teamLabel: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  awayTeamLabel: {
-    textAlign: "left",
-  },
-  homeTeamLabel: {
-    textAlign: "right",
-  },
-  teamLabelContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  momentumTeamLogoAway: {
-    width: 18,
-    height: 18,
-    marginRight: 6,
-  },
-  momentumTeamLogoHome: {
-    width: 18,
-    height: 18,
-    marginLeft: 6,
-  },
-  inningBarsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  inningBar: {
-    alignItems: "center",
-    marginHorizontal: 4,
-    minWidth: 45,
-    height: 160, // Increased to accommodate repositioned away bars
-    position: "relative",
-    justifyContent: "center",
-  },
-  awayBarContainer: {
-    position: "absolute",
-    bottom: 85, // Position from center upward - increased for more spacing
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    justifyContent: "flex-end",
-  },
-  homeBarContainer: {
-    position: "absolute",
-    top: 80, // Position from center downward (140/2 = 70)
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    justifyContent: "flex-start",
-  },
-  activityBar: {
-    width: 40,
-    borderRadius: 4,
-    marginVertical: 4,
-  },
-  awayBar: {
-    backgroundColor: "#A71930",
-  },
-  homeBar: {
-    backgroundColor: "#002D62",
-  },
-  barText: {
-    color: "#333",
-    fontSize: 10,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginVertical: 2,
-  },
-  inningLabel: {
-    color: "#666",
-    fontSize: 11,
-    textAlign: "center",
-    fontWeight: "bold",
-  },
-  inningLabelContainer: {
-    position: "absolute",
-    top: "50%",
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1,
-    transform: [{ translateY: -10 }],
-  },
-  teamStatsContainer: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 20,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  statsTeams: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  statsTeam: {
-    flex: 1,
-    alignItems: "center",
-  },
-  statsTeamLogo: {
-    width: 30,
-    height: 30,
-    marginBottom: 4,
-  },
-  statsTeamName: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#333",
-    textAlign: "center",
-  },
-  statsSection: {
-    backgroundColor: "transparent",
-    borderRadius: 8,
-    padding: 16,
-  },
-  statsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    paddingVertical: 8,
-  },
-  statsValue: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#333",
-    width: 60,
-    textAlign: "center",
-  },
-  statsBarContainer: {
-    flex: 1,
-    flexDirection: "row",
-    height: 20,
-    marginHorizontal: 12,
-  },
-  statsBar: {
-    flex: 1,
-    height: 8,
-    backgroundColor: "#e0e0e0",
-    borderRadius: 4,
+    paddingHorizontal: 12,
     overflow: "hidden",
-  },
-  statsBarFill: {
-    height: "100%",
-    borderRadius: 4,
-  },
-  awayBarFill: {
-    alignSelf: "flex-start",
-  },
-  homeBarFill: {
-    alignSelf: "flex-end",
-  },
-  statsLabel: {
-    fontSize: 12,
-    color: "#666",
-    textAlign: "center",
-    flex: 1,
-  },
-  playsContainer: {
-    marginTop: 10,
-  },
-  playsScrollView: {
-    maxHeight: 600,
-  },
-  playCard: {
-    backgroundColor: "white",
-    borderRadius: 8,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  playHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
   },
-  playInfo: {
-    flexDirection: "row",
-    alignItems: "center",
+  miniSide: {
     flex: 1,
-  },
-  playTeamLogo: {
-    width: 24,
-    height: 24,
-    marginRight: 10,
-  },
-  playSummary: {
-    flex: 1,
-  },
-  playTeamName: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#002D72",
-    marginBottom: 2,
-  },
-  playResult: {
-    fontSize: 14,
-    color: "#333",
-  },
-  playScoreSection: {
-    alignItems: "center",
-    marginRight: 10,
-  },
-  playBasesSmall: {
-    marginTop: 4,
-    alignItems: "center",
-    width: 24,
-    height: 20,
-    position: "relative",
-  },
-  playBasesRowSmall: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    width: 20,
-    marginTop: 2,
+    alignItems: "center",
+    gap: 6,
   },
-  playBaseSmall: {
-    width: 4,
-    height: 4,
-    backgroundColor: "#ddd",
-    transform: [{ rotate: "45deg" }],
-    borderRadius: 0.5,
-  },
-  thirdBaseSmall: {
-    // Position for third base (left side of bottom row)
-  },
-  firstBaseSmall: {
-    // Position for first base (right side of bottom row)
-  },
-  secondBaseSmall: {
-    // Position for second base (center, above the row)
-    alignSelf: "center",
-    marginBottom: 2,
-  },
-  occupiedBaseSmall: {
-    backgroundColor: "#002D72",
-    shadowColor: "#002D72",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 1,
-    elevation: 2,
-  },
-  playInning: {
-    fontSize: 10,
-    color: "#666",
-    marginBottom: 2,
-  },
-  playScore: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#002D72",
-  },
-  toggleIcon: {
-    fontSize: 12,
-    color: "#666",
-  },
-  toggleIconOpen: {
-    transform: [{ rotate: "90deg" }],
-  },
-  playDetails: {
-    padding: 15,
-    backgroundColor: "#f8f9fa",
-  },
-  pitchSequence: {
-    marginTop: 10,
-  },
-  pitchSequenceBox: {
-    backgroundColor: "white",
-    borderRadius: 8,
-    padding: 15,
-    marginTop: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  pitchSequenceTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#002D72",
-    marginBottom: 15,
-    textAlign: "center",
-  },
-  pitchRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  pitchNumber: {
-    width: 30,
+  miniLogo: {
+    width: 36,
     height: 30,
-    borderRadius: 15,
-    backgroundColor: "#002D72",
+  },
+  miniAbbr: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  miniScore: {
+    fontSize: 22,
+    lineHeight: 26,
+  },
+  miniStatusBlock: {
+    alignItems: "center",
     justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
+    flexShrink: 1,
+    paddingHorizontal: 4,
   },
-  pitchNumberText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  pitchInfo: {
-    flex: 1,
-  },
-  pitchMainInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  pitchTypeText: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#002D72",
-    marginRight: 8,
-  },
-  pitchSpeedText: {
-    fontSize: 12,
-    color: "#666",
-    fontWeight: "bold",
-    marginRight: 8,
-  },
-  pitchCountText: {
-    fontSize: 12,
-    color: "#999",
-    fontWeight: "500",
-  },
-  pitchActionText: {
-    fontSize: 13,
-    color: "#333",
-    lineHeight: 18,
-  },
-  pitchContainer: {
-    padding: 10,
-    backgroundColor: "white",
-    borderRadius: 6,
-    marginBottom: 8,
-  },
-  pitchHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  pitchCount: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#002D72",
-  },
-  pitchSpeed: {
-    fontSize: 12,
-    color: "#666",
-    fontWeight: "bold",
-  },
-  pitchDescription: {
-    fontSize: 13,
-    color: "#333",
-    marginBottom: 4,
-  },
-  pitchType: {
+  miniStatusLine: {
     fontSize: 11,
-    color: "#666",
-    fontStyle: "italic",
-  },
-  pitchVisualization: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 10,
-    padding: 10,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 6,
-  },
-  pitchPlayerSection: {
-    width: 60,
-    alignItems: "center",
-  },
-  pitchPlayerInfo: {
-    alignItems: "center",
-  },
-  pitchPlayerHeadshot: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginBottom: 4,
-    borderWidth: 2,
-    borderColor: "#002D72",
-  },
-  pitchPlayerName: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: "#002D72",
+    fontWeight: "700",
     textAlign: "center",
   },
-  pitchPlayerRole: {
-    fontSize: 8,
-    color: "#666",
+  miniStatusSub: {
+    fontSize: 10,
     textAlign: "center",
     marginTop: 1,
   },
-  strikeZoneContainer: {
-    width: 150,
-    height: 150,
+  // ── misc ──
+  errorBanner: {
+    margin: 16,
+    borderRadius: 10,
+    padding: 14,
+    alignItems: "center",
+  },
+  bottomPadding: { height: 32 },
+  // ── Win Probability chart ──
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  winProbContainer: {
+    marginBottom: 10,
+  },
+  winProbLegend: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 12,
+    gap: 24,
+  },
+  winProbLegendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  winProbLegendDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  winProbLegendText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  winProbGraphContainer: {
+    flexDirection: "row",
+    height: 200,
+    marginBottom: 8,
+  },
+  winProbYAxis: {
+    width: 40,
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    paddingRight: 8,
+    paddingVertical: 4,
+  },
+  winProbYLabel: {
+    fontSize: 10,
+  },
+  winProbGraphArea: {
+    flex: 1,
     position: "relative",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    backgroundColor: "rgba(0,0,0,0.02)",
     borderRadius: 4,
-    borderWidth: 1,
-    borderColor: "#333",
-    marginHorizontal: 10,
   },
-  strikeZoneOutline: {
+  winProbGridLine: {
     position: "absolute",
-    width: 70,
-    height: 80,
-    borderWidth: 2,
-    borderColor: "#777",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 2,
-    top: "50%",
-    left: "50%",
-    marginLeft: -35,
-    marginTop: -40,
-  },
-  pitchLocation: {
-    position: "absolute",
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#fff",
-    zIndex: 2,
-  },
-  pitchNumberOnBall: {
-    color: "white",
-    fontSize: 8,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-  pitchData: {
-    flex: 1,
-  },
-  pitchDataText: {
-    fontSize: 11,
-    color: "#666",
-    marginBottom: 2,
-  },
-  playBasesContainer: {
-    marginTop: 15,
-    padding: 10,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 6,
-  },
-  basesTitle: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#002D72",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  playBasesDisplay: {
-    alignItems: "center",
-  },
-  playBasesRow: {
-    flexDirection: "row",
-    marginBottom: 4,
-  },
-  playBase: {
-    width: 12,
-    height: 12,
-    backgroundColor: "#ddd",
-    transform: [{ rotate: "45deg" }],
-    margin: 2,
-  },
-  occupiedBase: {
-    backgroundColor: "#002D72",
-  },
-  lineScoreContainer: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  lineScoreTable: {
-    minWidth: "100%",
-  },
-  lineScoreRow: {
-    flexDirection: "row",
+    left: 0,
+    right: 0,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-    paddingVertical: 8,
   },
-  lineScoreCell: {
-    width: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  teamCell: {
-    width: 60,
-  },
-  lineScoreHeaderText: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  lineScoreTeamText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#002D72",
-  },
-  lineScoreText: {
-    fontSize: 12,
-    color: "#666",
-  },
-  lineScoreTotalText: {
-    fontWeight: "bold",
-  },
-  currentPlayContainer: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  currentPlayContent: {
-    alignItems: "center",
-  },
-  currentPlayText: {
-    fontSize: 14,
-    color: "#333",
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  currentPlayDetails: {
-    fontSize: 12,
-    color: "#666",
-  },
-  lineScoreContainer: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  lineScoreTable: {
-    minWidth: "100%",
-  },
-  lineScoreRow: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-    paddingVertical: 8,
-  },
-  lineScoreCell: {
-    width: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  teamCell: {
-    width: 60,
-  },
-  lineScoreHeaderText: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  lineScoreTeamText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#002D72",
-  },
-  lineScoreText: {
-    fontSize: 12,
-    color: "#666",
-  },
-  lineScoreTotalText: {
-    fontWeight: "bold",
-  },
-  currentPlayContainer: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  currentPlayContent: {
-    alignItems: "center",
-  },
-  lineScoreTeamContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  lineScoreTeamLogo: {
-    width: 16,
-    height: 16,
-    marginRight: 4,
-  },
-  teamLabelContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  momentumTeamLogo: {
-    width: 16,
-    height: 16,
-    marginRight: 4,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    width: "90%",
-    maxHeight: "80%",
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  modalCloseButton: {
+  winProbCentreLine: {
     position: "absolute",
-    top: 15,
-    right: 15,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "#f0f0f0",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1,
+    bottom: "50%",
+    left: 0,
+    right: 0,
+    borderBottomWidth: 2,
   },
-  modalCloseText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  playerHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 20,
-    marginTop: 10,
-  },
-  playerHeadshot: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginRight: 15,
-    backgroundColor: "#f0f0f0",
-  },
-  playerInfo: {
-    flex: 1,
-  },
-  playerName: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 5,
-  },
-  playerDetails: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 8,
-  },
-  playerTeamInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  playerTeamLogo: {
-    width: 20,
+  winProbInningRow: {
+    position: "relative",
     height: 20,
-    marginRight: 6,
+    marginTop: 4,
   },
-  playerTeamName: {
-    fontSize: 14,
-    color: "#002D72",
-    fontWeight: "600",
+  winProbInningLabel: {
+    position: "absolute",
+    fontSize: 10,
+    fontWeight: "500",
+    transform: [{ translateX: -8 }],
   },
-  playerStatsContainer: {
-    maxHeight: 400,
+  // ── Live Stream Button ──
+  streamBtn: {
+    alignSelf: "center",
     marginTop: 10,
-  },
-  playerStatsLoading: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 40,
-  },
-  playerStatsContent: {
-    paddingBottom: 10,
-  },
-  gameStatsHeader: {
-    marginBottom: 20,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  gameStatsTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#002D72",
-    marginBottom: 4,
-  },
-  gameStatsDate: {
-    fontSize: 14,
-    color: "#666",
-  },
-  playerStatRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 8,
+    marginBottom: 6,
+    borderWidth: 1.5,
+    borderRadius: 20,
     paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    paddingVertical: 8,
   },
-  playerStatLabel: {
-    fontSize: 14,
-    color: "#666",
-    flex: 1,
-  },
-  playerStatValue: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
-    textAlign: "right",
-  },
-  statGridRow: {
+  streamBtnInner: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 15,
-  },
-  statBox: {
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f8f9fa",
-    borderRadius: 8,
-    padding: 12,
-    width: "30%",
-    minHeight: 70,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    gap: 7,
   },
-  statBoxValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
+  streamBtnDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  statBoxLabel: {
-    fontSize: 12,
-    color: "#666",
-    textAlign: "center",
+  streamBtnText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
-  noStatsContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 40,
-  },
-  noStatsText: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: "center",
-    padding: 40,
-  },
-  streamHint: {
-    fontSize: 12,
-    color: "#007AFF",
-    textAlign: "center",
-    marginTop: 5,
-    fontStyle: "italic",
-  },
-  // Stream Modal Styles
+  // ── Stream Modal ──
   streamModalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.8)",
@@ -8574,7 +7091,6 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   streamModalContainer: {
-    backgroundColor: "#fff",
     borderRadius: 12,
     width: "95%",
     maxWidth: 800,
@@ -8582,10 +7098,7 @@ const styles = StyleSheet.create({
     maxHeight: 600,
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
     shadowRadius: 20,
     elevation: 20,
@@ -8595,33 +7108,26 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: 15,
-    backgroundColor: "#f8f9fa",
     borderBottomWidth: 1,
-    borderBottomColor: "#dee2e6",
   },
   streamModalTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#002D72",
   },
   streamCloseButton: {
     width: 35,
     height: 35,
     borderRadius: 17.5,
-    backgroundColor: "#e9ecef",
     justifyContent: "center",
     alignItems: "center",
   },
   streamCloseText: {
     fontSize: 20,
-    color: "#002D72",
     fontWeight: "bold",
   },
   streamButtonsContainer: {
     paddingVertical: 12,
-    backgroundColor: "#f8f9fa",
     borderBottomWidth: 1,
-    borderBottomColor: "#dee2e6",
     maxHeight: 60,
   },
   streamButtonsContent: {
@@ -8633,25 +7139,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: "#e9ecef",
     minWidth: 80,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#dee2e6",
     marginHorizontal: 5,
-  },
-  activeStreamButton: {
-    backgroundColor: "#007AFF",
-    borderColor: "#007AFF",
   },
   streamButtonText: {
     fontSize: 12,
-    color: "#002D72",
     fontWeight: "500",
-  },
-  activeStreamButtonText: {
-    color: "#fff",
-    fontWeight: "bold",
   },
   webViewContainer: {
     flex: 1,
@@ -8672,7 +7167,6 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   streamLoadingText: {
-    color: "#fff",
     marginTop: 10,
     fontSize: 16,
   },
@@ -8683,7 +7177,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#1a1a1a",
   },
   noStreamText: {
-    color: "#fff",
     fontSize: 16,
   },
   noStreamsMessage: {
@@ -8697,1010 +7190,6 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     textAlign: "center",
   },
-  probablePitchersContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  pitcherCard: {
-    flex: 1,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 8,
-    padding: 15,
-    alignItems: "center",
-  },
-  pitcherHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  pitcherTeamLogo: {
-    width: 24,
-    height: 24,
-    marginRight: 8,
-  },
-  pitcherTeamName: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#002D72",
-  },
-  pitcherInfo: {
-    alignItems: "center",
-  },
-  pitcherHeadshot: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginBottom: 8,
-  },
-  pitcherName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-    textAlign: "center",
-    marginBottom: 4,
-  },
-  pitcherStatsContainer: {
-    alignItems: "center",
-  },
-  pitcherStats: {
-    fontSize: 12,
-    color: "#666",
-    textAlign: "center",
-    marginBottom: 2,
-  },
-  noPitcher: {
-    fontSize: 16,
-    color: "#999",
-    fontStyle: "italic",
-    marginTop: 20,
-  },
-  topHittersContainer: {
-    backgroundColor: "#f8f9fa",
-    borderRadius: 8,
-    padding: 15,
-  },
-  topHittersTeams: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 15,
-  },
-  topHittersTeam: {
-    flex: 1,
-  },
-  topHittersTeamHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-    justifyContent: "center",
-  },
-  topHittersTeamLogo: {
-    width: 20,
-    height: 20,
-    marginRight: 6,
-  },
-  topHittersTeamName: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#002D72",
-  },
-  topHitterCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "white",
-    borderRadius: 6,
-    padding: 8,
-    marginBottom: 8,
-  },
-  topHitterHeadshot: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 8,
-  },
-  topHitterInfo: {
-    flex: 1,
-  },
-  topHitterName: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 2,
-  },
-  topHitterStats: {
-    fontSize: 10,
-    color: "#666",
-    marginBottom: 1,
-  },
-  loadingHitters: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-    padding: 20,
-  },
-  seasonStatsContainer: {
-    backgroundColor: "#f8f9fa",
-    borderRadius: 8,
-    padding: 20,
-    alignItems: "center",
-  },
-  rosterContainer: {
-    backgroundColor: "#f8f9fa",
-    borderRadius: 8,
-    padding: 15,
-  },
-  rosterSection: {
-    marginBottom: 20,
-  },
-  rosterSectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  rosterSectionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#002D72",
-    flex: 1,
-  },
-  rosterSectionArrow: {
-    fontSize: 14,
-    fontWeight: "bold",
-    marginLeft: 8,
-  },
-  rosterTableContainer: {
-    backgroundColor: "white",
-    borderRadius: 6,
-    overflow: "hidden",
-  },
-  rosterTableHeader: {
-    flexDirection: "row",
-    backgroundColor: "#e9ecef",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  rosterTableHeaderPlayer: {
-    flex: 3,
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#495057",
-  },
-  rosterTableHeaderStatus: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#495057",
-    textAlign: "center",
-  },
-  rosterTableRow: {
-    flexDirection: "row",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-    alignItems: "center",
-  },
-  rosterTablePlayerCell: {
-    flex: 3,
-  },
-  rosterTablePlayerName: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 2,
-  },
-  rosterTablePlayerDetails: {
-    fontSize: 12,
-    color: "#666",
-  },
-  rosterTablePlayerNumber: {
-    color: "#666",
-    fontWeight: "500",
-  },
-  rosterTableStatusCell: {
-    flex: 1,
-    alignItems: "center",
-  },
-  rosterTableStatusText: {
-    fontSize: 12,
-    fontWeight: "500",
-    textAlign: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  activeStatus: {
-    backgroundColor: "#d4edda",
-    color: "#155724",
-  },
-  inactiveStatus: {
-    backgroundColor: "#f8d7da",
-    color: "#721c24",
-  },
-  // Stat bars for season statistics
-  statValueContainer: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-  },
-  statBarContainer: {
-    flex: 1,
-    height: 4,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 2,
-    marginHorizontal: 8,
-    overflow: "hidden",
-  },
-  statBar: {
-    height: "100%",
-    borderRadius: 2,
-  },
-  statAwayBar: {
-    backgroundColor: "#007bff",
-  },
-  statHomeBar: {
-    backgroundColor: "#28a745",
-  },
-  statBetterValue: {
-    fontWeight: "bold",
-    color: "#2c3e50",
-  },
-  // Updated top hitters row layout
-  topHitterRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: "#fff",
-    marginVertical: 2,
-    borderRadius: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  topHitterLeft: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  topHitterPosition: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#666",
-    marginRight: 4,
-    minWidth: 28,
-  },
-  topHitterHeadshot: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 8,
-  },
-  topHitterInfo: {
-    flex: 1,
-  },
-  topHitterName: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
-  },
-  topHitterStatsRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  topHitterStatItem: {
-    alignItems: "center",
-    minWidth: 35,
-  },
-  topHitterStatValue: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#002D72",
-  },
-  topHitterStatLabel: {
-    fontSize: 10,
-    color: "#666",
-    marginTop: 1,
-  },
-  topHittersContainer: {
-    gap: 20,
-  },
-  topHittersTeam: {
-    marginBottom: 8,
-  },
-  topHittersHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    paddingHorizontal: 4,
-  },
-  topHittersTeamLogo: {
-    width: 24,
-    height: 24,
-    marginRight: 8,
-  },
-  topHittersTeamName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  topHittersHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-    paddingHorizontal: 4,
-  },
-  topHittersTeamLogo: {
-    width: 24,
-    height: 24,
-    marginRight: 8,
-  },
-  topHittersTeamName: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  // Game status and time styles
-  scoreDisplay: {
-    fontSize: 12,
-    fontWeight: "500",
-    marginTop: 2,
-  },
-  gameTime: {
-    fontSize: 12,
-    fontWeight: "500",
-    marginTop: 2,
-  },
-  // Sticky header styles
-  stickyHeader: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e9ecef",
-    zIndex: 1000,
-    elevation: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  stickyTeamAway: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  stickyTeamHome: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  stickyTeamLogo: {
-    width: 28,
-    height: 28,
-    marginHorizontal: 8,
-  },
-  stickyTeamScore: {
-    fontSize: 18,
-    fontWeight: "bold",
-    minWidth: 30,
-    textAlign: "center",
-  },
-  stickyStatus: {
-    flex: 2,
-    alignItems: "center",
-  },
-  stickyStatusText: {
-    fontSize: 14,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  stickyScoreDisplay: {
-    fontSize: 12,
-    fontWeight: "500",
-    textAlign: "center",
-    marginTop: 2,
-  },
-  stickyGameTime: {
-    fontSize: 12,
-    fontWeight: "500",
-    textAlign: "center",
-    marginTop: 2,
-  },
-  stickyClock: {
-    fontSize: 10,
-    textAlign: "center",
-    marginTop: 2,
-  },
-  // Floating Chat Button
-  floatingChatButton: {
-    position: "absolute",
-    bottom: 30,
-    left: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-  },
-  // Chat Modal Styles
-  chatModalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0)",
-    justifyContent: "flex-end",
-  },
-  chatModalContent: {
-    height: "85%",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    overflow: "hidden",
-  },
-  chatModalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-  },
-  chatModalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    flex: 1,
-    textAlign: "center",
-    marginRight: -20,
-  },
-  chatModalCloseButton: {
-    padding: 4,
-  },
-  chatModalBody: {
-    flex: 1,
-  },
-  // Pitch Visualization Styles
-  pitchVisualization: {
-    alignItems: "center",
-    paddingVertical: 16,
-    marginVertical: 8,
-    borderRadius: 8,
-  },
-  pitchPlayerSectionTop: {
-    width: "100%",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  pitchPlayerSectionBottom: {
-    width: "100%",
-    alignItems: "center",
-    marginTop: 12,
-  },
-  pitchPlayerInfoTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pitchPlayerInfoBottom: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pitchPlayerTextContainer: {
-    alignItems: "center",
-    marginHorizontal: 8,
-  },
-  pitchPlayerHeadshot: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-  },
-  pitchPlayerName: {
-    fontSize: 14,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  pitchPlayerRole: {
-    fontSize: 12,
-    textAlign: "center",
-  },
-  // Stats toggle styles
-  statsToggleContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginHorizontal: 20,
-    marginVertical: 10,
-    backgroundColor: "transparent",
-  },
-  statsToggleButton: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginHorizontal: 4,
-    borderRadius: 20,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statsToggleButtonActive: {
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  statsToggleButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-
-  // MLB Plays Share Card Styles
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  mlbPlaysShareCard: {
-    width: 380,
-    backgroundColor: "#fff",
-    borderRadius: 0,
-    padding: 20,
-  },
-  mlbPlaysShareCardTopSection: {
-    flexDirection: "row",
-    marginBottom: 16,
-    gap: 12,
-  },
-  mlbPlaysShareCardPitchesList: {
-    flex: 1,
-  },
-  mlbPlaysShareCardSectionTitle: {
-    fontSize: 14,
-    fontWeight: "bold",
-    marginBottom: 8,
-  },
-  mlbPlaysShareCardPitchItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-    gap: 8,
-  },
-  mlbPlaysShareCardPitchBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  mlbPlaysShareCardPitchNumber: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-  mlbPlaysShareCardPitchDetails: {
-    flex: 1,
-  },
-  mlbPlaysShareCardPitchType: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  mlbPlaysShareCardPitchCount: {
-    fontSize: 10,
-    marginTop: 2,
-  },
-  mlbPlaysShareCardPitchSpeed: {
-    fontSize: 11,
-    fontWeight: "500",
-  },
-  mlbPlaysShareCardNoPitches: {
-    fontSize: 12,
-    fontStyle: "italic",
-  },
-  mlbPlaysShareCardPitchContainer: {
-    marginTop: 27.5,
-    width: 150,
-    height: 150,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  mlbPlaysShareCardPlayersSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 16,
-    paddingHorizontal: 8,
-  },
-  mlbPlaysShareCardPlayerInfo: {
-    alignItems: "center",
-    flex: 1,
-  },
-  mlbPlaysShareCardPlayerImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginBottom: 8,
-  },
-  mlbPlaysShareCardPlayerName: {
-    fontSize: 13,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  mlbPlaysShareCardPlayerRole: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  mlbPlaysShareCardVsText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginHorizontal: 12,
-  },
-  mlbPlaysShareCardPlayText: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  mlbPlaysShareCardPlayDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: "center",
-    fontWeight: "500",
-  },
-  mlbPlaysShareCardActions: {
-    marginTop: 20,
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  mlbPlaysShareCardTopButtons: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  mlbPlaysShareCardButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    gap: 8,
-  },
-  mlbPlaysShareCardCancelButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    gap: 8,
-  },
-  mlbPlaysShareCardButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "white",
-  },
-  // Score Header Styles
-  mlbPlaysShareCardScoreHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 16,
-    paddingHorizontal: 8,
-  },
-  mlbPlaysShareCardTeamScoreBlock: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  mlbPlaysShareCardTeamLogoSmall: {
-    width: 32,
-    height: 32,
-  },
-  mlbPlaysShareCardTeamScore: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  mlbPlaysShareCardInningBlock: {
-    alignItems: "center",
-  },
-  mlbPlaysShareCardInningIndicator: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  mlbPlaysShareCardInningText: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  // Player Stats
-  mlbPlaysShareCardPlayerStats: {
-    fontSize: 10,
-    marginTop: 4,
-    textAlign: "center",
-  },
-  // Bases and Hit Data Section
-  mlbPlaysShareCardBottomSection: {
-    flexDirection: "row",
-    marginTop: 16,
-    gap: 16,
-  },
-  mlbPlaysShareCardBasesContainer: {
-    flex: 1,
-  },
-  mlbPlaysShareCardDiamond: {
-    width: 60,
-    height: 60,
-    position: "relative",
-    alignSelf: "center",
-  },
-  mlbPlaysShareCardBase: {
-    width: 20,
-    height: 20,
-    backgroundColor: "#666",
-    position: "absolute",
-    transform: [{ rotate: "45deg" }],
-  },
-  mlbPlaysShareCardSecondBase: {
-    top: 0,
-    left: 24,
-  },
-  mlbPlaysShareCardThirdBase: {
-    top: 24,
-    left: 0,
-  },
-  mlbPlaysShareCardFirstBase: {
-    top: 24,
-    left: 48,
-  },
-  mlbPlaysShareCardHitDataContainer: {
-    flex: 1,
-  },
-  mlbPlaysShareCardHitDataItem: {
-    fontSize: 11,
-    marginBottom: 4,
-  },
-
-  // MLB Player Share Card Styles
-  mlbPlayerShareCard: {
-    width: 340,
-    borderRadius: 0,
-  },
-  mlbPlayerShareCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 16,
-    gap: 12,
-  },
-  mlbPlayerShareCardTeamLogo: {
-    width: 36,
-    height: 36,
-  },
-  mlbPlayerShareCardTeamName: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  mlbPlayerShareCardPlayerImageContainer: {
-    alignItems: "center",
-    marginVertical: 16,
-  },
-  mlbPlayerShareCardPlayerImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 3,
-    borderColor: "#fff",
-  },
-  mlbPlayerShareCardPlayerInfo: {
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  mlbPlayerShareCardPlayerName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-  mlbPlayerShareCardPlayerPosition: {
-    fontSize: 14,
-    marginTop: 4,
-  },
-  mlbPlayerShareCardGameDate: {
-    textAlign: "center",
-    fontSize: 13,
-    marginBottom: 8,
-  },
-  mlbPlayerShareCardStatsType: {
-    textAlign: "center",
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 16,
-  },
-  mlbPlayerShareCardStatsGrid: {
-    paddingHorizontal: 16,
-    paddingBottom: 20,
-    gap: 12,
-  },
-  mlbPlayerShareCardStatsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  mlbPlayerShareCardStatBox: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-  },
-  mlbPlayerShareCardStatValue: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  mlbPlayerShareCardStatLabel: {
-    fontSize: 11,
-    textTransform: "uppercase",
-    fontWeight: "600",
-  },
-  mlbPlayerShareCardActions: {
-    alignItems: "center",
-    marginTop: 20,
-    paddingHorizontal: 20,
-  },
-  mlbPlayerShareCardTopButtons: {
-    flexDirection: "row",
-    marginBottom: 12,
-    gap: 12,
-  },
-  mlbPlayerShareCardButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    gap: 8,
-  },
-  mlbPlayerShareCardCancelButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 40,
-    borderRadius: 12,
-    gap: 8,
-  },
-  mlbPlayerShareCardButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "white",
-  },
 });
 
-// Memoized components to prevent unnecessary re-renders
-const MemoizedGameHeader = React.memo(
-  ({
-    gameData,
-    theme,
-    colors,
-    isDarkMode,
-    getTeamLogoUrl,
-    renderGameHeader,
-  }) => {
-    return renderGameHeader();
-  },
-  (prevProps, nextProps) => {
-    return (
-      prevProps.gameData?.liveData?.linescore ===
-        nextProps.gameData?.liveData?.linescore &&
-      prevProps.gameData?.gameData?.teams ===
-        nextProps.gameData?.gameData?.teams &&
-      prevProps.gameData?.gameData?.status ===
-        nextProps.gameData?.gameData?.status &&
-      prevProps.theme === nextProps.theme &&
-      prevProps.isDarkMode === nextProps.isDarkMode
-    );
-  },
-);
-
-const MemoizedTabNavigation = React.memo(
-  ({
-    gameData,
-    activeTab,
-    setActiveTab,
-    theme,
-    colors,
-    renderTabNavigation,
-  }) => {
-    return renderTabNavigation();
-  },
-  (prevProps, nextProps) => {
-    return (
-      prevProps.gameData?.gameData?.status ===
-        nextProps.gameData?.gameData?.status &&
-      prevProps.activeTab === nextProps.activeTab &&
-      prevProps.theme === nextProps.theme
-    );
-  },
-);
-
-const MemoizedTabContent = React.memo(
-  ({
-    activeTab,
-    gameData,
-    playsData,
-    theme,
-    colors,
-    isDarkMode,
-    probablePitcherStats,
-    topHitters,
-    seasonStats,
-    awayRoster,
-    homeRoster,
-    openPlays,
-    collapsedRosterSections,
-    renderTabContent,
-  }) => {
-    return renderTabContent();
-  },
-  (prevProps, nextProps) => {
-    // Only re-render if the active tab changes or relevant data for that tab changes
-    if (prevProps.activeTab !== nextProps.activeTab) return false;
-
-    if (prevProps.activeTab === "plays") {
-      // For plays tab, check playsData and openPlays state
-      return (
-        prevProps.playsData === nextProps.playsData &&
-        prevProps.openPlays.size === nextProps.openPlays.size &&
-        Array.from(prevProps.openPlays).join(",") ===
-          Array.from(nextProps.openPlays).join(",")
-      );
-    } else if (prevProps.activeTab === "stats") {
-      // For stats tab, check all the stats-related state variables
-      return (
-        prevProps.gameData?.liveData?.boxscore ===
-          nextProps.gameData?.liveData?.boxscore &&
-        prevProps.probablePitcherStats === nextProps.probablePitcherStats &&
-        prevProps.topHitters === nextProps.topHitters &&
-        prevProps.seasonStats === nextProps.seasonStats &&
-        prevProps.theme === nextProps.theme &&
-        prevProps.isDarkMode === nextProps.isDarkMode
-      );
-    } else {
-      // For away/home tabs, check roster data, boxscore, and collapsed sections
-      return (
-        prevProps.gameData?.liveData?.boxscore ===
-          nextProps.gameData?.liveData?.boxscore &&
-        prevProps.awayRoster === nextProps.awayRoster &&
-        prevProps.homeRoster === nextProps.homeRoster &&
-        JSON.stringify(prevProps.collapsedRosterSections) ===
-          JSON.stringify(nextProps.collapsedRosterSections) &&
-        prevProps.theme === nextProps.theme &&
-        prevProps.isDarkMode === nextProps.isDarkMode
-      );
-    }
-  },
-);
-
-export default MLBGameDetailsScreen;
+export default GameDetailsScreen;

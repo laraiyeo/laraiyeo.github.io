@@ -37,13 +37,11 @@ const allowedTree = {
         id: true,
         name: true,
         abbreviation: true,
-        record: { wins: true, losses: true, winningPercentage: true },
       },
       home: {
         id: true,
         name: true,
         abbreviation: true,
-        record: { wins: true, losses: true },
       },
     },
     players: {
@@ -59,14 +57,6 @@ const allowedTree = {
     venue: { name: true, fieldInfo: true },
     weather: { condition: true, temp: true, wind: true },
     gameInfo: { attendance: true, firstPitch: true, gameDurationMinutes: true },
-    review: {
-      away: { used: true, remaining: true },
-      home: { used: true, remaining: true },
-    },
-    probablePitchers: {
-      away: { id: true, fullName: true },
-      home: { id: true, fullName: true },
-    },
   },
   liveData: {
     plays: {
@@ -157,11 +147,6 @@ const allowedTree = {
       isTopInning: true,
       innings: { num: true, home: true, away: true },
       teams: true,
-      defense: {
-        "*": {
-          id: true,
-        },
-      },
       offense: {
         "*": {
           id: true,
@@ -242,17 +227,6 @@ const allowedTree = {
           official: { fullName: true },
           officialType: true,
         },
-      },
-      topPerformers: {
-        "*": {
-          player: { person: { id: true } },
-          gameScore: true,
-        },
-      },
-    },
-    decisions: {
-      "*": {
-        id: true,
       },
     },
   },
@@ -636,14 +610,14 @@ app.get("/wbc/games", async (req, res) => {
       const start = toIso(parts[0]);
       const end = toIso(parts[1]);
       if (!start || !end) throw new Error("invalid date format");
-      path = `v1/schedule/games?sportId=51&startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}&fields=${encodeURIComponent(
-        "dates,date,games,gamePk,gameType,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,isWinner,home,team,id,name,leagueRecord,wins,losses,score,isWinner,venue,name,dayNight,description,seriesDescription",
+      path = `v1/schedule/games?sportId=51&startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}&hydrate=linescore&fields=${encodeURIComponent(
+        "dates,date,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,isWinner,home,team,id,name,leagueRecord,wins,losses,score,isWinner,venue,name,dayNight,description,seriesDescription",
       )}`;
     } else {
       const iso = toIso(raw);
       if (!iso) throw new Error("invalid date format");
-      path = `v1/schedule/games?sportId=51&date=${encodeURIComponent(iso)}&fields=${encodeURIComponent(
-        "dates,date,games,gamePk,gameType,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,isWinner,home,team,id,name,leagueRecord,wins,losses,score,isWinner,venue,name,dayNight,description,seriesDescription",
+      path = `v1/schedule/games?sportId=51&date=${encodeURIComponent(iso)}&hydrate=linescore&fields=${encodeURIComponent(
+        "dates,date,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,isWinner,home,team,id,name,leagueRecord,wins,losses,score,isWinner,venue,name,dayNight,description,seriesDescription",
       )}`;
     }
   } catch (e) {
@@ -698,9 +672,10 @@ app.get("/wbc/games", async (req, res) => {
 
   try {
     const { data, fromCache } = await getCached(key, url);
+    // Always evaluate so we can set an accurate Cache-Control TTL
+    const needFast = evaluateNeedsFastPolling(data);
 
     if (!refreshIntervals.has(key)) {
-      const needFast = evaluateNeedsFastPolling(data);
       bracketModes.set(key, needFast ? "fast" : "normal");
       const intervalMs = needFast ? 5000 : TTL_MS;
       const id = setInterval(
@@ -710,7 +685,8 @@ app.get("/wbc/games", async (req, res) => {
       refreshIntervals.set(key, id);
     }
 
-    setCachingHeaders(res, TTL_MS);
+    // Short TTL for live games so clients re-fetch every 5 s
+    setCachingHeaders(res, needFast ? 5000 : TTL_MS);
     res.json({ source: fromCache ? "cache" : "origin", data });
   } catch (err) {
     res
@@ -1823,7 +1799,7 @@ app.get("/wbc/standings/:code", async (req, res) => {
     return res.status(400).json({ error: "leagueId (path param) required" });
   }
   const fields =
-    "records,teamRecords,team,id,name,streak,streakCode,divisionRank,leagueRank,gamesPlayed,leagueGamesBack,records,splitRecords,wins,losses,type,divisionRecords,wins,losses,division,id,name,runsAllowed,runsScored";
+    "records,teamRecords,team,id,name,streak,streakCode,clinchIndicator,divisionRank,leagueRank,gamesPlayed,leagueGamesBack,records,splitRecords,wins,losses,type,divisionRecords,wins,losses,division,id,name,runsAllowed,runsScored";
   const path = `v1/standings/byDivision?leagueId=${encodeURIComponent(code)}&fields=${encodeURIComponent(fields)}`;
   const url = `${BASE_URL}${path}`;
   const key = path;

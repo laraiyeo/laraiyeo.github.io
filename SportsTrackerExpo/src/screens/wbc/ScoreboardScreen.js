@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,40 @@ import { LiveViewerBadge } from "../../components/ViewerCounter";
 import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 
 const { width } = Dimensions.get("window");
+
+// ─── Polling helpers ─────────────────────────────────────────────────────────
+
+// Codes where the game is NOT live (scheduled, finished, cancelled, postponed)
+const NON_LIVE_CODES = new Set(["S", "P", "D", "C", "O", "F", "Q", "R"]);
+
+const INTERVAL_SLOW = 30 * 60 * 1000; // 30 minutes
+const INTERVAL_FAST = 5 * 1000; // 5 seconds
+const SOON_THRESHOLD = 5 * 60 * 1000; // 5 minutes before gameDate
+
+/**
+ * Returns the desired polling interval in ms, or null if no polling needed.
+ *  - FAST (5 s) : any game is live, OR any scheduled game starts within 5 min
+ *  - SLOW (30 m): games exist but none are live/imminent
+ *  - null       : no games on that date
+ */
+const getPollingInterval = (groups) => {
+  const allGames = groups.flatMap((g) => g.games);
+  if (allGames.length === 0) return null;
+
+  const now = Date.now();
+
+  for (const game of allGames) {
+    const code = game.status?.codedGameState ?? "";
+    // Live game → fast
+    if (code && !NON_LIVE_CODES.has(code)) return INTERVAL_FAST;
+    // Scheduled and starts within 5 min → fast
+    if ((code === "S" || code === "P") && game.gameDate) {
+      const msUntil = new Date(game.gameDate).getTime() - now;
+      if (msUntil >= 0 && msUntil <= SOON_THRESHOLD) return INTERVAL_FAST;
+    }
+  }
+  return INTERVAL_SLOW;
+};
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,6 +96,83 @@ const groupGamesByEvent = (games = []) => {
   });
   return Object.values(grouped);
 };
+
+// ─── Ordinal helper ───────────────────────────────────────────────────────────
+
+const toOrdinal = (n) => {
+  if (n % 100 >= 11 && n % 100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+};
+
+// ─── BSO dot row + live linescore status ─────────────────────────────────────
+
+const BSODots = ({ filled, total, filledColor, theme }) => (
+  <View style={{ flexDirection: "row", gap: 3, justifyContent: "center" }}>
+    {Array.from({ length: total }).map((_, i) => (
+      <View
+        key={i}
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: i < filled ? filledColor : "transparent",
+          borderWidth: 1,
+          borderColor: i < filled ? filledColor : theme.border,
+        }}
+      />
+    ))}
+  </View>
+);
+
+const LiveLinescoreStatus = ({
+  inning,
+  isTopInning,
+  balls,
+  strikes,
+  outs,
+  theme,
+  colors,
+}) => (
+  <View style={{ alignItems: "center", gap: 2 }}>
+    <Text
+      style={{
+        fontSize: 11,
+        fontWeight: "700",
+        color: colors.primary,
+        textAlign: "center",
+      }}
+    >
+      {isTopInning ? "▲" : "▼"} {toOrdinal(inning || 0)}
+    </Text>
+    <BSODots
+      filled={balls ?? 0}
+      total={4}
+      filledColor={theme.info}
+      theme={theme}
+    />
+    <BSODots
+      filled={strikes ?? 0}
+      total={3}
+      filledColor={theme.error}
+      theme={theme}
+    />
+    <BSODots
+      filled={outs ?? 0}
+      total={3}
+      filledColor={theme.text}
+      theme={theme}
+    />
+  </View>
+);
 
 // ─── Card gradient overlay (top + bottom, SVG — no extra package needed) ───
 
@@ -187,9 +298,19 @@ const UpcomingMatchesSection = ({
             const awayRecord = game.teams?.away?.leagueRecord;
             const homeRecord = game.teams?.home?.leagueRecord;
             const { time, ampm } = formatTimeEST(game.gameDate);
-            const isFinished = ["S", "P", "D", "C", "O", "F", "Q", "R"].includes(
-              game.status?.codedGameState,
-            );
+            const isFinished = [
+              "S",
+              "P",
+              "D",
+              "C",
+              "O",
+              "F",
+              "Q",
+              "R",
+            ].includes(game.status?.codedGameState);
+            const isLive =
+              !NON_LIVE_CODES.has(game.status?.codedGameState) &&
+              !!game.status?.codedGameState;
             const homeWinner = isFinished && game.teams?.home?.isWinner;
             const awayWinner = isFinished && game.teams?.away?.isWinner;
             const awayId =
@@ -229,25 +350,44 @@ const UpcomingMatchesSection = ({
                 >
                   {/* Time / status column */}
                   <View style={styles.matchTimeContainer}>
-                    <Text
-                      style={[
-                        styles.matchTime,
-                        {
-                          color: isFinished ? theme.textSecondary : theme.text,
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {(game.status?.detailedState || "").slice(0, 5)}{(game.status?.detailedState).length > 5 ? "." : ""}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.matchTimeAmPm,
-                        { color: theme.textTertiary },
-                      ]}
-                    >
-                      {time} {ampm}
-                    </Text>
+                    {isLive ? (
+                      <LiveLinescoreStatus
+                        inning={game.linescore?.currentInning}
+                        isTopInning={game.linescore?.isTopInning}
+                        balls={game.linescore?.balls}
+                        strikes={game.linescore?.strikes}
+                        outs={game.linescore?.outs}
+                        theme={theme}
+                        colors={colors}
+                      />
+                    ) : (
+                      <>
+                        <Text
+                          style={[
+                            styles.matchTime,
+                            {
+                              color: isFinished
+                                ? theme.textSecondary
+                                : theme.text,
+                            },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {(game.status?.detailedState || "").slice(0, 5)}
+                          {(game.status?.detailedState || "").length > 5
+                            ? "."
+                            : ""}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.matchTimeAmPm,
+                            { color: theme.textTertiary },
+                          ]}
+                        >
+                          {time} {ampm}
+                        </Text>
+                      </>
+                    )}
                   </View>
 
                   {/* Stacked teams */}
@@ -274,18 +414,24 @@ const UpcomingMatchesSection = ({
                         )}
                       </View>
                       <View style={{ flex: 1 }}>
-                      <Text
-                        style={[styles.stackedTeamName, { color: theme.text }]}
-                        numberOfLines={1}
-                      >
-                        {away.name || "Away"}
-                      </Text>
-                      <Text
-                        style={[styles.stackedTeamName, { color: theme.textSecondary, fontSize: 11 }]}
-                        numberOfLines={1}
-                      >
-                        {awayRecord?.wins || 0}-{awayRecord?.losses || 0}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.stackedTeamName,
+                            { color: theme.text },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {away.name || "Away"}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.stackedTeamName,
+                            { color: theme.textSecondary, fontSize: 11 },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {awayRecord?.wins || 0}-{awayRecord?.losses || 0}
+                        </Text>
                       </View>
                       {awayScore != null && (
                         <Text
@@ -324,18 +470,24 @@ const UpcomingMatchesSection = ({
                         )}
                       </View>
                       <View style={{ flex: 1 }}>
-                      <Text
-                        style={[styles.stackedTeamName, { color: theme.text }]}
-                        numberOfLines={1}
-                      >
-                        {home.name || "Home"}
-                      </Text>
-                      <Text
-                        style={[styles.stackedTeamName, { color: theme.textSecondary, fontSize: 11 }]}
-                        numberOfLines={1}
-                      >
-                        {homeRecord?.wins || 0}-{homeRecord?.losses || 0}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.stackedTeamName,
+                            { color: theme.text },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {home.name || "Home"}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.stackedTeamName,
+                            { color: theme.textSecondary, fontSize: 11 },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {homeRecord?.wins || 0}-{homeRecord?.losses || 0}
+                        </Text>
                       </View>
                       {homeScore != null && (
                         <Text
@@ -355,8 +507,14 @@ const UpcomingMatchesSection = ({
                 </TouchableOpacity>
 
                 {/* Footer: venue + live viewer badge (MLB pattern, styled for WBC) */}
-                <View
+                <TouchableOpacity
                   style={[styles.gameFooter, { borderTopColor: theme.border }]}
+                  onPress={() =>
+                    navigation.navigate("GameDetails", {
+                      sport: "wbc",
+                      gamePk: game.gamePk,
+                    })
+                  }
                 >
                   <View style={styles.gameFooterLeft}>
                     <Text
@@ -373,7 +531,7 @@ const UpcomingMatchesSection = ({
                       style={styles.viewerBadge}
                     />
                   </View>
-                </View>
+                </TouchableOpacity>
 
                 {idx < group.games.length - 1 && (
                   <View
@@ -402,39 +560,101 @@ const ScoreboardScreen = ({ navigation, route }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState("today");
 
-  const loadData = useCallback(async (filter, silent = false) => {
-    if (!silent) setLoading(true);
-    else setFetching(true);
-    try {
-      const date = getDateForFilter(filter);
-      const resp = await WBCService.getScoreboard(date);
-      const allGames = [];
-      (resp?.data?.dates || []).forEach((d) =>
-        (d.games || []).forEach((g) => allGames.push(g)),
-      );
-      setGroups(groupGamesByEvent(allGames));
-    } catch (err) {
-      console.error("WBC scoreboard fetch error:", err);
-      setGroups([]);
-    } finally {
-      setLoading(false);
-      setFetching(false);
-    }
+  // Refs for adaptive polling — holds the current interval ID and the
+  // last-computed interval duration so we can avoid unnecessary resets
+  const intervalRef = useRef(null);
+  const currentIntervalMs = useRef(null);
+
+  const loadData = useCallback(
+    async (filter, silent = false, background = false) => {
+      if (!silent) setLoading(true);
+      else if (!background) setFetching(true);
+      try {
+        const date = getDateForFilter(filter);
+        const resp = await WBCService.getScoreboard(date);
+        const allGames = [];
+        (resp?.data?.dates || []).forEach((d) =>
+          (d.games || []).forEach((g) => allGames.push(g)),
+        );
+        const nextGroups = groupGamesByEvent(allGames);
+        setGroups(nextGroups);
+        return nextGroups; // return so callers can read the latest state
+      } catch (err) {
+        console.error("WBC scoreboard fetch error:", err);
+        setGroups([]);
+        return [];
+      } finally {
+        setLoading(false);
+        if (!background) setFetching(false);
+      }
+    },
+    [],
+  );
+
+  // ── Schedule/reschedule the adaptive polling interval ─────────────────────
+  const schedulePolling = useCallback(
+    (filter, latestGroups) => {
+      // Only auto-poll for "today" — past/future dates are static
+      if (filter !== "today") {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+          currentIntervalMs.current = null;
+        }
+        return;
+      }
+
+      const desired = getPollingInterval(latestGroups);
+
+      if (!desired) {
+        // No games → stop polling
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+          currentIntervalMs.current = null;
+        }
+        return;
+      }
+
+      // No need to reset if the interval is already correct
+      if (currentIntervalMs.current === desired && intervalRef.current) return;
+
+      // Clear old interval before setting a new one
+      if (intervalRef.current) clearInterval(intervalRef.current);
+
+      currentIntervalMs.current = desired;
+      intervalRef.current = setInterval(async () => {
+        const fresh = await loadData(filter, true, true); // background=true → no opacity flicker
+        // After each fetch, re-evaluate the correct interval
+        schedulePolling(filter, fresh);
+      }, desired);
+    },
+    [loadData],
+  );
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData(activeFilter, true);
+    const fresh = await loadData(activeFilter, true);
+    schedulePolling(activeFilter, fresh);
     setRefreshing(false);
   };
 
   const handleFilterChange = (filter) => {
     setActiveFilter(filter);
-    loadData(filter, true); // silent — no full-screen spinner
+    loadData(filter, true).then((fresh) => schedulePolling(filter, fresh));
   };
 
   useEffect(() => {
-    loadData(activeFilter, false); // initial load shows full-screen spinner
+    loadData(activeFilter, false).then((fresh) =>
+      schedulePolling(activeFilter, fresh),
+    ); // initial load shows full-screen spinner
   }, []);
 
   if (loading) {
