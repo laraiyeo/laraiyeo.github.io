@@ -111,7 +111,7 @@ class WBCService {
       ...options,
       headers: {
         "Cache-Control": "no-cache",
-        "Pragma": "no-cache",
+        Pragma: "no-cache",
         ...options.headers,
       },
     });

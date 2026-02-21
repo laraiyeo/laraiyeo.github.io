@@ -47,14 +47,14 @@ const TeamRow = ({ teamRecord, isDarkMode, theme, route, navigation }) => {
         { backgroundColor: theme.surface },
         teamColor ? { borderLeftColor: teamColor, borderLeftWidth: 3 } : null,
       ]}
-        onPress={() => {
-      navigation.navigate("TeamPage", {
-        teamId: team.id,
-        teamName: team.name,
-        sport: "wbc",
-      });
-    }}
-        activeOpacity={0.7}
+      onPress={() => {
+        navigation.navigate("TeamPage", {
+          teamId: team.id,
+          teamName: team.name,
+          sport: "wbc",
+        });
+      }}
+      activeOpacity={0.7}
     >
       {/* Rank */}
       <View style={styles.rankCol}>

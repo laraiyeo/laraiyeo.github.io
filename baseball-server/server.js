@@ -1979,8 +1979,7 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
           (pe.details && (pe.details.type?.description || pe.details.type)) ||
           (pe.type ?? null) ||
           "unknown";
-        const call =
-          pe.details?.call?.code ?? null;
+        const call = pe.details?.call?.code ?? null;
         const top =
           typeof pd.strikeZoneTop === "number" ? pd.strikeZoneTop : null;
         const bot =

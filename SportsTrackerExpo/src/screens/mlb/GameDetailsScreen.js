@@ -94,7 +94,11 @@ const TeamColumn = ({
           style={[
             styles.teamScore,
             {
-              color: isLive ? theme.text : isWinner ? theme.text : theme.textSecondary,
+              color: isLive
+                ? theme.text
+                : isWinner
+                  ? theme.text
+                  : theme.textSecondary,
               fontWeight: isLive ? "800" : isWinner ? "800" : "400",
               opacity: scoreOpacity ?? 1,
             },
@@ -2047,7 +2051,9 @@ const ShareCardModal = ({
   const pitcherId = play?.matchup?.pitcher?.id;
   const batterInfo = playersMap?.[`ID${batterId}`] ?? null;
   const pitcherInfo = playersMap?.[`ID${pitcherId}`] ?? null;
-  const description = play?.result?.description ?? `${batterInfo?.fullName ?? "Batter"} vs ${pitcherInfo?.fullName ?? "Pitcher"}`;
+  const description =
+    play?.result?.description ??
+    `${batterInfo?.fullName ?? "Batter"} vs ${pitcherInfo?.fullName ?? "Pitcher"}`;
   const batterTeamColor = isTop ? awayColor : homeColor;
   const pitcherTeamColor = isTop ? homeColor : awayColor;
 
@@ -2625,7 +2631,9 @@ const PlayDetailModal = ({
   const pitcherId = play?.matchup?.pitcher?.id;
   const batterInfo = playersMap?.[`ID${batterId}`] ?? null;
   const pitcherInfo = playersMap?.[`ID${pitcherId}`] ?? null;
-  const description = play?.result?.description ?? `${batterInfo?.fullName ?? "Batter"} vs ${pitcherInfo?.fullName ?? "Pitcher"}`;
+  const description =
+    play?.result?.description ??
+    `${batterInfo?.fullName ?? "Batter"} vs ${pitcherInfo?.fullName ?? "Pitcher"}`;
 
   // top inning → batter is away, pitcher is home
   const batterTeamColor = isTop ? awayColor : homeColor;
@@ -3573,12 +3581,14 @@ const PlaysPanel = ({
             ? (awayTeam?.abbreviation ?? "")
             : (homeTeam?.abbreviation ?? "");
           const inning = play?.about?.inning;
-          const event = play?.result?.event ?? "";  // Resolve batter + pitcher from playersMap
+          const event = play?.result?.event ?? ""; // Resolve batter + pitcher from playersMap
           const batterId = play?.matchup?.batter?.id;
           const pitcherId = play?.matchup?.pitcher?.id;
           const batterInfo = playersMap?.[`ID${batterId}`] ?? null;
           const pitcherInfo = playersMap?.[`ID${pitcherId}`] ?? null;
-          const description = play?.result?.description ?? `${batterInfo?.fullName ?? "Batter"} vs ${pitcherInfo?.fullName ?? "Pitcher"}`;
+          const description =
+            play?.result?.description ??
+            `${batterInfo?.fullName ?? "Batter"} vs ${pitcherInfo?.fullName ?? "Pitcher"}`;
           const isScoringPlay = play?.about?.isScoringPlay === true;
           const awayScore = play?.result?.awayScore;
           const homeScore = play?.result?.homeScore;
@@ -6013,12 +6023,26 @@ const GameDetailsScreen = ({ navigation, route }) => {
 
     return teamName
       .toLowerCase()
-      .replace(/[áéíóúüñçßëïöäåø]/g, (c) =>
-        ({
-          á: "a", é: "e", í: "i", ó: "o", ú: "u", ü: "u",
-          ñ: "n", ç: "c", ß: "ss", ë: "e", ï: "i", ö: "o",
-          ä: "a", å: "a", ø: "o",
-        }[c] || c),
+      .replace(
+        /[áéíóúüñçßëïöäåø]/g,
+        (c) =>
+          ({
+            á: "a",
+            é: "e",
+            í: "i",
+            ó: "o",
+            ú: "u",
+            ü: "u",
+            ñ: "n",
+            ç: "c",
+            ß: "ss",
+            ë: "e",
+            ï: "i",
+            ö: "o",
+            ä: "a",
+            å: "a",
+            ø: "o",
+          })[c] || c,
       )
       .replace(/\s+/g, "-")
       .replace(/[^a-z0-9\-]/g, "")
@@ -6029,7 +6053,11 @@ const GameDetailsScreen = ({ navigation, route }) => {
   const findMatchStreams = async (homeTeamName, awayTeamName) => {
     try {
       const liveMatches = await fetchLiveMatches();
-      if (!liveMatches || !Array.isArray(liveMatches) || liveMatches.length === 0) {
+      if (
+        !liveMatches ||
+        !Array.isArray(liveMatches) ||
+        liveMatches.length === 0
+      ) {
         return {};
       }
 
@@ -6042,25 +6070,32 @@ const GameDetailsScreen = ({ navigation, route }) => {
       let bestMatch = null;
       let bestScore = 0;
 
-      const quickMatches = liveMatches.slice(0, Math.min(liveMatches.length, 100)).filter((match) => {
-        const title = match.title.toLowerCase();
-        if (hasSameCity) {
-          return (
-            title.includes(homeNormalized) && title.includes(awayNormalized)
-          );
-        }
-        const homeHasMatch =
-          title.includes(homeNormalized.split("-")[0]) ||
-          title.includes(homeNormalized.split("-")[1] || "") ||
-          match.teams?.home?.name?.toLowerCase().includes(homeNormalized.split("-")[0]);
-        const awayHasMatch =
-          title.includes(awayNormalized.split("-")[0]) ||
-          title.includes(awayNormalized.split("-")[1] || "") ||
-          match.teams?.away?.name?.toLowerCase().includes(awayNormalized.split("-")[0]);
-        return homeHasMatch && awayHasMatch;
-      });
+      const quickMatches = liveMatches
+        .slice(0, Math.min(liveMatches.length, 100))
+        .filter((match) => {
+          const title = match.title.toLowerCase();
+          if (hasSameCity) {
+            return (
+              title.includes(homeNormalized) && title.includes(awayNormalized)
+            );
+          }
+          const homeHasMatch =
+            title.includes(homeNormalized.split("-")[0]) ||
+            title.includes(homeNormalized.split("-")[1] || "") ||
+            match.teams?.home?.name
+              ?.toLowerCase()
+              .includes(homeNormalized.split("-")[0]);
+          const awayHasMatch =
+            title.includes(awayNormalized.split("-")[0]) ||
+            title.includes(awayNormalized.split("-")[1] || "") ||
+            match.teams?.away?.name
+              ?.toLowerCase()
+              .includes(awayNormalized.split("-")[0]);
+          return homeHasMatch && awayHasMatch;
+        });
 
-      const matchesToProcess = quickMatches.length > 0 ? quickMatches : liveMatches.slice(0, 100);
+      const matchesToProcess =
+        quickMatches.length > 0 ? quickMatches : liveMatches.slice(0, 100);
 
       for (const match of matchesToProcess) {
         if (!match.sources || match.sources.length === 0) continue;
@@ -6073,17 +6108,23 @@ const GameDetailsScreen = ({ navigation, route }) => {
         const awayParts = awayNormalized.split("-").filter((w) => w.length > 2);
 
         homeParts.forEach((part) => {
-          if (titleWords.some((w) => w.includes(part) || part.includes(w))) totalScore += 0.4;
+          if (titleWords.some((w) => w.includes(part) || part.includes(w)))
+            totalScore += 0.4;
         });
         awayParts.forEach((part) => {
-          if (titleWords.some((w) => w.includes(part) || part.includes(w))) totalScore += 0.4;
+          if (titleWords.some((w) => w.includes(part) || part.includes(w)))
+            totalScore += 0.4;
         });
 
         if (match.teams) {
           const homeApiName = match.teams.home?.name?.toLowerCase() || "";
           const awayApiName = match.teams.away?.name?.toLowerCase() || "";
-          homeParts.forEach((part) => { if (homeApiName.includes(part)) totalScore += 0.6; });
-          awayParts.forEach((part) => { if (awayApiName.includes(part)) totalScore += 0.6; });
+          homeParts.forEach((part) => {
+            if (homeApiName.includes(part)) totalScore += 0.6;
+          });
+          awayParts.forEach((part) => {
+            if (awayApiName.includes(part)) totalScore += 0.6;
+          });
         }
 
         if (totalScore > bestScore) {
@@ -6098,7 +6139,10 @@ const GameDetailsScreen = ({ navigation, route }) => {
       const allStreams = {};
       for (const source of bestMatch.sources) {
         try {
-          const sourceStreams = await fetchStreamsForSource(source.source, source.id);
+          const sourceStreams = await fetchStreamsForSource(
+            source.source,
+            source.id,
+          );
           if (sourceStreams && sourceStreams.length > 0) {
             const firstStream = sourceStreams[0];
             allStreams[source.source] = {
@@ -6120,7 +6164,11 @@ const GameDetailsScreen = ({ navigation, route }) => {
     }
   };
 
-  const generateStreamUrl = (awayTeamName, homeTeamName, streamType = "alpha1") => {
+  const generateStreamUrl = (
+    awayTeamName,
+    homeTeamName,
+    streamType = "alpha1",
+  ) => {
     const normalizedAway = normalizeTeamName(awayTeamName);
     const normalizedHome = normalizeTeamName(homeTeamName);
     const streamUrls = {
@@ -6165,13 +6213,18 @@ const GameDetailsScreen = ({ navigation, route }) => {
     if (streamKeys.length > 0) {
       const preferredOrder = ["admin", "alpha", "bravo", "charlie", "delta"];
       initialStreamType =
-        preferredOrder.find((type) => streamKeys.includes(type)) || streamKeys[0];
+        preferredOrder.find((type) => streamKeys.includes(type)) ||
+        streamKeys[0];
       const streamData = streams[initialStreamType];
       initialUrl = streamData.embedUrl || streamData.url || streamData;
       setCurrentStreamType(initialStreamType);
     } else {
       initialStreamType = "alpha";
-      initialUrl = generateStreamUrl(awayTeam.name, homeTeam.name, initialStreamType);
+      initialUrl = generateStreamUrl(
+        awayTeam.name,
+        homeTeam.name,
+        initialStreamType,
+      );
       setCurrentStreamType(initialStreamType);
     }
 
@@ -6281,8 +6334,15 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   activeOpacity={0.8}
                 >
                   <View style={styles.streamBtnInner}>
-                    <View style={[styles.streamBtnDot, { backgroundColor: colors.primary }]} />
-                    <Text style={[styles.streamBtnText, { color: colors.primary }]}>
+                    <View
+                      style={[
+                        styles.streamBtnDot,
+                        { backgroundColor: colors.primary },
+                      ]}
+                    />
+                    <Text
+                      style={[styles.streamBtnText, { color: colors.primary }]}
+                    >
                       Stream
                     </Text>
                   </View>
@@ -6755,7 +6815,10 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   <View style={styles.noStreamsMessage}>
                     <Text
                       allowFontScaling={false}
-                      style={[styles.noStreamsText, { color: theme.textSecondary }]}
+                      style={[
+                        styles.noStreamsText,
+                        { color: theme.textSecondary },
+                      ]}
                     >
                       No live streams found for this game
                     </Text>
@@ -6790,22 +6853,44 @@ const GameDetailsScreen = ({ navigation, route }) => {
                     userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
                     onShouldStartLoadWithRequest={(request) => {
                       if (request.url === streamUrl) return true;
-                      const popupKeywords = ["popup", "ad", "ads", "click", "redirect", "promo"];
+                      const popupKeywords = [
+                        "popup",
+                        "ad",
+                        "ads",
+                        "click",
+                        "redirect",
+                        "promo",
+                      ];
                       const urlLower = request.url.toLowerCase();
-                      const hasPopupKeywords = popupKeywords.some((k) => urlLower.includes(k));
+                      const hasPopupKeywords = popupKeywords.some((k) =>
+                        urlLower.includes(k),
+                      );
                       const currentDomain = new URL(streamUrl).hostname;
                       let requestDomain = "";
                       try {
                         requestDomain = new URL(request.url).hostname;
                       } catch {
-                        return urlLower.startsWith("about:blank") || urlLower.startsWith("data:");
+                        return (
+                          urlLower.startsWith("about:blank") ||
+                          urlLower.startsWith("data:")
+                        );
                       }
                       const sameRootDomain =
                         requestDomain === currentDomain ||
                         requestDomain.endsWith(`.${currentDomain}`) ||
                         currentDomain.endsWith(`.${requestDomain}`);
-                      const allowPatterns = ["/embed/", "/player/", ".html", ".m3u8", ".mpd", "about:blank", "data:"];
-                      const allowIfEmbed = allowPatterns.some((p) => urlLower.includes(p));
+                      const allowPatterns = [
+                        "/embed/",
+                        "/player/",
+                        ".html",
+                        ".m3u8",
+                        ".mpd",
+                        "about:blank",
+                        "data:",
+                      ];
+                      const allowIfEmbed = allowPatterns.some((p) =>
+                        urlLower.includes(p),
+                      );
                       if (hasPopupKeywords && !allowIfEmbed) return false;
                       return sameRootDomain || allowIfEmbed;
                     }}

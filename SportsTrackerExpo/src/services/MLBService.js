@@ -261,7 +261,7 @@ export class MLBService {
         console.log("MLBService: Final API URL:", url);
         // Bypass native HTTP cache so auto-poll always gets fresh data
         const response = await fetch(url, {
-          headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" },
+          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
         });
         const data = await response.json();
 
