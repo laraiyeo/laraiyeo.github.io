@@ -614,7 +614,7 @@ const TeamPageScreen = ({ route, navigation }) => {
   const handleGamePress = (game) => {
     console.log("Navigating to game:", game.gamePk);
     navigation.navigate("GameDetails", {
-      gameId: game.gamePk,
+      gamePk: game.gamePk,
       sport: "mlb",
     });
   };

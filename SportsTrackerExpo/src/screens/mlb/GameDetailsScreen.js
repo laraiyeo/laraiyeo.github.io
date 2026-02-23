@@ -1536,7 +1536,7 @@ const pdStyles = StyleSheet.create({
 // ─── Pitch call-code → color ─────────────────────────────────────────────────
 const getPitchColor = (callCode) => {
   if (["X", "E", "H", "D"].includes(callCode)) return "#2196F3"; // in play
-  if (["B", "D"].includes(callCode)) return "#4CAF50"; // ball
+  if (["B", "D", "*B"].includes(callCode)) return "#4CAF50"; // ball
   return "#f44336"; // strike / foul
 };
 

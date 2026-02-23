@@ -375,7 +375,13 @@ const ScoreboardSection = ({
             const homeFav = isFavorite(homeEspnId, "mlb");
 
             return (
-              <View key={game.id || idx} style={styles.gameRow}>
+              <TouchableOpacity key={game.id || idx} style={styles.gameRow} 
+                  onPress={() =>
+                    navigation.navigate("GameDetails", {
+                      gamePk: game.id,
+                      sport: "mlb",
+                    })
+                  }>
                 <CardGradient
                   gradId={`${gIdx}_${idx}`}
                   awayColor={awayColor}
@@ -384,14 +390,8 @@ const ScoreboardSection = ({
                   theme={theme}
                 />
 
-                <TouchableOpacity
+                <View
                   style={styles.matchRow}
-                  onPress={() =>
-                    navigation.navigate("GameDetails", {
-                      gamePk: game.id,
-                      sport: "mlb",
-                    })
-                  }
                 >
                   {/* Status column */}
                   <View style={styles.statusContainer}>
@@ -572,17 +572,11 @@ const ScoreboardSection = ({
                       )}
                     </View>
                   </View>
-                </TouchableOpacity>
+                </View>
 
                 {/* Footer: venue + live viewer badge */}
-                <TouchableOpacity
+                <View
                   style={[styles.gameFooter, { borderTopColor: theme.border }]}
-                  onPress={() =>
-                    navigation.navigate("GameDetails", {
-                      gamePk: game.id,
-                      sport: "mlb",
-                    })
-                  }
                 >
                   <View style={styles.gameFooterLeft}>
                     {game.venue ? (
@@ -610,7 +604,7 @@ const ScoreboardSection = ({
                       style={styles.viewerBadge}
                     />
                   </View>
-                </TouchableOpacity>
+                </View>
 
                 {idx < group.games.length - 1 && (
                   <View
@@ -620,7 +614,7 @@ const ScoreboardSection = ({
                     ]}
                   />
                 )}
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -1004,15 +998,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   teamLogoSmall: {
-    width: 32,
-    height: 26,
+    width: 35,
+    height: 35,
     marginRight: 8,
     justifyContent: "center",
     alignItems: "center",
   },
   teamLogoSmallImg: {
-    width: 32,
-    height: 26,
+    width: 35,
+    height: 35,
     borderRadius: 3,
   },
   teamLogoFallback: {

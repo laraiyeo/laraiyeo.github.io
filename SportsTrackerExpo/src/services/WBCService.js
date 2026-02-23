@@ -121,7 +121,7 @@ class WBCService {
 
   static async getScoreboard(date) {
     // date format: YYYYMMDD or YYYYMMDD-YYYYMMDD
-    const qs = date ? `?date=${encodeURIComponent(String(date))}` : "";
+    const qs = date ? `?date=20260304` : "";
     return this.fetchJson(`/wbc/games${qs}`);
   }
 

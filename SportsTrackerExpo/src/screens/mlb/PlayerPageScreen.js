@@ -1705,7 +1705,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
       if (gameId) {
         console.log("Navigating to game:", gameId);
         navigation.navigate("GameDetails", {
-          gameId: gameId,
+          gamePk: gameId,
           sport: "mlb",
         });
       } else {
@@ -2597,8 +2597,8 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   setShowStatsModal(false);
                   // Use requestAnimationFrame to ensure modal closes before navigation
                   requestAnimationFrame(() => {
-                    navigation.navigate("GameDetails", {
-                      gameId: gameId,
+                    navigation.navigate("GameDetails", { 
+                      gamePk: gameId,
                       sport: "mlb",
                     });
                   });

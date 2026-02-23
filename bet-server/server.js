@@ -10777,6 +10777,7 @@ function startWatcherInline(betslipId) {
       let anyLost = false;
       let anyCompleted = false;
       let anyCompletedNotWon = false;
+      let anyDefiniteLoss = false; // any bet where game completed AND pick is lost
 
       for (const bet of betsArr) {
         const pickKey = bet.id || JSON.stringify(bet);
@@ -11224,6 +11225,7 @@ function startWatcherInline(betslipId) {
         // track completion metrics for finalization rule
         if (isCompleted) anyCompleted = true;
         if (isCompleted && newState !== "won") anyCompletedNotWon = true;
+        if (isCompleted && newState === "lost") anyDefiniteLoss = true;
 
         // avoid spamming notifications on the very first tick when watcher starts
         if (lastStates[pickKey] !== newState) {
@@ -11304,9 +11306,7 @@ function startWatcherInline(betslipId) {
 
       if (
         !isFirstTick &&
-        anyCompleted &&
-        anyCompletedNotWon &&
-        allFinal &&
+        anyDefiniteLoss &&
         !hasPendingEmptyEvents
       ) {
         // Ensure betslip payload indicates all bets are present before settling

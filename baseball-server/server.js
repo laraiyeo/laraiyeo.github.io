@@ -57,6 +57,7 @@ const allowedTree = {
     venue: { name: true, fieldInfo: true },
     weather: { condition: true, temp: true, wind: true },
     gameInfo: { attendance: true, firstPitch: true, gameDurationMinutes: true },
+    probablePitchers: {away: { id: true }, home: { id: true }},
   },
   liveData: {
     plays: {

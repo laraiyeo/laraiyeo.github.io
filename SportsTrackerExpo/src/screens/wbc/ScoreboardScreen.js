@@ -331,7 +331,7 @@ const UpcomingMatchesSection = ({
             const homeColor = WBCService.getTeamColor(homeId);
 
             return (
-              <View key={game.gamePk} style={styles.gameRow}>
+              <TouchableOpacity key={game.gamePk} style={styles.gameRow} onPress={() => navigation.navigate("GameDetails", { sport: "wbc", gamePk: game.gamePk })}>
                 <CardGradient
                   gradId={`${gIdx}_${idx}`}
                   awayColor={awayColor}
@@ -339,14 +339,8 @@ const UpcomingMatchesSection = ({
                   fallbackColor={colors.primary}
                   theme={theme}
                 />
-                <TouchableOpacity
+                <View
                   style={styles.upcomingMatchRow}
-                  onPress={() =>
-                    navigation.navigate("GameDetails", {
-                      sport: "wbc",
-                      gamePk: game.gamePk,
-                    })
-                  }
                 >
                   {/* Time / status column */}
                   <View style={styles.matchTimeContainer}>
@@ -394,11 +388,12 @@ const UpcomingMatchesSection = ({
                   <View style={styles.stackedTeams}>
                     {/* Away */}
                     <View style={styles.teamWithLogo}>
-                      <View style={styles.teamLogoSmall}>
+                      <View style={[styles.teamLogoSmall, {height: awayId < 200 ? 32 : 27.5}]}>
                         {awayLogo ? (
                           <Image
                             source={{ uri: awayLogo }}
-                            style={styles.teamLogoSmallPlaceholder}
+                            style={[styles.teamLogoSmallPlaceholder, {height: awayId < 200 ? 32 : 27.5}]}
+                            resizeMode={awayId < 200 ? "contain" : "cover"}
                           />
                         ) : (
                           <View
@@ -450,11 +445,12 @@ const UpcomingMatchesSection = ({
 
                     {/* Home */}
                     <View style={styles.teamWithLogo}>
-                      <View style={styles.teamLogoSmall}>
+                      <View style={[styles.teamLogoSmall, {height: homeId < 200 ? 32 : 27.5}]}>
                         {homeLogo ? (
                           <Image
                             source={{ uri: homeLogo }}
-                            style={styles.teamLogoSmallPlaceholder}
+                            style={[styles.teamLogoSmallPlaceholder, {height: homeId < 200 ? 32 : 27.5}]}
+                            resizeMode={homeId < 200 ? "contain" : "cover"}
                           />
                         ) : (
                           <View
@@ -504,17 +500,11 @@ const UpcomingMatchesSection = ({
                       )}
                     </View>
                   </View>
-                </TouchableOpacity>
+                </View>
 
                 {/* Footer: venue + live viewer badge (MLB pattern, styled for WBC) */}
-                <TouchableOpacity
+                <View
                   style={[styles.gameFooter, { borderTopColor: theme.border }]}
-                  onPress={() =>
-                    navigation.navigate("GameDetails", {
-                      sport: "wbc",
-                      gamePk: game.gamePk,
-                    })
-                  }
                 >
                   <View style={styles.gameFooterLeft}>
                     <Text
@@ -531,7 +521,7 @@ const UpcomingMatchesSection = ({
                       style={styles.viewerBadge}
                     />
                   </View>
-                </TouchableOpacity>
+                </View>
 
                 {idx < group.games.length - 1 && (
                   <View
@@ -541,7 +531,7 @@ const UpcomingMatchesSection = ({
                     ]}
                   />
                 )}
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -914,13 +904,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   teamLogoSmall: {
-    width: 32.5,
-    height: 25,
+    width: 35,
+    height: 27.5,
     marginRight: 8,
   },
   teamLogoSmallPlaceholder: {
-    width: 32.5,
-    height: 25,
+    width: 35,
+    height: 27.5,
     justifyContent: "center",
     alignItems: "center",
   },
