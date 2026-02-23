@@ -11304,11 +11304,7 @@ function startWatcherInline(betslipId) {
         hasPendingEmptyEvents = true;
       }
 
-      if (
-        !isFirstTick &&
-        anyDefiniteLoss &&
-        !hasPendingEmptyEvents
-      ) {
+      if (!isFirstTick && anyDefiniteLoss && !hasPendingEmptyEvents) {
         // Ensure betslip payload indicates all bets are present before settling
         const allowSettle = await canSettleFromPayload(fresh, betslipId).catch(
           (e) => {
