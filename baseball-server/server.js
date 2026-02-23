@@ -212,6 +212,14 @@ const allowedTree = {
                   putOuts: true,
                 },
               },
+              seasonStats: {
+                "pitching": {
+                  era: true,
+                  wins: true,
+                  losses: true,
+                  inningsPitched: true,
+                }
+              },
               gameStatus: { isOnBench: true, isSubstitute: true },
               pitches: true,
             },
