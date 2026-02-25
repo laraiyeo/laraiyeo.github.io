@@ -157,7 +157,9 @@ const playerHeadshotUrl = (playerId) =>
 // have varied historically, so accept both forms.
 const resolvePlayer = (playersMap, id) => {
   if (!playersMap || id == null) return null;
-  return playersMap[`ID${id}`] ?? playersMap[String(id)] ?? playersMap[id] ?? null;
+  return (
+    playersMap[`ID${id}`] ?? playersMap[String(id)] ?? playersMap[id] ?? null
+  );
 };
 
 // ─── Batting stat columns ────────────────────────────────────────────────────
@@ -1212,7 +1214,9 @@ const PlayerDetailModal = ({
               {fullName}
             </Text>
             {(jerseyNum || teamName) && (
-              <Text style={[pdStyles.jerseyNum, { color: theme.textSecondary }]}>
+              <Text
+                style={[pdStyles.jerseyNum, { color: theme.textSecondary }]}
+              >
                 {[jerseyNum, teamName].filter(Boolean).join(" • ")}
               </Text>
             )}
@@ -4779,8 +4783,7 @@ const ProbablePitchersBubble = ({
 
   if (!awayProbId && !homeProbId) return null;
 
-  const getPlayerInfo = (id) =>
-    id ? resolvePlayer(playersMap, id) : null;
+  const getPlayerInfo = (id) => (id ? resolvePlayer(playersMap, id) : null);
   const getPitchingStats = (id, bsTeamData) => {
     if (!id) return null;
     const bsPlayer = bsTeamData?.players?.[`ID${id}`];
@@ -4797,8 +4800,7 @@ const ProbablePitchersBubble = ({
     const losses = stats?.losses ?? null;
     const era = stats?.era ?? null;
     const ip = stats?.inningsPitched ?? null;
-    const wlStr =
-      wins != null && losses != null ? `${wins}-${losses}` : "—";
+    const wlStr = wins != null && losses != null ? `${wins}-${losses}` : "—";
     return (
       <View
         style={[
@@ -4999,14 +5001,16 @@ const TeamStatsBubble = ({
 
   const activeSections = isScheduled ? SCHEDULED_STAT_SECTIONS : STAT_SECTIONS;
 
-  const sections = activeSections.map((sec) => {
-    const aw = awayTs[sec.key] ?? {};
-    const hm = homeTs[sec.key] ?? {};
-    const rows = sec.stats.filter(
-      (s) => aw[s.key] != null || hm[s.key] != null,
-    );
-    return { ...sec, rows, aw, hm };
-  }).filter((sec) => sec.rows.length > 0);
+  const sections = activeSections
+    .map((sec) => {
+      const aw = awayTs[sec.key] ?? {};
+      const hm = homeTs[sec.key] ?? {};
+      const rows = sec.stats.filter(
+        (s) => aw[s.key] != null || hm[s.key] != null,
+      );
+      return { ...sec, rows, aw, hm };
+    })
+    .filter((sec) => sec.rows.length > 0);
 
   if (sections.length === 0) return null;
 

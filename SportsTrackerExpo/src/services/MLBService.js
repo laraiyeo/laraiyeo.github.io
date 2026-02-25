@@ -561,8 +561,7 @@ export class MLBService {
   }
 
   // Backend base URL (deployed baseball-server)
-  static BASE_BACKEND =
-    "https://laraiyeogithubio-production.up.railway.app";
+  static BASE_BACKEND = "https://laraiyeogithubio-production.up.railway.app";
 
   // Get MLB team logo URL by team ID (mirrors WBCService.getTeamLogo signature)
   static getTeamLogo(teamId, isDarkMode = false) {

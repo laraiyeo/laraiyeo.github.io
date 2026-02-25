@@ -57,7 +57,7 @@ const allowedTree = {
     venue: { name: true, fieldInfo: true },
     weather: { condition: true, temp: true, wind: true },
     gameInfo: { attendance: true, firstPitch: true, gameDurationMinutes: true },
-    probablePitchers: {away: { id: true }, home: { id: true }},
+    probablePitchers: { away: { id: true }, home: { id: true } },
   },
   liveData: {
     plays: {
@@ -213,12 +213,12 @@ const allowedTree = {
                 },
               },
               seasonStats: {
-                "pitching": {
+                pitching: {
                   era: true,
                   wins: true,
                   losses: true,
                   inningsPitched: true,
-                }
+                },
               },
               gameStatus: { isOnBench: true, isSubstitute: true },
               pitches: true,
@@ -2487,13 +2487,18 @@ app.get("/bb/teams", async (req, res) => {
   try {
     const { data, fromCache } = await getCached(key, url);
     if (!refreshIntervals.has(key)) {
-      const id = setInterval(() => fetchAndCache(key, url).catch(() => {}), TTL_MS);
+      const id = setInterval(
+        () => fetchAndCache(key, url).catch(() => {}),
+        TTL_MS,
+      );
       refreshIntervals.set(key, id);
     }
     setCachingHeaders(res, TTL_MS);
     res.json({ source: fromCache ? "cache" : "origin", data });
   } catch (err) {
-    res.status(502).json({ error: "Failed to fetch MLB teams", details: err.message });
+    res
+      .status(502)
+      .json({ error: "Failed to fetch MLB teams", details: err.message });
   }
 });
 
@@ -2531,13 +2536,21 @@ app.get("/bb/teamSchedule/:code", async (req, res) => {
       .map(([date, games]) => ({ date, games }));
     cache.set(key, { data: { dates }, fetchedAt: Date.now() });
     if (!refreshIntervals.has(key)) {
-      const id = setInterval(() => fetchAndCache(path, url).catch(() => {}), TTL_MS);
+      const id = setInterval(
+        () => fetchAndCache(path, url).catch(() => {}),
+        TTL_MS,
+      );
       refreshIntervals.set(key, id);
     }
     setCachingHeaders(res, TTL_MS);
     res.json({ source: fromCache ? "cache" : "origin", data: { dates } });
   } catch (err) {
-    res.status(502).json({ error: "Failed to fetch MLB team schedule", details: err.message });
+    res
+      .status(502)
+      .json({
+        error: "Failed to fetch MLB team schedule",
+        details: err.message,
+      });
   }
 });
 
@@ -2554,27 +2567,41 @@ app.get("/bb/teamRoster/:code", async (req, res) => {
 
   try {
     let { data, fromCache } = await getCached(path, url);
-    const isEmptyRoster = !data || !Array.isArray(data.roster) || data.roster.length === 0;
+    const isEmptyRoster =
+      !data || !Array.isArray(data.roster) || data.roster.length === 0;
     if (isEmptyRoster) {
       const yr = new Date().getFullYear();
       const pathSeason = `${path}&season=${yr}`;
       const urlSeason = `${BASE_URL}${pathSeason}`;
       try {
-        const seasonRes = await getCached(pathSeason, urlSeason).catch(() => null);
-        if (seasonRes?.data && Array.isArray(seasonRes.data.roster) && seasonRes.data.roster.length > 0) {
+        const seasonRes = await getCached(pathSeason, urlSeason).catch(
+          () => null,
+        );
+        if (
+          seasonRes?.data &&
+          Array.isArray(seasonRes.data.roster) &&
+          seasonRes.data.roster.length > 0
+        ) {
           data = seasonRes.data;
           fromCache = false;
           cache.set(key, { data, fetchedAt: Date.now() });
         }
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        /* ignore */
+      }
     }
     if (!refreshIntervals.has(key)) {
-      const id = setInterval(() => fetchAndCache(path, url).catch(() => {}), TTL_MS);
+      const id = setInterval(
+        () => fetchAndCache(path, url).catch(() => {}),
+        TTL_MS,
+      );
       refreshIntervals.set(key, id);
     }
     res.json({ source: fromCache ? "cache" : "origin", data });
   } catch (err) {
-    res.status(502).json({ error: "Failed to fetch MLB team roster", details: err.message });
+    res
+      .status(502)
+      .json({ error: "Failed to fetch MLB team roster", details: err.message });
   }
 });
 
@@ -2597,12 +2624,20 @@ app.get("/bb/teamCoaches/:code", async (req, res) => {
         }))
       : [];
     if (!refreshIntervals.has(key)) {
-      const id = setInterval(() => fetchAndCache(path, url).catch(() => {}), TTL_MS);
+      const id = setInterval(
+        () => fetchAndCache(path, url).catch(() => {}),
+        TTL_MS,
+      );
       refreshIntervals.set(key, id);
     }
     res.json({ source: fromCache ? "cache" : "origin", data: { coaches } });
   } catch (err) {
-    res.status(502).json({ error: "Failed to fetch MLB team coaches", details: err.message });
+    res
+      .status(502)
+      .json({
+        error: "Failed to fetch MLB team coaches",
+        details: err.message,
+      });
   }
 });
 
@@ -2620,14 +2655,35 @@ app.get("/bb/teamLeaders/:code", async (req, res) => {
   const key = `bb:teamLeaders:${code}`;
 
   const hittingCategories = new Set([
-    "homeRuns", "hits", "atBats", "runs", "stolenBases", "avg", "battingAverage",
-    "obp", "onBasePercentage", "slg", "sluggingPercentage", "ops", "onBasePlusSlugging",
-    "totalBases", "rbi", "runsBattedIn",
+    "homeRuns",
+    "hits",
+    "atBats",
+    "runs",
+    "stolenBases",
+    "avg",
+    "battingAverage",
+    "obp",
+    "onBasePercentage",
+    "slg",
+    "sluggingPercentage",
+    "ops",
+    "onBasePlusSlugging",
+    "totalBases",
+    "rbi",
+    "runsBattedIn",
   ]);
   const pitchingCategories = new Set([
-    "strikeOuts", "strikeouts", "baseOnBalls", "walks", "hits",
-    "earnedRunAverage", "era", "inningsPitched", "walksAndHitsPerInningPitched",
-    "whip", "numberOfPitches",
+    "strikeOuts",
+    "strikeouts",
+    "baseOnBalls",
+    "walks",
+    "hits",
+    "earnedRunAverage",
+    "era",
+    "inningsPitched",
+    "walksAndHitsPerInningPitched",
+    "whip",
+    "numberOfPitches",
   ]);
 
   function friendlyName(cat) {
@@ -2637,7 +2693,10 @@ app.get("/bb/teamLeaders/:code", async (req, res) => {
       .replace(/([A-Za-z])([0-9])/g, "$1 $2")
       .replace(/([0-9])([A-Za-z])/g, "$1 $2");
     s = s.replace(/[_-]/g, " ");
-    return s.split(/\s+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+    return s
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
   }
 
   try {
@@ -2658,19 +2717,34 @@ app.get("/bb/teamLeaders/:code", async (req, res) => {
         if (requirePitching && statGroup !== "pitching") continue;
         const pid = String(l.person.id);
         if (!persons.has(pid)) {
-          persons.set(pid, { id: l.person.id, fullName: l.person.fullName, stats: {} });
+          persons.set(pid, {
+            id: l.person.id,
+            fullName: l.person.fullName,
+            stats: {},
+          });
         }
         const p = persons.get(pid);
         p.stats[friendlyName(category)] = { rank: l.rank, value: l.value };
       }
     }
     if (!refreshIntervals.has(key)) {
-      const id = setInterval(() => fetchAndCache(path, url).catch(() => {}), TTL_MS);
+      const id = setInterval(
+        () => fetchAndCache(path, url).catch(() => {}),
+        TTL_MS,
+      );
       refreshIntervals.set(key, id);
     }
-    res.json({ source: fromCache ? "cache" : "origin", data: { persons: Array.from(persons.values()) } });
+    res.json({
+      source: fromCache ? "cache" : "origin",
+      data: { persons: Array.from(persons.values()) },
+    });
   } catch (err) {
-    res.status(502).json({ error: "Failed to fetch MLB team leaders", details: err.message });
+    res
+      .status(502)
+      .json({
+        error: "Failed to fetch MLB team leaders",
+        details: err.message,
+      });
   }
 });
 
@@ -2683,13 +2757,34 @@ app.get("/bb/stats", async (req, res) => {
       season,
       path: `v1/teams/stats?sportIds=1&group=hitting,pitching&season=${season}`,
     }));
-    const results = await Promise.all(paths.map((p) => getCached(p.path, `${BASE_URL}${p.path}`)));
+    const results = await Promise.all(
+      paths.map((p) => getCached(p.path, `${BASE_URL}${p.path}`)),
+    );
 
     const allowed = new Set([
-      "gamesPlayed", "runs", "doubles", "triples", "homeRuns", "strikeOuts",
-      "baseOnBalls", "hits", "avg", "atBats", "obp", "slg", "ops",
-      "stolenBases", "totalBases", "rbi", "era", "inningsPitched", "whip",
-      "earnedRuns", "shutouts", "strikePercentage", "strikeoutsPer9Inn",
+      "gamesPlayed",
+      "runs",
+      "doubles",
+      "triples",
+      "homeRuns",
+      "strikeOuts",
+      "baseOnBalls",
+      "hits",
+      "avg",
+      "atBats",
+      "obp",
+      "slg",
+      "ops",
+      "stolenBases",
+      "totalBases",
+      "rbi",
+      "era",
+      "inningsPitched",
+      "whip",
+      "earnedRuns",
+      "shutouts",
+      "strikePercentage",
+      "strikeoutsPer9Inn",
     ]);
 
     function bbFriendlyName(cat) {
@@ -2699,7 +2794,10 @@ app.get("/bb/stats", async (req, res) => {
         .replace(/([A-Za-z])([0-9])/g, "$1 $2")
         .replace(/([0-9])([A-Za-z])/g, "$1 $2");
       s = s.replace(/[_-]/g, " ");
-      return s.split(/\s+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+      return s
+        .split(/\s+/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
     }
 
     const teamMap = new Map();
@@ -2708,7 +2806,8 @@ app.get("/bb/stats", async (req, res) => {
       const data = results[i].data;
       const statsArr = data?.stats ?? [];
       for (const statEntry of statsArr) {
-        const groupNameRaw = statEntry?.group?.displayName || statEntry?.group || "unknown";
+        const groupNameRaw =
+          statEntry?.group?.displayName || statEntry?.group || "unknown";
         const groupKey = String(groupNameRaw).toLowerCase();
         const splits = statEntry?.splits ?? [];
         for (const split of splits) {
@@ -2716,7 +2815,11 @@ app.get("/bb/stats", async (req, res) => {
           if (!team || !team.id) continue;
           const tid = String(team.id);
           if (!teamMap.has(tid)) {
-            teamMap.set(tid, { id: team.id, name: team.name, stats: { hitting: {}, pitching: {} } });
+            teamMap.set(tid, {
+              id: team.id,
+              name: team.name,
+              stats: { hitting: {}, pitching: {} },
+            });
           }
           const teamObj = teamMap.get(tid);
           const rawStat = split.stat || {};
@@ -2730,16 +2833,22 @@ app.get("/bb/stats", async (req, res) => {
         }
       }
     }
-    res.json({ source: "origin", data: { teams: Array.from(teamMap.values()) } });
+    res.json({
+      source: "origin",
+      data: { teams: Array.from(teamMap.values()) },
+    });
   } catch (err) {
-    res.status(502).json({ error: "Failed to fetch MLB stats", details: err.message });
+    res
+      .status(502)
+      .json({ error: "Failed to fetch MLB stats", details: err.message });
   }
 });
 
 // MLB standings
 app.get("/bb/standings/:code", async (req, res) => {
   const code = req.params.code;
-  if (!code) return res.status(400).json({ error: "leagueId (path param) required" });
+  if (!code)
+    return res.status(400).json({ error: "leagueId (path param) required" });
 
   const fields =
     "records,teamRecords,team,id,name,streak,streakCode,clinchIndicator,divisionRank,leagueRank,gamesPlayed,leagueGamesBack,records,splitRecords,wins,losses,type,divisionRecords,wins,losses,division,id,name,runsAllowed,runsScored";
@@ -2761,8 +2870,13 @@ app.get("/bb/standings/:code", async (req, res) => {
           for (const tr of rec.teamRecords) {
             const divRecs = tr?.records?.divisionRecords;
             if (Array.isArray(divRecs)) {
-              const match = divRecs.find((d) => d?.division?.id === divId && d?.division?.name);
-              if (match?.division?.name) { divName = match.division.name; break; }
+              const match = divRecs.find(
+                (d) => d?.division?.id === divId && d?.division?.name,
+              );
+              if (match?.division?.name) {
+                divName = match.division.name;
+                break;
+              }
             }
           }
         }
@@ -2772,12 +2886,17 @@ app.get("/bb/standings/:code", async (req, res) => {
             const r = tr.records || {};
             if (r.hasOwnProperty("splitRecords")) delete r.splitRecords;
             if (Array.isArray(r.divisionRecords)) {
-              const match = r.divisionRecords.find((d) => d?.division?.id === divId);
-              r.divisionRecords = match ? { wins: match.wins, losses: match.losses } : null;
+              const match = r.divisionRecords.find(
+                (d) => d?.division?.id === divId,
+              );
+              r.divisionRecords = match
+                ? { wins: match.wins, losses: match.losses }
+                : null;
             }
             if (r.hasOwnProperty("leagueRecords")) delete r.leagueRecords;
             if (Array.isArray(r.expectedRecords)) {
-              r.expectedRecords = r.expectedRecords.length > 0 ? [r.expectedRecords[0]] : [];
+              r.expectedRecords =
+                r.expectedRecords.length > 0 ? [r.expectedRecords[0]] : [];
             }
             tr.records = r;
           }
@@ -2785,12 +2904,17 @@ app.get("/bb/standings/:code", async (req, res) => {
       }
     }
     if (!refreshIntervals.has(key)) {
-      const id = setInterval(() => fetchAndCache(key, url).catch(() => {}), TTL_MS);
+      const id = setInterval(
+        () => fetchAndCache(key, url).catch(() => {}),
+        TTL_MS,
+      );
       refreshIntervals.set(key, id);
     }
     res.json({ source: fromCache ? "cache" : "origin", data: transformed });
   } catch (err) {
-    res.status(502).json({ error: "Failed to fetch MLB standings", details: err.message });
+    res
+      .status(502)
+      .json({ error: "Failed to fetch MLB standings", details: err.message });
   }
 });
 
@@ -2800,7 +2924,10 @@ app.get("/bb/team/:code", async (req, res) => {
   if (!code) return res.status(400).json({ error: "team code required" });
 
   try {
-    const { data: teamsPayload } = await getCached(BB_TEAMS_PATH, `${BASE_URL}${BB_TEAMS_PATH}`);
+    const { data: teamsPayload } = await getCached(
+      BB_TEAMS_PATH,
+      `${BASE_URL}${BB_TEAMS_PATH}`,
+    );
     const teamsList = teamsPayload?.teams || [];
     const teamIdNum = Number(code);
     const teamObj = teamsList.find((t) => t && t.id === teamIdNum);
@@ -2811,28 +2938,41 @@ app.get("/bb/team/:code", async (req, res) => {
     // Standings
     const leagueId = teamObj?.league?.id;
     if (leagueId) {
-      const standingsRes = await axios.get(`http://localhost:${PORT}/bb/standings/${leagueId}`);
+      const standingsRes = await axios.get(
+        `http://localhost:${PORT}/bb/standings/${leagueId}`,
+      );
       let standingsData = standingsRes.data?.data ?? standingsRes.data;
       try {
         if (standingsData && Array.isArray(standingsData.records)) {
           const divId = teamObj?.division?.id;
-          let matched = standingsData.records.find((r) => r?.division?.id === divId);
+          let matched = standingsData.records.find(
+            (r) => r?.division?.id === divId,
+          );
           if (!matched) {
             for (const r of standingsData.records) {
               if (!Array.isArray(r.teamRecords)) continue;
-              const found = r.teamRecords.find((tr) => tr?.team && Number(tr.team.id) === teamIdNum);
-              if (found) { matched = r; break; }
+              const found = r.teamRecords.find(
+                (tr) => tr?.team && Number(tr.team.id) === teamIdNum,
+              );
+              if (found) {
+                matched = r;
+                break;
+              }
             }
           }
           if (matched) {
             const recClone = JSON.parse(JSON.stringify(matched));
             recClone.teamRecords = Array.isArray(recClone.teamRecords)
-              ? recClone.teamRecords.filter((tr) => Number(tr?.team?.id) === teamIdNum)
+              ? recClone.teamRecords.filter(
+                  (tr) => Number(tr?.team?.id) === teamIdNum,
+                )
               : [];
             standingsData = { records: [recClone] };
           }
         }
-      } catch (e) { /* ignore transform errors */ }
+      } catch (e) {
+        /* ignore transform errors */
+      }
       result.standings = standingsData;
     }
 
@@ -2854,15 +2994,21 @@ app.get("/bb/team/:code", async (req, res) => {
             extremes[groupKey][season] = extremes[groupKey][season] || {};
             const cur = extremes[groupKey][season][statKey];
             if (!cur) extremes[groupKey][season][statKey] = { min: n, max: n };
-            else { if (n < cur.min) cur.min = n; if (n > cur.max) cur.max = n; }
+            else {
+              if (n < cur.min) cur.min = n;
+              if (n > cur.max) cur.max = n;
+            }
           }
         }
       }
     }
-    const thisTeamStats = statsTeams.find((t) => t.id === teamIdNum) || { stats: { hitting: {}, pitching: {} } };
+    const thisTeamStats = statsTeams.find((t) => t.id === teamIdNum) || {
+      stats: { hitting: {}, pitching: {} },
+    };
     const augmentedStats = { hitting: {}, pitching: {} };
     for (const groupKey of ["hitting", "pitching"]) {
-      const groupObj = (thisTeamStats.stats && thisTeamStats.stats[groupKey]) || {};
+      const groupObj =
+        (thisTeamStats.stats && thisTeamStats.stats[groupKey]) || {};
       for (const season of Object.keys(groupObj)) {
         const entry = groupObj[season];
         const statObj = entry?.stat || {};
@@ -2870,34 +3016,60 @@ app.get("/bb/team/:code", async (req, res) => {
         for (const statKey of Object.keys(statObj)) {
           const raw = statObj[statKey];
           const ext = extremes[groupKey]?.[season]?.[statKey] ?? null;
-          outStats[statKey] = { teamValue: raw, max: ext ? ext.max : null, min: ext ? ext.min : null };
+          outStats[statKey] = {
+            teamValue: raw,
+            max: ext ? ext.max : null,
+            min: ext ? ext.min : null,
+          };
         }
-        augmentedStats[groupKey][season] = { rank: entry?.rank ?? null, stat: outStats };
+        augmentedStats[groupKey][season] = {
+          rank: entry?.rank ?? null,
+          stat: outStats,
+        };
       }
     }
     result.stats = augmentedStats;
 
     // Schedule, leaders, roster, coaches
     const [scheduleRes, leadersRes, rosterRes, coachesRes] = await Promise.all([
-      axios.get(`http://localhost:${PORT}/bb/teamSchedule/${teamIdNum}`).catch(() => null),
-      axios.get(`http://localhost:${PORT}/bb/teamLeaders/${teamIdNum}`).catch(() => null),
-      axios.get(`http://localhost:${PORT}/bb/teamRoster/${teamIdNum}`).catch(() => null),
-      axios.get(`http://localhost:${PORT}/bb/teamCoaches/${teamIdNum}`).catch(() => null),
+      axios
+        .get(`http://localhost:${PORT}/bb/teamSchedule/${teamIdNum}`)
+        .catch(() => null),
+      axios
+        .get(`http://localhost:${PORT}/bb/teamLeaders/${teamIdNum}`)
+        .catch(() => null),
+      axios
+        .get(`http://localhost:${PORT}/bb/teamRoster/${teamIdNum}`)
+        .catch(() => null),
+      axios
+        .get(`http://localhost:${PORT}/bb/teamCoaches/${teamIdNum}`)
+        .catch(() => null),
     ]);
 
     result.schedule = scheduleRes?.data?.data ?? null;
     const leadersPersons = leadersRes?.data?.data?.persons ?? [];
-    const roster = rosterRes?.data?.data?.roster ?? rosterRes?.data?.roster ?? [];
-    const leaderMap = new Map(leadersPersons.map((p) => [String(p.id), p.stats || {}]));
+    const roster =
+      rosterRes?.data?.data?.roster ?? rosterRes?.data?.roster ?? [];
+    const leaderMap = new Map(
+      leadersPersons.map((p) => [String(p.id), p.stats || {}]),
+    );
     result.roster = (roster || []).map((r) => {
       const pid = String(r?.person?.id ?? "");
-      return Object.assign({}, r, { stats: leaderMap.get(pid) || {}, parentTeamId: teamIdNum });
+      return Object.assign({}, r, {
+        stats: leaderMap.get(pid) || {},
+        parentTeamId: teamIdNum,
+      });
     });
     result.coaches = coachesRes?.data?.data ?? null;
 
     res.json({ source: "origin", data: result });
   } catch (err) {
-    res.status(502).json({ error: "Failed to build MLB team payload", details: err.message });
+    res
+      .status(502)
+      .json({
+        error: "Failed to build MLB team payload",
+        details: err.message,
+      });
   }
 });
 

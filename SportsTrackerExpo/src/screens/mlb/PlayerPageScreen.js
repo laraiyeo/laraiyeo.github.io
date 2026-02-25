@@ -60,58 +60,71 @@ const DAY_LABELS = {
 };
 
 const MONTH_LABELS = {
-  1: "Jan",  2: "Feb",  3: "Mar",  4: "Apr",
-  5: "May",  6: "Jun",  7: "Jul",  8: "Aug",
-  9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec",
+  1: "Jan",
+  2: "Feb",
+  3: "Mar",
+  4: "Apr",
+  5: "May",
+  6: "Jun",
+  7: "Jul",
+  8: "Aug",
+  9: "Sep",
+  10: "Oct",
+  11: "Nov",
+  12: "Dec",
 };
 
 // All 30 MLB teams sorted alphabetically for VS Team selector
 const TEAM_ID_BY_NAME = Object.fromEntries(
-  Object.entries(MLBService.teamIdMap).map(([id, name]) => [name, Number(id)])
+  Object.entries(MLBService.teamIdMap).map(([id, name]) => [name, Number(id)]),
 );
 const ALL_MLB_TEAMS = Object.entries(MLBService.teamAbbrMap)
-  .map(([name, abbr]) => ({ name, abbr: abbr.toUpperCase(), id: TEAM_ID_BY_NAME[name] ?? null }))
+  .map(([name, abbr]) => ({
+    name,
+    abbr: abbr.toUpperCase(),
+    id: TEAM_ID_BY_NAME[name] ?? null,
+  }))
   .sort((a, b) => a.name.localeCompare(b.name));
 
 // Stat definitions for player bubbles
 const HITTING_STAT_DEFS = [
-  { key: "avg",            label: "AVG" },
-  { key: "obp",            label: "OBP" },
-  { key: "slg",            label: "SLG" },
-  { key: "ops",            label: "OPS" },
-  { key: "gamesPlayed",    label: "G" },
-  { key: "atBats",         label: "AB" },
-  { key: "hits",           label: "H" },
-  { key: "homeRuns",       label: "HR" },
-  { key: "rbi",            label: "RBI" },
-  { key: "runs",           label: "R" },
-  { key: "doubles",        label: "2B" },
-  { key: "triples",        label: "3B" },
-  { key: "stolenBases",    label: "SB" },
-  { key: "strikeOuts",     label: "SO" },
-  { key: "baseOnBalls",    label: "BB" },
+  { key: "avg", label: "AVG" },
+  { key: "obp", label: "OBP" },
+  { key: "slg", label: "SLG" },
+  { key: "ops", label: "OPS" },
+  { key: "gamesPlayed", label: "G" },
+  { key: "atBats", label: "AB" },
+  { key: "hits", label: "H" },
+  { key: "homeRuns", label: "HR" },
+  { key: "rbi", label: "RBI" },
+  { key: "runs", label: "R" },
+  { key: "doubles", label: "2B" },
+  { key: "triples", label: "3B" },
+  { key: "stolenBases", label: "SB" },
+  { key: "strikeOuts", label: "SO" },
+  { key: "baseOnBalls", label: "BB" },
   { key: "plateAppearances", label: "PA" },
-  { key: "totalBases",     label: "TB" },
-  { key: "babip",          label: "BABIP" },
+  { key: "totalBases", label: "TB" },
+  { key: "babip", label: "BABIP" },
 ];
 
 const PITCHING_STAT_DEFS = [
-  { key: "era",              label: "ERA" },
-  { key: "inningsPitched",   label: "IP" },
-  { key: "wins",             label: "W" },
-  { key: "losses",           label: "L" },
-  { key: "saves",            label: "SV" },
-  { key: "holds",            label: "HLD" },
-  { key: "whip",             label: "WHIP" },
-  { key: "battersFaced",     label: "BF" },
+  { key: "era", label: "ERA" },
+  { key: "inningsPitched", label: "IP" },
+  { key: "wins", label: "W" },
+  { key: "losses", label: "L" },
+  { key: "saves", label: "SV" },
+  { key: "holds", label: "HLD" },
+  { key: "whip", label: "WHIP" },
+  { key: "battersFaced", label: "BF" },
   { key: "strikePercentage", label: "K%" },
-  { key: "baseOnBalls",      label: "BB" },
-  { key: "strikeOuts",       label: "SO" },
-  { key: "hits",             label: "H" },
-  { key: "avg",              label: "AVG" },
-  { key: "strikes",          label: "STR" },
-  { key: "homeRuns",         label: "HR" },
-  { key: "earnedRuns",       label: "ER" },
+  { key: "baseOnBalls", label: "BB" },
+  { key: "strikeOuts", label: "SO" },
+  { key: "hits", label: "H" },
+  { key: "avg", label: "AVG" },
+  { key: "strikes", label: "STR" },
+  { key: "homeRuns", label: "HR" },
+  { key: "earnedRuns", label: "ER" },
 ];
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -176,12 +189,18 @@ const PlayerPageScreen = ({ route, navigation }) => {
         const pitchExtra = isPitcher
           ? ",era,inningsPitched,wins,losses,saves,holds,whip,battersFaced,strikePercentage,baseOnBalls,strikeOuts,hits,avg,strikes,homeRuns,earnedRuns"
           : isBatter
-          ? ",avg,atBats,obp,slg,ops,hits,rbi,runs,stolenBases,plateAppearances,totalBases,leftOnBase,babip,homeRuns,strikeOuts,baseOnBalls"
-          : isTwoWay
-          ?",era,inningsPitched,wins,losses,saves,holds,whip,battersFaced,strikePercentage,baseOnBalls,strikeOuts,hits,avg,strikes,homeRuns,earnedRuns,atBats,obp,slg,ops,rbi,runs,stolenBases,plateAppearances,totalBases,leftOnBase,babip,group,displayName"
-          : "";
+            ? ",avg,atBats,obp,slg,ops,hits,rbi,runs,stolenBases,plateAppearances,totalBases,leftOnBase,babip,homeRuns,strikeOuts,baseOnBalls"
+            : isTwoWay
+              ? ",era,inningsPitched,wins,losses,saves,holds,whip,battersFaced,strikePercentage,baseOnBalls,strikeOuts,hits,avg,strikes,homeRuns,earnedRuns,atBats,obp,slg,ops,rbi,runs,stolenBases,plateAppearances,totalBases,leftOnBase,babip,group,displayName"
+              : "";
 
-        const groupParam = isPitcher ? "&group=pitching" : isBatter ? "&group=hitting" : isTwoWay ? "&group=hitting,pitching" : "";
+        const groupParam = isPitcher
+          ? "&group=pitching"
+          : isBatter
+            ? "&group=hitting"
+            : isTwoWay
+              ? "&group=hitting,pitching"
+              : "";
 
         const statsUrl =
           `https://statsapi.mlb.com/api/v1/people/${playerId}/stats` +
@@ -230,18 +249,21 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
   // Current team: most recent game log entry → most recent yearByYear R split
   const rawGameLogSplits =
-    playerStats?.stats?.find((s) => s.type?.displayName === "gameLog")?.splits ?? [];
+    playerStats?.stats?.find((s) => s.type?.displayName === "gameLog")
+      ?.splits ?? [];
   const gameLogTeamName =
     rawGameLogSplits.length > 0
-      ? rawGameLogSplits[rawGameLogSplits.length - 1]?.team?.name ?? null
+      ? (rawGameLogSplits[rawGameLogSplits.length - 1]?.team?.name ?? null)
       : null;
 
   const ybyRawSplits =
-    playerStats?.stats?.find((s) => s.type?.displayName === "yearByYear")?.splits ?? [];
+    playerStats?.stats?.find((s) => s.type?.displayName === "yearByYear")
+      ?.splits ?? [];
   const recentYBYTeamName =
     [...ybyRawSplits]
       .filter((s) => s.gameType === "R" && s.team?.name)
-      .sort((a, b) => Number(b.season) - Number(a.season))[0]?.team?.name ?? null;
+      .sort((a, b) => Number(b.season) - Number(a.season))[0]?.team?.name ??
+    null;
 
   const teamName = routeTeamName || gameLogTeamName || recentYBYTeamName || "";
   const teamColor = teamName
@@ -331,13 +353,20 @@ const PlayerPageScreen = ({ route, navigation }) => {
       : [];
 
     const hitSeasonSplit = resolveSeasonSplit(hitYBY);
-    const pitchSeasonSplit = isTwoWayPlayer ? resolveSeasonSplit(pitchYBY) : null;
+    const pitchSeasonSplit = isTwoWayPlayer
+      ? resolveSeasonSplit(pitchYBY)
+      : null;
 
     // Season label is driven by whichever split we found (hitting preferred)
     const refSplit = hitSeasonSplit ?? pitchSeasonSplit;
-    const seasonLabel = refSplit?.season ? `${refSplit.season} Season` : "Season";
-    const isYearFallback = refSplit?.season === "2025" && currentYear !== "2025";
-    const projectedLabel = isYearFallback ? `${currentYear} Projected` : "Projected";
+    const seasonLabel = refSplit?.season
+      ? `${refSplit.season} Season`
+      : "Season";
+    const isYearFallback =
+      refSplit?.season === "2025" && currentYear !== "2025";
+    const projectedLabel = isYearFallback
+      ? `${currentYear} Projected`
+      : "Projected";
 
     // ── Projected stats (group-aware for two-way)
     const hitProjectedStat = isTwoWayPlayer
@@ -351,7 +380,8 @@ const PlayerPageScreen = ({ route, navigation }) => {
     const resolveRankings = (groupName) => {
       const splits = findGroup("rankingsByYear", groupName)?.splits ?? [];
       return (
-        splits.find((s) => s.season === currentYear && s.gameType === "R")?.stat ??
+        splits.find((s) => s.season === currentYear && s.gameType === "R")
+          ?.stat ??
         splits.find((s) => s.season === "2025" && s.gameType === "R")?.stat ??
         {}
       );
@@ -369,10 +399,18 @@ const PlayerPageScreen = ({ route, navigation }) => {
           {entries.map((d) => {
             const rank = showRankings ? (rankingsObj ?? {})[d.key] : null;
             return (
-              <View key={d.key} style={[pStyles.chip, { backgroundColor: theme.background }]}>
+              <View
+                key={d.key}
+                style={[pStyles.chip, { backgroundColor: theme.background }]}
+              >
                 {rank != null && (
-                  <View style={[pStyles.rankBadge, { backgroundColor: teamColor }]}>
-                    <Text allowFontScaling={false} style={[pStyles.rankText, { color: rankOnColor }]}>
+                  <View
+                    style={[pStyles.rankBadge, { backgroundColor: teamColor }]}
+                  >
+                    <Text
+                      allowFontScaling={false}
+                      style={[pStyles.rankText, { color: rankOnColor }]}
+                    >
                       #{rank}
                     </Text>
                   </View>
@@ -410,7 +448,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
       if (entries.length === 0) return null;
       return (
         <View style={[pStyles.bubble, { backgroundColor: theme.surface }]}>
-          <Text allowFontScaling={false} style={[pStyles.bubbleTitle, { color: theme.textSecondary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[pStyles.bubbleTitle, { color: theme.textSecondary }]}
+          >
             {title}
           </Text>
           {renderChips(statObj, defs, showRankings, hitRankings)}
@@ -419,36 +460,68 @@ const PlayerPageScreen = ({ route, navigation }) => {
     };
 
     // ── Stat bubble — two-way player (hitting + pitching sections)
-    const renderTwoWayStatBubble = (hitStat, pitchStat, title, showRankings = false) => {
-      const hasHit = hitStat && HITTING_STAT_DEFS.some((d) => hitStat[d.key] != null);
-      const hasPitch = pitchStat && PITCHING_STAT_DEFS.some((d) => pitchStat[d.key] != null);
+    const renderTwoWayStatBubble = (
+      hitStat,
+      pitchStat,
+      title,
+      showRankings = false,
+    ) => {
+      const hasHit =
+        hitStat && HITTING_STAT_DEFS.some((d) => hitStat[d.key] != null);
+      const hasPitch =
+        pitchStat && PITCHING_STAT_DEFS.some((d) => pitchStat[d.key] != null);
       if (!hasHit && !hasPitch) return null;
       return (
         <View style={[pStyles.bubble, { backgroundColor: theme.surface }]}>
-          <Text allowFontScaling={false} style={[pStyles.bubbleTitle, { color: theme.textSecondary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[pStyles.bubbleTitle, { color: theme.textSecondary }]}
+          >
             {title}
           </Text>
           {hasHit && (
             <>
-              <View style={[pStyles.groupHeader, { borderLeftColor: teamColor }]}>
-                <Text allowFontScaling={false} style={[pStyles.groupLabel, { color: teamColor }]}>
+              <View
+                style={[pStyles.groupHeader, { borderLeftColor: teamColor }]}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[pStyles.groupLabel, { color: teamColor }]}
+                >
                   Hitting
                 </Text>
               </View>
-              {renderChips(hitStat, HITTING_STAT_DEFS, showRankings, hitRankings)}
+              {renderChips(
+                hitStat,
+                HITTING_STAT_DEFS,
+                showRankings,
+                hitRankings,
+              )}
             </>
           )}
           {hasHit && hasPitch && (
-            <View style={[pStyles.groupDivider, { backgroundColor: theme.border }]} />
+            <View
+              style={[pStyles.groupDivider, { backgroundColor: theme.border }]}
+            />
           )}
           {hasPitch && (
             <>
-              <View style={[pStyles.groupHeader, { borderLeftColor: teamColor }]}>
-                <Text allowFontScaling={false} style={[pStyles.groupLabel, { color: teamColor }]}>
+              <View
+                style={[pStyles.groupHeader, { borderLeftColor: teamColor }]}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[pStyles.groupLabel, { color: teamColor }]}
+                >
                   Pitching
                 </Text>
               </View>
-              {renderChips(pitchStat, PITCHING_STAT_DEFS, showRankings, pitchRankings)}
+              {renderChips(
+                pitchStat,
+                PITCHING_STAT_DEFS,
+                showRankings,
+                pitchRankings,
+              )}
             </>
           )}
         </View>
@@ -460,31 +533,56 @@ const PlayerPageScreen = ({ route, navigation }) => {
       if (!d) return null;
       try {
         const [y, m, day] = d.split("-");
-        return new Date(Number(y), Number(m) - 1, Number(day)).toLocaleDateString(
-          "en-US",
-          { year: "numeric", month: "long", day: "numeric" },
-        );
-      } catch { return d; }
+        return new Date(
+          Number(y),
+          Number(m) - 1,
+          Number(day),
+        ).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+      } catch {
+        return d;
+      }
     };
 
     const bioRows = [
-      { label: "Birth Date",   value: formatBirthDate(player?.birthDate) },
-      { label: "Age",          value: player?.currentAge != null ? String(player.currentAge) : null },
-      { label: "Birthplace",   value: [player?.birthStateProvince, player?.birthCountry].filter(Boolean).join(", ") || null },
-      { label: "Height",       value: player?.height ?? null },
-      { label: "Weight",       value: player?.weight != null ? `${player.weight} lbs` : null },
-      { label: "Nickname",     value: player?.nickName ?? null },
-      { label: "Draft Year",   value: player?.draftYear != null ? String(player.draftYear) : null },
-      { label: "MLB Debut",    value: formatBirthDate(player?.mlbDebutDate) },
-      { label: "Bats",         value: player?.batSide?.code ?? null },
-      { label: "Throws",       value: player?.pitchHand?.code ?? null },
+      { label: "Birth Date", value: formatBirthDate(player?.birthDate) },
+      {
+        label: "Age",
+        value: player?.currentAge != null ? String(player.currentAge) : null,
+      },
+      {
+        label: "Birthplace",
+        value:
+          [player?.birthStateProvince, player?.birthCountry]
+            .filter(Boolean)
+            .join(", ") || null,
+      },
+      { label: "Height", value: player?.height ?? null },
+      {
+        label: "Weight",
+        value: player?.weight != null ? `${player.weight} lbs` : null,
+      },
+      { label: "Nickname", value: player?.nickName ?? null },
+      {
+        label: "Draft Year",
+        value: player?.draftYear != null ? String(player.draftYear) : null,
+      },
+      { label: "MLB Debut", value: formatBirthDate(player?.mlbDebutDate) },
+      { label: "Bats", value: player?.batSide?.code ?? null },
+      { label: "Throws", value: player?.pitchHand?.code ?? null },
     ].filter((r) => r.value);
 
     const renderBioCard = () => {
       if (!player || bioRows.length === 0) return null;
       return (
         <View style={[pStyles.bubble, { backgroundColor: theme.surface }]}>
-          <Text allowFontScaling={false} style={[pStyles.bubbleTitle, { color: theme.textSecondary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[pStyles.bubbleTitle, { color: theme.textSecondary }]}
+          >
             Player Info
           </Text>
           {bioRows.map((row, i) => (
@@ -498,10 +596,16 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 },
               ]}
             >
-              <Text allowFontScaling={false} style={[pStyles.bioLabel, { color: theme.textSecondary }]}>
+              <Text
+                allowFontScaling={false}
+                style={[pStyles.bioLabel, { color: theme.textSecondary }]}
+              >
                 {row.label}
               </Text>
-              <Text allowFontScaling={false} style={[pStyles.bioValue, { color: theme.text }]}>
+              <Text
+                allowFontScaling={false}
+                style={[pStyles.bioValue, { color: theme.text }]}
+              >
                 {row.value}
               </Text>
             </View>
@@ -510,7 +614,11 @@ const PlayerPageScreen = ({ route, navigation }) => {
       );
     };
 
-    const hasAny = hitSeasonSplit || pitchSeasonSplit || hitProjectedStat || pitchProjectedStat;
+    const hasAny =
+      hitSeasonSplit ||
+      pitchSeasonSplit ||
+      hitProjectedStat ||
+      pitchProjectedStat;
     if (!hasAny) {
       return (
         <View style={styles.emptyContainer}>
@@ -530,7 +638,12 @@ const PlayerPageScreen = ({ route, navigation }) => {
             seasonLabel,
             true,
           )}
-          {renderTwoWayStatBubble(hitProjectedStat, pitchProjectedStat, projectedLabel, false)}
+          {renderTwoWayStatBubble(
+            hitProjectedStat,
+            pitchProjectedStat,
+            projectedLabel,
+            false,
+          )}
           {renderBioCard()}
         </View>
       );
@@ -601,7 +714,8 @@ const PlayerPageScreen = ({ route, navigation }) => {
       // Non-two-way: wrap in unified shape
       const seen = new Set();
       const raw = (
-        playerStats.stats?.find((s) => s.type?.displayName === "gameLog")?.splits ?? []
+        playerStats.stats?.find((s) => s.type?.displayName === "gameLog")
+          ?.splits ?? []
       )
         .filter((s) => s.stat)
         .slice()
@@ -638,13 +752,16 @@ const PlayerPageScreen = ({ route, navigation }) => {
           month: "short",
           day: "numeric",
         });
-      } catch { return d; }
+      } catch {
+        return d;
+      }
     };
 
     const buildStatSummary = (stat) => {
       if (!stat) return null;
       if (stat.summary) {
-        return stat.summary.replace(/,/g, " ·");};
+        return stat.summary.replace(/,/g, " ·");
+      }
     };
 
     const playerTeamLogoUrl = teamName
@@ -653,7 +770,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
     const PAGE_SIZE = 30;
     const totalPages = Math.ceil(logSplits.length / PAGE_SIZE);
-    const pageSplits = logSplits.slice(gameLogPage * PAGE_SIZE, (gameLogPage + 1) * PAGE_SIZE);
+    const pageSplits = logSplits.slice(
+      gameLogPage * PAGE_SIZE,
+      (gameLogPage + 1) * PAGE_SIZE,
+    );
 
     return (
       <View style={{ paddingTop: 6, paddingBottom: 40 }}>
@@ -666,7 +786,11 @@ const PlayerPageScreen = ({ route, navigation }) => {
             ? MLBService.getTeamColor(oppName) || "#888888"
             : "#888888";
           const oppLogoUrl = oppName
-            ? MLBService.getLogoUrl(oppName, null, isDarkMode ? "dark" : "light")
+            ? MLBService.getLogoUrl(
+                oppName,
+                null,
+                isDarkMode ? "dark" : "light",
+              )
             : null;
           const gradId = `gl_${idx}`;
           const isNotRegular = gameType && gameType !== "R";
@@ -706,176 +830,233 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   })
                 }
               >
-              {/* Gradient backdrop */}
-              <Svg
-                style={StyleSheet.absoluteFill}
-                width="100%"
-                height="100%"
-                pointerEvents="none"
-              >
-                <Defs>
-                  <SvgLinearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <Stop offset="0%" stopColor={teamColor} stopOpacity="0.15" />
-                    <Stop offset="40%" stopColor={theme.surface} stopOpacity="0" />
-                    <Stop offset="60%" stopColor={theme.surface} stopOpacity="0" />
-                    <Stop offset="100%" stopColor={oppColor} stopOpacity="0.15" />
-                  </SvgLinearGradient>
-                </Defs>
-                <Rect width="100%" height="100%" fill={`url(#${gradId})`} />
-              </Svg>
+                {/* Gradient backdrop */}
+                <Svg
+                  style={StyleSheet.absoluteFill}
+                  width="100%"
+                  height="100%"
+                  pointerEvents="none"
+                >
+                  <Defs>
+                    <SvgLinearGradient
+                      id={gradId}
+                      x1="0%"
+                      y1="0%"
+                      x2="100%"
+                      y2="0%"
+                    >
+                      <Stop
+                        offset="0%"
+                        stopColor={teamColor}
+                        stopOpacity="0.15"
+                      />
+                      <Stop
+                        offset="40%"
+                        stopColor={theme.surface}
+                        stopOpacity="0"
+                      />
+                      <Stop
+                        offset="60%"
+                        stopColor={theme.surface}
+                        stopOpacity="0"
+                      />
+                      <Stop
+                        offset="100%"
+                        stopColor={oppColor}
+                        stopOpacity="0.15"
+                      />
+                    </SvgLinearGradient>
+                  </Defs>
+                  <Rect width="100%" height="100%" fill={`url(#${gradId})`} />
+                </Svg>
 
-              {/* Main row */}
-              <View style={glStyles.cardInner}>
-                {/* Left: date + team logo */}
-                <View style={glStyles.leftCol}>
+                {/* Main row */}
+                <View style={glStyles.cardInner}>
+                  {/* Left: date + team logo */}
+                  <View style={glStyles.leftCol}>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        glStyles.dateText,
+                        { color: theme.textSecondary },
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {formatGameDate(date)}
+                    </Text>
+                    {playerTeamLogoUrl ? (
+                      <Image
+                        source={{ uri: playerTeamLogoUrl }}
+                        style={glStyles.leftLogo}
+                        resizeMode="contain"
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          glStyles.leftLogoFallback,
+                          { backgroundColor: teamColor + "33" },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            glStyles.leftLogoFallbackText,
+                            { color: teamColor },
+                          ]}
+                        >
+                          {(teamName[0] ?? "").toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Middle: positions + stat summary (stacked for two-way) */}
+                  <View style={glStyles.middle}>
+                    {posStr ? (
+                      <Text
+                        allowFontScaling={false}
+                        style={[glStyles.positions, { color: theme.text }]}
+                        numberOfLines={1}
+                      >
+                        {posStr}
+                      </Text>
+                    ) : null}
+                    {isTwoWayPlayer ? (
+                      <>
+                        {hitSummary ? (
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              glStyles.statSummary,
+                              { color: theme.textSecondary },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            <Text
+                              style={{ color: teamColor, fontWeight: "700" }}
+                            >
+                              H:{" "}
+                            </Text>
+                            {hitSummary}
+                          </Text>
+                        ) : null}
+                        {pitchSummary ? (
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              glStyles.statSummary,
+                              { color: theme.textSecondary },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            <Text
+                              style={{ color: teamColor, fontWeight: "700" }}
+                            >
+                              P:{" "}
+                            </Text>
+                            {pitchSummary}
+                          </Text>
+                        ) : null}
+                        {!hitSummary && !pitchSummary ? (
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              glStyles.statSummary,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            —
+                          </Text>
+                        ) : null}
+                      </>
+                    ) : (
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          glStyles.statSummary,
+                          { color: theme.textSecondary },
+                        ]}
+                        numberOfLines={2}
+                      >
+                        {hitSummary ?? pitchSummary ?? "—"}
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Right: W/L bubble */}
+                  {isWin != null && (
+                    <View
+                      style={[
+                        glStyles.wlBubble,
+                        {
+                          backgroundColor: isWin
+                            ? (theme.success ?? "#22C55E")
+                            : (theme.error ?? "#EF4444"),
+                        },
+                      ]}
+                    >
+                      <Text style={glStyles.wlText}>{isWin ? "W" : "L"}</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Bottom: opponent row */}
+                <View
+                  style={[glStyles.oppRow, { borderTopColor: theme.border }]}
+                >
                   <Text
                     allowFontScaling={false}
-                    style={[glStyles.dateText, { color: theme.textSecondary }]}
-                    numberOfLines={2}
+                    style={[glStyles.oppPrefix, { color: theme.textSecondary }]}
                   >
-                    {formatGameDate(date)}
+                    {prefix}
                   </Text>
-                  {playerTeamLogoUrl ? (
+                  {oppLogoUrl ? (
                     <Image
-                      source={{ uri: playerTeamLogoUrl }}
-                      style={glStyles.leftLogo}
+                      source={{ uri: oppLogoUrl }}
+                      style={glStyles.oppLogo}
                       resizeMode="contain"
                     />
                   ) : (
                     <View
                       style={[
-                        glStyles.leftLogoFallback,
-                        { backgroundColor: teamColor + "33" },
+                        glStyles.oppLogoFallback,
+                        { backgroundColor: oppColor + "33" },
                       ]}
                     >
                       <Text
-                        style={[glStyles.leftLogoFallbackText, { color: teamColor }]}
+                        style={[
+                          glStyles.oppLogoFallbackText,
+                          { color: oppColor },
+                        ]}
                       >
-                        {(teamName[0] ?? "").toUpperCase()}
+                        {(oppName[0] ?? "?").toUpperCase()}
                       </Text>
                     </View>
                   )}
-                </View>
-
-                {/* Middle: positions + stat summary (stacked for two-way) */}
-                <View style={glStyles.middle}>
-                  {posStr ? (
-                    <Text
-                      allowFontScaling={false}
-                      style={[glStyles.positions, { color: theme.text }]}
-                      numberOfLines={1}
-                    >
-                      {posStr}
-                    </Text>
-                  ) : null}
-                  {isTwoWayPlayer ? (
-                    <>
-                      {hitSummary ? (
-                        <Text
-                          allowFontScaling={false}
-                          style={[glStyles.statSummary, { color: theme.textSecondary }]}
-                          numberOfLines={1}
-                        >
-                          <Text style={{ color: teamColor, fontWeight: "700" }}>H: </Text>
-                          {hitSummary}
-                        </Text>
-                      ) : null}
-                      {pitchSummary ? (
-                        <Text
-                          allowFontScaling={false}
-                          style={[glStyles.statSummary, { color: theme.textSecondary }]}
-                          numberOfLines={1}
-                        >
-                          <Text style={{ color: teamColor, fontWeight: "700" }}>P: </Text>
-                          {pitchSummary}
-                        </Text>
-                      ) : null}
-                      {!hitSummary && !pitchSummary ? (
-                        <Text
-                          allowFontScaling={false}
-                          style={[glStyles.statSummary, { color: theme.textSecondary }]}
-                        >
-                          —
-                        </Text>
-                      ) : null}
-                    </>
-                  ) : (
-                    <Text
-                      allowFontScaling={false}
-                      style={[glStyles.statSummary, { color: theme.textSecondary }]}
-                      numberOfLines={2}
-                    >
-                      {hitSummary ?? pitchSummary ?? "—"}
-                    </Text>
-                  )}
-                </View>
-
-                {/* Right: W/L bubble */}
-                {isWin != null && (
-                  <View
+                  <Text
+                    allowFontScaling={false}
+                    style={[glStyles.oppName, { color: theme.textSecondary }]}
+                    numberOfLines={1}
+                  >
+                    {oppName || "Opponent"}
+                  </Text>
+                  <Text
                     style={[
-                      glStyles.wlBubble,
-                      {
-                        backgroundColor: isWin
-                          ? (theme.success ?? "#22C55E")
-                          : (theme.error ?? "#EF4444"),
-                      },
+                      glStyles.oppChevron,
+                      { color: theme.textSecondary },
                     ]}
                   >
-                    <Text style={glStyles.wlText}>{isWin ? "W" : "L"}</Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Bottom: opponent row */}
-              <View
-                style={[
-                  glStyles.oppRow,
-                  { borderTopColor: theme.border },
-                ]}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[glStyles.oppPrefix, { color: theme.textSecondary }]}
-                >
-                  {prefix}
-                </Text>
-                {oppLogoUrl ? (
-                  <Image
-                    source={{ uri: oppLogoUrl }}
-                    style={glStyles.oppLogo}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <View
-                    style={[
-                      glStyles.oppLogoFallback,
-                      { backgroundColor: oppColor + "33" },
-                    ]}
-                  >
-                    <Text
-                      style={[glStyles.oppLogoFallbackText, { color: oppColor }]}
-                    >
-                      {(oppName[0] ?? "?").toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-                <Text
-                  allowFontScaling={false}
-                  style={[glStyles.oppName, { color: theme.textSecondary }]}
-                  numberOfLines={1}
-                >
-                  {oppName || "Opponent"}
-                </Text>
-                <Text style={[glStyles.oppChevron, { color: theme.textSecondary }]}>›</Text>
-
-              </View>
+                    ›
+                  </Text>
+                </View>
               </TouchableOpacity>
 
               {/* Game type overlay badge — sits outside the overflow:hidden card */}
               {gameTypeLabel && (
                 <View
-                  style={[glStyles.gameTypeBadge, { backgroundColor: teamColor }]}
+                  style={[
+                    glStyles.gameTypeBadge,
+                    { backgroundColor: teamColor },
+                  ]}
                 >
                   <Text
                     allowFontScaling={false}
@@ -898,13 +1079,18 @@ const PlayerPageScreen = ({ route, navigation }) => {
             <TouchableOpacity
               style={[
                 glStyles.pageBtn,
-                { backgroundColor: theme.surface, opacity: gameLogPage === 0 ? 0.35 : 1 },
+                {
+                  backgroundColor: theme.surface,
+                  opacity: gameLogPage === 0 ? 0.35 : 1,
+                },
               ]}
               disabled={gameLogPage === 0}
               onPress={() => setGameLogPage((p) => p - 1)}
               activeOpacity={0.75}
             >
-              <Text style={[glStyles.pageBtnText, { color: teamColor }]}>‹ Prev</Text>
+              <Text style={[glStyles.pageBtnText, { color: teamColor }]}>
+                ‹ Prev
+              </Text>
             </TouchableOpacity>
             <Text style={[glStyles.pageLabel, { color: theme.textSecondary }]}>
               {gameLogPage + 1} / {totalPages}
@@ -912,13 +1098,18 @@ const PlayerPageScreen = ({ route, navigation }) => {
             <TouchableOpacity
               style={[
                 glStyles.pageBtn,
-                { backgroundColor: theme.surface, opacity: gameLogPage === totalPages - 1 ? 0.35 : 1 },
+                {
+                  backgroundColor: theme.surface,
+                  opacity: gameLogPage === totalPages - 1 ? 0.35 : 1,
+                },
               ]}
               disabled={gameLogPage === totalPages - 1}
               onPress={() => setGameLogPage((p) => p + 1)}
               activeOpacity={0.75}
             >
-              <Text style={[glStyles.pageBtnText, { color: teamColor }]}>Next ›</Text>
+              <Text style={[glStyles.pageBtnText, { color: teamColor }]}>
+                Next ›
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -963,9 +1154,13 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
     // Group by season — track hitting and pitching splits separately for two-way players
     const seasonMap = {};
-    const addToSeasonMap = (split, group /* "hitting" | "pitching" | null */) => {
+    const addToSeasonMap = (
+      split,
+      group /* "hitting" | "pitching" | null */,
+    ) => {
       const yr = split.season ?? "?";
-      if (!seasonMap[yr]) seasonMap[yr] = { hitSplits: [], pitchSplits: [], teams: [] };
+      if (!seasonMap[yr])
+        seasonMap[yr] = { hitSplits: [], pitchSplits: [], teams: [] };
       if (group === "pitching") {
         seasonMap[yr].pitchSplits.push(split);
       } else {
@@ -973,7 +1168,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
       }
       // Team accounting — never count All-Star game
       if (split.gameType === "A") return;
-      if (split.team?.name && !seasonMap[yr].teams.some((t) => t.name === split.team.name)) {
+      if (
+        split.team?.name &&
+        !seasonMap[yr].teams.some((t) => t.name === split.team.name)
+      ) {
         if (split.gameType === "R") {
           seasonMap[yr].teams.push(split.team);
         } else {
@@ -983,15 +1181,33 @@ const PlayerPageScreen = ({ route, navigation }) => {
     };
     hitYBY.forEach((s) => addToSeasonMap(s, isTwoWayPlayer ? "hitting" : null));
     pitchYBY.forEach((s) => addToSeasonMap(s, "pitching"));
-    const seasons = Object.keys(seasonMap).sort((a, b) => Number(b) - Number(a));
+    const seasons = Object.keys(seasonMap).sort(
+      (a, b) => Number(b) - Number(a),
+    );
 
     // Sum counting stats; recalculate rate stats from totals
     const ADDITIVE_KEYS = [
-      "gamesPlayed", "atBats", "hits", "homeRuns", "runs", "rbi",
-      "doubles", "triples", "stolenBases", "strikeOuts", "baseOnBalls",
-      "plateAppearances", "totalBases", "leftOnBase",
-      "wins", "losses", "saves", "holds", "battersFaced",
-      "earnedRuns", "strikes",
+      "gamesPlayed",
+      "atBats",
+      "hits",
+      "homeRuns",
+      "runs",
+      "rbi",
+      "doubles",
+      "triples",
+      "stolenBases",
+      "strikeOuts",
+      "baseOnBalls",
+      "plateAppearances",
+      "totalBases",
+      "leftOnBase",
+      "wins",
+      "losses",
+      "saves",
+      "holds",
+      "battersFaced",
+      "earnedRuns",
+      "strikes",
     ];
     const aggregateStats = (splits) => {
       const tot = {};
@@ -1005,7 +1221,9 @@ const PlayerPageScreen = ({ route, navigation }) => {
         // Accumulate inningsPitched as outs (e.g. "5.2" = 5 full + 2 extra outs = 17 outs)
         if (stat.inningsPitched != null) {
           hasIP = true;
-          const [full = "0", frac = "0"] = String(stat.inningsPitched).split(".");
+          const [full = "0", frac = "0"] = String(stat.inningsPitched).split(
+            ".",
+          );
           totalOuts += Number(full) * 3 + Number(frac);
         }
       });
@@ -1014,14 +1232,18 @@ const PlayerPageScreen = ({ route, navigation }) => {
         const fullInnings = Math.floor(totalOuts / 3);
         const remainOuts = totalOuts % 3;
         tot.inningsPitched =
-          remainOuts === 0 ? String(fullInnings) : `${fullInnings}.${remainOuts}`;
+          remainOuts === 0
+            ? String(fullInnings)
+            : `${fullInnings}.${remainOuts}`;
         // ERA = (earnedRuns × 9) / IP
         if (tot.earnedRuns != null && totalOuts > 0) {
           tot.era = ((tot.earnedRuns * 9) / (totalOuts / 3)).toFixed(2);
         }
         // WHIP = (BB + H) / IP
         if (tot.baseOnBalls != null && tot.hits != null && totalOuts > 0) {
-          tot.whip = ((tot.baseOnBalls + tot.hits) / (totalOuts / 3)).toFixed(2);
+          tot.whip = ((tot.baseOnBalls + tot.hits) / (totalOuts / 3)).toFixed(
+            2,
+          );
         }
       }
       // Hitting rate stats
@@ -1038,7 +1260,8 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
     // Rankings (only applies to gameType R)
     const rankSplits =
-      playerStats.stats?.find((s) => s.type?.displayName === "rankingsByYear")?.splits ?? [];
+      playerStats.stats?.find((s) => s.type?.displayName === "rankingsByYear")
+        ?.splits ?? [];
 
     // Career totals — for two-way players gather both hitting and pitching career entries
     const getCareerGroup = (groupName) =>
@@ -1050,25 +1273,29 @@ const PlayerPageScreen = ({ route, navigation }) => {
         )
         .flatMap((s) => s.splits ?? []) ?? [];
 
-    const hitCareerSplits = isTwoWayPlayer ? getCareerGroup("hitting") : getCareerGroup(null);
+    const hitCareerSplits = isTwoWayPlayer
+      ? getCareerGroup("hitting")
+      : getCareerGroup(null);
     const pitchCareerSplits = isTwoWayPlayer ? getCareerGroup("pitching") : [];
     const careerTypeSplits = [...hitCareerSplits, ...pitchCareerSplits];
     const careerHitAgg = aggregateStats(hitCareerSplits);
     const careerPitchAgg = aggregateStats(pitchCareerSplits);
-    const careerTotalAgg = isTwoWayPlayer ? careerHitAgg : aggregateStats(careerTypeSplits);
+    const careerTotalAgg = isTwoWayPlayer
+      ? careerHitAgg
+      : aggregateStats(careerTypeSplits);
     const isTotalExpanded = !!careerExpandedYears["__total__"];
 
     const HIT_CAREER_COLS = [
       { key: "gamesPlayed", label: "G" },
-      { key: "avg",         label: "AVG" },
-      { key: "hits",        label: "H" },
-      { key: "homeRuns",    label: "HR" },
+      { key: "avg", label: "AVG" },
+      { key: "hits", label: "H" },
+      { key: "homeRuns", label: "HR" },
     ];
     const PITCH_CAREER_COLS = [
       { key: "inningsPitched", label: "IP" },
-      { key: "era",            label: "ERA" },
-      { key: "wins",           label: "W" },
-      { key: "losses",         label: "L" },
+      { key: "era", label: "ERA" },
+      { key: "wins", label: "W" },
+      { key: "losses", label: "L" },
     ];
     const CAREER_COLS = isPitcher ? PITCH_CAREER_COLS : HIT_CAREER_COLS;
     const fmt = (val) => (val != null ? String(val) : "—");
@@ -1076,18 +1303,30 @@ const PlayerPageScreen = ({ route, navigation }) => {
     return (
       <View style={cStyles.container}>
         {/* ── Total Career bubble ── */}
-      {careerTypeSplits.length > 0 && (
+        {careerTypeSplits.length > 0 && (
           <View style={[cStyles.bubble, { backgroundColor: theme.surface }]}>
-            <View style={{ borderBottomWidth: 2, borderBottomColor: teamColor, backgroundColor: teamColor + "33" }}>
-            <Text allowFontScaling={false} style={[cStyles.bubbleTitle, { color: theme.textSecondary }]}>
-              Career Totals
-            </Text>
+            <View
+              style={{
+                borderBottomWidth: 2,
+                borderBottomColor: teamColor,
+                backgroundColor: teamColor + "33",
+              }}
+            >
+              <Text
+                allowFontScaling={false}
+                style={[cStyles.bubbleTitle, { color: theme.textSecondary }]}
+              >
+                Career Totals
+              </Text>
             </View>
 
             {/* Summary row */}
             <TouchableOpacity
               onPress={() =>
-                setCareerExpandedYears((prev) => ({ ...prev, __total__: !prev.__total__ }))
+                setCareerExpandedYears((prev) => ({
+                  ...prev,
+                  __total__: !prev.__total__,
+                }))
               }
               style={cStyles.yearRow}
               activeOpacity={0.75}
@@ -1104,27 +1343,58 @@ const PlayerPageScreen = ({ route, navigation }) => {
               {/* Two-way: stacked hitting + pitching stat mini-rows (only when both present) */}
               {(() => {
                 const hitPresent = isTwoWayPlayer && hitCareerSplits.length > 0;
-                const pitchPresent = isTwoWayPlayer && pitchCareerSplits.length > 0;
+                const pitchPresent =
+                  isTwoWayPlayer && pitchCareerSplits.length > 0;
                 if (hitPresent && pitchPresent) {
                   return (
                     <View style={cStyles.twoWayStatStack}>
                       <View style={cStyles.rowStats}>
                         {HIT_CAREER_COLS.map((d) => (
                           <View key={d.key} style={cStyles.rowStatCell}>
-                            <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                cStyles.rowStatVal,
+                                { color: theme.text },
+                              ]}
+                              numberOfLines={1}
+                            >
                               {fmt(careerHitAgg[d.key])}
                             </Text>
-                            <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                cStyles.rowStatLabel,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {d.label}
+                            </Text>
                           </View>
                         ))}
                       </View>
                       <View style={[cStyles.rowStats, { marginTop: 4 }]}>
                         {PITCH_CAREER_COLS.map((d) => (
                           <View key={d.key} style={cStyles.rowStatCell}>
-                            <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                cStyles.rowStatVal,
+                                { color: theme.text },
+                              ]}
+                              numberOfLines={1}
+                            >
                               {fmt(careerPitchAgg[d.key])}
                             </Text>
-                            <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                cStyles.rowStatLabel,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {d.label}
+                            </Text>
                           </View>
                         ))}
                       </View>
@@ -1138,10 +1408,22 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   <View style={cStyles.rowStats}>
                     {cols.map((d) => (
                       <View key={d.key} style={cStyles.rowStatCell}>
-                        <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: valColor }]} numberOfLines={1}>
+                        <Text
+                          allowFontScaling={false}
+                          style={[cStyles.rowStatVal, { color: valColor }]}
+                          numberOfLines={1}
+                        >
                           {fmt(agg[d.key])}
                         </Text>
-                        <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            cStyles.rowStatLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {d.label}
+                        </Text>
                       </View>
                     ))}
                   </View>
@@ -1152,7 +1434,9 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 style={[
                   cStyles.chevron,
                   { color: theme.textSecondary },
-                  { transform: [{ rotate: isTotalExpanded ? "90deg" : "0deg" }] },
+                  {
+                    transform: [{ rotate: isTotalExpanded ? "90deg" : "0deg" }],
+                  },
                 ]}
               >
                 ›
@@ -1178,85 +1462,158 @@ const PlayerPageScreen = ({ route, navigation }) => {
                     const mergeMap = {};
                     hitCareerSplits.forEach((s) => {
                       const k = s.gameType ?? "";
-                      if (!mergeMap[k]) mergeMap[k] = { hit: null, pitch: null };
+                      if (!mergeMap[k])
+                        mergeMap[k] = { hit: null, pitch: null };
                       mergeMap[k].hit = s;
                     });
                     pitchCareerSplits.forEach((s) => {
                       const k = s.gameType ?? "";
-                      if (!mergeMap[k]) mergeMap[k] = { hit: null, pitch: null };
+                      if (!mergeMap[k])
+                        mergeMap[k] = { hit: null, pitch: null };
                       mergeMap[k].pitch = s;
                     });
-                    const mergedRows = Object.entries(mergeMap).sort(([, a], [, b]) => {
-                      const ag = Math.max(Number(a.hit?.stat?.gamesPlayed ?? 0), Number(a.pitch?.stat?.gamesPlayed ?? 0));
-                      const bg = Math.max(Number(b.hit?.stat?.gamesPlayed ?? 0), Number(b.pitch?.stat?.gamesPlayed ?? 0));
-                      return bg - ag;
-                    });
-                    return mergedRows.map(([gameType, { hit, pitch }], gIdx) => {
-                      const bothPresent = !!hit && !!pitch;
-                      const cols = !hit ? PITCH_CAREER_COLS : HIT_CAREER_COLS;
-                      const singleColor = !hit ? teamColor : theme.text;
-                      const singleSplit = hit ?? pitch;
-                      return (
-                        <View
-                          key={gameType || String(gIdx)}
-                          style={[
-                            cStyles.gtRow,
-                            gIdx < mergedRows.length - 1 && {
-                              borderBottomWidth: StyleSheet.hairlineWidth,
-                              borderBottomColor: theme.border,
-                            },
-                          ]}
-                        >
-                          <View style={cStyles.gtBadge}>
-                            <Text allowFontScaling={false} style={[cStyles.gtBadgeText, { color: theme.text }]} numberOfLines={1}>
-                              {GAME_TYPE_LABELS[gameType] ?? gameType ?? ""}
-                            </Text>
-                          </View>
-                          {bothPresent ? (
-                            <View style={cStyles.twoWayStatStack}>
-                              <View style={cStyles.rowStats}>
-                                {HIT_CAREER_COLS.map((d) => (
-                                  <View key={d.key} style={cStyles.rowStatCell}>
-                                    <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
-                                      {fmt(hit.stat?.[d.key])}
-                                    </Text>
-                                    <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
-                                  </View>
-                                ))}
-                              </View>
-                              <View style={[cStyles.rowStats, { marginTop: 4 }]}>
-                                {PITCH_CAREER_COLS.map((d) => (
-                                  <View key={d.key} style={cStyles.rowStatCell}>
-                                    <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
-                                      {fmt(pitch.stat?.[d.key])}
-                                    </Text>
-                                    <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
-                                  </View>
-                                ))}
-                              </View>
+                    const mergedRows = Object.entries(mergeMap).sort(
+                      ([, a], [, b]) => {
+                        const ag = Math.max(
+                          Number(a.hit?.stat?.gamesPlayed ?? 0),
+                          Number(a.pitch?.stat?.gamesPlayed ?? 0),
+                        );
+                        const bg = Math.max(
+                          Number(b.hit?.stat?.gamesPlayed ?? 0),
+                          Number(b.pitch?.stat?.gamesPlayed ?? 0),
+                        );
+                        return bg - ag;
+                      },
+                    );
+                    return mergedRows.map(
+                      ([gameType, { hit, pitch }], gIdx) => {
+                        const bothPresent = !!hit && !!pitch;
+                        const cols = !hit ? PITCH_CAREER_COLS : HIT_CAREER_COLS;
+                        const singleColor = !hit ? teamColor : theme.text;
+                        const singleSplit = hit ?? pitch;
+                        return (
+                          <View
+                            key={gameType || String(gIdx)}
+                            style={[
+                              cStyles.gtRow,
+                              gIdx < mergedRows.length - 1 && {
+                                borderBottomWidth: StyleSheet.hairlineWidth,
+                                borderBottomColor: theme.border,
+                              },
+                            ]}
+                          >
+                            <View style={cStyles.gtBadge}>
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  cStyles.gtBadgeText,
+                                  { color: theme.text },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {GAME_TYPE_LABELS[gameType] ?? gameType ?? ""}
+                              </Text>
                             </View>
-                          ) : (
-                            <View style={cStyles.rowStats}>
-                              {cols.map((d) => (
-                                <View key={d.key} style={cStyles.rowStatCell}>
-                                  <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: singleColor }]} numberOfLines={1}>
-                                    {fmt(singleSplit?.stat?.[d.key])}
-                                  </Text>
-                                  <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
+                            {bothPresent ? (
+                              <View style={cStyles.twoWayStatStack}>
+                                <View style={cStyles.rowStats}>
+                                  {HIT_CAREER_COLS.map((d) => (
+                                    <View
+                                      key={d.key}
+                                      style={cStyles.rowStatCell}
+                                    >
+                                      <Text
+                                        allowFontScaling={false}
+                                        style={[
+                                          cStyles.rowStatVal,
+                                          { color: theme.text },
+                                        ]}
+                                        numberOfLines={1}
+                                      >
+                                        {fmt(hit.stat?.[d.key])}
+                                      </Text>
+                                      <Text
+                                        allowFontScaling={false}
+                                        style={[
+                                          cStyles.rowStatLabel,
+                                          { color: theme.textSecondary },
+                                        ]}
+                                      >
+                                        {d.label}
+                                      </Text>
+                                    </View>
+                                  ))}
                                 </View>
-                              ))}
-                            </View>
-                          )}
-                        </View>
-                      );
-                    });
+                                <View
+                                  style={[cStyles.rowStats, { marginTop: 4 }]}
+                                >
+                                  {PITCH_CAREER_COLS.map((d) => (
+                                    <View
+                                      key={d.key}
+                                      style={cStyles.rowStatCell}
+                                    >
+                                      <Text
+                                        allowFontScaling={false}
+                                        style={[
+                                          cStyles.rowStatVal,
+                                          { color: theme.text },
+                                        ]}
+                                        numberOfLines={1}
+                                      >
+                                        {fmt(pitch.stat?.[d.key])}
+                                      </Text>
+                                      <Text
+                                        allowFontScaling={false}
+                                        style={[
+                                          cStyles.rowStatLabel,
+                                          { color: theme.textSecondary },
+                                        ]}
+                                      >
+                                        {d.label}
+                                      </Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              </View>
+                            ) : (
+                              <View style={cStyles.rowStats}>
+                                {cols.map((d) => (
+                                  <View key={d.key} style={cStyles.rowStatCell}>
+                                    <Text
+                                      allowFontScaling={false}
+                                      style={[
+                                        cStyles.rowStatVal,
+                                        { color: singleColor },
+                                      ]}
+                                      numberOfLines={1}
+                                    >
+                                      {fmt(singleSplit?.stat?.[d.key])}
+                                    </Text>
+                                    <Text
+                                      allowFontScaling={false}
+                                      style={[
+                                        cStyles.rowStatLabel,
+                                        { color: theme.textSecondary },
+                                      ]}
+                                    >
+                                      {d.label}
+                                    </Text>
+                                  </View>
+                                ))}
+                              </View>
+                            )}
+                          </View>
+                        );
+                      },
+                    );
                   }
 
                   const rows = careerTypeSplits;
                   return [...rows]
-                    .sort((a, b) =>
-                      (Number(b.stat?.gamesPlayed) || 0) -
-                      (Number(a.stat?.gamesPlayed) || 0),
+                    .sort(
+                      (a, b) =>
+                        (Number(b.stat?.gamesPlayed) || 0) -
+                        (Number(a.stat?.gamesPlayed) || 0),
                     )
                     .map((split, gIdx) => (
                       <TouchableOpacity
@@ -1280,20 +1637,40 @@ const PlayerPageScreen = ({ route, navigation }) => {
                         activeOpacity={0.75}
                       >
                         <View style={cStyles.gtBadge}>
-                          <Text allowFontScaling={false} style={[cStyles.gtBadgeText, { color: theme.text }]} numberOfLines={1}>
-                            {GAME_TYPE_LABELS[split.gameType] ?? split.gameType ?? ""}
+                          <Text
+                            allowFontScaling={false}
+                            style={[cStyles.gtBadgeText, { color: theme.text }]}
+                            numberOfLines={1}
+                          >
+                            {GAME_TYPE_LABELS[split.gameType] ??
+                              split.gameType ??
+                              ""}
                           </Text>
                         </View>
                         <View style={cStyles.rowStats}>
                           {CAREER_COLS.map((d) => (
                             <View key={d.key} style={cStyles.rowStatCell}>
-                              <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  cStyles.rowStatVal,
+                                  { color: theme.text },
+                                ]}
+                                numberOfLines={1}
+                              >
                                 {fmt(split.stat?.[d.key])}
                               </Text>
                             </View>
                           ))}
                         </View>
-                        <Text style={[cStyles.chevron, { color: theme.textSecondary }]}>›</Text>
+                        <Text
+                          style={[
+                            cStyles.chevron,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          ›
+                        </Text>
                       </TouchableOpacity>
                     ));
                 })()}
@@ -1304,22 +1681,37 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
         {/* ── Year-by-year bubble ── */}
         <View style={[cStyles.bubble, { backgroundColor: theme.surface }]}>
-          <View style={{ borderBottomWidth: 2, borderBottomColor: teamColor, backgroundColor: teamColor + "33" }}>
-          <Text allowFontScaling={false} style={[cStyles.bubbleTitle, { color: theme.textSecondary }]}>
-            Career
-          </Text>
+          <View
+            style={{
+              borderBottomWidth: 2,
+              borderBottomColor: teamColor,
+              backgroundColor: teamColor + "33",
+            }}
+          >
+            <Text
+              allowFontScaling={false}
+              style={[cStyles.bubbleTitle, { color: theme.textSecondary }]}
+            >
+              Career
+            </Text>
           </View>
 
           {seasons.map((yr, sIdx) => {
             const { hitSplits, pitchSplits, teams } = seasonMap[yr];
             // Only aggregate splits that have a real team attached (exclude teamless
             // aggregator rows and All-Star game splits)
-            const filtered = (arr) => arr.filter((s) => s.team?.name && s.gameType !== "A");
+            const filtered = (arr) =>
+              arr.filter((s) => s.team?.name && s.gameType !== "A");
             const filteredHit = filtered(hitSplits);
             const filteredPitch = filtered(pitchSplits);
-            const hitAgg  = aggregateStats(filteredHit);
-            const pitchAgg = isTwoWayPlayer ? aggregateStats(filteredPitch) : null;
-            const yearBothPresent = isTwoWayPlayer && filteredHit.length > 0 && filteredPitch.length > 0;
+            const hitAgg = aggregateStats(filteredHit);
+            const pitchAgg = isTwoWayPlayer
+              ? aggregateStats(filteredPitch)
+              : null;
+            const yearBothPresent =
+              isTwoWayPlayer &&
+              filteredHit.length > 0 &&
+              filteredPitch.length > 0;
             const isExpanded = !!careerExpandedYears[yr];
             // Primary team for row color = first R-type team, or first in list
             const primaryTeam = teams[0] ?? null;
@@ -1334,14 +1726,20 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 key={yr}
                 style={
                   !isLast
-                    ? { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border }
+                    ? {
+                        borderBottomWidth: StyleSheet.hairlineWidth,
+                        borderBottomColor: theme.border,
+                      }
                     : undefined
                 }
               >
                 {/* Year summary row */}
                 <TouchableOpacity
                   onPress={() =>
-                    setCareerExpandedYears((prev) => ({ ...prev, [yr]: !prev[yr] }))
+                    setCareerExpandedYears((prev) => ({
+                      ...prev,
+                      [yr]: !prev[yr],
+                    }))
                   }
                   style={cStyles.yearRow}
                   activeOpacity={0.75}
@@ -1351,12 +1749,19 @@ const PlayerPageScreen = ({ route, navigation }) => {
                     <View style={cStyles.multiLogoWrap}>
                       {(() => {
                         const showOverflow = teams.length > 2;
-                        const visibleTeams = showOverflow ? teams.slice(0, 1) : teams;
+                        const visibleTeams = showOverflow
+                          ? teams.slice(0, 1)
+                          : teams;
                         return (
                           <>
                             {visibleTeams.map((t) => {
-                              const tUrl = MLBService.getLogoUrl(t.name, null, isDarkMode ? "dark" : "light");
-                              const tColor = MLBService.getTeamColor(t.name) || teamColor;
+                              const tUrl = MLBService.getLogoUrl(
+                                t.name,
+                                null,
+                                isDarkMode ? "dark" : "light",
+                              );
+                              const tColor =
+                                MLBService.getTeamColor(t.name) || teamColor;
                               return tUrl ? (
                                 <Image
                                   key={t.name}
@@ -1367,45 +1772,85 @@ const PlayerPageScreen = ({ route, navigation }) => {
                               ) : (
                                 <View
                                   key={t.name}
-                                  style={[cStyles.multiLogoFallback, { backgroundColor: tColor + "33" }]}
+                                  style={[
+                                    cStyles.multiLogoFallback,
+                                    { backgroundColor: tColor + "33" },
+                                  ]}
                                 >
-                                  <Text style={[cStyles.multiLogoFallbackText, { color: tColor }]}>
+                                  <Text
+                                    style={[
+                                      cStyles.multiLogoFallbackText,
+                                      { color: tColor },
+                                    ]}
+                                  >
                                     {(t.name[0] ?? "?").toUpperCase()}
                                   </Text>
                                 </View>
                               );
                             })}
-                            {showOverflow && (() => {
-                              const lastColor = MLBService.getTeamColor(teams[teams.length - 1].name) || teamColor;
-                              const textColor = getTextOnColor(lastColor);
-                              return (
-                                <View style={[cStyles.multiLogoFallback, { backgroundColor: lastColor }]}>
-                                  <Text style={[cStyles.multiLogoFallbackText, { color: textColor }]}>
-                                    +{teams.length - 1}
-                                  </Text>
-                                </View>
-                              );
-                            })()}
+                            {showOverflow &&
+                              (() => {
+                                const lastColor =
+                                  MLBService.getTeamColor(
+                                    teams[teams.length - 1].name,
+                                  ) || teamColor;
+                                const textColor = getTextOnColor(lastColor);
+                                return (
+                                  <View
+                                    style={[
+                                      cStyles.multiLogoFallback,
+                                      { backgroundColor: lastColor },
+                                    ]}
+                                  >
+                                    <Text
+                                      style={[
+                                        cStyles.multiLogoFallbackText,
+                                        { color: textColor },
+                                      ]}
+                                    >
+                                      +{teams.length - 1}
+                                    </Text>
+                                  </View>
+                                );
+                              })()}
                           </>
                         );
                       })()}
                     </View>
-                  ) : (() => {
-                    const logoUrl = primaryTeam?.name
-                      ? MLBService.getLogoUrl(primaryTeam.name, null, isDarkMode ? "dark" : "light")
-                      : null;
-                    return logoUrl ? (
-                      <Image source={{ uri: logoUrl }} style={cStyles.rowLogo} resizeMode="contain" />
-                    ) : (
-                      <View
-                        style={[cStyles.rowLogoFallback, { backgroundColor: rowTeamColor + "33" }]}
-                      >
-                        <Text style={[cStyles.rowLogoFallbackText, { color: rowTeamColor }]}>
-                          {(primaryTeam?.name?.[0] ?? "?").toUpperCase()}
-                        </Text>
-                      </View>
-                    );
-                  })()}
+                  ) : (
+                    (() => {
+                      const logoUrl = primaryTeam?.name
+                        ? MLBService.getLogoUrl(
+                            primaryTeam.name,
+                            null,
+                            isDarkMode ? "dark" : "light",
+                          )
+                        : null;
+                      return logoUrl ? (
+                        <Image
+                          source={{ uri: logoUrl }}
+                          style={cStyles.rowLogo}
+                          resizeMode="contain"
+                        />
+                      ) : (
+                        <View
+                          style={[
+                            cStyles.rowLogoFallback,
+                            { backgroundColor: rowTeamColor + "33" },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              cStyles.rowLogoFallbackText,
+                              { color: rowTeamColor },
+                            ]}
+                          >
+                            {(primaryTeam?.name?.[0] ?? "?").toUpperCase()}
+                          </Text>
+                        </View>
+                      );
+                    })()
+                  )}
 
                   <View style={cStyles.rowInfo}>
                     <Text
@@ -1414,10 +1859,14 @@ const PlayerPageScreen = ({ route, navigation }) => {
                       numberOfLines={1}
                     >
                       {(() => {
-                        const realTeams = teams.filter((t) => MLBService.teamAbbrMap[t.name]);
+                        const realTeams = teams.filter(
+                          (t) => MLBService.teamAbbrMap[t.name],
+                        );
                         if (realTeams.length > 1) {
                           return realTeams
-                            .map((t) => MLBService.teamAbbrMap[t.name].toUpperCase())
+                            .map((t) =>
+                              MLBService.teamAbbrMap[t.name].toUpperCase(),
+                            )
                             .join(" / ");
                         }
                         return teams.map((t) => t.name).join(" / ") || "";
@@ -1437,10 +1886,23 @@ const PlayerPageScreen = ({ route, navigation }) => {
                       <View style={cStyles.rowStats}>
                         {HIT_CAREER_COLS.map((d) => (
                           <View key={d.key} style={cStyles.rowStatCell}>
-                            <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                cStyles.rowStatVal,
+                                { color: theme.text },
+                              ]}
+                              numberOfLines={1}
+                            >
                               {fmt(hitAgg[d.key])}
                             </Text>
-                            <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                cStyles.rowStatLabel,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
                               {d.label}
                             </Text>
                           </View>
@@ -1449,48 +1911,80 @@ const PlayerPageScreen = ({ route, navigation }) => {
                       <View style={[cStyles.rowStats, { marginTop: 4 }]}>
                         {PITCH_CAREER_COLS.map((d) => (
                           <View key={d.key} style={cStyles.rowStatCell}>
-                            <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                cStyles.rowStatVal,
+                                { color: theme.text },
+                              ]}
+                              numberOfLines={1}
+                            >
                               {fmt(pitchAgg?.[d.key])}
                             </Text>
-                            <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>
+                            <Text
+                              allowFontScaling={false}
+                              style={[
+                                cStyles.rowStatLabel,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
                               {d.label}
                             </Text>
                           </View>
                         ))}
                       </View>
                     </View>
-                  ) : (() => {
-                    const cols = (isTwoWayPlayer && filteredPitch.length > 0) ? PITCH_CAREER_COLS : CAREER_COLS;
-                    const agg = (isTwoWayPlayer && filteredPitch.length > 0) ? pitchAgg : hitAgg;
-                    const valColor = (isTwoWayPlayer && filteredPitch.length > 0) ? teamColor : theme.text;
-                    return (
-                      <View style={cStyles.rowStats}>
-                        {cols.map((d) => (
-                          <View key={d.key} style={cStyles.rowStatCell}>
-                            <Text
-                              allowFontScaling={false}
-                              style={[cStyles.rowStatVal, { color: valColor }]}
-                              numberOfLines={1}
-                            >
-                              {fmt(agg?.[d.key])}
-                            </Text>
-                            <Text
-                              allowFontScaling={false}
-                              style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}
-                            >
-                              {d.label}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    );
-                  })()}
+                  ) : (
+                    (() => {
+                      const cols =
+                        isTwoWayPlayer && filteredPitch.length > 0
+                          ? PITCH_CAREER_COLS
+                          : CAREER_COLS;
+                      const agg =
+                        isTwoWayPlayer && filteredPitch.length > 0
+                          ? pitchAgg
+                          : hitAgg;
+                      const valColor =
+                        isTwoWayPlayer && filteredPitch.length > 0
+                          ? teamColor
+                          : theme.text;
+                      return (
+                        <View style={cStyles.rowStats}>
+                          {cols.map((d) => (
+                            <View key={d.key} style={cStyles.rowStatCell}>
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  cStyles.rowStatVal,
+                                  { color: valColor },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {fmt(agg?.[d.key])}
+                              </Text>
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  cStyles.rowStatLabel,
+                                  { color: theme.textSecondary },
+                                ]}
+                              >
+                                {d.label}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      );
+                    })()
+                  )}
 
                   <Text
                     style={[
                       cStyles.chevron,
                       { color: theme.textSecondary },
-                      { transform: [{ rotate: isExpanded ? "90deg" : "0deg" }] },
+                      {
+                        transform: [{ rotate: isExpanded ? "90deg" : "0deg" }],
+                      },
                     ]}
                   >
                     ›
@@ -1516,82 +2010,182 @@ const PlayerPageScreen = ({ route, navigation }) => {
                             .filter((s) => s.team?.name && s.gameType !== "A")
                             .forEach((s) => {
                               const k = `${s.gameType ?? ""}_${s.team?.id ?? s.team?.name ?? ""}`;
-                              if (!mergeMap[k]) mergeMap[k] = { hit: null, pitch: null, team: s.team, gameType: s.gameType };
+                              if (!mergeMap[k])
+                                mergeMap[k] = {
+                                  hit: null,
+                                  pitch: null,
+                                  team: s.team,
+                                  gameType: s.gameType,
+                                };
                               mergeMap[k][role] = s;
                             });
                         };
                         addToMerge(hitSplits, "hit");
                         addToMerge(pitchSplits, "pitch");
 
-                        const mergedRows = Object.entries(mergeMap).sort(([, a], [, b]) => {
-                          const ag = Math.max(Number(a.hit?.stat?.gamesPlayed ?? 0), Number(a.pitch?.stat?.gamesPlayed ?? 0));
-                          const bg = Math.max(Number(b.hit?.stat?.gamesPlayed ?? 0), Number(b.pitch?.stat?.gamesPlayed ?? 0));
-                          return bg - ag;
-                        });
+                        const mergedRows = Object.entries(mergeMap).sort(
+                          ([, a], [, b]) => {
+                            const ag = Math.max(
+                              Number(a.hit?.stat?.gamesPlayed ?? 0),
+                              Number(a.pitch?.stat?.gamesPlayed ?? 0),
+                            );
+                            const bg = Math.max(
+                              Number(b.hit?.stat?.gamesPlayed ?? 0),
+                              Number(b.pitch?.stat?.gamesPlayed ?? 0),
+                            );
+                            return bg - ag;
+                          },
+                        );
 
-                        return mergedRows.map(([key, { hit, pitch, team, gameType }], gIdx) => {
-                          const splitTeamColor = MLBService.getTeamColor(team?.name ?? "") || rowTeamColor;
-                          const bothPresent = !!hit && !!pitch;
-                          const cols = !hit ? PITCH_CAREER_COLS : HIT_CAREER_COLS;
-                          const singleColor = !hit ? teamColor : theme.text;
-                          const singleSplit = hit ?? pitch;
-                          return (
-                            <View
-                              key={key}
-                              style={[
-                                cStyles.gtRow,
-                                gIdx < mergedRows.length - 1 && {
-                                  borderBottomWidth: StyleSheet.hairlineWidth,
-                                  borderBottomColor: theme.border,
-                                },
-                              ]}
-                            >
-                              <View style={[cStyles.gtBadge, { borderLeftColor: splitTeamColor }]}>
-                                <Text allowFontScaling={false} style={[cStyles.gtBadgeText, { color: theme.text }]} numberOfLines={1}>
-                                  {GAME_TYPE_LABELS[gameType] ?? gameType ?? ""}
-                                </Text>
-                                <Text allowFontScaling={false} style={[cStyles.gtTeamName, { color: splitTeamColor }]} numberOfLines={1}>
-                                  {team?.name ?? ""}
-                                </Text>
-                              </View>
-                              {bothPresent ? (
-                                <View style={cStyles.twoWayStatStack}>
-                                  <View style={cStyles.rowStats}>
-                                    {HIT_CAREER_COLS.map((d) => (
-                                      <View key={d.key} style={cStyles.rowStatCell}>
-                                        <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
-                                          {fmt(hit.stat?.[d.key])}
-                                        </Text>
-                                        <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
-                                      </View>
-                                    ))}
-                                  </View>
-                                  <View style={[cStyles.rowStats, { marginTop: 4 }]}>
-                                    {PITCH_CAREER_COLS.map((d) => (
-                                      <View key={d.key} style={cStyles.rowStatCell}>
-                                        <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
-                                          {fmt(pitch.stat?.[d.key])}
-                                        </Text>
-                                        <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
-                                      </View>
-                                    ))}
-                                  </View>
+                        return mergedRows.map(
+                          ([key, { hit, pitch, team, gameType }], gIdx) => {
+                            const splitTeamColor =
+                              MLBService.getTeamColor(team?.name ?? "") ||
+                              rowTeamColor;
+                            const bothPresent = !!hit && !!pitch;
+                            const cols = !hit
+                              ? PITCH_CAREER_COLS
+                              : HIT_CAREER_COLS;
+                            const singleColor = !hit ? teamColor : theme.text;
+                            const singleSplit = hit ?? pitch;
+                            return (
+                              <View
+                                key={key}
+                                style={[
+                                  cStyles.gtRow,
+                                  gIdx < mergedRows.length - 1 && {
+                                    borderBottomWidth: StyleSheet.hairlineWidth,
+                                    borderBottomColor: theme.border,
+                                  },
+                                ]}
+                              >
+                                <View
+                                  style={[
+                                    cStyles.gtBadge,
+                                    { borderLeftColor: splitTeamColor },
+                                  ]}
+                                >
+                                  <Text
+                                    allowFontScaling={false}
+                                    style={[
+                                      cStyles.gtBadgeText,
+                                      { color: theme.text },
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {GAME_TYPE_LABELS[gameType] ??
+                                      gameType ??
+                                      ""}
+                                  </Text>
+                                  <Text
+                                    allowFontScaling={false}
+                                    style={[
+                                      cStyles.gtTeamName,
+                                      { color: splitTeamColor },
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {team?.name ?? ""}
+                                  </Text>
                                 </View>
-                              ) : (
-                                <View style={cStyles.rowStats}>
-                                  {cols.map((d) => (
-                                    <View key={d.key} style={cStyles.rowStatCell}>
-                                      <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: singleColor }]} numberOfLines={1}>
-                                        {fmt(singleSplit?.stat?.[d.key])}
-                                      </Text>
-                                      <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
+                                {bothPresent ? (
+                                  <View style={cStyles.twoWayStatStack}>
+                                    <View style={cStyles.rowStats}>
+                                      {HIT_CAREER_COLS.map((d) => (
+                                        <View
+                                          key={d.key}
+                                          style={cStyles.rowStatCell}
+                                        >
+                                          <Text
+                                            allowFontScaling={false}
+                                            style={[
+                                              cStyles.rowStatVal,
+                                              { color: theme.text },
+                                            ]}
+                                            numberOfLines={1}
+                                          >
+                                            {fmt(hit.stat?.[d.key])}
+                                          </Text>
+                                          <Text
+                                            allowFontScaling={false}
+                                            style={[
+                                              cStyles.rowStatLabel,
+                                              { color: theme.textSecondary },
+                                            ]}
+                                          >
+                                            {d.label}
+                                          </Text>
+                                        </View>
+                                      ))}
                                     </View>
-                                  ))}
-                                </View>
-                              )}
-                            </View>
-                          );
-                        });
+                                    <View
+                                      style={[
+                                        cStyles.rowStats,
+                                        { marginTop: 4 },
+                                      ]}
+                                    >
+                                      {PITCH_CAREER_COLS.map((d) => (
+                                        <View
+                                          key={d.key}
+                                          style={cStyles.rowStatCell}
+                                        >
+                                          <Text
+                                            allowFontScaling={false}
+                                            style={[
+                                              cStyles.rowStatVal,
+                                              { color: theme.text },
+                                            ]}
+                                            numberOfLines={1}
+                                          >
+                                            {fmt(pitch.stat?.[d.key])}
+                                          </Text>
+                                          <Text
+                                            allowFontScaling={false}
+                                            style={[
+                                              cStyles.rowStatLabel,
+                                              { color: theme.textSecondary },
+                                            ]}
+                                          >
+                                            {d.label}
+                                          </Text>
+                                        </View>
+                                      ))}
+                                    </View>
+                                  </View>
+                                ) : (
+                                  <View style={cStyles.rowStats}>
+                                    {cols.map((d) => (
+                                      <View
+                                        key={d.key}
+                                        style={cStyles.rowStatCell}
+                                      >
+                                        <Text
+                                          allowFontScaling={false}
+                                          style={[
+                                            cStyles.rowStatVal,
+                                            { color: singleColor },
+                                          ]}
+                                          numberOfLines={1}
+                                        >
+                                          {fmt(singleSplit?.stat?.[d.key])}
+                                        </Text>
+                                        <Text
+                                          allowFontScaling={false}
+                                          style={[
+                                            cStyles.rowStatLabel,
+                                            { color: theme.textSecondary },
+                                          ]}
+                                        >
+                                          {d.label}
+                                        </Text>
+                                      </View>
+                                    ))}
+                                  </View>
+                                )}
+                              </View>
+                            );
+                          },
+                        );
                       }
 
                       const rows = hitSplits
@@ -1602,7 +2196,9 @@ const PlayerPageScreen = ({ route, navigation }) => {
                             (Number(a.stat?.gamesPlayed) || 0),
                         );
                       return rows.map((split, gIdx) => {
-                        const splitTeamColor = MLBService.getTeamColor(split.team.name) || rowTeamColor;
+                        const splitTeamColor =
+                          MLBService.getTeamColor(split.team.name) ||
+                          rowTeamColor;
                         return (
                           <TouchableOpacity
                             key={`${split.gameType ?? ""}_${split.team?.id ?? gIdx}`}
@@ -1621,30 +2217,66 @@ const PlayerPageScreen = ({ route, navigation }) => {
                                 teamName: split.team?.name ?? "",
                                 rankings:
                                   rankSplits.find(
-                                    (r) => r.season === yr && r.gameType === "R",
+                                    (r) =>
+                                      r.season === yr && r.gameType === "R",
                                   )?.stat ?? {},
                               })
                             }
                             activeOpacity={0.75}
                           >
-                            <View style={[cStyles.gtBadge, { borderLeftColor: splitTeamColor }]}>
-                              <Text allowFontScaling={false} style={[cStyles.gtBadgeText, { color: theme.text }]} numberOfLines={1}>
-                                {GAME_TYPE_LABELS[split.gameType] ?? split.gameType ?? ""}
+                            <View
+                              style={[
+                                cStyles.gtBadge,
+                                { borderLeftColor: splitTeamColor },
+                              ]}
+                            >
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  cStyles.gtBadgeText,
+                                  { color: theme.text },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {GAME_TYPE_LABELS[split.gameType] ??
+                                  split.gameType ??
+                                  ""}
                               </Text>
-                              <Text allowFontScaling={false} style={[cStyles.gtTeamName, { color: splitTeamColor }]} numberOfLines={1}>
+                              <Text
+                                allowFontScaling={false}
+                                style={[
+                                  cStyles.gtTeamName,
+                                  { color: splitTeamColor },
+                                ]}
+                                numberOfLines={1}
+                              >
                                 {split.team?.name ?? ""}
                               </Text>
                             </View>
                             <View style={cStyles.rowStats}>
                               {CAREER_COLS.map((d) => (
                                 <View key={d.key} style={cStyles.rowStatCell}>
-                                  <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
+                                  <Text
+                                    allowFontScaling={false}
+                                    style={[
+                                      cStyles.rowStatVal,
+                                      { color: theme.text },
+                                    ]}
+                                    numberOfLines={1}
+                                  >
                                     {fmt(split.stat?.[d.key])}
                                   </Text>
                                 </View>
                               ))}
                             </View>
-                            <Text style={[cStyles.chevron, { color: theme.textSecondary }]}>›</Text>
+                            <Text
+                              style={[
+                                cStyles.chevron,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              ›
+                            </Text>
                           </TouchableOpacity>
                         );
                       });
@@ -1697,7 +2329,12 @@ const PlayerPageScreen = ({ route, navigation }) => {
       hitArr.forEach((s) => {
         const k = keyFn(s);
         if (k == null) return;
-        map.set(k, { key: k, label: labelFn(s), stat: s.stat ?? {}, pitchStat: null });
+        map.set(k, {
+          key: k,
+          label: labelFn(s),
+          stat: s.stat ?? {},
+          pitchStat: null,
+        });
       });
       pitchArr.forEach((s) => {
         const k = keyFn(s);
@@ -1705,7 +2342,12 @@ const PlayerPageScreen = ({ route, navigation }) => {
         if (map.has(k)) {
           map.get(k).pitchStat = s.stat ?? {};
         } else {
-          map.set(k, { key: k, label: labelFn(s), stat: null, pitchStat: s.stat ?? {} });
+          map.set(k, {
+            key: k,
+            label: labelFn(s),
+            stat: null,
+            pitchStat: s.stat ?? {},
+          });
         }
       });
       return [...map.values()];
@@ -1716,11 +2358,17 @@ const PlayerPageScreen = ({ route, navigation }) => {
       if (isTwoWayPlayer) {
         const hit = dedupe(getSplitsOfType(typeName, "hitting"), keyFn);
         const pitch = dedupe(getSplitsOfType(typeName, "pitching"), keyFn);
-        return mergeGroups(hit, pitch, keyFn, labelFn).sort((a, b) => sortDir * (a.key - b.key));
+        return mergeGroups(hit, pitch, keyFn, labelFn).sort(
+          (a, b) => sortDir * (a.key - b.key),
+        );
       }
       return dedupe(getSplitsOfType(typeName), keyFn)
         .sort((a, b) => sortDir * (keyFn(a) - keyFn(b)))
-        .map((s) => ({ label: labelFn(s), stat: s.stat ?? {}, pitchStat: null }));
+        .map((s) => ({
+          label: labelFn(s),
+          stat: s.stat ?? {},
+          pitchStat: null,
+        }));
     };
 
     const dayOfWeekSplits = buildSplits(
@@ -1753,22 +2401,25 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
     const SPLITS_SECTIONS = [
       { title: "Day of Week", splits: dayOfWeekSplits },
-      { title: "By Month",    splits: monthSplits },
+      { title: "By Month", splits: monthSplits },
       { title: "Home & Away", splits: homeAwaySplits },
-      { title: "Win / Loss",  splits: winLossSplits },
+      { title: "Win / Loss", splits: winLossSplits },
     ];
 
     const otherTeams = ALL_MLB_TEAMS.filter((t) => t.name !== teamName);
 
     return (
       <View style={spStyles.container}>
-
         {/* ── VS Team bubble ── */}
         <TouchableOpacity
           style={[spStyles.bubble, { backgroundColor: theme.surface }]}
           activeOpacity={0.75}
           onPress={async () => {
-            setVsTeamModal({ teams: otherTeams, selectedTeamIdx: 0, statsCache: {} });
+            setVsTeamModal({
+              teams: otherTeams,
+              selectedTeamIdx: 0,
+              statsCache: {},
+            });
             const firstTeam = otherTeams[0];
             if (!firstTeam?.id) return;
             setVsTeamLoading(true);
@@ -1778,9 +2429,29 @@ const PlayerPageScreen = ({ route, navigation }) => {
               const resp = await fetch(url);
               const data = await resp.json();
               const stat = data?.stats?.[0]?.splits?.[0]?.stat ?? null;
-              setVsTeamModal((prev) => prev ? { ...prev, statsCache: { ...prev.statsCache, [firstTeam.name]: stat } } : null);
+              setVsTeamModal((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      statsCache: {
+                        ...prev.statsCache,
+                        [firstTeam.name]: stat,
+                      },
+                    }
+                  : null,
+              );
             } catch {
-              setVsTeamModal((prev) => prev ? { ...prev, statsCache: { ...prev.statsCache, [firstTeam.name]: null } } : null);
+              setVsTeamModal((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      statsCache: {
+                        ...prev.statsCache,
+                        [firstTeam.name]: null,
+                      },
+                    }
+                  : null,
+              );
             } finally {
               setVsTeamLoading(false);
             }
@@ -1793,35 +2464,79 @@ const PlayerPageScreen = ({ route, navigation }) => {
             >
               VS Team
             </Text>
-            <Text style={[spStyles.bubbleChevron, { color: theme.textSecondary }]}>›</Text>
+            <Text
+              style={[spStyles.bubbleChevron, { color: theme.textSecondary }]}
+            >
+              ›
+            </Text>
           </View>
           <View style={spStyles.vsTeamGrid}>
             {otherTeams.slice(0, 4).map((t) => {
               const tColor = MLBService.getTeamColor(t.name);
-              const tLogo = MLBService.getLogoUrl(t.name, null, isDarkMode ? "dark" : "light");
+              const tLogo = MLBService.getLogoUrl(
+                t.name,
+                null,
+                isDarkMode ? "dark" : "light",
+              );
               return (
                 <View
                   key={t.name}
-                  style={[spStyles.vsTeamChip, { backgroundColor: tColor + "18", borderColor: tColor + "55" }]}
+                  style={[
+                    spStyles.vsTeamChip,
+                    {
+                      backgroundColor: tColor + "18",
+                      borderColor: tColor + "55",
+                    },
+                  ]}
                 >
                   {tLogo ? (
-                    <Image source={{ uri: tLogo }} style={spStyles.vsTeamLogo} resizeMode="contain" />
+                    <Image
+                      source={{ uri: tLogo }}
+                      style={spStyles.vsTeamLogo}
+                      resizeMode="contain"
+                    />
                   ) : (
-                    <View style={[spStyles.vsTeamLogoFallback, { backgroundColor: tColor }]}>
-                      <Text style={[spStyles.vsTeamLogoFallbackText, { color: getTextOnColor(tColor) }]}>
+                    <View
+                      style={[
+                        spStyles.vsTeamLogoFallback,
+                        { backgroundColor: tColor },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          spStyles.vsTeamLogoFallbackText,
+                          { color: getTextOnColor(tColor) },
+                        ]}
+                      >
                         {t.abbr[0]}
                       </Text>
                     </View>
                   )}
-                  <Text allowFontScaling={false} style={[spStyles.vsTeamAbbr, { color: tColor }]} numberOfLines={1}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[spStyles.vsTeamAbbr, { color: tColor }]}
+                    numberOfLines={1}
+                  >
                     {t.abbr}
                   </Text>
                 </View>
               );
             })}
             {otherTeams.length > 4 && (
-              <View style={[spStyles.vsTeamChip, { backgroundColor: teamColor + "18", borderColor: teamColor + "55" }]}>
-                <Text style={[spStyles.vsTeamAbbr, { color: theme.textTertiary }]}>+{otherTeams.length - 4}</Text>
+              <View
+                style={[
+                  spStyles.vsTeamChip,
+                  {
+                    backgroundColor: teamColor + "18",
+                    borderColor: teamColor + "55",
+                  },
+                ]}
+              >
+                <Text
+                  style={[spStyles.vsTeamAbbr, { color: theme.textTertiary }]}
+                >
+                  +{otherTeams.length - 4}
+                </Text>
               </View>
             )}
           </View>
@@ -1835,7 +2550,12 @@ const PlayerPageScreen = ({ route, navigation }) => {
             activeOpacity={splits && splits.length > 0 ? 0.75 : 1}
             onPress={() => {
               if (!splits || splits.length === 0) return;
-              setSplitsModal({ title, splits, selectedIdx: 0, selectedGroup: "hitting" });
+              setSplitsModal({
+                title,
+                splits,
+                selectedIdx: 0,
+                selectedGroup: "hitting",
+              });
             }}
           >
             <View style={spStyles.bubbleRow}>
@@ -1846,7 +2566,14 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 {title}
               </Text>
               {splits && splits.length > 0 ? (
-                <Text style={[spStyles.bubbleChevron, { color: theme.textSecondary }]}>›</Text>
+                <Text
+                  style={[
+                    spStyles.bubbleChevron,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  ›
+                </Text>
               ) : null}
             </View>
 
@@ -1855,14 +2582,28 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 {splits.slice(0, 7).map((s) => (
                   <View
                     key={s.label}
-                    style={[spStyles.pill, { backgroundColor: teamColor + "33" }]}
+                    style={[
+                      spStyles.pill,
+                      { backgroundColor: teamColor + "33" },
+                    ]}
                   >
-                    <Text style={[spStyles.pillText, { color: theme.textTertiary }]}>{s.label}</Text>
+                    <Text
+                      style={[spStyles.pillText, { color: theme.textTertiary }]}
+                    >
+                      {s.label}
+                    </Text>
                   </View>
                 ))}
                 {splits.length > 7 && (
-                  <View style={[spStyles.pill, { backgroundColor: teamColor + "33" }]}>
-                    <Text style={[spStyles.pillText, { color: theme.textTertiary }]}>
+                  <View
+                    style={[
+                      spStyles.pill,
+                      { backgroundColor: teamColor + "33" },
+                    ]}
+                  >
+                    <Text
+                      style={[spStyles.pillText, { color: theme.textTertiary }]}
+                    >
                       +{splits.length - 7}
                     </Text>
                   </View>
@@ -1929,47 +2670,51 @@ const PlayerPageScreen = ({ route, navigation }) => {
               const awardFullName = awardTeamId
                 ? MLBService.getTeamNameById(awardTeamId)
                 : null;
-              const awardTeamName = awardFullName ?? a.team?.teamName ?? a.team?.name ?? "";
+              const awardTeamName =
+                awardFullName ?? a.team?.teamName ?? a.team?.name ?? "";
               const awardColor = awardFullName
-                ? (MLBService.getTeamColorById(awardTeamId) || teamColor)
+                ? MLBService.getTeamColorById(awardTeamId) || teamColor
                 : teamColor;
               return (
-              <View
-                key={idx}
-                style={[
-                  styles.awardRow,
-                  {
-                    backgroundColor: theme.surface,
-                    borderBottomColor: theme.border,
-                    borderBottomWidth:
-                      idx < grouped[yr].length - 1
-                        ? StyleSheet.hairlineWidth
-                        : 0,
-                  },
-                ]}
-              >
                 <View
-                  style={[styles.awardDot, { backgroundColor: awardColor }]}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.awardName, { color: theme.text }]}
-                    numberOfLines={2}
-                  >
-                    {a.name ?? ""}
-                  </Text>
-                  {awardTeamName ? (
+                  key={idx}
+                  style={[
+                    styles.awardRow,
+                    {
+                      backgroundColor: theme.surface,
+                      borderBottomColor: theme.border,
+                      borderBottomWidth:
+                        idx < grouped[yr].length - 1
+                          ? StyleSheet.hairlineWidth
+                          : 0,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[styles.awardDot, { backgroundColor: awardColor }]}
+                  />
+                  <View style={{ flex: 1 }}>
                     <Text
                       allowFontScaling={false}
-                      style={[styles.awardTeam, { color: theme.textSecondary }]}
-                      numberOfLines={1}
+                      style={[styles.awardName, { color: theme.text }]}
+                      numberOfLines={2}
                     >
-                      {awardTeamName}
+                      {a.name ?? ""}
                     </Text>
-                  ) : null}
+                    {awardTeamName ? (
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.awardTeam,
+                          { color: theme.textSecondary },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {awardTeamName}
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
-              </View>
               );
             })}
           </View>
@@ -2041,7 +2786,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
               {teamName ? (
                 <Text
                   allowFontScaling={false}
-                  style={[styles.headerLeague, { color: headerTextColor, opacity: 0.8 }]}
+                  style={[
+                    styles.headerLeague,
+                    { color: headerTextColor, opacity: 0.8 },
+                  ]}
                   numberOfLines={1}
                 >
                   {teamName}
@@ -2051,7 +2799,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
               {positionName || jersey ? (
                 <Text
                   allowFontScaling={false}
-                  style={[styles.headerDivision, { color: headerTextColor, opacity: 0.6 }]}
+                  style={[
+                    styles.headerDivision,
+                    { color: headerTextColor, opacity: 0.6 },
+                  ]}
                   numberOfLines={1}
                 >
                   {[positionName, jersey].filter(Boolean).join("  ·  ")}
@@ -2226,7 +2977,8 @@ const PlayerPageScreen = ({ route, navigation }) => {
                     style={[cStyles.modalTitle, { color: theme.text }]}
                   >
                     {careerModal.season} · 
-                    {GAME_TYPE_LABELS[careerModal.gameType] ?? careerModal.gameType}
+                    {GAME_TYPE_LABELS[careerModal.gameType] ??
+                      careerModal.gameType}
                   </Text>
                   {careerModal.teamName ? (
                     <Text
@@ -2241,7 +2993,9 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   onPress={() => setCareerModal(null)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Text style={[cStyles.modalClose, { color: theme.textSecondary }]}>
+                  <Text
+                    style={[cStyles.modalClose, { color: theme.textSecondary }]}
+                  >
                     ✕
                   </Text>
                 </TouchableOpacity>
@@ -2270,11 +3024,17 @@ const PlayerPageScreen = ({ route, navigation }) => {
                     return (
                       <View
                         key={key}
-                        style={[cStyles.modalChip, { backgroundColor: theme.background }]}
+                        style={[
+                          cStyles.modalChip,
+                          { backgroundColor: theme.background },
+                        ]}
                       >
                         {rank != null && (
                           <View
-                            style={[cStyles.rankBadge, { backgroundColor: teamColor }]}
+                            style={[
+                              cStyles.rankBadge,
+                              { backgroundColor: teamColor },
+                            ]}
                           >
                             <Text
                               allowFontScaling={false}
@@ -2293,7 +3053,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
                         </Text>
                         <Text
                           allowFontScaling={false}
-                          style={[cStyles.chipLabel, { color: theme.textSecondary }]}
+                          style={[
+                            cStyles.chipLabel,
+                            { color: theme.textSecondary },
+                          ]}
                           numberOfLines={1}
                         >
                           {lbl}
@@ -2340,7 +3103,11 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   onPress={() => setSplitsModal(null)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Text style={[cStyles.modalClose, { color: theme.textSecondary }]}>✕</Text>
+                  <Text
+                    style={[cStyles.modalClose, { color: theme.textSecondary }]}
+                  >
+                    ✕
+                  </Text>
                 </TouchableOpacity>
               </View>
 
@@ -2349,7 +3116,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={spStyles.splitBtnRow}
-                style={[spStyles.splitBtnScroll, { borderBottomColor: theme.border }]}
+                style={[
+                  spStyles.splitBtnScroll,
+                  { borderBottomColor: theme.border },
+                ]}
               >
                 {splitsModal.splits.map((s, idx) => {
                   const isSelected = idx === splitsModal.selectedIdx;
@@ -2357,7 +3127,11 @@ const PlayerPageScreen = ({ route, navigation }) => {
                     <TouchableOpacity
                       key={s.label}
                       onPress={() =>
-                        setSplitsModal((prev) => ({ ...prev, selectedIdx: idx, selectedGroup: "hitting" }))
+                        setSplitsModal((prev) => ({
+                          ...prev,
+                          selectedIdx: idx,
+                          selectedGroup: "hitting",
+                        }))
                       }
                       style={[
                         spStyles.splitBtn,
@@ -2371,7 +3145,11 @@ const PlayerPageScreen = ({ route, navigation }) => {
                         allowFontScaling={false}
                         style={[
                           spStyles.splitBtnText,
-                          { color: isSelected ? getTextOnColor(teamColor) : theme.text },
+                          {
+                            color: isSelected
+                              ? getTextOnColor(teamColor)
+                              : theme.text,
+                          },
                         ]}
                       >
                         {s.label}
@@ -2384,17 +3162,28 @@ const PlayerPageScreen = ({ route, navigation }) => {
               {/* Hitting / Pitching toggle — only for two-way entries */}
               {(() => {
                 const selEntry = splitsModal.splits[splitsModal.selectedIdx];
-                const hasBoth = selEntry?.pitchStat != null &&
+                const hasBoth =
+                  selEntry?.pitchStat != null &&
                   Object.keys(selEntry?.stat ?? {}).length > 0;
                 if (!hasBoth) return null;
                 return (
-                  <View style={[spStyles.groupToggleRow, { borderBottomColor: theme.border }]}>
+                  <View
+                    style={[
+                      spStyles.groupToggleRow,
+                      { borderBottomColor: theme.border },
+                    ]}
+                  >
                     {["hitting", "pitching"].map((g) => {
                       const isActive = splitsModal.selectedGroup === g;
                       return (
                         <TouchableOpacity
                           key={g}
-                          onPress={() => setSplitsModal((prev) => ({ ...prev, selectedGroup: g }))}
+                          onPress={() =>
+                            setSplitsModal((prev) => ({
+                              ...prev,
+                              selectedGroup: g,
+                            }))
+                          }
                           style={[
                             spStyles.groupToggleBtn,
                             isActive
@@ -2407,7 +3196,11 @@ const PlayerPageScreen = ({ route, navigation }) => {
                             allowFontScaling={false}
                             style={[
                               spStyles.groupToggleText,
-                              { color: isActive ? getTextOnColor(teamColor) : theme.text },
+                              {
+                                color: isActive
+                                  ? getTextOnColor(teamColor)
+                                  : theme.text,
+                              },
                             ]}
                           >
                             {g === "hitting" ? "Hitting" : "Pitching"}
@@ -2428,7 +3221,9 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   const selEntry = splitsModal.splits[splitsModal.selectedIdx];
                   const hitStat = selEntry?.stat ?? {};
                   const pitchStat = selEntry?.pitchStat ?? null;
-                  const showPitch = pitchStat != null && splitsModal.selectedGroup === "pitching";
+                  const showPitch =
+                    pitchStat != null &&
+                    splitsModal.selectedGroup === "pitching";
                   const activeStat = showPitch ? pitchStat : hitStat;
 
                   const renderChipEntry = (key, val) => {
@@ -2443,7 +3238,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
                     return (
                       <View
                         key={key}
-                        style={[cStyles.modalChip, { backgroundColor: theme.background }]}
+                        style={[
+                          cStyles.modalChip,
+                          { backgroundColor: theme.background },
+                        ]}
                       >
                         <Text
                           allowFontScaling={false}
@@ -2454,7 +3252,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
                         </Text>
                         <Text
                           allowFontScaling={false}
-                          style={[cStyles.chipLabel, { color: theme.textSecondary }]}
+                          style={[
+                            cStyles.chipLabel,
+                            { color: theme.textSecondary },
+                          ]}
                           numberOfLines={1}
                         >
                           {lbl}
@@ -2465,7 +3266,9 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
                   return (
                     <View style={cStyles.modalChipsGrid}>
-                      {Object.entries(activeStat).map(([k, v]) => renderChipEntry(k, v))}
+                      {Object.entries(activeStat).map(([k, v]) =>
+                        renderChipEntry(k, v),
+                      )}
                     </View>
                   );
                 })()}
@@ -2483,19 +3286,36 @@ const PlayerPageScreen = ({ route, navigation }) => {
           animationType="slide"
           onRequestClose={() => setVsTeamModal(null)}
         >
-          <Pressable style={cStyles.modalOverlay} onPress={() => setVsTeamModal(null)}>
-            <Pressable style={[cStyles.modalSheet, { backgroundColor: theme.surface }]} onPress={() => {}}>
-
+          <Pressable
+            style={cStyles.modalOverlay}
+            onPress={() => setVsTeamModal(null)}
+          >
+            <Pressable
+              style={[cStyles.modalSheet, { backgroundColor: theme.surface }]}
+              onPress={() => {}}
+            >
               {/* Header */}
-              <View style={[cStyles.modalHeader, { borderBottomColor: theme.border }]}>
-                <Text allowFontScaling={false} style={[cStyles.modalTitle, { color: theme.text }]}>
+              <View
+                style={[
+                  cStyles.modalHeader,
+                  { borderBottomColor: theme.border },
+                ]}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[cStyles.modalTitle, { color: theme.text }]}
+                >
                   VS Team
                 </Text>
                 <TouchableOpacity
                   onPress={() => setVsTeamModal(null)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Text style={[cStyles.modalClose, { color: theme.textSecondary }]}>✕</Text>
+                  <Text
+                    style={[cStyles.modalClose, { color: theme.textSecondary }]}
+                  >
+                    ✕
+                  </Text>
                 </TouchableOpacity>
               </View>
 
@@ -2504,18 +3324,31 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={spStyles.splitBtnRow}
-                style={[spStyles.splitBtnScroll, { borderBottomColor: theme.border }]}
+                style={[
+                  spStyles.splitBtnScroll,
+                  { borderBottomColor: theme.border },
+                ]}
               >
                 {vsTeamModal.teams.map((t, idx) => {
                   const isSelected = idx === vsTeamModal.selectedTeamIdx;
                   const tColor = MLBService.getTeamColor(t.name);
-                  const tLogo = MLBService.getLogoUrl(t.name, null, isDarkMode ? "dark" : "light");
+                  const tLogo = MLBService.getLogoUrl(
+                    t.name,
+                    null,
+                    isDarkMode ? "dark" : "light",
+                  );
                   return (
                     <TouchableOpacity
                       key={t.name}
                       onPress={async () => {
-                        setVsTeamModal((prev) => prev ? { ...prev, selectedTeamIdx: idx } : null);
-                        if (vsTeamModal.statsCache[t.name] !== undefined || !t.id) return;
+                        setVsTeamModal((prev) =>
+                          prev ? { ...prev, selectedTeamIdx: idx } : null,
+                        );
+                        if (
+                          vsTeamModal.statsCache[t.name] !== undefined ||
+                          !t.id
+                        )
+                          return;
                         setVsTeamLoading(true);
                         try {
                           const year = new Date().getFullYear();
@@ -2528,13 +3361,30 @@ const PlayerPageScreen = ({ route, navigation }) => {
                             `babip,team,id,name,opponent,id,name,gameType`;
                           const resp = await fetch(url);
                           const data = await resp.json();
-                          const stat = data?.stats?.[0]?.splits?.[0]?.stat ?? null;
+                          const stat =
+                            data?.stats?.[0]?.splits?.[0]?.stat ?? null;
                           setVsTeamModal((prev) =>
-                            prev ? { ...prev, statsCache: { ...prev.statsCache, [t.name]: stat } } : null
+                            prev
+                              ? {
+                                  ...prev,
+                                  statsCache: {
+                                    ...prev.statsCache,
+                                    [t.name]: stat,
+                                  },
+                                }
+                              : null,
                           );
                         } catch {
                           setVsTeamModal((prev) =>
-                            prev ? { ...prev, statsCache: { ...prev.statsCache, [t.name]: null } } : null
+                            prev
+                              ? {
+                                  ...prev,
+                                  statsCache: {
+                                    ...prev.statsCache,
+                                    [t.name]: null,
+                                  },
+                                }
+                              : null,
                           );
                         } finally {
                           setVsTeamLoading(false);
@@ -2543,20 +3393,28 @@ const PlayerPageScreen = ({ route, navigation }) => {
                       style={[
                         spStyles.vsModalBtn,
                         {
-                          backgroundColor: isSelected ? tColor : theme.background,
+                          backgroundColor: isSelected
+                            ? tColor
+                            : theme.background,
                           borderColor: isSelected ? tColor : tColor + "55",
                         },
                       ]}
                       activeOpacity={0.75}
                     >
                       {tLogo ? (
-                        <Image source={{ uri: tLogo }} style={spStyles.vsModalBtnLogo} resizeMode="contain" />
+                        <Image
+                          source={{ uri: tLogo }}
+                          style={spStyles.vsModalBtnLogo}
+                          resizeMode="contain"
+                        />
                       ) : null}
                       <Text
                         allowFontScaling={false}
                         style={[
                           spStyles.vsModalBtnText,
-                          { color: isSelected ? getTextOnColor(tColor) : tColor },
+                          {
+                            color: isSelected ? getTextOnColor(tColor) : tColor,
+                          },
                         ]}
                       >
                         {t.abbr}
@@ -2569,40 +3427,84 @@ const PlayerPageScreen = ({ route, navigation }) => {
               {/* Stats area */}
               {(() => {
                 const selTeam = vsTeamModal.teams[vsTeamModal.selectedTeamIdx];
-                const cached = selTeam ? vsTeamModal.statsCache[selTeam.name] : undefined;
+                const cached = selTeam
+                  ? vsTeamModal.statsCache[selTeam.name]
+                  : undefined;
                 const selColor = MLBService.getTeamColor(selTeam?.name);
 
                 if (vsTeamLoading) {
                   return (
-                    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 48 }}>
+                    <View
+                      style={{
+                        flex: 1,
+                        justifyContent: "center",
+                        alignItems: "center",
+                        padding: 48,
+                      }}
+                    >
                       <ActivityIndicator size="small" color={selColor} />
                     </View>
                   );
                 }
                 if (cached === null) {
                   return (
-                    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 48 }}>
-                      <Text style={{ color: theme.textSecondary, fontSize: 14 }}>No data for this season</Text>
+                    <View
+                      style={{
+                        flex: 1,
+                        justifyContent: "center",
+                        alignItems: "center",
+                        padding: 48,
+                      }}
+                    >
+                      <Text
+                        style={{ color: theme.textSecondary, fontSize: 14 }}
+                      >
+                        No data for this season
+                      </Text>
                     </View>
                   );
                 }
                 if (!cached) {
                   return (
-                    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 48 }}>
-                      <Text style={{ color: theme.textSecondary, fontSize: 14 }}>Tap a team to view stats</Text>
+                    <View
+                      style={{
+                        flex: 1,
+                        justifyContent: "center",
+                        alignItems: "center",
+                        padding: 48,
+                      }}
+                    >
+                      <Text
+                        style={{ color: theme.textSecondary, fontSize: 14 }}
+                      >
+                        Tap a team to view stats
+                      </Text>
                     </View>
                   );
                 }
                 return (
-                  <ScrollView contentContainerStyle={cStyles.modalContent} showsVerticalScrollIndicator={false}>
+                  <ScrollView
+                    contentContainerStyle={cStyles.modalContent}
+                    showsVerticalScrollIndicator={false}
+                  >
                     <View style={cStyles.modalChipsGrid}>
                       {Object.entries(cached).map(([key, val]) => {
                         if (val == null || val === "") return null;
                         const lbl =
-                          [...HITTING_STAT_DEFS, ...PITCHING_STAT_DEFS].find((d) => d.key === key)?.label ??
-                          key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase());
+                          [...HITTING_STAT_DEFS, ...PITCHING_STAT_DEFS].find(
+                            (d) => d.key === key,
+                          )?.label ??
+                          key
+                            .replace(/([A-Z])/g, " $1")
+                            .replace(/^./, (s) => s.toUpperCase());
                         return (
-                          <View key={key} style={[cStyles.modalChip, { backgroundColor: theme.background }]}>
+                          <View
+                            key={key}
+                            style={[
+                              cStyles.modalChip,
+                              { backgroundColor: theme.background },
+                            ]}
+                          >
                             <Text
                               allowFontScaling={false}
                               style={[cStyles.chipValue, { color: theme.text }]}
@@ -2612,7 +3514,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
                             </Text>
                             <Text
                               allowFontScaling={false}
-                              style={[cStyles.chipLabel, { color: theme.textSecondary }]}
+                              style={[
+                                cStyles.chipLabel,
+                                { color: theme.textSecondary },
+                              ]}
                               numberOfLines={1}
                             >
                               {lbl}
@@ -2624,7 +3529,6 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   </ScrollView>
                 );
               })()}
-
             </Pressable>
           </Pressable>
         </Modal>
@@ -2759,7 +3663,8 @@ const styles = StyleSheet.create({
 const CHIP_GAP = 8;
 const CHIP_COLS = 4;
 // container paddingH=12, bubble padding=14, 3 gaps of 8
-const CHIP_W = (width - 2 * 12 - 2 * 14 - CHIP_GAP * (CHIP_COLS - 1)) / CHIP_COLS;
+const CHIP_W =
+  (width - 2 * 12 - 2 * 14 - CHIP_GAP * (CHIP_COLS - 1)) / CHIP_COLS;
 
 const pStyles = StyleSheet.create({
   container: {
@@ -3092,7 +3997,12 @@ const cStyles = StyleSheet.create({
     zIndex: 1,
   },
   rankText: { fontSize: 9, fontWeight: "800", letterSpacing: 0.2 },
-  chipValue: { fontSize: 14, fontWeight: "800", marginBottom: 4, textAlign: "center" },
+  chipValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    marginBottom: 4,
+    textAlign: "center",
+  },
   chipLabel: {
     fontSize: 10,
     fontWeight: "600",
