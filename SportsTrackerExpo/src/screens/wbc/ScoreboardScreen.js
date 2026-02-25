@@ -156,19 +156,19 @@ const LiveLinescoreStatus = ({
     <BSODots
       filled={balls ?? 0}
       total={4}
-      filledColor={theme.info}
+      filledColor={theme.success}
       theme={theme}
     />
     <BSODots
       filled={strikes ?? 0}
       total={3}
-      filledColor={theme.error}
+      filledColor={theme.warning}
       theme={theme}
     />
     <BSODots
       filled={outs ?? 0}
       total={3}
-      filledColor={theme.text}
+      filledColor={theme.error}
       theme={theme}
     />
   </View>
@@ -510,8 +510,12 @@ const UpcomingMatchesSection = ({
                     <Text
                       style={[styles.venue, { color: theme.textSecondary }]}
                     >
-                      {" "}
-                      {game.venue?.name || ""}{" "}
+                      {game.venue?.name || ""}
+                    </Text>
+                    <Text
+                      style={[styles.venue, { color: theme.textTertiary, fontStyle: "italic" }]}
+                    >
+                      {game.seriesDescription || ""}
                     </Text>
                   </View>
                   <View style={styles.gameFooterRight}>

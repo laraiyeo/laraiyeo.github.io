@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -7,4814 +7,3255 @@ import {
   Image,
   StyleSheet,
   ActivityIndicator,
+  Animated,
+  Dimensions,
   Modal,
+  Pressable,
 } from "react-native";
+import Svg, {
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  Stop,
+  Rect,
+} from "react-native-svg";
 import { useTheme } from "../../context/ThemeContext";
-import TeamLogoImage from "../../components/TeamLogoImage";
+import { MLBService } from "../../services/MLBService";
+
+const { width } = Dimensions.get("window");
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const getTextOnColor = (hex) => {
+  if (!hex) return "#FFFFFF";
+  const c = hex.replace("#", "");
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.5 ? "#000000" : "#FFFFFF";
+};
+
+const TABS = ["Player", "Game Log", "Career", "Splits", "Awards"];
+
+const GAME_TYPE_LABELS = {
+  R: "Regular Season",
+  F: "Wild Card",
+  D: "Division Series",
+  P: "Playoffs",
+  W: "World Series",
+  A: "All-Star Game",
+  C: "Championship",
+  L: "League Championship Series",
+  S: "Spring Training",
+};
+
+const DAY_LABELS = {
+  1: "Sun",
+  2: "Mon",
+  3: "Tue",
+  4: "Wed",
+  5: "Thu",
+  6: "Fri",
+  7: "Sat",
+};
+
+const MONTH_LABELS = {
+  1: "Jan",  2: "Feb",  3: "Mar",  4: "Apr",
+  5: "May",  6: "Jun",  7: "Jul",  8: "Aug",
+  9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec",
+};
+
+// All 30 MLB teams sorted alphabetically for VS Team selector
+const TEAM_ID_BY_NAME = Object.fromEntries(
+  Object.entries(MLBService.teamIdMap).map(([id, name]) => [name, Number(id)])
+);
+const ALL_MLB_TEAMS = Object.entries(MLBService.teamAbbrMap)
+  .map(([name, abbr]) => ({ name, abbr: abbr.toUpperCase(), id: TEAM_ID_BY_NAME[name] ?? null }))
+  .sort((a, b) => a.name.localeCompare(b.name));
+
+// Stat definitions for player bubbles
+const HITTING_STAT_DEFS = [
+  { key: "avg",            label: "AVG" },
+  { key: "obp",            label: "OBP" },
+  { key: "slg",            label: "SLG" },
+  { key: "ops",            label: "OPS" },
+  { key: "gamesPlayed",    label: "G" },
+  { key: "atBats",         label: "AB" },
+  { key: "hits",           label: "H" },
+  { key: "homeRuns",       label: "HR" },
+  { key: "rbi",            label: "RBI" },
+  { key: "runs",           label: "R" },
+  { key: "doubles",        label: "2B" },
+  { key: "triples",        label: "3B" },
+  { key: "stolenBases",    label: "SB" },
+  { key: "strikeOuts",     label: "SO" },
+  { key: "baseOnBalls",    label: "BB" },
+  { key: "plateAppearances", label: "PA" },
+  { key: "totalBases",     label: "TB" },
+  { key: "babip",          label: "BABIP" },
+];
+
+const PITCHING_STAT_DEFS = [
+  { key: "era",              label: "ERA" },
+  { key: "inningsPitched",   label: "IP" },
+  { key: "wins",             label: "W" },
+  { key: "losses",           label: "L" },
+  { key: "saves",            label: "SV" },
+  { key: "holds",            label: "HLD" },
+  { key: "whip",             label: "WHIP" },
+  { key: "battersFaced",     label: "BF" },
+  { key: "strikePercentage", label: "K%" },
+  { key: "baseOnBalls",      label: "BB" },
+  { key: "strikeOuts",       label: "SO" },
+  { key: "hits",             label: "H" },
+  { key: "avg",              label: "AVG" },
+  { key: "strikes",          label: "STR" },
+  { key: "homeRuns",         label: "HR" },
+  { key: "earnedRuns",       label: "ER" },
+];
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 const PlayerPageScreen = ({ route, navigation }) => {
-  const { playerId, playerName, teamId, sport } = route.params;
   const {
-    theme,
-    colors,
-    isDarkMode,
-    getTeamLogoUrl: getThemeTeamLogoUrl,
-  } = useTheme();
-  const [activeTab, setActiveTab] = useState("Stats");
-  const [playerData, setPlayerData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [playerStats, setPlayerStats] = useState(null);
-  const [loadingStats, setLoadingStats] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState("");
-  const [leagueStats, setLeagueStats] = useState(null);
-  const [statRankings, setStatRankings] = useState(null);
-  const [gameLogData, setGameLogData] = useState(null);
-  const [loadingGameLog, setLoadingGameLog] = useState(false);
-  const [selectedGameStats, setSelectedGameStats] = useState(null);
-  const [showStatsModal, setShowStatsModal] = useState(false);
-  const [careerData, setCareerData] = useState(null);
-  const [loadingCareer, setLoadingCareer] = useState(false);
-  const [selectedSeasonStats, setSelectedSeasonStats] = useState(null);
-  const [showSeasonModal, setShowSeasonModal] = useState(false);
-  const [selectedTeam, setSelectedTeam] = useState(null);
-  const [vsTeamStats, setVsTeamStats] = useState(null);
-  const [loadingVsTeam, setLoadingVsTeam] = useState(false);
+    playerId,
+    playerName: routePlayerName,
+    teamName: routeTeamName,
+  } = route.params ?? {};
 
+  const { theme, colors, isDarkMode } = useTheme();
+
+  const [player, setPlayer] = useState(null);
+  const [playerStats, setPlayerStats] = useState(null);
+  const [awards, setAwards] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("Player");
+  const [headerHeight, setHeaderHeight] = useState(160);
+  const [headshotError, setHeadshotError] = useState(false);
+  const [careerExpandedYears, setCareerExpandedYears] = useState({});
+  const [careerModal, setCareerModal] = useState(null);
+  const [gameLogPage, setGameLogPage] = useState(0);
+  const [splitsModal, setSplitsModal] = useState(null);
+  const [vsTeamModal, setVsTeamModal] = useState(null);
+  const [vsTeamLoading, setVsTeamLoading] = useState(false);
+
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  // ── Data fetch ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    console.log(
-      "PlayerPageScreen received - playerId:",
-      playerId,
-      "playerName:",
-      playerName,
-      "teamId:",
-      teamId,
-    );
-    fetchPlayerData();
+    let mounted = true;
+
+    const fetchAll = async () => {
+      setLoading(true);
+      try {
+        // 1. Player info
+        const peopleUrl =
+          `https://statsapi.mlb.com/api/v1/people/${playerId}` +
+          `?fields=people,id,fullName,firstName,lastName,primaryNumber,birthDate,` +
+          `currentAge,birthStateProvince,birthCountry,height,weight,primaryPosition,` +
+          `name,nickName,draftYear,mlbDebutDate,batSide,code,pitchHand,code`;
+
+        const peopleResp = await fetch(peopleUrl);
+        const peopleData = await peopleResp.json();
+        const p = peopleData?.people?.[0] ?? null;
+        if (mounted) setPlayer(p);
+
+        if (!p) return;
+
+        const currentYear = new Date().getFullYear();
+        const isTwoWay = p?.primaryPosition?.code === "Y";
+        const isPitcher = p?.primaryPosition?.code === "1";
+        const isBatter = !isPitcher && !isTwoWay;
+
+        // 2. Stats fields
+        const baseFields =
+          "stats,type,displayName,splits,season,stat,summary,gamesPlayed,team,id,name," +
+          "dayOfWeek,month,opponent,date,gameType,isHome,isWin,positionsPlayed," +
+          "abbreviation,game,gamePk";
+
+        const pitchExtra = isPitcher
+          ? ",era,inningsPitched,wins,losses,saves,holds,whip,battersFaced,strikePercentage,baseOnBalls,strikeOuts,hits,avg,strikes,homeRuns,earnedRuns"
+          : isBatter
+          ? ",avg,atBats,obp,slg,ops,hits,rbi,runs,stolenBases,plateAppearances,totalBases,leftOnBase,babip,homeRuns,strikeOuts,baseOnBalls"
+          : isTwoWay
+          ?",era,inningsPitched,wins,losses,saves,holds,whip,battersFaced,strikePercentage,baseOnBalls,strikeOuts,hits,avg,strikes,homeRuns,earnedRuns,atBats,obp,slg,ops,rbi,runs,stolenBases,plateAppearances,totalBases,leftOnBase,babip,group,displayName"
+          : "";
+
+        const groupParam = isPitcher ? "&group=pitching" : isBatter ? "&group=hitting" : isTwoWay ? "&group=hitting,pitching" : "";
+
+        const statsUrl =
+          `https://statsapi.mlb.com/api/v1/people/${playerId}/stats` +
+          `?stats=projected,byDayOfWeek,byMonth,yearByYear,career,homeAndAway,winLoss,rankingsByYear,gameLog` +
+          `&season=${currentYear}` +
+          `&gameType=R,F,D,W,P,C,A,S` +
+          `&fields=${baseFields}${pitchExtra}` +
+          groupParam;
+
+        // 3. Awards
+        const awardsUrl =
+          `https://statsapi.mlb.com/api/v1/people/${playerId}/awards` +
+          `?fields=awards,name,date,team,id,teamName`;
+
+        const [statsResp, awardsResp] = await Promise.all([
+          fetch(statsUrl),
+          fetch(awardsUrl),
+        ]);
+        const [statsData, awardsData] = await Promise.all([
+          statsResp.json(),
+          awardsResp.json(),
+        ]);
+
+        if (mounted) {
+          setPlayerStats(statsData);
+          setAwards(awardsData?.awards ?? []);
+        }
+      } catch (e) {
+        console.warn("PlayerPageScreen fetch error:", e);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    if (playerId) fetchAll();
+    return () => {
+      mounted = false;
+    };
   }, [playerId]);
 
-  // Effect to validate selected month on component mount/updates
-  useEffect(() => {
-    if (selectedMonth && selectedMonth !== "") {
-      const currentDate = new Date();
-      const currentMonth = currentDate.getMonth() + 1;
-      const selectedMonthNum = parseInt(selectedMonth);
-
-      if (selectedMonthNum > currentMonth) {
-        console.log(
-          `Resetting invalid future month ${selectedMonthNum} to full season`,
-        );
-        setSelectedMonth("");
-      }
-    }
-  }, [selectedMonth]);
-
-  // Effect to load stats when Stats tab is selected or month changes
-  useEffect(() => {
-    if (activeTab === "Stats" && playerData && !loadingStats) {
-      fetchPlayerStats();
-    }
-  }, [activeTab, playerData, selectedMonth]);
-
-  // Effect to load game log when Game Log tab is selected
-  useEffect(() => {
-    if (
-      activeTab === "Game Log" &&
-      playerData &&
-      !gameLogData &&
-      !loadingGameLog
-    ) {
-      fetchGameLog();
-    }
-  }, [activeTab, playerData]);
-
-  // Effect to load career data when Career tab is selected
-  useEffect(() => {
-    if (activeTab === "Career" && playerData && !careerData && !loadingCareer) {
-      fetchCareerData();
-    }
-  }, [activeTab, playerData]);
-
-  // Effect to load VS Team data when VS Team tab is selected and team is chosen
-  useEffect(() => {
-    if (
-      activeTab === "VS Team" &&
-      selectedTeam &&
-      playerData &&
-      !loadingVsTeam
-    ) {
-      fetchVsTeamStats();
-    }
-  }, [activeTab, selectedTeam, playerData]);
-
-  const fetchPlayerData = async () => {
-    try {
-      // Fetch player basic info from MLB API
-      const url = `https://statsapi.mlb.com/api/v1/people/${playerId}`;
-      console.log("Fetching player data from:", url);
-      const response = await fetch(url);
-      const data = await response.json();
-
-      console.log("Player API response:", data);
-
-      if (data.people && data.people.length > 0) {
-        const player = data.people[0];
-
-        // Fetch player stats to get current team
-        await fetchPlayerTeamFromStats(player);
-
-        setPlayerData(player);
-      } else {
-        console.log("No player data found in response");
-      }
-    } catch (error) {
-      console.error("Error fetching player data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchPlayerTeamFromStats = async (player) => {
-    try {
-      const position = player.primaryPosition?.name || "";
-      const isPitcher = position.toLowerCase().includes("pitcher");
-      const isTwoWay = position.toLowerCase().includes("two-way");
-
-      console.log(
-        "Player position:",
-        position,
-        "isPitcher:",
-        isPitcher,
-        "isTwoWay:",
-        isTwoWay,
-      );
-
-      let statsUrl;
-      const currentYear = new Date().getFullYear();
-      if (isPitcher) {
-        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${currentYear}`;
-      } else if (isTwoWay) {
-        // For two-way players, we'll fetch hitting stats first, then pitching if needed
-        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${currentYear}`;
-      } else {
-        statsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=hitting&season=${currentYear}`;
-      }
-
-      console.log("Fetching player stats from:", statsUrl);
-      const statsResponse = await fetch(statsUrl);
-      const statsData = await statsResponse.json();
-
-      console.log("Player stats response:", statsData);
-
-      // Extract team from stats
-      if (statsData.stats && statsData.stats.length > 0) {
-        const seasonStats = statsData.stats[0];
-        if (seasonStats.splits && seasonStats.splits.length > 0) {
-          const teamData = seasonStats.splits[0].team;
-          if (teamData) {
-            console.log("Found team from stats:", teamData);
-            // Add the team data to the player object
-            player.currentTeam = teamData;
-          }
-        }
-      }
-
-      // If no team found and it's a two-way player, try pitching stats
-      if (!player.currentTeam && isTwoWay) {
-        const pitchingStatsUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=pitching&season=${preferredYear}`;
-        console.log(
-          "Fetching two-way player pitching stats from:",
-          pitchingStatsUrl,
-        );
-
-        const pitchingResponse = await fetch(pitchingStatsUrl);
-        const pitchingData = await pitchingResponse.json();
-
-        if (pitchingData.stats && pitchingData.stats.length > 0) {
-          const pitchingSeasonStats = pitchingData.stats[0];
-          if (
-            pitchingSeasonStats.splits &&
-            pitchingSeasonStats.splits.length > 0
-          ) {
-            const teamData = pitchingSeasonStats.splits[0].team;
-            if (teamData) {
-              console.log("Found team from pitching stats:", teamData);
-              player.currentTeam = teamData;
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching player team from stats:", error);
-    }
-  };
-
-  const fetchGameLog = async () => {
-    if (!playerData) return;
-
-    setLoadingGameLog(true);
-    try {
-      const currentYear = new Date().getFullYear();
-      const position = playerData.primaryPosition?.name || "";
-      const isPitcher = position.toLowerCase().includes("pitcher");
-      const isTwoWay = position.toLowerCase().includes("two-way");
-
-      console.log(
-        "Fetching game log - Position:",
-        position,
-        "isPitcher:",
-        isPitcher,
-        "isTwoWay:",
-        isTwoWay,
-      );
-
-      let gameLogData = {};
-
-      if (isPitcher) {
-        // Fetch pitching game log
-        const pitchingResponse = await fetch(
-          `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=pitching&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&gameType=S`,
-        );
-        const pitchingData = await pitchingResponse.json();
-        gameLogData.pitching = pitchingData.stats?.[0]?.splits || [];
-      } else if (isTwoWay) {
-        // Fetch both hitting and pitching game logs for two-way players
-        const hittingResponse = await fetch(
-          `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=hitting&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&gameType=S`,
-        );
-        const hittingData = await hittingResponse.json();
-
-        const pitchingResponse = await fetch(
-          `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=pitching&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&gameType=S`,
-        );
-        const pitchingData = await pitchingResponse.json();
-
-        gameLogData.hitting = hittingData.stats?.[0]?.splits || [];
-        gameLogData.pitching = pitchingData.stats?.[0]?.splits || [];
-      } else {
-        // Fetch hitting game log
-        const hittingResponse = await fetch(
-          `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&group=hitting&season=${currentYear}&gameType=R&gameType=D&gameType=L&gameType=W&gameType=F&gameType=S`,
-        );
-        const hittingData = await hittingResponse.json();
-        gameLogData.hitting = hittingData.stats?.[0]?.splits || [];
-      }
-
-      console.log("Game log data:", gameLogData);
-      setGameLogData(gameLogData);
-    } catch (error) {
-      console.error("Error fetching game log:", error);
-    } finally {
-      setLoadingGameLog(false);
-    }
-  };
-
-  const fetchCareerData = async () => {
-    if (!playerData?.id) {
-      console.log(
-        "No player ID available for career data. PlayerData:",
-        playerData,
-      );
-      return;
-    }
-
-    setLoadingCareer(true);
-    try {
-      const position = playerData.primaryPosition?.name || "";
-      const isPitcher = position.toLowerCase().includes("pitcher");
-      const isTwoWay = position.toLowerCase().includes("two-way");
-
-      console.log(
-        "Fetching career data - Player ID:",
-        playerId,
-        "Position:",
-        position,
-        "isPitcher:",
-        isPitcher,
-        "isTwoWay:",
-        isTwoWay,
-      );
-
-      let careerStats = {};
-
-      if (isPitcher) {
-        // Fetch pitching career stats
-        const url = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=yearByYear&group=pitching`;
-        console.log("Fetching pitching career from:", url);
-        const pitchingResponse = await fetch(url);
-        const pitchingData = await pitchingResponse.json();
-        console.log("Pitching career response:", pitchingData);
-        careerStats.pitching = pitchingData.stats?.[0]?.splits || [];
-      } else if (isTwoWay) {
-        // Fetch both hitting and pitching career stats for two-way players
-        const hittingUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=yearByYear&group=hitting`;
-        const pitchingUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=yearByYear&group=pitching`;
-
-        console.log("Fetching hitting career from:", hittingUrl);
-        const hittingResponse = await fetch(hittingUrl);
-        const hittingData = await hittingResponse.json();
-        console.log("Hitting career response:", hittingData);
-
-        console.log("Fetching pitching career from:", pitchingUrl);
-        const pitchingResponse = await fetch(pitchingUrl);
-        const pitchingData = await pitchingResponse.json();
-        console.log("Pitching career response:", pitchingData);
-
-        careerStats.hitting = hittingData.stats?.[0]?.splits || [];
-        careerStats.pitching = pitchingData.stats?.[0]?.splits || [];
-      } else {
-        // Fetch hitting career stats
-        const url = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=yearByYear&group=hitting`;
-        console.log("Fetching hitting career from:", url);
-        const hittingResponse = await fetch(url);
-        const hittingData = await hittingResponse.json();
-        console.log("Hitting career response:", hittingData);
-        careerStats.hitting = hittingData.stats?.[0]?.splits || [];
-      }
-
-      console.log("Final career data:", careerStats);
-      console.log("Career data keys:", Object.keys(careerStats));
-      console.log("Hitting data length:", careerStats.hitting?.length);
-      console.log("Pitching data length:", careerStats.pitching?.length);
-      setCareerData(careerStats);
-    } catch (error) {
-      console.error("Error fetching career data:", error);
-    } finally {
-      setLoadingCareer(false);
-    }
-  };
-
-  const fetchVsTeamStats = async () => {
-    if (!playerData?.id || !selectedTeam?.id) {
-      console.log("No player ID or selected team available for VS Team data");
-      return;
-    }
-
-    setLoadingVsTeam(true);
-    try {
-      const currentYear = new Date().getFullYear();
-      const position = playerData.primaryPosition?.name || "";
-      const isPitcher = position.toLowerCase().includes("pitcher");
-      const isTwoWay = position.toLowerCase().includes("two-way");
-
-      console.log(
-        "Fetching VS Team data - Player ID:",
-        playerId,
-        "vs Team ID:",
-        selectedTeam.id,
-        "Position:",
-        position,
-      );
-
-      let vsTeamStatsData = {};
-
-      if (isPitcher) {
-        // Fetch pitching VS team stats
-        const pitchingUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=vsTeam&group=pitching&season=${currentYear}&opposingTeamId=${selectedTeam.id}`;
-        console.log("Fetching pitching VS team from:", pitchingUrl);
-        const pitchingResponse = await fetch(pitchingUrl);
-        const pitchingData = await pitchingResponse.json();
-        console.log("Pitching VS team response:", pitchingData);
-        // Find the vsTeamTotal stats (not individual pitcher breakdowns)
-        const pitchingTotalStats = pitchingData.stats?.find(
-          (stat) => stat.type?.displayName === "vsTeamTotal",
-        );
-
-        vsTeamStatsData.pitching = pitchingTotalStats?.splits?.[0]?.stat || {};
-      } else if (isTwoWay) {
-        // Fetch both hitting and pitching VS team stats for two-way players
-        const hittingUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=vsTeam&group=hitting&season=${currentYear}&opposingTeamId=${selectedTeam.id}`;
-        const pitchingUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=vsTeam&group=pitching&season=${currentYear}&opposingTeamId=${selectedTeam.id}`;
-
-        console.log("Fetching hitting VS team from:", hittingUrl);
-        const hittingResponse = await fetch(hittingUrl);
-        const hittingData = await hittingResponse.json();
-        console.log("Hitting VS team response:", hittingData);
-
-        console.log("Fetching pitching VS team from:", pitchingUrl);
-        const pitchingResponse = await fetch(pitchingUrl);
-        const pitchingData = await pitchingResponse.json();
-        console.log("Pitching VS team response:", pitchingData);
-
-        // Find the vsTeamTotal stats (not individual pitcher breakdowns)
-        const hittingTotalStats = hittingData.stats?.find(
-          (stat) => stat.type?.displayName === "vsTeamTotal",
-        );
-        const pitchingTotalStats = pitchingData.stats?.find(
-          (stat) => stat.type?.displayName === "vsTeamTotal",
-        );
-
-        vsTeamStatsData.hitting = hittingTotalStats?.splits?.[0]?.stat || {};
-        vsTeamStatsData.pitching = pitchingTotalStats?.splits?.[0]?.stat || {};
-      } else {
-        // Fetch hitting VS team stats
-        const hittingUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=vsTeam&group=hitting&season=${currentYear}&opposingTeamId=${selectedTeam.id}`;
-        console.log("Fetching hitting VS team from:", hittingUrl);
-        const hittingResponse = await fetch(hittingUrl);
-        const hittingData = await hittingResponse.json();
-        console.log("Hitting VS team response:", hittingData);
-        // Find the vsTeamTotal stats (not individual pitcher breakdowns)
-        const hittingTotalStats = hittingData.stats?.find(
-          (stat) => stat.type?.displayName === "vsTeamTotal",
-        );
-
-        vsTeamStatsData.hitting = hittingTotalStats?.splits?.[0]?.stat || {};
-      }
-
-      console.log("Final VS team data:", vsTeamStatsData);
-      setVsTeamStats(vsTeamStatsData);
-    } catch (error) {
-      console.error("Error fetching VS team data:", error);
-    } finally {
-      setLoadingVsTeam(false);
-    }
-  };
-
-  const fetchPlayerStats = async () => {
-    if (!playerData) return;
-
-    setLoadingStats(true);
-    try {
-      const currentYear = new Date().getFullYear();
-      const position = playerData.primaryPosition?.name || "";
-      const isPitcher = position.toLowerCase().includes("pitcher");
-      const isTwoWay = position.toLowerCase().includes("two-way");
-
-      console.log(
-        "Fetching player stats - Position:",
-        position,
-        "isPitcher:",
-        isPitcher,
-        "isTwoWay:",
-        isTwoWay,
-      );
-
-      let playerStatsData = {};
-      let leagueStatsData = {};
-
-      // Build API URLs with month filter if selected
-      const buildStatsApiUrl = (group) => {
-        const baseUrl = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats`;
-        if (selectedMonth) {
-          const year = currentYear;
-          const daysInMonth = new Date(
-            year,
-            parseInt(selectedMonth),
-            0,
-          ).getDate();
-          const startDate = `${year}-${selectedMonth.padStart(2, "0")}-01`;
-          const endDate = `${year}-${selectedMonth.padStart(
-            2,
-            "0",
-          )}-${daysInMonth.toString().padStart(2, "0")}`;
-          // Use playoff games (gameType=P) for October and November, regular season (gameType=R) for all other months
-          const gameType =
-            selectedMonth === "10" || selectedMonth === "11" ? "P" : "R";
-          return `${baseUrl}?stats=byDateRange&group=${group}&season=${year}&gameType=${gameType}&startDate=${startDate}&endDate=${endDate}`;
-        } else {
-          return `${baseUrl}?stats=season&group=${group}&season=${currentYear}`;
-        }
-      };
-
-      const buildLeagueStatsUrl = (group) => {
-        const baseUrl = `https://statsapi.mlb.com/api/v1/stats`;
-        // Use playoff games (gameType=P) for October and November, regular season (gameType=R) for all other months
-        const gameType =
-          selectedMonth === "10" || selectedMonth === "11" ? "P" : "R";
-        if (selectedMonth) {
-          const year = currentYear;
-          const daysInMonth = new Date(
-            year,
-            parseInt(selectedMonth),
-            0,
-          ).getDate();
-          const startDate = `${year}-${selectedMonth.padStart(2, "0")}-01`;
-          const endDate = `${year}-${selectedMonth.padStart(
-            2,
-            "0",
-          )}-${daysInMonth.toString().padStart(2, "0")}`;
-          return `${baseUrl}?stats=byDateRange&group=${group}&season=${year}&gameType=${gameType}&sportId=1&limit=2000&playerPool=all&startDate=${startDate}&endDate=${endDate}`;
-        } else {
-          return `${baseUrl}?stats=season&group=${group}&season=${currentYear}&gameType=R&sportId=1&limit=2000&playerPool=all`;
-        }
-      };
-
-      if (isPitcher) {
-        // Fetch pitching stats
-        const pitchingResponse = await fetch(buildStatsApiUrl("pitching"));
-        const pitchingData = await pitchingResponse.json();
-
-        const leaguePitchingResponse = await fetch(
-          buildLeagueStatsUrl("pitching"),
-        );
-        const leaguePitchingData = await leaguePitchingResponse.json();
-
-        playerStatsData.pitching =
-          pitchingData.stats?.[0]?.splits?.[0]?.stat || {};
-        leagueStatsData.pitching = leaguePitchingData;
-      } else if (isTwoWay) {
-        // Fetch both hitting and pitching stats for two-way players
-        const hittingResponse = await fetch(buildStatsApiUrl("hitting"));
-        const hittingData = await hittingResponse.json();
-
-        const pitchingResponse = await fetch(buildStatsApiUrl("pitching"));
-        const pitchingData = await pitchingResponse.json();
-
-        const leagueHittingResponse = await fetch(
-          buildLeagueStatsUrl("hitting"),
-        );
-        const leagueHittingData = await leagueHittingResponse.json();
-
-        const leaguePitchingResponse = await fetch(
-          buildLeagueStatsUrl("pitching"),
-        );
-        const leaguePitchingData = await leaguePitchingResponse.json();
-
-        playerStatsData.hitting =
-          hittingData.stats?.[0]?.splits?.[0]?.stat || {};
-        playerStatsData.pitching =
-          pitchingData.stats?.[0]?.splits?.[0]?.stat || {};
-        leagueStatsData.hitting = leagueHittingData;
-        leagueStatsData.pitching = leaguePitchingData;
-      } else {
-        // Fetch hitting stats
-        const hittingResponse = await fetch(buildStatsApiUrl("hitting"));
-        const hittingData = await hittingResponse.json();
-
-        const leagueHittingResponse = await fetch(
-          buildLeagueStatsUrl("hitting"),
-        );
-        const leagueHittingData = await leagueHittingResponse.json();
-
-        playerStatsData.hitting =
-          hittingData.stats?.[0]?.splits?.[0]?.stat || {};
-        leagueStatsData.hitting = leagueHittingData;
-      }
-
-      console.log("Player stats data:", playerStatsData);
-      console.log("League stats data:", leagueStatsData);
-
-      setPlayerStats(playerStatsData);
-      setLeagueStats(leagueStatsData);
-
-      // Calculate rankings
-      await calculateStatRankings(playerStatsData, leagueStatsData);
-    } catch (error) {
-      console.error("Error fetching player stats:", error);
-    } finally {
-      setLoadingStats(false);
-    }
-  };
-
-  const calculateStatRankings = async (playerStatsData, leagueStatsData) => {
-    if (!playerStatsData || !leagueStatsData) return;
-
-    const rankings = {};
-
-    // Calculate hitting rankings if available
-    if (playerStatsData.hitting && leagueStatsData.hitting) {
-      const leagueData = leagueStatsData.hitting;
-      rankings.hitting = await calculatePlayerStatRankings(
-        leagueData,
-        playerStatsData.hitting,
-      );
-    }
-
-    // Calculate pitching rankings if available
-    if (playerStatsData.pitching && leagueStatsData.pitching) {
-      const leagueData = leagueStatsData.pitching;
-      rankings.pitching = await calculatePitcherStatRankings(
-        leagueData,
-        playerStatsData.pitching,
-      );
-    }
-
-    setStatRankings(rankings);
-  };
-
-  // Function to get minimum games played for the current season
-  const getMinimumGamesPlayed = async (month = null) => {
-    try {
-      const currentYear = new Date().getFullYear();
-      const currentDate = new Date();
-
-      if (month) {
-        // Handle monthly calculations
-        const monthNum = parseInt(month);
-
-        // Prevent future months from showing
-        if (
-          monthNum > currentDate.getMonth() + 1 &&
-          currentYear === currentDate.getFullYear()
-        ) {
-          console.log(`Month ${monthNum} is in the future, returning 0 games`);
-          return 0;
-        }
-
-        // Calculate correct end date
-        const daysInMonth = new Date(currentYear, monthNum, 0).getDate();
-        const startDate = `${currentYear}-${month.padStart(2, "0")}-01`;
-
-        let endDate;
-        if (
-          monthNum === currentDate.getMonth() + 1 &&
-          currentYear === currentDate.getFullYear()
-        ) {
-          // Current month - use current date
-          const currentDay = currentDate.getDate();
-          endDate = `${currentYear}-${monthNum
-            .toString()
-            .padStart(2, "0")}-${currentDay.toString().padStart(2, "0")}`;
-        } else {
-          // Past month - use last day of month
-          endDate = `${currentYear}-${monthNum
-            .toString()
-            .padStart(2, "0")}-${daysInMonth.toString().padStart(2, "0")}`;
-        }
-
-        console.log(
-          `Fetching monthly games for month ${month}: ${startDate} to ${endDate}`,
-        );
-
-        // Fetch standings for start and end of month
-        const [startResponse, endResponse] = await Promise.all([
-          fetch(
-            `https://statsapi.mlb.com/api/v1/standings/regularSeason?season=${currentYear}&leagueId=104&fields=records,teamRecords,gamesPlayed&date=${startDate}`,
-          ),
-          fetch(
-            `https://statsapi.mlb.com/api/v1/standings/regularSeason?season=${currentYear}&leagueId=104&fields=records,teamRecords,gamesPlayed&date=${endDate}`,
-          ),
-        ]);
-
-        if (!startResponse.ok || !endResponse.ok) {
-          console.warn("Failed to fetch monthly standings data");
-          return 30; // Default estimate for monthly games
-        }
-
-        const [startData, endData] = await Promise.all([
-          startResponse.json(),
-          endResponse.json(),
-        ]);
-
-        let minMonthlyGames = 0;
-
-        // Calculate games played in the month by finding the difference
-        if (
-          startData.records &&
-          endData.records &&
-          Array.isArray(startData.records) &&
-          Array.isArray(endData.records)
-        ) {
-          let foundData = false;
-
-          // Handle case where one or both records arrays are empty
-          if (startData.records.length === 0 && endData.records.length === 0) {
-            console.log(
-              `Both start and end records empty for month ${month}, treating as 0 games played`,
-            );
-            return 0;
-          }
-
-          // If start month has no data, treat as 0 games played at start
-          if (startData.records.length === 0) {
-            console.log(
-              `Start of month ${month} has no records, using 0 as starting games`,
-            );
-            // Use end month data as the total games played in the month
-            for (const record of endData.records) {
-              if (record.teamRecords && Array.isArray(record.teamRecords)) {
-                for (const teamRecord of record.teamRecords) {
-                  if (teamRecord.gamesPlayed !== undefined) {
-                    const monthlyGames = teamRecord.gamesPlayed; // Start from 0
-                    if (!foundData || monthlyGames < minMonthlyGames) {
-                      minMonthlyGames = monthlyGames;
-                      foundData = true;
-                    }
-                  }
-                }
-              }
-            }
-          }
-          // If end month has no data, treat as same games as start (0 games played in month)
-          else if (endData.records.length === 0) {
-            console.log(
-              `End of month ${month} has no records, treating as 0 games played in month`,
-            );
-            return 0;
-          }
-          // Both have data, calculate difference normally
-          else {
-            for (
-              let i = 0;
-              i < Math.min(startData.records.length, endData.records.length);
-              i++
-            ) {
-              const startRecord = startData.records[i];
-              const endRecord = endData.records[i];
-
-              if (
-                startRecord.teamRecords &&
-                endRecord.teamRecords &&
-                Array.isArray(startRecord.teamRecords) &&
-                Array.isArray(endRecord.teamRecords)
-              ) {
-                for (
-                  let j = 0;
-                  j <
-                  Math.min(
-                    startRecord.teamRecords.length,
-                    endRecord.teamRecords.length,
-                  );
-                  j++
-                ) {
-                  const startTeam = startRecord.teamRecords[j];
-                  const endTeam = endRecord.teamRecords[j];
-
-                  if (
-                    startTeam.gamesPlayed !== undefined &&
-                    endTeam.gamesPlayed !== undefined
-                  ) {
-                    const monthlyGames = Math.max(
-                      0,
-                      endTeam.gamesPlayed - startTeam.gamesPlayed,
-                    );
-
-                    if (!foundData || monthlyGames < minMonthlyGames) {
-                      minMonthlyGames = monthlyGames;
-                      foundData = true;
-                    }
-                  }
-                }
-              }
-            }
-          }
-
-          if (foundData) {
-            console.log(
-              `Minimum games played in month ${month}: ${minMonthlyGames}`,
-            );
-            return minMonthlyGames;
-          }
-        }
-        console.warn("Could not calculate monthly games, using default");
-        return 30; // Default estimate
-      } else {
-        // Season-long calculation (existing logic)
-        const response = await fetch(
-          `https://statsapi.mlb.com/api/v1/standings/regularSeason?season=${currentYear}&leagueId=104&fields=records,teamRecords,gamesPlayed`,
-        );
-
-        if (!response.ok) {
-          console.warn(
-            "Failed to fetch standings data, using default 162 games",
-          );
-          return 162;
-        }
-
-        const data = await response.json();
-        let minGamesPlayed = 162; // Default to full season
-
-        // Find the minimum games played across all teams
-        if (data.records && Array.isArray(data.records)) {
-          for (const record of data.records) {
-            if (record.teamRecords && Array.isArray(record.teamRecords)) {
-              for (const teamRecord of record.teamRecords) {
-                if (
-                  teamRecord.gamesPlayed &&
-                  teamRecord.gamesPlayed < minGamesPlayed
-                ) {
-                  minGamesPlayed = teamRecord.gamesPlayed;
-                }
-              }
-            }
-          }
-        }
-
-        console.log(`Minimum games played this season: ${minGamesPlayed}`);
-        return minGamesPlayed;
-      }
-    } catch (error) {
-      console.error("Error fetching minimum games played:", error);
-      return month ? 30 : 162; // Default based on whether it's monthly or seasonal
-    }
-  };
-
-  const calculatePlayerStatRankings = async (allPlayersData, playerStats) => {
-    const rankings = {};
-
-    // Extract all players' stats for comparison
-    const allPlayers = allPlayersData.stats?.[0]?.splits || [];
-
-    if (allPlayers.length === 0) {
-      console.log("No league data available for hitting rankings");
-      return rankings;
-    }
-
-    // Get current minimum games played for dynamic thresholds
-    const minGamesPlayed = await getMinimumGamesPlayed(selectedMonth);
-
-    // If no games played (future month), return empty rankings
-    if (minGamesPlayed === 0) {
-      console.log(
-        "No games played in selected period, returning empty rankings",
-      );
-      return {};
-    }
-
-    const minPlateAppearances = Math.floor(minGamesPlayed * 3.1); // 3.1 PA per game, rounded down
-
-    console.log(
-      `Calculating hitting rankings from ${allPlayers.length} players`,
-    );
-    console.log(
-      `Using minimum PA threshold: ${minPlateAppearances} (based on ${minGamesPlayed} games)${
-        selectedMonth ? ` for month ${selectedMonth}` : ""
-      }`,
-    );
-
-    // Helper function to calculate ranking for a stat
-    const calculateRanking = (statName, isLowerBetter = false) => {
-      const playerValue = parseFloat(playerStats[statName]) || 0;
-
-      // For counting stats, don't show ranking if value is 0
-      const countingStats = [
-        "hitByPitch",
-        "triples",
-        "stolenBases",
-        "caughtStealing",
-      ];
-      if (countingStats.includes(statName) && playerValue === 0) {
-        return { rank: 0, total: 0 };
-      }
-
-      // Get all valid values for comparison (filter out players with very limited playing time)
-      const validPlayers = allPlayers.filter((p) => {
-        const plateAppearances = parseFloat(p.stat.plateAppearances) || 0;
-        const value = parseFloat(p.stat[statName]);
-        return !isNaN(value) && plateAppearances >= minPlateAppearances; // Use dynamic minimum PA threshold
-      });
-
-      if (validPlayers.length === 0) return { rank: 0, total: 0 };
-
-      // Get all values and sort them
-      const allValues = validPlayers
-        .map((p) => parseFloat(p.stat[statName]) || 0)
-        .sort((a, b) => (isLowerBetter ? a - b : b - a));
-
-      // Find player's position in the sorted array
-      const position =
-        allValues.findIndex((value) =>
-          isLowerBetter ? value >= playerValue : value <= playerValue,
-        ) + 1;
-
-      // Return position if valid
-      return position <= allValues.length
-        ? { rank: position, total: allValues.length }
-        : { rank: 0, total: 0 };
-    };
-
-    // Calculate rankings for hitting stats
-    rankings.gamesPlayed = calculateRanking("gamesPlayed");
-    rankings.plateAppearances = calculateRanking("plateAppearances");
-    rankings.atBats = calculateRanking("atBats");
-    rankings.avg = calculateRanking("avg");
-    rankings.obp = calculateRanking("obp");
-    rankings.slg = calculateRanking("slg");
-    rankings.ops = calculateRanking("ops");
-    rankings.hits = calculateRanking("hits");
-    rankings.homeRuns = calculateRanking("homeRuns");
-    rankings.doubles = calculateRanking("doubles");
-    rankings.triples = calculateRanking("triples");
-    rankings.runs = calculateRanking("runs");
-    rankings.rbi = calculateRanking("rbi");
-    rankings.strikeOuts = calculateRanking("strikeOuts", true); // Lower is better for strikeouts
-    rankings.baseOnBalls = calculateRanking("baseOnBalls");
-    rankings.stolenBases = calculateRanking("stolenBases");
-
-    console.log("Calculated hitting rankings:", rankings);
-    return rankings;
-  };
-
-  const calculatePitcherStatRankings = async (allPlayersData, playerStats) => {
-    const rankings = {};
-
-    // Extract all players' stats for comparison
-    const allPlayers = allPlayersData.stats?.[0]?.splits || [];
-
-    if (allPlayers.length === 0) {
-      console.log("No league data available for pitching rankings");
-      return rankings;
-    }
-
-    // Get current minimum games played for dynamic thresholds
-    const minGamesPlayed = await getMinimumGamesPlayed(selectedMonth);
-
-    // If no games played (future month), return empty rankings
-    if (minGamesPlayed === 0) {
-      console.log(
-        "No games played in selected period, returning empty rankings",
-      );
-      return {};
-    }
-
-    const minInningsPitched = minGamesPlayed * 1.0; // 1.0 IP per game
-
-    console.log(
-      `Calculating pitcher rankings from ${allPlayers.length} players`,
-    );
-    console.log(
-      `Using minimum IP threshold: ${minInningsPitched} (based on ${minGamesPlayed} games)${
-        selectedMonth ? ` for month ${selectedMonth}` : ""
-      }`,
-    );
-
-    // Helper function to calculate ranking for a pitching stat
-    const calculateRanking = (statName, isLowerBetter = false) => {
-      const playerValue = parseFloat(playerStats[statName]) || 0;
-
-      // For counting stats, don't show ranking if value is 0
-      const countingStats = ["saves", "holds", "completeGames", "shutouts"];
-      if (countingStats.includes(statName) && playerValue === 0) {
-        return { rank: 0, total: 0 };
-      }
-
-      // Get all valid values for comparison (filter out players with very limited playing time)
-      const validPitchers = allPlayers.filter((p) => {
-        const inningsPitched = parseFloat(p.stat.inningsPitched) || 0;
-        const value = parseFloat(p.stat[statName]);
-        return !isNaN(value) && inningsPitched >= minInningsPitched; // Pitchers need at least 1 inning per game
-      });
-
-      if (validPitchers.length === 0) return { rank: 0, total: 0 };
-
-      // Get all values and sort them
-      const allValues = validPitchers
-        .map((p) => parseFloat(p.stat[statName]) || 0)
-        .sort((a, b) => (isLowerBetter ? a - b : b - a));
-
-      // Find player's position in the sorted array
-      const position =
-        allValues.findIndex((value) =>
-          isLowerBetter ? value >= playerValue : value <= playerValue,
-        ) + 1;
-
-      // Return position if valid
-      return position <= allValues.length
-        ? { rank: position, total: allValues.length }
-        : { rank: 0, total: 0 };
-    };
-
-    // Calculate rankings for pitching stats
-    rankings.gamesPlayed = calculateRanking("gamesPlayed");
-    rankings.gamesStarted = calculateRanking("gamesStarted");
-    rankings.inningsPitched = calculateRanking("inningsPitched");
-    rankings.wins = calculateRanking("wins");
-    rankings.losses = calculateRanking("losses", true); // Lower losses is better
-    rankings.saves = calculateRanking("saves");
-    rankings.era = calculateRanking("era", true); // Lower ERA is better
-    rankings.whip = calculateRanking("whip", true); // Lower WHIP is better
-    rankings.strikeOuts = calculateRanking("strikeOuts");
-    rankings.baseOnBalls = calculateRanking("baseOnBalls", true); // Lower walks is better
-    rankings.hits = calculateRanking("hits", true); // Lower hits allowed is better
-    rankings.homeRuns = calculateRanking("homeRuns", true); // Lower home runs allowed is better
-    rankings.strikeoutsPer9Inn = calculateRanking("strikeoutsPer9Inn");
-    rankings.walksPer9Inn = calculateRanking("walksPer9Inn", true); // Lower BB/9 is better
-    rankings.hitsPer9Inn = calculateRanking("hitsPer9Inn", true); // Lower H/9 is better
-    rankings.strikeoutWalkRatio = calculateRanking("strikeoutWalkRatio");
-
-    console.log("Calculated pitcher rankings:", rankings);
-    return rankings;
-  };
-
-  const getMonthName = (monthNumber) => {
-    const months = [
-      "",
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ];
-    return months[parseInt(monthNumber)] || "";
-  };
-
-  const handleMonthChange = (month) => {
-    // Validate that we're not selecting a future month
-    if (month && month !== "") {
-      const currentDate = new Date();
-      const currentMonth = currentDate.getMonth() + 1;
-      const selectedMonthNum = parseInt(month);
-
-      if (selectedMonthNum > currentMonth) {
-        console.warn(
-          `Cannot select future month ${selectedMonthNum}, current month is ${currentMonth}`,
-        );
-        return; // Don't change the month
-      }
-    }
-
-    setSelectedMonth(month);
-    setPlayerStats(null); // Reset stats to trigger refetch
-    setStatRankings(null);
-    setLeagueStats(null);
-  };
-
-  const renderPlayerHeader = () => {
-    if (!playerData) return null;
-
-    // Function to get MLB team abbreviation from team ID (similar to ScoreboardScreen)
-    const getMLBTeamAbbreviation = (team) => {
-      // MLB team ID to abbreviation mapping
-      const teamMapping = {
-        108: "LAA",
-        117: "HOU",
-        133: "OAK",
-        141: "TOR",
-        144: "ATL",
-        158: "MIL",
-        138: "STL",
-        112: "CHC",
-        109: "ARI",
-        119: "LAD",
-        137: "SF",
-        114: "CLE",
-        136: "SEA",
-        146: "MIA",
-        121: "NYM",
-        120: "WSH",
-        110: "BAL",
-        135: "SD",
-        143: "PHI",
-        134: "PIT",
-        140: "TEX",
-        139: "TB",
-        111: "BOS",
-        113: "CIN",
-        115: "COL",
-        118: "KC",
-        116: "DET",
-        142: "MIN",
-        145: "CWS",
-        147: "NYY",
-        // Alternative mappings
-        11: "OAK", // Sometimes Athletics use different ID
-      };
-
-      console.log(
-        "Team ID:",
-        team?.id,
-        "Team abbreviation from API:",
-        team?.abbreviation,
-      );
-
-      // First try direct abbreviation if available
-      if (team?.abbreviation) {
-        return team.abbreviation;
-      }
-
-      // Then try ID mapping
-      const abbr = teamMapping[team?.id?.toString()];
-      if (abbr) {
-        console.log(
-          "Using ID mapping for team ID:",
-          team.id,
-          "-> abbreviation:",
-          abbr,
-        );
-        return abbr;
-      }
-
-      console.warn(
-        "No abbreviation mapping found for team ID:",
-        team?.id,
-        "Using fallback",
-      );
-      return team?.name?.substring(0, 3)?.toUpperCase() || "MLB";
-    };
-
-    // Get team logo URL using the theme function
-    const getTeamLogoUrl = (teamAbbreviation) => {
-      if (!teamAbbreviation)
-        return "https://via.placeholder.com/24x24?text=MLB";
-      return getThemeTeamLogoUrl("mlb", teamAbbreviation);
-    };
-
+  // ── Derived values ─────────────────────────────────────────────────────────
+
+  const displayName = player?.fullName ?? routePlayerName ?? "Player";
+  const positionName = player?.primaryPosition?.name ?? "";
+  const jersey = player?.primaryNumber ? `#${player.primaryNumber}` : "";
+
+  // Current team: most recent game log entry → most recent yearByYear R split
+  const rawGameLogSplits =
+    playerStats?.stats?.find((s) => s.type?.displayName === "gameLog")?.splits ?? [];
+  const gameLogTeamName =
+    rawGameLogSplits.length > 0
+      ? rawGameLogSplits[rawGameLogSplits.length - 1]?.team?.name ?? null
+      : null;
+
+  const ybyRawSplits =
+    playerStats?.stats?.find((s) => s.type?.displayName === "yearByYear")?.splits ?? [];
+  const recentYBYTeamName =
+    [...ybyRawSplits]
+      .filter((s) => s.gameType === "R" && s.team?.name)
+      .sort((a, b) => Number(b.season) - Number(a.season))[0]?.team?.name ?? null;
+
+  const teamName = routeTeamName || gameLogTeamName || recentYBYTeamName || "";
+  const teamColor = teamName
+    ? MLBService.getTeamColor(teamName)
+    : colors.primary;
+
+  // Text on a solid teamColor background
+  const headerTextColor = getTextOnColor(teamColor);
+  const isTwoWayPlayer = player?.primaryPosition?.code === "Y";
+  // Primary position code "1" = Pitcher (SP/RP); two-way players handled separately
+  const isPitcher =
+    !isTwoWayPlayer &&
+    (player?.primaryPosition?.code === "1" ||
+      player?.primaryPosition?.abbreviation === "P");
+
+  const teamLogoUrl = teamName
+    ? MLBService.getLogoUrl(teamName, null, isDarkMode ? "dark" : "light")
+    : null;
+
+  const headshotUrl = playerId
+    ? `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${playerId}/headshot/67/current`
+    : null;
+
+  // ── Scroll-driven sticky animations ───────────────────────────────────────
+
+  const threshold = Math.max(headerHeight - 40, 80);
+
+  const stickyOpacity = scrollY.interpolate({
+    inputRange: [threshold, threshold + 40],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+  const stickyMiniHeight = scrollY.interpolate({
+    inputRange: [threshold, threshold + 40],
+    outputRange: [0, 60],
+    extrapolate: "clamp",
+  });
+
+  // ── Loading ────────────────────────────────────────────────────────────────
+
+  if (loading) {
     return (
-      <View style={[styles.playerHeader, { backgroundColor: theme.surface }]}>
-        <Image
-          source={{
-            uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${playerData.id}/headshot/67/current`,
-          }}
-          style={styles.playerHeadshot}
-          defaultSource={{ uri: "https://via.placeholder.com/80x80?text=MLB" }}
+      <View style={[styles.screen, { backgroundColor: theme.background }]}>
+        <ActivityIndicator
+          size="large"
+          color={colors.primary}
+          style={{ marginTop: 120 }}
         />
-        <View style={styles.playerInfo}>
-          <Text
-            allowFontScaling={false}
-            style={[styles.playerName, { color: theme.text }]}
-          >
-            {playerData.fullName}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.playerDetails, { color: theme.textSecondary }]}
-          >
-            #{playerData.primaryNumber || "--"} •{" "}
-            {playerData.primaryPosition?.name || "N/A"} •{" "}
-            {playerData.batSide?.code || "N/A"}/
-            {playerData.pitchHand?.code || "N/A"}
-          </Text>
-          {playerData.currentTeam && (
-            <View style={styles.teamContainer}>
-              <TeamLogoImage
-                source={{
-                  uri: getTeamLogoUrl(
-                    getMLBTeamAbbreviation(playerData.currentTeam),
-                  ),
-                }}
-                style={styles.teamLogo}
-                defaultSource={{
-                  uri: "https://via.placeholder.com/24x24?text=MLB",
-                }}
-              />
-              <Text
-                allowFontScaling={false}
-                style={[styles.teamName, { color: theme.textSecondary }]}
-              >
-                {playerData.currentTeam.name}
-              </Text>
-            </View>
-          )}
-        </View>
       </View>
     );
-  };
+  }
 
-  const renderTabButtons = () => {
-    const tabs = ["Stats", "Game Log", "Career", "VS Team"];
+  // ── Player tab renderer ───────────────────────────────────────────────────
 
-    return (
-      <>
-        {tabs.map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[
-              styles.tabButton,
-              activeTab === tab && styles.activeTabButton,
-              {
-                borderBottomColor:
-                  activeTab === tab ? colors.primary : "transparent",
-              },
-            ]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text
-              allowFontScaling={false}
+  const renderPlayerTab = () => {
+    if (!playerStats) {
+      return (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="small" color={teamColor} />
+        </View>
+      );
+    }
+
+    const currentYear = String(new Date().getFullYear());
+    const rankOnColor = getTextOnColor(teamColor);
+
+    // Helper: find a stats entry by type + optional group
+    const findGroup = (typeName, groupName) =>
+      playerStats.stats?.find(
+        (s) =>
+          s.type?.displayName === typeName &&
+          (groupName == null || s.group?.displayName === groupName),
+      );
+
+    // Helper: resolve the current-season R split from a splits array
+    const resolveSeasonSplit = (splits) =>
+      splits.find((s) => s.season === currentYear && s.gameType === "R") ??
+      splits.find((s) => s.season === "2025" && s.gameType === "R") ??
+      null;
+
+    // ── Fetch hitting splits (two-way uses group filter, others use first match)
+    const hitYBY = isTwoWayPlayer
+      ? (findGroup("yearByYear", "hitting")?.splits ?? [])
+      : (findGroup("yearByYear", null)?.splits ?? []);
+    const pitchYBY = isTwoWayPlayer
+      ? (findGroup("yearByYear", "pitching")?.splits ?? [])
+      : [];
+
+    const hitSeasonSplit = resolveSeasonSplit(hitYBY);
+    const pitchSeasonSplit = isTwoWayPlayer ? resolveSeasonSplit(pitchYBY) : null;
+
+    // Season label is driven by whichever split we found (hitting preferred)
+    const refSplit = hitSeasonSplit ?? pitchSeasonSplit;
+    const seasonLabel = refSplit?.season ? `${refSplit.season} Season` : "Season";
+    const isYearFallback = refSplit?.season === "2025" && currentYear !== "2025";
+    const projectedLabel = isYearFallback ? `${currentYear} Projected` : "Projected";
+
+    // ── Projected stats (group-aware for two-way)
+    const hitProjectedStat = isTwoWayPlayer
+      ? (findGroup("projected", "hitting")?.splits[0]?.stat ?? null)
+      : (findGroup("projected", null)?.splits[0]?.stat ?? null);
+    const pitchProjectedStat = isTwoWayPlayer
+      ? (findGroup("projected", "pitching")?.splits[0]?.stat ?? null)
+      : null;
+
+    // ── Rankings (group-aware for two-way)
+    const resolveRankings = (groupName) => {
+      const splits = findGroup("rankingsByYear", groupName)?.splits ?? [];
+      return (
+        splits.find((s) => s.season === currentYear && s.gameType === "R")?.stat ??
+        splits.find((s) => s.season === "2025" && s.gameType === "R")?.stat ??
+        {}
+      );
+    };
+    const hitRankings = resolveRankings(isTwoWayPlayer ? "hitting" : null);
+    const pitchRankings = isTwoWayPlayer ? resolveRankings("pitching") : {};
+
+    // ── Low-level chip grid (defs + rankings parameterised)
+    const renderChips = (statObj, defs, showRankings, rankingsObj) => {
+      if (!statObj) return null;
+      const entries = defs.filter((d) => statObj[d.key] != null);
+      if (entries.length === 0) return null;
+      return (
+        <View style={pStyles.chipsGrid}>
+          {entries.map((d) => {
+            const rank = showRankings ? (rankingsObj ?? {})[d.key] : null;
+            return (
+              <View key={d.key} style={[pStyles.chip, { backgroundColor: theme.background }]}>
+                {rank != null && (
+                  <View style={[pStyles.rankBadge, { backgroundColor: teamColor }]}>
+                    <Text allowFontScaling={false} style={[pStyles.rankText, { color: rankOnColor }]}>
+                      #{rank}
+                    </Text>
+                  </View>
+                )}
+                <Text
+                  allowFontScaling={false}
+                  style={[pStyles.chipValue, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {typeof statObj[d.key] === "number"
+                    ? Number.isInteger(statObj[d.key])
+                      ? statObj[d.key]
+                      : Number(statObj[d.key].toFixed(3))
+                    : statObj[d.key]}
+                </Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[pStyles.chipLabel, { color: theme.textSecondary }]}
+                  numberOfLines={1}
+                >
+                  {d.label}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      );
+    };
+
+    // ── Stat bubble — single role player
+    const renderStatGrid = (statObj, title, showRankings = false) => {
+      const defs = isPitcher ? PITCHING_STAT_DEFS : HITTING_STAT_DEFS;
+      if (!statObj) return null;
+      const entries = defs.filter((d) => statObj[d.key] != null);
+      if (entries.length === 0) return null;
+      return (
+        <View style={[pStyles.bubble, { backgroundColor: theme.surface }]}>
+          <Text allowFontScaling={false} style={[pStyles.bubbleTitle, { color: theme.textSecondary }]}>
+            {title}
+          </Text>
+          {renderChips(statObj, defs, showRankings, hitRankings)}
+        </View>
+      );
+    };
+
+    // ── Stat bubble — two-way player (hitting + pitching sections)
+    const renderTwoWayStatBubble = (hitStat, pitchStat, title, showRankings = false) => {
+      const hasHit = hitStat && HITTING_STAT_DEFS.some((d) => hitStat[d.key] != null);
+      const hasPitch = pitchStat && PITCHING_STAT_DEFS.some((d) => pitchStat[d.key] != null);
+      if (!hasHit && !hasPitch) return null;
+      return (
+        <View style={[pStyles.bubble, { backgroundColor: theme.surface }]}>
+          <Text allowFontScaling={false} style={[pStyles.bubbleTitle, { color: theme.textSecondary }]}>
+            {title}
+          </Text>
+          {hasHit && (
+            <>
+              <View style={[pStyles.groupHeader, { borderLeftColor: teamColor }]}>
+                <Text allowFontScaling={false} style={[pStyles.groupLabel, { color: teamColor }]}>
+                  Hitting
+                </Text>
+              </View>
+              {renderChips(hitStat, HITTING_STAT_DEFS, showRankings, hitRankings)}
+            </>
+          )}
+          {hasHit && hasPitch && (
+            <View style={[pStyles.groupDivider, { backgroundColor: theme.border }]} />
+          )}
+          {hasPitch && (
+            <>
+              <View style={[pStyles.groupHeader, { borderLeftColor: teamColor }]}>
+                <Text allowFontScaling={false} style={[pStyles.groupLabel, { color: teamColor }]}>
+                  Pitching
+                </Text>
+              </View>
+              {renderChips(pitchStat, PITCHING_STAT_DEFS, showRankings, pitchRankings)}
+            </>
+          )}
+        </View>
+      );
+    };
+
+    // ── Player bio
+    const formatBirthDate = (d) => {
+      if (!d) return null;
+      try {
+        const [y, m, day] = d.split("-");
+        return new Date(Number(y), Number(m) - 1, Number(day)).toLocaleDateString(
+          "en-US",
+          { year: "numeric", month: "long", day: "numeric" },
+        );
+      } catch { return d; }
+    };
+
+    const bioRows = [
+      { label: "Birth Date",   value: formatBirthDate(player?.birthDate) },
+      { label: "Age",          value: player?.currentAge != null ? String(player.currentAge) : null },
+      { label: "Birthplace",   value: [player?.birthStateProvince, player?.birthCountry].filter(Boolean).join(", ") || null },
+      { label: "Height",       value: player?.height ?? null },
+      { label: "Weight",       value: player?.weight != null ? `${player.weight} lbs` : null },
+      { label: "Nickname",     value: player?.nickName ?? null },
+      { label: "Draft Year",   value: player?.draftYear != null ? String(player.draftYear) : null },
+      { label: "MLB Debut",    value: formatBirthDate(player?.mlbDebutDate) },
+      { label: "Bats",         value: player?.batSide?.code ?? null },
+      { label: "Throws",       value: player?.pitchHand?.code ?? null },
+    ].filter((r) => r.value);
+
+    const renderBioCard = () => {
+      if (!player || bioRows.length === 0) return null;
+      return (
+        <View style={[pStyles.bubble, { backgroundColor: theme.surface }]}>
+          <Text allowFontScaling={false} style={[pStyles.bubbleTitle, { color: theme.textSecondary }]}>
+            Player Info
+          </Text>
+          {bioRows.map((row, i) => (
+            <View
+              key={row.label}
               style={[
-                styles.tabText,
-                activeTab === tab && styles.activeTabText,
-                {
-                  color:
-                    activeTab === tab ? colors.primary : theme.textSecondary,
+                pStyles.bioRow,
+                i < bioRows.length - 1 && {
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: theme.border,
                 },
               ]}
             >
-              {tab}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </>
+              <Text allowFontScaling={false} style={[pStyles.bioLabel, { color: theme.textSecondary }]}>
+                {row.label}
+              </Text>
+              <Text allowFontScaling={false} style={[pStyles.bioValue, { color: theme.text }]}>
+                {row.value}
+              </Text>
+            </View>
+          ))}
+        </View>
+      );
+    };
+
+    const hasAny = hitSeasonSplit || pitchSeasonSplit || hitProjectedStat || pitchProjectedStat;
+    if (!hasAny) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+            No stats available
+          </Text>
+        </View>
+      );
+    }
+
+    if (isTwoWayPlayer) {
+      return (
+        <View style={pStyles.container}>
+          {renderTwoWayStatBubble(
+            hitSeasonSplit?.stat ?? null,
+            pitchSeasonSplit?.stat ?? null,
+            seasonLabel,
+            true,
+          )}
+          {renderTwoWayStatBubble(hitProjectedStat, pitchProjectedStat, projectedLabel, false)}
+          {renderBioCard()}
+        </View>
+      );
+    }
+
+    return (
+      <View style={pStyles.container}>
+        {renderStatGrid(hitSeasonSplit?.stat ?? null, seasonLabel, true)}
+        {renderStatGrid(hitProjectedStat, projectedLabel, false)}
+        {renderBioCard()}
+      </View>
     );
   };
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case "Stats":
-        return renderStatsContent();
-      case "Game Log":
-        return renderGameLogContent();
-      case "Career":
-        return renderCareerContent();
-      case "VS Team":
-        return renderVsTeamContent();
-      case "Splits":
-        return (
-          <View
-            style={[
-              styles.contentContainer,
-              { backgroundColor: theme.background },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.contentText, { color: theme.textSecondary }]}
-            >
-              Split statistics will be implemented here
-            </Text>
-          </View>
-        );
-      default:
-        return null;
-    }
-  };
+  // ── Game Log tab renderer ─────────────────────────────────────────────────
 
-  const renderStatsContent = () => {
-    if (loadingStats) {
+  const renderGameLogTab = () => {
+    if (!playerStats) {
       return (
-        <View
-          style={[
-            styles.statsLoadingContainer,
-            { backgroundColor: theme.background },
-          ]}
-        >
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text
-            allowFontScaling={false}
-            style={[styles.contentText, { color: theme.textSecondary }]}
-          >
-            Loading player statistics...
-          </Text>
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="small" color={teamColor} />
         </View>
       );
     }
 
-    if (!playerStats || (!playerStats.hitting && !playerStats.pitching)) {
-      return (
-        <View
-          style={[
-            styles.contentContainer,
-            { backgroundColor: theme.background },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.contentText, { color: theme.textSecondary }]}
-          >
-            No statistics available
-          </Text>
-        </View>
-      );
-    }
+    // Build a unified list of game entries.
+    // For two-way players, hitting and pitching game logs are merged by gamePk.
+    // Each entry: { base, hitSplit, pitchSplit }
+    const logSplits = (() => {
+      if (isTwoWayPlayer) {
+        const allEntries = playerStats.stats ?? [];
+        const getGroupLog = (groupName) =>
+          allEntries
+            .filter(
+              (s) =>
+                s.type?.displayName === "gameLog" &&
+                s.group?.displayName === groupName,
+            )
+            .flatMap((s) => (s.splits ?? []).filter((sp) => sp.stat));
 
-    const renderStatBox = (label, value, key, ranking = null) => {
-      let displayValue = value;
-      if (value !== undefined && value !== null && !isNaN(value)) {
-        if (typeof value === "number") {
-          displayValue = value % 1 === 0 ? value.toString() : value.toFixed(3);
-        }
-      } else {
-        displayValue = "--";
-      }
+        const hitLog = getGroupLog("hitting").slice().reverse();
+        const pitchLog = getGroupLog("pitching").slice().reverse();
 
-      return (
-        <View
-          key={key}
-          style={[styles.statBox, { backgroundColor: theme.surface }]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.statBoxValue, { color: colors.primary }]}
-          >
-            {displayValue}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-          >
-            {label}
-          </Text>
-          {ranking && ranking.total > 0 && (
-            <Text
-              allowFontScaling={false}
-              style={[styles.statBoxRanking, { color: theme.textTertiary }]}
-            >
-              #{ranking.rank} in MLB
-            </Text>
-          )}
-        </View>
-      );
-    };
+        const gameMap = new Map();
+        hitLog.forEach((split) => {
+          const pk = split.game?.gamePk ?? split.gamePk;
+          if (pk == null) return;
+          gameMap.set(pk, { base: split, hitSplit: split, pitchSplit: null });
+        });
+        pitchLog.forEach((split) => {
+          const pk = split.game?.gamePk ?? split.gamePk;
+          if (pk == null) return;
+          if (gameMap.has(pk)) {
+            gameMap.get(pk).pitchSplit = split;
+          } else {
+            gameMap.set(pk, { base: split, hitSplit: null, pitchSplit: split });
+          }
+        });
 
-    const renderStatsGrid = (stats, title, statDefinitions, rankings) => {
-      const statsRows = [];
-      for (let i = 0; i < statDefinitions.length; i += 3) {
-        const rowStats = statDefinitions.slice(i, i + 3);
-        statsRows.push(
-          <View key={i} style={styles.statsRow}>
-            {rowStats.map(({ key, label }) => {
-              const value = stats[key];
-              const ranking = rankings ? rankings[key] : null;
-              return renderStatBox(label, value, `${title}-${key}`, ranking);
-            })}
-          </View>,
+        // Sort by date descending (most recent first)
+        return [...gameMap.values()].sort(
+          (a, b) =>
+            new Date(b.base.date ?? 0).getTime() -
+            new Date(a.base.date ?? 0).getTime(),
         );
       }
-      return statsRows;
+
+      // Non-two-way: wrap in unified shape
+      const seen = new Set();
+      const raw = (
+        playerStats.stats?.find((s) => s.type?.displayName === "gameLog")?.splits ?? []
+      )
+        .filter((s) => s.stat)
+        .slice()
+        .reverse()
+        .filter((s) => {
+          const pk = s.game?.gamePk ?? s.gamePk;
+          if (pk == null) return true;
+          if (seen.has(pk)) return false;
+          seen.add(pk);
+          return true;
+        });
+
+      return raw.map((s) => ({
+        base: s,
+        hitSplit: isPitcher ? null : s,
+        pitchSplit: isPitcher ? s : null,
+      }));
+    })();
+
+    if (logSplits.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+            No games found
+          </Text>
+        </View>
+      );
+    }
+
+    const formatGameDate = (d) => {
+      if (!d) return "";
+      try {
+        return new Date(d).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        });
+      } catch { return d; }
     };
+
+    const buildStatSummary = (stat) => {
+      if (!stat) return null;
+      if (stat.summary) {
+        return stat.summary.replace(/,/g, " ·");};
+    };
+
+    const playerTeamLogoUrl = teamName
+      ? MLBService.getLogoUrl(teamName, null, isDarkMode ? "dark" : "light")
+      : null;
+
+    const PAGE_SIZE = 30;
+    const totalPages = Math.ceil(logSplits.length / PAGE_SIZE);
+    const pageSplits = logSplits.slice(gameLogPage * PAGE_SIZE, (gameLogPage + 1) * PAGE_SIZE);
 
     return (
-      <ScrollView
-        style={[styles.statsContainer, { backgroundColor: theme.background }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.statsContent}>
-          {/* Month Selection */}
-          <View
-            style={[styles.monthSelector, { backgroundColor: theme.surface }]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.monthSelectorLabel, { color: theme.text }]}
-            >
-              Filter by month:
-            </Text>
-            <View style={styles.monthOptions}>
-              <TouchableOpacity
-                style={[
-                  styles.monthOption,
-                  selectedMonth === "" && styles.selectedMonthOption,
-                  {
-                    backgroundColor:
-                      selectedMonth === ""
-                        ? colors.secondary
-                        : theme.surfaceSecondary,
-                    borderColor: theme.border,
-                  },
-                ]}
-                onPress={() => handleMonthChange("")}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.monthOptionText,
-                    { color: selectedMonth === "" ? "#fff" : theme.text },
-                  ]}
-                >
-                  Full Season
-                </Text>
-              </TouchableOpacity>
-              {[3, 4, 5, 6, 7, 8, 9, 10, 11]
-                .filter((month) => {
-                  const currentDate = new Date();
-                  const currentYear = currentDate.getFullYear();
-                  const currentMonth = currentDate.getMonth() + 1;
+      <View style={{ paddingTop: 6, paddingBottom: 40 }}>
+        {pageSplits.map((entry, idx) => {
+          const { base, hitSplit, pitchSplit } = entry;
+          const { date, gameType, isHome, isWin, opponent, game } = base;
+          const gamePk = game?.gamePk ?? base.gamePk;
+          const oppName = opponent?.name ?? "";
+          const oppColor = oppName
+            ? MLBService.getTeamColor(oppName) || "#888888"
+            : "#888888";
+          const oppLogoUrl = oppName
+            ? MLBService.getLogoUrl(oppName, null, isDarkMode ? "dark" : "light")
+            : null;
+          const gradId = `gl_${idx}`;
+          const isNotRegular = gameType && gameType !== "R";
+          const gameTypeLabel = isNotRegular
+            ? (GAME_TYPE_LABELS[gameType] ?? gameType)
+            : null;
 
-                  // Only show months up to the current month for the current year
-                  return (
-                    month <= currentMonth ||
-                    currentYear > new Date().getFullYear()
-                  );
-                })
-                .map((month) => (
-                  <TouchableOpacity
-                    key={month}
-                    style={[
-                      styles.monthOption,
-                      selectedMonth === month.toString() &&
-                        styles.selectedMonthOption,
-                      {
-                        backgroundColor:
-                          selectedMonth === month.toString()
-                            ? colors.primary
-                            : theme.surfaceSecondary,
-                        borderColor: theme.border,
-                      },
-                    ]}
-                    onPress={() => handleMonthChange(month.toString())}
+          // Position string: prefer hitting split's positionsPlayed, fallback to pitching
+          const positionsPlayed =
+            hitSplit?.positionsPlayed ?? pitchSplit?.positionsPlayed;
+          let posStr = "";
+          if (Array.isArray(positionsPlayed) && positionsPlayed.length > 0) {
+            posStr = positionsPlayed
+              .map((p) => p.name ?? p.abbreviation ?? p)
+              .filter(Boolean)
+              .join(" • ");
+          } else if (typeof positionsPlayed === "string" && positionsPlayed) {
+            posStr = positionsPlayed;
+          } else {
+            posStr = positionName;
+          }
+
+          const hitSummary = buildStatSummary(hitSplit?.stat);
+          const pitchSummary = buildStatSummary(pitchSplit?.stat);
+          const prefix = isHome ? "@" : "vs";
+
+          return (
+            <View key={idx} style={glStyles.cardWrap}>
+              <TouchableOpacity
+                style={[glStyles.card, { backgroundColor: theme.surface }]}
+                activeOpacity={0.75}
+                onPress={() =>
+                  gamePk != null &&
+                  navigation.navigate("GameDetails", {
+                    sport: "mlb",
+                    gamePk,
+                  })
+                }
+              >
+              {/* Gradient backdrop */}
+              <Svg
+                style={StyleSheet.absoluteFill}
+                width="100%"
+                height="100%"
+                pointerEvents="none"
+              >
+                <Defs>
+                  <SvgLinearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+                    <Stop offset="0%" stopColor={teamColor} stopOpacity="0.15" />
+                    <Stop offset="40%" stopColor={theme.surface} stopOpacity="0" />
+                    <Stop offset="60%" stopColor={theme.surface} stopOpacity="0" />
+                    <Stop offset="100%" stopColor={oppColor} stopOpacity="0.15" />
+                  </SvgLinearGradient>
+                </Defs>
+                <Rect width="100%" height="100%" fill={`url(#${gradId})`} />
+              </Svg>
+
+              {/* Main row */}
+              <View style={glStyles.cardInner}>
+                {/* Left: date + team logo */}
+                <View style={glStyles.leftCol}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[glStyles.dateText, { color: theme.textSecondary }]}
+                    numberOfLines={2}
                   >
-                    <Text
-                      allowFontScaling={false}
+                    {formatGameDate(date)}
+                  </Text>
+                  {playerTeamLogoUrl ? (
+                    <Image
+                      source={{ uri: playerTeamLogoUrl }}
+                      style={glStyles.leftLogo}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View
                       style={[
-                        styles.monthOptionText,
-                        {
-                          color:
-                            selectedMonth === month.toString()
-                              ? "#fff"
-                              : theme.text,
-                        },
+                        glStyles.leftLogoFallback,
+                        { backgroundColor: teamColor + "33" },
                       ]}
                     >
-                      {getMonthName(month.toString()).substring(0, 3)}
+                      <Text
+                        style={[glStyles.leftLogoFallbackText, { color: teamColor }]}
+                      >
+                        {(teamName[0] ?? "").toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Middle: positions + stat summary (stacked for two-way) */}
+                <View style={glStyles.middle}>
+                  {posStr ? (
+                    <Text
+                      allowFontScaling={false}
+                      style={[glStyles.positions, { color: theme.text }]}
+                      numberOfLines={1}
+                    >
+                      {posStr}
                     </Text>
-                  </TouchableOpacity>
-                ))}
-            </View>
-          </View>
+                  ) : null}
+                  {isTwoWayPlayer ? (
+                    <>
+                      {hitSummary ? (
+                        <Text
+                          allowFontScaling={false}
+                          style={[glStyles.statSummary, { color: theme.textSecondary }]}
+                          numberOfLines={1}
+                        >
+                          <Text style={{ color: teamColor, fontWeight: "700" }}>H: </Text>
+                          {hitSummary}
+                        </Text>
+                      ) : null}
+                      {pitchSummary ? (
+                        <Text
+                          allowFontScaling={false}
+                          style={[glStyles.statSummary, { color: theme.textSecondary }]}
+                          numberOfLines={1}
+                        >
+                          <Text style={{ color: teamColor, fontWeight: "700" }}>P: </Text>
+                          {pitchSummary}
+                        </Text>
+                      ) : null}
+                      {!hitSummary && !pitchSummary ? (
+                        <Text
+                          allowFontScaling={false}
+                          style={[glStyles.statSummary, { color: theme.textSecondary }]}
+                        >
+                          —
+                        </Text>
+                      ) : null}
+                    </>
+                  ) : (
+                    <Text
+                      allowFontScaling={false}
+                      style={[glStyles.statSummary, { color: theme.textSecondary }]}
+                      numberOfLines={2}
+                    >
+                      {hitSummary ?? pitchSummary ?? "—"}
+                    </Text>
+                  )}
+                </View>
 
-          {/* Hitting Stats */}
-          {playerStats.hitting && (
-            <View style={styles.statsSection}>
-              <Text
-                allowFontScaling={false}
-                style={[styles.statsSectionTitle, { color: colors.primary }]}
-              >
-                {selectedMonth ? `${getMonthName(selectedMonth)} ` : ""}Hitting
-                Statistics
-              </Text>
-              {renderStatsGrid(
-                playerStats.hitting,
-                "hitting",
-                [
-                  { key: "avg", label: "AVG" },
-                  { key: "obp", label: "OBP" },
-                  { key: "slg", label: "SLG" },
-                  { key: "ops", label: "OPS" },
-                  { key: "homeRuns", label: "HR" },
-                  { key: "rbi", label: "RBI" },
-                  { key: "runs", label: "Runs" },
-                  { key: "hits", label: "Hits" },
-                  { key: "doubles", label: "2B" },
-                  { key: "triples", label: "3B" },
-                  { key: "baseOnBalls", label: "BB" },
-                  { key: "strikeOuts", label: "SO" },
-                  { key: "stolenBases", label: "SB" },
-                  { key: "atBats", label: "AB" },
-                  { key: "plateAppearances", label: "PA" },
-                ],
-                statRankings?.hitting,
-              )}
-            </View>
-          )}
+                {/* Right: W/L bubble */}
+                {isWin != null && (
+                  <View
+                    style={[
+                      glStyles.wlBubble,
+                      {
+                        backgroundColor: isWin
+                          ? (theme.success ?? "#22C55E")
+                          : (theme.error ?? "#EF4444"),
+                      },
+                    ]}
+                  >
+                    <Text style={glStyles.wlText}>{isWin ? "W" : "L"}</Text>
+                  </View>
+                )}
+              </View>
 
-          {/* Pitching Stats */}
-          {playerStats.pitching && (
-            <View style={styles.statsSection}>
-              <Text
-                allowFontScaling={false}
-                style={[styles.statsSectionTitle, { color: colors.primary }]}
-              >
-                {selectedMonth ? `${getMonthName(selectedMonth)} ` : ""}Pitching
-                Statistics
-              </Text>
-              {renderStatsGrid(
-                playerStats.pitching,
-                "pitching",
-                [
-                  { key: "era", label: "ERA" },
-                  { key: "whip", label: "WHIP" },
-                  { key: "wins", label: "W" },
-                  { key: "losses", label: "L" },
-                  { key: "saves", label: "SV" },
-                  { key: "strikeOuts", label: "SO" },
-                  { key: "inningsPitched", label: "IP" },
-                  { key: "hits", label: "H" },
-                  { key: "baseOnBalls", label: "BB" },
-                  { key: "homeRuns", label: "HR" },
-                  { key: "strikeoutsPer9Inn", label: "K/9" },
-                  { key: "walksPer9Inn", label: "BB/9" },
-                  { key: "hitsPer9Inn", label: "H/9" },
-                  { key: "strikeoutWalkRatio", label: "K/BB" },
-                  { key: "gamesPlayed", label: "G" },
-                ],
-                statRankings?.pitching,
-              )}
-            </View>
-          )}
-        </View>
-      </ScrollView>
-    );
-  };
-
-  const renderGameLogContent = () => {
-    if (loadingGameLog) {
-      return (
-        <View
-          style={[
-            styles.statsLoadingContainer,
-            { backgroundColor: theme.background },
-          ]}
-        >
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text
-            allowFontScaling={false}
-            style={[styles.contentText, { color: theme.textSecondary }]}
-          >
-            Loading game log...
-          </Text>
-        </View>
-      );
-    }
-
-    if (!gameLogData || (!gameLogData.hitting && !gameLogData.pitching)) {
-      return (
-        <View
-          style={[
-            styles.contentContainer,
-            { backgroundColor: theme.background },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.contentText, { color: theme.textSecondary }]}
-          >
-            No game log data available
-          </Text>
-        </View>
-      );
-    }
-
-    // Combine and sort game log entries
-    const allGames = [];
-
-    // Add hitting games
-    if (gameLogData.hitting && Array.isArray(gameLogData.hitting)) {
-      gameLogData.hitting.forEach((game) => {
-        if (game && game.date) {
-          // Parse date in a timezone-neutral way to avoid day shifting
-          const [year, month, day] = game.date.split("-").map(Number);
-          const gameDate = new Date(year, month - 1, day); // month is 0-indexed
-          allGames.push({
-            ...game,
-            type: "hitting",
-            gameDate: gameDate,
-          });
-        }
-      });
-    }
-
-    // Add pitching games
-    if (gameLogData.pitching && Array.isArray(gameLogData.pitching)) {
-      gameLogData.pitching.forEach((game) => {
-        if (game && game.date) {
-          // Parse date in a timezone-neutral way to avoid day shifting
-          const [year, month, day] = game.date.split("-").map(Number);
-          const gameDate = new Date(year, month - 1, day); // month is 0-indexed
-          allGames.push({
-            ...game,
-            type: "pitching",
-            gameDate: gameDate,
-          });
-        }
-      });
-    }
-
-    // Sort by date (most recent first) and group by same date
-    allGames.sort((a, b) => b.gameDate - a.gameDate);
-
-    // Group games by date for two-way players
-    const groupedGames = [];
-    const processedDates = new Set();
-
-    allGames.forEach((game) => {
-      const dateStr = game.date;
-      if (!processedDates.has(dateStr)) {
-        const sameDate = allGames.filter((g) => g.date === dateStr);
-        groupedGames.push(sameDate);
-        processedDates.add(dateStr);
-      }
-    });
-
-    return (
-      <ScrollView
-        style={[styles.statsContainer, { backgroundColor: theme.background }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.gameLogContainer}>
-          {groupedGames.map((games, index) => renderGameLogItem(games, index))}
-        </View>
-      </ScrollView>
-    );
-  };
-
-  const renderGameLogItem = (games, index) => {
-    if (!games || !Array.isArray(games) || games.length === 0) {
-      return null;
-    }
-
-    const firstGame = games[0];
-    if (!firstGame || !firstGame.date) {
-      return null;
-    }
-
-    // Parse date in a timezone-neutral way to avoid day shifting
-    const dateStr = firstGame.date;
-    const [year, month, day] = dateStr.split("-").map(Number);
-    const gameDate = new Date(year, month - 1, day); // month is 0-indexed
-
-    const formattedDate = gameDate.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
-
-    return (
-      <View
-        key={index}
-        style={[styles.gameLogCard, { backgroundColor: theme.surface }]}
-      >
-        <Text
-          allowFontScaling={false}
-          style={[styles.gameLogDate, { color: theme.textSecondary }]}
-        >
-          {formattedDate}
-        </Text>
-
-        {games.map((game, gameIndex) => (
-          <View key={gameIndex}>
-            {gameIndex > 0 && (
+              {/* Bottom: opponent row */}
               <View
                 style={[
-                  styles.gameLogDivider,
-                  { backgroundColor: theme.border },
-                ]}
-              />
-            )}
-            {renderSingleGameLog(game)}
-          </View>
-        ))}
-      </View>
-    );
-  };
-
-  const renderSingleGameLog = (game) => {
-    // Safety checks for game object
-    if (!game || !game.stat) {
-      return null;
-    }
-
-    const opponent = game.opponent || {};
-    const team = game.team || {};
-    const isHome = game.isHome || false;
-    const isWin = game.isWin || false;
-    const gameId = game.game?.gamePk || null;
-
-    // Get team logos
-    const getTeamLogoUrl = (teamAbbreviation) => {
-      if (!teamAbbreviation)
-        return "https://via.placeholder.com/24x24?text=MLB";
-      return getThemeTeamLogoUrl("mlb", teamAbbreviation);
-    };
-
-    // Get team abbreviations (you might need to add a mapping function)
-    const getTeamAbbreviation = (teamName) => {
-      const nameToAbbr = {
-        "Los Angeles Dodgers": "LAD",
-        "Chicago Cubs": "CHC",
-        "San Diego Padres": "SD",
-        "New York Yankees": "NYY",
-        "Boston Red Sox": "BOS",
-        "Arizona Diamondbacks": "AZ",
-        "Atlanta Braves": "ATL",
-        "Baltimore Orioles": "BAL",
-        "Chicago White Sox": "CWS",
-        "Cincinnati Reds": "CIN",
-        "Cleveland Guardians": "CLE",
-        "Colorado Rockies": "COL",
-        "Detroit Tigers": "DET",
-        "Houston Astros": "HOU",
-        "Kansas City Royals": "KC",
-        "Los Angeles Angels": "LAA",
-        "Miami Marlins": "MIA",
-        "Milwaukee Brewers": "MIL",
-        "Minnesota Twins": "MIN",
-        "New York Mets": "NYM",
-        "Oakland Athletics": "OAK",
-        "Philadelphia Phillies": "PHI",
-        "Pittsburgh Pirates": "PIT",
-        "San Francisco Giants": "SF",
-        "Seattle Mariners": "SEA",
-        "St. Louis Cardinals": "STL",
-        "Tampa Bay Rays": "TB",
-        "Texas Rangers": "TEX",
-        "Toronto Blue Jays": "TOR",
-        "Washington Nationals": "WSH",
-      };
-      return (
-        nameToAbbr[teamName] ||
-        teamName?.substring(0, 3)?.toUpperCase() ||
-        "MLB"
-      );
-    };
-
-    const teamAbbr = getTeamAbbreviation(team?.name);
-    const oppAbbr = getTeamAbbreviation(opponent?.name);
-
-    // Get position played
-    const positionPlayed =
-      game.positionsPlayed?.[0]?.abbreviation ||
-      (game.type === "pitching" ? "P" : "DH");
-
-    // Handle navigation to game details
-    const handleGamePress = () => {
-      if (gameId) {
-        console.log("Navigating to game:", gameId);
-        navigation.navigate("GameDetails", {
-          gamePk: gameId,
-          sport: "mlb",
-        });
-      } else {
-        console.warn("Game ID not available for navigation");
-      }
-    };
-
-    // Handle stat detail press for detailed stats view
-    const handleStatPress = () => {
-      if (game && game.stat) {
-        setSelectedGameStats({
-          game: game,
-          playerName: playerData.fullName,
-          date: game.date,
-          opponent: opponent,
-          team: team,
-          isHome: isHome,
-          isWin: isWin,
-          gameId: gameId,
-          type: game.type,
-        });
-        setShowStatsModal(true);
-      }
-    };
-
-    return (
-      <View style={styles.singleGameLog}>
-        <TouchableOpacity
-          style={styles.gameLogHeader}
-          onPress={handleStatPress}
-          activeOpacity={0.7}
-        >
-          <Image
-            source={{
-              uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${playerData.id}/headshot/67/current`,
-            }}
-            style={styles.gameLogHeadshot}
-            defaultSource={{
-              uri: "https://via.placeholder.com/50x50?text=MLB",
-            }}
-          />
-          <View style={styles.gameLogInfo}>
-            <Text
-              allowFontScaling={false}
-              style={[styles.gameLogPlayerName, { color: theme.text }]}
-            >
-              {playerData.fullName} • {positionPlayed}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.gameLogStatSummary,
-                { color: theme.textSecondary },
-              ]}
-            >
-              {game.stat?.summary || "No stats available"}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.gameLogResult,
-              {
-                backgroundColor: isWin ? "#4CAF50" : "#f44336",
-              },
-            ]}
-          >
-            <Text allowFontScaling={false} style={styles.gameLogResultText}>
-              {isWin ? "W" : "L"}
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.gameLogTeams}
-          onPress={handleGamePress}
-          activeOpacity={0.7}
-          disabled={!gameId}
-        >
-          <TeamLogoImage
-            source={{ uri: getTeamLogoUrl(teamAbbr) }}
-            style={styles.gameLogTeamLogo}
-            defaultSource={{
-              uri: "https://via.placeholder.com/20x20?text=MLB",
-            }}
-          />
-          <Text
-            allowFontScaling={false}
-            style={[styles.gameLogTeamName, { color: theme.text }]}
-          >
-            {teamAbbr}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.gameLogVs, { color: theme.textSecondary }]}
-          >
-            {isHome ? "vs" : "@"}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.gameLogTeamName, { color: theme.text }]}
-          >
-            {oppAbbr}
-          </Text>
-          <TeamLogoImage
-            source={{ uri: getTeamLogoUrl(oppAbbr) }}
-            style={styles.gameLogTeamLogo}
-            defaultSource={{
-              uri: "https://via.placeholder.com/20x20?text=MLB",
-            }}
-          />
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  const renderDetailedStatsModal = () => {
-    if (!selectedGameStats) return null;
-
-    const {
-      game,
-      playerName,
-      date,
-      opponent,
-      team,
-      isHome,
-      isWin,
-      gameId,
-      type,
-    } = selectedGameStats;
-    const stats = game.stat;
-
-    // Parse date for display
-    const [year, month, day] = date.split("-").map(Number);
-    const gameDate = new Date(year, month - 1, day);
-    const formattedDate = gameDate.toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
-
-    const getTeamAbbreviation = (teamName) => {
-      const nameToAbbr = {
-        "Los Angeles Dodgers": "LAD",
-        "Chicago Cubs": "CHC",
-        "San Diego Padres": "SD",
-        "New York Yankees": "NYY",
-        "Boston Red Sox": "BOS",
-        "Arizona Diamondbacks": "AZ",
-        "Atlanta Braves": "ATL",
-        "Baltimore Orioles": "BAL",
-        "Chicago White Sox": "CWS",
-        "Cincinnati Reds": "CIN",
-        "Cleveland Guardians": "CLE",
-        "Colorado Rockies": "COL",
-        "Detroit Tigers": "DET",
-        "Houston Astros": "HOU",
-        "Kansas City Royals": "KC",
-        "Los Angeles Angels": "LAA",
-        "Miami Marlins": "MIA",
-        "Milwaukee Brewers": "MIL",
-        "Minnesota Twins": "MIN",
-        "New York Mets": "NYM",
-        "Oakland Athletics": "OAK",
-        "Philadelphia Phillies": "PHI",
-        "Pittsburgh Pirates": "PIT",
-        "San Francisco Giants": "SF",
-        "Seattle Mariners": "SEA",
-        "St. Louis Cardinals": "STL",
-        "Tampa Bay Rays": "TB",
-        "Texas Rangers": "TEX",
-        "Toronto Blue Jays": "TOR",
-        "Washington Nationals": "WSH",
-      };
-      return (
-        nameToAbbr[teamName] ||
-        teamName?.substring(0, 3)?.toUpperCase() ||
-        "MLB"
-      );
-    };
-
-    const teamAbbr = getTeamAbbreviation(team?.name);
-    const oppAbbr = getTeamAbbreviation(opponent?.name);
-
-    const renderStatRow = (label, value) => (
-      <View style={styles.modalStatRow}>
-        <Text
-          allowFontScaling={false}
-          style={[styles.modalStatLabel, { color: theme.textSecondary }]}
-        >
-          {label}
-        </Text>
-        <Text
-          allowFontScaling={false}
-          style={[styles.modalStatValue, { color: theme.text }]}
-        >
-          {value || "--"}
-        </Text>
-      </View>
-    );
-
-    const renderHittingStats = () => (
-      <View style={styles.modalStatsSection}>
-        <Text
-          allowFontScaling={false}
-          style={[styles.modalSectionTitle, { color: colors.primary }]}
-        >
-          Hitting Statistics
-        </Text>
-
-        {/* Main stats grid - top row */}
-        <View style={styles.modalStatsGrid}>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.hits || 0}/{stats.atBats || 0}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              H/AB
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.runs || 0}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              R
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.rbi || 0}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              RBI
-            </Text>
-          </View>
-        </View>
-
-        {/* Second row */}
-        <View style={styles.modalStatsGrid}>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.homeRuns || 0}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              HR
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.baseOnBalls || 0}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              BB
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.strikeOuts || 0}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              SO
-            </Text>
-          </View>
-        </View>
-
-        {/* Third row */}
-        <View style={styles.modalStatsGrid}>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.totalBases || 0}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              TB
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.stolenBases || 0}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              SB
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.leftOnBase || 0}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              LOB
-            </Text>
-          </View>
-        </View>
-
-        {/* Averages row */}
-        <View style={styles.modalStatsGrid}>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.avg ? parseFloat(stats.avg).toFixed(3) : ".000"}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              AVG
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.obp ? parseFloat(stats.obp).toFixed(3) : ".000"}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              OBP
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.slg ? parseFloat(stats.slg).toFixed(3) : ".000"}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              SLG
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
-
-    const renderPitchingStats = () => (
-      <View style={styles.modalStatsSection}>
-        <Text
-          allowFontScaling={false}
-          style={[styles.modalSectionTitle, { color: colors.primary }]}
-        >
-          Pitching Statistics
-        </Text>
-
-        {/* Main stats grid - top row */}
-        <View style={styles.modalStatsGrid}>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.inningsPitched || "0.0"}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              IP
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.hits || 0}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              H
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.runs || 0}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              R
-            </Text>
-          </View>
-        </View>
-
-        {/* Second row */}
-        <View style={styles.modalStatsGrid}>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.earnedRuns || 0}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              ER
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.baseOnBalls || 0}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              BB
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.strikeOuts || 0}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              SO
-            </Text>
-          </View>
-        </View>
-
-        {/* Third row */}
-        <View style={styles.modalStatsGrid}>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.homeRuns || 0}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              HR
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.numberOfPitches || 0}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              P
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.strikes || 0}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              S
-            </Text>
-          </View>
-        </View>
-
-        {/* Performance stats row */}
-        <View style={styles.modalStatsGrid}>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.era ? parseFloat(stats.era).toFixed(2) : "0.00"}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              ERA
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.whip ? parseFloat(stats.whip).toFixed(2) : "0.00"}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              WHIP
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.modalStatCard,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: isDarkMode ? "#fff" : "#000",
-              },
-            ]}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalStatCardValue, { color: theme.text }]}
-            >
-              {stats.decisions || "--"}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.modalStatCardLabel,
-                { color: theme.textSecondary },
-              ]}
-            >
-              DEC
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
-
-    return (
-      <Modal
-        visible={showStatsModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowStatsModal(false)}
-      >
-        <View
-          style={[styles.modalContainer, { backgroundColor: theme.background }]}
-        >
-          <View
-            style={[styles.modalHeader, { backgroundColor: theme.surface }]}
-          >
-            <TouchableOpacity
-              onPress={() => setShowStatsModal(false)}
-              style={styles.modalCloseButton}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[styles.modalCloseText, { color: colors.primary }]}
-              >
-                Close
-              </Text>
-            </TouchableOpacity>
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalTitle, { color: theme.text }]}
-            >
-              Game Stats
-            </Text>
-            <TouchableOpacity
-              onPress={() => {
-                if (gameId) {
-                  setShowStatsModal(false);
-                  // Use requestAnimationFrame to ensure modal closes before navigation
-                  requestAnimationFrame(() => {
-                    navigation.navigate("GameDetails", { 
-                      gamePk: gameId,
-                      sport: "mlb",
-                    });
-                  });
-                }
-              }}
-              style={styles.modalGameButton}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[styles.modalGameText, { color: colors.primary }]}
-              >
-                View Game
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            style={styles.modalContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <View
-              style={[
-                styles.modalGameHeader,
-                { backgroundColor: theme.surface },
-              ]}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[styles.modalDate, { color: theme.textSecondary }]}
-              >
-                {formattedDate}
-              </Text>
-              <View style={styles.modalTeamMatchup}>
-                <View style={styles.modalTeamContainer}>
-                  <TeamLogoImage
-                    source={{ uri: getThemeTeamLogoUrl("mlb", teamAbbr) }}
-                    style={styles.modalTeamLogo}
-                    defaultSource={{
-                      uri: "https://via.placeholder.com/40x40?text=MLB",
-                    }}
-                  />
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.modalTeamName, { color: theme.text }]}
-                  >
-                    {teamAbbr}
-                  </Text>
-                </View>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.modalVs, { color: theme.textSecondary }]}
-                >
-                  {isHome ? "vs" : "@"}
-                </Text>
-                <View style={styles.modalTeamContainer}>
-                  <TeamLogoImage
-                    source={{ uri: getThemeTeamLogoUrl("mlb", oppAbbr) }}
-                    style={styles.modalTeamLogo}
-                    defaultSource={{
-                      uri: "https://via.placeholder.com/40x40?text=MLB",
-                    }}
-                  />
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.modalTeamName, { color: theme.text }]}
-                  >
-                    {oppAbbr}
-                  </Text>
-                </View>
-              </View>
-              <View
-                style={[
-                  styles.modalResultContainer,
-                  {
-                    backgroundColor: isWin ? "#4CAF50" : "#f44336",
-                  },
+                  glStyles.oppRow,
+                  { borderTopColor: theme.border },
                 ]}
               >
-                <Text allowFontScaling={false} style={styles.modalResultText}>
-                  {isWin ? "WIN" : "LOSS"}
+                <Text
+                  allowFontScaling={false}
+                  style={[glStyles.oppPrefix, { color: theme.textSecondary }]}
+                >
+                  {prefix}
                 </Text>
-              </View>
-            </View>
+                {oppLogoUrl ? (
+                  <Image
+                    source={{ uri: oppLogoUrl }}
+                    style={glStyles.oppLogo}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View
+                    style={[
+                      glStyles.oppLogoFallback,
+                      { backgroundColor: oppColor + "33" },
+                    ]}
+                  >
+                    <Text
+                      style={[glStyles.oppLogoFallbackText, { color: oppColor }]}
+                    >
+                      {(oppName[0] ?? "?").toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <Text
+                  allowFontScaling={false}
+                  style={[glStyles.oppName, { color: theme.textSecondary }]}
+                  numberOfLines={1}
+                >
+                  {oppName || "Opponent"}
+                </Text>
+                <Text style={[glStyles.oppChevron, { color: theme.textSecondary }]}>›</Text>
 
-            <View
+              </View>
+              </TouchableOpacity>
+
+              {/* Game type overlay badge — sits outside the overflow:hidden card */}
+              {gameTypeLabel && (
+                <View
+                  style={[glStyles.gameTypeBadge, { backgroundColor: teamColor }]}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      glStyles.gameTypeBadgeText,
+                      { color: getTextOnColor(teamColor) },
+                    ]}
+                  >
+                    {gameTypeLabel}
+                  </Text>
+                </View>
+              )}
+            </View>
+          );
+        })}
+
+        {/* Pagination controls */}
+        {totalPages > 1 && (
+          <View style={glStyles.pagination}>
+            <TouchableOpacity
               style={[
-                styles.modalPlayerHeader,
-                { backgroundColor: theme.surface },
+                glStyles.pageBtn,
+                { backgroundColor: theme.surface, opacity: gameLogPage === 0 ? 0.35 : 1 },
               ]}
+              disabled={gameLogPage === 0}
+              onPress={() => setGameLogPage((p) => p - 1)}
+              activeOpacity={0.75}
             >
-              <Image
-                source={{
-                  uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${playerData.id}/headshot/67/current`,
-                }}
-                style={styles.modalPlayerImage}
-                defaultSource={{
-                  uri: "https://via.placeholder.com/60x60?text=MLB",
-                }}
-              />
-              <View style={styles.modalPlayerInfo}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.modalPlayerName, { color: theme.text }]}
-                >
-                  {playerName}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.modalPlayerPosition,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  {type === "pitching" ? "Pitcher" : "Batter"}
-                </Text>
-              </View>
-            </View>
-
-            {type === "hitting" ? renderHittingStats() : renderPitchingStats()}
-          </ScrollView>
-        </View>
-      </Modal>
-    );
-  };
-
-  const renderCareerContent = () => {
-    console.log("Rendering career content - loadingCareer:", loadingCareer);
-    console.log("Career data:", careerData);
-    console.log("Career data type:", typeof careerData);
-    if (careerData) {
-      console.log("Career data keys:", Object.keys(careerData));
-      console.log("Has hitting:", !!careerData.hitting);
-      console.log("Has pitching:", !!careerData.pitching);
-      console.log("Hitting length:", careerData.hitting?.length);
-      console.log("Pitching length:", careerData.pitching?.length);
-    }
-
-    if (loadingCareer) {
-      return (
-        <View
-          style={[
-            styles.statsLoadingContainer,
-            { backgroundColor: theme.background },
-          ]}
-        >
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text
-            allowFontScaling={false}
-            style={[styles.contentText, { color: theme.textSecondary }]}
-          >
-            Loading career statistics...
-          </Text>
-        </View>
-      );
-    }
-
-    if (!careerData || (!careerData.hitting && !careerData.pitching)) {
-      return (
-        <View
-          style={[
-            styles.contentContainer,
-            { backgroundColor: theme.background },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.contentText, { color: theme.textSecondary }]}
-          >
-            No career data available
-          </Text>
-        </View>
-      );
-    }
-
-    return (
-      <ScrollView
-        style={[styles.statsContainer, { backgroundColor: theme.background }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.careerContainer}>
-          {careerData.hitting &&
-            careerData.hitting.length > 0 &&
-            renderCareerSection("hitting", careerData.hitting)}
-          {careerData.pitching &&
-            careerData.pitching.length > 0 &&
-            renderCareerSection("pitching", careerData.pitching)}
-        </View>
-      </ScrollView>
-    );
-  };
-
-  const renderCareerSection = (type, seasons) => {
-    const sectionTitle =
-      type === "hitting" ? "Hitting Career" : "Pitching Career";
-
-    // Sort seasons in reverse order (most recent first)
-    const sortedSeasons = [...seasons].sort((a, b) => {
-      const yearA = parseInt(a.season) || 0;
-      const yearB = parseInt(b.season) || 0;
-      return yearB - yearA;
-    });
-
-    return (
-      <View style={styles.careerSection}>
-        <Text
-          allowFontScaling={false}
-          style={[styles.careerSectionTitle, { color: colors.primary }]}
-        >
-          {sectionTitle}
-        </Text>
-        {sortedSeasons.map((season, index) =>
-          renderCareerSeasonItem(season, type, index),
+              <Text style={[glStyles.pageBtnText, { color: teamColor }]}>‹ Prev</Text>
+            </TouchableOpacity>
+            <Text style={[glStyles.pageLabel, { color: theme.textSecondary }]}>
+              {gameLogPage + 1} / {totalPages}
+            </Text>
+            <TouchableOpacity
+              style={[
+                glStyles.pageBtn,
+                { backgroundColor: theme.surface, opacity: gameLogPage === totalPages - 1 ? 0.35 : 1 },
+              ]}
+              disabled={gameLogPage === totalPages - 1}
+              onPress={() => setGameLogPage((p) => p + 1)}
+              activeOpacity={0.75}
+            >
+              <Text style={[glStyles.pageBtnText, { color: teamColor }]}>Next ›</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     );
   };
 
-  const renderCareerSeasonItem = (season, type, index) => {
-    if (!season || !season.season) {
-      return null;
+  // ── Career tab renderer ───────────────────────────────────────────────────
+
+  const renderCareerTab = () => {
+    if (!playerStats) {
+      return (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="small" color={teamColor} />
+        </View>
+      );
     }
 
-    const stats = season.stat || {};
-    const team = season.team || {};
-    const league = season.league || {};
+    // For two-way players there are separate hitting & pitching yearByYear groups
+    const getYBYGroup = (groupName) =>
+      playerStats.stats
+        ?.filter(
+          (s) =>
+            s.type?.displayName === "yearByYear" &&
+            (groupName == null || s.group?.displayName === groupName),
+        )
+        .flatMap((s) => s.splits ?? []) ?? [];
 
-    // Get team logo URL - convert team ID to abbreviation
-    const getTeamLogoUrl = (teamId) => {
-      if (!teamId) return "https://via.placeholder.com/40x40?text=MLB";
+    const hitYBY = isTwoWayPlayer ? getYBYGroup("hitting") : getYBYGroup(null);
+    const pitchYBY = isTwoWayPlayer ? getYBYGroup("pitching") : [];
+    const ybyySplits = [...hitYBY, ...pitchYBY];
 
-      // Team ID to abbreviation mapping
-      const teamIdToAbbr = {
-        108: "LAA",
-        109: "ARI",
-        110: "BAL",
-        111: "BOS",
-        112: "CHC",
-        113: "CIN",
-        114: "CLE",
-        115: "COL",
-        116: "DET",
-        117: "HOU",
-        118: "KC",
-        119: "LAD",
-        120: "WSH",
-        121: "NYM",
-        133: "OAK",
-        134: "PIT",
-        135: "SD",
-        136: "SEA",
-        137: "SF",
-        138: "STL",
-        139: "TB",
-        140: "TEX",
-        141: "TOR",
-        142: "MIN",
-        143: "PHI",
-        144: "ATL",
-        145: "CWS",
-        146: "MIA",
-        147: "NYY",
-        158: "MIL",
-      };
-
-      const teamAbbr = teamIdToAbbr[teamId];
-      if (!teamAbbr) {
-        console.log("Unknown team ID for career:", teamId);
-        return "https://via.placeholder.com/40x40?text=MLB";
-      }
-
-      return getThemeTeamLogoUrl("mlb", teamAbbr);
-    };
-
-    const handleSeasonPress = () => {
-      setSelectedSeasonStats({ season, type, stats, team, league });
-      setShowSeasonModal(true);
-    };
-
-    return (
-      <TouchableOpacity
-        key={`${type}-${season.season}-${index}`}
-        style={[styles.careerSeasonCard, { backgroundColor: theme.surface }]}
-        onPress={handleSeasonPress}
-        activeOpacity={0.7}
-      >
-        <View style={styles.careerSeasonHeader}>
-          <View style={styles.careerTeamInfo}>
-            <TeamLogoImage
-              source={{ uri: getTeamLogoUrl(team.id) }}
-              style={styles.careerTeamLogo}
-              defaultSource={{
-                uri: "https://via.placeholder.com/30x30?text=MLB",
-              }}
-            />
-            <Text
-              allowFontScaling={false}
-              style={[styles.careerTeamName, { color: theme.textSecondary }]}
-            >
-              {team.name || "MLB"}
-            </Text>
-          </View>
-          <Text
-            allowFontScaling={false}
-            style={[styles.careerSeasonYear, { color: theme.text }]}
-          >
-            {season.season}
+    if (ybyySplits.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+            No career stats available
           </Text>
         </View>
+      );
+    }
 
-        <View style={styles.careerStatsRow}>
-          {type === "hitting" ? (
-            <>
-              <View style={styles.careerStatItem}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.careerStatValue, { color: theme.text }]}
-                >
-                  {stats.gamesPlayed || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.careerStatLabel,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  GP
-                </Text>
-              </View>
-              <View style={styles.careerStatItem}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.careerStatValue, { color: theme.text }]}
-                >
-                  {stats.avg ? parseFloat(stats.avg).toFixed(3) : ".000"}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.careerStatLabel,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  AVG
-                </Text>
-              </View>
-              <View style={styles.careerStatItem}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.careerStatValue, { color: theme.text }]}
-                >
-                  {stats.homeRuns || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.careerStatLabel,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  HR
-                </Text>
-              </View>
-            </>
-          ) : (
-            <>
-              <View style={styles.careerStatItem}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.careerStatValue, { color: theme.text }]}
-                >
-                  {stats.gamesPlayed || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.careerStatLabel,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  GP
-                </Text>
-              </View>
-              <View style={styles.careerStatItem}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.careerStatValue, { color: theme.text }]}
-                >
-                  {stats.era ? parseFloat(stats.era).toFixed(2) : "0.00"}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.careerStatLabel,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  ERA
-                </Text>
-              </View>
-              <View style={styles.careerStatItem}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.careerStatValue, { color: theme.text }]}
-                >
-                  {stats.wins || 0}
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.careerStatLabel,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  W
-                </Text>
-              </View>
-            </>
-          )}
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderSeasonModal = () => {
-    if (!selectedSeasonStats) return null;
-
-    const { season, type, stats, team, league } = selectedSeasonStats;
-
-    // Get team logo URL - convert team ID to abbreviation
-    const getModalTeamLogoUrl = (teamId) => {
-      if (!teamId) return "https://via.placeholder.com/50x50?text=MLB";
-
-      // Team ID to abbreviation mapping
-      const teamIdToAbbr = {
-        108: "LAA",
-        109: "ARI",
-        110: "BAL",
-        111: "BOS",
-        112: "CHC",
-        113: "CIN",
-        114: "CLE",
-        115: "COL",
-        116: "DET",
-        117: "HOU",
-        118: "KC",
-        119: "LAD",
-        120: "WSH",
-        121: "NYM",
-        133: "OAK",
-        134: "PIT",
-        135: "SD",
-        136: "SEA",
-        137: "SF",
-        138: "STL",
-        139: "TB",
-        140: "TEX",
-        141: "TOR",
-        142: "MIN",
-        143: "PHI",
-        144: "ATL",
-        145: "CWS",
-        146: "MIA",
-        147: "NYY",
-        158: "MIL",
-      };
-
-      const teamAbbr = teamIdToAbbr[teamId];
-      if (!teamAbbr) {
-        console.log("Unknown team ID for modal:", teamId);
-        return "https://via.placeholder.com/50x50?text=MLB";
+    // Group by season — track hitting and pitching splits separately for two-way players
+    const seasonMap = {};
+    const addToSeasonMap = (split, group /* "hitting" | "pitching" | null */) => {
+      const yr = split.season ?? "?";
+      if (!seasonMap[yr]) seasonMap[yr] = { hitSplits: [], pitchSplits: [], teams: [] };
+      if (group === "pitching") {
+        seasonMap[yr].pitchSplits.push(split);
+      } else {
+        seasonMap[yr].hitSplits.push(split);
       }
+      // Team accounting — never count All-Star game
+      if (split.gameType === "A") return;
+      if (split.team?.name && !seasonMap[yr].teams.some((t) => t.name === split.team.name)) {
+        if (split.gameType === "R") {
+          seasonMap[yr].teams.push(split.team);
+        } else {
+          seasonMap[yr].teams.unshift(split.team);
+        }
+      }
+    };
+    hitYBY.forEach((s) => addToSeasonMap(s, isTwoWayPlayer ? "hitting" : null));
+    pitchYBY.forEach((s) => addToSeasonMap(s, "pitching"));
+    const seasons = Object.keys(seasonMap).sort((a, b) => Number(b) - Number(a));
 
-      return getThemeTeamLogoUrl("mlb", teamAbbr);
+    // Sum counting stats; recalculate rate stats from totals
+    const ADDITIVE_KEYS = [
+      "gamesPlayed", "atBats", "hits", "homeRuns", "runs", "rbi",
+      "doubles", "triples", "stolenBases", "strikeOuts", "baseOnBalls",
+      "plateAppearances", "totalBases", "leftOnBase",
+      "wins", "losses", "saves", "holds", "battersFaced",
+      "earnedRuns", "strikes",
+    ];
+    const aggregateStats = (splits) => {
+      const tot = {};
+      let totalOuts = 0;
+      let hasIP = false;
+      splits.forEach(({ stat }) => {
+        if (!stat) return;
+        ADDITIVE_KEYS.forEach((k) => {
+          if (stat[k] != null) tot[k] = (tot[k] ?? 0) + Number(stat[k]);
+        });
+        // Accumulate inningsPitched as outs (e.g. "5.2" = 5 full + 2 extra outs = 17 outs)
+        if (stat.inningsPitched != null) {
+          hasIP = true;
+          const [full = "0", frac = "0"] = String(stat.inningsPitched).split(".");
+          totalOuts += Number(full) * 3 + Number(frac);
+        }
+      });
+      // Reconstruct IP from outs
+      if (hasIP) {
+        const fullInnings = Math.floor(totalOuts / 3);
+        const remainOuts = totalOuts % 3;
+        tot.inningsPitched =
+          remainOuts === 0 ? String(fullInnings) : `${fullInnings}.${remainOuts}`;
+        // ERA = (earnedRuns × 9) / IP
+        if (tot.earnedRuns != null && totalOuts > 0) {
+          tot.era = ((tot.earnedRuns * 9) / (totalOuts / 3)).toFixed(2);
+        }
+        // WHIP = (BB + H) / IP
+        if (tot.baseOnBalls != null && tot.hits != null && totalOuts > 0) {
+          tot.whip = ((tot.baseOnBalls + tot.hits) / (totalOuts / 3)).toFixed(2);
+        }
+      }
+      // Hitting rate stats
+      if (tot.hits != null && tot.atBats > 0) {
+        const v = tot.hits / tot.atBats;
+        tot.avg = v >= 1 ? v.toFixed(3) : v.toFixed(3).slice(1);
+      }
+      if (tot.totalBases != null && tot.atBats > 0) {
+        const v = tot.totalBases / tot.atBats;
+        tot.slg = v >= 1 ? v.toFixed(3) : v.toFixed(3).slice(1);
+      }
+      return tot;
     };
 
+    // Rankings (only applies to gameType R)
+    const rankSplits =
+      playerStats.stats?.find((s) => s.type?.displayName === "rankingsByYear")?.splits ?? [];
+
+    // Career totals — for two-way players gather both hitting and pitching career entries
+    const getCareerGroup = (groupName) =>
+      playerStats.stats
+        ?.filter(
+          (s) =>
+            s.type?.displayName === "career" &&
+            (groupName == null || s.group?.displayName === groupName),
+        )
+        .flatMap((s) => s.splits ?? []) ?? [];
+
+    const hitCareerSplits = isTwoWayPlayer ? getCareerGroup("hitting") : getCareerGroup(null);
+    const pitchCareerSplits = isTwoWayPlayer ? getCareerGroup("pitching") : [];
+    const careerTypeSplits = [...hitCareerSplits, ...pitchCareerSplits];
+    const careerHitAgg = aggregateStats(hitCareerSplits);
+    const careerPitchAgg = aggregateStats(pitchCareerSplits);
+    const careerTotalAgg = isTwoWayPlayer ? careerHitAgg : aggregateStats(careerTypeSplits);
+    const isTotalExpanded = !!careerExpandedYears["__total__"];
+
+    const HIT_CAREER_COLS = [
+      { key: "gamesPlayed", label: "G" },
+      { key: "avg",         label: "AVG" },
+      { key: "hits",        label: "H" },
+      { key: "homeRuns",    label: "HR" },
+    ];
+    const PITCH_CAREER_COLS = [
+      { key: "inningsPitched", label: "IP" },
+      { key: "era",            label: "ERA" },
+      { key: "wins",           label: "W" },
+      { key: "losses",         label: "L" },
+    ];
+    const CAREER_COLS = isPitcher ? PITCH_CAREER_COLS : HIT_CAREER_COLS;
+    const fmt = (val) => (val != null ? String(val) : "—");
+
     return (
-      <Modal
-        animationType="slide"
-        presentationStyle="pageSheet"
-        visible={showSeasonModal}
-        onRequestClose={() => setShowSeasonModal(false)}
-      >
-        <View
-          style={[styles.modalContainer, { backgroundColor: theme.background }]}
-        >
-          <View
-            style={[styles.modalHeader, { backgroundColor: theme.surface }]}
-          >
+      <View style={cStyles.container}>
+        {/* ── Total Career bubble ── */}
+      {careerTypeSplits.length > 0 && (
+          <View style={[cStyles.bubble, { backgroundColor: theme.surface }]}>
+            <View style={{ borderBottomWidth: 2, borderBottomColor: teamColor, backgroundColor: teamColor + "33" }}>
+            <Text allowFontScaling={false} style={[cStyles.bubbleTitle, { color: theme.textSecondary }]}>
+              Career Totals
+            </Text>
+            </View>
+
+            {/* Summary row */}
             <TouchableOpacity
-              onPress={() => setShowSeasonModal(false)}
-              style={styles.modalCloseButton}
+              onPress={() =>
+                setCareerExpandedYears((prev) => ({ ...prev, __total__: !prev.__total__ }))
+              }
+              style={cStyles.yearRow}
+              activeOpacity={0.75}
             >
+              <View style={cStyles.rowInfo}>
+                <Text
+                  allowFontScaling={false}
+                  style={[cStyles.rowTeam, { color: theme.text }]}
+                >
+                  All Game Types
+                </Text>
+              </View>
+
+              {/* Two-way: stacked hitting + pitching stat mini-rows (only when both present) */}
+              {(() => {
+                const hitPresent = isTwoWayPlayer && hitCareerSplits.length > 0;
+                const pitchPresent = isTwoWayPlayer && pitchCareerSplits.length > 0;
+                if (hitPresent && pitchPresent) {
+                  return (
+                    <View style={cStyles.twoWayStatStack}>
+                      <View style={cStyles.rowStats}>
+                        {HIT_CAREER_COLS.map((d) => (
+                          <View key={d.key} style={cStyles.rowStatCell}>
+                            <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
+                              {fmt(careerHitAgg[d.key])}
+                            </Text>
+                            <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
+                          </View>
+                        ))}
+                      </View>
+                      <View style={[cStyles.rowStats, { marginTop: 4 }]}>
+                        {PITCH_CAREER_COLS.map((d) => (
+                          <View key={d.key} style={cStyles.rowStatCell}>
+                            <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
+                              {fmt(careerPitchAgg[d.key])}
+                            </Text>
+                            <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  );
+                }
+                const cols = pitchPresent ? PITCH_CAREER_COLS : HIT_CAREER_COLS;
+                const agg = pitchPresent ? careerPitchAgg : careerTotalAgg;
+                const valColor = pitchPresent ? teamColor : theme.text;
+                return (
+                  <View style={cStyles.rowStats}>
+                    {cols.map((d) => (
+                      <View key={d.key} style={cStyles.rowStatCell}>
+                        <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: valColor }]} numberOfLines={1}>
+                          {fmt(agg[d.key])}
+                        </Text>
+                        <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                );
+              })()}
+
               <Text
-                allowFontScaling={false}
-                style={[styles.modalCloseText, { color: colors.primary }]}
+                style={[
+                  cStyles.chevron,
+                  { color: theme.textSecondary },
+                  { transform: [{ rotate: isTotalExpanded ? "90deg" : "0deg" }] },
+                ]}
               >
-                Close
+                ›
               </Text>
             </TouchableOpacity>
-            <Text
-              allowFontScaling={false}
-              style={[styles.modalTitle, { color: theme.text }]}
-            >
-              {season.season} {type === "hitting" ? "Hitting" : "Pitching"}{" "}
-              Stats
-            </Text>
-            <View style={styles.modalPlaceholder} />
+
+            {/* Expanded game-type rows */}
+            {isTotalExpanded && (
+              <View
+                style={[
+                  cStyles.gtContainer,
+                  {
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                    borderTopColor: theme.border,
+                    borderLeftWidth: 3,
+                    borderLeftColor: teamColor,
+                  },
+                ]}
+              >
+                {(() => {
+                  if (isTwoWayPlayer) {
+                    // Merge hitting + pitching career splits by gameType into stacked rows
+                    const mergeMap = {};
+                    hitCareerSplits.forEach((s) => {
+                      const k = s.gameType ?? "";
+                      if (!mergeMap[k]) mergeMap[k] = { hit: null, pitch: null };
+                      mergeMap[k].hit = s;
+                    });
+                    pitchCareerSplits.forEach((s) => {
+                      const k = s.gameType ?? "";
+                      if (!mergeMap[k]) mergeMap[k] = { hit: null, pitch: null };
+                      mergeMap[k].pitch = s;
+                    });
+                    const mergedRows = Object.entries(mergeMap).sort(([, a], [, b]) => {
+                      const ag = Math.max(Number(a.hit?.stat?.gamesPlayed ?? 0), Number(a.pitch?.stat?.gamesPlayed ?? 0));
+                      const bg = Math.max(Number(b.hit?.stat?.gamesPlayed ?? 0), Number(b.pitch?.stat?.gamesPlayed ?? 0));
+                      return bg - ag;
+                    });
+                    return mergedRows.map(([gameType, { hit, pitch }], gIdx) => {
+                      const bothPresent = !!hit && !!pitch;
+                      const cols = !hit ? PITCH_CAREER_COLS : HIT_CAREER_COLS;
+                      const singleColor = !hit ? teamColor : theme.text;
+                      const singleSplit = hit ?? pitch;
+                      return (
+                        <View
+                          key={gameType || String(gIdx)}
+                          style={[
+                            cStyles.gtRow,
+                            gIdx < mergedRows.length - 1 && {
+                              borderBottomWidth: StyleSheet.hairlineWidth,
+                              borderBottomColor: theme.border,
+                            },
+                          ]}
+                        >
+                          <View style={cStyles.gtBadge}>
+                            <Text allowFontScaling={false} style={[cStyles.gtBadgeText, { color: theme.text }]} numberOfLines={1}>
+                              {GAME_TYPE_LABELS[gameType] ?? gameType ?? ""}
+                            </Text>
+                          </View>
+                          {bothPresent ? (
+                            <View style={cStyles.twoWayStatStack}>
+                              <View style={cStyles.rowStats}>
+                                {HIT_CAREER_COLS.map((d) => (
+                                  <View key={d.key} style={cStyles.rowStatCell}>
+                                    <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
+                                      {fmt(hit.stat?.[d.key])}
+                                    </Text>
+                                    <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
+                                  </View>
+                                ))}
+                              </View>
+                              <View style={[cStyles.rowStats, { marginTop: 4 }]}>
+                                {PITCH_CAREER_COLS.map((d) => (
+                                  <View key={d.key} style={cStyles.rowStatCell}>
+                                    <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
+                                      {fmt(pitch.stat?.[d.key])}
+                                    </Text>
+                                    <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
+                                  </View>
+                                ))}
+                              </View>
+                            </View>
+                          ) : (
+                            <View style={cStyles.rowStats}>
+                              {cols.map((d) => (
+                                <View key={d.key} style={cStyles.rowStatCell}>
+                                  <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: singleColor }]} numberOfLines={1}>
+                                    {fmt(singleSplit?.stat?.[d.key])}
+                                  </Text>
+                                  <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
+                                </View>
+                              ))}
+                            </View>
+                          )}
+                        </View>
+                      );
+                    });
+                  }
+
+                  const rows = careerTypeSplits;
+                  return [...rows]
+                    .sort((a, b) =>
+                      (Number(b.stat?.gamesPlayed) || 0) -
+                      (Number(a.stat?.gamesPlayed) || 0),
+                    )
+                    .map((split, gIdx) => (
+                      <TouchableOpacity
+                        key={split.gameType ?? String(gIdx)}
+                        style={[
+                          cStyles.gtRow,
+                          gIdx < rows.length - 1 && {
+                            borderBottomWidth: StyleSheet.hairlineWidth,
+                            borderBottomColor: theme.border,
+                          },
+                        ]}
+                        onPress={() =>
+                          setCareerModal({
+                            stat: split.stat ?? {},
+                            gameType: split.gameType,
+                            season: "Career",
+                            teamName: "",
+                            rankings: {},
+                          })
+                        }
+                        activeOpacity={0.75}
+                      >
+                        <View style={cStyles.gtBadge}>
+                          <Text allowFontScaling={false} style={[cStyles.gtBadgeText, { color: theme.text }]} numberOfLines={1}>
+                            {GAME_TYPE_LABELS[split.gameType] ?? split.gameType ?? ""}
+                          </Text>
+                        </View>
+                        <View style={cStyles.rowStats}>
+                          {CAREER_COLS.map((d) => (
+                            <View key={d.key} style={cStyles.rowStatCell}>
+                              <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
+                                {fmt(split.stat?.[d.key])}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                        <Text style={[cStyles.chevron, { color: theme.textSecondary }]}>›</Text>
+                      </TouchableOpacity>
+                    ));
+                })()}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ── Year-by-year bubble ── */}
+        <View style={[cStyles.bubble, { backgroundColor: theme.surface }]}>
+          <View style={{ borderBottomWidth: 2, borderBottomColor: teamColor, backgroundColor: teamColor + "33" }}>
+          <Text allowFontScaling={false} style={[cStyles.bubbleTitle, { color: theme.textSecondary }]}>
+            Career
+          </Text>
           </View>
 
-          <ScrollView
-            style={styles.modalContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <View
-              style={[
-                styles.modalSeasonHeader,
-                { backgroundColor: theme.surface },
-              ]}
-            >
-              <View style={styles.modalSeasonTopRow}>
-                <View style={styles.modalSeasonInfo}>
+          {seasons.map((yr, sIdx) => {
+            const { hitSplits, pitchSplits, teams } = seasonMap[yr];
+            // Only aggregate splits that have a real team attached (exclude teamless
+            // aggregator rows and All-Star game splits)
+            const filtered = (arr) => arr.filter((s) => s.team?.name && s.gameType !== "A");
+            const filteredHit = filtered(hitSplits);
+            const filteredPitch = filtered(pitchSplits);
+            const hitAgg  = aggregateStats(filteredHit);
+            const pitchAgg = isTwoWayPlayer ? aggregateStats(filteredPitch) : null;
+            const yearBothPresent = isTwoWayPlayer && filteredHit.length > 0 && filteredPitch.length > 0;
+            const isExpanded = !!careerExpandedYears[yr];
+            // Primary team for row color = first R-type team, or first in list
+            const primaryTeam = teams[0] ?? null;
+            const rowTeamColor = primaryTeam?.name
+              ? MLBService.getTeamColor(primaryTeam.name) || teamColor
+              : teamColor;
+            const isMultiTeam = teams.length > 1;
+            const isLast = sIdx === seasons.length - 1;
+
+            return (
+              <View
+                key={yr}
+                style={
+                  !isLast
+                    ? { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border }
+                    : undefined
+                }
+              >
+                {/* Year summary row */}
+                <TouchableOpacity
+                  onPress={() =>
+                    setCareerExpandedYears((prev) => ({ ...prev, [yr]: !prev[yr] }))
+                  }
+                  style={cStyles.yearRow}
+                  activeOpacity={0.75}
+                >
+                  {isMultiTeam ? (
+                    // Side-by-side logos (max 1 logo + overflow badge for 3+ teams)
+                    <View style={cStyles.multiLogoWrap}>
+                      {(() => {
+                        const showOverflow = teams.length > 2;
+                        const visibleTeams = showOverflow ? teams.slice(0, 1) : teams;
+                        return (
+                          <>
+                            {visibleTeams.map((t) => {
+                              const tUrl = MLBService.getLogoUrl(t.name, null, isDarkMode ? "dark" : "light");
+                              const tColor = MLBService.getTeamColor(t.name) || teamColor;
+                              return tUrl ? (
+                                <Image
+                                  key={t.name}
+                                  source={{ uri: tUrl }}
+                                  style={cStyles.multiLogoImg}
+                                  resizeMode="contain"
+                                />
+                              ) : (
+                                <View
+                                  key={t.name}
+                                  style={[cStyles.multiLogoFallback, { backgroundColor: tColor + "33" }]}
+                                >
+                                  <Text style={[cStyles.multiLogoFallbackText, { color: tColor }]}>
+                                    {(t.name[0] ?? "?").toUpperCase()}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                            {showOverflow && (() => {
+                              const lastColor = MLBService.getTeamColor(teams[teams.length - 1].name) || teamColor;
+                              const textColor = getTextOnColor(lastColor);
+                              return (
+                                <View style={[cStyles.multiLogoFallback, { backgroundColor: lastColor }]}>
+                                  <Text style={[cStyles.multiLogoFallbackText, { color: textColor }]}>
+                                    +{teams.length - 1}
+                                  </Text>
+                                </View>
+                              );
+                            })()}
+                          </>
+                        );
+                      })()}
+                    </View>
+                  ) : (() => {
+                    const logoUrl = primaryTeam?.name
+                      ? MLBService.getLogoUrl(primaryTeam.name, null, isDarkMode ? "dark" : "light")
+                      : null;
+                    return logoUrl ? (
+                      <Image source={{ uri: logoUrl }} style={cStyles.rowLogo} resizeMode="contain" />
+                    ) : (
+                      <View
+                        style={[cStyles.rowLogoFallback, { backgroundColor: rowTeamColor + "33" }]}
+                      >
+                        <Text style={[cStyles.rowLogoFallbackText, { color: rowTeamColor }]}>
+                          {(primaryTeam?.name?.[0] ?? "?").toUpperCase()}
+                        </Text>
+                      </View>
+                    );
+                  })()}
+
+                  <View style={cStyles.rowInfo}>
+                    <Text
+                      allowFontScaling={false}
+                      style={[cStyles.rowTeam, { color: theme.text }]}
+                      numberOfLines={1}
+                    >
+                      {(() => {
+                        const realTeams = teams.filter((t) => MLBService.teamAbbrMap[t.name]);
+                        if (realTeams.length > 1) {
+                          return realTeams
+                            .map((t) => MLBService.teamAbbrMap[t.name].toUpperCase())
+                            .join(" / ");
+                        }
+                        return teams.map((t) => t.name).join(" / ") || "";
+                      })()}
+                    </Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[cStyles.rowYear, { color: theme.textSecondary }]}
+                    >
+                      {yr}
+                    </Text>
+                  </View>
+
+                  {/* Stats columns — stacked only when both groups present */}
+                  {yearBothPresent ? (
+                    <View style={cStyles.twoWayStatStack}>
+                      <View style={cStyles.rowStats}>
+                        {HIT_CAREER_COLS.map((d) => (
+                          <View key={d.key} style={cStyles.rowStatCell}>
+                            <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
+                              {fmt(hitAgg[d.key])}
+                            </Text>
+                            <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>
+                              {d.label}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                      <View style={[cStyles.rowStats, { marginTop: 4 }]}>
+                        {PITCH_CAREER_COLS.map((d) => (
+                          <View key={d.key} style={cStyles.rowStatCell}>
+                            <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
+                              {fmt(pitchAgg?.[d.key])}
+                            </Text>
+                            <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>
+                              {d.label}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  ) : (() => {
+                    const cols = (isTwoWayPlayer && filteredPitch.length > 0) ? PITCH_CAREER_COLS : CAREER_COLS;
+                    const agg = (isTwoWayPlayer && filteredPitch.length > 0) ? pitchAgg : hitAgg;
+                    const valColor = (isTwoWayPlayer && filteredPitch.length > 0) ? teamColor : theme.text;
+                    return (
+                      <View style={cStyles.rowStats}>
+                        {cols.map((d) => (
+                          <View key={d.key} style={cStyles.rowStatCell}>
+                            <Text
+                              allowFontScaling={false}
+                              style={[cStyles.rowStatVal, { color: valColor }]}
+                              numberOfLines={1}
+                            >
+                              {fmt(agg?.[d.key])}
+                            </Text>
+                            <Text
+                              allowFontScaling={false}
+                              style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}
+                            >
+                              {d.label}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    );
+                  })()}
+
                   <Text
-                    allowFontScaling={false}
-                    style={[styles.modalSeasonYear, { color: theme.text }]}
-                  >
-                    {season.season}
-                  </Text>
-                  <Text
-                    allowFontScaling={false}
                     style={[
-                      styles.modalLeagueName,
+                      cStyles.chevron,
                       { color: theme.textSecondary },
+                      { transform: [{ rotate: isExpanded ? "90deg" : "0deg" }] },
                     ]}
                   >
-                    {league.name || "MLB"}
+                    ›
                   </Text>
-                </View>
-                <View style={styles.modalTeamContainer}>
-                  <TeamLogoImage
-                    source={{ uri: getModalTeamLogoUrl(team.id) }}
-                    style={styles.modalSeasonTeamLogo}
-                  />
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.modalTeamName, { color: theme.text }]}
-                  >
-                    {team.name || "MLB"}
-                  </Text>
-                </View>
-              </View>
-            </View>
+                </TouchableOpacity>
 
-            {type === "hitting"
-              ? renderSeasonHittingStats(stats)
-              : renderSeasonPitchingStats(stats)}
-          </ScrollView>
+                {isExpanded && (
+                  <View
+                    style={[
+                      cStyles.gtContainer,
+                      {
+                        borderTopWidth: StyleSheet.hairlineWidth,
+                        borderTopColor: theme.border,
+                      },
+                    ]}
+                  >
+                    {(() => {
+                      if (isTwoWayPlayer) {
+                        // Merge hitting + pitching by gameType+teamId into stacked rows
+                        const mergeMap = {};
+                        const addToMerge = (splits, role) => {
+                          splits
+                            .filter((s) => s.team?.name && s.gameType !== "A")
+                            .forEach((s) => {
+                              const k = `${s.gameType ?? ""}_${s.team?.id ?? s.team?.name ?? ""}`;
+                              if (!mergeMap[k]) mergeMap[k] = { hit: null, pitch: null, team: s.team, gameType: s.gameType };
+                              mergeMap[k][role] = s;
+                            });
+                        };
+                        addToMerge(hitSplits, "hit");
+                        addToMerge(pitchSplits, "pitch");
+
+                        const mergedRows = Object.entries(mergeMap).sort(([, a], [, b]) => {
+                          const ag = Math.max(Number(a.hit?.stat?.gamesPlayed ?? 0), Number(a.pitch?.stat?.gamesPlayed ?? 0));
+                          const bg = Math.max(Number(b.hit?.stat?.gamesPlayed ?? 0), Number(b.pitch?.stat?.gamesPlayed ?? 0));
+                          return bg - ag;
+                        });
+
+                        return mergedRows.map(([key, { hit, pitch, team, gameType }], gIdx) => {
+                          const splitTeamColor = MLBService.getTeamColor(team?.name ?? "") || rowTeamColor;
+                          const bothPresent = !!hit && !!pitch;
+                          const cols = !hit ? PITCH_CAREER_COLS : HIT_CAREER_COLS;
+                          const singleColor = !hit ? teamColor : theme.text;
+                          const singleSplit = hit ?? pitch;
+                          return (
+                            <View
+                              key={key}
+                              style={[
+                                cStyles.gtRow,
+                                gIdx < mergedRows.length - 1 && {
+                                  borderBottomWidth: StyleSheet.hairlineWidth,
+                                  borderBottomColor: theme.border,
+                                },
+                              ]}
+                            >
+                              <View style={[cStyles.gtBadge, { borderLeftColor: splitTeamColor }]}>
+                                <Text allowFontScaling={false} style={[cStyles.gtBadgeText, { color: theme.text }]} numberOfLines={1}>
+                                  {GAME_TYPE_LABELS[gameType] ?? gameType ?? ""}
+                                </Text>
+                                <Text allowFontScaling={false} style={[cStyles.gtTeamName, { color: splitTeamColor }]} numberOfLines={1}>
+                                  {team?.name ?? ""}
+                                </Text>
+                              </View>
+                              {bothPresent ? (
+                                <View style={cStyles.twoWayStatStack}>
+                                  <View style={cStyles.rowStats}>
+                                    {HIT_CAREER_COLS.map((d) => (
+                                      <View key={d.key} style={cStyles.rowStatCell}>
+                                        <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
+                                          {fmt(hit.stat?.[d.key])}
+                                        </Text>
+                                        <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
+                                      </View>
+                                    ))}
+                                  </View>
+                                  <View style={[cStyles.rowStats, { marginTop: 4 }]}>
+                                    {PITCH_CAREER_COLS.map((d) => (
+                                      <View key={d.key} style={cStyles.rowStatCell}>
+                                        <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
+                                          {fmt(pitch.stat?.[d.key])}
+                                        </Text>
+                                        <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
+                                      </View>
+                                    ))}
+                                  </View>
+                                </View>
+                              ) : (
+                                <View style={cStyles.rowStats}>
+                                  {cols.map((d) => (
+                                    <View key={d.key} style={cStyles.rowStatCell}>
+                                      <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: singleColor }]} numberOfLines={1}>
+                                        {fmt(singleSplit?.stat?.[d.key])}
+                                      </Text>
+                                      <Text allowFontScaling={false} style={[cStyles.rowStatLabel, { color: theme.textSecondary }]}>{d.label}</Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              )}
+                            </View>
+                          );
+                        });
+                      }
+
+                      const rows = hitSplits
+                        .filter((s) => s.team?.name && s.gameType !== "A")
+                        .sort(
+                          (a, b) =>
+                            (Number(b.stat?.gamesPlayed) || 0) -
+                            (Number(a.stat?.gamesPlayed) || 0),
+                        );
+                      return rows.map((split, gIdx) => {
+                        const splitTeamColor = MLBService.getTeamColor(split.team.name) || rowTeamColor;
+                        return (
+                          <TouchableOpacity
+                            key={`${split.gameType ?? ""}_${split.team?.id ?? gIdx}`}
+                            style={[
+                              cStyles.gtRow,
+                              gIdx < rows.length - 1 && {
+                                borderBottomWidth: StyleSheet.hairlineWidth,
+                                borderBottomColor: theme.border,
+                              },
+                            ]}
+                            onPress={() =>
+                              setCareerModal({
+                                stat: split.stat ?? {},
+                                gameType: split.gameType,
+                                season: yr,
+                                teamName: split.team?.name ?? "",
+                                rankings:
+                                  rankSplits.find(
+                                    (r) => r.season === yr && r.gameType === "R",
+                                  )?.stat ?? {},
+                              })
+                            }
+                            activeOpacity={0.75}
+                          >
+                            <View style={[cStyles.gtBadge, { borderLeftColor: splitTeamColor }]}>
+                              <Text allowFontScaling={false} style={[cStyles.gtBadgeText, { color: theme.text }]} numberOfLines={1}>
+                                {GAME_TYPE_LABELS[split.gameType] ?? split.gameType ?? ""}
+                              </Text>
+                              <Text allowFontScaling={false} style={[cStyles.gtTeamName, { color: splitTeamColor }]} numberOfLines={1}>
+                                {split.team?.name ?? ""}
+                              </Text>
+                            </View>
+                            <View style={cStyles.rowStats}>
+                              {CAREER_COLS.map((d) => (
+                                <View key={d.key} style={cStyles.rowStatCell}>
+                                  <Text allowFontScaling={false} style={[cStyles.rowStatVal, { color: theme.text }]} numberOfLines={1}>
+                                    {fmt(split.stat?.[d.key])}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                            <Text style={[cStyles.chevron, { color: theme.textSecondary }]}>›</Text>
+                          </TouchableOpacity>
+                        );
+                      });
+                    })()}
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </View>
-      </Modal>
+      </View>
     );
   };
 
-  const renderSeasonHittingStats = (stats) => (
-    <View style={styles.modalStatsSection}>
-      <Text
-        allowFontScaling={false}
-        style={[styles.modalSectionTitle, { color: colors.primary }]}
-      >
-        Season Hitting Statistics
-      </Text>
+  // ── Splits tab renderer ─────────────────────────────────────────────────
 
-      {/* Main stats grid - top row */}
-      <View style={styles.modalStatsGrid}>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.hits || 0}/{stats.atBats || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            H/AB
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.runs || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            R
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.rbi || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            RBI
-          </Text>
-        </View>
-      </View>
-
-      {/* Second row */}
-      <View style={styles.modalStatsGrid}>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.homeRuns || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            HR
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.baseOnBalls || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            BB
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.strikeOuts || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            SO
-          </Text>
-        </View>
-      </View>
-
-      {/* Third row */}
-      <View style={styles.modalStatsGrid}>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.totalBases || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            TB
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.stolenBases || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            SB
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.gamesPlayed || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            GP
-          </Text>
-        </View>
-      </View>
-
-      {/* Averages row */}
-      <View style={styles.modalStatsGrid}>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.avg ? parseFloat(stats.avg).toFixed(3) : ".000"}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            AVG
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.obp ? parseFloat(stats.obp).toFixed(3) : ".000"}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            OBP
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.slg ? parseFloat(stats.slg).toFixed(3) : ".000"}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            SLG
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-
-  const renderSeasonPitchingStats = (stats) => (
-    <View style={styles.modalStatsSection}>
-      <Text
-        allowFontScaling={false}
-        style={[styles.modalSectionTitle, { color: colors.primary }]}
-      >
-        Season Pitching Statistics
-      </Text>
-
-      {/* Main stats grid - top row */}
-      <View style={styles.modalStatsGrid}>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.inningsPitched || "0.0"}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            IP
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.hits || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            H
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.runs || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            R
-          </Text>
-        </View>
-      </View>
-
-      {/* Second row */}
-      <View style={styles.modalStatsGrid}>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.earnedRuns || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            ER
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.baseOnBalls || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            BB
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.strikeOuts || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            SO
-          </Text>
-        </View>
-      </View>
-
-      {/* Third row */}
-      <View style={styles.modalStatsGrid}>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.homeRuns || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            HR
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.hitBatsmen || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            HBP
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.gamesPlayed || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            GP
-          </Text>
-        </View>
-      </View>
-
-      {/* Record and averages row */}
-      <View style={styles.modalStatsGrid}>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.wins || 0}-{stats.losses || 0}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            W-L
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.era ? parseFloat(stats.era).toFixed(2) : "0.00"}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            ERA
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.modalStatCard,
-            {
-              backgroundColor: theme.surface,
-              shadowColor: isDarkMode ? "#fff" : "#000",
-            },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardValue, { color: theme.text }]}
-          >
-            {stats.whip ? parseFloat(stats.whip).toFixed(2) : "0.00"}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.modalStatCardLabel, { color: theme.textSecondary }]}
-          >
-            WHIP
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-
-  const renderVsTeamContent = () => {
-    // Team list with logos for selection - ordered by city name
-    const mlbTeams = [
-      { id: 109, name: "Arizona Diamondbacks", abbr: "ARI" },
-      { id: 144, name: "Atlanta Braves", abbr: "ATL" },
-      { id: 110, name: "Baltimore Orioles", abbr: "BAL" },
-      { id: 111, name: "Boston Red Sox", abbr: "BOS" },
-      { id: 112, name: "Chicago Cubs", abbr: "CHC" },
-      { id: 145, name: "Chicago White Sox", abbr: "CWS" },
-      { id: 113, name: "Cincinnati Reds", abbr: "CIN" },
-      { id: 114, name: "Cleveland Guardians", abbr: "CLE" },
-      { id: 115, name: "Colorado Rockies", abbr: "COL" },
-      { id: 116, name: "Detroit Tigers", abbr: "DET" },
-      { id: 117, name: "Houston Astros", abbr: "HOU" },
-      { id: 118, name: "Kansas City Royals", abbr: "KC" },
-      { id: 108, name: "Los Angeles Angels", abbr: "LAA" },
-      { id: 119, name: "Los Angeles Dodgers", abbr: "LAD" },
-      { id: 146, name: "Miami Marlins", abbr: "MIA" },
-      { id: 158, name: "Milwaukee Brewers", abbr: "MIL" },
-      { id: 142, name: "Minnesota Twins", abbr: "MIN" },
-      { id: 121, name: "New York Mets", abbr: "NYM" },
-      { id: 147, name: "New York Yankees", abbr: "NYY" },
-      { id: 133, name: "Oakland Athletics", abbr: "OAK" },
-      { id: 143, name: "Philadelphia Phillies", abbr: "PHI" },
-      { id: 134, name: "Pittsburgh Pirates", abbr: "PIT" },
-      { id: 135, name: "San Diego Padres", abbr: "SD" },
-      { id: 137, name: "San Francisco Giants", abbr: "SF" },
-      { id: 136, name: "Seattle Mariners", abbr: "SEA" },
-      { id: 138, name: "St. Louis Cardinals", abbr: "STL" },
-      { id: 139, name: "Tampa Bay Rays", abbr: "TB" },
-      { id: 140, name: "Texas Rangers", abbr: "TEX" },
-      { id: 141, name: "Toronto Blue Jays", abbr: "TOR" },
-      { id: 120, name: "Washington Nationals", abbr: "WSH" },
-    ];
-
-    if (!selectedTeam) {
+  const renderSplitsTab = () => {
+    if (!playerStats) {
       return (
-        <View
-          style={[
-            styles.contentContainer,
-            { backgroundColor: theme.background },
-          ]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.vsTeamTitle, { color: theme.text }]}
-          >
-            Select Team to View Stats Against
-          </Text>
-          <ScrollView
-            style={styles.teamSelector}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.teamGrid}>
-              {mlbTeams.map((team) => (
-                <TouchableOpacity
-                  key={team.id}
-                  style={[styles.teamCard, { backgroundColor: theme.surface }]}
-                  onPress={() => {
-                    setSelectedTeam(team);
-                    setVsTeamStats(null); // Reset stats to trigger refetch
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <TeamLogoImage
-                    source={{ uri: getThemeTeamLogoUrl("mlb", team.abbr) }}
-                    style={styles.teamCardLogo}
-                    defaultSource={{
-                      uri: "https://via.placeholder.com/40x40?text=MLB",
-                    }}
-                  />
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.teamCardName, { color: theme.text }]}
-                  >
-                    {team.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="small" color={teamColor} />
         </View>
       );
     }
 
-    if (loadingVsTeam) {
-      return (
-        <View
-          style={[
-            styles.statsLoadingContainer,
-            { backgroundColor: theme.background },
-          ]}
-        >
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text
-            allowFontScaling={false}
-            style={[styles.contentText, { color: theme.textSecondary }]}
-          >
-            Loading VS Team statistics...
-          </Text>
-        </View>
-      );
-    }
-
-    // Helper function to check if stats object has meaningful data
-    const hasStatsData = (stats) => {
-      if (!stats || typeof stats !== "object") return false;
-
-      // Check if any key stats exist and have meaningful values
-      const keyStats = [
-        "gamesPlayed",
-        "plateAppearances",
-        "atBats",
-        "hits",
-        "inningsPitched",
-      ];
-      return keyStats.some((stat) => {
-        const value = stats[stat];
-        return (
-          value !== undefined && value !== null && value !== 0 && value !== "0"
-        );
+    // Keep only the first occurrence of each unique split key
+    const dedupe = (arr, keyFn) => {
+      const seen = new Set();
+      return arr.filter((s) => {
+        const k = keyFn(s);
+        if (k == null || seen.has(k)) return false;
+        seen.add(k);
+        return true;
       });
     };
 
-    if (
-      !vsTeamStats ||
-      (!vsTeamStats.hitting && !vsTeamStats.pitching) ||
-      (!hasStatsData(vsTeamStats.hitting) &&
-        !hasStatsData(vsTeamStats.pitching))
-    ) {
-      return (
-        <View
-          style={[
-            styles.contentContainer,
-            { backgroundColor: theme.background },
-          ]}
+    // Helper: get splits from one stat type, optionally filtered by group
+    const getSplitsOfType = (typeName, groupName = null) =>
+      playerStats.stats
+        ?.filter(
+          (s) =>
+            s.type?.displayName === typeName &&
+            (groupName == null || s.group?.displayName === groupName),
+        )
+        .flatMap((s) => s.splits ?? []) ?? [];
+
+    // For two-way: build { label, stat, pitchStat } by merging hitting + pitching arrays on key
+    const mergeGroups = (hitArr, pitchArr, keyFn, labelFn) => {
+      const map = new Map();
+      hitArr.forEach((s) => {
+        const k = keyFn(s);
+        if (k == null) return;
+        map.set(k, { key: k, label: labelFn(s), stat: s.stat ?? {}, pitchStat: null });
+      });
+      pitchArr.forEach((s) => {
+        const k = keyFn(s);
+        if (k == null) return;
+        if (map.has(k)) {
+          map.get(k).pitchStat = s.stat ?? {};
+        } else {
+          map.set(k, { key: k, label: labelFn(s), stat: null, pitchStat: s.stat ?? {} });
+        }
+      });
+      return [...map.values()];
+    };
+
+    // buildSplits: sortDir = 1 for ascending, -1 for descending by key
+    const buildSplits = (typeName, keyFn, labelFn, sortDir = 1) => {
+      if (isTwoWayPlayer) {
+        const hit = dedupe(getSplitsOfType(typeName, "hitting"), keyFn);
+        const pitch = dedupe(getSplitsOfType(typeName, "pitching"), keyFn);
+        return mergeGroups(hit, pitch, keyFn, labelFn).sort((a, b) => sortDir * (a.key - b.key));
+      }
+      return dedupe(getSplitsOfType(typeName), keyFn)
+        .sort((a, b) => sortDir * (keyFn(a) - keyFn(b)))
+        .map((s) => ({ label: labelFn(s), stat: s.stat ?? {}, pitchStat: null }));
+    };
+
+    const dayOfWeekSplits = buildSplits(
+      "byDayOfWeek",
+      (s) => s.dayOfWeek,
+      (s) => DAY_LABELS[s.dayOfWeek] ?? String(s.dayOfWeek),
+      1,
+    );
+
+    const monthSplits = buildSplits(
+      "byMonth",
+      (s) => s.month,
+      (s) => MONTH_LABELS[s.month] ?? String(s.month),
+      1,
+    );
+
+    const homeAwaySplits = buildSplits(
+      "homeAndAway",
+      (s) => (s.isHome ? 1 : 0),
+      (s) => (s.isHome ? "Home" : "Away"),
+      -1, // Home first
+    );
+
+    const winLossSplits = buildSplits(
+      "winLoss",
+      (s) => (s.isWin ? 1 : 0),
+      (s) => (s.isWin ? "Win" : "Loss"),
+      -1, // Win first
+    );
+
+    const SPLITS_SECTIONS = [
+      { title: "Day of Week", splits: dayOfWeekSplits },
+      { title: "By Month",    splits: monthSplits },
+      { title: "Home & Away", splits: homeAwaySplits },
+      { title: "Win / Loss",  splits: winLossSplits },
+    ];
+
+    const otherTeams = ALL_MLB_TEAMS.filter((t) => t.name !== teamName);
+
+    return (
+      <View style={spStyles.container}>
+
+        {/* ── VS Team bubble ── */}
+        <TouchableOpacity
+          style={[spStyles.bubble, { backgroundColor: theme.surface }]}
+          activeOpacity={0.75}
+          onPress={async () => {
+            setVsTeamModal({ teams: otherTeams, selectedTeamIdx: 0, statsCache: {} });
+            const firstTeam = otherTeams[0];
+            if (!firstTeam?.id) return;
+            setVsTeamLoading(true);
+            try {
+              const year = new Date().getFullYear();
+              const url = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=vsTeamTotal&opposingTeamId=${firstTeam.id}&season=${year}&fields=stats,type,displayName,splits,season,stat,summary,gamesPlayed,runs,doubles,triples,homeRuns,strikeOuts,baseOnBalls,hits,avg,atBats,obp,slg,ops,stolenBases,plateAppearances,totalBases,rbi,leftOnBase,babip,team,id,name,opponent,id,name,gameType`;
+              const resp = await fetch(url);
+              const data = await resp.json();
+              const stat = data?.stats?.[0]?.splits?.[0]?.stat ?? null;
+              setVsTeamModal((prev) => prev ? { ...prev, statsCache: { ...prev.statsCache, [firstTeam.name]: stat } } : null);
+            } catch {
+              setVsTeamModal((prev) => prev ? { ...prev, statsCache: { ...prev.statsCache, [firstTeam.name]: null } } : null);
+            } finally {
+              setVsTeamLoading(false);
+            }
+          }}
         >
-          <View style={styles.vsTeamHeader}>
-            <TouchableOpacity
-              onPress={() => setSelectedTeam(null)}
-              style={[
-                styles.changeTeamButton,
-                { backgroundColor: colors.secondary },
-              ]}
+          <View style={spStyles.bubbleRow}>
+            <Text
+              allowFontScaling={false}
+              style={[spStyles.bubbleTitle, { color: theme.textSecondary }]}
             >
-              <Text
-                allowFontScaling={false}
-                style={[styles.changeTeamText, { color: "white" }]}
-              >
-                Change Team
-              </Text>
-            </TouchableOpacity>
-            <View style={styles.selectedTeamInfo}>
-              <TeamLogoImage
-                source={{ uri: getThemeTeamLogoUrl("mlb", selectedTeam.abbr) }}
-                style={styles.selectedTeamLogo}
-                defaultSource={{
-                  uri: "https://via.placeholder.com/30x30?text=MLB",
-                }}
-              />
-              <Text
-                allowFontScaling={false}
-                style={[styles.selectedTeamName, { color: theme.text }]}
-              >
-                {selectedTeam.name}
-              </Text>
-            </View>
+              VS Team
+            </Text>
+            <Text style={[spStyles.bubbleChevron, { color: theme.textSecondary }]}>›</Text>
           </View>
-          <Text
-            allowFontScaling={false}
-            style={[styles.contentText, { color: theme.textSecondary }]}
+          <View style={spStyles.vsTeamGrid}>
+            {otherTeams.slice(0, 4).map((t) => {
+              const tColor = MLBService.getTeamColor(t.name);
+              const tLogo = MLBService.getLogoUrl(t.name, null, isDarkMode ? "dark" : "light");
+              return (
+                <View
+                  key={t.name}
+                  style={[spStyles.vsTeamChip, { backgroundColor: tColor + "18", borderColor: tColor + "55" }]}
+                >
+                  {tLogo ? (
+                    <Image source={{ uri: tLogo }} style={spStyles.vsTeamLogo} resizeMode="contain" />
+                  ) : (
+                    <View style={[spStyles.vsTeamLogoFallback, { backgroundColor: tColor }]}>
+                      <Text style={[spStyles.vsTeamLogoFallbackText, { color: getTextOnColor(tColor) }]}>
+                        {t.abbr[0]}
+                      </Text>
+                    </View>
+                  )}
+                  <Text allowFontScaling={false} style={[spStyles.vsTeamAbbr, { color: tColor }]} numberOfLines={1}>
+                    {t.abbr}
+                  </Text>
+                </View>
+              );
+            })}
+            {otherTeams.length > 4 && (
+              <View style={[spStyles.vsTeamChip, { backgroundColor: teamColor + "18", borderColor: teamColor + "55" }]}>
+                <Text style={[spStyles.vsTeamAbbr, { color: theme.textTertiary }]}>+{otherTeams.length - 4}</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+
+        {/* ── Other splits bubbles ── */}
+        {SPLITS_SECTIONS.map(({ title, splits }) => (
+          <TouchableOpacity
+            key={title}
+            style={[spStyles.bubble, { backgroundColor: theme.surface }]}
+            activeOpacity={splits && splits.length > 0 ? 0.75 : 1}
+            onPress={() => {
+              if (!splits || splits.length === 0) return;
+              setSplitsModal({ title, splits, selectedIdx: 0, selectedGroup: "hitting" });
+            }}
           >
-            No data available against this team
+            <View style={spStyles.bubbleRow}>
+              <Text
+                allowFontScaling={false}
+                style={[spStyles.bubbleTitle, { color: theme.textSecondary }]}
+              >
+                {title}
+              </Text>
+              {splits && splits.length > 0 ? (
+                <Text style={[spStyles.bubbleChevron, { color: theme.textSecondary }]}>›</Text>
+              ) : null}
+            </View>
+
+            {splits && splits.length > 0 && (
+              <View style={spStyles.pillsRow}>
+                {splits.slice(0, 7).map((s) => (
+                  <View
+                    key={s.label}
+                    style={[spStyles.pill, { backgroundColor: teamColor + "33" }]}
+                  >
+                    <Text style={[spStyles.pillText, { color: theme.textTertiary }]}>{s.label}</Text>
+                  </View>
+                ))}
+                {splits.length > 7 && (
+                  <View style={[spStyles.pill, { backgroundColor: teamColor + "33" }]}>
+                    <Text style={[spStyles.pillText, { color: theme.textTertiary }]}>
+                      +{splits.length - 7}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
+
+  // ── Awards renderer ────────────────────────────────────────────────────────
+
+  const renderAwards = () => {
+    if (!awards) {
+      return (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="small" color={teamColor} />
+        </View>
+      );
+    }
+    if (awards.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+            No awards found
           </Text>
         </View>
       );
     }
 
-    // Use the exact same renderStatBox and renderStatsGrid functions as Stats section
-    const renderStatBox = (label, value, key, ranking = null) => {
-      let displayValue = value;
-      if (value !== undefined && value !== null && !isNaN(value)) {
-        if (typeof value === "number") {
-          displayValue = value % 1 === 0 ? value.toString() : value.toFixed(3);
-        }
-      } else {
-        displayValue = "--";
-      }
-
-      return (
-        <View
-          key={key}
-          style={[styles.statBox, { backgroundColor: theme.surface }]}
-        >
-          <Text
-            allowFontScaling={false}
-            style={[styles.statBoxValue, { color: colors.primary }]}
-          >
-            {displayValue}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.statBoxLabel, { color: theme.textSecondary }]}
-          >
-            {label}
-          </Text>
-        </View>
-      );
-    };
-
-    const renderStatsGrid = (stats, title, statDefinitions) => {
-      const statsRows = [];
-      for (let i = 0; i < statDefinitions.length; i += 3) {
-        const rowStats = statDefinitions.slice(i, i + 3);
-        statsRows.push(
-          <View key={i} style={styles.statsRow}>
-            {rowStats.map(({ key, label }) => {
-              let value = stats[key];
-
-              // Handle calculated stats
-              if (key === "xbhAllowed") {
-                // XBH/A = Doubles + Triples allowed
-                const doubles = stats.doubles || 0;
-                const triples = stats.triples || 0;
-                value = doubles + triples;
-              }
-
-              return renderStatBox(label, value, `${title}-${key}`);
-            })}
-          </View>,
-        );
-      }
-      return statsRows;
-    };
+    // Group by year for a cleaner presentation
+    const grouped = {};
+    awards.forEach((a) => {
+      const yr = a.date ? String(new Date(a.date).getFullYear()) : "—";
+      if (!grouped[yr]) grouped[yr] = [];
+      grouped[yr].push(a);
+    });
+    const years = Object.keys(grouped).sort((a, b) => b - a);
 
     return (
-      <ScrollView
-        style={[styles.statsContainer, { backgroundColor: theme.background }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.statsContent}>
-          {/* Team selection header */}
-          <View
-            style={[styles.vsTeamHeader, { backgroundColor: theme.background }]}
-          >
-            <TouchableOpacity
-              onPress={() => setSelectedTeam(null)}
+      <View style={{ paddingBottom: 24 }}>
+        {years.map((yr) => (
+          <View key={yr}>
+            {/* Year header */}
+            <View
               style={[
-                styles.changeTeamButton,
-                { backgroundColor: colors.secondary },
+                styles.awardsYearHeader,
+                { backgroundColor: teamColor + "18" },
               ]}
             >
               <Text
                 allowFontScaling={false}
-                style={[styles.changeTeamText, { color: "white" }]}
+                style={[styles.awardsYearText, { color: teamColor }]}
               >
-                Change Team
-              </Text>
-            </TouchableOpacity>
-            <View style={styles.selectedTeamInfo}>
-              <TeamLogoImage
-                source={{ uri: getThemeTeamLogoUrl("mlb", selectedTeam.abbr) }}
-                style={styles.selectedTeamLogo}
-                defaultSource={{
-                  uri: "https://via.placeholder.com/30x30?text=MLB",
-                }}
-              />
-              <Text
-                allowFontScaling={false}
-                style={[styles.selectedTeamName, { color: theme.text }]}
-              >
-                {selectedTeam.name}
+                {yr}
               </Text>
             </View>
+            {grouped[yr].map((a, idx) => {
+              // Award team: API returns a.team.teamName (short) + a.team.id
+              // Use the ID to resolve full name → reliable color lookup
+              const awardTeamId = a.team?.id;
+              const awardFullName = awardTeamId
+                ? MLBService.getTeamNameById(awardTeamId)
+                : null;
+              const awardTeamName = awardFullName ?? a.team?.teamName ?? a.team?.name ?? "";
+              const awardColor = awardFullName
+                ? (MLBService.getTeamColorById(awardTeamId) || teamColor)
+                : teamColor;
+              return (
+              <View
+                key={idx}
+                style={[
+                  styles.awardRow,
+                  {
+                    backgroundColor: theme.surface,
+                    borderBottomColor: theme.border,
+                    borderBottomWidth:
+                      idx < grouped[yr].length - 1
+                        ? StyleSheet.hairlineWidth
+                        : 0,
+                  },
+                ]}
+              >
+                <View
+                  style={[styles.awardDot, { backgroundColor: awardColor }]}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.awardName, { color: theme.text }]}
+                    numberOfLines={2}
+                  >
+                    {a.name ?? ""}
+                  </Text>
+                  {awardTeamName ? (
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.awardTeam, { color: theme.textSecondary }]}
+                      numberOfLines={1}
+                    >
+                      {awardTeamName}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+              );
+            })}
           </View>
-
-          {/* Hitting Stats */}
-          {vsTeamStats.hitting && hasStatsData(vsTeamStats.hitting) && (
-            <View style={styles.statsSection}>
-              <View style={styles.vsTeamStatsHeader}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statsSectionTitle, { color: colors.primary }]}
-                >
-                  Hitting Statistics vs{" "}
-                </Text>
-                <TeamLogoImage
-                  source={{
-                    uri: getThemeTeamLogoUrl("mlb", selectedTeam.abbr),
-                  }}
-                  style={styles.vsTeamStatLogo}
-                />
-              </View>
-              {renderStatsGrid(vsTeamStats.hitting, "hitting", [
-                { key: "avg", label: "AVG" },
-                { key: "obp", label: "OBP" },
-                { key: "slg", label: "SLG" },
-                { key: "ops", label: "OPS" },
-                { key: "homeRuns", label: "HR" },
-                { key: "rbi", label: "RBI" },
-                { key: "runs", label: "Runs" },
-                { key: "hits", label: "Hits" },
-                { key: "doubles", label: "2B" },
-                { key: "triples", label: "3B" },
-                { key: "baseOnBalls", label: "BB" },
-                { key: "strikeOuts", label: "SO" },
-                { key: "stolenBases", label: "SB" },
-                { key: "atBats", label: "AB" },
-                { key: "plateAppearances", label: "PA" },
-              ])}
-            </View>
-          )}
-
-          {/* Pitching Stats */}
-          {vsTeamStats.pitching && hasStatsData(vsTeamStats.pitching) && (
-            <View style={styles.statsSection}>
-              <View style={styles.vsTeamStatsHeader}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.statsSectionTitle, { color: colors.primary }]}
-                >
-                  Pitching Statistics vs{" "}
-                </Text>
-                <TeamLogoImage
-                  source={{
-                    uri: getThemeTeamLogoUrl("mlb", selectedTeam.abbr),
-                  }}
-                  style={styles.vsTeamStatLogo}
-                />
-              </View>
-              {renderStatsGrid(vsTeamStats.pitching, "pitching", [
-                { key: "avg", label: "B/AVG" },
-                { key: "ops", label: "B/OPS" },
-                { key: "plateAppearances", label: "PA" },
-                { key: "strikeOuts", label: "SO" },
-                { key: "rbi", label: "RBI/A" },
-                { key: "xbhAllowed", label: "XBH/A" },
-                { key: "totalBases", label: "TB/A" },
-                { key: "hits", label: "H/A" },
-                { key: "baseOnBalls", label: "BB/A" },
-                { key: "homeRuns", label: "HR/A" },
-                { key: "atBatsPerHomeRun", label: "AB/HR" },
-                { key: "groundOutsToAirouts", label: "GB/FB" },
-                { key: "babip", label: "BABIP" },
-                { key: "groundIntoDoublePlay", label: "GIDP" },
-                { key: "gamesPlayed", label: "G" },
-              ])}
-            </View>
-          )}
-        </View>
-      </ScrollView>
+        ))}
+      </View>
     );
   };
 
-  if (loading) {
-    return (
-      <View
-        style={[styles.loadingContainer, { backgroundColor: theme.background }]}
-      >
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text
-          allowFontScaling={false}
-          style={[styles.loadingText, { color: theme.text }]}
-        >
-          Loading player information...
-        </Text>
-      </View>
-    );
-  }
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {renderPlayerHeader()}
-
-      {/* Fixed Tab Container */}
-      <View
-        style={[styles.fixedTabContainer, { backgroundColor: theme.surface }]}
-      >
-        {renderTabButtons()}
-      </View>
-
-      <ScrollView
-        style={[
-          styles.contentScrollView,
-          { backgroundColor: theme.background },
-        ]}
+    <View style={[styles.screen, { backgroundColor: theme.background }]}>
+      <Animated.ScrollView
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false },
+        )}
+        stickyHeaderIndices={[1]}
       >
-        {renderContent()}
-      </ScrollView>
+        {/* ── [0] HERO HEADER ──────────────────────────────────────────── */}
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: teamColor,
+            },
+          ]}
+          onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+        >
+          <View style={styles.headerMain}>
+            {/* Player headshot */}
+            {headshotUrl && !headshotError ? (
+              <Image
+                source={{ uri: headshotUrl }}
+                style={styles.headerLogo}
+                resizeMode="cover"
+                onError={() => setHeadshotError(true)}
+              />
+            ) : (
+              <View
+                style={[
+                  styles.headerLogoFallback,
+                  { backgroundColor: teamColor },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.headerLogoFallbackText,
+                    { color: headerTextColor },
+                  ]}
+                >
+                  {(displayName[0] ?? "P").toUpperCase()}
+                </Text>
+              </View>
+            )}
 
-      {/* Detailed Stats Modal */}
-      {renderDetailedStatsModal()}
+            {/* Name / team / position */}
+            <View style={styles.headerTextBlock}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.headerName, { color: headerTextColor }]}
+                numberOfLines={1}
+              >
+                {displayName}
+              </Text>
 
-      {/* Season Stats Modal */}
-      {renderSeasonModal()}
+              {teamName ? (
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.headerLeague, { color: headerTextColor, opacity: 0.8 }]}
+                  numberOfLines={1}
+                >
+                  {teamName}
+                </Text>
+              ) : null}
+
+              {positionName || jersey ? (
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.headerDivision, { color: headerTextColor, opacity: 0.6 }]}
+                  numberOfLines={1}
+                >
+                  {[positionName, jersey].filter(Boolean).join("  ·  ")}
+                </Text>
+              ) : null}
+            </View>
+
+            {/* Team logo badge */}
+            {teamLogoUrl ? (
+              <Image
+                source={{ uri: teamLogoUrl }}
+                style={styles.headerTeamBadge}
+                resizeMode="contain"
+              />
+            ) : null}
+          </View>
+        </View>
+
+        {/* ── [1] STICKY UNIT (tab bar + mini banner) ──────────────────── */}
+        <View style={{ backgroundColor: theme.surface }}>
+          {/* Mini banner — fades + grows in as hero scrolls away */}
+          <Animated.View
+            style={{
+              height: stickyMiniHeight,
+              opacity: stickyOpacity,
+              overflow: "hidden",
+            }}
+          >
+            {/* Gradient background */}
+            <Svg
+              style={StyleSheet.absoluteFill}
+              width="100%"
+              height={60}
+              pointerEvents="none"
+            >
+              <Defs>
+                <SvgLinearGradient id="pGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <Stop
+                    offset="0%"
+                    stopColor={theme.surfaceSecondary ?? theme.surface}
+                    stopOpacity="1"
+                  />
+                  <Stop
+                    offset="55%"
+                    stopColor={theme.surfaceSecondary ?? theme.surface}
+                    stopOpacity="1"
+                  />
+                  <Stop
+                    offset="100%"
+                    stopColor={teamColor}
+                    stopOpacity="0.65"
+                  />
+                </SvgLinearGradient>
+              </Defs>
+              <Rect width="100%" height="100%" fill="url(#pGrad)" />
+            </Svg>
+
+            {/* Mini headshot + name */}
+            <View style={styles.stickyMiniContent}>
+              {headshotUrl && !headshotError ? (
+                <Image
+                  source={{ uri: headshotUrl }}
+                  style={styles.stickyMiniLogo}
+                  resizeMode="cover"
+                />
+              ) : null}
+              <View style={{ flex: 1 }}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.stickyMiniName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {displayName}
+                </Text>
+                {teamName ? (
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.stickyMiniLeague,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {teamName}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          </Animated.View>
+
+          {/* Scrollable tab bar */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabBarContent}
+            style={[styles.tabBar, { borderBottomColor: theme.border }]}
+          >
+            {TABS.map((tab) => (
+              <TouchableOpacity
+                key={tab}
+                onPress={() => {
+                  if (tab === "Game Log") setGameLogPage(0);
+                  setActiveTab(tab);
+                }}
+                style={styles.tabBarBtn}
+                activeOpacity={0.75}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.tabBarText,
+                    activeTab === tab
+                      ? { color: theme.text, fontWeight: "700" }
+                      : { color: theme.textSecondary },
+                  ]}
+                >
+                  {tab}
+                </Text>
+                {activeTab === tab && (
+                  <View
+                    style={[
+                      styles.tabBarIndicator,
+                      { backgroundColor: teamColor },
+                    ]}
+                  />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* ── CONTENT ──────────────────────────────────────────────────── */}
+        <View style={styles.content}>
+          {activeTab === "Player" && renderPlayerTab()}
+
+          {activeTab === "Game Log" && renderGameLogTab()}
+
+          {activeTab === "Career" && renderCareerTab()}
+
+          {activeTab === "Splits" && renderSplitsTab()}
+
+          {activeTab === "Awards" && renderAwards()}
+        </View>
+      </Animated.ScrollView>
+
+      {/* ── Career detail modal ─────────────────────────────────────────── */}
+      {careerModal && (
+        <Modal
+          visible
+          transparent
+          animationType="slide"
+          onRequestClose={() => setCareerModal(null)}
+        >
+          <Pressable
+            style={cStyles.modalOverlay}
+            onPress={() => setCareerModal(null)}
+          >
+            <Pressable
+              style={[cStyles.modalSheet, { backgroundColor: theme.surface }]}
+              onPress={() => {}}
+            >
+              {/* Header */}
+              <View
+                style={[
+                  cStyles.modalHeader,
+                  { borderBottomColor: theme.border },
+                ]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[cStyles.modalTitle, { color: theme.text }]}
+                  >
+                    {careerModal.season} · 
+                    {GAME_TYPE_LABELS[careerModal.gameType] ?? careerModal.gameType}
+                  </Text>
+                  {careerModal.teamName ? (
+                    <Text
+                      allowFontScaling={false}
+                      style={[cStyles.modalSub, { color: theme.textSecondary }]}
+                    >
+                      {careerModal.teamName}
+                    </Text>
+                  ) : null}
+                </View>
+                <TouchableOpacity
+                  onPress={() => setCareerModal(null)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={[cStyles.modalClose, { color: theme.textSecondary }]}>
+                    ✕
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Stats grid */}
+              <ScrollView
+                contentContainerStyle={cStyles.modalContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={cStyles.modalChipsGrid}>
+                  {Object.entries(careerModal.stat).map(([key, val]) => {
+                    if (val == null || val === "") return null;
+                    const lbl =
+                      [...HITTING_STAT_DEFS, ...PITCHING_STAT_DEFS].find(
+                        (d) => d.key === key,
+                      )?.label ??
+                      key
+                        .replace(/([A-Z])/g, " $1")
+                        .replace(/^./, (s) => s.toUpperCase());
+                    const rank =
+                      careerModal.gameType === "R"
+                        ? careerModal.rankings?.[key]
+                        : null;
+                    const rankOnColor = getTextOnColor(teamColor);
+                    return (
+                      <View
+                        key={key}
+                        style={[cStyles.modalChip, { backgroundColor: theme.background }]}
+                      >
+                        {rank != null && (
+                          <View
+                            style={[cStyles.rankBadge, { backgroundColor: teamColor }]}
+                          >
+                            <Text
+                              allowFontScaling={false}
+                              style={[cStyles.rankText, { color: rankOnColor }]}
+                            >
+                              #{rank}
+                            </Text>
+                          </View>
+                        )}
+                        <Text
+                          allowFontScaling={false}
+                          style={[cStyles.chipValue, { color: theme.text }]}
+                          numberOfLines={1}
+                        >
+                          {String(val)}
+                        </Text>
+                        <Text
+                          allowFontScaling={false}
+                          style={[cStyles.chipLabel, { color: theme.textSecondary }]}
+                          numberOfLines={1}
+                        >
+                          {lbl}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+      {/* ── Splits detail modal ──────────────────────────────────────────── */}
+      {splitsModal && (
+        <Modal
+          visible
+          transparent
+          animationType="slide"
+          onRequestClose={() => setSplitsModal(null)}
+        >
+          <Pressable
+            style={cStyles.modalOverlay}
+            onPress={() => setSplitsModal(null)}
+          >
+            <Pressable
+              style={[cStyles.modalSheet, { backgroundColor: theme.surface }]}
+              onPress={() => {}}
+            >
+              {/* Header */}
+              <View
+                style={[
+                  cStyles.modalHeader,
+                  { borderBottomColor: theme.border },
+                ]}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[cStyles.modalTitle, { color: theme.text }]}
+                >
+                  {splitsModal.title}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setSplitsModal(null)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={[cStyles.modalClose, { color: theme.textSecondary }]}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Scrollable split selector */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={spStyles.splitBtnRow}
+                style={[spStyles.splitBtnScroll, { borderBottomColor: theme.border }]}
+              >
+                {splitsModal.splits.map((s, idx) => {
+                  const isSelected = idx === splitsModal.selectedIdx;
+                  return (
+                    <TouchableOpacity
+                      key={s.label}
+                      onPress={() =>
+                        setSplitsModal((prev) => ({ ...prev, selectedIdx: idx, selectedGroup: "hitting" }))
+                      }
+                      style={[
+                        spStyles.splitBtn,
+                        isSelected
+                          ? { backgroundColor: teamColor }
+                          : { backgroundColor: theme.background },
+                      ]}
+                      activeOpacity={0.75}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          spStyles.splitBtnText,
+                          { color: isSelected ? getTextOnColor(teamColor) : theme.text },
+                        ]}
+                      >
+                        {s.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {/* Hitting / Pitching toggle — only for two-way entries */}
+              {(() => {
+                const selEntry = splitsModal.splits[splitsModal.selectedIdx];
+                const hasBoth = selEntry?.pitchStat != null &&
+                  Object.keys(selEntry?.stat ?? {}).length > 0;
+                if (!hasBoth) return null;
+                return (
+                  <View style={[spStyles.groupToggleRow, { borderBottomColor: theme.border }]}>
+                    {["hitting", "pitching"].map((g) => {
+                      const isActive = splitsModal.selectedGroup === g;
+                      return (
+                        <TouchableOpacity
+                          key={g}
+                          onPress={() => setSplitsModal((prev) => ({ ...prev, selectedGroup: g }))}
+                          style={[
+                            spStyles.groupToggleBtn,
+                            isActive
+                              ? { backgroundColor: teamColor }
+                              : { backgroundColor: theme.background },
+                          ]}
+                          activeOpacity={0.75}
+                        >
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              spStyles.groupToggleText,
+                              { color: isActive ? getTextOnColor(teamColor) : theme.text },
+                            ]}
+                          >
+                            {g === "hitting" ? "Hitting" : "Pitching"}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                );
+              })()}
+
+              {/* Stats grid */}
+              <ScrollView
+                contentContainerStyle={cStyles.modalContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {(() => {
+                  const selEntry = splitsModal.splits[splitsModal.selectedIdx];
+                  const hitStat = selEntry?.stat ?? {};
+                  const pitchStat = selEntry?.pitchStat ?? null;
+                  const showPitch = pitchStat != null && splitsModal.selectedGroup === "pitching";
+                  const activeStat = showPitch ? pitchStat : hitStat;
+
+                  const renderChipEntry = (key, val) => {
+                    if (val == null || val === "") return null;
+                    const lbl =
+                      [...HITTING_STAT_DEFS, ...PITCHING_STAT_DEFS].find(
+                        (d) => d.key === key,
+                      )?.label ??
+                      key
+                        .replace(/([A-Z])/g, " $1")
+                        .replace(/^./, (s) => s.toUpperCase());
+                    return (
+                      <View
+                        key={key}
+                        style={[cStyles.modalChip, { backgroundColor: theme.background }]}
+                      >
+                        <Text
+                          allowFontScaling={false}
+                          style={[cStyles.chipValue, { color: theme.text }]}
+                          numberOfLines={1}
+                        >
+                          {String(val)}
+                        </Text>
+                        <Text
+                          allowFontScaling={false}
+                          style={[cStyles.chipLabel, { color: theme.textSecondary }]}
+                          numberOfLines={1}
+                        >
+                          {lbl}
+                        </Text>
+                      </View>
+                    );
+                  };
+
+                  return (
+                    <View style={cStyles.modalChipsGrid}>
+                      {Object.entries(activeStat).map(([k, v]) => renderChipEntry(k, v))}
+                    </View>
+                  );
+                })()}
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+
+      {/* ── VS Team modal ─────────────────────────────────────────────────── */}
+      {vsTeamModal && (
+        <Modal
+          visible
+          transparent
+          animationType="slide"
+          onRequestClose={() => setVsTeamModal(null)}
+        >
+          <Pressable style={cStyles.modalOverlay} onPress={() => setVsTeamModal(null)}>
+            <Pressable style={[cStyles.modalSheet, { backgroundColor: theme.surface }]} onPress={() => {}}>
+
+              {/* Header */}
+              <View style={[cStyles.modalHeader, { borderBottomColor: theme.border }]}>
+                <Text allowFontScaling={false} style={[cStyles.modalTitle, { color: theme.text }]}>
+                  VS Team
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setVsTeamModal(null)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={[cStyles.modalClose, { color: theme.textSecondary }]}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Team selector */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={spStyles.splitBtnRow}
+                style={[spStyles.splitBtnScroll, { borderBottomColor: theme.border }]}
+              >
+                {vsTeamModal.teams.map((t, idx) => {
+                  const isSelected = idx === vsTeamModal.selectedTeamIdx;
+                  const tColor = MLBService.getTeamColor(t.name);
+                  const tLogo = MLBService.getLogoUrl(t.name, null, isDarkMode ? "dark" : "light");
+                  return (
+                    <TouchableOpacity
+                      key={t.name}
+                      onPress={async () => {
+                        setVsTeamModal((prev) => prev ? { ...prev, selectedTeamIdx: idx } : null);
+                        if (vsTeamModal.statsCache[t.name] !== undefined || !t.id) return;
+                        setVsTeamLoading(true);
+                        try {
+                          const year = new Date().getFullYear();
+                          const url =
+                            `https://statsapi.mlb.com/api/v1/people/${playerId}/stats` +
+                            `?stats=vsTeamTotal&opposingTeamId=${t.id}&season=${year}` +
+                            `&fields=stats,type,displayName,splits,season,stat,summary,gamesPlayed,` +
+                            `runs,doubles,triples,homeRuns,strikeOuts,baseOnBalls,hits,avg,atBats,` +
+                            `obp,slg,ops,stolenBases,plateAppearances,totalBases,rbi,leftOnBase,` +
+                            `babip,team,id,name,opponent,id,name,gameType`;
+                          const resp = await fetch(url);
+                          const data = await resp.json();
+                          const stat = data?.stats?.[0]?.splits?.[0]?.stat ?? null;
+                          setVsTeamModal((prev) =>
+                            prev ? { ...prev, statsCache: { ...prev.statsCache, [t.name]: stat } } : null
+                          );
+                        } catch {
+                          setVsTeamModal((prev) =>
+                            prev ? { ...prev, statsCache: { ...prev.statsCache, [t.name]: null } } : null
+                          );
+                        } finally {
+                          setVsTeamLoading(false);
+                        }
+                      }}
+                      style={[
+                        spStyles.vsModalBtn,
+                        {
+                          backgroundColor: isSelected ? tColor : theme.background,
+                          borderColor: isSelected ? tColor : tColor + "55",
+                        },
+                      ]}
+                      activeOpacity={0.75}
+                    >
+                      {tLogo ? (
+                        <Image source={{ uri: tLogo }} style={spStyles.vsModalBtnLogo} resizeMode="contain" />
+                      ) : null}
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          spStyles.vsModalBtnText,
+                          { color: isSelected ? getTextOnColor(tColor) : tColor },
+                        ]}
+                      >
+                        {t.abbr}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {/* Stats area */}
+              {(() => {
+                const selTeam = vsTeamModal.teams[vsTeamModal.selectedTeamIdx];
+                const cached = selTeam ? vsTeamModal.statsCache[selTeam.name] : undefined;
+                const selColor = MLBService.getTeamColor(selTeam?.name);
+
+                if (vsTeamLoading) {
+                  return (
+                    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 48 }}>
+                      <ActivityIndicator size="small" color={selColor} />
+                    </View>
+                  );
+                }
+                if (cached === null) {
+                  return (
+                    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 48 }}>
+                      <Text style={{ color: theme.textSecondary, fontSize: 14 }}>No data for this season</Text>
+                    </View>
+                  );
+                }
+                if (!cached) {
+                  return (
+                    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 48 }}>
+                      <Text style={{ color: theme.textSecondary, fontSize: 14 }}>Tap a team to view stats</Text>
+                    </View>
+                  );
+                }
+                return (
+                  <ScrollView contentContainerStyle={cStyles.modalContent} showsVerticalScrollIndicator={false}>
+                    <View style={cStyles.modalChipsGrid}>
+                      {Object.entries(cached).map(([key, val]) => {
+                        if (val == null || val === "") return null;
+                        const lbl =
+                          [...HITTING_STAT_DEFS, ...PITCHING_STAT_DEFS].find((d) => d.key === key)?.label ??
+                          key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase());
+                        return (
+                          <View key={key} style={[cStyles.modalChip, { backgroundColor: theme.background }]}>
+                            <Text
+                              allowFontScaling={false}
+                              style={[cStyles.chipValue, { color: theme.text }]}
+                              numberOfLines={1}
+                            >
+                              {String(val)}
+                            </Text>
+                            <Text
+                              allowFontScaling={false}
+                              style={[cStyles.chipLabel, { color: theme.textSecondary }]}
+                              numberOfLines={1}
+                            >
+                              {lbl}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                );
+              })()}
+
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
     </View>
   );
 };
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  screen: { flex: 1 },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+
+  // ── Hero header
+  header: {
+    paddingTop: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
-  loadingContainer: {
-    flex: 1,
+  headerMain: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 18,
+  },
+  headerLogo: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    marginRight: 14,
+  },
+  headerLogoFallback: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    marginRight: 14,
     justifyContent: "center",
     alignItems: "center",
   },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
+  headerLogoFallbackText: { fontSize: 28, fontWeight: "800" },
+  headerTextBlock: { flex: 1 },
+  headerName: { fontSize: 22, fontWeight: "800", marginBottom: 3 },
+  headerLeague: { fontSize: 13, fontWeight: "600", marginBottom: 2 },
+  headerDivision: { fontSize: 12 },
+  headerTeamBadge: {
+    width: 44,
+    height: 44,
+    marginLeft: 10,
+    opacity: 0.85,
   },
-  playerHeader: {
+
+  // ── Sticky mini banner
+  stickyMiniContent: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     flexDirection: "row",
     alignItems: "center",
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    paddingHorizontal: 16,
+    gap: 10,
   },
-  playerHeadshot: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginRight: 20,
+  stickyMiniLogo: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 4,
   },
-  playerInfo: {
+  stickyMiniName: { fontSize: 15, fontWeight: "700" },
+  stickyMiniLeague: { fontSize: 11, fontWeight: "500", marginTop: 1 },
+
+  // ── Tab bar
+  tabBar: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  tabBarContent: {
+    flexGrow: 1,
+    justifyContent: "space-evenly",
+  },
+  tabBarBtn: {
+    alignItems: "center",
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    position: "relative",
+  },
+  tabBarText: { fontSize: 15 },
+  tabBarIndicator: {
+    position: "absolute",
+    bottom: 0,
+    left: 8,
+    right: 8,
+    height: 2.5,
+    borderRadius: 2,
+  },
+
+  // ── Content
+  content: { paddingBottom: 40, paddingTop: 6 },
+  emptyContainer: { alignItems: "center", paddingVertical: 56 },
+  emptyText: { fontSize: 15 },
+
+  // ── Awards
+  awardsYearHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginTop: 12,
+  },
+  awardsYearText: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  awardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  awardDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
+  awardName: { fontSize: 14, fontWeight: "600", marginBottom: 2 },
+  awardTeam: { fontSize: 12 },
+});
+
+// ─── Player tab styles ────────────────────────────────────────────────────────
+
+const CHIP_GAP = 8;
+const CHIP_COLS = 4;
+// container paddingH=12, bubble padding=14, 3 gaps of 8
+const CHIP_W = (width - 2 * 12 - 2 * 14 - CHIP_GAP * (CHIP_COLS - 1)) / CHIP_COLS;
+
+const pStyles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 32,
+    gap: 10,
+  },
+  bubble: {
+    borderRadius: 16,
+    padding: 14,
+  },
+  bubbleTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+    marginBottom: 14,
+    textTransform: "uppercase",
+  },
+  chipsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: CHIP_GAP,
+  },
+  chip: {
+    width: CHIP_W,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    position: "relative",
+    overflow: "visible",
+  },
+  rankBadge: {
+    position: "absolute",
+    top: -8,
+    right: -8,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 4,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1,
+  },
+  rankText: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+  },
+  chipValue: {
+    fontSize: 15,
+    fontWeight: "800",
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  chipLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  // ── Two-way group headers
+  groupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderLeftWidth: 3,
+    paddingLeft: 8,
+    marginBottom: 10,
+    marginTop: 14,
+  },
+  groupLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  groupDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: 14,
+  },
+  // ── Bio
+  bioRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+    gap: 12,
+  },
+  bioLabel: {
+    fontSize: 13,
+    fontWeight: "500",
     flex: 1,
   },
-  playerName: {
-    fontSize: 24,
-    fontWeight: "bold",
+  bioValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "right",
+    flex: 2,
+  },
+});
+
+// ─── Game Log styles ─────────────────────────────────────────────────────────
+
+const glStyles = StyleSheet.create({
+  cardWrap: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    position: "relative",
+    overflow: "visible",
+  },
+  card: {
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  cardInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  leftCol: {
+    width: 52,
+    alignItems: "center",
+    gap: 6,
+  },
+  dateText: {
+    fontSize: 11,
+    textAlign: "center",
+    fontWeight: "500",
+    lineHeight: 15,
+  },
+  leftLogo: { width: 32, height: 32 },
+  leftLogoFallback: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  leftLogoFallbackText: { fontSize: 14, fontWeight: "800" },
+  middle: { flex: 1, gap: 3 },
+  positions: { fontSize: 13, fontWeight: "700" },
+  statSummary: { fontSize: 12, fontWeight: "500", lineHeight: 18 },
+  wlBubble: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  wlText: { fontSize: 13, fontWeight: "800", color: "#FFFFFF" },
+  oppRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+  },
+  oppPrefix: { fontSize: 11, fontWeight: "600", width: 18 },
+  oppLogo: { width: 20, height: 20 },
+  oppLogoFallback: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  oppLogoFallbackText: { fontSize: 9, fontWeight: "800" },
+  oppName: { fontSize: 12, fontWeight: "500", flex: 1 },
+  oppChevron: { fontSize: 20, lineHeight: 24, paddingLeft: 2 },
+  pagination: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: 12,
+    marginTop: 16,
     marginBottom: 4,
   },
-  playerDetails: {
-    fontSize: 16,
-    marginBottom: 8,
+  pageBtn: {
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
   },
-  teamContainer: {
+  pageBtnText: { fontSize: 14, fontWeight: "700" },
+  pageLabel: { fontSize: 13, fontWeight: "600" },
+  gameTypeBadge: {
+    position: "absolute",
+    top: -8,
+    right: -8,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    zIndex: 1,
+  },
+  gameTypeBadgeText: { fontSize: 10, fontWeight: "700" },
+});
+
+// ─── Career tab styles ──────────────────────────────────────────────────────────────
+
+const MODAL_CHIP_COLS = 3;
+const MODAL_CHIP_GAP = 8;
+const MODAL_CHIP_W =
+  (width - 32 - MODAL_CHIP_GAP * (MODAL_CHIP_COLS - 1)) / MODAL_CHIP_COLS;
+
+const cStyles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 32,
+    gap: 10,
+  },
+  bubble: {
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  bubbleTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 10,
+  },
+  // ── Year row
+  yearRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    gap: 10,
   },
-  teamLogo: {
-    width: 24,
-    height: 24,
-    marginRight: 8,
-  },
-  teamName: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  fixedTabContainer: {
-    flexDirection: "row",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    zIndex: 1000,
-  },
-  contentScrollView: {
-    flex: 1,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 15,
-    alignItems: "center",
-    borderBottomWidth: 3,
-    borderBottomColor: "transparent",
-  },
-  activeTabButton: {
-    borderBottomWidth: 3,
-  },
-  tabText: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  activeTabText: {
-    fontWeight: "bold",
-  },
-  contentContainer: {
-    flex: 1,
-    padding: 15,
-    paddingTop: 20,
-  },
-  contentText: {
-    fontSize: 16,
-    textAlign: "center",
-    fontStyle: "italic",
-  },
-  // Stats styles
-  statsContainer: {
-    flex: 1,
-  },
-  statsContent: {
-    padding: 15,
-  },
-  statsLoadingContainer: {
-    flex: 1,
+  rowLogo: { width: 32, height: 32 },
+  rowLogoFallback: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    padding: 40,
   },
-  monthSelector: {
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+  rowLogoFallbackText: { fontSize: 13, fontWeight: "800" },
+  rowInfo: { flex: 1 },
+  rowTeam: { fontSize: 13, fontWeight: "700", marginBottom: 2 },
+  rowYear: { fontSize: 11, fontWeight: "500" },
+  rowStats: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "center",
   },
-  monthSelectorLabel: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 10,
+  rowStatCell: { alignItems: "center", minWidth: 32 },
+  rowStatVal: { fontSize: 13, fontWeight: "700" },
+  rowStatLabel: { fontSize: 10, fontWeight: "500", marginTop: 1 },
+  chevron: { fontSize: 22, lineHeight: 26, paddingLeft: 2 },
+  // ── Game-type rows
+  gtContainer: { marginLeft: 14 },
+  gtRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 9,
+    paddingRight: 14,
+    gap: 10,
   },
-  monthOptions: {
+  gtBadge: {
+    flex: 1,
+    paddingLeft: 10,
+    paddingRight: 8,
+    paddingVertical: 3,
+    borderLeftWidth: 3,
+    borderLeftColor: "transparent",
+  },
+  gtBadgeText: { fontSize: 12, fontWeight: "600" },
+  gtTeamName: { fontSize: 11, fontWeight: "500", marginTop: 1 },
+  // ── Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "80%",
+    overflow: "hidden",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 12,
+  },
+  modalTitle: { fontSize: 16, fontWeight: "800" },
+  modalSub: { fontSize: 12, fontWeight: "500", marginTop: 2 },
+  modalClose: { fontSize: 18, lineHeight: 22 },
+  modalContent: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 28,
+  },
+  modalChipsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: MODAL_CHIP_GAP,
+  },
+  modalChip: {
+    width: MODAL_CHIP_W,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    position: "relative",
+    overflow: "visible",
+  },
+  // Shared rank badge (reused from pStyles pattern)
+  rankBadge: {
+    position: "absolute",
+    top: -8,
+    right: -8,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 4,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1,
+  },
+  rankText: { fontSize: 9, fontWeight: "800", letterSpacing: 0.2 },
+  chipValue: { fontSize: 14, fontWeight: "800", marginBottom: 4, textAlign: "center" },
+  chipLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  // Multi-team logo
+  multiLogoWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    width: 42,
+  },
+  multiLogoImg: { width: 18, height: 18 },
+  multiLogoFallback: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  multiLogoFallbackText: { fontSize: 9, fontWeight: "800" },
+  // Two-way stacked stat rows in career
+  twoWayStatStack: {
+    alignItems: "flex-end",
+  },
+});
+
+// ─── Splits tab styles ──────────────────────────────────────────────────────
+
+const spStyles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 32,
+    gap: 10,
+  },
+  bubble: {
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  bubbleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  bubbleTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  bubbleChevron: {
+    fontSize: 22,
+    lineHeight: 26,
+  },
+  bubbleSoon: {
+    fontSize: 12,
+    fontStyle: "italic",
+  },
+  pillsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 10,
+  },
+  pill: {
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  pillText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  // Modal split selector
+  splitBtnScroll: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexGrow: 0,
+  },
+  splitBtnRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  splitBtn: {
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  splitBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  // VS Team chip grid
+  vsTeamGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+    marginTop: 12,
   },
-  monthOption: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  vsTeamChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     borderRadius: 20,
     borderWidth: 1,
-    minWidth: 60,
-    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
-  selectedMonthOption: {
-    // Dynamic backgroundColor applied in render
-  },
-  monthOptionText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  statsSection: {
-    marginBottom: 25,
-  },
-  statsSectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 15,
-    textAlign: "center",
-  },
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 15,
-    gap: 10,
-  },
-  statBox: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 8,
-    padding: 15,
-    minHeight: 80,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  statBoxValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 5,
-  },
-  statBoxLabel: {
-    fontSize: 12,
-    textAlign: "center",
-    fontWeight: "500",
-  },
-  statBoxRanking: {
-    fontSize: 10,
-    textAlign: "center",
-    marginTop: 2,
-    fontWeight: "400",
-  },
-  // Game Log Styles
-  gameLogContainer: {
-    padding: 16,
-  },
-  gameLogCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  gameLogDate: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  gameLogDivider: {
-    height: 1,
-    marginVertical: 12,
-  },
-  singleGameLog: {
-    paddingVertical: 8,
-  },
-  gameLogHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  gameLogHeadshot: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
-  },
-  gameLogInfo: {
-    flex: 1,
-  },
-  gameLogPlayerName: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  gameLogStatSummary: {
-    fontSize: 14,
-  },
-  gameLogResult: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  gameLogResultText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-  gameLogTeams: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 8,
-  },
-  gameLogTeamLogo: {
+  vsTeamLogo: {
     width: 20,
     height: 20,
-    marginHorizontal: 4,
   },
-  gameLogTeamName: {
-    fontSize: 14,
-    fontWeight: "500",
-    marginHorizontal: 4,
-  },
-  gameLogVs: {
-    fontSize: 12,
-    marginHorizontal: 8,
-  },
-  // Modal Styles
-  modalContainer: {
-    flex: 1,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-  },
-  modalCloseButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  modalCloseText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  modalGameButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  modalGameText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  modalContent: {
-    flex: 1,
-    padding: 16,
-  },
-  modalGameHeader: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    alignItems: "center",
-  },
-  modalDate: {
-    fontSize: 14,
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  modalTeamMatchup: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  modalTeamContainer: {
-    alignItems: "center",
-    marginHorizontal: 16,
-  },
-  modalTeamLogo: {
-    width: 40,
-    height: 40,
-    marginBottom: 8,
-  },
-  modalTeamName: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  modalVs: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  modalResultContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  modalResultText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  modalPlayerHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  modalPlayerImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginRight: 16,
-  },
-  modalPlayerInfo: {
-    flex: 1,
-  },
-  modalPlayerName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  modalPlayerPosition: {
-    fontSize: 14,
-  },
-  modalStatsSection: {
-    marginBottom: 24,
-  },
-  modalSectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  modalStatsGrid: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 16,
-  },
-  modalStatCard: {
-    alignItems: "center",
+  vsTeamLogoFallback: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     justifyContent: "center",
-    backgroundColor: "#f8f9fa",
-    borderRadius: 8,
-    padding: 12,
-    width: "30%",
-    minHeight: 70,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  modalStatCardValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  modalStatCardLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  modalStatRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 8,
+  },
+  vsTeamLogoFallbackText: {
+    fontSize: 9,
+    fontWeight: "800",
+  },
+  vsTeamAbbr: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  // VS Team modal team buttons
+  vsModalBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  vsModalBtnLogo: { width: 20, height: 20 },
+  vsModalBtnText: { fontSize: 12, fontWeight: "700", letterSpacing: 0.3 },
+  // Two-way group toggle
+  groupToggleRow: {
+    flexDirection: "row",
+    gap: 8,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  modalStatLabel: {
-    fontSize: 16,
+  groupToggleBtn: {
     flex: 1,
-  },
-  modalStatValue: {
-    fontSize: 16,
-    fontWeight: "600",
-    textAlign: "right",
-  },
-  // Modal overlay and container styles
-  modalContainer: {
-    flex: 1,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    flex: 1,
-    textAlign: "center",
-  },
-  modalCloseButton: {
-    padding: 5,
-  },
-  modalCloseText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  modalGameButton: {
-    padding: 5,
-  },
-  modalGameText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  modalPlaceholder: {
-    width: 60, // Same width as close button for balance
-  },
-  modalContent: {
-    flex: 1,
-    padding: 15,
-  },
-  // Career styles
-  careerContainer: {
-    padding: 15,
-  },
-  careerSection: {
-    marginBottom: 25,
-  },
-  careerSectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 15,
-  },
-  careerSeasonCard: {
-    padding: 15,
-    marginBottom: 10,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  careerSeasonHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  careerSeasonYear: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  careerTeamInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  careerTeamLogo: {
-    width: 30,
-    height: 30,
-    marginRight: 8,
-  },
-  careerTeamName: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  careerStatsRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  careerStatItem: {
-    alignItems: "center",
-    flex: 1,
-  },
-  careerStatValue: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 2,
-  },
-  careerStatLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  // Season modal styles
-  modalSeasonHeader: {
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 15,
-  },
-  modalSeasonTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  modalSeasonInfo: {
-    alignItems: "flex-start",
-  },
-  modalSeasonYear: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 5,
-  },
-  modalLeagueName: {
-    fontSize: 14,
-  },
-  modalTeamContainer: {
-    alignItems: "center",
-  },
-  modalSeasonTeamLogo: {
-    width: 50,
-    height: 50,
-    marginBottom: 8,
-  },
-  modalTeamName: {
-    fontSize: 14,
-    fontWeight: "500",
-    textAlign: "center",
-  },
-  // VS Team styles
-  vsTeamTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  teamSelector: {
-    flex: 1,
-  },
-  teamGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    paddingHorizontal: 10,
-  },
-  teamCard: {
-    width: "48%",
-    padding: 15,
-    marginBottom: 10,
-    borderRadius: 12,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  teamCardLogo: {
-    width: 40,
-    height: 40,
-    marginBottom: 8,
-  },
-  teamCardName: {
-    fontSize: 12,
-    fontWeight: "500",
-    textAlign: "center",
-  },
-  vsTeamHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-    paddingHorizontal: 15,
-  },
-  changeTeamButton: {
-    paddingHorizontal: 15,
+    borderRadius: 20,
     paddingVertical: 8,
-    borderRadius: 8,
-  },
-  changeTeamText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  selectedTeamInfo: {
-    flexDirection: "row",
     alignItems: "center",
   },
-  selectedTeamLogo: {
-    width: 30,
-    height: 30,
-    marginRight: 8,
-  },
-  selectedTeamName: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  statsSectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  vsTeamHeaderLogo: {
-    width: 24,
-    height: 24,
-    marginLeft: 5,
-  },
-  vsTeamStatsHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  vsTeamStatLogo: {
-    width: 24,
-    height: 24,
-    marginLeft: 5,
-    transform: [{ translateY: -6 }],
+  groupToggleText: {
+    fontSize: 13,
+    fontWeight: "700",
   },
 });
 

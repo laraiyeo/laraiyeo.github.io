@@ -38,8 +38,10 @@ import WBCService from "../../services/WBCService";
 import { useGamePresence } from "../../hooks/useGamePresence";
 import { useStreamingAccess } from "../../utils/streamingUtils";
 import { WebView } from "react-native-webview";
+import { useNavigation } from "@react-navigation/native";
 
 const { width } = Dimensions.get("window");
+const SCREEN_SPORT = "mlb";
 
 // ─── Ordinal helper ───────────────────────────────────────────────────────────
 const toOrdinal = (n) => {
@@ -149,6 +151,14 @@ const TeamColumn = ({
 // ─── Player headshot URL ────────────────────────────────────────────────────────
 const playerHeadshotUrl = (playerId) =>
   `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${playerId}/headshot/67/current`;
+
+// Resolve a player entry from `gameData.players` which can sometimes be
+// keyed either as `ID<id>` or by the numeric/id string. Production payloads
+// have varied historically, so accept both forms.
+const resolvePlayer = (playersMap, id) => {
+  if (!playersMap || id == null) return null;
+  return playersMap[`ID${id}`] ?? playersMap[String(id)] ?? playersMap[id] ?? null;
+};
 
 // ─── Batting stat columns ────────────────────────────────────────────────────
 const BATTING_COLS = [
@@ -317,7 +327,7 @@ const pcStyles = StyleSheet.create({
     backgroundColor: "rgba(128,128,128,0.12)",
   },
   toggleLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: "600",
   },
   statsRow: {
@@ -354,15 +364,26 @@ const BoxScorePanel = ({
   isScheduled,
   isFinished,
 }) => {
-  const [section, setSection] = useState(isScheduled ? "bench" : "batting");
-  const [selectedPlayer, setSelectedPlayer] = useState(null); // { playerId, playerInfo, bsPlayer }
-
   const bsPlayers = bsTeamData?.players ?? {};
   const allBsPlayers = {
     ...(boxscore?.teams?.away?.players ?? {}),
     ...(boxscore?.teams?.home?.players ?? {}),
   };
   const battingOrder = bsTeamData?.battingOrder ?? [];
+
+  // For scheduled games: use the explicit roster arrays if the API populated them.
+  const scheduledBatterIds = bsTeamData?.batters ?? [];
+  const scheduledPitcherIds = bsTeamData?.pitchers ?? [];
+  const scheduledBenchIds = bsTeamData?.bench ?? [];
+  const hasScheduledLineup =
+    isScheduled &&
+    (scheduledBatterIds.length > 0 || scheduledPitcherIds.length > 0);
+
+  const [section, setSection] = useState(() => {
+    if (!isScheduled) return "batting";
+    return scheduledBatterIds.length > 0 ? "batting" : "bench";
+  });
+  const [selectedPlayer, setSelectedPlayer] = useState(null); // { playerId, playerInfo, bsPlayer }
 
   // Collect ordered batters (by batting order, fallback to all with batting stats)
   const batterIds = battingOrder.length
@@ -413,17 +434,30 @@ const BoxScorePanel = ({
     ? [...benchBatters, ...benchPitchers]
     : [...benchBatters, ...benchPitchers, ...benchOthers];
 
-  const ids =
-    section === "batting"
-      ? batterIds
-      : section === "pitching"
-        ? pitcherIds
-        : benchIds;
+  // Resolve which IDs to show for the active section.
+  let ids;
+  if (isScheduled) {
+    if (hasScheduledLineup) {
+      if (section === "batting") ids = scheduledBatterIds;
+      else if (section === "pitching") ids = scheduledPitcherIds;
+      else ids = scheduledBenchIds;
+    } else {
+      // No lineup data — show the raw bench list from the payload
+      ids = scheduledBenchIds.length > 0 ? scheduledBenchIds : benchIds;
+    }
+  } else {
+    ids =
+      section === "batting"
+        ? batterIds
+        : section === "pitching"
+          ? pitcherIds
+          : benchIds;
+  }
 
   return (
     <View style={{ paddingBottom: 24 }}>
-      {/* Section toggle — hidden when game is scheduled (bench only) */}
-      {!isScheduled && (
+      {/* Section toggle — hidden when scheduled with no lineup data */}
+      {(!isScheduled || hasScheduledLineup) && (
         <View style={bsStyles.sectionToggle}>
           {["batting", "pitching", "bench"].map((s) => (
             <TouchableOpacity
@@ -457,14 +491,14 @@ const BoxScorePanel = ({
         <PlayerCard
           key={id}
           playerId={id}
-          playerInfo={playersMap?.[`ID${id}`] ?? null}
+          playerInfo={resolvePlayer(playersMap, id)}
           bsPlayer={bsPlayers[`ID${id}`] ?? null}
           theme={theme}
           teamColor={teamColor}
           onPress={() =>
             setSelectedPlayer({
               playerId: id,
-              playerInfo: playersMap?.[`ID${id}`] ?? null,
+              playerInfo: resolvePlayer(playersMap, id),
               bsPlayer: bsPlayers[`ID${id}`] ?? null,
             })
           }
@@ -991,6 +1025,7 @@ const PlayerDetailModal = ({
 
   const [pdActiveTab, setPdActiveTab] = useState("Stats");
   const [playerShareVisible, setPlayerShareVisible] = useState(false);
+  const navigation = useNavigation();
   useEffect(() => {
     setPdActiveTab("Stats");
     setPlayerShareVisible(false);
@@ -1138,7 +1173,7 @@ const PlayerDetailModal = ({
               <TouchableOpacity
                 onPress={onClose}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                style={[pdStyles.iconBtn, { backgroundColor: theme.border }]}
+                style={[pdStyles.iconBtn, { backgroundColor: theme.error }]}
               >
                 <Text style={[pdStyles.iconBtnText, { color: theme.text }]}>
                   ✕
@@ -1147,27 +1182,41 @@ const PlayerDetailModal = ({
             </View>
           </View>
 
-          {/* Headshot centered */}
-          <View style={pdStyles.headshotWrap}>
-            <Image
-              source={{ uri: playerHeadshotUrl(playerId) }}
-              style={[pdStyles.headshot, { borderColor: teamColor }]}
-              resizeMode="cover"
-            />
-          </View>
-
-          {/* Full name + jersey • team */}
-          <Text
-            style={[pdStyles.playerName, { color: theme.text }]}
-            numberOfLines={1}
+          {/* Headshot centered — tap to open player page */}
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onPress={() => {
+              onClose();
+              navigation.navigate("PlayerPage", {
+                playerId,
+                playerName: fullName,
+                teamId,
+                sport: SCREEN_SPORT,
+              });
+            }}
+            style={{ alignItems: "center" }}
           >
-            {fullName}
-          </Text>
-          {(jerseyNum || teamName) && (
-            <Text style={[pdStyles.jerseyNum, { color: theme.textSecondary }]}>
-              {[jerseyNum, teamName].filter(Boolean).join(" • ")}
+            <View style={pdStyles.headshotWrap}>
+              <Image
+                source={{ uri: playerHeadshotUrl(playerId) }}
+                style={[pdStyles.headshot, { borderColor: teamColor }]}
+                resizeMode="cover"
+              />
+            </View>
+
+            {/* Full name + jersey • team */}
+            <Text
+              style={[pdStyles.playerName, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {fullName}
             </Text>
-          )}
+            {(jerseyNum || teamName) && (
+              <Text style={[pdStyles.jerseyNum, { color: theme.textSecondary }]}>
+                {[jerseyNum, teamName].filter(Boolean).join(" • ")}
+              </Text>
+            )}
+          </TouchableOpacity>
 
           {/* 3-col stats: position | height | hand */}
           <View style={pdStyles.triRow}>
@@ -1752,12 +1801,14 @@ const PlayerShareCardModal = ({
   const teamLogoUri = teamId
     ? WBCService.getTeamLogo(teamId, isDarkMode)
     : null;
-  const CARD_SIZE = width - 48;
+  const CARD_SIZE = Math.min(width - 48, 540);
 
   const handleShare = async () => {
     if (!cardRef.current || sharing) return;
     try {
       setSharing(true);
+      // Wait briefly to allow remote images to finish loading/rendering
+      await new Promise((res) => setTimeout(res, 350));
       const uri = await cardRef.current.capture();
       await Sharing.shareAsync(uri, { mimeType: "image/png" });
     } catch (e) {
@@ -2049,8 +2100,8 @@ const ShareCardModal = ({
 
   const batterId = play?.matchup?.batter?.id;
   const pitcherId = play?.matchup?.pitcher?.id;
-  const batterInfo = playersMap?.[`ID${batterId}`] ?? null;
-  const pitcherInfo = playersMap?.[`ID${pitcherId}`] ?? null;
+  const batterInfo = resolvePlayer(playersMap, batterId);
+  const pitcherInfo = resolvePlayer(playersMap, pitcherId);
   const description =
     play?.result?.description ??
     `${batterInfo?.fullName ?? "Batter"} vs ${pitcherInfo?.fullName ?? "Pitcher"}`;
@@ -2069,12 +2120,14 @@ const ShareCardModal = ({
     (e) => e?.pitchData?.coordinates?.pX != null,
   );
 
-  const CARD_SIZE = width - 48;
+  const CARD_SIZE = Math.min(width - 48, 540);
 
   const handleShare = async () => {
     if (!cardRef.current || sharing) return;
     try {
       setSharing(true);
+      // allow remote images to finish loading into the view
+      await new Promise((res) => setTimeout(res, 350));
       const uri = await cardRef.current.capture();
       await Sharing.shareAsync(uri, { mimeType: "image/png" });
     } catch (e) {
@@ -2629,8 +2682,8 @@ const PlayDetailModal = ({
   // Resolve batter + pitcher from playersMap
   const batterId = play?.matchup?.batter?.id;
   const pitcherId = play?.matchup?.pitcher?.id;
-  const batterInfo = playersMap?.[`ID${batterId}`] ?? null;
-  const pitcherInfo = playersMap?.[`ID${pitcherId}`] ?? null;
+  const batterInfo = resolvePlayer(playersMap, batterId);
+  const pitcherInfo = resolvePlayer(playersMap, pitcherId);
   const description =
     play?.result?.description ??
     `${batterInfo?.fullName ?? "Batter"} vs ${pitcherInfo?.fullName ?? "Pitcher"}`;
@@ -3584,8 +3637,8 @@ const PlaysPanel = ({
           const event = play?.result?.event ?? ""; // Resolve batter + pitcher from playersMap
           const batterId = play?.matchup?.batter?.id;
           const pitcherId = play?.matchup?.pitcher?.id;
-          const batterInfo = playersMap?.[`ID${batterId}`] ?? null;
-          const pitcherInfo = playersMap?.[`ID${pitcherId}`] ?? null;
+          const batterInfo = resolvePlayer(playersMap, batterId);
+          const pitcherInfo = resolvePlayer(playersMap, pitcherId);
           const description =
             play?.result?.description ??
             `${batterInfo?.fullName ?? "Batter"} vs ${pitcherInfo?.fullName ?? "Pitcher"}`;
@@ -4708,6 +4761,164 @@ const lsStyles = StyleSheet.create({
   },
 });
 
+// ─── Probable Pitchers Bubble ────────────────────────────────────────────────
+const ProbablePitchersBubble = ({
+  gameData,
+  playersMap,
+  bsAwayTeam,
+  bsHomeTeam,
+  awayTeam,
+  homeTeam,
+  awayColor,
+  homeColor,
+  theme,
+}) => {
+  const probPitchers = gameData?.probablePitchers ?? {};
+  const awayProbId = probPitchers?.away?.id ?? null;
+  const homeProbId = probPitchers?.home?.id ?? null;
+
+  if (!awayProbId && !homeProbId) return null;
+
+  const getPlayerInfo = (id) =>
+    id ? resolvePlayer(playersMap, id) : null;
+  const getPitchingStats = (id, bsTeamData) => {
+    if (!id) return null;
+    const bsPlayer = bsTeamData?.players?.[`ID${id}`];
+    return bsPlayer?.seasonStats?.pitching ?? bsPlayer?.stats?.pitching ?? null;
+  };
+
+  const awayInfo = getPlayerInfo(awayProbId);
+  const homeInfo = getPlayerInfo(homeProbId);
+  const awayStats = getPitchingStats(awayProbId, bsAwayTeam);
+  const homeStats = getPitchingStats(homeProbId, bsHomeTeam);
+
+  const PitcherCard = ({ teamColor, playerId, playerInfo, stats }) => {
+    const wins = stats?.wins ?? null;
+    const losses = stats?.losses ?? null;
+    const era = stats?.era ?? null;
+    const ip = stats?.inningsPitched ?? null;
+    const wlStr =
+      wins != null && losses != null ? `${wins}-${losses}` : "—";
+    return (
+      <View
+        style={[
+          ppStyles.card,
+          { borderColor: teamColor, backgroundColor: theme.surface },
+        ]}
+      >
+        <Text style={[ppStyles.cardLabel, { color: teamColor }]}>
+          Probable Pitcher
+        </Text>
+        <View style={ppStyles.headshotWrap}>
+          <Image
+            source={{ uri: playerHeadshotUrl(playerId) }}
+            style={[ppStyles.headshot, { borderColor: teamColor }]}
+          />
+        </View>
+        <Text
+          style={[ppStyles.playerName, { color: theme.text }]}
+          numberOfLines={2}
+        >
+          {playerInfo?.fullName ?? "TBD"}
+        </Text>
+        <View style={ppStyles.statsRow}>
+          {[
+            { label: "W-L", value: wlStr },
+            { label: "ERA", value: era ?? "—" },
+            { label: "IP", value: ip ?? "—" },
+          ].map((stat) => (
+            <View key={stat.label} style={ppStyles.statCell}>
+              <Text style={[ppStyles.statValue, { color: theme.text }]}>
+                {stat.value}
+              </Text>
+              <Text
+                style={[ppStyles.statLabel, { color: theme.textSecondary }]}
+              >
+                {stat.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <View style={ppStyles.container}>
+      <PitcherCard
+        teamColor={awayColor}
+        playerId={awayProbId}
+        playerInfo={awayInfo}
+        stats={awayStats}
+      />
+      <PitcherCard
+        teamColor={homeColor}
+        playerId={homeProbId}
+        playerInfo={homeInfo}
+        stats={homeStats}
+      />
+    </View>
+  );
+};
+
+const ppStyles = StyleSheet.create({
+  container: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 10,
+  },
+  card: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    padding: 12,
+    alignItems: "center",
+  },
+  cardLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  headshotWrap: {
+    marginBottom: 8,
+  },
+  headshot: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    backgroundColor: "rgba(128,128,128,0.1)",
+  },
+  playerName: {
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 10,
+    lineHeight: 18,
+  },
+  statsRow: {
+    flexDirection: "row",
+    width: "100%",
+    justifyContent: "space-around",
+  },
+  statCell: {
+    alignItems: "center",
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  statLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 2,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+});
+
 // ─── Team Stats Bubble ────────────────────────────────────────────────────────
 const fmtStatLabel = (key) =>
   key
@@ -4721,37 +4932,54 @@ const STAT_SECTIONS = [
     key: "batting",
     label: "BATTING",
     stats: [
-      { key: "hits", lowerBetter: false },
-      { key: "runs", lowerBetter: false },
-      { key: "homeRuns", lowerBetter: false },
-      { key: "rbi", lowerBetter: false },
-      { key: "avg", lowerBetter: false },
-      { key: "obp", lowerBetter: false },
-      { key: "strikeOuts", lowerBetter: true },
-      { key: "baseOnBalls", lowerBetter: false },
-      { key: "stolenBases", lowerBetter: false },
+      { key: "hits", label: "Hits", lowerBetter: false },
+      { key: "runs", label: "Runs", lowerBetter: false },
+      { key: "homeRuns", label: "HR", lowerBetter: false },
+      { key: "rbi", label: "RBI", lowerBetter: false },
+      { key: "strikeOuts", label: "K", lowerBetter: true },
+      { key: "baseOnBalls", label: "BB", lowerBetter: false },
+      { key: "stolenBases", label: "SB", lowerBetter: false },
     ],
   },
   {
     key: "pitching",
     label: "PITCHING",
     stats: [
-      { key: "strikeOuts", lowerBetter: false },
-      { key: "baseOnBalls", lowerBetter: true },
-      { key: "hits", lowerBetter: true },
-      { key: "era", lowerBetter: true },
-      { key: "whip", lowerBetter: true },
-      { key: "strikePercentage", lowerBetter: false },
+      { key: "strikeOuts", label: "K", lowerBetter: false },
+      { key: "baseOnBalls", label: "BB", lowerBetter: true },
+      { key: "hits", label: "Hits", lowerBetter: true },
+      { key: "strikePercentage", label: "K%", lowerBetter: false },
     ],
   },
   {
     key: "fielding",
     label: "FIELDING",
     stats: [
-      { key: "errors", lowerBetter: true },
-      { key: "assists", lowerBetter: false },
-      { key: "putOuts", lowerBetter: false },
-      { key: "stolenBases", lowerBetter: true },
+      { key: "errors", label: "Errors", lowerBetter: true },
+      { key: "assists", label: "Assists", lowerBetter: false },
+      { key: "putOuts", label: "PO", lowerBetter: false },
+      { key: "stolenBases", label: "SB", lowerBetter: true },
+    ],
+  },
+];
+
+const SCHEDULED_STAT_SECTIONS = [
+  {
+    key: "batting",
+    label: "BATTING",
+    stats: [
+      { key: "avg", label: "AVG", lowerBetter: false },
+      { key: "obp", label: "OBP", lowerBetter: false },
+      { key: "slg", label: "SLG", lowerBetter: false },
+      { key: "ops", label: "OPS", lowerBetter: false },
+    ],
+  },
+  {
+    key: "pitching",
+    label: "PITCHING",
+    stats: [
+      { key: "era", label: "ERA", lowerBetter: true },
+      { key: "whip", label: "WHIP", lowerBetter: true },
     ],
   },
 ];
@@ -4763,12 +4991,15 @@ const TeamStatsBubble = ({
   homeColor,
   bsAwayTeam,
   bsHomeTeam,
+  isScheduled,
   theme,
 }) => {
   const awayTs = bsAwayTeam?.teamStats ?? {};
   const homeTs = bsHomeTeam?.teamStats ?? {};
 
-  const sections = STAT_SECTIONS.map((sec) => {
+  const activeSections = isScheduled ? SCHEDULED_STAT_SECTIONS : STAT_SECTIONS;
+
+  const sections = activeSections.map((sec) => {
     const aw = awayTs[sec.key] ?? {};
     const hm = homeTs[sec.key] ?? {};
     const rows = sec.stats.filter(
@@ -4884,7 +5115,7 @@ const TeamStatsBubble = ({
                     ]}
                     numberOfLines={1}
                   >
-                    {fmtStatLabel(s.key)}
+                    {s.label ?? fmtStatLabel(s.key)}
                   </Text>
                 </View>
 
@@ -4988,6 +5219,7 @@ const CurrentAtBatBubble = ({
   awayColor,
   homeColor,
   animTrigger,
+  onPlayerPress,
   theme,
 }) => {
   if (!currentPlay) return null;
@@ -5007,10 +5239,8 @@ const CurrentAtBatBubble = ({
 
   const batterId = currentPlay?.matchup?.batter?.id;
   const pitcherId = currentPlay?.matchup?.pitcher?.id;
-  const batterInfo = batterId ? (playersMap?.[`ID${batterId}`] ?? null) : null;
-  const pitcherInfo = pitcherId
-    ? (playersMap?.[`ID${pitcherId}`] ?? null)
-    : null;
+  const batterInfo = batterId ? resolvePlayer(playersMap, batterId) : null;
+  const pitcherInfo = pitcherId ? resolvePlayer(playersMap, pitcherId) : null;
 
   const allBsPlayers = {
     ...(boxscore?.teams?.away?.players ?? {}),
@@ -5043,8 +5273,8 @@ const CurrentAtBatBubble = ({
   const offense = linescore?.offense ?? null;
   const onDeckId = offense?.onDeck?.id ?? null;
   const inHoleId = offense?.inHole?.id ?? null;
-  const onDeckInfo = onDeckId ? (playersMap?.[`ID${onDeckId}`] ?? null) : null;
-  const inHoleInfo = inHoleId ? (playersMap?.[`ID${inHoleId}`] ?? null) : null;
+  const onDeckInfo = onDeckId ? resolvePlayer(playersMap, onDeckId) : null;
+  const inHoleInfo = inHoleId ? resolvePlayer(playersMap, inHoleId) : null;
 
   return (
     <View
@@ -5123,7 +5353,20 @@ const CurrentAtBatBubble = ({
       {/* ── Matchup: batter | bases diamond | pitcher ── */}
       <View style={cabStyles.matchupRow}>
         {/* Batter */}
-        <View style={[cabStyles.playerCol, { alignItems: "flex-start" }]}>
+        <TouchableOpacity
+          activeOpacity={0.75}
+          style={[cabStyles.playerCol, { alignItems: "flex-start" }]}
+          onPress={() =>
+            onPlayerPress?.({
+              playerId: batterId,
+              playerInfo: batterInfo,
+              bsPlayer: allBsPlayers[`ID${batterId}`] ?? null,
+              teamColor: batterTeamColor,
+              teamName: isTop ? (awayTeam?.name ?? "") : (homeTeam?.name ?? ""),
+              teamId: isTop ? awayTeam?.id : homeTeam?.id,
+            })
+          }
+        >
           <Image
             source={{ uri: playerHeadshotUrl(batterId) }}
             style={[cabStyles.headshot, { borderColor: batterTeamColor }]}
@@ -5159,7 +5402,7 @@ const CurrentAtBatBubble = ({
               </View>
             ))}
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Bases diamond */}
         <View style={cabStyles.basesWrap}>
@@ -5224,7 +5467,20 @@ const CurrentAtBatBubble = ({
         </View>
 
         {/* Pitcher */}
-        <View style={[cabStyles.playerCol, { alignItems: "flex-end" }]}>
+        <TouchableOpacity
+          activeOpacity={0.75}
+          style={[cabStyles.playerCol, { alignItems: "flex-end" }]}
+          onPress={() =>
+            onPlayerPress?.({
+              playerId: pitcherId,
+              playerInfo: pitcherInfo,
+              bsPlayer: allBsPlayers[`ID${pitcherId}`] ?? null,
+              teamColor: pitcherTeamColor,
+              teamName: isTop ? (homeTeam?.name ?? "") : (awayTeam?.name ?? ""),
+              teamId: isTop ? homeTeam?.id : awayTeam?.id,
+            })
+          }
+        >
           <Image
             source={{ uri: playerHeadshotUrl(pitcherId) }}
             style={[cabStyles.headshot, { borderColor: pitcherTeamColor }]}
@@ -5260,7 +5516,7 @@ const CurrentAtBatBubble = ({
               </View>
             ))}
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* ── Pitch locations ── */}
@@ -5883,6 +6139,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
   const [headerHeight, setHeaderHeight] = useState(0);
   const [activeTab, setActiveTab] = useState("Main");
   const [mainTabKey, setMainTabKey] = useState(0);
+  const [cabSelectedPlayer, setCabSelectedPlayer] = useState(null);
   const scrollY = useRef(new Animated.Value(0)).current;
 
   // Increment mainTabKey every time the Main tab becomes active so the
@@ -6569,11 +6826,34 @@ const GameDetailsScreen = ({ navigation, route }) => {
           <View style={{ paddingHorizontal: 12, paddingTop: 12 }}>
             {/* Scheduled: only game info */}
             {isScheduled && (
-              <GameInfoBubble
-                gameData={gameData}
-                officials={boxscore?.officials ?? []}
-                theme={theme}
-              />
+              <>
+                <ProbablePitchersBubble
+                  gameData={gameData}
+                  playersMap={playersMap}
+                  bsAwayTeam={bsAwayTeam}
+                  bsHomeTeam={bsHomeTeam}
+                  awayTeam={awayTeam}
+                  homeTeam={homeTeam}
+                  awayColor={awayColor}
+                  homeColor={homeColor}
+                  theme={theme}
+                />
+                <TeamStatsBubble
+                  awayTeam={awayTeam}
+                  homeTeam={homeTeam}
+                  awayColor={awayColor}
+                  homeColor={homeColor}
+                  bsAwayTeam={bsAwayTeam}
+                  bsHomeTeam={bsHomeTeam}
+                  isScheduled={true}
+                  theme={theme}
+                />
+                <GameInfoBubble
+                  gameData={gameData}
+                  officials={boxscore?.officials ?? []}
+                  theme={theme}
+                />
+              </>
             )}
 
             {/* Finished: linescore + team stats + win probability + game info */}
@@ -6634,6 +6914,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   awayColor={awayColor}
                   homeColor={homeColor}
                   animTrigger={mainTabKey}
+                  onPlayerPress={(info) => setCabSelectedPlayer(info)}
                   theme={theme}
                 />
                 <TeamStatsBubble
@@ -6909,6 +7190,30 @@ const GameDetailsScreen = ({ navigation, route }) => {
             </View>
           </View>
         </Modal>
+      )}
+
+      {/* Player detail modal — opened from Current At Bat bubble */}
+      {cabSelectedPlayer != null && (
+        <PlayerDetailModal
+          visible
+          onClose={() => setCabSelectedPlayer(null)}
+          playerId={cabSelectedPlayer.playerId}
+          playerInfo={cabSelectedPlayer.playerInfo}
+          bsPlayer={cabSelectedPlayer.bsPlayer}
+          teamColor={cabSelectedPlayer.teamColor}
+          teamName={cabSelectedPlayer.teamName ?? ""}
+          teamId={cabSelectedPlayer.teamId}
+          allBsPlayers={{
+            ...(boxscore?.teams?.away?.players ?? {}),
+            ...(boxscore?.teams?.home?.players ?? {}),
+          }}
+          pitchesData={pitchesData}
+          awayTeam={awayTeam}
+          homeTeam={homeTeam}
+          awayScore={awayScore}
+          homeScore={homeScore}
+          theme={theme}
+        />
       )}
     </View>
   );

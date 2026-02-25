@@ -452,7 +452,7 @@ app.get("/wbc/teamSchedule/:code", async (req, res) => {
   if (!code) return res.status(400).json({ error: "team code required" });
 
   const FIELDS =
-    "dates,games,gamePk,gameType,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription";
+    "dates,games,gamePk,gameType,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description";
   const path = `v1/schedule/games?teamId=${encodeURIComponent(code)}&sportId=51&startDate=2025-01-01&endDate=2025-12-31&fields=${encodeURIComponent(FIELDS)}`;
   const url = `${BASE_URL}${path}`;
   const key = `teamSchedule:${code}:2025`;
@@ -523,7 +523,7 @@ app.get("/wbc/teamSchedule/:code", async (req, res) => {
 // Bracket endpoint with dynamic polling (30m default, 5s when live/near start)
 app.get("/wbc/bracket", async (req, res) => {
   const path = `v1/schedule/games?sportId=51&startDate=2026-03-13&endDate=2026-03-17&fields=${encodeURIComponent(
-    "dates,date,games,gamePk,gameType,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,isWinner,home,team,id,name,leagueRecord,wins,losses,score,isWinner,venue,name,dayNight,description,seriesDescription",
+    "dates,date,games,gamePk,gameType,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,isWinner,home,team,id,name,leagueRecord,wins,losses,score,isWinner,venue,name,dayNight,description,seriesDescription,description",
   )}`;
   const url = `${BASE_URL}${path}`;
   const key = path;
@@ -2463,10 +2463,449 @@ app.get("/wbc/gameFeed/:gamePk", async (req, res) => {
   }
 });
 
+// =============================================================================
+// ─── /bb/* (MLB regular-season) endpoints ─────────────────────────────────
+// Same pattern as /wbc/* but targets sportId=1 and leagueIds=103,104 (AL/NL).
+// =============================================================================
+
+const BB_TEAMS_PATH =
+  "v1/teams?leagueIds=103,104&fields=teams,id,name,venue,name,abbreviation,locationName,league,id,name,division,id,name";
+
+async function warmBBTeams() {
+  const url = `${BASE_URL}${BB_TEAMS_PATH}`;
+  try {
+    await fetchAndCache(BB_TEAMS_PATH, url);
+  } catch (err) {
+    console.warn("Warm-up bb teams failed:", err.message);
+  }
+}
+
+app.get("/bb/teams", async (req, res) => {
+  const path = BB_TEAMS_PATH;
+  const url = `${BASE_URL}${path}`;
+  const key = path;
+  try {
+    const { data, fromCache } = await getCached(key, url);
+    if (!refreshIntervals.has(key)) {
+      const id = setInterval(() => fetchAndCache(key, url).catch(() => {}), TTL_MS);
+      refreshIntervals.set(key, id);
+    }
+    setCachingHeaders(res, TTL_MS);
+    res.json({ source: fromCache ? "cache" : "origin", data });
+  } catch (err) {
+    res.status(502).json({ error: "Failed to fetch MLB teams", details: err.message });
+  }
+});
+
+// Team schedule – full current year
+app.get("/bb/teamSchedule/:code", async (req, res) => {
+  const code = req.params.code;
+  if (!code) return res.status(400).json({ error: "team code required" });
+
+  const FIELDS =
+    "dates,games,gamePk,gameType,gameDate,status,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description";
+  const year = new Date().getFullYear();
+  const startDate = `${year}-01-01`;
+  const endDate = `${year}-12-31`;
+  const path = `v1/schedule/games?teamId=${encodeURIComponent(code)}&sportId=1&startDate=${startDate}&endDate=${endDate}&fields=${encodeURIComponent(FIELDS)}`;
+  const url = `${BASE_URL}${path}`;
+  const key = `bb:teamSchedule:${code}:${year}`;
+
+  try {
+    const { data, fromCache } = await getCached(path, url);
+    const gamesMap = new Map();
+    if (data && Array.isArray(data.dates)) {
+      for (const dateObj of data.dates) {
+        if (!Array.isArray(dateObj.games)) continue;
+        for (const g of dateObj.games) gamesMap.set(g.gamePk, g);
+      }
+    }
+    const byDate = new Map();
+    for (const g of gamesMap.values()) {
+      const dateOnly = (g.gameDate || "").split("T")[0] || "unknown";
+      if (!byDate.has(dateOnly)) byDate.set(dateOnly, []);
+      byDate.get(dateOnly).push(g);
+    }
+    const dates = Array.from(byDate.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, games]) => ({ date, games }));
+    cache.set(key, { data: { dates }, fetchedAt: Date.now() });
+    if (!refreshIntervals.has(key)) {
+      const id = setInterval(() => fetchAndCache(path, url).catch(() => {}), TTL_MS);
+      refreshIntervals.set(key, id);
+    }
+    setCachingHeaders(res, TTL_MS);
+    res.json({ source: fromCache ? "cache" : "origin", data: { dates } });
+  } catch (err) {
+    res.status(502).json({ error: "Failed to fetch MLB team schedule", details: err.message });
+  }
+});
+
+// Team roster – 40Man
+app.get("/bb/teamRoster/:code", async (req, res) => {
+  const code = req.params.code;
+  if (!code) return res.status(400).json({ error: "team code required" });
+
+  const FIELDS =
+    "roster,person,id,fullName,jerseyNumber,position,name,abbreviation,status,description";
+  const path = `v1/teams/${encodeURIComponent(code)}/roster?fields=${encodeURIComponent(FIELDS)}&rosterType=40Man`;
+  const url = `${BASE_URL}${path}`;
+  const key = `bb:teamRoster:${code}:40Man`;
+
+  try {
+    let { data, fromCache } = await getCached(path, url);
+    const isEmptyRoster = !data || !Array.isArray(data.roster) || data.roster.length === 0;
+    if (isEmptyRoster) {
+      const yr = new Date().getFullYear();
+      const pathSeason = `${path}&season=${yr}`;
+      const urlSeason = `${BASE_URL}${pathSeason}`;
+      try {
+        const seasonRes = await getCached(pathSeason, urlSeason).catch(() => null);
+        if (seasonRes?.data && Array.isArray(seasonRes.data.roster) && seasonRes.data.roster.length > 0) {
+          data = seasonRes.data;
+          fromCache = false;
+          cache.set(key, { data, fetchedAt: Date.now() });
+        }
+      } catch (e) { /* ignore */ }
+    }
+    if (!refreshIntervals.has(key)) {
+      const id = setInterval(() => fetchAndCache(path, url).catch(() => {}), TTL_MS);
+      refreshIntervals.set(key, id);
+    }
+    res.json({ source: fromCache ? "cache" : "origin", data });
+  } catch (err) {
+    res.status(502).json({ error: "Failed to fetch MLB team roster", details: err.message });
+  }
+});
+
+// Team coaches
+app.get("/bb/teamCoaches/:code", async (req, res) => {
+  const code = req.params.code;
+  if (!code) return res.status(400).json({ error: "team code required" });
+
+  const path = `v1/teams/${encodeURIComponent(code)}/coaches?fields=roster,person,fullName`;
+  const url = `${BASE_URL}${path}`;
+  const key = `bb:teamCoaches:${code}`;
+
+  try {
+    const { data, fromCache } = await getCached(path, url);
+    const coaches = Array.isArray(data?.roster)
+      ? data.roster.map((r) => ({
+          fullName: r?.person?.fullName ?? null,
+          jerseyNumber: r?.jerseyNumber ?? null,
+          job: r?.job ?? null,
+        }))
+      : [];
+    if (!refreshIntervals.has(key)) {
+      const id = setInterval(() => fetchAndCache(path, url).catch(() => {}), TTL_MS);
+      refreshIntervals.set(key, id);
+    }
+    res.json({ source: fromCache ? "cache" : "origin", data: { coaches } });
+  } catch (err) {
+    res.status(502).json({ error: "Failed to fetch MLB team coaches", details: err.message });
+  }
+});
+
+// Team leaders
+app.get("/bb/teamLeaders/:code", async (req, res) => {
+  const code = req.params.code;
+  if (!code) return res.status(400).json({ error: "team code required" });
+
+  const LEADER_CATEGORIES =
+    "homeRuns,hits,atBats,runs,stolenBases,avg,obp,slg,ops,totalBases,rbi,strikeOuts,baseOnBalls,era,inningsPitched,whip,numberOfPitches";
+  const FIELDS =
+    "teamLeaders,leaderCategory,leaders,rank,value,person,id,fullName,statGroup";
+  const path = `v1/teams/${encodeURIComponent(code)}/leaders?leaderCategories=${encodeURIComponent(LEADER_CATEGORIES)}&limit=40&fields=${encodeURIComponent(FIELDS)}`;
+  const url = `${BASE_URL}${path}`;
+  const key = `bb:teamLeaders:${code}`;
+
+  const hittingCategories = new Set([
+    "homeRuns", "hits", "atBats", "runs", "stolenBases", "avg", "battingAverage",
+    "obp", "onBasePercentage", "slg", "sluggingPercentage", "ops", "onBasePlusSlugging",
+    "totalBases", "rbi", "runsBattedIn",
+  ]);
+  const pitchingCategories = new Set([
+    "strikeOuts", "strikeouts", "baseOnBalls", "walks", "hits",
+    "earnedRunAverage", "era", "inningsPitched", "walksAndHitsPerInningPitched",
+    "whip", "numberOfPitches",
+  ]);
+
+  function friendlyName(cat) {
+    if (!cat || typeof cat !== "string") return cat;
+    let s = cat
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/([A-Za-z])([0-9])/g, "$1 $2")
+      .replace(/([0-9])([A-Za-z])/g, "$1 $2");
+    s = s.replace(/[_-]/g, " ");
+    return s.split(/\s+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  }
+
+  try {
+    const { data, fromCache } = await getCached(path, url);
+    const persons = new Map();
+    const teamLeaders = data?.teamLeaders ?? [];
+    for (const entry of teamLeaders) {
+      const category = entry.leaderCategory;
+      const statGroup = entry.statGroup;
+      const inHitting = hittingCategories.has(category);
+      const inPitching = pitchingCategories.has(category);
+      const requireHitting = inHitting && !inPitching;
+      const requirePitching = inPitching && !inHitting;
+      const leaders = Array.isArray(entry.leaders) ? entry.leaders : [];
+      for (const l of leaders) {
+        if (!l?.person) continue;
+        if (requireHitting && statGroup !== "hitting") continue;
+        if (requirePitching && statGroup !== "pitching") continue;
+        const pid = String(l.person.id);
+        if (!persons.has(pid)) {
+          persons.set(pid, { id: l.person.id, fullName: l.person.fullName, stats: {} });
+        }
+        const p = persons.get(pid);
+        p.stats[friendlyName(category)] = { rank: l.rank, value: l.value };
+      }
+    }
+    if (!refreshIntervals.has(key)) {
+      const id = setInterval(() => fetchAndCache(path, url).catch(() => {}), TTL_MS);
+      refreshIntervals.set(key, id);
+    }
+    res.json({ source: fromCache ? "cache" : "origin", data: { persons: Array.from(persons.values()) } });
+  } catch (err) {
+    res.status(502).json({ error: "Failed to fetch MLB team leaders", details: err.message });
+  }
+});
+
+// MLB team stats (current year + prior year)
+app.get("/bb/stats", async (req, res) => {
+  try {
+    const year = new Date().getFullYear();
+    const seasons = [String(year - 1), String(year)];
+    const paths = seasons.map((season) => ({
+      season,
+      path: `v1/teams/stats?sportIds=1&group=hitting,pitching&season=${season}`,
+    }));
+    const results = await Promise.all(paths.map((p) => getCached(p.path, `${BASE_URL}${p.path}`)));
+
+    const allowed = new Set([
+      "gamesPlayed", "runs", "doubles", "triples", "homeRuns", "strikeOuts",
+      "baseOnBalls", "hits", "avg", "atBats", "obp", "slg", "ops",
+      "stolenBases", "totalBases", "rbi", "era", "inningsPitched", "whip",
+      "earnedRuns", "shutouts", "strikePercentage", "strikeoutsPer9Inn",
+    ]);
+
+    function bbFriendlyName(cat) {
+      if (!cat || typeof cat !== "string") return cat;
+      let s = cat
+        .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+        .replace(/([A-Za-z])([0-9])/g, "$1 $2")
+        .replace(/([0-9])([A-Za-z])/g, "$1 $2");
+      s = s.replace(/[_-]/g, " ");
+      return s.split(/\s+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+    }
+
+    const teamMap = new Map();
+    for (let i = 0; i < results.length; i++) {
+      const season = paths[i].season;
+      const data = results[i].data;
+      const statsArr = data?.stats ?? [];
+      for (const statEntry of statsArr) {
+        const groupNameRaw = statEntry?.group?.displayName || statEntry?.group || "unknown";
+        const groupKey = String(groupNameRaw).toLowerCase();
+        const splits = statEntry?.splits ?? [];
+        for (const split of splits) {
+          const team = split.team;
+          if (!team || !team.id) continue;
+          const tid = String(team.id);
+          if (!teamMap.has(tid)) {
+            teamMap.set(tid, { id: team.id, name: team.name, stats: { hitting: {}, pitching: {} } });
+          }
+          const teamObj = teamMap.get(tid);
+          const rawStat = split.stat || {};
+          const filtered = {};
+          for (const k of Object.keys(rawStat)) {
+            if (allowed.has(k)) filtered[bbFriendlyName(k)] = rawStat[k];
+          }
+          const out = { rank: split.rank ?? null, stat: filtered };
+          if (!teamObj.stats[groupKey]) teamObj.stats[groupKey] = {};
+          teamObj.stats[groupKey][season] = out;
+        }
+      }
+    }
+    res.json({ source: "origin", data: { teams: Array.from(teamMap.values()) } });
+  } catch (err) {
+    res.status(502).json({ error: "Failed to fetch MLB stats", details: err.message });
+  }
+});
+
+// MLB standings
+app.get("/bb/standings/:code", async (req, res) => {
+  const code = req.params.code;
+  if (!code) return res.status(400).json({ error: "leagueId (path param) required" });
+
+  const fields =
+    "records,teamRecords,team,id,name,streak,streakCode,clinchIndicator,divisionRank,leagueRank,gamesPlayed,leagueGamesBack,records,splitRecords,wins,losses,type,divisionRecords,wins,losses,division,id,name,runsAllowed,runsScored";
+  const path = `v1/standings/byDivision?leagueId=${encodeURIComponent(code)}&fields=${encodeURIComponent(fields)}`;
+  const url = `${BASE_URL}${path}`;
+  const key = path;
+
+  try {
+    const { data, fromCache } = await getCached(key, url);
+    if (data && Array.isArray(data.records) && data.records.length === 0) {
+      return res.json({ message: "No standings found" });
+    }
+    const transformed = JSON.parse(JSON.stringify(data));
+    if (Array.isArray(transformed.records)) {
+      for (const rec of transformed.records) {
+        const divId = rec?.division?.id;
+        let divName = undefined;
+        if (Array.isArray(rec.teamRecords)) {
+          for (const tr of rec.teamRecords) {
+            const divRecs = tr?.records?.divisionRecords;
+            if (Array.isArray(divRecs)) {
+              const match = divRecs.find((d) => d?.division?.id === divId && d?.division?.name);
+              if (match?.division?.name) { divName = match.division.name; break; }
+            }
+          }
+        }
+        if (divId !== undefined) rec.division = { id: divId, name: divName };
+        if (Array.isArray(rec.teamRecords)) {
+          for (const tr of rec.teamRecords) {
+            const r = tr.records || {};
+            if (r.hasOwnProperty("splitRecords")) delete r.splitRecords;
+            if (Array.isArray(r.divisionRecords)) {
+              const match = r.divisionRecords.find((d) => d?.division?.id === divId);
+              r.divisionRecords = match ? { wins: match.wins, losses: match.losses } : null;
+            }
+            if (r.hasOwnProperty("leagueRecords")) delete r.leagueRecords;
+            if (Array.isArray(r.expectedRecords)) {
+              r.expectedRecords = r.expectedRecords.length > 0 ? [r.expectedRecords[0]] : [];
+            }
+            tr.records = r;
+          }
+        }
+      }
+    }
+    if (!refreshIntervals.has(key)) {
+      const id = setInterval(() => fetchAndCache(key, url).catch(() => {}), TTL_MS);
+      refreshIntervals.set(key, id);
+    }
+    res.json({ source: fromCache ? "cache" : "origin", data: transformed });
+  } catch (err) {
+    res.status(502).json({ error: "Failed to fetch MLB standings", details: err.message });
+  }
+});
+
+// Full MLB team aggregation endpoint
+app.get("/bb/team/:code", async (req, res) => {
+  const code = req.params.code;
+  if (!code) return res.status(400).json({ error: "team code required" });
+
+  try {
+    const { data: teamsPayload } = await getCached(BB_TEAMS_PATH, `${BASE_URL}${BB_TEAMS_PATH}`);
+    const teamsList = teamsPayload?.teams || [];
+    const teamIdNum = Number(code);
+    const teamObj = teamsList.find((t) => t && t.id === teamIdNum);
+    if (!teamObj) return res.status(404).json({ error: "team not found" });
+
+    const result = { team: teamObj };
+
+    // Standings
+    const leagueId = teamObj?.league?.id;
+    if (leagueId) {
+      const standingsRes = await axios.get(`http://localhost:${PORT}/bb/standings/${leagueId}`);
+      let standingsData = standingsRes.data?.data ?? standingsRes.data;
+      try {
+        if (standingsData && Array.isArray(standingsData.records)) {
+          const divId = teamObj?.division?.id;
+          let matched = standingsData.records.find((r) => r?.division?.id === divId);
+          if (!matched) {
+            for (const r of standingsData.records) {
+              if (!Array.isArray(r.teamRecords)) continue;
+              const found = r.teamRecords.find((tr) => tr?.team && Number(tr.team.id) === teamIdNum);
+              if (found) { matched = r; break; }
+            }
+          }
+          if (matched) {
+            const recClone = JSON.parse(JSON.stringify(matched));
+            recClone.teamRecords = Array.isArray(recClone.teamRecords)
+              ? recClone.teamRecords.filter((tr) => Number(tr?.team?.id) === teamIdNum)
+              : [];
+            standingsData = { records: [recClone] };
+          }
+        }
+      } catch (e) { /* ignore transform errors */ }
+      result.standings = standingsData;
+    }
+
+    // Stats with extremes for bar normalization
+    const statsRes = await axios.get(`http://localhost:${PORT}/bb/stats`);
+    const statsTeams = statsRes.data?.data?.teams || [];
+    const extremes = {};
+    for (const t of statsTeams) {
+      for (const groupKey of ["hitting", "pitching"]) {
+        const groupObj = (t.stats && t.stats[groupKey]) || {};
+        for (const season of Object.keys(groupObj)) {
+          const entry = groupObj[season];
+          const statObj = entry?.stat || {};
+          for (const statKey of Object.keys(statObj)) {
+            const raw = statObj[statKey];
+            const n = Number(String(raw).replace(/[^0-9.+-eE]/g, ""));
+            if (!Number.isFinite(n)) continue;
+            extremes[groupKey] = extremes[groupKey] || {};
+            extremes[groupKey][season] = extremes[groupKey][season] || {};
+            const cur = extremes[groupKey][season][statKey];
+            if (!cur) extremes[groupKey][season][statKey] = { min: n, max: n };
+            else { if (n < cur.min) cur.min = n; if (n > cur.max) cur.max = n; }
+          }
+        }
+      }
+    }
+    const thisTeamStats = statsTeams.find((t) => t.id === teamIdNum) || { stats: { hitting: {}, pitching: {} } };
+    const augmentedStats = { hitting: {}, pitching: {} };
+    for (const groupKey of ["hitting", "pitching"]) {
+      const groupObj = (thisTeamStats.stats && thisTeamStats.stats[groupKey]) || {};
+      for (const season of Object.keys(groupObj)) {
+        const entry = groupObj[season];
+        const statObj = entry?.stat || {};
+        const outStats = {};
+        for (const statKey of Object.keys(statObj)) {
+          const raw = statObj[statKey];
+          const ext = extremes[groupKey]?.[season]?.[statKey] ?? null;
+          outStats[statKey] = { teamValue: raw, max: ext ? ext.max : null, min: ext ? ext.min : null };
+        }
+        augmentedStats[groupKey][season] = { rank: entry?.rank ?? null, stat: outStats };
+      }
+    }
+    result.stats = augmentedStats;
+
+    // Schedule, leaders, roster, coaches
+    const [scheduleRes, leadersRes, rosterRes, coachesRes] = await Promise.all([
+      axios.get(`http://localhost:${PORT}/bb/teamSchedule/${teamIdNum}`).catch(() => null),
+      axios.get(`http://localhost:${PORT}/bb/teamLeaders/${teamIdNum}`).catch(() => null),
+      axios.get(`http://localhost:${PORT}/bb/teamRoster/${teamIdNum}`).catch(() => null),
+      axios.get(`http://localhost:${PORT}/bb/teamCoaches/${teamIdNum}`).catch(() => null),
+    ]);
+
+    result.schedule = scheduleRes?.data?.data ?? null;
+    const leadersPersons = leadersRes?.data?.data?.persons ?? [];
+    const roster = rosterRes?.data?.data?.roster ?? rosterRes?.data?.roster ?? [];
+    const leaderMap = new Map(leadersPersons.map((p) => [String(p.id), p.stats || {}]));
+    result.roster = (roster || []).map((r) => {
+      const pid = String(r?.person?.id ?? "");
+      return Object.assign({}, r, { stats: leaderMap.get(pid) || {}, parentTeamId: teamIdNum });
+    });
+    result.coaches = coachesRes?.data?.data ?? null;
+
+    res.json({ source: "origin", data: result });
+  } catch (err) {
+    res.status(502).json({ error: "Failed to build MLB team payload", details: err.message });
+  }
+});
+
 // Start server and warm cache
 app.listen(PORT, async () => {
   console.log(`Baseball server listening on port ${PORT}`);
   await warmLeagues();
+  await warmBBTeams();
   // Refresh leagues periodically (every TTL_MS)
   setInterval(warmLeagues, TTL_MS);
 });

@@ -44,7 +44,8 @@ const getPollingInterval = (groups) => {
       !game.isCompleted &&
       !game.isLive &&
       game.statusType !== "F" &&
-      game.statusType !== "O";
+      game.statusType !== "O" &&
+      game.statusType !== "FT";
     if (isScheduled && game.date) {
       const msUntil = new Date(game.date).getTime() - now;
       if (msUntil >= 0 && msUntil <= SOON_THRESHOLD) return INTERVAL_FAST;
@@ -190,19 +191,19 @@ const LiveLinescoreStatus = ({
       <BSODots
         filled={balls ?? 0}
         total={4}
-        filledColor={theme.info}
+        filledColor={theme.success}
         theme={theme}
       />
       <BSODots
         filled={strikes ?? 0}
         total={3}
-        filledColor={theme.error}
+        filledColor={theme.warning}
         theme={theme}
       />
       <BSODots
         filled={outs ?? 0}
         total={3}
-        filledColor={theme.text}
+        filledColor={theme.error}
         theme={theme}
       />
     </View>
@@ -335,7 +336,8 @@ const ScoreboardSection = ({
             const isFinished =
               game.isCompleted ||
               game.statusType === "F" ||
-              game.statusType === "O";
+              game.statusType === "O" ||
+              game.statusType === "FT";
 
             const inning = game.inning || 0;
             const show = inning !== 9;
@@ -586,14 +588,14 @@ const ScoreboardSection = ({
                         {game.venue}
                       </Text>
                     ) : null}
-                    {game.broadcasts && game.broadcasts.length > 0 && (
+                    {game.notes1 || (game.notes && game.gameType !== "R") && (
                       <Text
                         style={[
                           styles.broadcast,
-                          { color: theme.textSecondary },
+                          { color: theme.textTertiary },
                         ]}
                       >
-                        {game.broadcasts.join(", ")}
+                        {game.notes && game.notes1 ? `${game.notes} · ${game.notes1}` : game.notes1 || game.notes}
                       </Text>
                     )}
                   </View>
@@ -655,7 +657,8 @@ const MLBScoreboardScreen = ({ navigation }) => {
           if (
             game.isCompleted ||
             game.statusType === "F" ||
-            game.statusType === "O"
+            game.statusType === "O" ||
+            game.statusType === "FT"
           )
             return 3;
           return 2;

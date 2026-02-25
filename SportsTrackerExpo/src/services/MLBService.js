@@ -241,20 +241,20 @@ export class MLBService {
         if (startDate) {
           if (endDate && endDate !== startDate) {
             // Date range format
-            url += `&startDate=${startDate}&endDate=${endDate}&hydrate=linescore&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription`;
+            url += `&startDate=${startDate}&endDate=${endDate}&hydrate=linescore&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
             console.log(
               "MLBService: Using date range format:",
               `${startDate} to ${endDate}`,
             );
           } else {
             // Single date format
-            url += `&startDate=${startDate}&endDate=${startDate}&hydrate=linescore&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription`;
+            url += `&startDate=${startDate}&endDate=${startDate}&hydrate=linescore&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
             console.log("MLBService: Using single date format:", startDate);
           }
         } else {
           // Use adjusted date for "today"
           const today = this.getAdjustedDateForMLB();
-          url += `&startDate=${today}&endDate=${today}&hydrate=linescore&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription`;
+          url += `&startDate=${today}&endDate=${today}&hydrate=linescore&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
           console.log("MLBService: Using adjusted today date:", today);
         }
 
@@ -307,7 +307,8 @@ export class MLBService {
         type: game.seriesDescription === "Regular Season" ? 1 : 3,
         slug: game.seriesDescription === "Regular Season" ? null : "postseason",
       },
-      notes: game?.description || game?.seriesDescription || "",
+      notes: game?.seriesDescription || "",
+      notes1: game?.description || "",
       isCompleted: game.status?.statusCode === "F",
       isLive:
         game.status?.statusCode === "I" ||
@@ -315,6 +316,7 @@ export class MLBService {
         game.status?.detailedState === "Manager challenge" ||
         game.status?.codedGameState === "M",
       displayClock: this.getGameTimeDisplay(game),
+      gameType: game.gameType || "",
       venue: game.venue?.name || "",
       broadcasts: this.getBroadcasts(game),
       awayTeam: {
@@ -507,9 +509,76 @@ export class MLBService {
     });
   }
 
+  // MLB team ID → full team name (for awards, etc. where API returns short names)
+  static teamIdMap = {
+    108: "Los Angeles Angels",
+    109: "Arizona Diamondbacks",
+    110: "Baltimore Orioles",
+    111: "Boston Red Sox",
+    112: "Chicago Cubs",
+    113: "Cincinnati Reds",
+    114: "Cleveland Guardians",
+    115: "Colorado Rockies",
+    116: "Detroit Tigers",
+    117: "Houston Astros",
+    118: "Kansas City Royals",
+    119: "Los Angeles Dodgers",
+    120: "Washington Nationals",
+    121: "New York Mets",
+    133: "Athletics",
+    134: "Pittsburgh Pirates",
+    135: "San Diego Padres",
+    136: "Seattle Mariners",
+    137: "San Francisco Giants",
+    138: "St. Louis Cardinals",
+    139: "Tampa Bay Rays",
+    140: "Texas Rangers",
+    141: "Toronto Blue Jays",
+    142: "Minnesota Twins",
+    143: "Philadelphia Phillies",
+    144: "Atlanta Braves",
+    145: "Chicago White Sox",
+    146: "Miami Marlins",
+    147: "New York Yankees",
+    158: "Milwaukee Brewers",
+  };
+
   // Get team color by team name
   static getTeamColor(teamName) {
     return this.teamColors[teamName] || "#666666";
+  }
+
+  // Get team color by MLB team ID (useful when API returns short/abbreviated names)
+  static getTeamColorById(teamId) {
+    const fullName = this.teamIdMap[teamId];
+    if (!fullName) return null;
+    return this.teamColors[fullName] || null;
+  }
+
+  // Get full team name by MLB team ID
+  static getTeamNameById(teamId) {
+    return this.teamIdMap[teamId] ?? null;
+  }
+
+  // Backend base URL (deployed baseball-server)
+  static BASE_BACKEND =
+    "https://laraiyeogithubio-production.up.railway.app";
+
+  // Get MLB team logo URL by team ID (mirrors WBCService.getTeamLogo signature)
+  static getTeamLogo(teamId, isDarkMode = false) {
+    const name = this.teamIdMap[Number(teamId)];
+    if (!name) return null;
+    return this.getLogoUrl(name, null, isDarkMode ? "dark" : "light");
+  }
+
+  // Fetch full aggregated team data from /bb/team/:teamId
+  static async getTeam(teamId) {
+    const url = `${this.BASE_BACKEND}/bb/team/${encodeURIComponent(String(teamId))}`;
+    const res = await fetch(url, {
+      headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    return res.json();
   }
 
   // Get player headshot URL

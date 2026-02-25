@@ -94,7 +94,7 @@ const SearchScreen = ({ route, navigation }) => {
   const searchPlayers = async (query) => {
     try {
       // Search players using MLB API
-      const response = await fetch(`https://statsapi.mlb.com/api/v1/people/search?names=${encodeURIComponent(query)}`);
+      const response = await fetch(`https://statsapi.mlb.com/api/v1/people/search?names=${encodeURIComponent(query)}&fields=people,id,fullName,firstName,lastName,primaryNumber,active,primaryPosition,name`);
       const data = await response.json();
       
       if (data.people) {
@@ -106,7 +106,7 @@ const SearchScreen = ({ route, navigation }) => {
             try {
               // Try to get current team info from player stats
               const currentYear = new Date().getFullYear();
-              const statsResponse = await fetch(`https://statsapi.mlb.com/api/v1/people/${player.id}/stats?stats=season&season=${currentYear}`);
+              const statsResponse = await fetch(`https://statsapi.mlb.com/api/v1/people/${player.id}/stats?stats=season&season=${currentYear}&fields=stats,splits,team,id,name,player,id,fullName`);
               const statsData = await statsResponse.json();
               
               let currentTeam = null;
