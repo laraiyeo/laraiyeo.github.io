@@ -230,7 +230,8 @@ const RosterPlayerRow = ({ player, teamColor, theme }) => {
     ([, v]) => v?.value != null,
   );
   const rankTextColor = getTextOnColor(teamColor);
-  const statusColor = player.status?.description === "Active" ? theme.success : theme.error;
+  const statusColor =
+    player.status?.description === "Active" ? theme.success : theme.error;
 
   return (
     <View style={[rStyles.playerBubble, { backgroundColor: theme.surface }]}>
@@ -272,10 +273,7 @@ const RosterPlayerRow = ({ player, teamColor, theme }) => {
         </View>
         <Text
           allowFontScaling={false}
-          style={[
-            rStyles.statusText,
-            { color: statusColor },
-          ]}
+          style={[rStyles.statusText, { color: statusColor }]}
           numberOfLines={2}
         >
           {player.status?.description ?? ""}
@@ -1397,15 +1395,26 @@ const TeamPageScreen = ({ route, navigation }) => {
               }
               const getPosGroup = (abbr) => {
                 if (!abbr) return "Other";
-                if (abbr === "P" || abbr === "SP" || abbr === "RP") return "Pitcher";
+                if (abbr === "P" || abbr === "SP" || abbr === "RP")
+                  return "Pitcher";
                 if (abbr === "C") return "Catcher";
-                if (["1B","2B","3B","SS","IF"].includes(abbr)) return "Infielder";
-                if (["LF","CF","RF","OF"].includes(abbr)) return "Outfielder";
+                if (["1B", "2B", "3B", "SS", "IF"].includes(abbr))
+                  return "Infielder";
+                if (["LF", "CF", "RF", "OF"].includes(abbr))
+                  return "Outfielder";
                 if (abbr === "DH") return "Designated Hitter";
                 if (abbr === "TWP") return "Two-Way Player";
                 return "Other";
               };
-              const POSITION_ORDER = ["Catcher", "Infielder", "Outfielder", "Designated Hitter", "Two-Way Player", "Pitcher", "Other"];
+              const POSITION_ORDER = [
+                "Catcher",
+                "Infielder",
+                "Outfielder",
+                "Designated Hitter",
+                "Two-Way Player",
+                "Pitcher",
+                "Other",
+              ];
               const groups = {};
               for (const player of roster) {
                 const grp = getPosGroup(player.position?.abbreviation);
@@ -1432,16 +1441,27 @@ const TeamPageScreen = ({ route, navigation }) => {
                 <View style={{ paddingBottom: 24 }}>
                   {sortedKeys.map((posType) => (
                     <View key={posType} style={rStyles.posSection}>
-                      <View style={[rStyles.posSectionHeader, { backgroundColor: teamColor + "22" }]}>
+                      <View
+                        style={[
+                          rStyles.posSectionHeader,
+                          { backgroundColor: teamColor + "22" },
+                        ]}
+                      >
                         <Text
                           allowFontScaling={false}
-                          style={[rStyles.posSectionTitle, { color: teamColor }]}
+                          style={[
+                            rStyles.posSectionTitle,
+                            { color: teamColor },
+                          ]}
                         >
                           {posLabel(posType)}
                         </Text>
                         <Text
                           allowFontScaling={false}
-                          style={[rStyles.posSectionCount, { color: teamColor }]}
+                          style={[
+                            rStyles.posSectionCount,
+                            { color: teamColor },
+                          ]}
                         >
                           {groups[posType].length}
                         </Text>

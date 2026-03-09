@@ -1240,7 +1240,9 @@ const UCLBracketScreen = ({ navigation, route }) => {
                 >
                   {firstAbbrev}
                 </Text>
-                <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                <View
+                  style={{ flexDirection: "row", alignItems: "flex-start" }}
+                >
                   <Text
                     allowFontScaling={false}
                     style={[
@@ -1253,7 +1255,10 @@ const UCLBracketScreen = ({ navigation, route }) => {
                   {firstShootoutScore > 0 && (
                     <Text
                       allowFontScaling={false}
-                      style={{ fontSize: 10, color: firstIsWinner ? colors.primary : theme.text }}
+                      style={{
+                        fontSize: 10,
+                        color: firstIsWinner ? colors.primary : theme.text,
+                      }}
                     >
                       {firstShootoutScore}
                     </Text>
@@ -1285,14 +1290,18 @@ const UCLBracketScreen = ({ navigation, route }) => {
                 >
                   {secondAbbrev}
                 </Text>
-                <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                <View
+                  style={{ flexDirection: "row", alignItems: "flex-start" }}
+                >
                   <Text
                     allowFontScaling={false}
                     style={[
                       styles.teamScore,
                       {
                         color:
-                          !isTie && !firstIsWinner ? colors.primary : theme.text,
+                          !isTie && !firstIsWinner
+                            ? colors.primary
+                            : theme.text,
                       },
                     ]}
                   >
@@ -1301,7 +1310,13 @@ const UCLBracketScreen = ({ navigation, route }) => {
                   {secondShootoutScore > 0 && (
                     <Text
                       allowFontScaling={false}
-                      style={{ fontSize: 10, color: !isTie && !firstIsWinner ? colors.primary : theme.text }}
+                      style={{
+                        fontSize: 10,
+                        color:
+                          !isTie && !firstIsWinner
+                            ? colors.primary
+                            : theme.text,
+                      }}
                     >
                       {secondShootoutScore}
                     </Text>
@@ -1345,7 +1360,10 @@ const UCLBracketScreen = ({ navigation, route }) => {
             {firstShootoutScore > 0 && (
               <Text
                 allowFontScaling={false}
-                style={{ fontSize: 10, color: firstIsWinner ? colors.primary : theme.text }}
+                style={{
+                  fontSize: 10,
+                  color: firstIsWinner ? colors.primary : theme.text,
+                }}
               >
                 {firstShootoutScore}
               </Text>
@@ -1371,7 +1389,9 @@ const UCLBracketScreen = ({ navigation, route }) => {
               allowFontScaling={false}
               style={[
                 styles.teamScore,
-                { color: !isTie && !firstIsWinner ? colors.primary : theme.text },
+                {
+                  color: !isTie && !firstIsWinner ? colors.primary : theme.text,
+                },
               ]}
             >
               {secondScore}
@@ -1379,7 +1399,10 @@ const UCLBracketScreen = ({ navigation, route }) => {
             {secondShootoutScore > 0 && (
               <Text
                 allowFontScaling={false}
-                style={{ fontSize: 10, color: !isTie && !firstIsWinner ? colors.primary : theme.text }}
+                style={{
+                  fontSize: 10,
+                  color: !isTie && !firstIsWinner ? colors.primary : theme.text,
+                }}
               >
                 {secondShootoutScore}
               </Text>
@@ -1789,7 +1812,8 @@ const UCLBracketScreen = ({ navigation, route }) => {
                 style={[
                   styles.matchScore,
                   {
-                    color: firstIsWinner && !isTie ? colors.primary : theme.text,
+                    color:
+                      firstIsWinner && !isTie ? colors.primary : theme.text,
                   },
                 ]}
               >
@@ -1798,7 +1822,11 @@ const UCLBracketScreen = ({ navigation, route }) => {
               {firstShootoutScore > 0 && (
                 <Text
                   allowFontScaling={false}
-                  style={{ fontSize: 10, color: firstIsWinner && !isTie ? colors.primary : theme.text }}
+                  style={{
+                    fontSize: 10,
+                    color:
+                      firstIsWinner && !isTie ? colors.primary : theme.text,
+                  }}
                 >
                   {firstShootoutScore}
                 </Text>
@@ -1820,7 +1848,8 @@ const UCLBracketScreen = ({ navigation, route }) => {
                 style={[
                   styles.matchScore,
                   {
-                    color: !firstIsWinner && !isTie ? colors.primary : theme.text,
+                    color:
+                      !firstIsWinner && !isTie ? colors.primary : theme.text,
                   },
                 ]}
               >
@@ -1829,7 +1858,11 @@ const UCLBracketScreen = ({ navigation, route }) => {
               {secondShootoutScore > 0 && (
                 <Text
                   allowFontScaling={false}
-                  style={{ fontSize: 10, color: !firstIsWinner && !isTie ? colors.primary : theme.text }}
+                  style={{
+                    fontSize: 10,
+                    color:
+                      !firstIsWinner && !isTie ? colors.primary : theme.text,
+                  }}
                 >
                   {secondShootoutScore}
                 </Text>
@@ -1968,7 +2001,8 @@ const UCLBracketScreen = ({ navigation, route }) => {
                 style={[
                   styles.matchScore,
                   {
-                    color: homeTeam.id === winnerId ? colors.primary : theme.text,
+                    color:
+                      homeTeam.id === winnerId ? colors.primary : theme.text,
                   },
                 ]}
               >
@@ -1977,7 +2011,11 @@ const UCLBracketScreen = ({ navigation, route }) => {
               {homeShootoutScore > 0 && (
                 <Text
                   allowFontScaling={false}
-                  style={{ fontSize: 10, color: homeTeam.id === winnerId ? colors.primary : theme.text }}
+                  style={{
+                    fontSize: 10,
+                    color:
+                      homeTeam.id === winnerId ? colors.primary : theme.text,
+                  }}
                 >
                   {homeShootoutScore}
                 </Text>
@@ -1999,7 +2037,8 @@ const UCLBracketScreen = ({ navigation, route }) => {
                 style={[
                   styles.matchScore,
                   {
-                    color: awayTeam.id === winnerId ? colors.primary : theme.text,
+                    color:
+                      awayTeam.id === winnerId ? colors.primary : theme.text,
                   },
                 ]}
               >
@@ -2008,7 +2047,11 @@ const UCLBracketScreen = ({ navigation, route }) => {
               {awayShootoutScore > 0 && (
                 <Text
                   allowFontScaling={false}
-                  style={{ fontSize: 10, color: awayTeam.id === winnerId ? colors.primary : theme.text }}
+                  style={{
+                    fontSize: 10,
+                    color:
+                      awayTeam.id === winnerId ? colors.primary : theme.text,
+                  }}
                 >
                   {awayShootoutScore}
                 </Text>
@@ -2177,7 +2220,12 @@ const UCLBracketScreen = ({ navigation, route }) => {
                               {match.homeTeam.shortDisplayName}
                             </Text>
                             {hasHomeScore && (
-                              <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "flex-start",
+                                }}
+                              >
                                 <Text
                                   allowFontScaling={false}
                                   style={[
@@ -2196,7 +2244,14 @@ const UCLBracketScreen = ({ navigation, route }) => {
                                 {match.homeShootoutScore > 0 && (
                                   <Text
                                     allowFontScaling={false}
-                                    style={{ fontSize: 9, color: match.status === "post" && match.homeScore > match.awayScore ? colors.primary : theme.text }}
+                                    style={{
+                                      fontSize: 9,
+                                      color:
+                                        match.status === "post" &&
+                                        match.homeScore > match.awayScore
+                                          ? colors.primary
+                                          : theme.text,
+                                    }}
                                   >
                                     {match.homeShootoutScore}
                                   </Text>
@@ -2241,7 +2296,12 @@ const UCLBracketScreen = ({ navigation, route }) => {
                               {match.awayTeam.shortDisplayName}
                             </Text>
                             {hasAwayScore && (
-                              <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "flex-start",
+                                }}
+                              >
                                 <Text
                                   allowFontScaling={false}
                                   style={[
@@ -2260,7 +2320,14 @@ const UCLBracketScreen = ({ navigation, route }) => {
                                 {match.awayShootoutScore > 0 && (
                                   <Text
                                     allowFontScaling={false}
-                                    style={{ fontSize: 9, color: match.status === "post" && match.awayScore > match.homeScore ? colors.primary : theme.text }}
+                                    style={{
+                                      fontSize: 9,
+                                      color:
+                                        match.status === "post" &&
+                                        match.awayScore > match.homeScore
+                                          ? colors.primary
+                                          : theme.text,
+                                    }}
                                   >
                                     {match.awayShootoutScore}
                                   </Text>
@@ -2297,13 +2364,62 @@ const UCLBracketScreen = ({ navigation, route }) => {
                 { backgroundColor: theme.surface },
               ]}
             >
-              <View style={{ flexDirection: "row", alignItems: "flex-start", flexWrap: "wrap", justifyContent: "center" }}>
-                <Text allowFontScaling={false} style={[styles.aggregateText, { color: theme.text }]}>{"Aggregate Score - "}</Text>
-                <Text allowFontScaling={false} style={[styles.aggregateText, { color: theme.text }]}>{selectedMatchup.aggregateHome}</Text>
-                {homeShootoutScore > 0 && <Text allowFontScaling={false} style={{ fontSize: 10, fontWeight: "bold", color: theme.text }}>{homeShootoutScore}</Text>}
-                <Text allowFontScaling={false} style={[styles.aggregateText, { color: theme.text }]}>{" : "}</Text>
-                <Text allowFontScaling={false} style={[styles.aggregateText, { color: theme.text }]}>{selectedMatchup.aggregateAway}</Text>
-                {awayShootoutScore > 0 && <Text allowFontScaling={false} style={{ fontSize: 10, fontWeight: "bold", color: theme.text }}>{awayShootoutScore}</Text>}
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  flexWrap: "wrap",
+                  justifyContent: "center",
+                }}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.aggregateText, { color: theme.text }]}
+                >
+                  {"Aggregate Score - "}
+                </Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.aggregateText, { color: theme.text }]}
+                >
+                  {selectedMatchup.aggregateHome}
+                </Text>
+                {homeShootoutScore > 0 && (
+                  <Text
+                    allowFontScaling={false}
+                    style={{
+                      fontSize: 10,
+                      fontWeight: "bold",
+                      color: theme.text,
+                    }}
+                  >
+                    {homeShootoutScore}
+                  </Text>
+                )}
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.aggregateText, { color: theme.text }]}
+                >
+                  {" : "}
+                </Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.aggregateText, { color: theme.text }]}
+                >
+                  {selectedMatchup.aggregateAway}
+                </Text>
+                {awayShootoutScore > 0 && (
+                  <Text
+                    allowFontScaling={false}
+                    style={{
+                      fontSize: 10,
+                      fontWeight: "bold",
+                      color: theme.text,
+                    }}
+                  >
+                    {awayShootoutScore}
+                  </Text>
+                )}
               </View>
             </View>
           </View>

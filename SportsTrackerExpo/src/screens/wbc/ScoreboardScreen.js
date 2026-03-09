@@ -87,8 +87,8 @@ const formatTimeEST = (dateString) => {
 const getGameStatusOrder = (game) => {
   const code = game.status?.codedGameState ?? "";
   if (code && !NON_LIVE_CODES.has(code)) return 0; // live → first
-  if (code === "S" || code === "P") return 1;        // scheduled → second
-  return 2;                                          // finished / postponed / cancelled → last
+  if (code === "S" || code === "P") return 1; // scheduled → second
+  return 2; // finished / postponed / cancelled → last
 };
 
 const groupGamesByEvent = (games = []) => {
@@ -221,14 +221,20 @@ const WBCGridCard = ({ game, navigation, theme, colors, isDarkMode }) => {
   const homeScore = game.teams?.home?.score;
   const awayRecord = game.teams?.away?.leagueRecord;
   const homeRecord = game.teams?.home?.leagueRecord;
-  const awayId = away.id || away.teamId || away.teamPk || away.teamCode || away.code;
-  const homeId = home.id || home.teamId || home.teamPk || home.teamCode || home.code;
+  const awayId =
+    away.id || away.teamId || away.teamPk || away.teamCode || away.code;
+  const homeId =
+    home.id || home.teamId || home.teamPk || home.teamCode || home.code;
   const awayLogo = WBCService.getTeamLogo(awayId, isDarkMode);
   const homeLogo = WBCService.getTeamLogo(homeId, isDarkMode);
   const awayColor = WBCService.getTeamColor(awayId);
   const homeColor = WBCService.getTeamColor(homeId);
-  const awayAbbr = WBCService.getTeamAbbr(awayId) || (away.name || "AWY").slice(0, 3).toUpperCase();
-  const homeAbbr = WBCService.getTeamAbbr(homeId) || (home.name || "HME").slice(0, 3).toUpperCase();
+  const awayAbbr =
+    WBCService.getTeamAbbr(awayId) ||
+    (away.name || "AWY").slice(0, 3).toUpperCase();
+  const homeAbbr =
+    WBCService.getTeamAbbr(homeId) ||
+    (home.name || "HME").slice(0, 3).toUpperCase();
 
   const { time, ampm } = formatTimeEST(game.gameDate);
   const code = game.status?.codedGameState ?? "";
@@ -242,24 +248,44 @@ const WBCGridCard = ({ game, navigation, theme, colors, isDarkMode }) => {
 
   return (
     <TouchableOpacity
-      style={[gridStyles.card, { backgroundColor: theme.surfaceSecondary, width: CARD_WIDTH }]}
-      onPress={() => navigation.navigate("GameDetails", { sport: "wbc", gamePk: game.gamePk })}
+      style={[
+        gridStyles.card,
+        { backgroundColor: theme.surfaceSecondary, width: CARD_WIDTH },
+      ]}
+      onPress={() =>
+        navigation.navigate("GameDetails", {
+          sport: "wbc",
+          gamePk: game.gamePk,
+        })
+      }
       activeOpacity={0.8}
     >
-      <GridCardGradient gradId={gradId} awayColor={awayColor} homeColor={homeColor} fallbackColor={colors.primary} />
+      <GridCardGradient
+        gradId={gradId}
+        awayColor={awayColor}
+        homeColor={homeColor}
+        fallbackColor={colors.primary}
+      />
 
       {/* Status / Time row */}
       <View style={gridStyles.cardTop}>
         {isLive ? (
           <Text style={[gridStyles.statusLive, { color: colors.primary }]}>
-            {game.linescore?.isTopInning ? "▲" : "▼"} {toOrdinal(game.linescore?.currentInning || 0)}
+            {game.linescore?.isTopInning ? "▲" : "▼"}{" "}
+            {toOrdinal(game.linescore?.currentInning || 0)}
           </Text>
         ) : isFinished ? (
-          <Text style={[gridStyles.statusText, { color: theme.textSecondary }]} numberOfLines={1}>
+          <Text
+            style={[gridStyles.statusText, { color: theme.textSecondary }]}
+            numberOfLines={1}
+          >
             {(game.status?.detailedState || "Final").slice(0, 9)}
           </Text>
         ) : (
-          <Text style={[gridStyles.statusText, { color: theme.text }]} numberOfLines={1}>
+          <Text
+            style={[gridStyles.statusText, { color: theme.text }]}
+            numberOfLines={1}
+          >
             {time} <Text style={{ color: theme.textTertiary }}>{ampm}</Text>
           </Text>
         )}
@@ -277,10 +303,21 @@ const WBCGridCard = ({ game, navigation, theme, colors, isDarkMode }) => {
         <View style={gridStyles.teamSide}>
           {isScheduled ? (
             awayLogo ? (
-              <Image source={{ uri: awayLogo }} style={gridStyles.teamLogo} resizeMode="contain" />
+              <Image
+                source={{ uri: awayLogo }}
+                style={gridStyles.teamLogo}
+                resizeMode="contain"
+              />
             ) : (
-              <View style={[gridStyles.teamLogoPlaceholder, { backgroundColor: awayColor || colors.primary }]}>
-                <Text style={gridStyles.teamLogoPlaceholderText}>{(away.name || "A")[0]}</Text>
+              <View
+                style={[
+                  gridStyles.teamLogoPlaceholder,
+                  { backgroundColor: awayColor || colors.primary },
+                ]}
+              >
+                <Text style={gridStyles.teamLogoPlaceholderText}>
+                  {(away.name || "A")[0]}
+                </Text>
               </View>
             )
           ) : (
@@ -298,11 +335,17 @@ const WBCGridCard = ({ game, navigation, theme, colors, isDarkMode }) => {
                 {awayScore ?? "—"}
               </Text>
               {awayLogo && (
-                <Image source={{ uri: awayLogo }} style={gridStyles.scoreLogoOverlay} resizeMode="contain" />
+                <Image
+                  source={{ uri: awayLogo }}
+                  style={gridStyles.scoreLogoOverlay}
+                  resizeMode="contain"
+                />
               )}
             </View>
           )}
-          <Text style={[gridStyles.teamAbbr, { color: theme.text }]}>{awayAbbr}</Text>
+          <Text style={[gridStyles.teamAbbr, { color: theme.text }]}>
+            {awayAbbr}
+          </Text>
           <Text style={[gridStyles.teamRecord, { color: theme.textSecondary }]}>
             {awayRecord?.wins ?? 0}-{awayRecord?.losses ?? 0}
           </Text>
@@ -314,10 +357,21 @@ const WBCGridCard = ({ game, navigation, theme, colors, isDarkMode }) => {
         <View style={gridStyles.teamSide}>
           {isScheduled ? (
             homeLogo ? (
-              <Image source={{ uri: homeLogo }} style={gridStyles.teamLogo} resizeMode="contain" />
+              <Image
+                source={{ uri: homeLogo }}
+                style={gridStyles.teamLogo}
+                resizeMode="contain"
+              />
             ) : (
-              <View style={[gridStyles.teamLogoPlaceholder, { backgroundColor: homeColor || colors.secondary }]}>
-                <Text style={gridStyles.teamLogoPlaceholderText}>{(home.name || "H")[0]}</Text>
+              <View
+                style={[
+                  gridStyles.teamLogoPlaceholder,
+                  { backgroundColor: homeColor || colors.secondary },
+                ]}
+              >
+                <Text style={gridStyles.teamLogoPlaceholderText}>
+                  {(home.name || "H")[0]}
+                </Text>
               </View>
             )
           ) : (
@@ -335,11 +389,17 @@ const WBCGridCard = ({ game, navigation, theme, colors, isDarkMode }) => {
                 {homeScore ?? "—"}
               </Text>
               {homeLogo && (
-                <Image source={{ uri: homeLogo }} style={gridStyles.scoreLogoOverlay} resizeMode="contain" />
+                <Image
+                  source={{ uri: homeLogo }}
+                  style={gridStyles.scoreLogoOverlay}
+                  resizeMode="contain"
+                />
               )}
             </View>
           )}
-          <Text style={[gridStyles.teamAbbr, { color: theme.text }]}>{homeAbbr}</Text>
+          <Text style={[gridStyles.teamAbbr, { color: theme.text }]}>
+            {homeAbbr}
+          </Text>
           <Text style={[gridStyles.teamRecord, { color: theme.textSecondary }]}>
             {homeRecord?.wins ?? 0}-{homeRecord?.losses ?? 0}
           </Text>
@@ -352,17 +412,35 @@ const WBCGridCard = ({ game, navigation, theme, colors, isDarkMode }) => {
           <View style={gridStyles.bsoContainer}>
             {/* Top line: outs (centered) */}
             <View style={gridStyles.bsoRow}>
-              <BSODots filled={game.linescore?.outs ?? 0} total={3} filledColor={theme.error} theme={theme} />
+              <BSODots
+                filled={game.linescore?.outs ?? 0}
+                total={3}
+                filledColor={theme.error}
+                theme={theme}
+              />
             </View>
             {/* Bottom line: balls + strikes */}
             <View style={gridStyles.bsoRow}>
-              <BSODots filled={game.linescore?.balls ?? 0} total={4} filledColor={theme.success} theme={theme} />
+              <BSODots
+                filled={game.linescore?.balls ?? 0}
+                total={4}
+                filledColor={theme.success}
+                theme={theme}
+              />
               <View style={{ width: 15 }} />
-              <BSODots filled={game.linescore?.strikes ?? 0} total={3} filledColor={theme.warning} theme={theme} />
+              <BSODots
+                filled={game.linescore?.strikes ?? 0}
+                total={3}
+                filledColor={theme.warning}
+                theme={theme}
+              />
             </View>
           </View>
         ) : (
-          <Text style={[gridStyles.venueText, { color: theme.textSecondary }]} numberOfLines={1}>
+          <Text
+            style={[gridStyles.venueText, { color: theme.textSecondary }]}
+            numberOfLines={1}
+          >
             {game.venue?.name || ""}
           </Text>
         )}
@@ -377,13 +455,21 @@ const WBCGridSection = ({ groups, navigation, theme, colors, isDarkMode }) => (
     {groups.map((group) => (
       <View key={group.eventName} style={gridStyles.group}>
         {/* Floating bubble group label */}
-        <View style={[gridStyles.groupBubble, { backgroundColor: theme.surfaceSecondary }]}>
+        <View
+          style={[
+            gridStyles.groupBubble,
+            { backgroundColor: theme.surfaceSecondary },
+          ]}
+        >
           <Image
             source={require("../../../assets/wbc_logo.png")}
             style={gridStyles.groupBubbleLogo}
             resizeMode="contain"
           />
-          <Text style={[gridStyles.groupBubbleName, { color: theme.text }]} numberOfLines={1}>
+          <Text
+            style={[gridStyles.groupBubbleName, { color: theme.text }]}
+            numberOfLines={1}
+          >
             {group.eventName}
           </Text>
         </View>
@@ -527,15 +613,9 @@ const UpcomingMatchesSection = ({
             const awayRecord = game.teams?.away?.leagueRecord;
             const homeRecord = game.teams?.home?.leagueRecord;
             const { time, ampm } = formatTimeEST(game.gameDate);
-            const isFinished = [
-              "S",
-              "D",
-              "C",
-              "O",
-              "F",
-              "Q",
-              "R",
-            ].includes(game.status?.codedGameState);
+            const isFinished = ["S", "D", "C", "O", "F", "Q", "R"].includes(
+              game.status?.codedGameState,
+            );
             const isLive =
               !NON_LIVE_CODES.has(game.status?.codedGameState) &&
               !!game.status?.codedGameState;
@@ -559,7 +639,16 @@ const UpcomingMatchesSection = ({
             const homeColor = WBCService.getTeamColor(homeId);
 
             return (
-              <TouchableOpacity key={game.gamePk} style={styles.gameRow} onPress={() => navigation.navigate("GameDetails", { sport: "wbc", gamePk: game.gamePk })}>
+              <TouchableOpacity
+                key={game.gamePk}
+                style={styles.gameRow}
+                onPress={() =>
+                  navigation.navigate("GameDetails", {
+                    sport: "wbc",
+                    gamePk: game.gamePk,
+                  })
+                }
+              >
                 <CardGradient
                   gradId={`${gIdx}_${idx}`}
                   awayColor={awayColor}
@@ -567,9 +656,7 @@ const UpcomingMatchesSection = ({
                   fallbackColor={colors.primary}
                   theme={theme}
                 />
-                <View
-                  style={styles.upcomingMatchRow}
-                >
+                <View style={styles.upcomingMatchRow}>
                   {/* Time / status column */}
                   <View style={styles.matchTimeContainer}>
                     {isLive ? (
@@ -616,11 +703,19 @@ const UpcomingMatchesSection = ({
                   <View style={styles.stackedTeams}>
                     {/* Away */}
                     <View style={styles.teamWithLogo}>
-                      <View style={[styles.teamLogoSmall, {height: awayId < 200 ? 32 : 27.5}]}>
+                      <View
+                        style={[
+                          styles.teamLogoSmall,
+                          { height: awayId < 200 ? 32 : 27.5 },
+                        ]}
+                      >
                         {awayLogo ? (
                           <Image
                             source={{ uri: awayLogo }}
-                            style={[styles.teamLogoSmallPlaceholder, {height: awayId < 200 ? 32 : 27.5}]}
+                            style={[
+                              styles.teamLogoSmallPlaceholder,
+                              { height: awayId < 200 ? 32 : 27.5 },
+                            ]}
                             resizeMode={awayId < 200 ? "contain" : "cover"}
                           />
                         ) : (
@@ -673,11 +768,19 @@ const UpcomingMatchesSection = ({
 
                     {/* Home */}
                     <View style={styles.teamWithLogo}>
-                      <View style={[styles.teamLogoSmall, {height: homeId < 200 ? 32 : 27.5}]}>
+                      <View
+                        style={[
+                          styles.teamLogoSmall,
+                          { height: homeId < 200 ? 32 : 27.5 },
+                        ]}
+                      >
                         {homeLogo ? (
                           <Image
                             source={{ uri: homeLogo }}
-                            style={[styles.teamLogoSmallPlaceholder, {height: homeId < 200 ? 32 : 27.5}]}
+                            style={[
+                              styles.teamLogoSmallPlaceholder,
+                              { height: homeId < 200 ? 32 : 27.5 },
+                            ]}
                             resizeMode={homeId < 200 ? "contain" : "cover"}
                           />
                         ) : (
@@ -741,7 +844,10 @@ const UpcomingMatchesSection = ({
                       {game.venue?.name || ""}
                     </Text>
                     <Text
-                      style={[styles.venue, { color: theme.textTertiary, fontStyle: "italic" }]}
+                      style={[
+                        styles.venue,
+                        { color: theme.textTertiary, fontStyle: "italic" },
+                      ]}
                     >
                       {game.seriesDescription || ""}
                     </Text>
@@ -921,7 +1027,10 @@ const ScoreboardScreen = ({ navigation, route }) => {
           <Text style={[styles.headerTitle, { color: theme.text }]}>
             World Baseball Classic
           </Text>
-          <TouchableOpacity onPress={toggleViewMode} style={styles.gridToggleBtn}>
+          <TouchableOpacity
+            onPress={toggleViewMode}
+            style={styles.gridToggleBtn}
+          >
             <Ionicons
               name={isGridView ? "list-outline" : "grid-outline"}
               size={22}

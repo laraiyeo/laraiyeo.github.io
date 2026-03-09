@@ -5341,7 +5341,15 @@ const tsStyles = StyleSheet.create({
 });
 
 // ─── Last Play Bubble ───────────────────────────────────────────────────────
-const LastPlayBubble = ({ allPlays, playersMap, awayTeam, homeTeam, awayColor, homeColor, theme }) => {
+const LastPlayBubble = ({
+  allPlays,
+  playersMap,
+  awayTeam,
+  homeTeam,
+  awayColor,
+  homeColor,
+  theme,
+}) => {
   const lastPlay = useMemo(() => {
     if (!allPlays?.length) return null;
     for (let i = allPlays.length - 1; i >= 0; i--) {
@@ -5355,7 +5363,9 @@ const LastPlayBubble = ({ allPlays, playersMap, awayTeam, homeTeam, awayColor, h
 
   const isTop = lastPlay?.about?.isTopInning !== false;
   const teamColor = isTop ? awayColor : homeColor;
-  const battingAbbr = isTop ? (awayTeam?.abbreviation ?? "") : (homeTeam?.abbreviation ?? "");
+  const battingAbbr = isTop
+    ? (awayTeam?.abbreviation ?? "")
+    : (homeTeam?.abbreviation ?? "");
   const inning = lastPlay?.about?.inning;
   const halfInning = isTop ? "\u25b2" : "\u25bc";
   const event = lastPlay?.result?.event ?? "";
@@ -5369,31 +5379,58 @@ const LastPlayBubble = ({ allPlays, playersMap, awayTeam, homeTeam, awayColor, h
   const pitcherInfo = resolvePlayer(playersMap, pitcherId);
 
   return (
-    <View style={[lpStyles.bubble, { backgroundColor: theme.surface, borderColor: teamColor }]}>
-      <View style={[lpStyles.header, { borderBottomColor: theme.border, backgroundColor: teamColor + "18" }]}>
+    <View
+      style={[
+        lpStyles.bubble,
+        { backgroundColor: theme.surface, borderColor: teamColor },
+      ]}
+    >
+      <View
+        style={[
+          lpStyles.header,
+          {
+            borderBottomColor: theme.border,
+            backgroundColor: teamColor + "18",
+          },
+        ]}
+      >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View style={[lpStyles.teamBadge, { backgroundColor: teamColor }]}>
             <Text style={lpStyles.teamBadgeText}>{battingAbbr}</Text>
           </View>
           <Text style={[lpStyles.inningLabel, { color: theme.text }]}>
-            {halfInning}{inning ? ` ${toOrdinal(inning)}` : ""}
+            {halfInning}
+            {inning ? ` ${toOrdinal(inning)}` : ""}
           </Text>
           {isScoringPlay && (
-            <View style={[lpStyles.scoringBadge, { backgroundColor: teamColor + "22", borderColor: teamColor }]}>
-              <Text style={[lpStyles.scoringBadgeText, { color: teamColor }]}>SCORING PLAY</Text>
+            <View
+              style={[
+                lpStyles.scoringBadge,
+                { backgroundColor: teamColor + "22", borderColor: teamColor },
+              ]}
+            >
+              <Text style={[lpStyles.scoringBadgeText, { color: teamColor }]}>
+                SCORING PLAY
+              </Text>
             </View>
           )}
         </View>
         {awayScoreVal != null && homeScoreVal != null && (
           <Text style={[lpStyles.scoreText, { color: theme.textSecondary }]}>
-            {awayTeam?.abbreviation ?? ""} {awayScoreVal} - {homeScoreVal} {homeTeam?.abbreviation ?? ""}
+            {awayTeam?.abbreviation ?? ""} {awayScoreVal} - {homeScoreVal}{" "}
+            {homeTeam?.abbreviation ?? ""}
           </Text>
         )}
       </View>
       <View style={lpStyles.body}>
         <Text style={[lpStyles.eventText, { color: teamColor }]}>{event}</Text>
         {!!description && (
-          <Text style={[lpStyles.descText, { color: theme.textSecondary }]} numberOfLines={4}>{description}</Text>
+          <Text
+            style={[lpStyles.descText, { color: theme.textSecondary }]}
+            numberOfLines={4}
+          >
+            {description}
+          </Text>
         )}
         {(batterInfo || pitcherInfo) && (
           <View style={[lpStyles.matchupRow, { borderTopColor: theme.border }]}>
@@ -5404,20 +5441,51 @@ const LastPlayBubble = ({ allPlays, playersMap, awayTeam, homeTeam, awayColor, h
                   style={[lpStyles.matchupHeadshot, { borderColor: teamColor }]}
                 />
                 <View>
-                  <Text style={[lpStyles.matchupName, { color: theme.text }]} numberOfLines={1}>{batterInfo.fullName}</Text>
-                  <Text style={[lpStyles.matchupRole, { color: theme.textSecondary }]}>Batter</Text>
+                  <Text
+                    style={[lpStyles.matchupName, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {batterInfo.fullName}
+                  </Text>
+                  <Text
+                    style={[
+                      lpStyles.matchupRole,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    Batter
+                  </Text>
                 </View>
               </View>
-            ) : <View style={{ flex: 1 }} />}
+            ) : (
+              <View style={{ flex: 1 }} />
+            )}
             {pitcherInfo ? (
-              <View style={[lpStyles.matchupSide, { justifyContent: "flex-end" }]}>
+              <View
+                style={[lpStyles.matchupSide, { justifyContent: "flex-end" }]}
+              >
                 <View style={{ alignItems: "flex-end" }}>
-                  <Text style={[lpStyles.matchupName, { color: theme.text }]} numberOfLines={1}>{pitcherInfo.fullName}</Text>
-                  <Text style={[lpStyles.matchupRole, { color: theme.textSecondary }]}>Pitcher</Text>
+                  <Text
+                    style={[lpStyles.matchupName, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {pitcherInfo.fullName}
+                  </Text>
+                  <Text
+                    style={[
+                      lpStyles.matchupRole,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    Pitcher
+                  </Text>
                 </View>
                 <Image
                   source={{ uri: playerHeadshotUrl(pitcherId) }}
-                  style={[lpStyles.matchupHeadshot, { borderColor: isTop ? homeColor : awayColor }]}
+                  style={[
+                    lpStyles.matchupHeadshot,
+                    { borderColor: isTop ? homeColor : awayColor },
+                  ]}
                 />
               </View>
             ) : null}

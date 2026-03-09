@@ -277,7 +277,8 @@ const RosterPlayerRow = ({ player, teamColor, theme }) => {
     ([, v]) => v?.value != null,
   );
   const rankTextColor = getTextOnColor(teamColor);
-  const statusColor = player.status?.description === "Active" ? theme.success : theme.error;
+  const statusColor =
+    player.status?.description === "Active" ? theme.success : theme.error;
 
   return (
     <View style={[rStyles.playerBubble, { backgroundColor: theme.surface }]}>
@@ -319,10 +320,7 @@ const RosterPlayerRow = ({ player, teamColor, theme }) => {
         </View>
         <Text
           allowFontScaling={false}
-          style={[
-            rStyles.statusText,
-            { color: statusColor },
-          ]}
+          style={[rStyles.statusText, { color: statusColor }]}
           numberOfLines={2}
         >
           {player.status?.description ?? ""}
@@ -902,191 +900,194 @@ const MatchCard = ({
         }
         activeOpacity={0.75}
       >
-      {/* Subtle gradient backdrop */}
-      <Svg
-        style={StyleSheet.absoluteFill}
-        width="100%"
-        height="100%"
-        pointerEvents="none"
-      >
-        <Defs>
-          <SvgLinearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <Stop offset="0%" stopColor={awayColor} stopOpacity="0.08" />
-            <Stop offset="40%" stopColor={theme.surface} stopOpacity="0" />
-            <Stop offset="60%" stopColor={theme.surface} stopOpacity="0" />
-            <Stop offset="100%" stopColor={homeColor} stopOpacity="0.08" />
-          </SvgLinearGradient>
-        </Defs>
-        <Rect width="100%" height="100%" fill={`url(#${gradId})`} />
-      </Svg>
+        {/* Subtle gradient backdrop */}
+        <Svg
+          style={StyleSheet.absoluteFill}
+          width="100%"
+          height="100%"
+          pointerEvents="none"
+        >
+          <Defs>
+            <SvgLinearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+              <Stop offset="0%" stopColor={awayColor} stopOpacity="0.08" />
+              <Stop offset="40%" stopColor={theme.surface} stopOpacity="0" />
+              <Stop offset="60%" stopColor={theme.surface} stopOpacity="0" />
+              <Stop offset="100%" stopColor={homeColor} stopOpacity="0.08" />
+            </SvgLinearGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill={`url(#${gradId})`} />
+        </Svg>
 
-      <View style={styles.matchCardInner}>
-        {/* Date / status column */}
-        <View style={styles.matchStatusCol}>
-          <Text
-            allowFontScaling={false}
-            style={[styles.matchDateText, { color: theme.textSecondary }]}
-            numberOfLines={2}
-          >
-            {formatDate(game.gameDate)}
-          </Text>
-          <Text
-            allowFontScaling={false}
-            style={[
-              styles.matchStatusText,
-              isLive
-                ? { color: "#E53935", fontWeight: "700" }
-                : { color: theme.textTertiary ?? theme.textSecondary },
-            ]}
-            numberOfLines={1}
-          >
-            {statusLabel}
-          </Text>
-        </View>
-
-        {/* Teams column */}
-        <View style={styles.matchTeamsList}>
-          {/* Away */}
-          <View style={styles.matchTeamRow}>
-            <View style={styles.matchLogoWrap}>
-              {awayLogo ? (
-                <Image
-                  source={{ uri: awayLogo }}
-                  style={styles.matchTeamLogo}
-                  resizeMode="contain"
-                />
-              ) : (
-                <View
-                  style={[
-                    styles.matchTeamLogoFallback,
-                    { backgroundColor: awayColor },
-                  ]}
-                >
-                  <Text style={styles.matchLogoFallbackText}>
-                    {(away.abbreviation ?? away.name ?? "A").charAt(0)}
-                  </Text>
-                </View>
-              )}
-            </View>
+        <View style={styles.matchCardInner}>
+          {/* Date / status column */}
+          <View style={styles.matchStatusCol}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.matchDateText, { color: theme.textSecondary }]}
+              numberOfLines={2}
+            >
+              {formatDate(game.gameDate)}
+            </Text>
             <Text
               allowFontScaling={false}
               style={[
-                styles.matchTeamName,
-                {
-                  color: awayWinner ? theme.text : theme.textSecondary,
-                  fontWeight: awayWinner ? "800" : "400",
-                },
+                styles.matchStatusText,
+                isLive
+                  ? { color: "#E53935", fontWeight: "700" }
+                  : { color: theme.textTertiary ?? theme.textSecondary },
               ]}
               numberOfLines={1}
             >
-              {away.name ?? "Away"}
+              {statusLabel}
             </Text>
-            {awayRecord != null && (
+          </View>
+
+          {/* Teams column */}
+          <View style={styles.matchTeamsList}>
+            {/* Away */}
+            <View style={styles.matchTeamRow}>
+              <View style={styles.matchLogoWrap}>
+                {awayLogo ? (
+                  <Image
+                    source={{ uri: awayLogo }}
+                    style={styles.matchTeamLogo}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View
+                    style={[
+                      styles.matchTeamLogoFallback,
+                      { backgroundColor: awayColor },
+                    ]}
+                  >
+                    <Text style={styles.matchLogoFallbackText}>
+                      {(away.abbreviation ?? away.name ?? "A").charAt(0)}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Text
                 allowFontScaling={false}
                 style={[
-                  styles.matchRecord,
-                  { color: theme.textTertiary ?? theme.textSecondary },
-                ]}
-              >
-                {awayRecord.wins}-{awayRecord.losses}
-              </Text>
-            )}
-            {awayScore != null && (
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.matchScoreText,
+                  styles.matchTeamName,
                   {
                     color: awayWinner ? theme.text : theme.textSecondary,
                     fontWeight: awayWinner ? "800" : "400",
                   },
                 ]}
+                numberOfLines={1}
               >
-                {awayScore}
+                {away.name ?? "Away"}
               </Text>
-            )}
-          </View>
-
-          {/* Divider */}
-          <View
-            style={[styles.matchTeamDivider, { backgroundColor: theme.border }]}
-          />
-
-          {/* Home */}
-          <View style={styles.matchTeamRow}>
-            <View style={styles.matchLogoWrap}>
-              {homeLogo ? (
-                <Image
-                  source={{ uri: homeLogo }}
-                  style={styles.matchTeamLogo}
-                  resizeMode="contain"
-                />
-              ) : (
-                <View
+              {awayRecord != null && (
+                <Text
+                  allowFontScaling={false}
                   style={[
-                    styles.matchTeamLogoFallback,
-                    { backgroundColor: homeColor },
+                    styles.matchRecord,
+                    { color: theme.textTertiary ?? theme.textSecondary },
                   ]}
                 >
-                  <Text style={styles.matchLogoFallbackText}>
-                    {(home.abbreviation ?? home.name ?? "H").charAt(0)}
-                  </Text>
-                </View>
+                  {awayRecord.wins}-{awayRecord.losses}
+                </Text>
+              )}
+              {awayScore != null && (
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.matchScoreText,
+                    {
+                      color: awayWinner ? theme.text : theme.textSecondary,
+                      fontWeight: awayWinner ? "800" : "400",
+                    },
+                  ]}
+                >
+                  {awayScore}
+                </Text>
               )}
             </View>
-            <Text
-              allowFontScaling={false}
+
+            {/* Divider */}
+            <View
               style={[
-                styles.matchTeamName,
-                {
-                  color: homeWinner ? theme.text : theme.textSecondary,
-                  fontWeight: homeWinner ? "800" : "400",
-                },
+                styles.matchTeamDivider,
+                { backgroundColor: theme.border },
               ]}
-              numberOfLines={1}
-            >
-              {home.name ?? "Home"}
-            </Text>
-            {homeRecord != null && (
+            />
+
+            {/* Home */}
+            <View style={styles.matchTeamRow}>
+              <View style={styles.matchLogoWrap}>
+                {homeLogo ? (
+                  <Image
+                    source={{ uri: homeLogo }}
+                    style={styles.matchTeamLogo}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View
+                    style={[
+                      styles.matchTeamLogoFallback,
+                      { backgroundColor: homeColor },
+                    ]}
+                  >
+                    <Text style={styles.matchLogoFallbackText}>
+                      {(home.abbreviation ?? home.name ?? "H").charAt(0)}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Text
                 allowFontScaling={false}
                 style={[
-                  styles.matchRecord,
-                  { color: theme.textTertiary ?? theme.textSecondary },
-                ]}
-              >
-                {homeRecord.wins}-{homeRecord.losses}
-              </Text>
-            )}
-            {homeScore != null && (
-              <Text
-                allowFontScaling={false}
-                style={[
-                  styles.matchScoreText,
+                  styles.matchTeamName,
                   {
                     color: homeWinner ? theme.text : theme.textSecondary,
                     fontWeight: homeWinner ? "800" : "400",
                   },
                 ]}
+                numberOfLines={1}
               >
-                {homeScore}
+                {home.name ?? "Home"}
               </Text>
-            )}
+              {homeRecord != null && (
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.matchRecord,
+                    { color: theme.textTertiary ?? theme.textSecondary },
+                  ]}
+                >
+                  {homeRecord.wins}-{homeRecord.losses}
+                </Text>
+              )}
+              {homeScore != null && (
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.matchScoreText,
+                    {
+                      color: homeWinner ? theme.text : theme.textSecondary,
+                      fontWeight: homeWinner ? "800" : "400",
+                    },
+                  ]}
+                >
+                  {homeScore}
+                </Text>
+              )}
+            </View>
           </View>
-        </View>
 
-        {/* Chevron */}
-        <Text
-          style={[
-            styles.matchChevron,
-            { color: theme.textTertiary ?? theme.textSecondary },
-          ]}
-        >
-          ›
-        </Text>
-      </View>
-    </TouchableOpacity>
+          {/* Chevron */}
+          <Text
+            style={[
+              styles.matchChevron,
+              { color: theme.textTertiary ?? theme.textSecondary },
+            ]}
+          >
+            ›
+          </Text>
+        </View>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -1110,10 +1111,7 @@ const MatchesSection = ({
   return (
     <View style={{ marginBottom: 6 }}>
       <TouchableOpacity
-        style={[
-          mStyles.sectionHeader,
-          { backgroundColor: theme.surface },
-        ]}
+        style={[mStyles.sectionHeader, { backgroundColor: theme.surface }]}
         onPress={collapsible ? () => setExpanded((v) => !v) : undefined}
         activeOpacity={collapsible ? 0.7 : 1}
         disabled={!collapsible}
@@ -1126,10 +1124,7 @@ const MatchesSection = ({
         </Text>
         {collapsible && !expanded && games.length > 1 && (
           <View
-            style={[
-              mStyles.countBadge,
-              { backgroundColor: teamColor + "22" },
-            ]}
+            style={[mStyles.countBadge, { backgroundColor: teamColor + "22" }]}
           >
             <Text
               allowFontScaling={false}
@@ -1146,7 +1141,9 @@ const MatchesSection = ({
               marginLeft: 4,
             }}
           >
-            <Text style={[mStyles.sectionChevron, { color: theme.textSecondary }]}>
+            <Text
+              style={[mStyles.sectionChevron, { color: theme.textSecondary }]}
+            >
               ›
             </Text>
           </View>
@@ -1607,15 +1604,26 @@ const TeamPageScreen = ({ route, navigation }) => {
               }
               const getPosGroup = (abbr) => {
                 if (!abbr) return "Other";
-                if (abbr === "P" || abbr === "SP" || abbr === "RP") return "Pitcher";
+                if (abbr === "P" || abbr === "SP" || abbr === "RP")
+                  return "Pitcher";
                 if (abbr === "C") return "Catcher";
-                if (["1B","2B","3B","SS","IF"].includes(abbr)) return "Infielder";
-                if (["LF","CF","RF","OF"].includes(abbr)) return "Outfielder";
+                if (["1B", "2B", "3B", "SS", "IF"].includes(abbr))
+                  return "Infielder";
+                if (["LF", "CF", "RF", "OF"].includes(abbr))
+                  return "Outfielder";
                 if (abbr === "DH") return "Designated Hitter";
                 if (abbr === "TWP") return "Two-Way Player";
                 return "Other";
               };
-              const POSITION_ORDER = ["Catcher", "Infielder", "Outfielder", "Designated Hitter", "Two-Way Player", "Pitcher", "Other"];
+              const POSITION_ORDER = [
+                "Catcher",
+                "Infielder",
+                "Outfielder",
+                "Designated Hitter",
+                "Two-Way Player",
+                "Pitcher",
+                "Other",
+              ];
               const groups = {};
               for (const player of roster) {
                 const grp = getPosGroup(player.position?.abbreviation);
@@ -1642,16 +1650,27 @@ const TeamPageScreen = ({ route, navigation }) => {
                 <View style={{ paddingBottom: 24 }}>
                   {sortedKeys.map((posType) => (
                     <View key={posType} style={rStyles.posSection}>
-                      <View style={[rStyles.posSectionHeader, { backgroundColor: teamColor + "22" }]}>
+                      <View
+                        style={[
+                          rStyles.posSectionHeader,
+                          { backgroundColor: teamColor + "22" },
+                        ]}
+                      >
                         <Text
                           allowFontScaling={false}
-                          style={[rStyles.posSectionTitle, { color: teamColor }]}
+                          style={[
+                            rStyles.posSectionTitle,
+                            { color: teamColor },
+                          ]}
                         >
                           {posLabel(posType)}
                         </Text>
                         <Text
                           allowFontScaling={false}
-                          style={[rStyles.posSectionCount, { color: teamColor }]}
+                          style={[
+                            rStyles.posSectionCount,
+                            { color: teamColor },
+                          ]}
                         >
                           {groups[posType].length}
                         </Text>

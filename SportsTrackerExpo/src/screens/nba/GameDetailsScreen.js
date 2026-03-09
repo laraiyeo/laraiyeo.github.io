@@ -5449,7 +5449,10 @@ const NBAGameDetailsScreen = ({ route }) => {
               <View
                 ref={shareCardRef}
                 collapsable={false}
-                style={[styles.nbaShareCard, { width: width - 48, backgroundColor: theme.surface }]}
+                style={[
+                  styles.nbaShareCard,
+                  { width: width - 48, backgroundColor: theme.surface },
+                ]}
               >
                 {shareCardPlayer &&
                   (() => {
@@ -5495,7 +5498,9 @@ const NBAGameDetailsScreen = ({ route }) => {
                     const teamLogo = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${isDarkMode ? "-dark" : ""}/scoreboard/${team?.abbreviation}.png&w=80&h=80`;
                     const rawColor = team?.color || null;
                     const teamColor = rawColor
-                      ? rawColor.startsWith("#") ? rawColor : `#${rawColor}`
+                      ? rawColor.startsWith("#")
+                        ? rawColor
+                        : `#${rawColor}`
                       : colors.primary || "#333";
 
                     // Get game info for score display
@@ -5510,11 +5515,11 @@ const NBAGameDetailsScreen = ({ route }) => {
                     const awayScore = awayCompetitor?.score || "0";
                     const homeScore = homeCompetitor?.score || "0";
                     const awayLogo =
-                      awayCompetitor?.team?.logos?.[isDarkMode ? "1" : "0"]?.href ||
-                      awayCompetitor?.team?.logo;
+                      awayCompetitor?.team?.logos?.[isDarkMode ? "1" : "0"]
+                        ?.href || awayCompetitor?.team?.logo;
                     const homeLogo =
-                      homeCompetitor?.team?.logos?.[isDarkMode ? "1" : "0"]?.href ||
-                      homeCompetitor?.team?.logo;
+                      homeCompetitor?.team?.logos?.[isDarkMode ? "1" : "0"]
+                        ?.href || homeCompetitor?.team?.logo;
 
                     // Text color on team color background
                     const hexToLum = (hex) => {
@@ -5524,7 +5529,8 @@ const NBAGameDetailsScreen = ({ route }) => {
                       const b = parseInt(h.substr(4, 2), 16) / 255;
                       return 0.2126 * r + 0.7152 * g + 0.0722 * b;
                     };
-                    const textOnTeam = hexToLum(teamColor) > 0.4 ? "#000" : "#fff";
+                    const textOnTeam =
+                      hexToLum(teamColor) > 0.4 ? "#000" : "#fff";
 
                     // Helper: parse "M-A" → percentage string or null
                     const slashPct = (val) => {
@@ -5543,7 +5549,10 @@ const NBAGameDetailsScreen = ({ route }) => {
                       { key: "assists", label: "AST" },
                       { key: "steals", label: "STL" },
                       { key: "blocks", label: "BLK" },
-                      { key: "threePointFieldGoalsMade-threePointFieldGoalsAttempted", label: "3PM" },
+                      {
+                        key: "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+                        label: "3PM",
+                      },
                     ];
                     const SUMMARY_FALLBACKS = [
                       { key: "points", label: "PTS" },
@@ -5557,27 +5566,33 @@ const NBAGameDetailsScreen = ({ route }) => {
                       const val = raw != null ? String(raw) : null;
                       if (val == null) return null;
                       const num = parseFloat(val.replace(/[^0-9.\-]/g, ""));
-                      return { label, val, num: isNaN(num) ? 0 : Math.abs(num) };
+                      return {
+                        label,
+                        val,
+                        num: isNaN(num) ? 0 : Math.abs(num),
+                      };
                     };
-                    const earned = SUMMARY_CANDIDATES
-                      .map(resolveStat)
+                    const earned = SUMMARY_CANDIDATES.map(resolveStat)
                       .filter((s) => s && s.num > 0)
                       .sort((a, b) => b.num - a.num)
                       .slice(0, 3);
                     // Fill to 3 with PTS/REB/AST if needed (skip any already earned)
                     if (earned.length < 3) {
                       const earnedKeys = new Set(
-                        SUMMARY_CANDIDATES
-                          .filter((_, i) =>
-                            earned.some((e) => e.label === SUMMARY_CANDIDATES[i]?.label),
-                          )
-                          .map((c) => c.key),
+                        SUMMARY_CANDIDATES.filter((_, i) =>
+                          earned.some(
+                            (e) => e.label === SUMMARY_CANDIDATES[i]?.label,
+                          ),
+                        ).map((c) => c.key),
                       );
                       for (const fb of SUMMARY_FALLBACKS) {
                         if (earned.length >= 3) break;
                         if (earnedKeys.has(fb.key)) continue;
                         const s = resolveStat(fb);
-                        if (s) { earned.push(s); earnedKeys.add(fb.key); }
+                        if (s) {
+                          earned.push(s);
+                          earnedKeys.add(fb.key);
+                        }
                       }
                     }
                     const summaryStats = earned.slice(0, 3);
@@ -5591,19 +5606,39 @@ const NBAGameDetailsScreen = ({ route }) => {
                       { key: "blocks", label: "BLK", slash: false },
                       { key: "turnovers", label: "TO", slash: false },
                       { key: "minutes", label: "MIN", slash: false },
-                      { key: "plusMinus", label: "+/-", slash: false, isPlusMinus: true },
+                      {
+                        key: "plusMinus",
+                        label: "+/-",
+                        slash: false,
+                        isPlusMinus: true,
+                      },
                       { key: "fouls", label: "FOULS", slash: false },
-                      { key: "fieldGoalsMade-fieldGoalsAttempted", label: "FG", slash: true },
-                      { key: "threePointFieldGoalsMade-threePointFieldGoalsAttempted", label: "3PT", slash: true },
-                      { key: "freeThrowsMade-freeThrowsAttempted", label: "FT", slash: true },
+                      {
+                        key: "fieldGoalsMade-fieldGoalsAttempted",
+                        label: "FG",
+                        slash: true,
+                      },
+                      {
+                        key: "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+                        label: "3PT",
+                        slash: true,
+                      },
+                      {
+                        key: "freeThrowsMade-freeThrowsAttempted",
+                        label: "FT",
+                        slash: true,
+                      },
                     ];
-                    const twelveStats = TWELVE_STATS.map(({ key, label, slash, isPlusMinus }) => {
-                      const idx = keys.indexOf(key);
-                      const raw = idx >= 0 && stats[idx] != null ? stats[idx] : null;
-                      const val = raw != null ? String(raw) : "\u2014";
-                      const pct = slash && raw != null ? slashPct(raw) : null;
-                      return { label, val, pct, isPlusMinus };
-                    });
+                    const twelveStats = TWELVE_STATS.map(
+                      ({ key, label, slash, isPlusMinus }) => {
+                        const idx = keys.indexOf(key);
+                        const raw =
+                          idx >= 0 && stats[idx] != null ? stats[idx] : null;
+                        const val = raw != null ? String(raw) : "\u2014";
+                        const pct = slash && raw != null ? slashPct(raw) : null;
+                        return { label, val, pct, isPlusMinus };
+                      },
+                    );
 
                     return (
                       <>
@@ -5656,7 +5691,27 @@ const NBAGameDetailsScreen = ({ route }) => {
                                   { color: theme.text },
                                 ]}
                               >
-                                <Text style={{ fontWeight: parseInt(awayScore) > parseInt(homeScore) ? "800" : "400" }}>{awayScore}</Text> <Text>-</Text> <Text style={{ fontWeight: parseInt(homeScore) > parseInt(awayScore) ? "800" : "400" }}>{homeScore}</Text>
+                                <Text
+                                  style={{
+                                    fontWeight:
+                                      parseInt(awayScore) > parseInt(homeScore)
+                                        ? "800"
+                                        : "400",
+                                  }}
+                                >
+                                  {awayScore}
+                                </Text>{" "}
+                                <Text>-</Text>{" "}
+                                <Text
+                                  style={{
+                                    fontWeight:
+                                      parseInt(homeScore) > parseInt(awayScore)
+                                        ? "800"
+                                        : "400",
+                                  }}
+                                >
+                                  {homeScore}
+                                </Text>
                               </Text>
                               {!!homeLogo && (
                                 <Image
@@ -5711,7 +5766,10 @@ const NBAGameDetailsScreen = ({ route }) => {
                               {summaryStats.length > 0 && (
                                 <View style={styles.nbaSummaryRow}>
                                   {summaryStats.map(({ val, label }) => (
-                                    <View key={label} style={styles.nbaSummaryCell}>
+                                    <View
+                                      key={label}
+                                      style={styles.nbaSummaryCell}
+                                    >
                                       <Text
                                         style={[
                                           styles.nbaSummaryVal,
@@ -5732,7 +5790,13 @@ const NBAGameDetailsScreen = ({ route }) => {
                                   ))}
                                 </View>
                               )}
-                              <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "flex-start",
+                                  justifyContent: "space-between",
+                                }}
+                              >
                                 <View style={{ flex: 1, gap: 2 }}>
                                   <Text
                                     style={[
@@ -5764,17 +5828,43 @@ const NBAGameDetailsScreen = ({ route }) => {
                                     </View>
                                   )}
                                 </View>
-                                {!!gameDate && (() => {
-                                  const _gd = new Date(gameDate);
-                                  const _monthDate = _gd.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                                  const _year = _gd.toLocaleDateString("en-US", { year: "numeric" });
-                                  return (
-                                    <View style={{ alignItems: "flex-end", marginLeft: 6 }}>
-                                      <Text style={[styles.nbaTeamNameLabel, { color: theme.textSecondary }]}>{_monthDate}</Text>
-                                      <Text style={[styles.nbaTeamNameLabel, { color: theme.textSecondary }]}>{_year}</Text>
-                                    </View>
-                                  );
-                                })()}
+                                {!!gameDate &&
+                                  (() => {
+                                    const _gd = new Date(gameDate);
+                                    const _monthDate = _gd.toLocaleDateString(
+                                      "en-US",
+                                      { month: "short", day: "numeric" },
+                                    );
+                                    const _year = _gd.toLocaleDateString(
+                                      "en-US",
+                                      { year: "numeric" },
+                                    );
+                                    return (
+                                      <View
+                                        style={{
+                                          alignItems: "flex-end",
+                                          marginLeft: 6,
+                                        }}
+                                      >
+                                        <Text
+                                          style={[
+                                            styles.nbaTeamNameLabel,
+                                            { color: theme.textSecondary },
+                                          ]}
+                                        >
+                                          {_monthDate}
+                                        </Text>
+                                        <Text
+                                          style={[
+                                            styles.nbaTeamNameLabel,
+                                            { color: theme.textSecondary },
+                                          ]}
+                                        >
+                                          {_year}
+                                        </Text>
+                                      </View>
+                                    );
+                                  })()}
                               </View>
                             </View>
                           </View>
@@ -5782,61 +5872,67 @@ const NBAGameDetailsScreen = ({ route }) => {
 
                         {/* ── 4×3 Stat Grid ── */}
                         <View style={styles.nbaStatGrid}>
-                          {twelveStats.map(({ label, val, pct, isPlusMinus }, i) => {
-                            const pmNum = isPlusMinus
-                              ? parseFloat(String(val).replace(/[^0-9.\-]/g, ""))
-                              : null;
-                            const pmColor =
-                              isPlusMinus && !isNaN(pmNum)
-                                ? pmNum > 0
-                                  ? theme.success
-                                  : pmNum < 0
-                                    ? theme.error
-                                    : theme.text
-                                : theme.text;
-                            return (
-                              <View
-                                key={label}
-                                style={[
-                                  styles.nbaStatCell,
-                                  { borderColor: theme.border },
-                                  i % 3 !== 2 && {
-                                    borderRightWidth: StyleSheet.hairlineWidth,
-                                  },
-                                  i < 9 && {
-                                    borderBottomWidth: StyleSheet.hairlineWidth,
-                                  },
-                                ]}
-                              >
-                                {!!pct && (
+                          {twelveStats.map(
+                            ({ label, val, pct, isPlusMinus }, i) => {
+                              const pmNum = isPlusMinus
+                                ? parseFloat(
+                                    String(val).replace(/[^0-9.\-]/g, ""),
+                                  )
+                                : null;
+                              const pmColor =
+                                isPlusMinus && !isNaN(pmNum)
+                                  ? pmNum > 0
+                                    ? theme.success
+                                    : pmNum < 0
+                                      ? theme.error
+                                      : theme.text
+                                  : theme.text;
+                              return (
+                                <View
+                                  key={label}
+                                  style={[
+                                    styles.nbaStatCell,
+                                    { borderColor: theme.border },
+                                    i % 3 !== 2 && {
+                                      borderRightWidth:
+                                        StyleSheet.hairlineWidth,
+                                    },
+                                    i < 9 && {
+                                      borderBottomWidth:
+                                        StyleSheet.hairlineWidth,
+                                    },
+                                  ]}
+                                >
+                                  {!!pct && (
+                                    <Text
+                                      style={[
+                                        styles.nbaStatPct,
+                                        { color: theme.textSecondary },
+                                      ]}
+                                    >
+                                      {pct}
+                                    </Text>
+                                  )}
                                   <Text
                                     style={[
-                                      styles.nbaStatPct,
+                                      styles.nbaStatVal,
+                                      { color: pmColor },
+                                    ]}
+                                  >
+                                    {val}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.nbaStatLbl,
                                       { color: theme.textSecondary },
                                     ]}
                                   >
-                                    {pct}
+                                    {label}
                                   </Text>
-                                )}
-                                <Text
-                                  style={[
-                                    styles.nbaStatVal,
-                                    { color: pmColor },
-                                  ]}
-                                >
-                                  {val}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.nbaStatLbl,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                >
-                                  {label}
-                                </Text>
-                              </View>
-                            );
-                          })}
+                                </View>
+                              );
+                            },
+                          )}
                         </View>
                       </>
                     );

@@ -286,7 +286,12 @@ const MLB_GRID_GAP = 8;
 const MLB_CARD_WIDTH = (width - MLB_GRID_H_PAD * 2 - MLB_GRID_GAP) / 2;
 
 // ─── Grid left–right gradient ─────────────────────────────────────────────────
-const MLBGridCardGradient = ({ gradId, awayColor, homeColor, fallbackColor }) => {
+const MLBGridCardGradient = ({
+  gradId,
+  awayColor,
+  homeColor,
+  fallbackColor,
+}) => {
   const left = awayColor || fallbackColor;
   const right = homeColor || fallbackColor;
   return (
@@ -305,26 +310,43 @@ const MLBGridCardGradient = ({ gradId, awayColor, homeColor, fallbackColor }) =>
 };
 
 // ─── Individual MLB grid card ─────────────────────────────────────────────────
-const MLBGridCard = ({ game, navigation, theme, colors, isDarkMode, isFavorite }) => {
+const MLBGridCard = ({
+  game,
+  navigation,
+  theme,
+  colors,
+  isDarkMode,
+  isFavorite,
+}) => {
   const away = game.awayTeam || {};
   const home = game.homeTeam || {};
-  const awayColor = away.color || MLBService.getTeamColor(away.displayName || "");
-  const homeColor = home.color || MLBService.getTeamColor(home.displayName || "");
-  const awayLogo = MLBService.getTeamLogo(away.id, isDarkMode) ||
+  const awayColor =
+    away.color || MLBService.getTeamColor(away.displayName || "");
+  const homeColor =
+    home.color || MLBService.getTeamColor(home.displayName || "");
+  const awayLogo =
+    MLBService.getTeamLogo(away.id, isDarkMode) ||
     WBCService.getTeamLogo(away.id, isDarkMode);
-  const homeLogo = MLBService.getTeamLogo(home.id, isDarkMode) ||
+  const homeLogo =
+    MLBService.getTeamLogo(home.id, isDarkMode) ||
     WBCService.getTeamLogo(home.id, isDarkMode);
-  const awayAbbr = (away.abbreviation ||
+  const awayAbbr = (
+    away.abbreviation ||
     MLBService.getTeamAbbrById(away.id) ||
-    (away.displayName || "AWY").slice(0, 3)).toUpperCase();
-  const homeAbbr = (home.abbreviation ||
+    (away.displayName || "AWY").slice(0, 3)
+  ).toUpperCase();
+  const homeAbbr = (
+    home.abbreviation ||
     MLBService.getTeamAbbrById(home.id) ||
-    (home.displayName || "HME").slice(0, 3)).toUpperCase();
+    (home.displayName || "HME").slice(0, 3)
+  ).toUpperCase();
 
   const { time, ampm } = formatTimeEST(game.date);
   const isLive = game.isLive || game.statusType === "I";
-  const isFinished = !isLive &&
-    (game.isCompleted || ["F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(game.statusType));
+  const isFinished =
+    !isLive &&
+    (game.isCompleted ||
+      ["F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(game.statusType));
   const isScheduled = !isLive && !isFinished;
 
   const awayScore = away.score;
@@ -341,34 +363,53 @@ const MLBGridCard = ({ game, navigation, theme, colors, isDarkMode, isFavorite }
     parseInt(homeScore, 10) > parseInt(awayScore, 10);
 
   const awayFav = isFavorite(
-    convertMLBIdToESPNId(away.id?.toString()) || away.id?.toString(), "mlb"
+    convertMLBIdToESPNId(away.id?.toString()) || away.id?.toString(),
+    "mlb",
   );
   const homeFav = isFavorite(
-    convertMLBIdToESPNId(home.id?.toString()) || home.id?.toString(), "mlb"
+    convertMLBIdToESPNId(home.id?.toString()) || home.id?.toString(),
+    "mlb",
   );
 
   const gradId = `mg_${game.id}`;
 
   return (
     <TouchableOpacity
-      style={[mlbGridStyles.card, { backgroundColor: theme.surfaceSecondary, width: MLB_CARD_WIDTH }]}
-      onPress={() => navigation.navigate("GameDetails", { gamePk: game.id, sport: "mlb" })}
+      style={[
+        mlbGridStyles.card,
+        { backgroundColor: theme.surfaceSecondary, width: MLB_CARD_WIDTH },
+      ]}
+      onPress={() =>
+        navigation.navigate("GameDetails", { gamePk: game.id, sport: "mlb" })
+      }
       activeOpacity={0.8}
     >
-      <MLBGridCardGradient gradId={gradId} awayColor={awayColor} homeColor={homeColor} fallbackColor={colors.primary} />
+      <MLBGridCardGradient
+        gradId={gradId}
+        awayColor={awayColor}
+        homeColor={homeColor}
+        fallbackColor={colors.primary}
+      />
 
       {/* Status / Time */}
       <View style={mlbGridStyles.cardTop}>
         {isLive ? (
           <Text style={[mlbGridStyles.statusLive, { color: colors.primary }]}>
-            {game.inningState === "Top" ? "▲" : "▼"} {MLBService.getOrdinalSuffix(game.inning || 0)}
+            {game.inningState === "Top" ? "▲" : "▼"}{" "}
+            {MLBService.getOrdinalSuffix(game.inning || 0)}
           </Text>
         ) : isFinished ? (
-          <Text style={[mlbGridStyles.statusText, { color: theme.textSecondary }]} numberOfLines={1}>
+          <Text
+            style={[mlbGridStyles.statusText, { color: theme.textSecondary }]}
+            numberOfLines={1}
+          >
             {(game.status || "Final").slice(0, 9)}
           </Text>
         ) : (
-          <Text style={[mlbGridStyles.statusText, { color: theme.text }]} numberOfLines={1}>
+          <Text
+            style={[mlbGridStyles.statusText, { color: theme.text }]}
+            numberOfLines={1}
+          >
             {time} <Text style={{ color: theme.textTertiary }}>{ampm}</Text>
           </Text>
         )}
@@ -386,10 +427,21 @@ const MLBGridCard = ({ game, navigation, theme, colors, isDarkMode, isFavorite }
         <View style={mlbGridStyles.teamSide}>
           {isScheduled ? (
             awayLogo ? (
-              <Image source={{ uri: awayLogo }} style={mlbGridStyles.teamLogo} resizeMode="contain" />
+              <Image
+                source={{ uri: awayLogo }}
+                style={mlbGridStyles.teamLogo}
+                resizeMode="contain"
+              />
             ) : (
-              <View style={[mlbGridStyles.teamLogoPlaceholder, { backgroundColor: awayColor || colors.primary }]}>
-                <Text style={mlbGridStyles.teamLogoPlaceholderText}>{(away.displayName || "A")[0]}</Text>
+              <View
+                style={[
+                  mlbGridStyles.teamLogoPlaceholder,
+                  { backgroundColor: awayColor || colors.primary },
+                ]}
+              >
+                <Text style={mlbGridStyles.teamLogoPlaceholderText}>
+                  {(away.displayName || "A")[0]}
+                </Text>
               </View>
             )
           ) : (
@@ -398,7 +450,11 @@ const MLBGridCard = ({ game, navigation, theme, colors, isDarkMode, isFavorite }
                 style={[
                   mlbGridStyles.scoreText,
                   {
-                    color: awayFav ? colors.primary : awayWins ? colors.primary : theme.text,
+                    color: awayFav
+                      ? colors.primary
+                      : awayWins
+                        ? colors.primary
+                        : theme.text,
                     fontWeight: awayWins ? "700" : "400",
                     opacity: isFinished && !awayWins ? 0.55 : 1,
                   },
@@ -407,28 +463,55 @@ const MLBGridCard = ({ game, navigation, theme, colors, isDarkMode, isFavorite }
                 {awayScore ?? "—"}
               </Text>
               {awayLogo && (
-                <Image source={{ uri: awayLogo }} style={mlbGridStyles.scoreLogoOverlay} resizeMode="contain" />
+                <Image
+                  source={{ uri: awayLogo }}
+                  style={mlbGridStyles.scoreLogoOverlay}
+                  resizeMode="contain"
+                />
               )}
             </View>
           )}
-          <Text style={[mlbGridStyles.teamAbbr, { color: awayFav ? colors.primary : theme.text }]}>
-            {awayFav ? "★ " : ""}{awayAbbr}
+          <Text
+            style={[
+              mlbGridStyles.teamAbbr,
+              { color: awayFav ? colors.primary : theme.text },
+            ]}
+          >
+            {awayFav ? "★ " : ""}
+            {awayAbbr}
           </Text>
           {away.record ? (
-            <Text style={[mlbGridStyles.teamRecord, { color: theme.textSecondary }]}>{away.record}</Text>
+            <Text
+              style={[mlbGridStyles.teamRecord, { color: theme.textSecondary }]}
+            >
+              {away.record}
+            </Text>
           ) : null}
         </View>
 
-        <View style={[mlbGridStyles.divider, { backgroundColor: theme.border }]} />
+        <View
+          style={[mlbGridStyles.divider, { backgroundColor: theme.border }]}
+        />
 
         {/* Home */}
         <View style={mlbGridStyles.teamSide}>
           {isScheduled ? (
             homeLogo ? (
-              <Image source={{ uri: homeLogo }} style={mlbGridStyles.teamLogo} resizeMode="contain" />
+              <Image
+                source={{ uri: homeLogo }}
+                style={mlbGridStyles.teamLogo}
+                resizeMode="contain"
+              />
             ) : (
-              <View style={[mlbGridStyles.teamLogoPlaceholder, { backgroundColor: homeColor || colors.secondary }]}>
-                <Text style={mlbGridStyles.teamLogoPlaceholderText}>{(home.displayName || "H")[0]}</Text>
+              <View
+                style={[
+                  mlbGridStyles.teamLogoPlaceholder,
+                  { backgroundColor: homeColor || colors.secondary },
+                ]}
+              >
+                <Text style={mlbGridStyles.teamLogoPlaceholderText}>
+                  {(home.displayName || "H")[0]}
+                </Text>
               </View>
             )
           ) : (
@@ -437,7 +520,11 @@ const MLBGridCard = ({ game, navigation, theme, colors, isDarkMode, isFavorite }
                 style={[
                   mlbGridStyles.scoreText,
                   {
-                    color: homeFav ? colors.primary : homeWins ? colors.primary : theme.text,
+                    color: homeFav
+                      ? colors.primary
+                      : homeWins
+                        ? colors.primary
+                        : theme.text,
                     fontWeight: homeWins ? "700" : "400",
                     opacity: isFinished && !homeWins ? 0.55 : 1,
                   },
@@ -446,36 +533,70 @@ const MLBGridCard = ({ game, navigation, theme, colors, isDarkMode, isFavorite }
                 {homeScore ?? "—"}
               </Text>
               {homeLogo && (
-                <Image source={{ uri: homeLogo }} style={mlbGridStyles.scoreLogoOverlay} resizeMode="contain" />
+                <Image
+                  source={{ uri: homeLogo }}
+                  style={mlbGridStyles.scoreLogoOverlay}
+                  resizeMode="contain"
+                />
               )}
             </View>
           )}
-          <Text style={[mlbGridStyles.teamAbbr, { color: homeFav ? colors.primary : theme.text }]}>
-            {homeFav ? "★ " : ""}{homeAbbr}
+          <Text
+            style={[
+              mlbGridStyles.teamAbbr,
+              { color: homeFav ? colors.primary : theme.text },
+            ]}
+          >
+            {homeFav ? "★ " : ""}
+            {homeAbbr}
           </Text>
           {home.record ? (
-            <Text style={[mlbGridStyles.teamRecord, { color: theme.textSecondary }]}>{home.record}</Text>
+            <Text
+              style={[mlbGridStyles.teamRecord, { color: theme.textSecondary }]}
+            >
+              {home.record}
+            </Text>
           ) : null}
         </View>
       </View>
 
       {/* Footer: venue or BSO */}
-      <View style={[mlbGridStyles.cardFooter, { borderTopColor: theme.border }]}>
+      <View
+        style={[mlbGridStyles.cardFooter, { borderTopColor: theme.border }]}
+      >
         {isLive ? (
           <View style={mlbGridStyles.bsoContainer}>
             {/* Top line: outs centered */}
             <View style={mlbGridStyles.bsoRow}>
-              <BSODots filled={game.outs ?? 0} total={3} filledColor={theme.error} theme={theme} />
+              <BSODots
+                filled={game.outs ?? 0}
+                total={3}
+                filledColor={theme.error}
+                theme={theme}
+              />
             </View>
             {/* Bottom line: balls + strikes */}
             <View style={mlbGridStyles.bsoRow}>
-              <BSODots filled={game.balls ?? 0} total={4} filledColor={theme.success} theme={theme} />
+              <BSODots
+                filled={game.balls ?? 0}
+                total={4}
+                filledColor={theme.success}
+                theme={theme}
+              />
               <View style={{ width: 15 }} />
-              <BSODots filled={game.strikes ?? 0} total={3} filledColor={theme.warning} theme={theme} />
+              <BSODots
+                filled={game.strikes ?? 0}
+                total={3}
+                filledColor={theme.warning}
+                theme={theme}
+              />
             </View>
           </View>
         ) : (
-          <Text style={[mlbGridStyles.venueText, { color: theme.textSecondary }]} numberOfLines={1}>
+          <Text
+            style={[mlbGridStyles.venueText, { color: theme.textSecondary }]}
+            numberOfLines={1}
+          >
             {game.venue || ""}
           </Text>
         )}
@@ -485,37 +606,68 @@ const MLBGridCard = ({ game, navigation, theme, colors, isDarkMode, isFavorite }
 };
 
 // ─── MLB Grid section (floating bubble headers + 2-col cards) ─────────────────
-const MLBGridSection = ({ groups, navigation, theme, colors, isDarkMode, isFavorite, activeFilter, collapsedGroups, toggleCollapse }) => (
+const MLBGridSection = ({
+  groups,
+  navigation,
+  theme,
+  colors,
+  isDarkMode,
+  isFavorite,
+  activeFilter,
+  collapsedGroups,
+  toggleCollapse,
+}) => (
   <View style={mlbGridStyles.container}>
     {groups.map((group) => (
       <View key={group.dateKey} style={mlbGridStyles.groupWrapper}>
         {/* Floating bubble group label */}
         <TouchableOpacity
-          style={[mlbGridStyles.groupBubble, { backgroundColor: theme.surfaceSecondary }]}
+          style={[
+            mlbGridStyles.groupBubble,
+            { backgroundColor: theme.surfaceSecondary },
+          ]}
           activeOpacity={activeFilter === "upcoming" ? 0.7 : 1}
-          onPress={() => activeFilter === "upcoming" && toggleCollapse(group.dateKey)}
+          onPress={() =>
+            activeFilter === "upcoming" && toggleCollapse(group.dateKey)
+          }
         >
           <Image
             source={require("../../../assets/mlb.png")}
             style={mlbGridStyles.groupBubbleLogo}
             resizeMode="contain"
           />
-          <Text style={[mlbGridStyles.groupBubbleName, { color: theme.text }]} numberOfLines={1}>
+          <Text
+            style={[mlbGridStyles.groupBubbleName, { color: theme.text }]}
+            numberOfLines={1}
+          >
             {group.label}
           </Text>
-          <Text style={[mlbGridStyles.groupBubbleCount, { color: theme.textTertiary }]}>
-            {" "}{group.games.length}
+          <Text
+            style={[
+              mlbGridStyles.groupBubbleCount,
+              { color: theme.textTertiary },
+            ]}
+          >
+            {" "}
+            {group.games.length}
           </Text>
           {activeFilter === "upcoming" && (
-            <Text style={[{ color: theme.textTertiary, marginLeft: 4, fontSize: 12 }]}>
+            <Text
+              style={[
+                { color: theme.textTertiary, marginLeft: 4, fontSize: 12 },
+              ]}
+            >
               {collapsedGroups[group.dateKey] ? "▶" : "▼"}
             </Text>
           )}
         </TouchableOpacity>
         {/* 2-column card grid */}
         {(() => {
-          const isCollapsed = activeFilter === "upcoming" && !!collapsedGroups[group.dateKey];
-          const displayedGames = isCollapsed ? group.games.slice(0, 2) : group.games;
+          const isCollapsed =
+            activeFilter === "upcoming" && !!collapsedGroups[group.dateKey];
+          const displayedGames = isCollapsed
+            ? group.games.slice(0, 2)
+            : group.games;
           return (
             <View style={mlbGridStyles.cardsRow}>
               {displayedGames.map((game) => (
@@ -564,7 +716,9 @@ const ScoreboardSection = ({
         <TouchableOpacity
           style={styles.eventHeaderContainer}
           activeOpacity={0.8}
-          onPress={() => activeFilter === "upcoming" && toggleCollapse(group.dateKey)}
+          onPress={() =>
+            activeFilter === "upcoming" && toggleCollapse(group.dateKey)
+          }
         >
           <View style={styles.eventLogoContainer}>
             <Image
@@ -580,14 +734,20 @@ const ScoreboardSection = ({
             >
               {group.label}
             </Text>
-            <Text style={[styles.eventSubLabel, { color: theme.textTertiary }]}> 
+            <Text style={[styles.eventSubLabel, { color: theme.textTertiary }]}>
               MLB
             </Text>
           </View>
           <View style={styles.eventHeaderRight} pointerEvents="none">
-            <Text style={[styles.eventCount, { color: theme.textTertiary }]}> {group.games.length} </Text>
+            <Text style={[styles.eventCount, { color: theme.textTertiary }]}>
+              {" "}
+              {group.games.length}{" "}
+            </Text>
             {activeFilter === "upcoming" && (
-              <Text style={[styles.eventArrow, { color: theme.textTertiary }]}> {collapsedGroups[group.dateKey] ? "▶" : "▼"} </Text>
+              <Text style={[styles.eventArrow, { color: theme.textTertiary }]}>
+                {" "}
+                {collapsedGroups[group.dateKey] ? "▶" : "▼"}{" "}
+              </Text>
             )}
           </View>
         </TouchableOpacity>
@@ -595,305 +755,318 @@ const ScoreboardSection = ({
         {/* Match rows */}
         <View style={styles.matchesList}>
           {(() => {
-            const isCollapsed = activeFilter === "upcoming" && !!collapsedGroups[group.dateKey];
-            const displayedGames = isCollapsed ? group.games.slice(0, 1) : group.games;
+            const isCollapsed =
+              activeFilter === "upcoming" && !!collapsedGroups[group.dateKey];
+            const displayedGames = isCollapsed
+              ? group.games.slice(0, 1)
+              : group.games;
             return displayedGames.map((game, idx) => {
-            const away = game.awayTeam || {};
-            const home = game.homeTeam || {};
-            const awayAbbr = getTeamAbbr(away);
-            const homeAbbr = getTeamAbbr(home);
-            const awayColor =
-              away.color || MLBService.getTeamColor(away.displayName || "");
-            const homeColor =
-              home.color || MLBService.getTeamColor(home.displayName || "");
-            // prefer the pre-computed logo from MLBService (built from full team name map)
-            const awayLogo = WBCService.getTeamLogo(away?.id, isDarkMode);
-            const homeLogo = WBCService.getTeamLogo(home?.id, isDarkMode);
+              const away = game.awayTeam || {};
+              const home = game.homeTeam || {};
+              const awayAbbr = getTeamAbbr(away);
+              const homeAbbr = getTeamAbbr(home);
+              const awayColor =
+                away.color || MLBService.getTeamColor(away.displayName || "");
+              const homeColor =
+                home.color || MLBService.getTeamColor(home.displayName || "");
+              // prefer the pre-computed logo from MLBService (built from full team name map)
+              const awayLogo = WBCService.getTeamLogo(away?.id, isDarkMode);
+              const homeLogo = WBCService.getTeamLogo(home?.id, isDarkMode);
 
-            const isLive = game.isLive || game.statusType === "I";
-            const isFinished =
-              game.isCompleted ||
-              ["S", "F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(game.statusType);
+              const isLive = game.isLive || game.statusType === "I";
+              const isFinished =
+                game.isCompleted ||
+                ["S", "F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(
+                  game.statusType,
+                );
 
-            const inning = game.inning || 0;
-            const show = inning !== 9;
+              const inning = game.inning || 0;
+              const show = inning !== 9;
 
-            const awayScore = game.awayTeam?.score;
-            const homeScore = game.homeTeam?.score;
-            const awayWins =
-              isFinished &&
-              awayScore != null &&
-              homeScore != null &&
-              parseInt(awayScore) > parseInt(homeScore);
-            const homeWins =
-              isFinished &&
-              awayScore != null &&
-              homeScore != null &&
-              parseInt(homeScore) > parseInt(awayScore);
+              const awayScore = game.awayTeam?.score;
+              const homeScore = game.homeTeam?.score;
+              const awayWins =
+                isFinished &&
+                awayScore != null &&
+                homeScore != null &&
+                parseInt(awayScore) > parseInt(homeScore);
+              const homeWins =
+                isFinished &&
+                awayScore != null &&
+                homeScore != null &&
+                parseInt(homeScore) > parseInt(awayScore);
 
-            // Status column text (non-live only; live shows LiveLinescoreStatus)
-            let statusLine1 = "";
-            let statusLine2 = "";
-            if (isFinished) {
-              const { time, ampm } = formatTimeEST(game.date);
-              statusLine1 = show ? `Final/${inning}` : "Final";
-              statusLine2 = `${time} ${ampm}`;
-            } else if (!isLive) {
-              const { time, ampm } = formatTimeEST(game.date);
-              statusLine1 = time;
-              statusLine2 = ampm;
-            }
+              // Status column text (non-live only; live shows LiveLinescoreStatus)
+              let statusLine1 = "";
+              let statusLine2 = "";
+              if (isFinished) {
+                const { time, ampm } = formatTimeEST(game.date);
+                statusLine1 = show ? `Final/${inning}` : "Final";
+                statusLine2 = `${time} ${ampm}`;
+              } else if (!isLive) {
+                const { time, ampm } = formatTimeEST(game.date);
+                statusLine1 = time;
+                statusLine2 = ampm;
+              }
 
-            // Favorites
-            const awayEspnId =
-              convertMLBIdToESPNId(away.id?.toString()) || away.id?.toString();
-            const homeEspnId =
-              convertMLBIdToESPNId(home.id?.toString()) || home.id?.toString();
-            const awayFav = isFavorite(awayEspnId, "mlb");
-            const homeFav = isFavorite(homeEspnId, "mlb");
+              // Favorites
+              const awayEspnId =
+                convertMLBIdToESPNId(away.id?.toString()) ||
+                away.id?.toString();
+              const homeEspnId =
+                convertMLBIdToESPNId(home.id?.toString()) ||
+                home.id?.toString();
+              const awayFav = isFavorite(awayEspnId, "mlb");
+              const homeFav = isFavorite(homeEspnId, "mlb");
 
-            return (
-              <TouchableOpacity key={game.id || idx} style={styles.gameRow} 
+              return (
+                <TouchableOpacity
+                  key={game.id || idx}
+                  style={styles.gameRow}
                   onPress={() =>
                     navigation.navigate("GameDetails", {
                       gamePk: game.id,
                       sport: "mlb",
                     })
-                  }>
-                <CardGradient
-                  gradId={`${gIdx}_${idx}`}
-                  awayColor={awayColor}
-                  homeColor={homeColor}
-                  fallbackColor={colors.primary}
-                  theme={theme}
-                />
-
-                <View
-                  style={styles.matchRow}
+                  }
                 >
-                  {/* Status column */}
-                  <View style={styles.statusContainer}>
-                    {isLive ? (
-                      <LiveLinescoreStatus
-                        inning={game.inning}
-                        isTopInning={game.inningState === "Top"}
-                        balls={game.balls}
-                        strikes={game.strikes}
-                        outs={game.outs}
-                        theme={theme}
-                        colors={colors}
-                      />
-                    ) : (
-                      <>
-                        <Text
-                          style={[
-                            styles.statusLine1,
-                            {
-                              color: isFinished
-                                ? theme.textSecondary
-                                : theme.text,
-                              fontWeight: "500",
-                            },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {statusLine1}
-                        </Text>
-                        {!!statusLine2 && (
+                  <CardGradient
+                    gradId={`${gIdx}_${idx}`}
+                    awayColor={awayColor}
+                    homeColor={homeColor}
+                    fallbackColor={colors.primary}
+                    theme={theme}
+                  />
+
+                  <View style={styles.matchRow}>
+                    {/* Status column */}
+                    <View style={styles.statusContainer}>
+                      {isLive ? (
+                        <LiveLinescoreStatus
+                          inning={game.inning}
+                          isTopInning={game.inningState === "Top"}
+                          balls={game.balls}
+                          strikes={game.strikes}
+                          outs={game.outs}
+                          theme={theme}
+                          colors={colors}
+                        />
+                      ) : (
+                        <>
                           <Text
                             style={[
-                              styles.statusLine2,
-                              { color: theme.textTertiary },
+                              styles.statusLine1,
+                              {
+                                color: isFinished
+                                  ? theme.textSecondary
+                                  : theme.text,
+                                fontWeight: "500",
+                              },
                             ]}
                             numberOfLines={1}
                           >
-                            {statusLine2}
+                            {statusLine1}
                           </Text>
-                        )}
-                      </>
-                    )}
-                  </View>
-
-                  {/* Stacked teams */}
-                  <View style={styles.stackedTeams}>
-                    {/* Away */}
-                    <View style={styles.teamWithLogo}>
-                      <View style={styles.teamLogoSmall}>
-                        {awayLogo ? (
-                          <Image
-                            source={{ uri: awayLogo }}
-                            style={styles.teamLogoSmallImg}
-                            resizeMode="contain"
-                          />
-                        ) : (
-                          <View
-                            style={[
-                              styles.teamLogoSmallImg,
-                              {
-                                backgroundColor: awayColor || colors.primary,
-                                justifyContent: "center",
-                                alignItems: "center",
-                              },
-                            ]}
-                          >
-                            <Text style={styles.teamLogoFallback}>
-                              {awayAbbr.substring(0, 1)}
+                          {!!statusLine2 && (
+                            <Text
+                              style={[
+                                styles.statusLine2,
+                                { color: theme.textTertiary },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {statusLine2}
                             </Text>
-                          </View>
-                        )}
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text
-                          style={[
-                            styles.teamName,
-                            {
-                              color: awayFav ? colors.primary : theme.text,
-                              fontWeight: awayWins ? "700" : "400",
-                            },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {awayFav ? "★ " : ""}
-                          {away.displayName || "Away"}
-                        </Text>
-                        {away.record ? (
-                          <Text
-                            style={[
-                              styles.teamRecord,
-                              { color: theme.textSecondary },
-                            ]}
-                          >
-                            {away.record}
-                          </Text>
-                        ) : null}
-                      </View>
-                      {(isLive || isFinished) && awayScore != null && (
-                        <Text
-                          style={[
-                            styles.scoreText,
-                            {
-                              color: awayWins ? colors.primary : theme.text,
-                              fontWeight: awayWins ? "700" : "400",
-                              opacity: !awayWins && isFinished ? 0.55 : 1,
-                            },
-                          ]}
-                        >
-                          {awayScore}
-                        </Text>
+                          )}
+                        </>
                       )}
                     </View>
 
-                    {/* Home */}
-                    <View style={styles.teamWithLogo}>
-                      <View style={styles.teamLogoSmall}>
-                        {homeLogo ? (
-                          <Image
-                            source={{ uri: homeLogo }}
-                            style={styles.teamLogoSmallImg}
-                            resizeMode="contain"
-                          />
-                        ) : (
-                          <View
+                    {/* Stacked teams */}
+                    <View style={styles.stackedTeams}>
+                      {/* Away */}
+                      <View style={styles.teamWithLogo}>
+                        <View style={styles.teamLogoSmall}>
+                          {awayLogo ? (
+                            <Image
+                              source={{ uri: awayLogo }}
+                              style={styles.teamLogoSmallImg}
+                              resizeMode="contain"
+                            />
+                          ) : (
+                            <View
+                              style={[
+                                styles.teamLogoSmallImg,
+                                {
+                                  backgroundColor: awayColor || colors.primary,
+                                  justifyContent: "center",
+                                  alignItems: "center",
+                                },
+                              ]}
+                            >
+                              <Text style={styles.teamLogoFallback}>
+                                {awayAbbr.substring(0, 1)}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text
                             style={[
-                              styles.teamLogoSmallImg,
+                              styles.teamName,
                               {
-                                backgroundColor: homeColor || colors.primary,
-                                justifyContent: "center",
-                                alignItems: "center",
+                                color: awayFav ? colors.primary : theme.text,
+                                fontWeight: awayWins ? "700" : "400",
+                              },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {awayFav ? "★ " : ""}
+                            {away.displayName || "Away"}
+                          </Text>
+                          {away.record ? (
+                            <Text
+                              style={[
+                                styles.teamRecord,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {away.record}
+                            </Text>
+                          ) : null}
+                        </View>
+                        {(isLive || isFinished) && awayScore != null && (
+                          <Text
+                            style={[
+                              styles.scoreText,
+                              {
+                                color: awayWins ? colors.primary : theme.text,
+                                fontWeight: awayWins ? "700" : "400",
+                                opacity: !awayWins && isFinished ? 0.55 : 1,
                               },
                             ]}
                           >
-                            <Text style={styles.teamLogoFallback}>
-                              {homeAbbr.substring(0, 1)}
-                            </Text>
-                          </View>
+                            {awayScore}
+                          </Text>
                         )}
                       </View>
-                      <View style={{ flex: 1 }}>
-                        <Text
-                          style={[
-                            styles.teamName,
-                            {
-                              color: homeFav ? colors.primary : theme.text,
-                              fontWeight: homeWins ? "700" : "400",
-                            },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {homeFav ? "★ " : ""}
-                          {home.displayName || "Home"}
-                        </Text>
-                        {home.record ? (
+
+                      {/* Home */}
+                      <View style={styles.teamWithLogo}>
+                        <View style={styles.teamLogoSmall}>
+                          {homeLogo ? (
+                            <Image
+                              source={{ uri: homeLogo }}
+                              style={styles.teamLogoSmallImg}
+                              resizeMode="contain"
+                            />
+                          ) : (
+                            <View
+                              style={[
+                                styles.teamLogoSmallImg,
+                                {
+                                  backgroundColor: homeColor || colors.primary,
+                                  justifyContent: "center",
+                                  alignItems: "center",
+                                },
+                              ]}
+                            >
+                              <Text style={styles.teamLogoFallback}>
+                                {homeAbbr.substring(0, 1)}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <View style={{ flex: 1 }}>
                           <Text
                             style={[
-                              styles.teamRecord,
-                              { color: theme.textSecondary },
+                              styles.teamName,
+                              {
+                                color: homeFav ? colors.primary : theme.text,
+                                fontWeight: homeWins ? "700" : "400",
+                              },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {homeFav ? "★ " : ""}
+                            {home.displayName || "Home"}
+                          </Text>
+                          {home.record ? (
+                            <Text
+                              style={[
+                                styles.teamRecord,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {home.record}
+                            </Text>
+                          ) : null}
+                        </View>
+                        {(isLive || isFinished) && homeScore != null && (
+                          <Text
+                            style={[
+                              styles.scoreText,
+                              {
+                                color: homeWins ? colors.primary : theme.text,
+                                fontWeight: homeWins ? "700" : "400",
+                                opacity: !homeWins && isFinished ? 0.55 : 1,
+                              },
                             ]}
                           >
-                            {home.record}
+                            {homeScore}
                           </Text>
-                        ) : null}
+                        )}
                       </View>
-                      {(isLive || isFinished) && homeScore != null && (
-                        <Text
-                          style={[
-                            styles.scoreText,
-                            {
-                              color: homeWins ? colors.primary : theme.text,
-                              fontWeight: homeWins ? "700" : "400",
-                              opacity: !homeWins && isFinished ? 0.55 : 1,
-                            },
-                          ]}
-                        >
-                          {homeScore}
-                        </Text>
-                      )}
                     </View>
                   </View>
-                </View>
 
-                {/* Footer: venue + live viewer badge */}
-                <View
-                  style={[styles.gameFooter, { borderTopColor: theme.border }]}
-                >
-                  <View style={styles.gameFooterLeft}>
-                    {game.venue ? (
-                      <Text
-                        style={[styles.venue, { color: theme.textSecondary }]}
-                      >
-                        {game.venue}
-                      </Text>
-                    ) : null}
-                    {game.notes1 || (game.notes && game.gameType !== "R") ? (
-                      <Text
-                        style={[
-                          styles.broadcast,
-                          { color: theme.textTertiary },
-                        ]}
-                      >
-                        {game.notes && game.notes1 ? `${game.notes} · ${game.notes1}` : game.notes1 || game.notes}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <View style={styles.gameFooterRight}>
-                    <LiveViewerBadge
-                      gameId={game.id}
-                      status={game.status}
-                      style={styles.viewerBadge}
-                    />
-                  </View>
-                </View>
-
-                {idx < group.games.length - 1 && (
+                  {/* Footer: venue + live viewer badge */}
                   <View
                     style={[
-                      styles.matchSeparator,
-                      { backgroundColor: theme.border },
+                      styles.gameFooter,
+                      { borderTopColor: theme.border },
                     ]}
-                  />
-                )}
-              </TouchableOpacity>
-            );
+                  >
+                    <View style={styles.gameFooterLeft}>
+                      {game.venue ? (
+                        <Text
+                          style={[styles.venue, { color: theme.textSecondary }]}
+                        >
+                          {game.venue}
+                        </Text>
+                      ) : null}
+                      {game.notes1 || (game.notes && game.gameType !== "R") ? (
+                        <Text
+                          style={[
+                            styles.broadcast,
+                            { color: theme.textTertiary },
+                          ]}
+                        >
+                          {game.notes && game.notes1
+                            ? `${game.notes} · ${game.notes1}`
+                            : game.notes1 || game.notes}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <View style={styles.gameFooterRight}>
+                      <LiveViewerBadge
+                        gameId={game.id}
+                        status={game.status}
+                        style={styles.viewerBadge}
+                      />
+                    </View>
+                  </View>
+
+                  {idx < group.games.length - 1 && (
+                    <View
+                      style={[
+                        styles.matchSeparator,
+                        { backgroundColor: theme.border },
+                      ]}
+                    />
+                  )}
+                </TouchableOpacity>
+              );
             });
           })()}
         </View>
@@ -968,7 +1141,9 @@ const MLBScoreboardScreen = ({ navigation }) => {
             if (game.isLive || game.statusType === "I") return 1;
             if (
               game.isCompleted ||
-              ["S", "F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(game.statusType)
+              ["S", "F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(
+                game.statusType,
+              )
             )
               return 3;
             return 2;
@@ -985,7 +1160,10 @@ const MLBScoreboardScreen = ({ navigation }) => {
           // Track last loaded filter to avoid unnecessary reloads on focus
           lastLoadedFilterRef.current = filter;
           // Cache results at UI level to prevent rapid repeated fetches
-          fetchCacheRef.current[filter] = { groups: nextGroups, ts: Date.now() };
+          fetchCacheRef.current[filter] = {
+            groups: nextGroups,
+            ts: Date.now(),
+          };
 
           // For upcoming filter, default groups to collapsed (unless user toggled before)
           if (filter === "upcoming") {
@@ -1130,7 +1308,10 @@ const MLBScoreboardScreen = ({ navigation }) => {
           <Text style={[styles.headerTitle, { color: theme.text }]}>
             MLB Scoreboard
           </Text>
-          <TouchableOpacity onPress={toggleViewMode} style={styles.gridToggleBtn}>
+          <TouchableOpacity
+            onPress={toggleViewMode}
+            style={styles.gridToggleBtn}
+          >
             <Ionicons
               name={isGridView ? "list-outline" : "grid-outline"}
               size={22}

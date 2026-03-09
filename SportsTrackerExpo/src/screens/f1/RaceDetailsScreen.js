@@ -40,7 +40,10 @@ const OPENF1_CACHE_TTL = 60 * 1000;
 const _getFromOpenF1Cache = (key) => {
   const entry = openF1RequestCache.get(key);
   if (!entry) return null;
-  if (Date.now() > entry.expiry) { openF1RequestCache.delete(key); return null; }
+  if (Date.now() > entry.expiry) {
+    openF1RequestCache.delete(key);
+    return null;
+  }
   return entry.data;
 };
 const _setOpenF1Cache = (key, data) => {
@@ -151,18 +154,18 @@ const getF1TextOnColor = (hex) => {
   return lum > 0.45 ? "#000000" : "#ffffff";
 };
 
-  const formatRaceDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZoneName: "short",
-    });
-  };
+const formatRaceDate = (dateString) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
+};
 
 const F1CardDriverPhoto = ({ url, name, teamColor }) => {
   const [err, setErr] = useState(false);
@@ -221,16 +224,16 @@ const F1SessionShareCard = ({
     .slice(0, 3);
 
   const sessionLabelPre =
-    competition.type?.displayName ||
-    competition.name ||
-    "Session";
+    competition.type?.displayName || competition.name || "Session";
 
   const abbr = competition.type?.abbreviation?.toLowerCase() || "";
   const isFP = abbr.startsWith("fp");
 
   const fpNumber = abbr.replace("fp", "");
 
-  const sessionLabel = isFP ? `${sessionLabelPre} ${fpNumber}` : sessionLabelPre;
+  const sessionLabel = isFP
+    ? `${sessionLabelPre} ${fpNumber}`
+    : sessionLabelPre;
 
   const isQual = [
     competition.type?.abbreviation,
@@ -252,32 +255,68 @@ const F1SessionShareCard = ({
   const getTime = (driver, idx) => {
     if (isQual) {
       // Live qual: use live gap
-      if (driver.liveStats?.splits?.categories && !driver.isEliminatedFromQual) {
+      if (
+        driver.liveStats?.splits?.categories &&
+        !driver.isEliminatedFromQual
+      ) {
         const categories = driver.liveStats.splits.categories;
-        const gapToLeaderCategory = categories.find((cat) => cat.name === "gapToLeader");
+        const gapToLeaderCategory = categories.find(
+          (cat) => cat.name === "gapToLeader",
+        );
         if (gapToLeaderCategory?.stats) {
-          const positionStat = gapToLeaderCategory.stats.find((s) => s.name === "position");
+          const positionStat = gapToLeaderCategory.stats.find(
+            (s) => s.name === "position",
+          );
           if (positionStat && positionStat.value === 1) {
             return { primary: "Leader", secondary: null };
           }
-          const gapStat = gapToLeaderCategory.stats.find((s) => s.name === "gapToLeader");
+          const gapStat = gapToLeaderCategory.stats.find(
+            (s) => s.name === "gapToLeader",
+          );
           if (gapStat) {
-            if (gapStat.value === 0) return { primary: "Leader", secondary: null };
-            return { primary: gapStat.displayValue || String(gapStat.value), secondary: null };
+            if (gapStat.value === 0)
+              return { primary: "Leader", secondary: null };
+            return {
+              primary: gapStat.displayValue || String(gapStat.value),
+              secondary: null,
+            };
           }
         }
       }
       // Completed/eliminated: show tiered OUT + best qual time
       if (hasAnyQual2Ms && (!driver.qual2Ms || Number(driver.qual2Ms) === 0)) {
-        return { primary: "OUT - Q1", secondary: driver.qual1 ? `Q1: ${driver.qual1}` : null };
+        return {
+          primary: "OUT - Q1",
+          secondary: driver.qual1 ? `Q1: ${driver.qual1}` : null,
+        };
       }
-      if (driver.qual2Ms && Number(driver.qual2Ms) > 0 && (!driver.qual3Ms || Number(driver.qual3Ms) === 0)) {
-        return { primary: "OUT - Q2", secondary: driver.qual2 ? `Q2: ${driver.qual2}` : driver.qual1 ? `Q1: ${driver.qual1}` : null };
+      if (
+        driver.qual2Ms &&
+        Number(driver.qual2Ms) > 0 &&
+        (!driver.qual3Ms || Number(driver.qual3Ms) === 0)
+      ) {
+        return {
+          primary: "OUT - Q2",
+          secondary: driver.qual2
+            ? `Q2: ${driver.qual2}`
+            : driver.qual1
+              ? `Q1: ${driver.qual1}`
+              : null,
+        };
       }
       // Made it to Q3 (or no elimination data): show best time
       const bestTime = driver.qual3 || driver.qual2 || driver.qual1 || "—";
-      const label = driver.qual3 ? "Q3" : driver.qual2 ? "Q2" : driver.qual1 ? "Q1" : null;
-      return { primary: `${label ? label + ": " : ""}${bestTime}`, secondary: null };
+      const label = driver.qual3
+        ? "Q3"
+        : driver.qual2
+          ? "Q2"
+          : driver.qual1
+            ? "Q1"
+            : null;
+      return {
+        primary: `${label ? label + ": " : ""}${bestTime}`,
+        secondary: null,
+      };
     }
 
     // Check liveStats first (mirrors getLiveGapToLeader logic)
@@ -308,16 +347,17 @@ const F1SessionShareCard = ({
         }
       }
 
-      const generalCategory = categories.find(
-        (cat) => cat.name === "general",
-      );
+      const generalCategory = categories.find((cat) => cat.name === "general");
       if (generalCategory?.stats) {
         const behindTimeStat = generalCategory.stats.find(
           (stat) => stat.name === "behindTime",
         );
         if (behindTimeStat?.displayValue) {
           return driver.totalTime
-            ? { primary: driver.totalTime, secondary: behindTimeStat.displayValue }
+            ? {
+                primary: driver.totalTime,
+                secondary: behindTimeStat.displayValue,
+              }
             : { primary: behindTimeStat.displayValue, secondary: null };
         }
         const behindLapsStat = generalCategory.stats.find(
@@ -334,7 +374,10 @@ const F1SessionShareCard = ({
 
     // Fall back to static completed-race data
     if (idx === 0) {
-      return { primary: driver.totalTime || driver.behindTime || "—", secondary: 'Leader' };
+      return {
+        primary: driver.totalTime || driver.behindTime || "—",
+        secondary: "Leader",
+      };
     }
 
     const behind =
@@ -346,15 +389,14 @@ const F1SessionShareCard = ({
     return { primary: behind || driver.totalTime || "—", secondary: null };
   };
 
-  const sessionTime = formatRaceDate(
-    competition.raw?.date || competition.date,
-  );
+  const sessionTime = formatRaceDate(competition.raw?.date || competition.date);
 
-  const circuit = circuitInfo?.city && circuitInfo?.country ? `${circuitInfo.city}, ${circuitInfo.country}` : circuitInfo?.city || "";
+  const circuit =
+    circuitInfo?.city && circuitInfo?.country
+      ? `${circuitInfo.city}, ${circuitInfo.country}`
+      : circuitInfo?.city || "";
 
-  const venueLine = [circuitInfo?.name, circuit]
-    .filter(Boolean)
-    .join("  •  ");
+  const venueLine = [circuitInfo?.name, circuit].filter(Boolean).join("  •  ");
 
   const handleShare = async () => {
     if (!cardRef.current || sharing) return;
@@ -473,7 +515,10 @@ const F1SessionShareCard = ({
                       <View
                         style={[
                           f1CardStyles.headshotBorder,
-                          { borderColor: teamColor, backgroundColor: teamColor + "20" },
+                          {
+                            borderColor: teamColor,
+                            backgroundColor: teamColor + "20",
+                          },
                         ]}
                       >
                         <F1CardDriverPhoto
@@ -527,7 +572,11 @@ const F1SessionShareCard = ({
                       <Text
                         style={[
                           f1CardStyles.timeText,
-                          { color: theme.textSecondary, fontSize: 9, opacity: 0.75 },
+                          {
+                            color: theme.textSecondary,
+                            fontSize: 9,
+                            opacity: 0.75,
+                          },
                         ]}
                         numberOfLines={1}
                       >
@@ -570,13 +619,22 @@ const F1SessionShareCard = ({
           <TouchableOpacity
             onPress={handleShare}
             disabled={sharing}
-            style={[f1CardStyles.actionBtn, { backgroundColor: colors.primary }]}
+            style={[
+              f1CardStyles.actionBtn,
+              { backgroundColor: colors.primary },
+            ]}
           >
             {sharing ? (
               <Text style={f1CardStyles.actionBtnTxt}>Sharing…</Text>
             ) : (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Ionicons name="share-outline" size={18} color={getF1TextOnColor(colors.primary)} />
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+              >
+                <Ionicons
+                  name="share-outline"
+                  size={18}
+                  color={getF1TextOnColor(colors.primary)}
+                />
                 <Text
                   style={[
                     f1CardStyles.actionBtnTxt,
@@ -975,7 +1033,9 @@ const F1RacerShareCard = ({
   const abbr = (competition?.type?.abbreviation || "").toLowerCase();
   const isFP = abbr.startsWith("fp");
   const fpNumber = abbr.replace("fp", "");
-  const sessionLabel = isFP ? `${sessionLabelPre} ${fpNumber}` : sessionLabelPre;
+  const sessionLabel = isFP
+    ? `${sessionLabelPre} ${fpNumber}`
+    : sessionLabelPre;
 
   // Find matching OpenF1 driver by name
   const driverEntries = Object.values(openF1Drivers || {});
@@ -998,10 +1058,17 @@ const F1RacerShareCard = ({
 
   // ESPN stats
   const position = competitor?.order ?? "-";
-  const positionChange = abbr.includes("race") ? competitor?.startOrder - position : 0;
+  const positionChange = abbr.includes("race")
+    ? competitor?.startOrder - position
+    : 0;
 
-  const topRightColor = positionChange > 0 ? theme.success : positionChange < 0 ? theme.error : theme.textSecondary;
-  
+  const topRightColor =
+    positionChange > 0
+      ? theme.success
+      : positionChange < 0
+        ? theme.error
+        : theme.textSecondary;
+
   const totalTime = competitor?.totalTime || null;
   const behindText =
     competitor?.behindLaps != null
@@ -1017,7 +1084,10 @@ const F1RacerShareCard = ({
       const posStat = gapCat.stats.find((s) => s.name === "position");
       if (posStat?.value === 1) return "Leader";
       const gapStat = gapCat.stats.find((s) => s.name === "gapToLeader");
-      if (gapStat) return gapStat.value === 0 ? "Leader" : (gapStat.displayValue || String(gapStat.value));
+      if (gapStat)
+        return gapStat.value === 0
+          ? "Leader"
+          : gapStat.displayValue || String(gapStat.value);
     }
     const genCat = categories.find((cat) => cat.name === "general");
     if (genCat?.stats) {
@@ -1030,7 +1100,8 @@ const F1RacerShareCard = ({
   })();
 
   const timeDisplay = totalTime || behindText || liveTimeDisplay || "-";
-  const timeRight = behindText && !behindText.includes("Laps") ? behindText : "";
+  const timeRight =
+    behindText && !behindText.includes("Laps") ? behindText : "";
   const lapsCount = competitor?.laps ?? "-";
 
   // OpenF1 stats from laps endpoint
@@ -1060,16 +1131,31 @@ const F1RacerShareCard = ({
           (o) => Number(o.overtaken_driver_number) === driverNumber,
         ).length
       : null;
-  
-  const ovrDiff = overtakeCount != null && overtakenCount != null ? overtakeCount - overtakenCount : null;
-  const ovrDiffDisplay = ovrDiff != null ? (ovrDiff > 0 ? `+${ovrDiff}` : String(ovrDiff)) : "-";
-  const ovrColor = ovrDiff != null ? (ovrDiff > 0 ? theme.success : ovrDiff < 0 ? theme.error : theme.textSecondary) : theme.textSecondary; 
+
+  const ovrDiff =
+    overtakeCount != null && overtakenCount != null
+      ? overtakeCount - overtakenCount
+      : null;
+  const ovrDiffDisplay =
+    ovrDiff != null ? (ovrDiff > 0 ? `+${ovrDiff}` : String(ovrDiff)) : "-";
+  const ovrColor =
+    ovrDiff != null
+      ? ovrDiff > 0
+        ? theme.success
+        : ovrDiff < 0
+          ? theme.error
+          : theme.textSecondary
+      : theme.textSecondary;
 
   // Fastest lap (min non-null lap_duration in seconds)
   let fastestLapSec = null;
   for (const l of driverLaps) {
     const dur = Number(l.lap_duration);
-    if (!isNaN(dur) && dur > 0 && (fastestLapSec === null || dur < fastestLapSec)) {
+    if (
+      !isNaN(dur) &&
+      dur > 0 &&
+      (fastestLapSec === null || dur < fastestLapSec)
+    ) {
       fastestLapSec = dur;
     }
   }
@@ -1088,7 +1174,9 @@ const F1RacerShareCard = ({
   let bestSectorLapNum = null;
   if (driverLaps.length > 0) {
     // Count 2051 occurrences per sector across all driver laps
-    let countS1 = 0, countS2 = 0, countS3 = 0;
+    let countS1 = 0,
+      countS2 = 0,
+      countS3 = 0;
     for (const l of driverLaps) {
       if (Array.isArray(l.segments_sector_1))
         countS1 += l.segments_sector_1.filter((v) => v === 2051).length;
@@ -1108,13 +1196,18 @@ const F1RacerShareCard = ({
     let bestSectorTime = null;
     for (const l of driverLaps) {
       const t = Number(l[dominant.durKey]);
-      if (!isNaN(t) && t > 0 && (bestSectorTime === null || t < bestSectorTime)) {
+      if (
+        !isNaN(t) &&
+        t > 0 &&
+        (bestSectorTime === null || t < bestSectorTime)
+      ) {
         bestSectorTime = t;
         bestSectorLapNum = l.lap_number ?? null;
       }
     }
     bestSectorLabel = `BEST ${dominant.n}`;
-    bestSectorVal = bestSectorTime != null ? `${bestSectorTime.toFixed(3)}s` : "-";
+    bestSectorVal =
+      bestSectorTime != null ? `${bestSectorTime.toFixed(3)}s` : "-";
   }
 
   // Team color
@@ -1163,13 +1256,33 @@ const F1RacerShareCard = ({
 
   // 6-stat grid
   const sixStats = [
-    { label: "POS", val: String(position), topRight: positionChange > 0 ? ` UP ${positionChange} POS` : positionChange < 0 ? ` DOWN ${Math.abs(positionChange)} POS` : null },
+    {
+      label: "POS",
+      val: String(position),
+      topRight:
+        positionChange > 0
+          ? ` UP ${positionChange} POS`
+          : positionChange < 0
+            ? ` DOWN ${Math.abs(positionChange)} POS`
+            : null,
+    },
     { label: "TIME", val: timeDisplay, topRight: timeRight },
     { label: "LAPS", val: String(lapsCount) },
-    { label: "TOP SPD", val: topSpeedDisplay !== "-" ? `${topSpeedDisplay} km/h` : "-" },
-    { label: bestSectorLabel, val: bestSectorVal, topRight: bestSectorLapNum != null ? `Lap ${bestSectorLapNum}` : null },
+    {
+      label: "TOP SPD",
+      val: topSpeedDisplay !== "-" ? `${topSpeedDisplay} km/h` : "-",
+    },
+    {
+      label: bestSectorLabel,
+      val: bestSectorVal,
+      topRight: bestSectorLapNum != null ? `Lap ${bestSectorLapNum}` : null,
+    },
     overtakeCount != null && overtakeCount > 0
-      ? { label: "OVERTAKES", val: String(overtakeCount), topRight: ovrDiff != 0 ? `${ovrDiffDisplay} DIFF` : null }
+      ? {
+          label: "OVERTAKES",
+          val: String(overtakeCount),
+          topRight: ovrDiff != 0 ? `${ovrDiffDisplay} DIFF` : null,
+        }
       : { label: "FAST LAP", val: fastestLapDisplay },
   ];
 
@@ -1215,7 +1328,9 @@ const F1RacerShareCard = ({
             ]}
           >
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[f1RacerCardStyles.loadingText, { color: theme.text }]}>
+            <Text
+              style={[f1RacerCardStyles.loadingText, { color: theme.text }]}
+            >
               Loading driver stats…
             </Text>
           </View>
@@ -1300,7 +1415,10 @@ const F1RacerShareCard = ({
                       ]}
                     >
                       <Text
-                        style={[f1RacerCardStyles.initText, { color: teamColor }]}
+                        style={[
+                          f1RacerCardStyles.initText,
+                          { color: teamColor },
+                        ]}
                       >
                         {initials}
                       </Text>
@@ -1379,7 +1497,17 @@ const F1RacerShareCard = ({
                   >
                     {!!topRight && (
                       <Text
-                        style={[f1RacerCardStyles.statTopRight, { color: label === "POS" ? topRightColor : label === "OVERTAKES" ? ovrColor : theme.textSecondary }]}
+                        style={[
+                          f1RacerCardStyles.statTopRight,
+                          {
+                            color:
+                              label === "POS"
+                                ? topRightColor
+                                : label === "OVERTAKES"
+                                  ? ovrColor
+                                  : theme.textSecondary,
+                          },
+                        ]}
                         numberOfLines={1}
                       >
                         {topRight}
@@ -1421,9 +1549,7 @@ const F1RacerShareCard = ({
                   { borderTopColor: theme.border },
                 ]}
               >
-                <Text
-                  style={[f1RacerCardStyles.brand, { color: theme.text }]}
-                >
+                <Text style={[f1RacerCardStyles.brand, { color: theme.text }]}>
                   SportsHeart{" "}
                   <Ionicons name="heart" size={10} color={colors.primary} />
                 </Text>
@@ -4313,7 +4439,12 @@ const RaceDetailsScreen = ({ route }) => {
           fetchOpenF1Overtakes(sessionKey),
           fetchOpenF1Laps(sessionKey),
         ]);
-        setRacerCardData({ competitor, overtakes: overtakesData, laps: lapsData, competition });
+        setRacerCardData({
+          competitor,
+          overtakes: overtakesData,
+          laps: lapsData,
+          competition,
+        });
       } catch (e) {
         console.error("Error loading racer card data:", e);
         setRacerCardData({ competitor, overtakes: [], laps: [], competition });
@@ -9921,8 +10052,24 @@ const RaceDetailsScreen = ({ route }) => {
                       function instrumentExistingVideos(){ const videos=document.querySelectorAll('video'); videos.forEach(v=>{ if(!v.__instrumented){ v.__instrumented=true; v.addEventListener('play',()=>post({type:'video', event:'play', src:v.currentSrc||v.src, href:location.href})); v.addEventListener('pause',()=>post({type:'video', event:'pause', src:v.currentSrc||v.src, href:location.href})); v.addEventListener('ended',()=>post({type:'video', event:'ended', src:v.currentSrc||v.src, href:location.href})); } }); }
                       setInterval(instrumentExistingVideos,1000);
                       true; })();`}
-                    onMessage={(event)=>{ try{ const data=JSON.parse(event.nativeEvent.data); console.log('WebView instrumentation:', data); }catch(e){ console.log('WebView message (raw):', event.nativeEvent.data); } }}
-                    onNavigationStateChange={(navState)=>{ console.log('WebView navigation state change:', {url:navState.url, title:navState.title, loading:navState.loading}); }}
+                    onMessage={(event) => {
+                      try {
+                        const data = JSON.parse(event.nativeEvent.data);
+                        console.log("WebView instrumentation:", data);
+                      } catch (e) {
+                        console.log(
+                          "WebView message (raw):",
+                          event.nativeEvent.data,
+                        );
+                      }
+                    }}
+                    onNavigationStateChange={(navState) => {
+                      console.log("WebView navigation state change:", {
+                        url: navState.url,
+                        title: navState.title,
+                        loading: navState.loading,
+                      });
+                    }}
                     // Block popup navigation within the WebView
                     onShouldStartLoadWithRequest={(request) => {
                       console.log(

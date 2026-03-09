@@ -1633,7 +1633,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
                               </View>
                             )}
                             <Text
-                              style={[cStyles.chevron, { color: theme.textSecondary }]}
+                              style={[
+                                cStyles.chevron,
+                                { color: theme.textSecondary },
+                              ]}
                             >
                               ›
                             </Text>
@@ -2103,11 +2106,13 @@ const PlayerPageScreen = ({ route, navigation }) => {
                                     teamName: team?.name ?? "",
                                     hitRankings:
                                       hitRankSplits.find(
-                                        (r) => r.season === yr && r.gameType === "R",
+                                        (r) =>
+                                          r.season === yr && r.gameType === "R",
                                       )?.stat ?? {},
                                     pitchRankings:
                                       pitchRankSplits.find(
-                                        (r) => r.season === yr && r.gameType === "R",
+                                        (r) =>
+                                          r.season === yr && r.gameType === "R",
                                       )?.stat ?? {},
                                     hasBoth: bothPresent,
                                   });
@@ -2239,7 +2244,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
                                   </View>
                                 )}
                                 <Text
-                                  style={[cStyles.chevron, { color: theme.textSecondary }]}
+                                  style={[
+                                    cStyles.chevron,
+                                    { color: theme.textSecondary },
+                                  ]}
                                 >
                                   ›
                                 </Text>
@@ -2803,7 +2811,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
             styles.header,
             {
               backgroundColor: teamColor + "22",
-              borderBottomColor: teamColor
+              borderBottomColor: teamColor,
             },
           ]}
           onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
@@ -2825,10 +2833,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 ]}
               >
                 <Text
-                  style={[
-                    styles.headerLogoFallbackText,
-                    { color: "#fff" },
-                  ]}
+                  style={[styles.headerLogoFallbackText, { color: "#fff" }]}
                 >
                   {(displayName[0] ?? "P").toUpperCase()}
                 </Text>
@@ -2848,10 +2853,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
               {teamName ? (
                 <Text
                   allowFontScaling={false}
-                  style={[
-                    styles.headerLeague,
-                    { color: "#fff", opacity: 0.8 },
-                  ]}
+                  style={[styles.headerLeague, { color: "#fff", opacity: 0.8 }]}
                   numberOfLines={1}
                 >
                   {teamName}
@@ -2867,7 +2869,9 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   ]}
                   numberOfLines={1}
                 >
-                  {[positionName, positionAbbr, jersey].filter(Boolean).join("  ·  ")}
+                  {[positionName, positionAbbr, jersey]
+                    .filter(Boolean)
+                    .join("  ·  ")}
                 </Text>
               ) : null}
             </View>
@@ -3125,9 +3129,9 @@ const PlayerPageScreen = ({ route, navigation }) => {
                           .replace(/([A-Z])/g, " $1")
                           .replace(/^./, (s) => s.toUpperCase());
                       const activeRankings = careerModal.hasBoth
-                        ? (careerModalGroup === "pitching"
-                            ? careerModal.pitchRankings
-                            : careerModal.hitRankings)
+                        ? careerModalGroup === "pitching"
+                          ? careerModal.pitchRankings
+                          : careerModal.hitRankings
                         : (careerModal.rankings ?? {});
                       const rank =
                         careerModal.gameType === "R"
@@ -3151,7 +3155,10 @@ const PlayerPageScreen = ({ route, navigation }) => {
                             >
                               <Text
                                 allowFontScaling={false}
-                                style={[cStyles.rankText, { color: rankOnColor }]}
+                                style={[
+                                  cStyles.rankText,
+                                  { color: rankOnColor },
+                                ]}
                               >
                                 #{rank}
                               </Text>
