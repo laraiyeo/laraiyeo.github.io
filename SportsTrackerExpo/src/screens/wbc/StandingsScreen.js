@@ -16,7 +16,7 @@ const getXR = (teamRecord) => {
   const xwl = teamRecord.records?.expectedRecords?.find(
     (r) => r.type === "xWinLoss",
   );
-  if (!xwl) return "—";
+  if (!xwl) return null;
   return `${xwl.wins}-${xwl.losses}`;
 };
 
@@ -99,7 +99,7 @@ const TeamRow = ({ teamRecord, isDarkMode, theme, route, navigation }) => {
         </Text>
         <View style={styles.recordRow}>
           <Text style={[styles.recordText, { color: theme.textSecondary }]}>
-            {wins}-{losses} (xWL: {xr})
+            {wins}-{losses} {xr ? `(xWL: ${xr})` : ""}
           </Text>
           {!!streakCode && (
             <Text

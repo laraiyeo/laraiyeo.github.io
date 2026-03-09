@@ -26,10 +26,26 @@ import { useFavorites } from "../../context/FavoritesContext";
 import { useWindowDimensions } from "react-native";
 import { useStreamingAccess } from "../../utils/streamingUtils";
 import { useGamePresence } from "../../hooks/useGamePresence";
+import { Ionicons } from "@expo/vector-icons";
+import ViewShot from "react-native-view-shot";
+import * as Sharing from "expo-sharing";
 
 // Global image cache to persist across component re-renders
 const loadedImages = new Set();
 const imageComponentCache = new Map(); // Cache actual Image components
+
+// OpenF1 request cache (module-level, TTL: 1 minute)
+const openF1RequestCache = new Map();
+const OPENF1_CACHE_TTL = 60 * 1000;
+const _getFromOpenF1Cache = (key) => {
+  const entry = openF1RequestCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiry) { openF1RequestCache.delete(key); return null; }
+  return entry.data;
+};
+const _setOpenF1Cache = (key, data) => {
+  openF1RequestCache.set(key, { data, expiry: Date.now() + OPENF1_CACHE_TTL });
+};
 
 // Helper function for initials (extracted to avoid recreation)
 const getInitials = (firstName, lastName) => {
@@ -120,6 +136,1352 @@ const GridDriverImage = React.memo(
   },
 );
 
+// ─── F1 Session Share Card ────────────────────────────────────────────────────
+
+const buildF1HeadshotUrl = (athleteId) =>
+  `https://a.espncdn.com/combiner/i?img=/i/headshots/rpm/players/full/${athleteId}.png&w=200`;
+
+const getF1TextOnColor = (hex) => {
+  if (!hex || !hex.startsWith("#")) return "#ffffff";
+  const c = hex.replace("#", "");
+  const r = parseInt(c.substr(0, 2), 16) / 255;
+  const g = parseInt(c.substr(2, 2), 16) / 255;
+  const b = parseInt(c.substr(4, 2), 16) / 255;
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return lum > 0.45 ? "#000000" : "#ffffff";
+};
+
+  const formatRaceDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short",
+    });
+  };
+
+const F1CardDriverPhoto = ({ url, name, teamColor }) => {
+  const [err, setErr] = useState(false);
+  const initials = (name || "")
+    .split(" ")
+    .map((w) => w[0] || "")
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+  if (!url || err) {
+    return (
+      <View
+        style={[
+          f1CardStyles.headshot,
+          {
+            backgroundColor: teamColor || "#333",
+            justifyContent: "center",
+            alignItems: "center",
+          },
+        ]}
+      >
+        <Text style={{ color: "#fff", fontSize: 20, fontWeight: "800" }}>
+          {initials}
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <Image
+      source={{ uri: url }}
+      style={f1CardStyles.headshot}
+      resizeMode="cover"
+      onError={() => setErr(true)}
+    />
+  );
+};
+
+const F1SessionShareCard = ({
+  visible,
+  onClose,
+  competition,
+  raceName,
+  circuitInfo,
+  colors,
+  theme,
+}) => {
+  const cardRef = useRef(null);
+  const [sharing, setSharing] = useState(false);
+  const { width } = useWindowDimensions();
+  const CARD_SIZE = Math.min(width - 48, 540);
+
+  if (!visible || !competition) return null;
+
+  const top3 = [...(competition.competitors || [])]
+    .sort((a, b) => (Number(a.order) || 999) - (Number(b.order) || 999))
+    .slice(0, 3);
+
+  const sessionLabelPre =
+    competition.type?.displayName ||
+    competition.name ||
+    "Session";
+
+  const abbr = competition.type?.abbreviation?.toLowerCase() || "";
+  const isFP = abbr.startsWith("fp");
+
+  const fpNumber = abbr.replace("fp", "");
+
+  const sessionLabel = isFP ? `${sessionLabelPre} ${fpNumber}` : sessionLabelPre;
+
+  const isQual = [
+    competition.type?.abbreviation,
+    competition.type?.text,
+    competition.type?.displayName,
+  ]
+    .join(" ")
+    .toLowerCase()
+    .includes("qual");
+
+  // Mirrors the results-tab elimination / qual-time logic
+  const hasAnyQual2Ms = (competition.competitors || []).some(
+    (c) => c?.qual2Ms && Number(c.qual2Ms) > 0,
+  );
+  const hasAnyQual3Ms = (competition.competitors || []).some(
+    (c) => c?.qual3Ms && Number(c.qual3Ms) > 0,
+  );
+
+  const getTime = (driver, idx) => {
+    if (isQual) {
+      // Live qual: use live gap
+      if (driver.liveStats?.splits?.categories && !driver.isEliminatedFromQual) {
+        const categories = driver.liveStats.splits.categories;
+        const gapToLeaderCategory = categories.find((cat) => cat.name === "gapToLeader");
+        if (gapToLeaderCategory?.stats) {
+          const positionStat = gapToLeaderCategory.stats.find((s) => s.name === "position");
+          if (positionStat && positionStat.value === 1) {
+            return { primary: "Leader", secondary: null };
+          }
+          const gapStat = gapToLeaderCategory.stats.find((s) => s.name === "gapToLeader");
+          if (gapStat) {
+            if (gapStat.value === 0) return { primary: "Leader", secondary: null };
+            return { primary: gapStat.displayValue || String(gapStat.value), secondary: null };
+          }
+        }
+      }
+      // Completed/eliminated: show tiered OUT + best qual time
+      if (hasAnyQual2Ms && (!driver.qual2Ms || Number(driver.qual2Ms) === 0)) {
+        return { primary: "OUT - Q1", secondary: driver.qual1 ? `Q1: ${driver.qual1}` : null };
+      }
+      if (driver.qual2Ms && Number(driver.qual2Ms) > 0 && (!driver.qual3Ms || Number(driver.qual3Ms) === 0)) {
+        return { primary: "OUT - Q2", secondary: driver.qual2 ? `Q2: ${driver.qual2}` : driver.qual1 ? `Q1: ${driver.qual1}` : null };
+      }
+      // Made it to Q3 (or no elimination data): show best time
+      const bestTime = driver.qual3 || driver.qual2 || driver.qual1 || "—";
+      const label = driver.qual3 ? "Q3" : driver.qual2 ? "Q2" : driver.qual1 ? "Q1" : null;
+      return { primary: `${label ? label + ": " : ""}${bestTime}`, secondary: null };
+    }
+
+    // Check liveStats first (mirrors getLiveGapToLeader logic)
+    if (driver.liveStats?.splits?.categories) {
+      const categories = driver.liveStats.splits.categories;
+
+      const gapToLeaderCategory = categories.find(
+        (cat) => cat.name === "gapToLeader",
+      );
+      if (gapToLeaderCategory?.stats) {
+        const positionStat = gapToLeaderCategory.stats.find(
+          (stat) => stat.name === "position",
+        );
+        if (positionStat && positionStat.value === 1) {
+          return { primary: driver.totalTime || "Leader", secondary: null };
+        }
+        const gapStat = gapToLeaderCategory.stats.find(
+          (stat) => stat.name === "gapToLeader",
+        );
+        if (gapStat) {
+          if (gapStat.value === 0) {
+            return { primary: driver.totalTime || "Leader", secondary: null };
+          }
+          const gap = gapStat.displayValue || String(gapStat.value);
+          return driver.totalTime
+            ? { primary: driver.totalTime, secondary: gap }
+            : { primary: gap, secondary: null };
+        }
+      }
+
+      const generalCategory = categories.find(
+        (cat) => cat.name === "general",
+      );
+      if (generalCategory?.stats) {
+        const behindTimeStat = generalCategory.stats.find(
+          (stat) => stat.name === "behindTime",
+        );
+        if (behindTimeStat?.displayValue) {
+          return driver.totalTime
+            ? { primary: driver.totalTime, secondary: behindTimeStat.displayValue }
+            : { primary: behindTimeStat.displayValue, secondary: null };
+        }
+        const behindLapsStat = generalCategory.stats.find(
+          (stat) => stat.name === "behindLaps",
+        );
+        if (behindLapsStat?.value != null) {
+          const lapsStr = `+${behindLapsStat.value} Laps`;
+          return driver.totalTime
+            ? { primary: driver.totalTime, secondary: lapsStr }
+            : { primary: lapsStr, secondary: null };
+        }
+      }
+    }
+
+    // Fall back to static completed-race data
+    if (idx === 0) {
+      return { primary: driver.totalTime || driver.behindTime || "—", secondary: 'Leader' };
+    }
+
+    const behind =
+      driver.behindTime ||
+      (driver.behindLaps != null ? `+${driver.behindLaps} Laps` : null);
+    if (driver.totalTime && behind) {
+      return { primary: driver.totalTime, secondary: behind };
+    }
+    return { primary: behind || driver.totalTime || "—", secondary: null };
+  };
+
+  const sessionTime = formatRaceDate(
+    competition.raw?.date || competition.date,
+  );
+
+  const circuit = circuitInfo?.city && circuitInfo?.country ? `${circuitInfo.city}, ${circuitInfo.country}` : circuitInfo?.city || "";
+
+  const venueLine = [circuitInfo?.name, circuit]
+    .filter(Boolean)
+    .join("  •  ");
+
+  const handleShare = async () => {
+    if (!cardRef.current || sharing) return;
+    try {
+      setSharing(true);
+      await new Promise((res) => setTimeout(res, 350));
+      const uri = await cardRef.current.capture();
+      await Sharing.shareAsync(uri, { mimeType: "image/png" });
+    } catch (e) {
+      console.warn("F1 share failed", e);
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <View style={f1CardStyles.overlay}>
+        <ViewShot
+          ref={cardRef}
+          options={{ format: "png", quality: 1 }}
+          style={{ overflow: "hidden" }}
+        >
+          <View
+            style={[
+              f1CardStyles.card,
+              { backgroundColor: theme.surface, width: CARD_SIZE },
+            ]}
+          >
+            {/* ── Header ── */}
+            <View
+              style={[
+                f1CardStyles.cardHeader,
+                {
+                  backgroundColor: colors.primary + "30",
+                  borderBottomColor: colors.primary,
+                },
+              ]}
+            >
+              {/* Session badge row */}
+              <View style={f1CardStyles.headerTopRow}>
+                <View
+                  style={[
+                    f1CardStyles.sessionBadge,
+                    { backgroundColor: colors.primary },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      f1CardStyles.sessionBadgeText,
+                      { color: getF1TextOnColor(colors.primary) },
+                    ]}
+                  >
+                    {sessionLabel}
+                  </Text>
+                </View>
+              </View>
+              {/* Race name */}
+              <Text
+                style={[f1CardStyles.cardRaceName, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {raceName || "F1"}
+              </Text>
+              <Text
+                style={[f1CardStyles.cardRaceTime, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {sessionTime || "TBD"}
+              </Text>
+              {/* Flag + venue • session time */}
+              {venueLine ? (
+                <View style={f1CardStyles.venueRow}>
+                  {circuitInfo?.countryFlag ? (
+                    <Image
+                      source={{ uri: circuitInfo.countryFlag }}
+                      style={f1CardStyles.flagImg}
+                      resizeMode="contain"
+                    />
+                  ) : null}
+                  <Text
+                    style={[
+                      f1CardStyles.venueText,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {venueLine}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            {/* ── Podium row ── */}
+            <View style={f1CardStyles.podiumRow}>
+              {top3.map((driver, idx) => {
+                const teamColor = driver.teamColor || colors.primary;
+                const badgeTextColor = getF1TextOnColor(teamColor);
+                const time = getTime(driver, idx);
+                const pos = driver.order ?? idx + 1;
+                const lastName =
+                  (driver.name || "").split(" ").slice(-1)[0] ||
+                  driver.name ||
+                  "";
+
+                return (
+                  <View key={driver.id || idx} style={f1CardStyles.driverCol}>
+                    {/* Headshot + position badge */}
+                    <View style={f1CardStyles.headshotWrap}>
+                      <View
+                        style={[
+                          f1CardStyles.headshotBorder,
+                          { borderColor: teamColor, backgroundColor: teamColor + "20" },
+                        ]}
+                      >
+                        <F1CardDriverPhoto
+                          url={buildF1HeadshotUrl(driver.id)}
+                          name={driver.name}
+                          teamColor={teamColor}
+                        />
+                      </View>
+                      <View
+                        style={[
+                          f1CardStyles.posBadge,
+                          { backgroundColor: teamColor },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            f1CardStyles.posBadgeText,
+                            { color: badgeTextColor },
+                          ]}
+                        >
+                          {pos}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Name */}
+                    <Text
+                      style={[f1CardStyles.driverName, { color: theme.text }]}
+                      numberOfLines={1}
+                    >
+                      {lastName}
+                    </Text>
+                    {/* Constructor */}
+                    <Text
+                      style={[f1CardStyles.driverTeam, { color: teamColor }]}
+                      numberOfLines={1}
+                    >
+                      {driver.manufacturer || ""}
+                    </Text>
+                    {/* Time */}
+                    <Text
+                      style={[
+                        f1CardStyles.timeText,
+                        { color: theme.textSecondary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {time.primary}
+                    </Text>
+                    {time.secondary ? (
+                      <Text
+                        style={[
+                          f1CardStyles.timeText,
+                          { color: theme.textSecondary, fontSize: 9, opacity: 0.75 },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {time.secondary}
+                      </Text>
+                    ) : null}
+                    {/* Laps */}
+                    {driver.laps ? (
+                      <Text
+                        style={[
+                          f1CardStyles.lapsText,
+                          { color: theme.textTertiary },
+                        ]}
+                      >
+                        {driver.laps} laps
+                      </Text>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* ── Footer ── */}
+            <View
+              style={[
+                f1CardStyles.cardFooter,
+                { borderTopColor: theme.border },
+              ]}
+            >
+              <Text style={[f1CardStyles.brandText, { color: theme.text }]}>
+                SportsHeart{" "}
+                <Ionicons name="heart" size={10} color={colors.primary} />
+              </Text>
+            </View>
+          </View>
+        </ViewShot>
+
+        {/* Action buttons (outside ViewShot) */}
+        <View style={f1CardStyles.actions}>
+          <TouchableOpacity
+            onPress={handleShare}
+            disabled={sharing}
+            style={[f1CardStyles.actionBtn, { backgroundColor: colors.primary }]}
+          >
+            {sharing ? (
+              <Text style={f1CardStyles.actionBtnTxt}>Sharing…</Text>
+            ) : (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons name="share-outline" size={18} color={getF1TextOnColor(colors.primary)} />
+                <Text
+                  style={[
+                    f1CardStyles.actionBtnTxt,
+                    { color: getF1TextOnColor(colors.primary) },
+                  ]}
+                >
+                  Share
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onClose}
+            style={[f1CardStyles.actionBtn, { backgroundColor: theme.border }]}
+          >
+            <Text style={[f1CardStyles.actionBtnTxt, { color: theme.text }]}>
+              Close
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const f1CardStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.88)",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 20,
+    padding: 24,
+  },
+  card: {
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  cardHeader: {
+    padding: 14,
+    borderBottomWidth: 2,
+    gap: 4,
+  },
+  headerTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  sessionBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  sessionBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  cardRaceName: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  cardRaceTime: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  venueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  flagImg: {
+    width: 25,
+    height: 25,
+    borderRadius: 2,
+  },
+  venueText: {
+    fontSize: 11,
+    fontWeight: "500",
+    flex: 1,
+  },
+  podiumRow: {
+    flexDirection: "row",
+    paddingHorizontal: 8,
+    paddingVertical: 18,
+    justifyContent: "space-around",
+  },
+  driverCol: {
+    flex: 1,
+    alignItems: "center",
+    gap: 3,
+  },
+  headshotWrap: {
+    position: "relative",
+    marginBottom: 6,
+  },
+  headshotBorder: {
+    borderWidth: 2.5,
+    borderRadius: 42,
+  },
+  headshot: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: "rgba(128,128,128,0.15)",
+  },
+  posBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "rgba(0,0,0,0.15)",
+  },
+  posBadgeText: {
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 14,
+  },
+  driverName: {
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  driverTeam: {
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  timeText: {
+    fontSize: 11,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  lapsText: {
+    fontSize: 10,
+    textAlign: "center",
+  },
+  cardFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    alignItems: "flex-end",
+  },
+  brandText: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  actions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  actionBtn: {
+    paddingHorizontal: 28,
+    paddingVertical: 13,
+    borderRadius: 28,
+    minWidth: 120,
+    alignItems: "center",
+  },
+  actionBtnTxt: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+});
+
+// ─── F1 Racer Share Card ──────────────────────────────────────────────────────
+
+const f1RacerCardStyles = StyleSheet.create({
+  card: {
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  cardHeader: {
+    padding: 14,
+    borderBottomWidth: 2,
+    gap: 4,
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  driverBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  driverBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  raceInfoRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flex: 1,
+    justifyContent: "flex-end",
+    paddingLeft: 20,
+  },
+  raceFlagImg: {
+    height: 36,
+    width: 40,
+    borderRadius: 2,
+  },
+  raceName: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "right",
+    flex: 1,
+  },
+  headshotRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  headshotImg: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2.5,
+    backgroundColor: "rgba(128,128,128,0.1)",
+  },
+  headshotInitials: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2.5,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  initText: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  nameBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    gap: 14,
+    marginBottom: 4,
+  },
+  summaryCell: {
+    alignItems: "center",
+  },
+  summaryVal: {
+    fontSize: 18,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  summaryLbl: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginTop: 1,
+  },
+  driverNameText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  teamNameText: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  statGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  statCell: {
+    width: "33.333%",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    position: "relative",
+  },
+  statTopRight: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    fontSize: 8,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+  },
+  statVal: {
+    fontSize: 15,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  statLbl: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 3,
+    textAlign: "center",
+  },
+  footer: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignItems: "flex-end",
+  },
+  brand: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  loadingOverlay: {
+    paddingVertical: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  teamNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  teamLogoImg: {
+    height: 16,
+    width: 16,
+    marginLeft: -2.5,
+  },
+  carRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  carImg: {
+    width: "100%",
+    height: 84,
+  },
+});
+
+const F1_NAME_MAP = {
+  McLaren: "mclaren",
+  Ferrari: "ferrari",
+  "Red Bull": "redbullracing",
+  Mercedes: "mercedes",
+  "Aston Martin": "astonmartin",
+  Alpine: "alpine",
+  Williams: "williams",
+  RB: "rb",
+  "Racing Bulls": "racingbulls",
+  Haas: "haas",
+  Sauber: "kicksauber",
+};
+
+const F1RacerShareCard = ({
+  visible,
+  onClose,
+  competitor,
+  overtakes,
+  laps,
+  openF1Drivers,
+  raceName,
+  circuitInfo,
+  colors,
+  theme,
+  loading,
+  competition,
+}) => {
+  const cardRef = useRef(null);
+  const [sharing, setSharing] = useState(false);
+  const { width } = useWindowDimensions();
+  const CARD_SIZE = Math.min(width - 48, 540);
+
+  if (!visible) return null;
+
+  // Session label (same logic as F1SessionShareCard)
+  const sessionLabelPre =
+    competition?.type?.displayName || competition?.name || "Session";
+  const abbr = (competition?.type?.abbreviation || "").toLowerCase();
+  const isFP = abbr.startsWith("fp");
+  const fpNumber = abbr.replace("fp", "");
+  const sessionLabel = isFP ? `${sessionLabelPre} ${fpNumber}` : sessionLabelPre;
+
+  // Find matching OpenF1 driver by name
+  const driverEntries = Object.values(openF1Drivers || {});
+  const normalizedName = (competitor?.name || "").toLowerCase().trim();
+  let matchedDriver = null;
+  for (const d of driverEntries) {
+    const lastName = (d.last_name || "").toLowerCase();
+    const fullName = (d.full_name || "").toLowerCase();
+    const broadcastName = (d.broadcast_name || "").toLowerCase();
+    if (
+      (lastName && normalizedName.includes(lastName)) ||
+      fullName === normalizedName ||
+      broadcastName === normalizedName
+    ) {
+      matchedDriver = d;
+      break;
+    }
+  }
+  const driverNumber = matchedDriver?.driver_number ?? null;
+
+  // ESPN stats
+  const position = competitor?.order ?? "-";
+  const positionChange = abbr.includes("race") ? competitor?.startOrder - position : 0;
+
+  const topRightColor = positionChange > 0 ? theme.success : positionChange < 0 ? theme.error : theme.textSecondary;
+  
+  const totalTime = competitor?.totalTime || null;
+  const behindText =
+    competitor?.behindLaps != null
+      ? `+${competitor.behindLaps} Laps`
+      : competitor?.behindTime || null;
+
+  // For live races, extract gap/time from liveStats categories
+  const liveTimeDisplay = (() => {
+    const categories = competitor?.liveStats?.splits?.categories;
+    if (!categories) return null;
+    const gapCat = categories.find((cat) => cat.name === "gapToLeader");
+    if (gapCat?.stats) {
+      const posStat = gapCat.stats.find((s) => s.name === "position");
+      if (posStat?.value === 1) return "Leader";
+      const gapStat = gapCat.stats.find((s) => s.name === "gapToLeader");
+      if (gapStat) return gapStat.value === 0 ? "Leader" : (gapStat.displayValue || String(gapStat.value));
+    }
+    const genCat = categories.find((cat) => cat.name === "general");
+    if (genCat?.stats) {
+      const btStat = genCat.stats.find((s) => s.name === "behindTime");
+      if (btStat?.displayValue) return btStat.displayValue;
+      const blStat = genCat.stats.find((s) => s.name === "behindLaps");
+      if (blStat?.value != null) return `+${blStat.value} Laps`;
+    }
+    return null;
+  })();
+
+  const timeDisplay = totalTime || behindText || liveTimeDisplay || "-";
+  const timeRight = behindText && !behindText.includes("Laps") ? behindText : "";
+  const lapsCount = competitor?.laps ?? "-";
+
+  // OpenF1 stats from laps endpoint
+  const driverLaps =
+    driverNumber != null
+      ? (laps || []).filter((l) => Number(l.driver_number) === driverNumber)
+      : [];
+
+  // Top speed
+  const topSpeed = driverLaps.reduce((best, l) => {
+    const spd = Number(l.st_speed);
+    return !isNaN(spd) && spd > best ? spd : best;
+  }, 0);
+  const topSpeedDisplay = topSpeed > 0 ? `${Math.round(topSpeed)}` : "-";
+
+  // Overtakes count
+  const overtakeCount =
+    driverNumber != null
+      ? (overtakes || []).filter(
+          (o) => Number(o.overtaking_driver_number) === driverNumber,
+        ).length
+      : null;
+
+  const overtakenCount =
+    driverNumber != null
+      ? (overtakes || []).filter(
+          (o) => Number(o.overtaken_driver_number) === driverNumber,
+        ).length
+      : null;
+  
+  const ovrDiff = overtakeCount != null && overtakenCount != null ? overtakeCount - overtakenCount : null;
+  const ovrDiffDisplay = ovrDiff != null ? (ovrDiff > 0 ? `+${ovrDiff}` : String(ovrDiff)) : "-";
+  const ovrColor = ovrDiff != null ? (ovrDiff > 0 ? theme.success : ovrDiff < 0 ? theme.error : theme.textSecondary) : theme.textSecondary; 
+
+  // Fastest lap (min non-null lap_duration in seconds)
+  let fastestLapSec = null;
+  for (const l of driverLaps) {
+    const dur = Number(l.lap_duration);
+    if (!isNaN(dur) && dur > 0 && (fastestLapSec === null || dur < fastestLapSec)) {
+      fastestLapSec = dur;
+    }
+  }
+  const formatLapSec = (sec) => {
+    if (sec == null) return "-";
+    const mins = Math.floor(sec / 60);
+    const remainder = sec - mins * 60;
+    return `${mins}:${remainder.toFixed(3).padStart(6, "0")}`;
+  };
+  const fastestLapDisplay = formatLapSec(fastestLapSec);
+
+  // Best sector — always computed
+  // Uses segments_sector arrays: 2051 = purple/fastest mini-sector
+  let bestSectorLabel = "BEST SEC";
+  let bestSectorVal = "-";
+  let bestSectorLapNum = null;
+  if (driverLaps.length > 0) {
+    // Count 2051 occurrences per sector across all driver laps
+    let countS1 = 0, countS2 = 0, countS3 = 0;
+    for (const l of driverLaps) {
+      if (Array.isArray(l.segments_sector_1))
+        countS1 += l.segments_sector_1.filter((v) => v === 2051).length;
+      if (Array.isArray(l.segments_sector_2))
+        countS2 += l.segments_sector_2.filter((v) => v === 2051).length;
+      if (Array.isArray(l.segments_sector_3))
+        countS3 += l.segments_sector_3.filter((v) => v === 2051).length;
+    }
+    // Dominant sector = most 2051 occurrences
+    const sectorMeta = [
+      { n: "S1", count: countS1, durKey: "duration_sector_1" },
+      { n: "S2", count: countS2, durKey: "duration_sector_2" },
+      { n: "S3", count: countS3, durKey: "duration_sector_3" },
+    ].sort((a, b) => b.count - a.count);
+    const dominant = sectorMeta[0];
+    // Find best time for that sector and the lap it occurred on
+    let bestSectorTime = null;
+    for (const l of driverLaps) {
+      const t = Number(l[dominant.durKey]);
+      if (!isNaN(t) && t > 0 && (bestSectorTime === null || t < bestSectorTime)) {
+        bestSectorTime = t;
+        bestSectorLapNum = l.lap_number ?? null;
+      }
+    }
+    bestSectorLabel = `BEST ${dominant.n}`;
+    bestSectorVal = bestSectorTime != null ? `${bestSectorTime.toFixed(3)}s` : "-";
+  }
+
+  // Team color
+  const rawTeamColor = competitor?.teamColor;
+  const teamColor = rawTeamColor
+    ? rawTeamColor.startsWith("#")
+      ? rawTeamColor
+      : `#${rawTeamColor}`
+    : colors.primary;
+
+  const textOnTeam = getF1TextOnColor(teamColor);
+
+  // Team logo & car URLs
+  const teamDisplayName =
+    competitor?.manufacturer || matchedDriver?.team_name || "";
+  const teamLogoName =
+    F1_NAME_MAP[teamDisplayName] ||
+    teamDisplayName.toLowerCase().replace(/\s+/g, "");
+  const _currentYear = new Date().getFullYear();
+  const teamLogoUrl = teamDisplayName
+    ? `https://media.formula1.com/image/upload/c_fit,h_1080/q_auto/v1740000000/common/f1/${_currentYear}/${teamLogoName}/${_currentYear}${teamLogoName}logowhite.webp`
+    : null;
+  const carUrl = teamDisplayName
+    ? `https://media.formula1.com/image/upload/c_lfill,w_3392/q_auto/v1740000000/common/f1/${_currentYear}/${teamLogoName}/${_currentYear}${teamLogoName}carright.webp`
+    : null;
+
+  // Headshot
+  const headshotUrl = competitor?.id
+    ? `https://a.espncdn.com/combiner/i?img=/i/headshots/rpm/players/full/${competitor.id}.png&w=200`
+    : null;
+  const initials = (competitor?.name || "")
+    .split(" ")
+    .map((w) => w[0] || "")
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  // Summary stats (3 shown next to headshot)
+  const timeShort =
+    timeDisplay.length > 10 ? timeDisplay.slice(0, 10) : timeDisplay;
+  const summaryStats = [
+    { label: "POS", val: String(position) },
+    { label: "TIME", val: timeShort },
+    { label: "LAPS", val: String(lapsCount) },
+  ];
+
+  // 6-stat grid
+  const sixStats = [
+    { label: "POS", val: String(position), topRight: positionChange > 0 ? ` UP ${positionChange} POS` : positionChange < 0 ? ` DOWN ${Math.abs(positionChange)} POS` : null },
+    { label: "TIME", val: timeDisplay, topRight: timeRight },
+    { label: "LAPS", val: String(lapsCount) },
+    { label: "TOP SPD", val: topSpeedDisplay !== "-" ? `${topSpeedDisplay} km/h` : "-" },
+    { label: bestSectorLabel, val: bestSectorVal, topRight: bestSectorLapNum != null ? `Lap ${bestSectorLapNum}` : null },
+    overtakeCount != null && overtakeCount > 0
+      ? { label: "OVERTAKES", val: String(overtakeCount), topRight: ovrDiff != 0 ? `${ovrDiffDisplay} DIFF` : null }
+      : { label: "FAST LAP", val: fastestLapDisplay },
+  ];
+
+  const flagUri = circuitInfo?.countryFlag || null;
+
+  const handleShare = async () => {
+    try {
+      setSharing(true);
+      const uri = await cardRef.current.capture();
+      if (Platform.OS === "ios") {
+        await Sharing.shareAsync(uri, {
+          mimeType: "image/png",
+          UTI: "public.png",
+          dialogTitle: "Share Driver Stats",
+        });
+      } else {
+        const { Share } = require("react-native");
+        await Share.share({ url: uri, title: "Driver Stats" });
+      }
+    } catch (e) {
+      console.error("Error sharing racer card:", e);
+      Alert.alert("Error", "Failed to share driver card");
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <View style={f1CardStyles.overlay}>
+        {loading ? (
+          <View
+            style={[
+              f1RacerCardStyles.card,
+              f1RacerCardStyles.loadingOverlay,
+              { backgroundColor: theme.surface, width: CARD_SIZE },
+            ]}
+          >
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[f1RacerCardStyles.loadingText, { color: theme.text }]}>
+              Loading driver stats…
+            </Text>
+          </View>
+        ) : (
+          <ViewShot
+            ref={cardRef}
+            options={{ format: "png", quality: 1 }}
+            style={{ overflow: "hidden" }}
+          >
+            <View
+              style={[
+                f1RacerCardStyles.card,
+                { backgroundColor: theme.surface, width: CARD_SIZE },
+              ]}
+            >
+              {/* ── Header ── */}
+              <View
+                style={[
+                  f1RacerCardStyles.cardHeader,
+                  {
+                    backgroundColor: teamColor + "22",
+                    borderBottomColor: teamColor,
+                  },
+                ]}
+              >
+                {/* Top row: driver badge + race flag & name */}
+                <View style={f1RacerCardStyles.topRow}>
+                  <View
+                    style={[
+                      f1RacerCardStyles.driverBadge,
+                      { backgroundColor: teamColor },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        f1RacerCardStyles.driverBadgeText,
+                        { color: textOnTeam },
+                      ]}
+                    >
+                      {sessionLabel}
+                    </Text>
+                  </View>
+                  <View style={f1RacerCardStyles.raceInfoRight}>
+                    <Text
+                      style={[
+                        f1RacerCardStyles.raceName,
+                        { color: theme.text },
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {raceName || "F1"}
+                    </Text>
+                    {!!flagUri && (
+                      <Image
+                        source={{ uri: flagUri }}
+                        style={f1RacerCardStyles.raceFlagImg}
+                        resizeMode="contain"
+                      />
+                    )}
+                  </View>
+                </View>
+
+                {/* Headshot + summary stats + name */}
+                <View style={f1RacerCardStyles.headshotRow}>
+                  {headshotUrl ? (
+                    <Image
+                      source={{ uri: headshotUrl }}
+                      style={[
+                        f1RacerCardStyles.headshotImg,
+                        { borderColor: teamColor },
+                      ]}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        f1RacerCardStyles.headshotInitials,
+                        {
+                          borderColor: teamColor,
+                          backgroundColor: teamColor + "22",
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[f1RacerCardStyles.initText, { color: teamColor }]}
+                      >
+                        {initials}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={f1RacerCardStyles.nameBlock}>
+                    <View style={f1RacerCardStyles.summaryRow}>
+                      {summaryStats.map(({ label, val }) => (
+                        <View key={label} style={f1RacerCardStyles.summaryCell}>
+                          <Text
+                            style={[
+                              f1RacerCardStyles.summaryVal,
+                              { color: theme.text },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {val}
+                          </Text>
+                          <Text
+                            style={[
+                              f1RacerCardStyles.summaryLbl,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {label}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                    <Text
+                      style={[
+                        f1RacerCardStyles.driverNameText,
+                        { color: theme.text },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {competitor?.name || ""}
+                    </Text>
+                    <View style={f1RacerCardStyles.teamNameRow}>
+                      {!!teamLogoUrl && (
+                        <Image
+                          source={{ uri: teamLogoUrl }}
+                          style={f1RacerCardStyles.teamLogoImg}
+                          resizeMode="contain"
+                        />
+                      )}
+                      <Text
+                        style={[
+                          f1RacerCardStyles.teamNameText,
+                          { color: theme.textSecondary },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {teamDisplayName}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* ── 3×2 Stat Grid ── */}
+              <View style={f1RacerCardStyles.statGrid}>
+                {sixStats.map(({ label, val, topRight }, i) => (
+                  <View
+                    key={`${label}-${i}`}
+                    style={[
+                      f1RacerCardStyles.statCell,
+                      { borderColor: theme.border },
+                      i % 3 !== 2 && {
+                        borderRightWidth: StyleSheet.hairlineWidth,
+                      },
+                      i < 3 && {
+                        borderBottomWidth: StyleSheet.hairlineWidth,
+                      },
+                    ]}
+                  >
+                    {!!topRight && (
+                      <Text
+                        style={[f1RacerCardStyles.statTopRight, { color: label === "POS" ? topRightColor : label === "OVERTAKES" ? ovrColor : theme.textSecondary }]}
+                        numberOfLines={1}
+                      >
+                        {topRight}
+                      </Text>
+                    )}
+                    <Text
+                      style={[f1RacerCardStyles.statVal, { color: theme.text }]}
+                      numberOfLines={1}
+                    >
+                      {val}
+                    </Text>
+                    <Text
+                      style={[
+                        f1RacerCardStyles.statLbl,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* ── Car Livery ── */}
+              {!!carUrl && (
+                <View style={f1RacerCardStyles.carRow}>
+                  <Image
+                    source={{ uri: carUrl }}
+                    style={f1RacerCardStyles.carImg}
+                    resizeMode="contain"
+                  />
+                </View>
+              )}
+
+              {/* ── Footer ── */}
+              <View
+                style={[
+                  f1RacerCardStyles.footer,
+                  { borderTopColor: theme.border },
+                ]}
+              >
+                <Text
+                  style={[f1RacerCardStyles.brand, { color: theme.text }]}
+                >
+                  SportsHeart{" "}
+                  <Ionicons name="heart" size={10} color={colors.primary} />
+                </Text>
+              </View>
+            </View>
+          </ViewShot>
+        )}
+
+        {/* Actions */}
+        <View style={f1CardStyles.actions}>
+          {!loading && (
+            <TouchableOpacity
+              onPress={handleShare}
+              disabled={sharing}
+              style={[
+                f1CardStyles.actionBtn,
+                { backgroundColor: colors.primary },
+              ]}
+            >
+              {sharing ? (
+                <Text style={f1CardStyles.actionBtnTxt}>Sharing…</Text>
+              ) : (
+                <View
+                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+                >
+                  <Ionicons
+                    name="share-outline"
+                    size={18}
+                    color={getF1TextOnColor(colors.primary)}
+                  />
+                  <Text
+                    style={[
+                      f1CardStyles.actionBtnTxt,
+                      { color: getF1TextOnColor(colors.primary) },
+                    ]}
+                  >
+                    Share
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={onClose}
+            style={[f1CardStyles.actionBtn, { backgroundColor: theme.border }]}
+          >
+            <Text style={[f1CardStyles.actionBtnTxt, { color: theme.text }]}>
+              Close
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const RaceDetailsScreen = ({ route }) => {
   const { raceId, eventId, raceName, raceDate } = route.params || {};
   const { theme, colors, isDarkMode } = useTheme();
@@ -171,6 +1533,15 @@ const RaceDetailsScreen = ({ route }) => {
 
   // Streaming access check
   const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
+
+  // Session share card state
+  const [sessionCardVisible, setSessionCardVisible] = useState(false);
+  const [sessionCardComp, setSessionCardComp] = useState(null);
+
+  // Racer share card state
+  const [racerCardVisible, setRacerCardVisible] = useState(false);
+  const [racerCardLoading, setRacerCardLoading] = useState(false);
+  const [racerCardData, setRacerCardData] = useState(null); // { competitor, overtakes, laps }
 
   // Streaming state
   const [streamModalVisible, setStreamModalVisible] = useState(false);
@@ -2216,13 +3587,18 @@ const RaceDetailsScreen = ({ route }) => {
 
   // OpenF1 API functions
   const fetchOpenF1Meetings = async (year = new Date().getFullYear()) => {
+    const cacheKey = `meetings_${year}`;
+    const cached = _getFromOpenF1Cache(cacheKey);
+    if (cached) return cached;
     try {
       const response = await fetch(
-        `https://timestampedforf1.jeffreyjpz.com/api/v1/meetings?year=${year}`,
+        `https://api.openf1.org/v1/meetings?year=${year}`,
       );
       if (!response.ok)
         throw new Error(`Failed to fetch meetings: ${response.status}`);
-      return await response.json();
+      const data = await response.json();
+      _setOpenF1Cache(cacheKey, data);
+      return data;
     } catch (error) {
       console.error("Error fetching OpenF1 meetings:", error);
       return [];
@@ -2230,13 +3606,18 @@ const RaceDetailsScreen = ({ route }) => {
   };
 
   const fetchOpenF1Sessions = async (meetingKey) => {
+    const cacheKey = `sessions_${meetingKey}`;
+    const cached = _getFromOpenF1Cache(cacheKey);
+    if (cached) return cached;
     try {
       const response = await fetch(
-        `https://timestampedforf1.jeffreyjpz.com/api/v1/sessions?meeting_key=${meetingKey}`,
+        `https://api.openf1.org/v1/sessions?meeting_key=${meetingKey}`,
       );
       if (!response.ok)
         throw new Error(`Failed to fetch sessions: ${response.status}`);
-      return await response.json();
+      const data = await response.json();
+      _setOpenF1Cache(cacheKey, data);
+      return data;
     } catch (error) {
       console.error("Error fetching OpenF1 sessions:", error);
       return [];
@@ -2244,13 +3625,18 @@ const RaceDetailsScreen = ({ route }) => {
   };
 
   const fetchOpenF1Drivers = async (sessionKey) => {
+    const cacheKey = `drivers_${sessionKey}`;
+    const cached = _getFromOpenF1Cache(cacheKey);
+    if (cached) return cached;
     try {
       const response = await fetch(
-        `https://timestampedforf1.jeffreyjpz.com/api/v1/drivers?session_key=${sessionKey}`,
+        `https://api.openf1.org/v1/drivers?session_key=${sessionKey}`,
       );
       if (!response.ok)
         throw new Error(`Failed to fetch drivers: ${response.status}`);
-      return await response.json();
+      const data = await response.json();
+      _setOpenF1Cache(cacheKey, data);
+      return data;
     } catch (error) {
       console.error("Error fetching OpenF1 drivers:", error);
       return [];
@@ -2281,6 +3667,9 @@ const RaceDetailsScreen = ({ route }) => {
   };
 
   const fetchOpenF1Stints = async (sessionKey) => {
+    const cacheKey = `stints_${sessionKey}`;
+    const cached = _getFromOpenF1Cache(cacheKey);
+    if (cached) return cached;
     try {
       console.log("Fetching stints for session key:", sessionKey);
       const response = await fetch(
@@ -2290,9 +3679,48 @@ const RaceDetailsScreen = ({ route }) => {
         throw new Error(`Failed to fetch stints: ${response.status}`);
       const stints = await response.json();
       console.log("Fetched stints:", stints);
+      _setOpenF1Cache(cacheKey, stints);
       return stints;
     } catch (error) {
       console.error("Error fetching OpenF1 stints:", error);
+      return [];
+    }
+  };
+
+  const fetchOpenF1Overtakes = async (sessionKey) => {
+    const cacheKey = `overtakes_${sessionKey}`;
+    const cached = _getFromOpenF1Cache(cacheKey);
+    if (cached) return cached;
+    try {
+      const response = await fetch(
+        `https://api.openf1.org/v1/overtakes?session_key=${sessionKey}`,
+      );
+      if (!response.ok)
+        throw new Error(`Failed to fetch overtakes: ${response.status}`);
+      const data = await response.json();
+      _setOpenF1Cache(cacheKey, data);
+      return data;
+    } catch (error) {
+      console.error("Error fetching OpenF1 overtakes:", error);
+      return [];
+    }
+  };
+
+  const fetchOpenF1Laps = async (sessionKey) => {
+    const cacheKey = `laps_${sessionKey}`;
+    const cached = _getFromOpenF1Cache(cacheKey);
+    if (cached) return cached;
+    try {
+      const response = await fetch(
+        `https://api.openf1.org/v1/laps?session_key=${sessionKey}`,
+      );
+      if (!response.ok)
+        throw new Error(`Failed to fetch laps: ${response.status}`);
+      const data = await response.json();
+      _setOpenF1Cache(cacheKey, data);
+      return data;
+    } catch (error) {
+      console.error("Error fetching OpenF1 laps:", error);
       return [];
     }
   };
@@ -2871,6 +4299,27 @@ const RaceDetailsScreen = ({ route }) => {
       clearInterval(carDataInterval);
       setCarDataInterval(null);
     }
+  };
+
+  const openRacerShareCard = async (competitor) => {
+    const competition = competitionResults[selectedCompetitionId] || null;
+    setRacerCardLoading(true);
+    setRacerCardData({ competitor, overtakes: [], laps: [], competition });
+    setRacerCardVisible(true);
+    const sessionKey = openF1Data.selectedSessionKey;
+    if (sessionKey) {
+      try {
+        const [overtakesData, lapsData] = await Promise.all([
+          fetchOpenF1Overtakes(sessionKey),
+          fetchOpenF1Laps(sessionKey),
+        ]);
+        setRacerCardData({ competitor, overtakes: overtakesData, laps: lapsData, competition });
+      } catch (e) {
+        console.error("Error loading racer card data:", e);
+        setRacerCardData({ competitor, overtakes: [], laps: [], competition });
+      }
+    }
+    setRacerCardLoading(false);
   };
 
   const fetchRaceWinner = async (eventData) => {
@@ -4583,6 +6032,11 @@ const RaceDetailsScreen = ({ route }) => {
                   <TouchableOpacity
                     key={comp.id}
                     onPress={() => setSelectedCompetitionId(comp.id)}
+                    onLongPress={() => {
+                      setSessionCardComp(competitionResults[comp.id] || null);
+                      setSessionCardVisible(true);
+                    }}
+                    delayLongPress={400}
                     style={[
                       styles.compPill,
                       selectedCompetitionId === comp.id
@@ -4624,8 +6078,10 @@ const RaceDetailsScreen = ({ route }) => {
                   const isQual = str.includes("qual") || str.includes("ss");
 
                   return (
-                    <View
+                    <TouchableOpacity
                       key={r.id}
+                      onPress={() => openRacerShareCard(r)}
+                      activeOpacity={0.8}
                       style={[
                         styles.racerRow,
                         {
@@ -4946,7 +6402,7 @@ const RaceDetailsScreen = ({ route }) => {
                           </>
                         )}
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
@@ -8565,6 +10021,36 @@ const RaceDetailsScreen = ({ route }) => {
           </View>
         </Modal>
       )}
+
+      {/* ── Session Share Card ── */}
+      <F1SessionShareCard
+        visible={sessionCardVisible}
+        onClose={() => setSessionCardVisible(false)}
+        competition={sessionCardComp}
+        raceName={raceData?.name || raceName}
+        circuitInfo={circuitInfo}
+        theme={theme}
+        colors={colors}
+      />
+
+      {/* ── Racer Share Card ── */}
+      <F1RacerShareCard
+        visible={racerCardVisible}
+        onClose={() => {
+          setRacerCardVisible(false);
+          setRacerCardData(null);
+        }}
+        competitor={racerCardData?.competitor || null}
+        overtakes={racerCardData?.overtakes || []}
+        laps={racerCardData?.laps || []}
+        openF1Drivers={openF1Data.drivers}
+        raceName={raceData?.name || raceName}
+        circuitInfo={circuitInfo}
+        theme={theme}
+        colors={colors}
+        loading={racerCardLoading}
+        competition={racerCardData?.competition || null}
+      />
     </View>
   );
 };

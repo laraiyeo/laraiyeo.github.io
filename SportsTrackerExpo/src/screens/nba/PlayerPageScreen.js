@@ -913,7 +913,7 @@ const NBAPlayerPageScreen = ({ route, navigation }) => {
         position: { displayName: "Player" },
         team: { id: teamId, abbreviation: maybeAbbr, displayName: "" },
         headshot: {
-          href: `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${playerId}.png`,
+          href: `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${playerId}.png&w=100`,
         },
       };
 

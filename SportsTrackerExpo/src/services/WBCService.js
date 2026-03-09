@@ -182,6 +182,13 @@ class WBCService {
     return _getTeamColor(teamId);
   }
 
+  static getTeamAbbr(teamId) {
+    if (!teamId) return "";
+    const key = Number(teamId);
+    const m = TEAM_LOGO_MAP[key];
+    return m && m.abbr ? m.abbr.toUpperCase() : "";
+  }
+
   static setTeamLogoMapping(teamId, mapping) {
     return _setTeamLogoMapping(teamId, mapping);
   }

@@ -1240,15 +1240,25 @@ const UECLBracketScreen = ({ navigation, route }) => {
                 >
                   {firstAbbrev}
                 </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.teamScore,
-                    { color: firstIsWinner ? colors.primary : theme.text },
-                  ]}
-                >
-                  {firstScoreDisplay}
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.teamScore,
+                      { color: firstIsWinner ? colors.primary : theme.text },
+                    ]}
+                  >
+                    {firstScore}
+                  </Text>
+                  {firstShootoutScore > 0 && (
+                    <Text
+                      allowFontScaling={false}
+                      style={{ fontSize: 10, color: firstIsWinner ? colors.primary : theme.text }}
+                    >
+                      {firstShootoutScore}
+                    </Text>
+                  )}
+                </View>
               </View>
             </View>
 
@@ -1275,18 +1285,28 @@ const UECLBracketScreen = ({ navigation, route }) => {
                 >
                   {secondAbbrev}
                 </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.teamScore,
-                    {
-                      color:
-                        !isTie && !firstIsWinner ? colors.primary : theme.text,
-                    },
-                  ]}
-                >
-                  {secondScoreDisplay}
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.teamScore,
+                      {
+                        color:
+                          !isTie && !firstIsWinner ? colors.primary : theme.text,
+                      },
+                    ]}
+                  >
+                    {secondScore}
+                  </Text>
+                  {secondShootoutScore > 0 && (
+                    <Text
+                      allowFontScaling={false}
+                      style={{ fontSize: 10, color: !isTie && !firstIsWinner ? colors.primary : theme.text }}
+                    >
+                      {secondShootoutScore}
+                    </Text>
+                  )}
+                </View>
               </View>
               <TeamLogoImage
                 teamId={secondTeam?.id}
@@ -1312,15 +1332,25 @@ const UECLBracketScreen = ({ navigation, route }) => {
           >
             {firstTeam.shortDisplayName}
           </Text>
-          <Text
-            allowFontScaling={false}
-            style={[
-              styles.teamScore,
-              { color: firstIsWinner ? colors.primary : theme.text },
-            ]}
-          >
-            {firstScoreDisplay}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamScore,
+                { color: firstIsWinner ? colors.primary : theme.text },
+              ]}
+            >
+              {firstScore}
+            </Text>
+            {firstShootoutScore > 0 && (
+              <Text
+                allowFontScaling={false}
+                style={{ fontSize: 10, color: firstIsWinner ? colors.primary : theme.text }}
+              >
+                {firstShootoutScore}
+              </Text>
+            )}
+          </View>
         </View>
         <View style={styles.teamSectionVertical}>
           <TeamLogoImage
@@ -1336,15 +1366,25 @@ const UECLBracketScreen = ({ navigation, route }) => {
           >
             {secondTeam.shortDisplayName}
           </Text>
-          <Text
-            allowFontScaling={false}
-            style={[
-              styles.teamScore,
-              { color: !isTie && !firstIsWinner ? colors.primary : theme.text },
-            ]}
-          >
-            {secondScoreDisplay}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.teamScore,
+                { color: !isTie && !firstIsWinner ? colors.primary : theme.text },
+              ]}
+            >
+              {secondScore}
+            </Text>
+            {secondShootoutScore > 0 && (
+              <Text
+                allowFontScaling={false}
+                style={{ fontSize: 10, color: !isTie && !firstIsWinner ? colors.primary : theme.text }}
+              >
+                {secondShootoutScore}
+              </Text>
+            )}
+          </View>
         </View>
       </View>
     );
@@ -1500,7 +1540,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
                   matchup.aggregateHome,
                   matchup.aggregateAway,
                 );
-                if (!isTie && agg?.winner?.color)
+                if (!agg.isTie && agg?.winner?.color)
                   winnerColor = `#${agg.winner.color}`;
               } catch (e) {}
 
@@ -1574,7 +1614,7 @@ const UECLBracketScreen = ({ navigation, route }) => {
                     r16Matchup.aggregateHome,
                     r16Matchup.aggregateAway,
                   );
-                  if (!isTie && agg?.winner?.color)
+                  if (!agg.isTie && agg?.winner?.color)
                     winnerColor = `#${agg.winner.color}`;
                 }
               } catch (e) {}
@@ -1739,17 +1779,27 @@ const UECLBracketScreen = ({ navigation, route }) => {
                 style={{ width: 28, height: 28, marginRight: 8 }}
               />
             ) : null}
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.matchScore,
-                {
-                  color: firstIsWinner && !isTie ? colors.primary : theme.text,
-                },
-              ]}
-            >
-              {firstScoreDisplay}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.matchScore,
+                  {
+                    color: firstIsWinner && !isTie ? colors.primary : theme.text,
+                  },
+                ]}
+              >
+                {firstScore}
+              </Text>
+              {firstShootoutScore > 0 && (
+                <Text
+                  allowFontScaling={false}
+                  style={{ fontSize: 10, color: firstIsWinner && !isTie ? colors.primary : theme.text }}
+                >
+                  {firstShootoutScore}
+                </Text>
+              )}
+            </View>
           </View>
 
           <Text
@@ -1760,17 +1810,27 @@ const UECLBracketScreen = ({ navigation, route }) => {
           </Text>
 
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.matchScore,
-                {
-                  color: !firstIsWinner && !isTie ? colors.primary : theme.text,
-                },
-              ]}
-            >
-              {secondScoreDisplay}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.matchScore,
+                  {
+                    color: !firstIsWinner && !isTie ? colors.primary : theme.text,
+                  },
+                ]}
+              >
+                {secondScore}
+              </Text>
+              {secondShootoutScore > 0 && (
+                <Text
+                  allowFontScaling={false}
+                  style={{ fontSize: 10, color: !firstIsWinner && !isTie ? colors.primary : theme.text }}
+                >
+                  {secondShootoutScore}
+                </Text>
+              )}
+            </View>
             {secondTeam?.id ? (
               <TeamLogoImage
                 teamId={secondTeam.id}
@@ -1898,17 +1958,27 @@ const UECLBracketScreen = ({ navigation, route }) => {
                 style={{ width: 28, height: 28, marginRight: 8 }}
               />
             ) : null}
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.matchScore,
-                {
-                  color: homeTeam.id === winnerId ? colors.primary : theme.text,
-                },
-              ]}
-            >
-              {homeScoreDisplay}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.matchScore,
+                  {
+                    color: homeTeam.id === winnerId ? colors.primary : theme.text,
+                  },
+                ]}
+              >
+                {homeScore}
+              </Text>
+              {homeShootoutScore > 0 && (
+                <Text
+                  allowFontScaling={false}
+                  style={{ fontSize: 10, color: homeTeam.id === winnerId ? colors.primary : theme.text }}
+                >
+                  {homeShootoutScore}
+                </Text>
+              )}
+            </View>
           </View>
 
           <Text
@@ -1919,17 +1989,27 @@ const UECLBracketScreen = ({ navigation, route }) => {
           </Text>
 
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text
-              allowFontScaling={false}
-              style={[
-                styles.matchScore,
-                {
-                  color: awayTeam.id === winnerId ? colors.primary : theme.text,
-                },
-              ]}
-            >
-              {awayScoreDisplay}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.matchScore,
+                  {
+                    color: awayTeam.id === winnerId ? colors.primary : theme.text,
+                  },
+                ]}
+              >
+                {awayScore}
+              </Text>
+              {awayShootoutScore > 0 && (
+                <Text
+                  allowFontScaling={false}
+                  style={{ fontSize: 10, color: awayTeam.id === winnerId ? colors.primary : theme.text }}
+                >
+                  {awayShootoutScore}
+                </Text>
+              )}
+            </View>
             {awayTeam?.id ? (
               <TeamLogoImage
                 teamId={awayTeam.id}
@@ -2092,23 +2172,31 @@ const UECLBracketScreen = ({ navigation, route }) => {
                               {match.homeTeam.shortDisplayName}
                             </Text>
                             {hasHomeScore && (
-                              <Text
-                                allowFontScaling={false}
-                                style={[
-                                  styles.legScore,
-                                  {
-                                    color:
-                                      match.status === "post" &&
-                                      match.homeScore > match.awayScore
-                                        ? colors.primary
-                                        : theme.text,
-                                  },
-                                ]}
-                              >
-                                {match.homeShootoutScore > 0
-                                  ? `${match.homeScore}(${match.homeShootoutScore})`
-                                  : match.homeScore}
-                              </Text>
+                              <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.legScore,
+                                    {
+                                      color:
+                                        match.status === "post" &&
+                                        match.homeScore > match.awayScore
+                                          ? colors.primary
+                                          : theme.text,
+                                    },
+                                  ]}
+                                >
+                                  {match.homeScore}
+                                </Text>
+                                {match.homeShootoutScore > 0 && (
+                                  <Text
+                                    allowFontScaling={false}
+                                    style={{ fontSize: 9, color: match.status === "post" && match.homeScore > match.awayScore ? colors.primary : theme.text }}
+                                  >
+                                    {match.homeShootoutScore}
+                                  </Text>
+                                )}
+                              </View>
                             )}
                           </View>
                         </View>
@@ -2148,23 +2236,31 @@ const UECLBracketScreen = ({ navigation, route }) => {
                               {match.awayTeam.shortDisplayName}
                             </Text>
                             {hasAwayScore && (
-                              <Text
-                                allowFontScaling={false}
-                                style={[
-                                  styles.legScore,
-                                  {
-                                    color:
-                                      match.status === "post" &&
-                                      match.awayScore > match.homeScore
-                                        ? colors.primary
-                                        : theme.text,
-                                  },
-                                ]}
-                              >
-                                {match.awayShootoutScore > 0
-                                  ? `${match.awayScore}(${match.awayShootoutScore})`
-                                  : match.awayScore}
-                              </Text>
+                              <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                                <Text
+                                  allowFontScaling={false}
+                                  style={[
+                                    styles.legScore,
+                                    {
+                                      color:
+                                        match.status === "post" &&
+                                        match.awayScore > match.homeScore
+                                          ? colors.primary
+                                          : theme.text,
+                                    },
+                                  ]}
+                                >
+                                  {match.awayScore}
+                                </Text>
+                                {match.awayShootoutScore > 0 && (
+                                  <Text
+                                    allowFontScaling={false}
+                                    style={{ fontSize: 9, color: match.status === "post" && match.awayScore > match.homeScore ? colors.primary : theme.text }}
+                                  >
+                                    {match.awayShootoutScore}
+                                  </Text>
+                                )}
+                              </View>
                             )}
                           </View>
                         </View>
@@ -2196,13 +2292,14 @@ const UECLBracketScreen = ({ navigation, route }) => {
                 { backgroundColor: theme.surface },
               ]}
             >
-              <Text
-                allowFontScaling={false}
-                style={[styles.aggregateText, { color: theme.text }]}
-              >
-                Aggregate Score - {homeAggregateDisplay} :{" "}
-                {awayAggregateDisplay}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "flex-start", flexWrap: "wrap", justifyContent: "center" }}>
+                <Text allowFontScaling={false} style={[styles.aggregateText, { color: theme.text }]}>{"Aggregate Score - "}</Text>
+                <Text allowFontScaling={false} style={[styles.aggregateText, { color: theme.text }]}>{selectedMatchup.aggregateHome}</Text>
+                {homeShootoutScore > 0 && <Text allowFontScaling={false} style={{ fontSize: 10, fontWeight: "bold", color: theme.text }}>{homeShootoutScore}</Text>}
+                <Text allowFontScaling={false} style={[styles.aggregateText, { color: theme.text }]}>{" : "}</Text>
+                <Text allowFontScaling={false} style={[styles.aggregateText, { color: theme.text }]}>{selectedMatchup.aggregateAway}</Text>
+                {awayShootoutScore > 0 && <Text allowFontScaling={false} style={{ fontSize: 10, fontWeight: "bold", color: theme.text }}>{awayShootoutScore}</Text>}
+              </View>
             </View>
           </View>
         </View>

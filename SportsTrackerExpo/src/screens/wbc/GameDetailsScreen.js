@@ -355,6 +355,7 @@ const BoxScorePanel = ({
   bsTeamData,
   playersMap,
   theme,
+  colors,
   teamColor,
   team,
   boxscore,
@@ -365,6 +366,7 @@ const BoxScorePanel = ({
   homeScore,
   isScheduled,
   isFinished,
+  gameDateTime,
 }) => {
   const bsPlayers = bsTeamData?.players ?? {};
   const allBsPlayers = {
@@ -529,7 +531,9 @@ const BoxScorePanel = ({
         homeTeam={homeTeam}
         awayScore={awayScore}
         homeScore={homeScore}
+        gameDate={gameDateTime}
         theme={theme}
+        colors={colors}
       />
     </View>
   );
@@ -963,7 +967,9 @@ const PlayerDetailModal = ({
   homeTeam,
   awayScore,
   homeScore,
+  gameDate,
   theme,
+  colors,
 }) => {
   const panY = useRef(new Animated.Value(0)).current;
   const panResponder = useRef(
@@ -1421,7 +1427,9 @@ const PlayerDetailModal = ({
         homeTeam={homeTeam}
         awayScore={awayScore}
         homeScore={homeScore}
+        gameDate={gameDate}
         theme={theme}
+        colors={colors}
       />
     </Modal>
   );
@@ -1779,7 +1787,9 @@ const PlayerShareCardModal = ({
   homeTeam,
   awayScore,
   homeScore,
+  gameDate,
   theme,
+  colors,
 }) => {
   const cardRef = useRef(null);
   const [sharing, setSharing] = useState(false);
@@ -1868,10 +1878,35 @@ const PlayerShareCardModal = ({
                   </Text>
                 </View>
                 {awayScore != null && homeScore != null && (
-                  <Text style={[scStyles.cardScore, { color: theme.text }]}>
-                    {awayTeam?.abbreviation ?? "A"} {awayScore} – {homeScore}{" "}
-                    {homeTeam?.abbreviation ?? "H"}
-                  </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    {!!WBCService.getTeamLogo(awayTeam?.id, isDarkMode) && (
+                      <Image
+                        source={{
+                          uri: WBCService.getTeamLogo(awayTeam?.id, isDarkMode),
+                        }}
+                        style={{ width: 18, height: 18 }}
+                        resizeMode="contain"
+                      />
+                    )}
+                    <Text style={[scStyles.cardScore, { color: theme.text }]}>
+                      {awayScore} – {homeScore}
+                    </Text>
+                    {!!WBCService.getTeamLogo(homeTeam?.id, isDarkMode) && (
+                      <Image
+                        source={{
+                          uri: WBCService.getTeamLogo(homeTeam?.id, isDarkMode),
+                        }}
+                        style={{ width: 18, height: 18 }}
+                        resizeMode="contain"
+                      />
+                    )}
+                  </View>
                 )}
               </View>
 
@@ -1891,32 +1926,75 @@ const PlayerShareCardModal = ({
                       {statSummary}
                     </Text>
                   )}
-                  <Text
-                    style={[psStyles.fullName, { color: theme.text }]}
-                    numberOfLines={1}
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                    }}
                   >
-                    {fullName}
-                  </Text>
-                  {!!teamName && (
-                    <View style={psStyles.teamNameRow}>
-                      {!!teamLogoUri && (
-                        <Image
-                          source={{ uri: teamLogoUri }}
-                          style={psStyles.teamNameLogo}
-                          resizeMode="contain"
-                        />
-                      )}
+                    <View style={{ flex: 1, gap: 2 }}>
                       <Text
-                        style={[
-                          psStyles.teamNameLabel,
-                          { color: theme.textSecondary },
-                        ]}
+                        style={[psStyles.fullName, { color: theme.text }]}
                         numberOfLines={1}
                       >
-                        {teamName}
+                        {fullName}
                       </Text>
+                      {!!teamName && (
+                        <View style={psStyles.teamNameRow}>
+                          {!!teamLogoUri && (
+                            <Image
+                              source={{ uri: teamLogoUri }}
+                              style={psStyles.teamNameLogo}
+                              resizeMode="contain"
+                            />
+                          )}
+                          <Text
+                            style={[
+                              psStyles.teamNameLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {teamName}
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                  )}
+                    {!!gameDate &&
+                      (() => {
+                        const _gd = new Date(gameDate);
+                        const _monthDate = _gd.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        });
+                        const _year = _gd.toLocaleDateString("en-US", {
+                          year: "numeric",
+                        });
+                        return (
+                          <View
+                            style={{ alignItems: "flex-end", marginLeft: 6 }}
+                          >
+                            <Text
+                              style={[
+                                psStyles.gameDateLine,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {_monthDate}
+                            </Text>
+                            <Text
+                              style={[
+                                psStyles.gameDateLine,
+                                { color: theme.textSecondary },
+                              ]}
+                            >
+                              {_year}
+                            </Text>
+                          </View>
+                        );
+                      })()}
+                  </View>
                 </View>
               </View>
             </View>
@@ -1952,7 +2030,8 @@ const PlayerShareCardModal = ({
               style={[scStyles.cardFooter, { borderTopColor: theme.border }]}
             >
               <Text style={[scStyles.cardBrand, { color: theme.text }]}>
-                SportsHeart <Ionicons name="heart" size={10} color="#dc2626" />
+                SportsHeart{" "}
+                <Ionicons name="heart" size={10} color={colors.primary} />
               </Text>
             </View>
           </View>
@@ -2050,6 +2129,11 @@ const psStyles = StyleSheet.create({
     width: 16,
     height: 16,
   },
+  gameDateLine: {
+    fontSize: 10,
+    fontWeight: "500",
+    marginTop: 1,
+  },
   statGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -2085,9 +2169,11 @@ const ShareCardModal = ({
   playersMap,
   boxscore,
   theme,
+  colors,
 }) => {
   const cardRef = useRef(null);
   const [sharing, setSharing] = useState(false);
+  const { isDarkMode } = useTheme();
 
   if (!play) return null;
 
@@ -2227,10 +2313,55 @@ const ShareCardModal = ({
                   {teamAbbr ? ` • ${teamAbbr}` : ""}
                 </Text>
                 {awayScore != null && homeScore != null && (
-                  <Text style={[scStyles.cardScore, { color: theme.text }]}>
-                    {awayTeam?.abbreviation ?? "A"} {awayScore} – {homeScore}{" "}
-                    {homeTeam?.abbreviation ?? "H"}
-                  </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    {!!WBCService.getTeamLogo(awayTeam?.id, isDarkMode) && (
+                      <Image
+                        source={{
+                          uri: WBCService.getTeamLogo(awayTeam?.id, isDarkMode),
+                        }}
+                        style={{ width: 18, height: 18 }}
+                        resizeMode="contain"
+                      />
+                    )}
+                    <Text style={[scStyles.cardScore, { color: theme.text }]}>
+                      <Text
+                        style={{
+                          fontWeight:
+                            parseInt(awayScore) > parseInt(homeScore)
+                              ? "800"
+                              : "400",
+                        }}
+                      >
+                        {awayScore}
+                      </Text>{" "}
+                      <Text>-</Text>{" "}
+                      <Text
+                        style={{
+                          fontWeight:
+                            parseInt(homeScore) > parseInt(awayScore)
+                              ? "800"
+                              : "400",
+                        }}
+                      >
+                        {homeScore}
+                      </Text>
+                    </Text>
+                    {!!WBCService.getTeamLogo(homeTeam?.id, isDarkMode) && (
+                      <Image
+                        source={{
+                          uri: WBCService.getTeamLogo(homeTeam?.id, isDarkMode),
+                        }}
+                        style={{ width: 18, height: 18 }}
+                        resizeMode="contain"
+                      />
+                    )}
+                  </View>
                 )}
               </View>
               {!!event && (
@@ -2399,7 +2530,8 @@ const ShareCardModal = ({
               style={[scStyles.cardFooter, { borderTopColor: theme.border }]}
             >
               <Text style={[scStyles.cardBrand, { color: theme.text }]}>
-                SportsHeart <Ionicons name="heart" size={10} color="#dc2626" />
+                SportsHeart{" "}
+                <Ionicons name="heart" size={10} color={colors.primary} />
               </Text>
             </View>
           </View>
@@ -2514,9 +2646,8 @@ const scStyles = StyleSheet.create({
   },
   cardBrand: {
     fontSize: 9,
-    fontWeight: "600",
+    fontWeight: "800",
     letterSpacing: 0.5,
-    opacity: 0.6,
   },
   actions: {
     flexDirection: "row",
@@ -2642,6 +2773,7 @@ const PlayDetailModal = ({
   playersMap,
   boxscore,
   theme,
+  colors,
   visible,
   onClose,
 }) => {
@@ -3221,6 +3353,7 @@ const PlayDetailModal = ({
         playersMap={playersMap}
         boxscore={boxscore}
         theme={theme}
+        colors={colors}
       />
     </Modal>
   );
@@ -3565,6 +3698,7 @@ const PlaysPanel = ({
   playersMap,
   boxscore,
   theme,
+  colors,
 }) => {
   const [selectedPlay, setSelectedPlay] = useState(null);
 
@@ -3857,6 +3991,7 @@ const PlaysPanel = ({
         playersMap={playersMap}
         boxscore={boxscore}
         theme={theme}
+        colors={colors}
         visible={selectedPlay != null}
         onClose={() => setSelectedPlay(null)}
       />
@@ -5205,6 +5340,185 @@ const tsStyles = StyleSheet.create({
   },
 });
 
+// ─── Last Play Bubble ───────────────────────────────────────────────────────
+const LastPlayBubble = ({ allPlays, playersMap, awayTeam, homeTeam, awayColor, homeColor, theme }) => {
+  const lastPlay = useMemo(() => {
+    if (!allPlays?.length) return null;
+    for (let i = allPlays.length - 1; i >= 0; i--) {
+      const p = allPlays[i];
+      if (p?.result?.event) return p;
+    }
+    return null;
+  }, [allPlays]);
+
+  if (!lastPlay) return null;
+
+  const isTop = lastPlay?.about?.isTopInning !== false;
+  const teamColor = isTop ? awayColor : homeColor;
+  const battingAbbr = isTop ? (awayTeam?.abbreviation ?? "") : (homeTeam?.abbreviation ?? "");
+  const inning = lastPlay?.about?.inning;
+  const halfInning = isTop ? "\u25b2" : "\u25bc";
+  const event = lastPlay?.result?.event ?? "";
+  const description = lastPlay?.result?.description ?? "";
+  const isScoringPlay = lastPlay?.about?.isScoringPlay === true;
+  const awayScoreVal = lastPlay?.result?.awayScore;
+  const homeScoreVal = lastPlay?.result?.homeScore;
+  const batterId = lastPlay?.matchup?.batter?.id;
+  const pitcherId = lastPlay?.matchup?.pitcher?.id;
+  const batterInfo = resolvePlayer(playersMap, batterId);
+  const pitcherInfo = resolvePlayer(playersMap, pitcherId);
+
+  return (
+    <View style={[lpStyles.bubble, { backgroundColor: theme.surface, borderColor: teamColor }]}>
+      <View style={[lpStyles.header, { borderBottomColor: theme.border, backgroundColor: teamColor + "18" }]}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={[lpStyles.teamBadge, { backgroundColor: teamColor }]}>
+            <Text style={lpStyles.teamBadgeText}>{battingAbbr}</Text>
+          </View>
+          <Text style={[lpStyles.inningLabel, { color: theme.text }]}>
+            {halfInning}{inning ? ` ${toOrdinal(inning)}` : ""}
+          </Text>
+          {isScoringPlay && (
+            <View style={[lpStyles.scoringBadge, { backgroundColor: teamColor + "22", borderColor: teamColor }]}>
+              <Text style={[lpStyles.scoringBadgeText, { color: teamColor }]}>SCORING PLAY</Text>
+            </View>
+          )}
+        </View>
+        {awayScoreVal != null && homeScoreVal != null && (
+          <Text style={[lpStyles.scoreText, { color: theme.textSecondary }]}>
+            {awayTeam?.abbreviation ?? ""} {awayScoreVal} - {homeScoreVal} {homeTeam?.abbreviation ?? ""}
+          </Text>
+        )}
+      </View>
+      <View style={lpStyles.body}>
+        <Text style={[lpStyles.eventText, { color: teamColor }]}>{event}</Text>
+        {!!description && (
+          <Text style={[lpStyles.descText, { color: theme.textSecondary }]} numberOfLines={4}>{description}</Text>
+        )}
+        {(batterInfo || pitcherInfo) && (
+          <View style={[lpStyles.matchupRow, { borderTopColor: theme.border }]}>
+            {batterInfo ? (
+              <View style={lpStyles.matchupSide}>
+                <Image
+                  source={{ uri: playerHeadshotUrl(batterId) }}
+                  style={[lpStyles.matchupHeadshot, { borderColor: teamColor }]}
+                />
+                <View>
+                  <Text style={[lpStyles.matchupName, { color: theme.text }]} numberOfLines={1}>{batterInfo.fullName}</Text>
+                  <Text style={[lpStyles.matchupRole, { color: theme.textSecondary }]}>Batter</Text>
+                </View>
+              </View>
+            ) : <View style={{ flex: 1 }} />}
+            {pitcherInfo ? (
+              <View style={[lpStyles.matchupSide, { justifyContent: "flex-end" }]}>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={[lpStyles.matchupName, { color: theme.text }]} numberOfLines={1}>{pitcherInfo.fullName}</Text>
+                  <Text style={[lpStyles.matchupRole, { color: theme.textSecondary }]}>Pitcher</Text>
+                </View>
+                <Image
+                  source={{ uri: playerHeadshotUrl(pitcherId) }}
+                  style={[lpStyles.matchupHeadshot, { borderColor: isTop ? homeColor : awayColor }]}
+                />
+              </View>
+            ) : null}
+          </View>
+        )}
+      </View>
+    </View>
+  );
+};
+
+const lpStyles = StyleSheet.create({
+  bubble: {
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1.5,
+    marginBottom: 12,
+  },
+  header: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  teamBadge: {
+    borderRadius: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  teamBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: 0.4,
+  },
+  inningLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  scoringBadge: {
+    borderRadius: 4,
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  scoringBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  scoreText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  body: {
+    padding: 14,
+  },
+  eventText: {
+    fontSize: 16,
+    fontWeight: "800",
+    marginBottom: 5,
+  },
+  descText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  matchupRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  matchupSide: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  matchupHeadshot: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 2,
+    backgroundColor: "rgba(128,128,128,0.1)",
+  },
+  matchupName: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  matchupRole: {
+    fontSize: 10,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginTop: 1,
+  },
+});
+
 // ─── Current At-Bat Bubble ───────────────────────────────────────────────────
 const ORDINAL = (n) => {
   if (n === 1) return "1st";
@@ -5730,7 +6044,7 @@ const cabStyles = StyleSheet.create({
   },
   basesMiddleRow: {
     flexDirection: "row",
-    gap: 16,
+    gap: 30,
   },
   zoneWrap: {
     borderTopWidth: 1,
@@ -6130,12 +6444,12 @@ const GameDetailsScreen = ({ navigation, route }) => {
     codedGameState,
   );
   const homeWinner =
-    isFinished &&
+    isGameFinished &&
     homeScore != null &&
     awayScore != null &&
     homeScore > awayScore;
   const awayWinner =
-    isFinished &&
+    isGameFinished &&
     homeScore != null &&
     awayScore != null &&
     awayScore > homeScore;
@@ -6444,7 +6758,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
   const openStreamModal = async () => {
     const unlock = isStreamingUnlocked
       ? true
-      : gameData?.game?.type === "S"
+      : gameData?.game?.type !== "R"
         ? true
         : false;
 
@@ -6921,6 +7235,15 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   onPlayerPress={(info) => setCabSelectedPlayer(info)}
                   theme={theme}
                 />
+                <LastPlayBubble
+                  allPlays={allPlays}
+                  playersMap={playersMap}
+                  awayTeam={awayTeam}
+                  homeTeam={homeTeam}
+                  awayColor={awayColor}
+                  homeColor={homeColor}
+                  theme={theme}
+                />
                 <TeamStatsBubble
                   awayTeam={awayTeam}
                   homeTeam={homeTeam}
@@ -6954,6 +7277,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
             bsTeamData={bsAwayTeam}
             playersMap={playersMap}
             theme={theme}
+            colors={colors}
             teamColor={awayColor}
             team={awayTeam}
             boxscore={boxscore}
@@ -6964,6 +7288,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
             homeScore={homeScore}
             isScheduled={isScheduled}
             isFinished={isFinished}
+            gameDateTime={gameDateTime}
           />
         )}
 
@@ -6972,6 +7297,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
             bsTeamData={bsHomeTeam}
             playersMap={playersMap}
             theme={theme}
+            colors={colors}
             teamColor={homeColor}
             team={homeTeam}
             boxscore={boxscore}
@@ -6982,6 +7308,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
             homeScore={homeScore}
             isScheduled={isScheduled}
             isFinished={isFinished}
+            gameDateTime={gameDateTime}
           />
         )}
 
@@ -6995,6 +7322,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
             playersMap={playersMap}
             boxscore={boxscore}
             theme={theme}
+            colors={colors}
           />
         )}
 
@@ -7002,7 +7330,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
       </Animated.ScrollView>
 
       {/* ── Stream Modal ───────────────────────────────────────────────── */}
-      {(isStreamingUnlocked || gameData?.game?.type === "S") && (
+      {(isStreamingUnlocked || gameData?.game?.type !== "R") && (
         <Modal
           animationType="fade"
           transparent={true}
@@ -7128,15 +7456,55 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   <WebView
                     source={{ uri: streamUrl }}
                     style={styles.webView}
-                    onLoadStart={() => setIsStreamLoading(true)}
-                    onLoadEnd={() => setIsStreamLoading(false)}
-                    onError={() => setIsStreamLoading(false)}
                     javaScriptEnabled={true}
                     domStorageEnabled={true}
+                    startInLoadingState={true}
+                    scalesPageToFit={true}
+                    mixedContentMode="compatibility"
                     allowsInlineMediaPlayback={true}
                     mediaPlaybackRequiresUserAction={false}
-                    userAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                    onLoadStart={() => setIsStreamLoading(true)}
+                    onLoadEnd={() => setIsStreamLoading(false)}
+                    onError={(error) => {
+                      console.error("WBC WebView error:", error);
+                      setIsStreamLoading(false);
+                    }}
+                    userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
+                    injectedJavaScript={`(function(){
+                        function post(obj){
+                          try{ window.ReactNativeWebView.postMessage(JSON.stringify(obj)); }catch(e){}
+                        }
+                        post({type:'instrumentation', event:'init'});
+                        window.addEventListener('load', function(){ post({type:'lifecycle', event:'load', href:location.href}); });
+                        document.addEventListener('DOMContentLoaded', function(){ post({type:'lifecycle', event:'domcontent', href:location.href}); });
+                        try{ const origOpen = window.open; window.open = function(url, target, features){ post({type:'nav', method:'window.open', url:url, target:target}); return null; }; }catch(e){}
+                        function instrumentExistingVideos(){ const videos = document.querySelectorAll('video'); videos.forEach(v=>{ if(!v.__instrumented){ v.__instrumented = true; v.addEventListener('play', ()=>post({type:'video', event:'play', src:v.currentSrc || v.src, href:location.href})); v.addEventListener('pause', ()=>post({type:'video', event:'pause', src:v.currentSrc || v.src, href:location.href})); } }); }
+                        setInterval(instrumentExistingVideos,1000);
+                        true;
+                      })();`}
+                    onMessage={(event) => {
+                      try {
+                        const data = JSON.parse(event.nativeEvent.data);
+                        console.log("WBC WebView instrumentation:", data);
+                      } catch (e) {
+                        console.log(
+                          "WBC WebView message (raw):",
+                          event.nativeEvent.data,
+                        );
+                      }
+                    }}
+                    onNavigationStateChange={(navState) => {
+                      console.log("WBC WebView navigation state change:", {
+                        url: navState.url,
+                        title: navState.title,
+                        loading: navState.loading,
+                      });
+                    }}
                     onShouldStartLoadWithRequest={(request) => {
+                      console.log(
+                        "WBC WebView navigation request:",
+                        request.url,
+                      );
                       if (request.url === streamUrl) return true;
                       const popupKeywords = [
                         "popup",
@@ -7154,11 +7522,18 @@ const GameDetailsScreen = ({ navigation, route }) => {
                       let requestDomain = "";
                       try {
                         requestDomain = new URL(request.url).hostname;
-                      } catch {
-                        return (
+                      } catch (e) {
+                        if (
                           urlLower.startsWith("about:blank") ||
                           urlLower.startsWith("data:")
+                        ) {
+                          return true;
+                        }
+                        console.log(
+                          "WBC WebView: Invalid URL blocked:",
+                          request.url,
                         );
+                        return false;
                       }
                       const sameRootDomain =
                         requestDomain === currentDomain ||
@@ -7166,8 +7541,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
                         currentDomain.endsWith(`.${requestDomain}`);
                       const allowPatterns = [
                         "/embed/",
+                        "/embed-noads/",
                         "/player/",
-                        ".html",
                         ".m3u8",
                         ".mpd",
                         "about:blank",
@@ -7176,9 +7551,21 @@ const GameDetailsScreen = ({ navigation, route }) => {
                       const allowIfEmbed = allowPatterns.some((p) =>
                         urlLower.includes(p),
                       );
-                      if (hasPopupKeywords && !allowIfEmbed) return false;
-                      return sameRootDomain || allowIfEmbed;
+                      if (hasPopupKeywords && !allowIfEmbed) {
+                        console.log(
+                          "WBC WebView: Blocked popup/ad navigation:",
+                          request.url,
+                        );
+                        return false;
+                      }
+                      if (sameRootDomain || allowIfEmbed) return true;
+                      console.log(
+                        "WBC WebView: Blocked cross-domain navigation:",
+                        request.url,
+                      );
+                      return false;
                     }}
+                    onOpenWindow={() => false}
                   />
                 ) : (
                   <View style={styles.noStreamContainer}>
@@ -7216,7 +7603,9 @@ const GameDetailsScreen = ({ navigation, route }) => {
           homeTeam={homeTeam}
           awayScore={awayScore}
           homeScore={homeScore}
+          gameDate={gameDateTime}
           theme={theme}
+          colors={colors}
         />
       )}
     </View>

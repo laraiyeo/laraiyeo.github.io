@@ -94,7 +94,7 @@ const ViewerCounter = ({
   );
 };
 
-const LiveViewerBadge = ({ gameId, style, status = {} }) => {
+const LiveViewerBadge = ({ gameId, style, status = {}, scale = 1 }) => {
   const { theme, colors } = useTheme();
   // Use a read-only subscription that doesn't join the game
   const { viewerCount, peak } = useGamePresenceReadOnly(gameId);
@@ -142,21 +142,27 @@ const LiveViewerBadge = ({ gameId, style, status = {} }) => {
         {
           backgroundColor: theme.surface,
           borderColor: shouldShowPeak ? theme.textSecondary : colors.primary,
-          // Temporary: Make it highly visible for debugging
-          minWidth: 40,
-          minHeight: 20,
+          minWidth: 40 * scale,
+          minHeight: 20 * scale,
+          paddingHorizontal: 8 * scale,
+          paddingVertical: 4 * scale,
+          borderRadius: 12 * scale,
         },
       ]}
     >
       <Ionicons
         name="eye"
-        size={18}
+        size={18 * scale}
         color={shouldShowPeak ? theme.textSecondary : colors.primary}
       />
       <Text
         style={[
           styles.badgeText,
-          { color: shouldShowPeak ? theme.textSecondary : colors.primary },
+          {
+            color: shouldShowPeak ? theme.textSecondary : colors.primary,
+            fontSize: 14 * scale,
+            marginLeft: 4 * scale,
+          },
         ]}
       >
         {formatViewerCount(effectiveCount)}

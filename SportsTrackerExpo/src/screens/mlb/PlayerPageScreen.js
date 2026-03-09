@@ -147,6 +147,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
   const [headshotError, setHeadshotError] = useState(false);
   const [careerExpandedYears, setCareerExpandedYears] = useState({});
   const [careerModal, setCareerModal] = useState(null);
+  const [careerModalGroup, setCareerModalGroup] = useState("hitting");
   const [gameLogPage, setGameLogPage] = useState(0);
   const [splitsModal, setSplitsModal] = useState(null);
   const [vsTeamModal, setVsTeamModal] = useState(null);
@@ -166,7 +167,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
           `https://statsapi.mlb.com/api/v1/people/${playerId}` +
           `?fields=people,id,fullName,firstName,lastName,primaryNumber,birthDate,` +
           `currentAge,birthStateProvince,birthCountry,height,weight,primaryPosition,` +
-          `name,nickName,draftYear,mlbDebutDate,batSide,code,pitchHand,code`;
+          `name,abbreviation,nickName,draftYear,mlbDebutDate,batSide,code,pitchHand,code`;
 
         const peopleResp = await fetch(peopleUrl);
         const peopleData = await peopleResp.json();
@@ -245,6 +246,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
 
   const displayName = player?.fullName ?? routePlayerName ?? "Player";
   const positionName = player?.primaryPosition?.name ?? "";
+  const positionAbbr = player?.primaryPosition?.abbreviation ?? "";
   const jersey = player?.primaryNumber ? `#${player.primaryNumber}` : "";
 
   // Current team: most recent game log entry → most recent yearByYear R split
@@ -1258,10 +1260,22 @@ const PlayerPageScreen = ({ route, navigation }) => {
       return tot;
     };
 
-    // Rankings (only applies to gameType R)
-    const rankSplits =
-      playerStats.stats?.find((s) => s.type?.displayName === "rankingsByYear")
-        ?.splits ?? [];
+    // Rankings (only applies to gameType R) — group-aware for two-way players
+    const hitRankSplits =
+      playerStats.stats?.find(
+        (s) =>
+          s.type?.displayName === "rankingsByYear" &&
+          (!isTwoWayPlayer || s.group?.displayName === "hitting"),
+      )?.splits ?? [];
+    const pitchRankSplits = isTwoWayPlayer
+      ? (playerStats.stats?.find(
+          (s) =>
+            s.type?.displayName === "rankingsByYear" &&
+            s.group?.displayName === "pitching",
+        )?.splits ?? [])
+      : [];
+    // alias for non-two-way usage below
+    const rankSplits = hitRankSplits;
 
     // Career totals — for two-way players gather both hitting and pitching career entries
     const getCareerGroup = (groupName) =>
@@ -1401,7 +1415,9 @@ const PlayerPageScreen = ({ route, navigation }) => {
                     </View>
                   );
                 }
-                const cols = pitchPresent ? PITCH_CAREER_COLS : HIT_CAREER_COLS;
+                // For a regular (non-two-way) pitcher pitchPresent is false but CAREER_COLS
+                // already resolves to PITCH_CAREER_COLS via the isPitcher check above.
+                const cols = pitchPresent ? PITCH_CAREER_COLS : CAREER_COLS;
                 const agg = pitchPresent ? careerPitchAgg : careerTotalAgg;
                 const valColor = pitchPresent ? teamColor : theme.text;
                 return (
@@ -1492,7 +1508,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                         const singleColor = !hit ? teamColor : theme.text;
                         const singleSplit = hit ?? pitch;
                         return (
-                          <View
+                          <TouchableOpacity
                             key={gameType || String(gIdx)}
                             style={[
                               cStyles.gtRow,
@@ -1501,6 +1517,20 @@ const PlayerPageScreen = ({ route, navigation }) => {
                                 borderBottomColor: theme.border,
                               },
                             ]}
+                            onPress={() => {
+                              setCareerModal({
+                                stat: (hit ?? pitch)?.stat ?? {},
+                                hitStat: hit?.stat ?? null,
+                                pitchStat: pitch?.stat ?? null,
+                                gameType: gameType ?? "",
+                                season: "Career",
+                                teamName: "",
+                                rankings: {},
+                                hasBoth: bothPresent,
+                              });
+                              setCareerModalGroup("hitting");
+                            }}
+                            activeOpacity={0.75}
                           >
                             <View style={cStyles.gtBadge}>
                               <Text
@@ -1602,7 +1632,12 @@ const PlayerPageScreen = ({ route, navigation }) => {
                                 ))}
                               </View>
                             )}
-                          </View>
+                            <Text
+                              style={[cStyles.chevron, { color: theme.textSecondary }]}
+                            >
+                              ›
+                            </Text>
+                          </TouchableOpacity>
                         );
                       },
                     );
@@ -2049,7 +2084,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                             const singleColor = !hit ? teamColor : theme.text;
                             const singleSplit = hit ?? pitch;
                             return (
-                              <View
+                              <TouchableOpacity
                                 key={key}
                                 style={[
                                   cStyles.gtRow,
@@ -2058,6 +2093,27 @@ const PlayerPageScreen = ({ route, navigation }) => {
                                     borderBottomColor: theme.border,
                                   },
                                 ]}
+                                onPress={() => {
+                                  setCareerModal({
+                                    stat: (hit ?? pitch)?.stat ?? {},
+                                    hitStat: hit?.stat ?? null,
+                                    pitchStat: pitch?.stat ?? null,
+                                    gameType: gameType ?? "",
+                                    season: yr,
+                                    teamName: team?.name ?? "",
+                                    hitRankings:
+                                      hitRankSplits.find(
+                                        (r) => r.season === yr && r.gameType === "R",
+                                      )?.stat ?? {},
+                                    pitchRankings:
+                                      pitchRankSplits.find(
+                                        (r) => r.season === yr && r.gameType === "R",
+                                      )?.stat ?? {},
+                                    hasBoth: bothPresent,
+                                  });
+                                  setCareerModalGroup("hitting");
+                                }}
+                                activeOpacity={0.75}
                               >
                                 <View
                                   style={[
@@ -2182,7 +2238,12 @@ const PlayerPageScreen = ({ route, navigation }) => {
                                     ))}
                                   </View>
                                 )}
-                              </View>
+                                <Text
+                                  style={[cStyles.chevron, { color: theme.textSecondary }]}
+                                >
+                                  ›
+                                </Text>
+                              </TouchableOpacity>
                             );
                           },
                         );
@@ -2741,7 +2802,8 @@ const PlayerPageScreen = ({ route, navigation }) => {
           style={[
             styles.header,
             {
-              backgroundColor: teamColor,
+              backgroundColor: teamColor + "22",
+              borderBottomColor: teamColor
             },
           ]}
           onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
@@ -2765,7 +2827,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 <Text
                   style={[
                     styles.headerLogoFallbackText,
-                    { color: headerTextColor },
+                    { color: "#fff" },
                   ]}
                 >
                   {(displayName[0] ?? "P").toUpperCase()}
@@ -2777,7 +2839,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
             <View style={styles.headerTextBlock}>
               <Text
                 allowFontScaling={false}
-                style={[styles.headerName, { color: headerTextColor }]}
+                style={[styles.headerName, { color: "#fff" }]}
                 numberOfLines={1}
               >
                 {displayName}
@@ -2788,7 +2850,7 @@ const PlayerPageScreen = ({ route, navigation }) => {
                   allowFontScaling={false}
                   style={[
                     styles.headerLeague,
-                    { color: headerTextColor, opacity: 0.8 },
+                    { color: "#fff", opacity: 0.8 },
                   ]}
                   numberOfLines={1}
                 >
@@ -2796,16 +2858,16 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 </Text>
               ) : null}
 
-              {positionName || jersey ? (
+              {positionName || jersey || positionAbbr ? (
                 <Text
                   allowFontScaling={false}
                   style={[
                     styles.headerDivision,
-                    { color: headerTextColor, opacity: 0.6 },
+                    { color: "#fff", opacity: 0.6 },
                   ]}
                   numberOfLines={1}
                 >
-                  {[positionName, jersey].filter(Boolean).join("  ·  ")}
+                  {[positionName, positionAbbr, jersey].filter(Boolean).join("  ·  ")}
                 </Text>
               ) : null}
             </View>
@@ -3001,69 +3063,121 @@ const PlayerPageScreen = ({ route, navigation }) => {
                 </TouchableOpacity>
               </View>
 
+              {/* Hitting / Pitching toggle — only for two-way career entries */}
+              {careerModal.hasBoth ? (
+                <View
+                  style={[
+                    spStyles.groupToggleRow,
+                    { borderBottomColor: theme.border },
+                  ]}
+                >
+                  {["hitting", "pitching"].map((g) => {
+                    const isSelected = careerModalGroup === g;
+                    return (
+                      <TouchableOpacity
+                        key={g}
+                        onPress={() => setCareerModalGroup(g)}
+                        style={[
+                          spStyles.groupToggleBtn,
+                          isSelected
+                            ? { backgroundColor: teamColor }
+                            : { backgroundColor: theme.background },
+                        ]}
+                        activeOpacity={0.75}
+                      >
+                        <Text
+                          style={[
+                            spStyles.groupToggleText,
+                            {
+                              color: isSelected
+                                ? getTextOnColor(teamColor)
+                                : theme.text,
+                            },
+                          ]}
+                        >
+                          {g.charAt(0).toUpperCase() + g.slice(1)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ) : null}
+
               {/* Stats grid */}
               <ScrollView
                 contentContainerStyle={cStyles.modalContent}
                 showsVerticalScrollIndicator={false}
               >
                 <View style={cStyles.modalChipsGrid}>
-                  {Object.entries(careerModal.stat).map(([key, val]) => {
-                    if (val == null || val === "") return null;
-                    const lbl =
-                      [...HITTING_STAT_DEFS, ...PITCHING_STAT_DEFS].find(
-                        (d) => d.key === key,
-                      )?.label ??
-                      key
-                        .replace(/([A-Z])/g, " $1")
-                        .replace(/^./, (s) => s.toUpperCase());
-                    const rank =
-                      careerModal.gameType === "R"
-                        ? careerModal.rankings?.[key]
-                        : null;
-                    const rankOnColor = getTextOnColor(teamColor);
-                    return (
-                      <View
-                        key={key}
-                        style={[
-                          cStyles.modalChip,
-                          { backgroundColor: theme.background },
-                        ]}
-                      >
-                        {rank != null && (
-                          <View
-                            style={[
-                              cStyles.rankBadge,
-                              { backgroundColor: teamColor },
-                            ]}
-                          >
-                            <Text
-                              allowFontScaling={false}
-                              style={[cStyles.rankText, { color: rankOnColor }]}
-                            >
-                              #{rank}
-                            </Text>
-                          </View>
-                        )}
-                        <Text
-                          allowFontScaling={false}
-                          style={[cStyles.chipValue, { color: theme.text }]}
-                          numberOfLines={1}
-                        >
-                          {String(val)}
-                        </Text>
-                        <Text
-                          allowFontScaling={false}
+                  {(() => {
+                    const activeStat = careerModal.hasBoth
+                      ? careerModalGroup === "pitching"
+                        ? (careerModal.pitchStat ?? {})
+                        : (careerModal.hitStat ?? {})
+                      : (careerModal.stat ?? {});
+                    return Object.entries(activeStat).map(([key, val]) => {
+                      if (val == null || val === "") return null;
+                      const lbl =
+                        [...HITTING_STAT_DEFS, ...PITCHING_STAT_DEFS].find(
+                          (d) => d.key === key,
+                        )?.label ??
+                        key
+                          .replace(/([A-Z])/g, " $1")
+                          .replace(/^./, (s) => s.toUpperCase());
+                      const activeRankings = careerModal.hasBoth
+                        ? (careerModalGroup === "pitching"
+                            ? careerModal.pitchRankings
+                            : careerModal.hitRankings)
+                        : (careerModal.rankings ?? {});
+                      const rank =
+                        careerModal.gameType === "R"
+                          ? activeRankings?.[key]
+                          : null;
+                      const rankOnColor = getTextOnColor(teamColor);
+                      return (
+                        <View
+                          key={key}
                           style={[
-                            cStyles.chipLabel,
-                            { color: theme.textSecondary },
+                            cStyles.modalChip,
+                            { backgroundColor: theme.background },
                           ]}
-                          numberOfLines={1}
                         >
-                          {lbl}
-                        </Text>
-                      </View>
-                    );
-                  })}
+                          {rank != null && (
+                            <View
+                              style={[
+                                cStyles.rankBadge,
+                                { backgroundColor: teamColor },
+                              ]}
+                            >
+                              <Text
+                                allowFontScaling={false}
+                                style={[cStyles.rankText, { color: rankOnColor }]}
+                              >
+                                #{rank}
+                              </Text>
+                            </View>
+                          )}
+                          <Text
+                            allowFontScaling={false}
+                            style={[cStyles.chipValue, { color: theme.text }]}
+                            numberOfLines={1}
+                          >
+                            {String(val)}
+                          </Text>
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              cStyles.chipLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {lbl}
+                          </Text>
+                        </View>
+                      );
+                    });
+                  })()}
                 </View>
               </ScrollView>
             </Pressable>
@@ -3548,6 +3662,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingHorizontal: 16,
     paddingBottom: 16,
+    borderBottomWidth: 2,
   },
   headerMain: {
     flexDirection: "row",

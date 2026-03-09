@@ -570,6 +570,13 @@ export class MLBService {
     return this.getLogoUrl(name, null, isDarkMode ? "dark" : "light");
   }
 
+  // Get team abbreviation by MLB team ID
+  static getTeamAbbrById(teamId) {
+    const name = this.teamIdMap[Number(teamId)];
+    if (!name) return "";
+    return this.teamAbbrMap[name] || "";
+  }
+
   // Fetch full aggregated team data from /bb/team/:teamId
   static async getTeam(teamId) {
     const url = `${this.BASE_BACKEND}/bb/team/${encodeURIComponent(String(teamId))}`;

@@ -7247,14 +7247,17 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                 ref={goalShareCardRef}
                 options={{
                   format: "png",
-                  quality: 2.0,
+                  quality: 1,
                 }}
-                style={{ width: 320 }}
+                style={{ overflow: "hidden" }}
               >
                 <View
                   style={[
                     styles.goalShareCard,
-                    { backgroundColor: theme.surface, width: 320 },
+                    {
+                      backgroundColor: theme.surface,
+                      width: Math.min(width - 48, 540),
+                    },
                   ]}
                 >
                   {shareCardPlay &&
@@ -7344,7 +7347,13 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                       let scoringTeamSide = "";
                       let teamAbbr = "";
 
-                      const isOwnGoal = play.type?.id === "97" || "";
+                      const isOwnGoal =
+                        play.ownGoal ||
+                        play.text?.toLowerCase().includes("own goal") ||
+                        play.shortText?.toLowerCase().includes("own goal") ||
+                        play.type?.name?.toLowerCase().includes("own goal") ||
+                        play.type?.id === "97" ||
+                        play.type?.id === 97;
 
                       console.log("Trying to match team IDs:", {
                         playTeamId,
@@ -7483,6 +7492,34 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                         : `#${teamColor}`;
                       const textColor = getContrastColor(finalTeamColor);
 
+                      // For own goals the circle + team row shows the OWN GOALER's team
+                      // (the team that conceded), not the team that received the goal.
+                      const ownGoalerTeamData = isOwnGoal
+                        ? scoringTeamSide === "home"
+                          ? awayTeamData
+                          : homeTeamData
+                        : null;
+                      let playerCircleColor = finalTeamColor;
+                      if (isOwnGoal && ownGoalerTeamData) {
+                        const ogRaw =
+                          FIFAWorldServiceEnhanced.getTeamColorWithAlternateLogic(
+                            ownGoalerTeamData?.team || ownGoalerTeamData,
+                          ) ||
+                          ownGoalerTeamData.color ||
+                          ownGoalerTeamData.alternateColor ||
+                          ownGoalerTeamData.team?.color ||
+                          ownGoalerTeamData.team?.alternateColor ||
+                          "#888888";
+                        playerCircleColor = ogRaw.startsWith("#")
+                          ? ogRaw
+                          : `#${ogRaw}`;
+                      }
+                      const playerCircleTextColor =
+                        getContrastColor(playerCircleColor);
+                      const playerCircleTeam = isOwnGoal
+                        ? ownGoalerTeamData
+                        : scoringTeam;
+
                       // Get scorer and assister info from state (fetched via useEffect)
                       const scorerName =
                         shareCardPlayerNames.scorer || "Loading...";
@@ -7554,353 +7591,424 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                       const playerStats = shareCardPlayerStats;
                       console.log("Using player stats from API:", playerStats);
 
+                      // Helper: get first + last initials from a player name
+                      const getInitials = (name) => {
+                        if (!name || name === "Loading...") return "?";
+                        const parts = name.split(" ").filter(Boolean);
+                        if (parts.length === 0) return "?";
+                        if (parts.length === 1)
+                          return parts[0][0].toUpperCase();
+                        return (
+                          parts[0][0] + parts[parts.length - 1][0]
+                        ).toUpperCase();
+                      };
+
+                      const sgcStatItems = [
+                        {
+                          label: isOwnGoal ? "OG" : "G",
+                          value: isOwnGoal
+                            ? playerStats.ownGoals
+                            : playerStats.goals,
+                        },
+                        { label: "A", value: playerStats.assists },
+                        { label: "SH", value: playerStats.shots },
+                        { label: "SOT", value: playerStats.shotsOnTarget },
+                        { label: "YC", value: playerStats.yellowCards },
+                        { label: "RC", value: playerStats.redCards },
+                      ];
+
+                      const CARD_SIZE = Math.min(width - 48, 540);
+
+                      // ── Field scaling ───────────────────────────────────────
+                      // 0.41 matches the old hardcoded 130/320 = 40.6% ratio.
+                      // -12 leaves ~6px padding each side of the portrait field.
+                      const FIELD_LEFT_PANEL_W = Math.round(CARD_SIZE * 0.41);
+                      const FIELD_SCALE = (FIELD_LEFT_PANEL_W - 12) / 120;
+                      const FIELD_MARG_H = (120 * FIELD_SCALE - 180) / 2;
+                      const FIELD_MARG_V = (180 * FIELD_SCALE - 120) / 2;
+
+                      console.log(
+                        "[ShareCard] width:",
+                        width,
+                        "| CARD_SIZE:",
+                        CARD_SIZE,
+                        "| FIELD_LEFT_PANEL_W:",
+                        FIELD_LEFT_PANEL_W,
+                        "| FIELD_SCALE:",
+                        FIELD_SCALE.toFixed(3),
+                        "| FIELD_MARG_H:",
+                        FIELD_MARG_H.toFixed(1),
+                        "| FIELD_MARG_V:",
+                        FIELD_MARG_V.toFixed(1),
+                      );
+
                       return (
                         <View
                           style={[
-                            styles.goalCardContent,
-                            { backgroundColor: finalTeamColor },
+                            styles.goalShareCard,
+                            {
+                              backgroundColor: theme.surface,
+                              width: CARD_SIZE,
+                            },
                           ]}
                         >
-                          {/* Header: Team logo + Goal text + Close button */}
-                          <View style={styles.goalCardHeader}>
-                            <View style={styles.goalCardHeaderLeft}>
-                              <TeamLogoImage
-                                teamId={
-                                  scoringTeam?.id || scoringTeam?.team?.id
-                                }
-                                style={styles.goalCardTeamLogo}
-                                isDarkMode={textColor === "#000" ? false : true} // Always use dark logos on dark background
-                              />
-                              <View style={styles.goalCardHeaderText}>
+                          {/* ── Header: time + score + goal event + description ── */}
+                          <View
+                            style={{
+                              backgroundColor: finalTeamColor + "33",
+                              borderBottomWidth: 2,
+                              borderBottomColor: finalTeamColor,
+                              paddingHorizontal: 14,
+                              paddingTop: 12,
+                              paddingBottom: 10,
+                            }}
+                          >
+                            {/* Row 1: time/half on left, score on right */}
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginBottom: 4,
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: "800",
+                                  textTransform: "uppercase",
+                                  letterSpacing: 0.6,
+                                  color: theme.text,
+                                }}
+                              >
+                                {clock ? `${clock} • ` : ""}
+                                {periodText}
+                              </Text>
+                              {/* Score with team logos */}
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  gap: 5,
+                                }}
+                              >
+                                <TeamLogoImage
+                                  teamId={
+                                    homeTeamData?.id || homeTeamData?.team?.id
+                                  }
+                                  style={{ width: 18, height: 18 }}
+                                  isDarkMode={isDarkMode}
+                                />
                                 <Text
-                                  style={[
-                                    styles.goalCardGoalText,
-                                    { color: textColor },
-                                  ]}
+                                  style={{
+                                    fontSize: 13,
+                                    fontWeight: "700",
+                                    color: theme.text,
+                                  }}
                                 >
-                                  ⚽ {isOwnGoal ? "Own Goal" : "Goal"}
-                                  {goalSituation ? ` • ${goalSituation}` : ""}
+                                  <Text
+                                    style={{
+                                      fontWeight:
+                                        awayScore < homeScore ? "800" : "400",
+                                    }}
+                                  >
+                                    {homeScore}
+                                  </Text>{" "}
+                                  <Text>-</Text>{" "}
+                                  <Text
+                                    style={{
+                                      fontWeight:
+                                        homeScore < awayScore ? "800" : "400",
+                                    }}
+                                  >
+                                    {awayScore}
+                                  </Text>
                                 </Text>
-                                <Text
-                                  style={[
-                                    styles.goalCardTime,
-                                    { color: textColor },
-                                  ]}
-                                >
-                                  {clock} • {periodText}
-                                </Text>
+                                <TeamLogoImage
+                                  teamId={
+                                    awayTeamData?.id || awayTeamData?.team?.id
+                                  }
+                                  style={{ width: 18, height: 18 }}
+                                  isDarkMode={isDarkMode}
+                                />
                               </View>
                             </View>
-                          </View>
-
-                          {/* Mini field - centered */}
-                          <View style={styles.goalCardFieldContainer}>
-                            {play.fieldPositionX !== undefined &&
-                            play.fieldPositionY !== undefined ? (
-                              renderMiniField(
-                                {
-                                  x: play.fieldPositionX,
-                                  y: play.fieldPositionY,
-                                },
-                                play.fieldPosition2X !== undefined &&
-                                  play.fieldPosition2Y !== undefined
-                                  ? {
-                                      x: play.fieldPosition2X,
-                                      y: play.fieldPosition2Y,
-                                    }
-                                  : null,
-                                "goal",
-                                scoringTeamSide,
-                                finalTeamColor,
-                              )
-                            ) : (
-                              // Default field with goal marker
-                              <View style={styles.goalCardMiniField}>
-                                <View
-                                  style={[
-                                    styles.miniFieldBackground,
-                                    { backgroundColor: "#4a5c3a" },
-                                  ]}
-                                >
-                                  <View style={styles.miniFieldLines}>
-                                    <View style={styles.miniFieldBorder} />
-                                    <View style={styles.miniFieldCenterLine} />
-                                    <View
-                                      style={styles.miniFieldCenterCircle}
-                                    />
-                                    <View
-                                      style={[
-                                        styles.miniFieldGoalBox,
-                                        styles.miniFieldGoalBoxLeft,
-                                      ]}
-                                    />
-                                    <View
-                                      style={[
-                                        styles.miniFieldGoalBox,
-                                        styles.miniFieldGoalBoxRight,
-                                      ]}
-                                    />
-                                    <View
-                                      style={[
-                                        styles.miniFieldGoal,
-                                        styles.miniFieldGoalLeft,
-                                      ]}
-                                    />
-                                    <View
-                                      style={[
-                                        styles.miniFieldGoal,
-                                        styles.miniFieldGoalRight,
-                                      ]}
-                                    />
-
-                                    {/* Goal marker */}
-                                    <View
-                                      style={[
-                                        styles.goalMarker,
-                                        scoringTeamSide === "home"
-                                          ? { right: 8, top: "45%" }
-                                          : { left: 8, top: "45%" },
-                                      ]}
-                                    >
-                                      <View
-                                        style={[
-                                          styles.goalMarkerDot,
-                                          { backgroundColor: textColor },
-                                        ]}
-                                      />
-                                    </View>
-                                  </View>
-                                </View>
-                              </View>
-                            )}
-                          </View>
-
-                          {/* Scorer name and team */}
-                          <View style={styles.goalCardScorer}>
+                            {/* Goal situation */}
                             <Text
-                              style={[
-                                styles.goalCardScorerName,
-                                { color: textColor },
-                              ]}
+                              style={{
+                                fontSize: 17,
+                                fontWeight: "800",
+                                color: theme.text,
+                                marginBottom: 3,
+                              }}
                             >
-                              {scorerName} - {teamAbbr}
+                              ⚽ {goalType}
+                              {goalSituation ? ` • ${goalSituation}` : ""}
                             </Text>
-                            {assisterName && (
+                            {/* Description */}
+                            {!!playText && (
                               <Text
-                                style={[
-                                  styles.goalCardAssist,
-                                  { color: textColor },
-                                ]}
+                                style={{
+                                  fontSize: 12,
+                                  color: theme.textSecondary,
+                                  lineHeight: 16,
+                                }}
+                                numberOfLines={2}
                               >
-                                Assist: {assisterName}
+                                {playText}
                               </Text>
                             )}
                           </View>
 
-                          {/* Score line with team logos */}
-                          <View style={styles.goalCardScoreLine}>
-                            <View style={styles.goalCardScoreTeams}>
-                              <TeamLogoImage
-                                teamId={
-                                  homeTeamData?.id || homeTeamData?.team?.id
-                                }
-                                style={styles.goalCardScoreLogoSmall}
-                                isDarkMode={textColor === "#000" ? false : true}
-                              />
-                              <Text
-                                style={[
-                                  styles.goalCardScoreText,
-                                  { color: textColor },
-                                ]}
+                          {/* ── Body: left = vertical field, right = player info ── */}
+                          <View style={{ flexDirection: "row" }}>
+                            {/* Left – vertical soccer field (width scales with card) */}
+                            <View
+                              style={{
+                                width: 150 * FIELD_SCALE,
+                                height: 200 * FIELD_SCALE,
+                                justifyContent: "center",
+                                alignItems: "center",
+                                borderRightWidth: StyleSheet.hairlineWidth,
+                                borderRightColor: theme.border,
+                                paddingVertical: 12,
+                              }}
+                              onLayout={(e) =>
+                                console.log(
+                                  "[ShareCard] left panel actual width:",
+                                  e.nativeEvent.layout.width,
+                                  "expected:",
+                                  FIELD_LEFT_PANEL_W,
+                                )
+                              }
+                            >
+                              {/*
+                                The field (180×120 landscape) is rotated 90° + scaled.
+                                Margins are computed from the scaled visual size so
+                                the layout box matches the visual portrait dimensions.
+                              */}
+                              <View
+                                style={{
+                                  width: 180,
+                                  height: 120,
+                                  transform: [
+                                    { rotate: "90deg" },
+                                    { scale: FIELD_SCALE },
+                                  ],
+                                  justifyContent: "center",
+                                  alignItems: "center",
+                                }}
                               >
-                                {homeScore} - {awayScore}
-                              </Text>
-                              <TeamLogoImage
-                                teamId={
-                                  awayTeamData?.id || awayTeamData?.team?.id
-                                }
-                                style={styles.goalCardScoreLogoSmall}
-                                isDarkMode={textColor === "#000" ? false : true}
-                              />
+                                {play.fieldPositionX !== undefined &&
+                                play.fieldPositionY !== undefined
+                                  ? renderMiniField(
+                                      {
+                                        x: play.fieldPositionX,
+                                        y: play.fieldPositionY,
+                                      },
+                                      play.fieldPosition2X !== undefined &&
+                                        play.fieldPosition2Y !== undefined
+                                        ? {
+                                            x: play.fieldPosition2X,
+                                            y: play.fieldPosition2Y,
+                                          }
+                                        : null,
+                                      "goal",
+                                      scoringTeamSide,
+                                      playerCircleColor,
+                                    )
+                                  : renderMiniField(
+                                      null,
+                                      null,
+                                      "goal",
+                                      scoringTeamSide,
+                                      playerCircleColor,
+                                    )}
+                              </View>
                             </View>
 
+                            {/* Right – player avatar + info + stats */}
                             <View
-                              style={[
-                                styles.goalCardBadge,
-                                { backgroundColor: "rgba(0,0,0,0.2)" },
-                              ]}
+                              style={{
+                                flex: 1,
+                                paddingHorizontal: 12,
+                                paddingVertical: 12,
+                                justifyContent: "center",
+                                alignItems: "center",
+                              }}
                             >
-                              <Text
-                                style={[
-                                  styles.goalCardBadgeText,
-                                  { color: textColor },
-                                ]}
+                              {/* Initial circle — for own goals uses the OWN GOALER's team color */}
+                              <View
+                                style={{
+                                  width: 54,
+                                  height: 54,
+                                  borderRadius: 27,
+                                  backgroundColor: playerCircleColor,
+                                  justifyContent: "center",
+                                  alignItems: "center",
+                                  borderWidth: 2,
+                                  borderColor: theme.border,
+                                  marginBottom: 5,
+                                }}
                               >
-                                {isOwnGoal ? "Own Goal" : "Goal"}
+                                <Text
+                                  style={{
+                                    color: playerCircleTextColor,
+                                    fontSize: 22.5,
+                                    fontWeight: "800",
+                                  }}
+                                >
+                                  {getInitials(scorerName)}
+                                </Text>
+                              </View>
+
+                              {/* Player name */}
+                              <Text
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: "700",
+                                  color: theme.text,
+                                  textAlign: "center",
+                                  marginBottom: 3,
+                                }}
+                                numberOfLines={1}
+                              >
+                                {scorerName}
                               </Text>
+
+                              {/* Team name with logo — for own goals shows the OWN GOALER's team */}
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  marginBottom: assisterName ? 6 : 8,
+                                }}
+                              >
+                                <TeamLogoImage
+                                  teamId={
+                                    playerCircleTeam?.id ||
+                                    playerCircleTeam?.team?.id
+                                  }
+                                  style={{ width: 14, height: 14 }}
+                                  isDarkMode={isDarkMode}
+                                />
+                                <Text
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: "600",
+                                    color: theme.textSecondary,
+                                    textAlign: "center",
+                                  }}
+                                  numberOfLines={2}
+                                >
+                                  {playerCircleTeam?.name ||
+                                    playerCircleTeam?.team?.name ||
+                                    teamAbbr}
+                                </Text>
+                              </View>
+
+                              {/* Assister (if present) */}
+                              {!!assisterName && (
+                                <View
+                                  style={{
+                                    alignItems: "center",
+                                    marginBottom: 8,
+                                  }}
+                                >
+                                  <Text
+                                    style={{
+                                      fontSize: 12,
+                                      fontWeight: "700",
+                                      color: theme.text,
+                                      textAlign: "center",
+                                    }}
+                                    numberOfLines={1}
+                                  >
+                                    {assisterName}
+                                  </Text>
+                                  <Text
+                                    style={{
+                                      fontSize: 9,
+                                      fontWeight: "700",
+                                      textTransform: "uppercase",
+                                      letterSpacing: 0.4,
+                                      color: theme.textSecondary,
+                                    }}
+                                  >
+                                    Assist
+                                  </Text>
+                                </View>
+                              )}
+
+                              {/* 6-stat grid (3 columns × 2 rows) */}
+                              <View
+                                style={{
+                                  flexDirection: "row",
+                                  flexWrap: "wrap",
+                                  justifyContent: "center",
+                                  width: "100%",
+                                  marginTop: 2,
+                                }}
+                              >
+                                {sgcStatItems.map(({ label, value }) => (
+                                  <View
+                                    key={label}
+                                    style={{
+                                      width: "33.333%",
+                                      alignItems: "center",
+                                      paddingVertical: 6,
+                                    }}
+                                  >
+                                    <Text
+                                      style={{
+                                        fontSize: 15,
+                                        fontWeight: "800",
+                                        color: theme.text,
+                                      }}
+                                    >
+                                      {value ?? "—"}
+                                    </Text>
+                                    <Text
+                                      style={{
+                                        fontSize: 9,
+                                        fontWeight: "600",
+                                        textTransform: "uppercase",
+                                        letterSpacing: 0.4,
+                                        color: theme.textSecondary,
+                                        marginTop: 2,
+                                      }}
+                                    >
+                                      {label}
+                                    </Text>
+                                  </View>
+                                ))}
+                              </View>
                             </View>
                           </View>
 
-                          {/* Player stats grid - exactly like web */}
-                          <View style={styles.goalCardStatsGrid}>
-                            <View
-                              style={[
-                                styles.goalCardStatItem,
-                                { backgroundColor: "rgba(0,0,0,0.2)" },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.goalCardStatValue,
-                                  { color: textColor },
-                                ]}
-                              >
-                                {isOwnGoal
-                                  ? playerStats.ownGoals
-                                  : playerStats.goals}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.goalCardStatLabel,
-                                  { color: textColor },
-                                ]}
-                              >
-                                {isOwnGoal ? "Own Goals" : "Goals"}
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.goalCardStatItem,
-                                { backgroundColor: "rgba(0,0,0,0.2)" },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.goalCardStatValue,
-                                  { color: textColor },
-                                ]}
-                              >
-                                {playerStats.assists}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.goalCardStatLabel,
-                                  { color: textColor },
-                                ]}
-                              >
-                                Assists
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.goalCardStatItem,
-                                { backgroundColor: "rgba(0,0,0,0.2)" },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.goalCardStatValue,
-                                  { color: textColor },
-                                ]}
-                              >
-                                {playerStats.shots}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.goalCardStatLabel,
-                                  { color: textColor },
-                                ]}
-                              >
-                                Shots
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.goalCardStatItem,
-                                { backgroundColor: "rgba(0,0,0,0.2)" },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.goalCardStatValue,
-                                  { color: textColor },
-                                ]}
-                              >
-                                {playerStats.shotsOnTarget}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.goalCardStatLabel,
-                                  { color: textColor },
-                                ]}
-                              >
-                                SOT
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.goalCardStatItem,
-                                { backgroundColor: "rgba(0,0,0,0.2)" },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.goalCardStatValue,
-                                  { color: textColor },
-                                ]}
-                              >
-                                {playerStats.yellowCards}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.goalCardStatLabel,
-                                  { color: textColor },
-                                ]}
-                              >
-                                YC
-                              </Text>
-                            </View>
-                            <View
-                              style={[
-                                styles.goalCardStatItem,
-                                { backgroundColor: "rgba(0,0,0,0.2)" },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.goalCardStatValue,
-                                  { color: textColor },
-                                ]}
-                              >
-                                {playerStats.redCards}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.goalCardStatLabel,
-                                  { color: textColor },
-                                ]}
-                              >
-                                RC
-                              </Text>
-                            </View>
-                          </View>
-                          {/* Footer inside the card */}
-                          <View style={styles.shareCardFooter}>
+                          {/* ── Branding footer ── */}
+                          <View
+                            style={{
+                              borderTopWidth: StyleSheet.hairlineWidth,
+                              borderTopColor: theme.border,
+                              paddingVertical: 6,
+                              paddingHorizontal: 12,
+                              alignItems: "flex-end",
+                            }}
+                          >
                             <Text
-                              style={[
-                                styles.shareCardFooterText,
-                                {
-                                  color: textColor,
-                                  textShadowColor: "rgba(0, 0, 0, 0.8)",
-                                  textShadowOffset: { width: 1, height: 1 },
-                                  textShadowRadius: 5,
-                                },
-                              ]}
+                              style={{
+                                fontSize: 9,
+                                fontWeight: "800",
+                                letterSpacing: 0.5,
+                                color: theme.text,
+                              }}
                             >
                               SportsHeart{" "}
                               <Ionicons
                                 name="heart"
-                                size={18}
+                                size={10}
                                 color={colors.primary}
                               />
                             </Text>
@@ -9299,14 +9407,12 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   goalShareCard: {
-    borderRadius: 0,
     overflow: "hidden",
-    width: 320,
   },
   goalCardContent: {
     padding: 20,
     borderRadius: 0,
-    minHeight: 400, // Increased to prevent cutoff
+    minHeight: 400,
   },
   goalShareCardActions: {
     flexDirection: "row",

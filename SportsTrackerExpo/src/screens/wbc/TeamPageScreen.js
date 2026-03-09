@@ -230,6 +230,7 @@ const RosterPlayerRow = ({ player, teamColor, theme }) => {
     ([, v]) => v?.value != null,
   );
   const rankTextColor = getTextOnColor(teamColor);
+  const statusColor = player.status?.description === "Active" ? theme.success : theme.error;
 
   return (
     <View style={[rStyles.playerBubble, { backgroundColor: theme.surface }]}>
@@ -273,7 +274,7 @@ const RosterPlayerRow = ({ player, teamColor, theme }) => {
           allowFontScaling={false}
           style={[
             rStyles.statusText,
-            { color: theme.textTertiary ?? theme.textSecondary },
+            { color: statusColor },
           ]}
           numberOfLines={2}
         >
@@ -406,6 +407,28 @@ const rStyles = StyleSheet.create({
   chipLabel: { fontSize: 10, fontWeight: "500", textAlign: "center" },
   noStats: { paddingHorizontal: 16, paddingBottom: 14, paddingTop: 6 },
   noStatsText: { fontSize: 13 },
+  posSection: {},
+  posSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: 12,
+    marginTop: 14,
+    marginBottom: 2,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  posSectionTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  posSectionCount: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
 });
 
 // ─── Team tab (standings + coaches) ────────────────────────────────────────────
@@ -1372,15 +1395,66 @@ const TeamPageScreen = ({ route, navigation }) => {
                   </View>
                 );
               }
+              const getPosGroup = (abbr) => {
+                if (!abbr) return "Other";
+                if (abbr === "P" || abbr === "SP" || abbr === "RP") return "Pitcher";
+                if (abbr === "C") return "Catcher";
+                if (["1B","2B","3B","SS","IF"].includes(abbr)) return "Infielder";
+                if (["LF","CF","RF","OF"].includes(abbr)) return "Outfielder";
+                if (abbr === "DH") return "Designated Hitter";
+                if (abbr === "TWP") return "Two-Way Player";
+                return "Other";
+              };
+              const POSITION_ORDER = ["Catcher", "Infielder", "Outfielder", "Designated Hitter", "Two-Way Player", "Pitcher", "Other"];
+              const groups = {};
+              for (const player of roster) {
+                const grp = getPosGroup(player.position?.abbreviation);
+                if (!groups[grp]) groups[grp] = [];
+                groups[grp].push(player);
+              }
+              const sortedKeys = Object.keys(groups).sort((a, b) => {
+                if (a === "Pitcher") return 1;
+                if (b === "Pitcher") return -1;
+                const ai = POSITION_ORDER.indexOf(a);
+                const bi = POSITION_ORDER.indexOf(b);
+                return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+              });
+              const posLabel = (grp) => {
+                if (grp === "Pitcher") return "Pitchers";
+                if (grp === "Catcher") return "Catchers";
+                if (grp === "Infielder") return "Infielders";
+                if (grp === "Outfielder") return "Outfielders";
+                if (grp === "Designated Hitter") return "Designated Hitters";
+                if (grp === "Two-Way Player") return "Two-Way Players";
+                return grp;
+              };
               return (
                 <View style={{ paddingBottom: 24 }}>
-                  {roster.map((player, idx) => (
-                    <RosterPlayerRow
-                      key={player.person?.id ?? idx}
-                      player={player}
-                      teamColor={teamColor}
-                      theme={theme}
-                    />
+                  {sortedKeys.map((posType) => (
+                    <View key={posType} style={rStyles.posSection}>
+                      <View style={[rStyles.posSectionHeader, { backgroundColor: teamColor + "22" }]}>
+                        <Text
+                          allowFontScaling={false}
+                          style={[rStyles.posSectionTitle, { color: teamColor }]}
+                        >
+                          {posLabel(posType)}
+                        </Text>
+                        <Text
+                          allowFontScaling={false}
+                          style={[rStyles.posSectionCount, { color: teamColor }]}
+                        >
+                          {groups[posType].length}
+                        </Text>
+                      </View>
+                      {groups[posType].map((player, idx) => (
+                        <RosterPlayerRow
+                          key={player.person?.id ?? idx}
+                          player={player}
+                          teamColor={teamColor}
+                          theme={theme}
+                        />
+                      ))}
+                    </View>
                   ))}
                 </View>
               );

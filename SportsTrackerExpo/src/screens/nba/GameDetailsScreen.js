@@ -5449,7 +5449,7 @@ const NBAGameDetailsScreen = ({ route }) => {
               <View
                 ref={shareCardRef}
                 collapsable={false}
-                style={[styles.shareCard, { backgroundColor: theme.surface }]}
+                style={[styles.nbaShareCard, { width: width - 48, backgroundColor: theme.surface }]}
               >
                 {shareCardPlayer &&
                   (() => {
@@ -5461,7 +5461,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                     const stats = player?.stats || [];
 
                     // Player info
-                    const headshot = athlete?.headshot?.href;
+                    const headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${athlete?.id}.png&w=300`;
                     const fullName =
                       athlete?.displayName || athlete?.fullName || "";
                     const jersey = athlete?.jersey;
@@ -5472,9 +5472,6 @@ const NBAGameDetailsScreen = ({ route }) => {
 
                     // Team info
                     let team = null;
-                    let teamName = "";
-                    let teamLogo = null;
-                    let teamColor = null;
 
                     const playersBox = details?.boxscore?.players || [];
                     for (const teamBox of playersBox) {
@@ -5494,98 +5491,212 @@ const NBAGameDetailsScreen = ({ route }) => {
                         if (team) break;
                       }
                     }
-                    teamName = team?.displayName || team?.name || "";
-                    teamLogo =
-                      team?.logo ||
-                      (team?.abbreviation
-                        ? getTeamLogoUrl("nba", team.abbreviation)
-                        : null);
-                    teamColor = team?.color || null;
-                    const teamAbbreviation = team?.abbreviation || "";
+                    const teamName = team?.displayName || team?.name || "";
+                    const teamLogo = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${isDarkMode ? "-dark" : ""}/scoreboard/${team?.abbreviation}.png&w=80&h=80`;
+                    const rawColor = team?.color || null;
+                    const teamColor = rawColor
+                      ? rawColor.startsWith("#") ? rawColor : `#${rawColor}`
+                      : colors.primary || "#333";
 
                     // Get game info for score display
                     const competition = details?.header?.competitions?.[0];
                     const competitors = competition?.competitors || [];
-                    const awayTeam = competitors.find(
+                    const awayCompetitor = competitors.find(
                       (c) => c.homeAway === "away",
                     );
-                    const homeTeam = competitors.find(
+                    const homeCompetitor = competitors.find(
                       (c) => c.homeAway === "home",
                     );
-                    const awayScore = awayTeam?.score || "0";
-                    const homeScore = homeTeam?.score || "0";
+                    const awayScore = awayCompetitor?.score || "0";
+                    const homeScore = homeCompetitor?.score || "0";
                     const awayLogo =
-                      awayTeam?.team?.logos?.[isDarkMode ? "1" : "0"]?.href ||
-                      awayTeam?.team?.logo;
+                      awayCompetitor?.team?.logos?.[isDarkMode ? "1" : "0"]?.href ||
+                      awayCompetitor?.team?.logo;
                     const homeLogo =
-                      homeTeam?.team?.logos?.[isDarkMode ? "1" : "0"]?.href ||
-                      homeTeam?.team?.logo;
-                    const leadingTeam =
-                      parseInt(homeScore) > parseInt(awayScore)
-                        ? "home"
-                        : "away";
+                      homeCompetitor?.team?.logos?.[isDarkMode ? "1" : "0"]?.href ||
+                      homeCompetitor?.team?.logo;
 
-                    // Define important stats
-                    let importantStatIndices = [];
-                    let importantLabels = [];
+                    // Text color on team color background
+                    const hexToLum = (hex) => {
+                      const h = (hex || "333333").replace("#", "");
+                      const r = parseInt(h.substr(0, 2), 16) / 255;
+                      const g = parseInt(h.substr(2, 2), 16) / 255;
+                      const b = parseInt(h.substr(4, 2), 16) / 255;
+                      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                    };
+                    const textOnTeam = hexToLum(teamColor) > 0.4 ? "#000" : "#fff";
 
-                    const basketballStats = [
-                      "minutes",
-                      "points",
-                      "rebounds",
-                      "assists",
-                      "plusMinus",
-                      "fouls",
-                      "steals",
-                      "blocks",
-                      "turnovers",
-                      "fieldGoalsMade-fieldGoalsAttempted",
-                      "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
-                      "freeThrowsMade-freeThrowsAttempted",
+                    // Helper: parse "M-A" → percentage string or null
+                    const slashPct = (val) => {
+                      const m = String(val || "").match(/^(\d+)-(\d+)$/);
+                      if (!m) return null;
+                      const made = parseInt(m[1], 10);
+                      const att = parseInt(m[2], 10);
+                      if (att === 0) return "0%";
+                      return `${Math.round((made / att) * 100)}%`;
+                    };
+
+                    // Best-3 stat summary (stacked value/label per stat)
+                    const SUMMARY_CANDIDATES = [
+                      { key: "points", label: "PTS" },
+                      { key: "rebounds", label: "REB" },
+                      { key: "assists", label: "AST" },
+                      { key: "steals", label: "STL" },
+                      { key: "blocks", label: "BLK" },
+                      { key: "threePointFieldGoalsMade-threePointFieldGoalsAttempted", label: "3PM" },
                     ];
-                    basketballStats.forEach((statKey) => {
-                      const idx = keys.indexOf(statKey);
-                      if (idx >= 0) {
-                        importantStatIndices.push(idx);
-                        importantLabels.push(labels[idx] || statKey);
+                    const SUMMARY_FALLBACKS = [
+                      { key: "points", label: "PTS" },
+                      { key: "rebounds", label: "REB" },
+                      { key: "assists", label: "AST" },
+                    ];
+                    const resolveStat = ({ key, label }) => {
+                      const idx = keys.indexOf(key);
+                      if (idx < 0) return null;
+                      const raw = stats[idx];
+                      const val = raw != null ? String(raw) : null;
+                      if (val == null) return null;
+                      const num = parseFloat(val.replace(/[^0-9.\-]/g, ""));
+                      return { label, val, num: isNaN(num) ? 0 : Math.abs(num) };
+                    };
+                    const earned = SUMMARY_CANDIDATES
+                      .map(resolveStat)
+                      .filter((s) => s && s.num > 0)
+                      .sort((a, b) => b.num - a.num)
+                      .slice(0, 3);
+                    // Fill to 3 with PTS/REB/AST if needed (skip any already earned)
+                    if (earned.length < 3) {
+                      const earnedKeys = new Set(
+                        SUMMARY_CANDIDATES
+                          .filter((_, i) =>
+                            earned.some((e) => e.label === SUMMARY_CANDIDATES[i]?.label),
+                          )
+                          .map((c) => c.key),
+                      );
+                      for (const fb of SUMMARY_FALLBACKS) {
+                        if (earned.length >= 3) break;
+                        if (earnedKeys.has(fb.key)) continue;
+                        const s = resolveStat(fb);
+                        if (s) { earned.push(s); earnedKeys.add(fb.key); }
                       }
-                    });
-
-                    if (importantStatIndices.length === 0 && stats.length > 0) {
-                      importantStatIndices = stats
-                        .map((_, idx) => idx)
-                        .slice(0, 6);
-                      importantLabels = labels.slice(0, 6);
                     }
+                    const summaryStats = earned.slice(0, 3);
+
+                    // 12-stat grid: 9 core + MIN, +/-, FOULS
+                    const TWELVE_STATS = [
+                      { key: "points", label: "PTS", slash: false },
+                      { key: "rebounds", label: "REB", slash: false },
+                      { key: "assists", label: "AST", slash: false },
+                      { key: "steals", label: "STL", slash: false },
+                      { key: "blocks", label: "BLK", slash: false },
+                      { key: "turnovers", label: "TO", slash: false },
+                      { key: "minutes", label: "MIN", slash: false },
+                      { key: "plusMinus", label: "+/-", slash: false, isPlusMinus: true },
+                      { key: "fouls", label: "FOULS", slash: false },
+                      { key: "fieldGoalsMade-fieldGoalsAttempted", label: "FG", slash: true },
+                      { key: "threePointFieldGoalsMade-threePointFieldGoalsAttempted", label: "3PT", slash: true },
+                      { key: "freeThrowsMade-freeThrowsAttempted", label: "FT", slash: true },
+                    ];
+                    const twelveStats = TWELVE_STATS.map(({ key, label, slash, isPlusMinus }) => {
+                      const idx = keys.indexOf(key);
+                      const raw = idx >= 0 && stats[idx] != null ? stats[idx] : null;
+                      const val = raw != null ? String(raw) : "\u2014";
+                      const pct = slash && raw != null ? slashPct(raw) : null;
+                      return { label, val, pct, isPlusMinus };
+                    });
 
                     return (
                       <>
-                        <View style={styles.shareCardHeader}>
-                          <View style={styles.shareCardPlayerInfo}>
+                        {/* ── Header ── */}
+                        <View
+                          style={[
+                            styles.nbaCardHeader,
+                            {
+                              backgroundColor: teamColor + "22",
+                              borderBottomColor: teamColor,
+                            },
+                          ]}
+                        >
+                          {/* Top row: position badge + score */}
+                          <View style={styles.nbaCardTopRow}>
+                            <View
+                              style={[
+                                styles.nbaPosBadge,
+                                { backgroundColor: teamColor },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.nbaPosBadgeText,
+                                  { color: textOnTeam },
+                                ]}
+                              >
+                                {jersey ? `#${jersey}` : ""}
+                                {jersey && position ? " \u2022 " : ""}
+                                {position}
+                              </Text>
+                            </View>
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 6,
+                              }}
+                            >
+                              {!!awayLogo && (
+                                <Image
+                                  source={{ uri: awayLogo }}
+                                  style={{ width: 18, height: 18 }}
+                                  resizeMode="contain"
+                                />
+                              )}
+                              <Text
+                                style={[
+                                  styles.nbaCardScoreText,
+                                  { color: theme.text },
+                                ]}
+                              >
+                                <Text style={{ fontWeight: parseInt(awayScore) > parseInt(homeScore) ? "800" : "400" }}>{awayScore}</Text> <Text>-</Text> <Text style={{ fontWeight: parseInt(homeScore) > parseInt(awayScore) ? "800" : "400" }}>{homeScore}</Text>
+                              </Text>
+                              {!!homeLogo && (
+                                <Image
+                                  source={{ uri: homeLogo }}
+                                  style={{ width: 18, height: 18 }}
+                                  resizeMode="contain"
+                                />
+                              )}
+                            </View>
+                          </View>
+
+                          {/* Headshot + name/summary row */}
+                          <View style={styles.nbaHeadshotRow}>
                             {headshot ? (
                               <Image
                                 source={{ uri: headshot }}
                                 style={[
-                                  styles.shareCardHeadshot,
-                                  {
-                                    backgroundColor: teamColor
-                                      ? `#${teamColor}88`
-                                      : theme.surfaceSecondary,
-                                  },
+                                  styles.nbaCardHeadshot,
+                                  { borderColor: teamColor },
                                 ]}
+                                resizeMode="cover"
                               />
                             ) : (
                               <View
                                 style={[
-                                  styles.shareCardHeadshotPlaceholder,
-                                  { backgroundColor: theme.surfaceSecondary },
+                                  styles.nbaCardHeadshot,
+                                  {
+                                    borderColor: teamColor,
+                                    backgroundColor: teamColor + "22",
+                                    justifyContent: "center",
+                                    alignItems: "center",
+                                  },
                                 ]}
                               >
                                 <Text
-                                  style={[
-                                    styles.shareCardInitials,
-                                    { color: theme.textSecondary },
-                                  ]}
+                                  style={{
+                                    fontSize: 20,
+                                    fontWeight: "800",
+                                    color: teamColor,
+                                  }}
                                 >
                                   {fullName
                                     .split(" ")
@@ -5596,182 +5707,150 @@ const NBAGameDetailsScreen = ({ route }) => {
                                 </Text>
                               </View>
                             )}
-                            <View style={styles.shareCardPlayerDetails}>
-                              <Text
-                                style={[
-                                  styles.shareCardName,
-                                  { color: theme.text },
-                                ]}
-                                numberOfLines={1}
-                              >
-                                {fullName}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.shareCardPlayerMeta,
-                                  { color: theme.textSecondary },
-                                ]}
-                                numberOfLines={1}
-                              >
-                                {jersey && position
-                                  ? `#${jersey} • ${position}`
-                                  : jersey
-                                    ? `#${jersey}`
-                                    : position
-                                      ? position
-                                      : ""}
-                              </Text>
-                              <View style={styles.shareCardTeamRow}>
-                                {teamLogo && (
-                                  <TeamLogoWithTheme
-                                    colors={colors}
-                                    getTeamLogoUrl={getTeamLogoUrl}
-                                    teamAbbreviation={teamAbbreviation}
-                                    style={styles.shareCardTeamLogo}
-                                  />
-                                )}
-                                <Text
-                                  style={[
-                                    styles.shareCardTeam,
-                                    { color: theme.textSecondary },
-                                  ]}
-                                  numberOfLines={1}
-                                >
-                                  {teamName}
-                                </Text>
+                            <View style={styles.nbaNameBlock}>
+                              {summaryStats.length > 0 && (
+                                <View style={styles.nbaSummaryRow}>
+                                  {summaryStats.map(({ val, label }) => (
+                                    <View key={label} style={styles.nbaSummaryCell}>
+                                      <Text
+                                        style={[
+                                          styles.nbaSummaryVal,
+                                          { color: theme.text },
+                                        ]}
+                                      >
+                                        {val}
+                                      </Text>
+                                      <Text
+                                        style={[
+                                          styles.nbaSummaryLbl,
+                                          { color: theme.textSecondary },
+                                        ]}
+                                      >
+                                        {label}
+                                      </Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              )}
+                              <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
+                                <View style={{ flex: 1, gap: 2 }}>
+                                  <Text
+                                    style={[
+                                      styles.nbaCardFullName,
+                                      { color: theme.text },
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {fullName}
+                                  </Text>
+                                  {!!teamName && (
+                                    <View style={styles.nbaTeamNameRow}>
+                                      {!!teamLogo && (
+                                        <Image
+                                          source={{ uri: teamLogo }}
+                                          style={styles.nbaTeamNameLogo}
+                                          resizeMode="contain"
+                                        />
+                                      )}
+                                      <Text
+                                        style={[
+                                          styles.nbaTeamNameLabel,
+                                          { color: theme.textSecondary },
+                                        ]}
+                                        numberOfLines={1}
+                                      >
+                                        {teamName}
+                                      </Text>
+                                    </View>
+                                  )}
+                                </View>
+                                {!!gameDate && (() => {
+                                  const _gd = new Date(gameDate);
+                                  const _monthDate = _gd.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                                  const _year = _gd.toLocaleDateString("en-US", { year: "numeric" });
+                                  return (
+                                    <View style={{ alignItems: "flex-end", marginLeft: 6 }}>
+                                      <Text style={[styles.nbaTeamNameLabel, { color: theme.textSecondary }]}>{_monthDate}</Text>
+                                      <Text style={[styles.nbaTeamNameLabel, { color: theme.textSecondary }]}>{_year}</Text>
+                                    </View>
+                                  );
+                                })()}
                               </View>
                             </View>
                           </View>
                         </View>
 
-                        <View style={styles.shareCardStatsHeader}>
-                          <Text
-                            style={[
-                              styles.shareCardStatsTitle,
-                              { color: theme.text },
-                            ]}
-                          >
-                            Game Statistics
-                          </Text>
-                          {/* Score display with team logos */}
-                          <View style={styles.shareCardScoreDisplay}>
-                            {awayLogo && (
-                              <Image
-                                source={{ uri: awayLogo }}
-                                style={styles.shareCardScoreLogo}
-                              />
-                            )}
-                            <Text
-                              style={[
-                                styles.shareCardScore,
-                                {
-                                  color:
-                                    leadingTeam === "away"
-                                      ? colors.primary
-                                      : theme.text,
-                                },
-                              ]}
-                            >
-                              {awayScore}
-                            </Text>
-                            <Text
-                              style={[
-                                styles.shareCardScoreSeparator,
-                                { color: theme.textSecondary },
-                              ]}
-                            >
-                              -
-                            </Text>
-                            <Text
-                              style={[
-                                styles.shareCardScore,
-                                {
-                                  color:
-                                    leadingTeam === "home"
-                                      ? colors.primary
-                                      : theme.text,
-                                },
-                              ]}
-                            >
-                              {homeScore}
-                            </Text>
-                            {homeLogo && (
-                              <Image
-                                source={{ uri: homeLogo }}
-                                style={styles.shareCardScoreLogo}
-                              />
-                            )}
-                          </View>
-                        </View>
-
-                        <View style={styles.shareCardStatsContainer}>
-                          {importantStatIndices.length > 0 ? (
-                            <View style={styles.shareCardStatsGrid}>
-                              {importantStatIndices.map((statIdx, i) => (
-                                <View
-                                  key={i}
-                                  style={[
-                                    styles.shareCardStatBox,
-                                    {
-                                      backgroundColor:
-                                        theme.surfaceSecondary || theme.surface,
-                                    },
-                                  ]}
-                                >
+                        {/* ── 4×3 Stat Grid ── */}
+                        <View style={styles.nbaStatGrid}>
+                          {twelveStats.map(({ label, val, pct, isPlusMinus }, i) => {
+                            const pmNum = isPlusMinus
+                              ? parseFloat(String(val).replace(/[^0-9.\-]/g, ""))
+                              : null;
+                            const pmColor =
+                              isPlusMinus && !isNaN(pmNum)
+                                ? pmNum > 0
+                                  ? theme.success
+                                  : pmNum < 0
+                                    ? theme.error
+                                    : theme.text
+                                : theme.text;
+                            return (
+                              <View
+                                key={label}
+                                style={[
+                                  styles.nbaStatCell,
+                                  { borderColor: theme.border },
+                                  i % 3 !== 2 && {
+                                    borderRightWidth: StyleSheet.hairlineWidth,
+                                  },
+                                  i < 9 && {
+                                    borderBottomWidth: StyleSheet.hairlineWidth,
+                                  },
+                                ]}
+                              >
+                                {!!pct && (
                                   <Text
                                     style={[
-                                      styles.shareCardStatBoxValue,
-                                      {
-                                        color: getStatTextColor(
-                                          keys[statIdx],
-                                          stats[statIdx],
-                                        ),
-                                      },
-                                    ]}
-                                  >
-                                    {stats[statIdx] ?? "-"}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.shareCardStatBoxLabel,
+                                      styles.nbaStatPct,
                                       { color: theme.textSecondary },
                                     ]}
                                   >
-                                    {importantLabels[i]}
+                                    {pct}
                                   </Text>
-                                </View>
-                              ))}
-                            </View>
-                          ) : (
-                            <Text
-                              style={{
-                                color: theme.textSecondary,
-                                textAlign: "center",
-                                marginTop: 20,
-                              }}
-                            >
-                              No stats available
-                            </Text>
-                          )}
+                                )}
+                                <Text
+                                  style={[
+                                    styles.nbaStatVal,
+                                    { color: pmColor },
+                                  ]}
+                                >
+                                  {val}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.nbaStatLbl,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  {label}
+                                </Text>
+                              </View>
+                            );
+                          })}
                         </View>
                       </>
                     );
                   })()}
-                {/* Footer inside the card */}
-                <View style={styles.shareCardFooter}>
-                  <Text
-                    style={[
-                      styles.shareCardFooterText,
-                      {
-                        color: theme.text,
-                        textShadowColor: "rgba(0, 0, 0, 0.8)",
-                        textShadowOffset: { width: 1, height: 1 },
-                        textShadowRadius: 5,
-                      },
-                    ]}
-                  >
+                {/* ── Footer ── */}
+                <View
+                  style={[
+                    styles.nbaCardFooter,
+                    { borderTopColor: theme.border },
+                  ]}
+                >
+                  <Text style={[styles.nbaCardBrand, { color: theme.text }]}>
                     SportsHeart{" "}
-                    <Ionicons name="heart" size={18} color={colors.primary} />
+                    <Ionicons name="heart" size={10} color={colors.primary} />
                   </Text>
                 </View>
               </View>
@@ -8099,6 +8178,129 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     padding: 20,
     marginHorizontal: 20,
+  },
+  nbaShareCard: {
+    overflow: "hidden",
+  },
+  nbaCardHeader: {
+    padding: 14,
+    borderBottomWidth: 2,
+  },
+  nbaCardTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  nbaPosBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  nbaPosBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  nbaCardScoreText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  nbaHeadshotRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  nbaCardHeadshot: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2.5,
+    backgroundColor: "rgba(128,128,128,0.1)",
+  },
+  nbaNameBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  nbaSummaryRow: {
+    flexDirection: "row",
+    gap: 14,
+    marginBottom: 4,
+  },
+  nbaSummaryCell: {
+    alignItems: "center",
+  },
+  nbaSummaryVal: {
+    fontSize: 18,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  nbaSummaryLbl: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginTop: 1,
+  },
+  nbaCardFullName: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  nbaTeamNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    flexWrap: "wrap",
+  },
+  nbaTeamNameLogo: {
+    width: 16,
+    height: 16,
+  },
+  nbaTeamNameLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  nbaStatGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  nbaStatCell: {
+    width: "33.333%",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    position: "relative",
+  },
+  nbaStatPct: {
+    position: "absolute",
+    top: 5,
+    right: 7,
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  nbaStatVal: {
+    fontSize: 18,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  nbaStatLbl: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 3,
+  },
+  nbaCardFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignItems: "flex-end",
+  },
+  nbaCardBrand: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
   },
   shareCardHeader: {
     flexDirection: "row",

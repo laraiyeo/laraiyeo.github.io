@@ -14,6 +14,8 @@ import { useTheme } from "../../context/ThemeContext";
 import WBCService from "../../services/WBCService";
 import { LiveViewerBadge } from "../../components/ViewerCounter";
 import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width } = Dimensions.get("window");
 
@@ -82,6 +84,13 @@ const formatTimeEST = (dateString) => {
   }
 };
 
+const getGameStatusOrder = (game) => {
+  const code = game.status?.codedGameState ?? "";
+  if (code && !NON_LIVE_CODES.has(code)) return 0; // live → first
+  if (code === "S" || code === "P") return 1;        // scheduled → second
+  return 2;                                          // finished / postponed / cancelled → last
+};
+
 const groupGamesByEvent = (games = []) => {
   const grouped = {};
   games.forEach((game) => {
@@ -92,7 +101,11 @@ const groupGamesByEvent = (games = []) => {
     grouped[key].games.push(game);
   });
   Object.values(grouped).forEach((group) => {
-    group.games.sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
+    group.games.sort((a, b) => {
+      const statusDiff = getGameStatusOrder(a) - getGameStatusOrder(b);
+      if (statusDiff !== 0) return statusDiff;
+      return new Date(a.gameDate) - new Date(b.gameDate);
+    });
   });
   return Object.values(grouped);
 };
@@ -175,6 +188,222 @@ const LiveLinescoreStatus = ({
 );
 
 // ─── Card gradient overlay (top + bottom, SVG — no extra package needed) ───
+
+// ─── Grid-view constants ──────────────────────────────────────────────────────
+const GRID_H_PAD = 16;
+const GRID_GAP = 8;
+const CARD_WIDTH = (width - GRID_H_PAD * 2 - GRID_GAP) / 2;
+
+// ─── Grid left–right gradient ─────────────────────────────────────────────────
+const GridCardGradient = ({ gradId, awayColor, homeColor, fallbackColor }) => {
+  const left = awayColor || fallbackColor;
+  const right = homeColor || fallbackColor;
+  return (
+    <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Defs>
+        <LinearGradient id={`wgL_${gradId}`} x1="0%" y1="0%" x2="100%" y2="0%">
+          <Stop offset="0%" stopColor={left} stopOpacity="0.35" />
+          <Stop offset="30%" stopColor={left} stopOpacity="0" />
+          <Stop offset="70%" stopColor={right} stopOpacity="0" />
+          <Stop offset="100%" stopColor={right} stopOpacity="0.35" />
+        </LinearGradient>
+      </Defs>
+      <Rect width="100%" height="100%" fill={`url(#wgL_${gradId})`} />
+    </Svg>
+  );
+};
+
+// ─── Individual WBC grid card ─────────────────────────────────────────────────
+const WBCGridCard = ({ game, navigation, theme, colors, isDarkMode }) => {
+  const away = game.teams?.away?.team || {};
+  const home = game.teams?.home?.team || {};
+  const awayScore = game.teams?.away?.score;
+  const homeScore = game.teams?.home?.score;
+  const awayRecord = game.teams?.away?.leagueRecord;
+  const homeRecord = game.teams?.home?.leagueRecord;
+  const awayId = away.id || away.teamId || away.teamPk || away.teamCode || away.code;
+  const homeId = home.id || home.teamId || home.teamPk || home.teamCode || home.code;
+  const awayLogo = WBCService.getTeamLogo(awayId, isDarkMode);
+  const homeLogo = WBCService.getTeamLogo(homeId, isDarkMode);
+  const awayColor = WBCService.getTeamColor(awayId);
+  const homeColor = WBCService.getTeamColor(homeId);
+  const awayAbbr = WBCService.getTeamAbbr(awayId) || (away.name || "AWY").slice(0, 3).toUpperCase();
+  const homeAbbr = WBCService.getTeamAbbr(homeId) || (home.name || "HME").slice(0, 3).toUpperCase();
+
+  const { time, ampm } = formatTimeEST(game.gameDate);
+  const code = game.status?.codedGameState ?? "";
+  const isLive = !!code && !NON_LIVE_CODES.has(code);
+  const isFinished = ["D", "C", "O", "F", "Q", "R"].includes(code);
+  const isScheduled = !isLive && !isFinished;
+
+  const awayWinner = isFinished && game.teams?.away?.isWinner;
+  const homeWinner = isFinished && game.teams?.home?.isWinner;
+  const gradId = `wg_${game.gamePk}`;
+
+  return (
+    <TouchableOpacity
+      style={[gridStyles.card, { backgroundColor: theme.surfaceSecondary, width: CARD_WIDTH }]}
+      onPress={() => navigation.navigate("GameDetails", { sport: "wbc", gamePk: game.gamePk })}
+      activeOpacity={0.8}
+    >
+      <GridCardGradient gradId={gradId} awayColor={awayColor} homeColor={homeColor} fallbackColor={colors.primary} />
+
+      {/* Status / Time row */}
+      <View style={gridStyles.cardTop}>
+        {isLive ? (
+          <Text style={[gridStyles.statusLive, { color: colors.primary }]}>
+            {game.linescore?.isTopInning ? "▲" : "▼"} {toOrdinal(game.linescore?.currentInning || 0)}
+          </Text>
+        ) : isFinished ? (
+          <Text style={[gridStyles.statusText, { color: theme.textSecondary }]} numberOfLines={1}>
+            {(game.status?.detailedState || "Final").slice(0, 9)}
+          </Text>
+        ) : (
+          <Text style={[gridStyles.statusText, { color: theme.text }]} numberOfLines={1}>
+            {time} <Text style={{ color: theme.textTertiary }}>{ampm}</Text>
+          </Text>
+        )}
+        <LiveViewerBadge
+          gameId={game.gamePk}
+          status={game.status?.detailedState}
+          scale={0.7}
+          style={gridStyles.cardBadge}
+        />
+      </View>
+
+      {/* Teams side by side */}
+      <View style={gridStyles.teamsRow}>
+        {/* Away */}
+        <View style={gridStyles.teamSide}>
+          {isScheduled ? (
+            awayLogo ? (
+              <Image source={{ uri: awayLogo }} style={gridStyles.teamLogo} resizeMode="contain" />
+            ) : (
+              <View style={[gridStyles.teamLogoPlaceholder, { backgroundColor: awayColor || colors.primary }]}>
+                <Text style={gridStyles.teamLogoPlaceholderText}>{(away.name || "A")[0]}</Text>
+              </View>
+            )
+          ) : (
+            <View style={gridStyles.scoreCell}>
+              <Text
+                style={[
+                  gridStyles.scoreText,
+                  {
+                    color: awayWinner ? colors.primary : theme.text,
+                    fontWeight: awayWinner ? "700" : "400",
+                    opacity: isFinished && !awayWinner ? 0.55 : 1,
+                  },
+                ]}
+              >
+                {awayScore ?? "—"}
+              </Text>
+              {awayLogo && (
+                <Image source={{ uri: awayLogo }} style={gridStyles.scoreLogoOverlay} resizeMode="contain" />
+              )}
+            </View>
+          )}
+          <Text style={[gridStyles.teamAbbr, { color: theme.text }]}>{awayAbbr}</Text>
+          <Text style={[gridStyles.teamRecord, { color: theme.textSecondary }]}>
+            {awayRecord?.wins ?? 0}-{awayRecord?.losses ?? 0}
+          </Text>
+        </View>
+
+        <View style={[gridStyles.divider, { backgroundColor: theme.border }]} />
+
+        {/* Home */}
+        <View style={gridStyles.teamSide}>
+          {isScheduled ? (
+            homeLogo ? (
+              <Image source={{ uri: homeLogo }} style={gridStyles.teamLogo} resizeMode="contain" />
+            ) : (
+              <View style={[gridStyles.teamLogoPlaceholder, { backgroundColor: homeColor || colors.secondary }]}>
+                <Text style={gridStyles.teamLogoPlaceholderText}>{(home.name || "H")[0]}</Text>
+              </View>
+            )
+          ) : (
+            <View style={gridStyles.scoreCell}>
+              <Text
+                style={[
+                  gridStyles.scoreText,
+                  {
+                    color: homeWinner ? colors.primary : theme.text,
+                    fontWeight: homeWinner ? "700" : "400",
+                    opacity: isFinished && !homeWinner ? 0.55 : 1,
+                  },
+                ]}
+              >
+                {homeScore ?? "—"}
+              </Text>
+              {homeLogo && (
+                <Image source={{ uri: homeLogo }} style={gridStyles.scoreLogoOverlay} resizeMode="contain" />
+              )}
+            </View>
+          )}
+          <Text style={[gridStyles.teamAbbr, { color: theme.text }]}>{homeAbbr}</Text>
+          <Text style={[gridStyles.teamRecord, { color: theme.textSecondary }]}>
+            {homeRecord?.wins ?? 0}-{homeRecord?.losses ?? 0}
+          </Text>
+        </View>
+      </View>
+
+      {/* Footer: venue or BSO */}
+      <View style={[gridStyles.cardFooter, { borderTopColor: theme.border }]}>
+        {isLive ? (
+          <View style={gridStyles.bsoContainer}>
+            {/* Top line: outs (centered) */}
+            <View style={gridStyles.bsoRow}>
+              <BSODots filled={game.linescore?.outs ?? 0} total={3} filledColor={theme.error} theme={theme} />
+            </View>
+            {/* Bottom line: balls + strikes */}
+            <View style={gridStyles.bsoRow}>
+              <BSODots filled={game.linescore?.balls ?? 0} total={4} filledColor={theme.success} theme={theme} />
+              <View style={{ width: 15 }} />
+              <BSODots filled={game.linescore?.strikes ?? 0} total={3} filledColor={theme.warning} theme={theme} />
+            </View>
+          </View>
+        ) : (
+          <Text style={[gridStyles.venueText, { color: theme.textSecondary }]} numberOfLines={1}>
+            {game.venue?.name || ""}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// ─── WBC Grid section (floating bubble headers + 2-col cards) ─────────────────
+const WBCGridSection = ({ groups, navigation, theme, colors, isDarkMode }) => (
+  <View style={gridStyles.container}>
+    {groups.map((group) => (
+      <View key={group.eventName} style={gridStyles.group}>
+        {/* Floating bubble group label */}
+        <View style={[gridStyles.groupBubble, { backgroundColor: theme.surfaceSecondary }]}>
+          <Image
+            source={require("../../../assets/wbc_logo.png")}
+            style={gridStyles.groupBubbleLogo}
+            resizeMode="contain"
+          />
+          <Text style={[gridStyles.groupBubbleName, { color: theme.text }]} numberOfLines={1}>
+            {group.eventName}
+          </Text>
+        </View>
+        {/* 2-column card grid */}
+        <View style={gridStyles.cardsRow}>
+          {group.games.map((game) => (
+            <WBCGridCard
+              key={game.gamePk}
+              game={game}
+              navigation={navigation}
+              theme={theme}
+              colors={colors}
+              isDarkMode={isDarkMode}
+            />
+          ))}
+        </View>
+      </View>
+    ))}
+  </View>
+);
 
 // awayColor = top gradient color, homeColor = bottom gradient color
 const CardGradient = ({
@@ -300,7 +529,6 @@ const UpcomingMatchesSection = ({
             const { time, ampm } = formatTimeEST(game.gameDate);
             const isFinished = [
               "S",
-              "P",
               "D",
               "C",
               "O",
@@ -428,7 +656,7 @@ const UpcomingMatchesSection = ({
                           {awayRecord?.wins || 0}-{awayRecord?.losses || 0}
                         </Text>
                       </View>
-                      {awayScore != null && (
+                      {awayScore != null && (isLive || isFinished) && (
                         <Text
                           style={[
                             styles.matchScore,
@@ -485,7 +713,7 @@ const UpcomingMatchesSection = ({
                           {homeRecord?.wins || 0}-{homeRecord?.losses || 0}
                         </Text>
                       </View>
-                      {homeScore != null && (
+                      {homeScore != null && (isLive || isFinished) && (
                         <Text
                           style={[
                             styles.matchScore,
@@ -553,6 +781,22 @@ const ScoreboardScreen = ({ navigation, route }) => {
   const [fetching, setFetching] = useState(false); // silent filter-change fetch
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState("today");
+  const [isGridView, setIsGridView] = useState(false);
+
+  // Persist grid/list preference
+  useEffect(() => {
+    AsyncStorage.getItem("viewMode_wbc").then((val) => {
+      if (val !== null) setIsGridView(val === "grid");
+    });
+  }, []);
+
+  const toggleViewMode = () => {
+    setIsGridView((v) => {
+      const next = !v;
+      AsyncStorage.setItem("viewMode_wbc", next ? "grid" : "list");
+      return next;
+    });
+  };
 
   // Refs for adaptive polling — holds the current interval ID and the
   // last-computed interval duration so we can avoid unnecessary resets
@@ -677,6 +921,13 @@ const ScoreboardScreen = ({ navigation, route }) => {
           <Text style={[styles.headerTitle, { color: theme.text }]}>
             World Baseball Classic
           </Text>
+          <TouchableOpacity onPress={toggleViewMode} style={styles.gridToggleBtn}>
+            <Ionicons
+              name={isGridView ? "list-outline" : "grid-outline"}
+              size={22}
+              color={theme.text}
+            />
+          </TouchableOpacity>
         </View>
 
         {/* Section title + date filters */}
@@ -722,15 +973,25 @@ const ScoreboardScreen = ({ navigation, route }) => {
         {/* Games or empty state */}
         <View style={{ opacity: fetching ? 0.45 : 1 }}>
           {groups.length > 0 ? (
-            <View style={styles.upcomingContainer}>
-              <UpcomingMatchesSection
+            isGridView ? (
+              <WBCGridSection
                 groups={groups}
                 navigation={navigation}
                 theme={theme}
                 colors={colors}
                 isDarkMode={isDarkMode}
               />
-            </View>
+            ) : (
+              <View style={styles.upcomingContainer}>
+                <UpcomingMatchesSection
+                  groups={groups}
+                  navigation={navigation}
+                  theme={theme}
+                  colors={colors}
+                  isDarkMode={isDarkMode}
+                />
+              </View>
+            )
           ) : (
             <View style={styles.emptyState}>
               <Text
@@ -777,6 +1038,9 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     flex: 1,
+  },
+  gridToggleBtn: {
+    padding: 4,
   },
   section: {
     marginBottom: 24,
@@ -954,6 +1218,155 @@ const styles = StyleSheet.create({
   gameFooterRight: { alignItems: "flex-end" },
   viewerBadge: { marginTop: 2 },
   venue: { fontSize: 12 },
+});
+
+// ─── Grid-view styles ─────────────────────────────────────────────────────────
+const gridStyles = StyleSheet.create({
+  container: {
+    paddingHorizontal: GRID_H_PAD,
+    marginBottom: 24,
+  },
+  group: {
+    marginBottom: 16,
+  },
+  groupBubble: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 10,
+  },
+  groupBubbleLogo: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginRight: 6,
+  },
+  groupBubbleName: {
+    fontSize: 13,
+    fontWeight: "600",
+    maxWidth: 220,
+  },
+  cardsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: GRID_GAP,
+  },
+  card: {
+    borderRadius: 10,
+    overflow: "hidden",
+    marginBottom: 2,
+  },
+  cardTop: {
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    minHeight: 30,
+    justifyContent: "center",
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  statusLive: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  teamsRow: {
+    flexDirection: "row",
+    paddingHorizontal: 8,
+    paddingBottom: 10,
+    alignItems: "flex-start",
+  },
+  teamSide: {
+    flex: 1,
+    alignItems: "center",
+  },
+  divider: {
+    width: 1,
+    alignSelf: "stretch",
+    marginHorizontal: 4,
+    opacity: 0.35,
+  },
+  teamLogo: {
+    width: 40,
+    height: 40,
+    marginBottom: 5,
+  },
+  teamLogoPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 5,
+  },
+  teamLogoPlaceholderText: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "white",
+  },
+  scoreCell: {
+    width: 52,
+    height: 52,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 5,
+    position: "relative",
+  },
+  scoreText: {
+    fontSize: 38,
+    lineHeight: 50,
+  },
+  scoreLogoOverlay: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 20,
+    height: 20,
+    opacity: 0.75,
+  },
+  teamAbbr: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+    textTransform: "uppercase",
+  },
+  teamRecord: {
+    fontSize: 10,
+    textAlign: "center",
+    marginTop: 1,
+  },
+  cardFooter: {
+    borderTopWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    minHeight: 30,
+    justifyContent: "center",
+  },
+  venueText: {
+    fontSize: 9,
+    textAlign: "center",
+  },
+  bsoContainer: {
+    alignItems: "center",
+    gap: 3,
+  },
+  bsoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+  },
 });
 
 export default ScoreboardScreen;

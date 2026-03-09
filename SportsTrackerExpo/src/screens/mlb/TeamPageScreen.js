@@ -61,6 +61,55 @@ const formatTime = (dateStr) => {
   }
 };
 
+// Get today's date string (YYYY-MM-DD) in EST, adjusted so before-2am counts as previous day
+const getTodayDateStr = () => {
+  try {
+    const now = new Date();
+    // en-CA locale produces YYYY-MM-DD directly
+    const estToday = now.toLocaleDateString("en-CA", {
+      timeZone: "America/New_York",
+    });
+    // If before 2am EST, treat it as still the previous day's schedule
+    const estHourStr = now.toLocaleTimeString("en-US", {
+      timeZone: "America/New_York",
+      hour: "2-digit",
+      hour12: false,
+    });
+    const estHour = parseInt(estHourStr, 10);
+    if (estHour < 2) {
+      const prev = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      return prev.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    }
+    return estToday;
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+};
+
+// Convert a UTC game timestamp (e.g. "2026-04-05T18:10:00Z") to its EST date string (YYYY-MM-DD)
+const gameToEstDateStr = (gameDate) => {
+  if (!gameDate) return "";
+  try {
+    return new Date(gameDate).toLocaleDateString("en-CA", {
+      timeZone: "America/New_York",
+    });
+  } catch {
+    return (gameDate ?? "").slice(0, 10);
+  }
+};
+
+// Get the display label for a game card badge
+const getGameLabel = (game) => {
+  if (game.description) {
+    const d = game.description.trim();
+    return d.charAt(0).toUpperCase() + d.slice(1);
+  }
+  if (game.gameType !== "R" && game.seriesDescription) {
+    return game.seriesDescription;
+  }
+  return null;
+};
+
 const TABS = ["Team", "Matches", "Stats", "Roster"];
 
 // ─── Team stats helpers ───────────────────────────────────────────────────────
@@ -228,6 +277,7 @@ const RosterPlayerRow = ({ player, teamColor, theme }) => {
     ([, v]) => v?.value != null,
   );
   const rankTextColor = getTextOnColor(teamColor);
+  const statusColor = player.status?.description === "Active" ? theme.success : theme.error;
 
   return (
     <View style={[rStyles.playerBubble, { backgroundColor: theme.surface }]}>
@@ -271,7 +321,7 @@ const RosterPlayerRow = ({ player, teamColor, theme }) => {
           allowFontScaling={false}
           style={[
             rStyles.statusText,
-            { color: theme.textTertiary ?? theme.textSecondary },
+            { color: statusColor },
           ]}
           numberOfLines={2}
         >
@@ -404,6 +454,28 @@ const rStyles = StyleSheet.create({
   chipLabel: { fontSize: 10, fontWeight: "500", textAlign: "center" },
   noStats: { paddingHorizontal: 16, paddingBottom: 14, paddingTop: 6 },
   noStatsText: { fontSize: 13 },
+  posSection: {},
+  posSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: 12,
+    marginTop: 14,
+    marginBottom: 2,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  posSectionTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  posSectionCount: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
 });
 
 // ─── Team tab (standings + coaches) ────────────────────────────────────────────
@@ -758,7 +830,9 @@ const MatchCard = ({
   isDarkMode,
   theme,
   colors,
+  teamColor,
 }) => {
+  const label = getGameLabel(game);
   const away = game.teams?.away?.team ?? {};
   const home = game.teams?.home?.team ?? {};
   const awayScore = game.teams?.away?.score;
@@ -799,16 +873,35 @@ const MatchCard = ({
   const gradId = `mg_${idx}`;
 
   return (
-    <TouchableOpacity
-      style={[styles.matchCard, { backgroundColor: theme.surface }]}
-      onPress={() =>
-        navigation.navigate("GameDetails", {
-          sport: sport ?? "mlb",
-          gamePk: game.gamePk,
-        })
-      }
-      activeOpacity={0.75}
-    >
+    <View style={styles.matchCardWrap}>
+      {label ? (
+        <View
+          style={[
+            styles.matchGameBadge,
+            {
+              backgroundColor: teamColor + "80",
+              borderColor: teamColor,
+            },
+          ]}
+        >
+          <Text
+            allowFontScaling={false}
+            style={[styles.matchGameBadgeText, { color: theme.textSecondary }]}
+          >
+            {label}
+          </Text>
+        </View>
+      ) : null}
+      <TouchableOpacity
+        style={[styles.matchCard, { backgroundColor: theme.surface }]}
+        onPress={() =>
+          navigation.navigate("GameDetails", {
+            sport: sport ?? "mlb",
+            gamePk: game.gamePk,
+          })
+        }
+        activeOpacity={0.75}
+      >
       {/* Subtle gradient backdrop */}
       <Svg
         style={StyleSheet.absoluteFill}
@@ -994,8 +1087,115 @@ const MatchCard = ({
         </Text>
       </View>
     </TouchableOpacity>
+    </View>
   );
 };
+
+// ─── Matches section (collapsible) ───────────────────────────────────────────
+
+const MatchesSection = ({
+  title,
+  games,
+  collapsible,
+  navigation,
+  sport,
+  isDarkMode,
+  theme,
+  colors,
+  teamColor,
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  if (games.length === 0) return null;
+  const visibleGames = collapsible && !expanded ? games.slice(0, 1) : games;
+  return (
+    <View style={{ marginBottom: 6 }}>
+      <TouchableOpacity
+        style={[
+          mStyles.sectionHeader,
+          { backgroundColor: theme.surface },
+        ]}
+        onPress={collapsible ? () => setExpanded((v) => !v) : undefined}
+        activeOpacity={collapsible ? 0.7 : 1}
+        disabled={!collapsible}
+      >
+        <Text
+          allowFontScaling={false}
+          style={[mStyles.sectionTitle, { color: teamColor }]}
+        >
+          {title}
+        </Text>
+        {collapsible && !expanded && games.length > 1 && (
+          <View
+            style={[
+              mStyles.countBadge,
+              { backgroundColor: teamColor + "22" },
+            ]}
+          >
+            <Text
+              allowFontScaling={false}
+              style={[mStyles.countText, { color: theme.textTertiary }]}
+            >
+              +{games.length - 1}
+            </Text>
+          </View>
+        )}
+        {collapsible && (
+          <View
+            style={{
+              transform: [{ rotate: expanded ? "90deg" : "0deg" }],
+              marginLeft: 4,
+            }}
+          >
+            <Text style={[mStyles.sectionChevron, { color: theme.textSecondary }]}>
+              ›
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+      {visibleGames.map((game, idx) => (
+        <MatchCard
+          key={game.gamePk ?? idx}
+          game={game}
+          idx={idx}
+          navigation={navigation}
+          sport={sport ?? "mlb"}
+          isDarkMode={isDarkMode}
+          theme={theme}
+          colors={colors}
+          teamColor={teamColor}
+        />
+      ))}
+    </View>
+  );
+};
+
+const mStyles = StyleSheet.create({
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 12,
+    marginTop: 14,
+    marginBottom: 2,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  sectionTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+  },
+  countBadge: {
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  countText: { fontSize: 11, fontWeight: "700" },
+  sectionChevron: { fontSize: 22, lineHeight: 26 },
+});
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
@@ -1102,10 +1302,22 @@ const TeamPageScreen = ({ route, navigation }) => {
     );
   }
 
-  // Flatten games and sort most recent first
-  const allGames = (teamData?.schedule?.dates ?? [])
-    .flatMap((d) => d.games ?? [])
+  // Split games into today / past / upcoming
+  const todayStr = getTodayDateStr();
+  const allGamesList = (teamData?.schedule?.dates ?? []).flatMap(
+    (d) => d.games ?? [],
+  );
+  const todayGames = allGamesList.filter(
+    (g) => gameToEstDateStr(g.gameDate) === todayStr,
+  );
+  const pastGames = allGamesList
+    .filter((g) => gameToEstDateStr(g.gameDate) < todayStr)
     .sort((a, b) => new Date(b.gameDate) - new Date(a.gameDate));
+  const upcomingGames = allGamesList
+    .filter((g) => gameToEstDateStr(g.gameDate) > todayStr)
+    .sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
+  const hasAnyGames =
+    todayGames.length + pastGames.length + upcomingGames.length > 0;
 
   // Scroll-driven animations
   const threshold = Math.max(headerHeight - 40, 80);
@@ -1319,7 +1531,7 @@ const TeamPageScreen = ({ route, navigation }) => {
         <View style={styles.content}>
           {/* MATCHES */}
           {activeTab === "Matches" &&
-            (allGames.length === 0 ? (
+            (!hasAnyGames ? (
               <View style={styles.emptyContainer}>
                 <Text
                   style={[styles.emptyText, { color: theme.textSecondary }]}
@@ -1328,18 +1540,41 @@ const TeamPageScreen = ({ route, navigation }) => {
                 </Text>
               </View>
             ) : (
-              allGames.map((game, idx) => (
-                <MatchCard
-                  key={game.gamePk ?? idx}
-                  game={game}
-                  idx={idx}
+              <View style={{ paddingBottom: 8 }}>
+                <MatchesSection
+                  title="Today"
+                  games={todayGames}
+                  collapsible={false}
                   navigation={navigation}
                   sport={sport ?? "mlb"}
                   isDarkMode={isDarkMode}
                   theme={theme}
                   colors={colors}
+                  teamColor={teamColor}
                 />
-              ))
+                <MatchesSection
+                  title="Last Matches"
+                  games={pastGames}
+                  collapsible={true}
+                  navigation={navigation}
+                  sport={sport ?? "mlb"}
+                  isDarkMode={isDarkMode}
+                  theme={theme}
+                  colors={colors}
+                  teamColor={teamColor}
+                />
+                <MatchesSection
+                  title="Upcoming"
+                  games={upcomingGames}
+                  collapsible={true}
+                  navigation={navigation}
+                  sport={sport ?? "mlb"}
+                  isDarkMode={isDarkMode}
+                  theme={theme}
+                  colors={colors}
+                  teamColor={teamColor}
+                />
+              </View>
             ))}
 
           {/* TEAM */}
@@ -1370,15 +1605,66 @@ const TeamPageScreen = ({ route, navigation }) => {
                   </View>
                 );
               }
+              const getPosGroup = (abbr) => {
+                if (!abbr) return "Other";
+                if (abbr === "P" || abbr === "SP" || abbr === "RP") return "Pitcher";
+                if (abbr === "C") return "Catcher";
+                if (["1B","2B","3B","SS","IF"].includes(abbr)) return "Infielder";
+                if (["LF","CF","RF","OF"].includes(abbr)) return "Outfielder";
+                if (abbr === "DH") return "Designated Hitter";
+                if (abbr === "TWP") return "Two-Way Player";
+                return "Other";
+              };
+              const POSITION_ORDER = ["Catcher", "Infielder", "Outfielder", "Designated Hitter", "Two-Way Player", "Pitcher", "Other"];
+              const groups = {};
+              for (const player of roster) {
+                const grp = getPosGroup(player.position?.abbreviation);
+                if (!groups[grp]) groups[grp] = [];
+                groups[grp].push(player);
+              }
+              const sortedKeys = Object.keys(groups).sort((a, b) => {
+                if (a === "Pitcher") return 1;
+                if (b === "Pitcher") return -1;
+                const ai = POSITION_ORDER.indexOf(a);
+                const bi = POSITION_ORDER.indexOf(b);
+                return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+              });
+              const posLabel = (grp) => {
+                if (grp === "Pitcher") return "Pitchers";
+                if (grp === "Catcher") return "Catchers";
+                if (grp === "Infielder") return "Infielders";
+                if (grp === "Outfielder") return "Outfielders";
+                if (grp === "Designated Hitter") return "Designated Hitters";
+                if (grp === "Two-Way Player") return "Two-Way Players";
+                return grp;
+              };
               return (
                 <View style={{ paddingBottom: 24 }}>
-                  {roster.map((player, idx) => (
-                    <RosterPlayerRow
-                      key={player.person?.id ?? idx}
-                      player={player}
-                      teamColor={teamColor}
-                      theme={theme}
-                    />
+                  {sortedKeys.map((posType) => (
+                    <View key={posType} style={rStyles.posSection}>
+                      <View style={[rStyles.posSectionHeader, { backgroundColor: teamColor + "22" }]}>
+                        <Text
+                          allowFontScaling={false}
+                          style={[rStyles.posSectionTitle, { color: teamColor }]}
+                        >
+                          {posLabel(posType)}
+                        </Text>
+                        <Text
+                          allowFontScaling={false}
+                          style={[rStyles.posSectionCount, { color: teamColor }]}
+                        >
+                          {groups[posType].length}
+                        </Text>
+                      </View>
+                      {groups[posType].map((player, idx) => (
+                        <RosterPlayerRow
+                          key={player.person?.id ?? idx}
+                          player={player}
+                          teamColor={teamColor}
+                          theme={theme}
+                        />
+                      ))}
+                    </View>
                   ))}
                 </View>
               );
@@ -1483,12 +1769,27 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 15 },
 
   // Match cards
-  matchCard: {
+  matchCardWrap: {
     marginHorizontal: 12,
     marginTop: 10,
+    position: "relative",
+    overflow: "visible",
+  },
+  matchCard: {
     borderRadius: 12,
     overflow: "hidden",
   },
+  matchGameBadge: {
+    position: "absolute",
+    top: -8,
+    right: 8,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    zIndex: 2,
+  },
+  matchGameBadgeText: { fontSize: 10, fontWeight: "700" },
   matchCardInner: {
     flexDirection: "row",
     alignItems: "center",

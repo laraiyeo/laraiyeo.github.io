@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Dimensions,
   RefreshControl,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
@@ -17,6 +18,10 @@ import { convertMLBIdToESPNId } from "../../utils/TeamIdMapping";
 import { LiveViewerBadge } from "../../components/ViewerCounter";
 import WBCService from "../../services/WBCService";
 import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const { width } = Dimensions.get("window");
 
 // ─── Polling helpers ──────────────────────────────────────────────────────────
 
@@ -275,6 +280,263 @@ const CardGradient = ({
   );
 };
 
+// ─── Grid-view constants ──────────────────────────────────────────────────────
+const MLB_GRID_H_PAD = 16;
+const MLB_GRID_GAP = 8;
+const MLB_CARD_WIDTH = (width - MLB_GRID_H_PAD * 2 - MLB_GRID_GAP) / 2;
+
+// ─── Grid left–right gradient ─────────────────────────────────────────────────
+const MLBGridCardGradient = ({ gradId, awayColor, homeColor, fallbackColor }) => {
+  const left = awayColor || fallbackColor;
+  const right = homeColor || fallbackColor;
+  return (
+    <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Defs>
+        <LinearGradient id={`mgL_${gradId}`} x1="0%" y1="0%" x2="100%" y2="0%">
+          <Stop offset="0%" stopColor={left} stopOpacity="0.35" />
+          <Stop offset="30%" stopColor={left} stopOpacity="0" />
+          <Stop offset="70%" stopColor={right} stopOpacity="0" />
+          <Stop offset="100%" stopColor={right} stopOpacity="0.35" />
+        </LinearGradient>
+      </Defs>
+      <Rect width="100%" height="100%" fill={`url(#mgL_${gradId})`} />
+    </Svg>
+  );
+};
+
+// ─── Individual MLB grid card ─────────────────────────────────────────────────
+const MLBGridCard = ({ game, navigation, theme, colors, isDarkMode, isFavorite }) => {
+  const away = game.awayTeam || {};
+  const home = game.homeTeam || {};
+  const awayColor = away.color || MLBService.getTeamColor(away.displayName || "");
+  const homeColor = home.color || MLBService.getTeamColor(home.displayName || "");
+  const awayLogo = MLBService.getTeamLogo(away.id, isDarkMode) ||
+    WBCService.getTeamLogo(away.id, isDarkMode);
+  const homeLogo = MLBService.getTeamLogo(home.id, isDarkMode) ||
+    WBCService.getTeamLogo(home.id, isDarkMode);
+  const awayAbbr = (away.abbreviation ||
+    MLBService.getTeamAbbrById(away.id) ||
+    (away.displayName || "AWY").slice(0, 3)).toUpperCase();
+  const homeAbbr = (home.abbreviation ||
+    MLBService.getTeamAbbrById(home.id) ||
+    (home.displayName || "HME").slice(0, 3)).toUpperCase();
+
+  const { time, ampm } = formatTimeEST(game.date);
+  const isLive = game.isLive || game.statusType === "I";
+  const isFinished = !isLive &&
+    (game.isCompleted || ["F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(game.statusType));
+  const isScheduled = !isLive && !isFinished;
+
+  const awayScore = away.score;
+  const homeScore = home.score;
+  const awayWins =
+    isFinished &&
+    awayScore != null &&
+    homeScore != null &&
+    parseInt(awayScore, 10) > parseInt(homeScore, 10);
+  const homeWins =
+    isFinished &&
+    awayScore != null &&
+    homeScore != null &&
+    parseInt(homeScore, 10) > parseInt(awayScore, 10);
+
+  const awayFav = isFavorite(
+    convertMLBIdToESPNId(away.id?.toString()) || away.id?.toString(), "mlb"
+  );
+  const homeFav = isFavorite(
+    convertMLBIdToESPNId(home.id?.toString()) || home.id?.toString(), "mlb"
+  );
+
+  const gradId = `mg_${game.id}`;
+
+  return (
+    <TouchableOpacity
+      style={[mlbGridStyles.card, { backgroundColor: theme.surfaceSecondary, width: MLB_CARD_WIDTH }]}
+      onPress={() => navigation.navigate("GameDetails", { gamePk: game.id, sport: "mlb" })}
+      activeOpacity={0.8}
+    >
+      <MLBGridCardGradient gradId={gradId} awayColor={awayColor} homeColor={homeColor} fallbackColor={colors.primary} />
+
+      {/* Status / Time */}
+      <View style={mlbGridStyles.cardTop}>
+        {isLive ? (
+          <Text style={[mlbGridStyles.statusLive, { color: colors.primary }]}>
+            {game.inningState === "Top" ? "▲" : "▼"} {MLBService.getOrdinalSuffix(game.inning || 0)}
+          </Text>
+        ) : isFinished ? (
+          <Text style={[mlbGridStyles.statusText, { color: theme.textSecondary }]} numberOfLines={1}>
+            {(game.status || "Final").slice(0, 9)}
+          </Text>
+        ) : (
+          <Text style={[mlbGridStyles.statusText, { color: theme.text }]} numberOfLines={1}>
+            {time} <Text style={{ color: theme.textTertiary }}>{ampm}</Text>
+          </Text>
+        )}
+        <LiveViewerBadge
+          gameId={game.id}
+          status={game.status}
+          scale={0.7}
+          style={mlbGridStyles.cardBadge}
+        />
+      </View>
+
+      {/* Teams side by side */}
+      <View style={mlbGridStyles.teamsRow}>
+        {/* Away */}
+        <View style={mlbGridStyles.teamSide}>
+          {isScheduled ? (
+            awayLogo ? (
+              <Image source={{ uri: awayLogo }} style={mlbGridStyles.teamLogo} resizeMode="contain" />
+            ) : (
+              <View style={[mlbGridStyles.teamLogoPlaceholder, { backgroundColor: awayColor || colors.primary }]}>
+                <Text style={mlbGridStyles.teamLogoPlaceholderText}>{(away.displayName || "A")[0]}</Text>
+              </View>
+            )
+          ) : (
+            <View style={mlbGridStyles.scoreCell}>
+              <Text
+                style={[
+                  mlbGridStyles.scoreText,
+                  {
+                    color: awayFav ? colors.primary : awayWins ? colors.primary : theme.text,
+                    fontWeight: awayWins ? "700" : "400",
+                    opacity: isFinished && !awayWins ? 0.55 : 1,
+                  },
+                ]}
+              >
+                {awayScore ?? "—"}
+              </Text>
+              {awayLogo && (
+                <Image source={{ uri: awayLogo }} style={mlbGridStyles.scoreLogoOverlay} resizeMode="contain" />
+              )}
+            </View>
+          )}
+          <Text style={[mlbGridStyles.teamAbbr, { color: awayFav ? colors.primary : theme.text }]}>
+            {awayFav ? "★ " : ""}{awayAbbr}
+          </Text>
+          {away.record ? (
+            <Text style={[mlbGridStyles.teamRecord, { color: theme.textSecondary }]}>{away.record}</Text>
+          ) : null}
+        </View>
+
+        <View style={[mlbGridStyles.divider, { backgroundColor: theme.border }]} />
+
+        {/* Home */}
+        <View style={mlbGridStyles.teamSide}>
+          {isScheduled ? (
+            homeLogo ? (
+              <Image source={{ uri: homeLogo }} style={mlbGridStyles.teamLogo} resizeMode="contain" />
+            ) : (
+              <View style={[mlbGridStyles.teamLogoPlaceholder, { backgroundColor: homeColor || colors.secondary }]}>
+                <Text style={mlbGridStyles.teamLogoPlaceholderText}>{(home.displayName || "H")[0]}</Text>
+              </View>
+            )
+          ) : (
+            <View style={mlbGridStyles.scoreCell}>
+              <Text
+                style={[
+                  mlbGridStyles.scoreText,
+                  {
+                    color: homeFav ? colors.primary : homeWins ? colors.primary : theme.text,
+                    fontWeight: homeWins ? "700" : "400",
+                    opacity: isFinished && !homeWins ? 0.55 : 1,
+                  },
+                ]}
+              >
+                {homeScore ?? "—"}
+              </Text>
+              {homeLogo && (
+                <Image source={{ uri: homeLogo }} style={mlbGridStyles.scoreLogoOverlay} resizeMode="contain" />
+              )}
+            </View>
+          )}
+          <Text style={[mlbGridStyles.teamAbbr, { color: homeFav ? colors.primary : theme.text }]}>
+            {homeFav ? "★ " : ""}{homeAbbr}
+          </Text>
+          {home.record ? (
+            <Text style={[mlbGridStyles.teamRecord, { color: theme.textSecondary }]}>{home.record}</Text>
+          ) : null}
+        </View>
+      </View>
+
+      {/* Footer: venue or BSO */}
+      <View style={[mlbGridStyles.cardFooter, { borderTopColor: theme.border }]}>
+        {isLive ? (
+          <View style={mlbGridStyles.bsoContainer}>
+            {/* Top line: outs centered */}
+            <View style={mlbGridStyles.bsoRow}>
+              <BSODots filled={game.outs ?? 0} total={3} filledColor={theme.error} theme={theme} />
+            </View>
+            {/* Bottom line: balls + strikes */}
+            <View style={mlbGridStyles.bsoRow}>
+              <BSODots filled={game.balls ?? 0} total={4} filledColor={theme.success} theme={theme} />
+              <View style={{ width: 15 }} />
+              <BSODots filled={game.strikes ?? 0} total={3} filledColor={theme.warning} theme={theme} />
+            </View>
+          </View>
+        ) : (
+          <Text style={[mlbGridStyles.venueText, { color: theme.textSecondary }]} numberOfLines={1}>
+            {game.venue || ""}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// ─── MLB Grid section (floating bubble headers + 2-col cards) ─────────────────
+const MLBGridSection = ({ groups, navigation, theme, colors, isDarkMode, isFavorite, activeFilter, collapsedGroups, toggleCollapse }) => (
+  <View style={mlbGridStyles.container}>
+    {groups.map((group) => (
+      <View key={group.dateKey} style={mlbGridStyles.groupWrapper}>
+        {/* Floating bubble group label */}
+        <TouchableOpacity
+          style={[mlbGridStyles.groupBubble, { backgroundColor: theme.surfaceSecondary }]}
+          activeOpacity={activeFilter === "upcoming" ? 0.7 : 1}
+          onPress={() => activeFilter === "upcoming" && toggleCollapse(group.dateKey)}
+        >
+          <Image
+            source={require("../../../assets/mlb.png")}
+            style={mlbGridStyles.groupBubbleLogo}
+            resizeMode="contain"
+          />
+          <Text style={[mlbGridStyles.groupBubbleName, { color: theme.text }]} numberOfLines={1}>
+            {group.label}
+          </Text>
+          <Text style={[mlbGridStyles.groupBubbleCount, { color: theme.textTertiary }]}>
+            {" "}{group.games.length}
+          </Text>
+          {activeFilter === "upcoming" && (
+            <Text style={[{ color: theme.textTertiary, marginLeft: 4, fontSize: 12 }]}>
+              {collapsedGroups[group.dateKey] ? "▶" : "▼"}
+            </Text>
+          )}
+        </TouchableOpacity>
+        {/* 2-column card grid */}
+        {(() => {
+          const isCollapsed = activeFilter === "upcoming" && !!collapsedGroups[group.dateKey];
+          const displayedGames = isCollapsed ? group.games.slice(0, 2) : group.games;
+          return (
+            <View style={mlbGridStyles.cardsRow}>
+              {displayedGames.map((game) => (
+                <MLBGridCard
+                  key={game.id}
+                  game={game}
+                  navigation={navigation}
+                  theme={theme}
+                  colors={colors}
+                  isDarkMode={isDarkMode}
+                  isFavorite={isFavorite}
+                />
+              ))}
+            </View>
+          );
+        })()}
+      </View>
+    ))}
+  </View>
+);
+
 // ─── Scoreboard section ───────────────────────────────────────────────────────
 
 const ScoreboardSection = ({
@@ -285,6 +547,9 @@ const ScoreboardSection = ({
   colors,
   isFavorite,
   getTeamLogoUrl,
+  activeFilter,
+  collapsedGroups,
+  toggleCollapse,
 }) => (
   <View style={styles.scoreboardContainer}>
     {groups.map((group, gIdx) => (
@@ -295,8 +560,12 @@ const ScoreboardSection = ({
           { backgroundColor: theme.surfaceSecondary },
         ]}
       >
-        {/* Date header */}
-        <View style={styles.eventHeaderContainer}>
+        {/* Date header (tappable to collapse/expand when upcoming) */}
+        <TouchableOpacity
+          style={styles.eventHeaderContainer}
+          activeOpacity={0.8}
+          onPress={() => activeFilter === "upcoming" && toggleCollapse(group.dateKey)}
+        >
           <View style={styles.eventLogoContainer}>
             <Image
               source={require("../../../assets/mlb.png")}
@@ -311,15 +580,24 @@ const ScoreboardSection = ({
             >
               {group.label}
             </Text>
-            <Text style={[styles.eventSubLabel, { color: theme.textTertiary }]}>
+            <Text style={[styles.eventSubLabel, { color: theme.textTertiary }]}> 
               MLB
             </Text>
           </View>
-        </View>
+          <View style={styles.eventHeaderRight} pointerEvents="none">
+            <Text style={[styles.eventCount, { color: theme.textTertiary }]}> {group.games.length} </Text>
+            {activeFilter === "upcoming" && (
+              <Text style={[styles.eventArrow, { color: theme.textTertiary }]}> {collapsedGroups[group.dateKey] ? "▶" : "▼"} </Text>
+            )}
+          </View>
+        </TouchableOpacity>
 
         {/* Match rows */}
         <View style={styles.matchesList}>
-          {group.games.map((game, idx) => {
+          {(() => {
+            const isCollapsed = activeFilter === "upcoming" && !!collapsedGroups[group.dateKey];
+            const displayedGames = isCollapsed ? group.games.slice(0, 1) : group.games;
+            return displayedGames.map((game, idx) => {
             const away = game.awayTeam || {};
             const home = game.homeTeam || {};
             const awayAbbr = getTeamAbbr(away);
@@ -335,9 +613,7 @@ const ScoreboardSection = ({
             const isLive = game.isLive || game.statusType === "I";
             const isFinished =
               game.isCompleted ||
-              game.statusType === "F" ||
-              game.statusType === "O" ||
-              game.statusType === "FT";
+              ["S", "F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(game.statusType);
 
             const inning = game.inning || 0;
             const show = inning !== 9;
@@ -588,7 +864,7 @@ const ScoreboardSection = ({
                         {game.venue}
                       </Text>
                     ) : null}
-                    {game.notes1 || (game.notes && game.gameType !== "R") && (
+                    {game.notes1 || (game.notes && game.gameType !== "R") ? (
                       <Text
                         style={[
                           styles.broadcast,
@@ -597,7 +873,7 @@ const ScoreboardSection = ({
                       >
                         {game.notes && game.notes1 ? `${game.notes} · ${game.notes1}` : game.notes1 || game.notes}
                       </Text>
-                    )}
+                    ) : null}
                   </View>
                   <View style={styles.gameFooterRight}>
                     <LiveViewerBadge
@@ -618,7 +894,8 @@ const ScoreboardSection = ({
                 )}
               </TouchableOpacity>
             );
-          })}
+            });
+          })()}
         </View>
       </View>
     ))}
@@ -632,61 +909,125 @@ const MLBScoreboardScreen = ({ navigation }) => {
   const { isFavorite } = useFavorites();
 
   const [groups, setGroups] = useState([]);
+  const [collapsedGroups, setCollapsedGroups] = useState({});
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState("today");
+  const [isGridView, setIsGridView] = useState(false);
+
+  // Persist grid/list preference
+  useEffect(() => {
+    AsyncStorage.getItem("viewMode_mlb").then((val) => {
+      if (val !== null) setIsGridView(val === "grid");
+    });
+  }, []);
+
+  const toggleViewMode = () => {
+    setIsGridView((v) => {
+      const next = !v;
+      AsyncStorage.setItem("viewMode_mlb", next ? "grid" : "list");
+      return next;
+    });
+  };
 
   const intervalRef = useRef(null);
   const currentIntervalMs = useRef(null);
-  const hasMountedRef = useRef(false);
+  const isFocusedRef = useRef(false);
+  const lastLoadedFilterRef = useRef(null);
+  const fetchCacheRef = useRef({});
+  const inFlightRef = useRef({});
+  const IN_MEMORY_CACHE_MS = 10 * 1000; // 10s UI-level cache to avoid rapid refetches
 
   const loadData = useCallback(
     async (filter, silent = false, background = false) => {
-      if (!silent) setLoading(true);
-      else if (!background) setFetching(true);
+      // UI-level dedupe: return cached groups if very recently loaded
+      const now = Date.now();
+      const cacheEntry = fetchCacheRef.current[filter];
+      if (cacheEntry && now - cacheEntry.ts < IN_MEMORY_CACHE_MS) {
+        // Use cached data, don't refetch
+        setGroups(cacheEntry.groups);
+        lastLoadedFilterRef.current = filter;
+        return cacheEntry.groups;
+      }
+
+      // If there's an in-flight fetch for the same filter, reuse it
+      if (inFlightRef.current[filter]) return inFlightRef.current[filter];
+
+      const promise = (async () => {
+        if (!silent) setLoading(true);
+        else if (!background) setFetching(true);
+        try {
+          const { startDate, endDate } = getDatesForFilter(filter);
+          const data = await MLBService.getScoreboard(startDate, endDate);
+
+          let events = data?.events || [];
+
+          // Sort: live → scheduled → finished, then by time within group
+          const getStatusPriority = (game) => {
+            if (game.isLive || game.statusType === "I") return 1;
+            if (
+              game.isCompleted ||
+              ["S", "F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(game.statusType)
+            )
+              return 3;
+            return 2;
+          };
+          events = [...events].sort((a, b) => {
+            const pa = getStatusPriority(a);
+            const pb = getStatusPriority(b);
+            if (pa !== pb) return pa - pb;
+            return new Date(a.date).getTime() - new Date(b.date).getTime();
+          });
+
+          const nextGroups = groupGamesByDate(events);
+          setGroups(nextGroups);
+          // Track last loaded filter to avoid unnecessary reloads on focus
+          lastLoadedFilterRef.current = filter;
+          // Cache results at UI level to prevent rapid repeated fetches
+          fetchCacheRef.current[filter] = { groups: nextGroups, ts: Date.now() };
+
+          // For upcoming filter, default groups to collapsed (unless user toggled before)
+          if (filter === "upcoming") {
+            setCollapsedGroups((prev) => {
+              const map = { ...prev };
+              nextGroups.forEach((g) => {
+                if (map[g.dateKey] === undefined) map[g.dateKey] = true;
+              });
+              return map;
+            });
+          }
+
+          return nextGroups;
+        } catch (err) {
+          console.error("MLB scoreboard fetch error:", err);
+          setGroups([]);
+          return [];
+        } finally {
+          setLoading(false);
+          if (!background) setFetching(false);
+        }
+      })();
+
+      inFlightRef.current[filter] = promise;
       try {
-        const { startDate, endDate } = getDatesForFilter(filter);
-        const data = await MLBService.getScoreboard(startDate, endDate);
-
-        let events = data?.events || [];
-
-        // Sort: live → scheduled → finished, then by time within group
-        const getStatusPriority = (game) => {
-          if (game.isLive || game.statusType === "I") return 1;
-          if (
-            game.isCompleted ||
-            game.statusType === "F" ||
-            game.statusType === "O" ||
-            game.statusType === "FT"
-          )
-            return 3;
-          return 2;
-        };
-        events = [...events].sort((a, b) => {
-          const pa = getStatusPriority(a);
-          const pb = getStatusPriority(b);
-          if (pa !== pb) return pa - pb;
-          return new Date(a.date).getTime() - new Date(b.date).getTime();
-        });
-
-        const nextGroups = groupGamesByDate(events);
-        setGroups(nextGroups);
-        return nextGroups;
-      } catch (err) {
-        console.error("MLB scoreboard fetch error:", err);
-        setGroups([]);
-        return [];
+        const res = await promise;
+        return res;
       } finally {
-        setLoading(false);
-        if (!background) setFetching(false);
+        delete inFlightRef.current[filter];
       }
     },
     [],
   );
 
+  const toggleCollapse = (dateKey) =>
+    setCollapsedGroups((prev) => ({ ...prev, [dateKey]: !prev[dateKey] }));
+
   const schedulePolling = useCallback(
     (filter, latestGroups) => {
+      // Don't schedule if screen is not focused
+      if (!isFocusedRef.current) return;
+
       // Only auto-poll for "today"
       if (filter !== "today") {
         if (intervalRef.current) {
@@ -721,26 +1062,30 @@ const MLBScoreboardScreen = ({ navigation }) => {
     [loadData],
   );
 
-  // Pause polling when screen loses focus; resume (with fresh fetch) when it regains focus
+  // Start/stop polling based on screen focus
   useFocusEffect(
     useCallback(() => {
-      if (hasMountedRef.current) {
-        // Returning to screen after navigating away — reload & restart polling
-        loadData(activeFilter, true).then((fresh) =>
+      isFocusedRef.current = true;
+      // Only reload on focus when we don't have data or the filter changed.
+      if (groups.length === 0 || lastLoadedFilterRef.current !== activeFilter) {
+        loadData(activeFilter, false).then((fresh) =>
           schedulePolling(activeFilter, fresh),
         );
+      } else {
+        // We already have data for this filter — reattach polling without refetch.
+        schedulePolling(activeFilter, groups);
       }
-      hasMountedRef.current = true;
 
       return () => {
-        // Stop polling while screen is not visible
+        // Stop polling immediately when screen loses focus
+        isFocusedRef.current = false;
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
           currentIntervalMs.current = null;
         }
       };
-    }, [activeFilter, loadData, schedulePolling]),
+    }, [activeFilter, loadData, schedulePolling, groups]),
   );
 
   const onRefresh = async () => {
@@ -754,12 +1099,6 @@ const MLBScoreboardScreen = ({ navigation }) => {
     setActiveFilter(filter);
     loadData(filter, true).then((fresh) => schedulePolling(filter, fresh));
   };
-
-  useEffect(() => {
-    loadData(activeFilter, false).then((fresh) =>
-      schedulePolling(activeFilter, fresh),
-    );
-  }, []);
 
   if (loading) {
     return (
@@ -791,6 +1130,13 @@ const MLBScoreboardScreen = ({ navigation }) => {
           <Text style={[styles.headerTitle, { color: theme.text }]}>
             MLB Scoreboard
           </Text>
+          <TouchableOpacity onPress={toggleViewMode} style={styles.gridToggleBtn}>
+            <Ionicons
+              name={isGridView ? "list-outline" : "grid-outline"}
+              size={22}
+              color={theme.text}
+            />
+          </TouchableOpacity>
         </View>
 
         {/* Section title + date filters */}
@@ -838,17 +1184,34 @@ const MLBScoreboardScreen = ({ navigation }) => {
         {/* Games or empty state */}
         <View style={{ opacity: fetching ? 0.45 : 1 }}>
           {groups.length > 0 ? (
-            <View style={styles.listContainer}>
-              <ScoreboardSection
+            isGridView ? (
+              <MLBGridSection
                 groups={groups}
                 navigation={navigation}
                 theme={theme}
                 colors={colors}
                 isDarkMode={isDarkMode}
                 isFavorite={isFavorite}
-                getTeamLogoUrl={getTeamLogoUrl}
+                activeFilter={activeFilter}
+                collapsedGroups={collapsedGroups}
+                toggleCollapse={toggleCollapse}
               />
-            </View>
+            ) : (
+              <View style={styles.listContainer}>
+                <ScoreboardSection
+                  groups={groups}
+                  navigation={navigation}
+                  theme={theme}
+                  colors={colors}
+                  isDarkMode={isDarkMode}
+                  isFavorite={isFavorite}
+                  getTeamLogoUrl={getTeamLogoUrl}
+                  activeFilter={activeFilter}
+                  collapsedGroups={collapsedGroups}
+                  toggleCollapse={toggleCollapse}
+                />
+              </View>
+            )
           ) : (
             <View style={styles.emptyState}>
               <Text
@@ -883,6 +1246,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   header: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 16,
@@ -890,6 +1255,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: "bold",
+    flex: 1,
+  },
+  gridToggleBtn: {
+    padding: 4,
   },
   section: {
     marginBottom: 24,
@@ -956,6 +1325,20 @@ const styles = StyleSheet.create({
   eventLogoImage: {
     width: 50,
     height: 32,
+  },
+  eventHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 8,
+    paddingRight: 5,
+  },
+  eventCount: {
+    fontSize: 13.5,
+  },
+  eventArrow: {
+    marginLeft: 2,
+    fontSize: 16,
+    fontWeight: "700",
   },
   eventInfo: { flex: 1 },
   eventName: {
@@ -1056,6 +1439,158 @@ const styles = StyleSheet.create({
   matchSeparator: {
     height: 1,
     opacity: 0.3,
+  },
+});
+
+// ─── MLB Grid-view styles ──────────────────────────────────────────────────────
+const mlbGridStyles = StyleSheet.create({
+  container: {
+    paddingHorizontal: MLB_GRID_H_PAD,
+    marginBottom: 24,
+  },
+  groupWrapper: {
+    marginBottom: 16,
+  },
+  groupBubble: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 10,
+  },
+  groupBubbleLogo: {
+    width: 28,
+    height: 18,
+    marginRight: 6,
+  },
+  groupBubbleName: {
+    fontSize: 13,
+    fontWeight: "600",
+    maxWidth: 200,
+  },
+  groupBubbleCount: {
+    marginLeft: 6,
+    fontSize: 12,
+  },
+  cardsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: MLB_GRID_GAP,
+  },
+  card: {
+    borderRadius: 10,
+    overflow: "hidden",
+    marginBottom: 2,
+  },
+  cardTop: {
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    minHeight: 30,
+    justifyContent: "center",
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  statusLive: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  teamsRow: {
+    flexDirection: "row",
+    paddingHorizontal: 8,
+    paddingBottom: 10,
+    alignItems: "flex-start",
+  },
+  teamSide: {
+    flex: 1,
+    alignItems: "center",
+  },
+  divider: {
+    width: 1,
+    alignSelf: "stretch",
+    marginHorizontal: 4,
+    opacity: 0.35,
+  },
+  teamLogo: {
+    width: 40,
+    height: 40,
+    marginBottom: 5,
+  },
+  teamLogoPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 5,
+  },
+  teamLogoPlaceholderText: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "white",
+  },
+  scoreCell: {
+    width: 52,
+    height: 52,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 5,
+    position: "relative",
+  },
+  scoreText: {
+    fontSize: 38,
+    lineHeight: 50,
+  },
+  scoreLogoOverlay: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 20,
+    height: 20,
+    opacity: 0.75,
+  },
+  teamAbbr: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+    textTransform: "uppercase",
+  },
+  teamRecord: {
+    fontSize: 10,
+    textAlign: "center",
+    marginTop: 1,
+  },
+  cardFooter: {
+    borderTopWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    minHeight: 30,
+    justifyContent: "center",
+  },
+  venueText: {
+    fontSize: 9,
+    textAlign: "center",
+  },
+  bsoContainer: {
+    alignItems: "center",
+    gap: 3,
+  },
+  bsoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
   },
 });
 

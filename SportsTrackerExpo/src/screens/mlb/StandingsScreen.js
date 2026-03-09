@@ -72,7 +72,7 @@ const SORT_OPTIONS = [
   { label: "Last Ten", type: "lastTen", source: "splitRecords" },
   { label: "Extra Innings", type: "extraInning", source: "splitRecords" },
   { label: "One Run", type: "oneRun", source: "splitRecords" },
-  { label: "Expected Record", type: "xWinLoss", source: "expectedRecords" },
+  { label: "Expected Record", type: "xWinLossSeason", source: "expectedRecords" },
 ];
 
 // Shorten "American League" → "AL", "National League" → "NL" in division names
@@ -369,7 +369,7 @@ const StandingsScreen = ({ route }) => {
         sortByOpt={sortBy ?? null}
         showDivRecords={!sortBy && showMode === "division"}
         onPress={() =>
-          navigation.navigate("TeamPage", { teamId: espnId, sport: "mlb" })
+          navigation.navigate("TeamPage", { teamId: mlbId, sport: "mlb" })
         }
       />
     );
@@ -629,10 +629,10 @@ const StandingsScreen = ({ route }) => {
             <View style={styles.legendItems}>
               {[
                 {
-                  color: colors.primary,
+                  color: theme.success,
                   label: "z - Clinched Division and Best Record",
                 },
-                { color: colors.primary, label: "y - Clinched Division" },
+                { color: theme.warning, label: "y - Clinched Division" },
                 { color: theme.info, label: "w - Clinched Wild Card" },
                 { color: theme.error, label: "e - Eliminated" },
               ].map(({ color, label }) => (
