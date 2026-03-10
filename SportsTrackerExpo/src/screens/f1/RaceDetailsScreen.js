@@ -1269,7 +1269,7 @@ const F1RacerShareCard = ({
     { label: "TIME", val: timeDisplay, topRight: timeRight },
     { label: "LAPS", val: String(lapsCount) },
     {
-      label: "TOP SPD",
+      label: "SPD TRAP",
       val: topSpeedDisplay !== "-" ? `${topSpeedDisplay} km/h` : "-",
     },
     {

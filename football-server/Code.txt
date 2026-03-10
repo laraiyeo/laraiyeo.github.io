@@ -1,0 +1,22 @@
+I want to build a working football server that makes use of SportMonks api and SportsApiPro
+
+For now, I just want you to create endpoints for everything like this:
+/football/league/{leagueId}
+/football/team/{teamId}
+/football/player/{playerId}
+/football/coach/{coachId}
+/football/referee/{refereeId}
+/football/fixture/{date}
+/football/game/{fixtureId}/{teamIds}
+
+If more than 1 link, just combine all data together (don't edit anything yet) and apply content zipping (so full data isn't always being transferred over network)
+
+Starting off from when the server first initializes, it should fetch the link as shown in cache folder 1.txt. It will fetch multiple competitions in parallel with the following ID's (40,7,11,25,17,13). This data will be cached with a TTL of 24 hours and auto-fetched
+
+Next, you will fetch and cache using the links in league folder. The only things changing from the link will be the id's after /seasons/, /leagues/ or /stages/. The way these endpoints work is you will first fetch the link from 5.txt (leagueId's ). This will be cached with a TTL of 24 hours and auto-fetched. This is where you will find all the leagues, seasons, and stages id's. As you can see, a league like Superliga has league id 271, season id 25536 and stage id 77476856 (for stage id, we will only be looking for the one with sort_order: 1). For the league endpoint, it will accept a league id which will be searched through in the cache so that the season and stage id can be retreived and all 4 links can be fetched in parallel. This will have a TTL of 1 hour (data will only be fetched when initialized. No auto-fetching) for the specific league
+
+Now, we'll move to teams. The endpoint will accept a team id and will be used to fetch all 3 links in parallel. TTL will be 1 hour for the specific team. This is the same for players, coach, and referee. They will all accept id, fetch and cache for 1 hour for the specific id.
+
+For Fixture, there are 2 different endpoints. One that searches fixtures using date (accept YYYYMMDD) and then the game endpoint. They should both have a regular TTL of 1 hour. However, for both, 15 minutes before any game starts (using starting at date and time (in UTC)) and when any game is still in progress (When state is not FT and not in future), it will have a ttl of 30 seconds and auto fetching every 30 seconds. **MAKE NOTE**: Only /fixture will auto update every 1 hour or 30 seconds. /game endpoint will auto update every 30 seconds as long as someone is still fetching from it (say on app, fetch to game endpoint is every 10 seconds, /game endpoint should recognize this and continue updating every 30 seconds (as long as previous mentioned pre-requisites are met). When it doesn't see any fetches occuring after 1 minute. It will stop fetching. Upon next fetch from external source, it will continue the 30 second auto fetch). For both endpoints though, if the game is still in the future (beyond 15 minute) or ended, it will have a ttl of 1 hour. /fixture will auto fetch every hour, but /game endpoint if called upon will fetch once and be cached (if game is finished, cache for 24 hours. If scheduled, cache for 1 hour. If fetched 1hr-15min before the supposed game start, cache until 15 min before game start)
+
+If you require any clarification on anything, let me know
