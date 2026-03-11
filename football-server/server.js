@@ -724,8 +724,8 @@ function transformTeamResponse(combined) {
               name: sq.player.name ?? null,
               image_path: sq.player.image_path ?? null,
               date_of_birth: sq.player.date_of_birth ?? null,
-              detailedposition: sq.player.detailedposition.name ?? null,
-              position: sq.player.position.name ?? null,
+              detailedposition: sq.player.detailedposition?.name ?? null,
+              position: sq.player.position?.name ?? null,
               country: sq.player.country
                 ? {
                     name: sq.player.country.name ?? null,

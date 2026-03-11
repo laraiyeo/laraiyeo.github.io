@@ -119,6 +119,71 @@ function formatTransferDate(dateStr) {
   });
 }
 
+function formatLongDate(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr.includes("T") ? dateStr : dateStr + "T12:00:00");
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function getAgeFromDob(dateStr) {
+  if (!dateStr) return null;
+  const dob = new Date(dateStr + "T12:00:00");
+  if (isNaN(dob.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const m = now.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age -= 1;
+  return age;
+}
+
+function extractStatNumber(value) {
+  if (typeof value === "number") return value;
+  if (!value || typeof value !== "object") return 0;
+  if (typeof value.total === "number") return value.total;
+  if (typeof value.count === "number") return value.count;
+  if (typeof value.all?.count === "number") return value.all.count;
+  return 0;
+}
+
+function getStatEntry(stats, matcher) {
+  return (stats ?? []).find((entry) => matcher((entry.type?.name ?? "").toLowerCase()));
+}
+
+function isGoalkeeperProfile(detailedPos, pos) {
+  const dp = (detailedPos ?? "").toLowerCase();
+  const p = (pos ?? "").toLowerCase();
+  return dp.includes("goalkeeper") || p.includes("goalkeeper");
+}
+
+function getRosterBucket(detailedPos, pos) {
+  const dp = (detailedPos ?? "").toLowerCase();
+  const p = (pos ?? "").toLowerCase();
+  if (dp.includes("goalkeeper") || p.includes("goalkeeper")) return "Goalkeepers";
+  if (
+    dp.includes("attack") ||
+    dp.includes("forward") ||
+    dp.includes("wing") ||
+    dp.includes("striker") ||
+    p.includes("attack")
+  )
+    return "Attackers";
+  if (dp.includes("mid") || p.includes("mid")) return "Midfielders";
+  if (
+    dp.includes("def") ||
+    dp.includes("back") ||
+    dp.includes("sweeper") ||
+    dp.includes("wingback") ||
+    p.includes("def")
+  )
+    return "Defenders";
+  return "Midfielders";
+}
+
 function formatAmountGBP(value) {
   if (value == null || Number.isNaN(Number(value))) return null;
   const n = Number(value);
@@ -2027,6 +2092,419 @@ const trStyles = StyleSheet.create({
   },
 });
 
+function RosterPlayerCard({ entry, theme, teamColor }) {
+  const player = entry.player ?? {};
+  const isGoalkeeper = isGoalkeeperProfile(player.detailedposition, player.position);
+  const imageUri = player.image_path;
+  const showImage = !isPlaceholder(imageUri);
+  const playerName = player.name ?? player.display_name ?? "Unknown Player";
+  const initials = playerName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
+  const posAbbr = getPosAbbr(player.detailedposition);
+
+  const dob = formatLongDate(player.date_of_birth);
+  const age = getAgeFromDob(player.date_of_birth);
+  const dobText = dob ? `${dob}${age != null ? ` (${age})` : ""}` : "-";
+
+  const termStart = formatLongDate(entry.start);
+  const termEnd = formatLongDate(entry.end);
+
+  const stats = player.statistics ?? [];
+  const app = extractStatNumber(getStatEntry(stats, (n) => n === "appearances")?.value);
+  const goalsEntry = getStatEntry(stats, (n) => n === "goals");
+  const goals = extractStatNumber(goalsEntry?.value);
+  const penalties =
+    goalsEntry && typeof goalsEntry.value?.penalties === "number"
+      ? goalsEntry.value.penalties
+      : 0;
+  const assists = extractStatNumber(getStatEntry(stats, (n) => n === "assists")?.value);
+  const minutes = extractStatNumber(getStatEntry(stats, (n) => n === "minutes played")?.value);
+  const goalsConceded = extractStatNumber(
+    getStatEntry(stats, (n) => n === "goals conceded")?.value,
+  );
+  const cleanSheets = extractStatNumber(
+    getStatEntry(stats, (n) => n === "cleansheets" || n === "clean sheets")?.value,
+  );
+
+  return (
+    <View
+      style={[
+        roStyles.card,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+      ]}
+    >
+      <View style={roStyles.topRow}>
+        <View style={roStyles.headshotCol}>
+          <View
+            style={[
+              roStyles.headshotWrap,
+              { backgroundColor: (teamColor ?? "#888") + "30" },
+            ]}
+          >
+            {showImage ? (
+              <Image source={{ uri: imageUri }} style={roStyles.headshot} resizeMode="cover" />
+            ) : (
+              <View style={roStyles.headshotFallback}>
+                <Text style={[roStyles.initials, { color: theme.text }]}>{initials || "?"}</Text>
+              </View>
+            )}
+
+            {entry.jersey_number != null ? (
+              <View style={[roStyles.jerseyBadge, { backgroundColor: theme.surface }]}> 
+                <Text style={[roStyles.jerseyText, { color: theme.text }]}>{entry.jersey_number}</Text>
+              </View>
+            ) : null}
+
+            {player.country?.image_path ? (
+              <Image
+                source={{ uri: player.country.image_path }}
+                style={roStyles.countryFlag}
+                resizeMode="cover"
+              />
+            ) : null}
+
+            {posAbbr !== "--" ? (
+              <View style={[roStyles.posBadge, { backgroundColor: teamColor ?? theme.border }]}>
+                <Text style={[roStyles.posBadgeText, { color: getTextOnColor(teamColor ?? theme.border) }]}>
+                  {posAbbr}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        <View style={roStyles.infoCol}>
+          {(termStart || termEnd) && (
+            <View style={roStyles.termRow}>
+              <Text style={[roStyles.termText, { color: theme.textTertiary ?? theme.textSecondary }]}>
+                {termStart ? `Term Start: ${termStart}` : ""}
+              </Text>
+              <Text style={[roStyles.termText, { color: theme.textTertiary ?? theme.textSecondary }]}>
+                {termEnd ? `Term End: ${termEnd}` : ""}
+              </Text>
+            </View>
+          )}
+
+          <Text style={[roStyles.playerName, { color: theme.text }]} numberOfLines={2}>
+            {playerName}
+          </Text>
+          <Text style={[roStyles.dobText, { color: theme.textSecondary }]} numberOfLines={1}>
+            {dobText}
+          </Text>
+        </View>
+      </View>
+
+      <View style={[roStyles.statsRow, { borderTopColor: theme.border }]}> 
+        <View style={roStyles.statItem}>
+          <Text style={[roStyles.statValue, { color: theme.text }]}>{app}</Text>
+          <Text style={[roStyles.statLabel, { color: theme.textSecondary }]}>APP</Text>
+        </View>
+        <View style={roStyles.statItem}>
+          <Text style={[roStyles.statValue, { color: theme.text }]}>
+            {isGoalkeeper
+              ? goalsConceded
+              : penalties > 0
+                ? `${goals} (${penalties})`
+                : goals}
+          </Text>
+          <Text style={[roStyles.statLabel, { color: theme.textSecondary }]}>
+            {isGoalkeeper ? "GC" : "GLS"}
+          </Text>
+        </View>
+        <View style={roStyles.statItem}>
+          <Text style={[roStyles.statValue, { color: theme.text }]}>
+            {isGoalkeeper ? cleanSheets : assists}
+          </Text>
+          <Text style={[roStyles.statLabel, { color: theme.textSecondary }]}>
+            {isGoalkeeper ? "CS" : "AST"}
+          </Text>
+        </View>
+        <View style={roStyles.statItem}>
+          <Text style={[roStyles.statValue, { color: theme.text }]}>{minutes}</Text>
+          <Text style={[roStyles.statLabel, { color: theme.textSecondary }]}>MP</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function RosterGroup({ title, players, theme, teamColor, defaultExpanded = true }) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  if (!players.length) return null;
+
+  return (
+    <View style={{ marginBottom: 4 }}>
+      <TouchableOpacity
+        style={[roStyles.groupHeader, { backgroundColor: theme.surface }]}
+        onPress={() => setExpanded((v) => !v)}
+        activeOpacity={0.75}
+      >
+        <Text style={[roStyles.groupTitle, { color: theme.text }]}>{title}</Text>
+        <View style={[roStyles.groupCount, { backgroundColor: teamColor + "1a" }]}>
+          <Text style={[roStyles.groupCountText, { color: theme.textSecondary }]}>{players.length}</Text>
+        </View>
+        <Text style={[roStyles.groupChevron, { color: theme.textSecondary }]}>{expanded ? "⌄" : "›"}</Text>
+      </TouchableOpacity>
+
+      {expanded &&
+        players.map((entry, idx) => (
+          <RosterPlayerCard
+            key={`${entry.player?.id ?? entry.player_id ?? idx}_${entry.start ?? "s"}_${entry.end ?? "e"}`}
+            entry={entry}
+            theme={theme}
+            teamColor={teamColor}
+          />
+        ))}
+    </View>
+  );
+}
+
+function RosterSection({ squad, sidelined, theme, teamColor }) {
+  const sidelinedIds = useMemo(() => {
+    const set = new Set();
+    for (const s of sidelined ?? []) {
+      if (s.player_id != null) set.add(s.player_id);
+    }
+    return set;
+  }, [sidelined]);
+
+  const grouped = useMemo(() => {
+    const sections = {
+      Attackers: [],
+      Midfielders: [],
+      Defenders: [],
+      Goalkeepers: [],
+      Sidelined: [],
+    };
+
+    for (const entry of squad ?? []) {
+      const player = entry.player ?? {};
+      if (sidelinedIds.has(entry.player_id)) {
+        sections.Sidelined.push(entry);
+        continue;
+      }
+      const bucket = getRosterBucket(player.detailedposition, player.position);
+      sections[bucket].push(entry);
+    }
+
+    // Include sidelined records not present in current squad.
+    const squadIds = new Set((squad ?? []).map((s) => s.player_id));
+    for (const s of sidelined ?? []) {
+      if (!squadIds.has(s.player_id)) {
+        sections.Sidelined.push({
+          player_id: s.player_id,
+          start: s.start_date,
+          end: s.end_date,
+          jersey_number: null,
+          player: {
+            id: s.player_id,
+            name: s.player?.display_name ?? s.player?.name ?? "Unknown Player",
+            image_path: s.player?.image_path ?? null,
+            date_of_birth: null,
+            detailedposition: null,
+            position: null,
+            country: null,
+            statistics: [],
+          },
+        });
+      }
+    }
+
+    return sections;
+  }, [squad, sidelined, sidelinedIds]);
+
+  const hasAny =
+    grouped.Attackers.length +
+      grouped.Midfielders.length +
+      grouped.Defenders.length +
+      grouped.Goalkeepers.length +
+      grouped.Sidelined.length >
+    0;
+
+  if (!hasAny) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No roster available</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ paddingBottom: 8 }}>
+      <RosterGroup title="Attackers" players={grouped.Attackers} theme={theme} teamColor={teamColor} />
+      <RosterGroup title="Midfielders" players={grouped.Midfielders} theme={theme} teamColor={teamColor} />
+      <RosterGroup title="Defenders" players={grouped.Defenders} theme={theme} teamColor={teamColor} />
+      <RosterGroup title="Goalkeepers" players={grouped.Goalkeepers} theme={theme} teamColor={teamColor} />
+      <RosterGroup title="Sidelined" players={grouped.Sidelined} theme={theme} teamColor={teamColor} />
+    </View>
+  );
+}
+
+const roStyles = StyleSheet.create({
+  groupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  groupTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+  },
+  groupCount: {
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  groupCountText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  groupChevron: {
+    fontSize: 20,
+    lineHeight: 22,
+  },
+  card: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  headshotCol: {
+    width: 88,
+    alignItems: "center",
+  },
+  headshotWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    overflow: "visible",
+  },
+  headshot: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  headshotFallback: {
+    width: 80,
+    height: 80,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  initials: {
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  jerseyBadge: {
+    position: "absolute",
+    top: -2,
+    left: -2,
+    minWidth: 24,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 5,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#00000022",
+  },
+  jerseyText: {
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  countryFlag: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    width: 18,
+    height: 12,
+    borderRadius: 2,
+  },
+  posBadge: {
+    position: "absolute",
+    right: -3,
+    bottom: -3,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#FFFFFF",
+  },
+  posBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+  },
+  infoCol: {
+    flex: 1,
+  },
+  termRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 4,
+  },
+  termText: {
+    fontSize: 10,
+    fontWeight: "500",
+    flex: 1,
+  },
+  playerName: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  dobText: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  statsRow: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  statItem: {
+    minWidth: 52,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statValue: {
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  statLabel: {
+    fontSize: 10,
+    marginTop: 1,
+    fontWeight: "600",
+  },
+});
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function Top5TeamDetailScreen({ route, navigation }) {
@@ -2042,7 +2520,7 @@ export default function Top5TeamDetailScreen({ route, navigation }) {
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  const cacheKey = `top5:team:${teamId}:v2`;
+  const cacheKey = `top5:team:${teamId}:v3`;
 
   const load = useCallback(
     async (isRefresh = false) => {
@@ -2154,6 +2632,8 @@ export default function Top5TeamDetailScreen({ route, navigation }) {
   const hasAnyMatches =
     todayMatches.length + pastMatches.length + upcomingMatches.length > 0;
   const transfers = teamData?.transfers ?? [];
+  const squad = teamData?.squad ?? [];
+  const sidelined = teamInfo?.sidelined ?? [];
 
   // Sticky header animations
   const threshold = Math.max(headerHeight - 40, 80);
@@ -2384,7 +2864,10 @@ export default function Top5TeamDetailScreen({ route, navigation }) {
             {TABS.map((tab) => {
               const isActive = tab === activeTab;
               const isEnabled =
-                tab === "Matches" || tab === "Team" || tab === "Transfers";
+                tab === "Matches" ||
+                tab === "Team" ||
+                tab === "Transfers" ||
+                tab === "Roster";
               return (
                 <TouchableOpacity
                   key={tab}
@@ -2494,6 +2977,14 @@ export default function Top5TeamDetailScreen({ route, navigation }) {
             <TransfersSection
               transfers={transfers}
               teamId={teamId}
+              theme={theme}
+              teamColor={resolvedColor}
+            />
+          )}
+          {activeTab === "Roster" && (
+            <RosterSection
+              squad={squad}
+              sidelined={sidelined}
               theme={theme}
               teamColor={resolvedColor}
             />
