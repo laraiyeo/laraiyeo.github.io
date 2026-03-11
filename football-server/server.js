@@ -2023,6 +2023,7 @@ function transformCacheTeam(item) {
     image_path: item.image_path ?? null,
     rankings: Array.isArray(item.rankings)
       ? item.rankings.map((r) => ({
+          position: r.position ?? null,
           points: r.points ?? null,
           type: r.type ?? null,
         }))

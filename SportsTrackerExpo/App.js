@@ -300,8 +300,11 @@ import UECLTeamPageScreen from "./src/screens/soccer/europa-conference/UECLTeamP
 import UECLPlayerPageScreen from "./src/screens/soccer/europa-conference/UECLPlayerPageScreen";
 import UECLMoreScreen from "./src/screens/soccer/europa-conference/MoreScreen";
 
-// Top 5 Leagues screen
+// Top 5 Leagues screens
 import Top5ScoreboardScreen from "./src/screens/soccer/top5/Top5ScoreboardScreen";
+import Top5LeaguesScreen from "./src/screens/soccer/top5/Top5LeaguesScreen";
+import Top5TeamsScreen from "./src/screens/soccer/top5/Top5TeamsScreen";
+import Top5SearchScreen from "./src/screens/soccer/top5/Top5SearchScreen";
 
 // FIFA World Cup screens
 import FIFAWorldScoreboardScreen from "./src/screens/soccer/fifa.world/FIFAWorldScoreboardScreen";
@@ -312,6 +315,39 @@ import FIFAWorldGameDetailsScreen from "./src/screens/soccer/fifa.world/FIFAWorl
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+
+// Top 5 Leagues Tab Navigator
+const Top5TabNavigator = () => {
+  const { theme, colors } = useTheme();
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: theme.textTertiary,
+        tabBarStyle: {
+          backgroundColor: theme.surface,
+          borderTopWidth: 1,
+          borderTopColor: theme.border,
+        },
+        tabBarIcon: ({ color, size }) => {
+          const icons = {
+            Matches: "football-outline",
+            Leagues: "trophy-outline",
+            Teams: "people-outline",
+            Search: "search-outline",
+          };
+          return <Ionicons name={icons[route.name] ?? "ellipse-outline"} size={size} color={color} />;
+        },
+      })}
+    >
+      <Tab.Screen name="Matches" component={Top5ScoreboardScreen} options={{ title: "Matches" }} />
+      <Tab.Screen name="Leagues" component={Top5LeaguesScreen} options={{ title: "Leagues" }} />
+      <Tab.Screen name="Teams" component={Top5TeamsScreen} options={{ title: "Teams" }} />
+      <Tab.Screen name="Search" component={Top5SearchScreen} options={{ title: "Search" }} />
+    </Tab.Navigator>
+  );
+};
 
 // Home Tab Navigator (for main app navigation)
 const HomeTabNavigator = () => {
@@ -1937,7 +1973,7 @@ const MainStackNavigator = () => {
       />
       <Stack.Screen
         name="top5"
-        component={Top5ScoreboardScreen}
+        component={Top5TabNavigator}
         options={{
           title: "Top 5 Leagues",
           headerStyle: {
