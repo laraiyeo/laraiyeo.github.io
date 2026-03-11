@@ -2325,7 +2325,7 @@ export default function Top5LeagueDetailScreen({ route, navigation }) {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("standings");
 
-  const cacheKey = `top5:league:${leagueId}:v2`;
+  const cacheKey = `top5:league:${leagueId}`;
 
   const load = useCallback(
     async (force = false) => {

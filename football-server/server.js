@@ -382,7 +382,7 @@ function transformLeagueResponse(combined) {
         : null,
       participant: p
         ? {
-            id: p.player_id ?? null,
+            id: p.id ?? null,
             name: p.name ?? null,
             short_code: p.short_code ?? null,
             image_path: p.image_path ?? null,
@@ -459,7 +459,7 @@ function transformLeagueResponse(combined) {
         : [],
       players: Array.isArray(t.players)
         ? t.players.map((pl) => ({
-            id: pl.id ?? null,
+            id: pl.player_id ?? null,
             captain: pl.captain ?? null,
             jersey_number: pl.jersey_number ?? null,
             player: pl.player
