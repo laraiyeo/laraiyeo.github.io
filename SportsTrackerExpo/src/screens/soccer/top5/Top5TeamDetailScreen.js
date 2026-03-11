@@ -1728,7 +1728,10 @@ function TransferCard({ transfer, mode, theme, teamColor }) {
           {transfer.type?.name ?? "Transfer"}
         </Text>
         <Text
-          style={[trStyles.dateText, { color: theme.textTertiary ?? theme.textSecondary }]}
+          style={[
+            trStyles.dateText,
+            { color: theme.textTertiary ?? theme.textSecondary },
+          ]}
           numberOfLines={1}
         >
           {formatTransferDate(transfer.date)}
@@ -1750,24 +1753,36 @@ function TransferCard({ transfer, mode, theme, teamColor }) {
             />
           ) : (
             <View style={trStyles.headshotFallback}>
-              <Text style={[trStyles.initials, { color: theme.text }]}>{initials || "?"}</Text>
+              <Text style={[trStyles.initials, { color: theme.text }]}>
+                {initials || "?"}
+              </Text>
             </View>
           )}
           {posAbbr !== "--" ? (
-            <View style={[trStyles.posBadge, { backgroundColor: sideColor }]}> 
-              <Text style={[trStyles.posBadgeText, { color: getTextOnColor(sideColor) }]}>
+            <View style={[trStyles.posBadge, { backgroundColor: sideColor }]}>
+              <Text
+                style={[
+                  trStyles.posBadgeText,
+                  { color: getTextOnColor(sideColor) },
+                ]}
+              >
                 {posAbbr}
               </Text>
             </View>
           ) : null}
         </View>
-        <Text style={[trStyles.playerName, { color: theme.text }]} numberOfLines={2}>
+        <Text
+          style={[trStyles.playerName, { color: theme.text }]}
+          numberOfLines={2}
+        >
           {playerName}
         </Text>
       </View>
 
       <View style={trStyles.teamRow}>
-        <Text style={[trStyles.teamLabel, { color: theme.textSecondary }]}>{sideLabel}</Text>
+        <Text style={[trStyles.teamLabel, { color: theme.textSecondary }]}>
+          {sideLabel}
+        </Text>
         {sideTeam?.image_path ? (
           <Image
             source={{ uri: sideTeam.image_path }}
@@ -1782,12 +1797,20 @@ function TransferCard({ transfer, mode, theme, teamColor }) {
               { backgroundColor: (sideColor ?? "#888") + "30" },
             ]}
           >
-            <Text style={[trStyles.teamFallbackText, { color: sideColor ?? theme.text }]}> 
+            <Text
+              style={[
+                trStyles.teamFallbackText,
+                { color: sideColor ?? theme.text },
+              ]}
+            >
               {(sideTeam?.name ?? "?")[0]}
             </Text>
           </View>
         )}
-        <Text style={[trStyles.teamName, { color: theme.text }]} numberOfLines={1}>
+        <Text
+          style={[trStyles.teamName, { color: theme.text }]}
+          numberOfLines={1}
+        >
           {sideTeam?.name ?? "Unknown Team"}
         </Text>
       </View>
@@ -1814,7 +1837,7 @@ function TransfersSection({ transfers, teamId, theme, teamColor }) {
 
   return (
     <View style={{ paddingBottom: 8 }}>
-      <View style={[trStyles.toggleWrap, { backgroundColor: theme.surface }]}> 
+      <View style={[trStyles.toggleWrap, { backgroundColor: theme.surface }]}>
         <TouchableOpacity
           style={[
             trStyles.toggleBtn,
