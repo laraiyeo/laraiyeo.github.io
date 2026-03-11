@@ -38,7 +38,7 @@ function titleCaseHyphen(str) {
     .join("-");
 }
 
-export default function Top5LeaguesScreen() {
+export default function Top5LeaguesScreen({ navigation }) {
   const { theme, colors } = useTheme();
   const [leagues, setLeagues] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -134,6 +134,12 @@ export default function Top5LeaguesScreen() {
             <TouchableOpacity
               key={String(item.id)}
               activeOpacity={0.75}
+              onPress={() =>
+                navigation.navigate("Top5LeagueDetail", {
+                  leagueId: item.id,
+                  leagueName: item.name,
+                })
+              }
               style={[
                 styles.card,
                 { backgroundColor: theme.surface, width: CARD_WIDTH },

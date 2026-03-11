@@ -776,7 +776,7 @@ const ScoreboardSection = ({
               const isLive = game.isLive || game.statusType === "I";
               const isFinished =
                 game.isCompleted ||
-                ["S", "F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(
+                ["F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(
                   game.statusType,
                 );
 
@@ -1141,7 +1141,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
             if (game.isLive || game.statusType === "I") return 1;
             if (
               game.isCompleted ||
-              ["S", "F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(
+              ["F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(
                 game.statusType,
               )
             )

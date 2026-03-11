@@ -374,7 +374,7 @@ function transformLeagueResponse(combined) {
       season_id: entry.season_id ?? null,
       result: entry.result ?? null,
       points: entry.points ?? null,
-      rule: entry.rule ? { model_type: entry.rule.model_type ?? null } : null,
+      rule: entry.rule ? { model_type: entry.rule.model_type ?? null, type: entry.rule.type.name ?? null } : null,
       participant: p
         ? {
             id: p.id ?? null,
@@ -612,7 +612,7 @@ app.get("/football/league/:leagueId", async (req, res) => {
       await Promise.all([
         fetchUrl(
           `${SM_BASE}/standings/seasons/${seasonId}?api_token=${SM_TOKEN}` +
-            `&include=rule;stage;participant;details.type;form;league;group`,
+            `&include=rule.type;stage;participant;details.type;form;league;group`,
         ),
         fetchUrl(
           `${SM_BASE}/teams/seasons/${seasonId}?api_token=${SM_TOKEN}` +
@@ -2094,6 +2094,7 @@ function transformCacheFixture(item, teamsNameMap, colorMap) {
   };
 
   return {
+    fixture_id: item.id ?? null,
     league_id: item.league_id ?? null,
     name: item.name ?? null,
     starting_at: item.starting_at ?? null,

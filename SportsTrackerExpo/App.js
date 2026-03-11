@@ -305,6 +305,7 @@ import Top5ScoreboardScreen from "./src/screens/soccer/top5/Top5ScoreboardScreen
 import Top5LeaguesScreen from "./src/screens/soccer/top5/Top5LeaguesScreen";
 import Top5TeamsScreen from "./src/screens/soccer/top5/Top5TeamsScreen";
 import Top5SearchScreen from "./src/screens/soccer/top5/Top5SearchScreen";
+import Top5LeagueDetailScreen from "./src/screens/soccer/top5/Top5LeagueDetailScreen";
 
 // FIFA World Cup screens
 import FIFAWorldScoreboardScreen from "./src/screens/soccer/fifa.world/FIFAWorldScoreboardScreen";
@@ -2004,6 +2005,16 @@ const MainStackNavigator = () => {
           headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
+      />
+      <Stack.Screen
+        name="Top5LeagueDetail"
+        component={Top5LeagueDetailScreen}
+        options={({ route }) => ({
+          title: route.params?.leagueName ?? "League",
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: "#fff",
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        })}
       />
       <Stack.Screen
         name="FavoritesManagement"

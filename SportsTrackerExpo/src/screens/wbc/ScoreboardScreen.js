@@ -613,7 +613,7 @@ const UpcomingMatchesSection = ({
             const awayRecord = game.teams?.away?.leagueRecord;
             const homeRecord = game.teams?.home?.leagueRecord;
             const { time, ampm } = formatTimeEST(game.gameDate);
-            const isFinished = ["S", "D", "C", "O", "F", "Q", "R"].includes(
+            const isFinished = ["D", "C", "O", "F", "Q", "R"].includes(
               game.status?.codedGameState,
             );
             const isLive =
