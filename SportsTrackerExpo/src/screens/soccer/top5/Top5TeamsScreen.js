@@ -59,7 +59,7 @@ function ordinal(n) {
   return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
 }
 
-export default function Top5TeamsScreen() {
+export default function Top5TeamsScreen({ navigation }) {
   const { theme, colors } = useTheme();
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -249,6 +249,12 @@ export default function Top5TeamsScreen() {
                 <TouchableOpacity
                   key={String(t.id)}
                   activeOpacity={0.75}
+                  onPress={() =>
+                    navigation.navigate("Top5TeamDetail", {
+                      teamId: t.id,
+                      teamName: t.name,
+                    })
+                  }
                   style={[
                     styles.card,
                     {
@@ -331,6 +337,12 @@ export default function Top5TeamsScreen() {
       return (
         <TouchableOpacity
           activeOpacity={0.75}
+          onPress={() =>
+            navigation.navigate("Top5TeamDetail", {
+              teamId: item.id,
+              teamName: item.name,
+            })
+          }
           style={[
             styles.listCard,
             { backgroundColor: theme.surface, borderColor },
@@ -407,7 +419,7 @@ export default function Top5TeamsScreen() {
         </TouchableOpacity>
       );
     },
-    [sortMode, theme, colors, collapsedLeagues, toggleLeague],
+    [sortMode, theme, colors, collapsedLeagues, toggleLeague, navigation],
   );
 
   if (loading) {

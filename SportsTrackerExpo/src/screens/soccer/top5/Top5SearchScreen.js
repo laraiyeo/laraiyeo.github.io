@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../../../context/ThemeContext";
 
 const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
@@ -254,6 +255,8 @@ export default function Top5SearchScreen() {
       }));
   }, [activeTab, searchData, query]);
 
+  const navigation = useNavigation();
+
   const renderItem = useCallback(
     ({ item }) => {
       // ── League bubble ─────────────────────────────────────────────────────
@@ -261,6 +264,12 @@ export default function Top5SearchScreen() {
         return (
           <TouchableOpacity
             activeOpacity={0.75}
+            onPress={() =>
+              navigation.navigate("Top5LeagueDetail", {
+                leagueId: item.id,
+                leagueName: item.name,
+              })
+            }
             style={[
               styles.listCard,
               { backgroundColor: theme.surface, borderColor: theme.border },
@@ -307,6 +316,12 @@ export default function Top5SearchScreen() {
         return (
           <TouchableOpacity
             activeOpacity={0.75}
+            onPress={() =>
+              navigation.navigate("Top5TeamDetail", {
+                teamId: item.id,
+                teamName: item.name,
+              })
+            }
             style={[
               styles.listCard,
               {
@@ -502,7 +517,7 @@ export default function Top5SearchScreen() {
 
       return null;
     },
-    [theme, colors],
+    [theme, colors, navigation],
   );
 
   if (loading) {

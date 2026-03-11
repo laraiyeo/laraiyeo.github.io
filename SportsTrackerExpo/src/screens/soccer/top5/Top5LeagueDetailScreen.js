@@ -20,7 +20,11 @@ import {
   Pressable,
   useWindowDimensions,
 } from "react-native";
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
+import {
+  Ionicons,
+  MaterialCommunityIcons,
+  FontAwesome5,
+} from "@expo/vector-icons";
 import Svg, {
   Defs,
   LinearGradient as SvgLinearGradient,
@@ -98,7 +102,7 @@ function getRuleColor(type) {
   return RULE_COLORS_MAP[type.toLowerCase()] ?? null;
 }
 
-function StandingsTab({ stages, theme, colors }) {
+function StandingsTab({ stages, theme, colors, navigation }) {
   const [filter, setFilter] = useState("ovr");
   const [mode, setMode] = useState("full");
 
@@ -253,8 +257,18 @@ function StandingsTab({ stages, theme, colors }) {
                 mode === "full" ? shortName : (p?.name ?? "—");
 
               return (
-                <View
+                <TouchableOpacity
                   key={entry.id ?? idx}
+                  activeOpacity={p?.id != null ? 0.7 : 1}
+                  onPress={
+                    p?.id != null
+                      ? () =>
+                          navigation.navigate("Top5TeamDetail", {
+                            teamId: p.id,
+                            teamName: p.name,
+                          })
+                      : undefined
+                  }
                   style={[
                     stStyles.row,
                     {
@@ -457,7 +471,7 @@ function StandingsTab({ stages, theme, colors }) {
                       </View>
                     </>
                   )}
-                </View>
+                </TouchableOpacity>
               );
             })}
         </View>
@@ -802,7 +816,7 @@ function MatchCard({ match, idx, theme, colors }) {
   );
 }
 
-function MatchesTab({ leagueInfo, teamsInSeason, theme, colors }) {
+function MatchesTab({ leagueInfo, teamsInSeason, theme, colors, navigation }) {
   const [selectedTeamId, setSelectedTeamId] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const listRef = useRef(null);
@@ -855,8 +869,14 @@ function MatchesTab({ leagueInfo, teamsInSeason, theme, colors }) {
   }, [filteredGroups]);
 
   // Split into past and upcoming groups — upcoming renders at the top, no scroll needed
-  const pastGroups = useMemo(() => filteredGroups.slice(0, todayGroupIdx), [filteredGroups, todayGroupIdx]);
-  const upcomingGroups = useMemo(() => filteredGroups.slice(todayGroupIdx), [filteredGroups, todayGroupIdx]);
+  const pastGroups = useMemo(
+    () => filteredGroups.slice(0, todayGroupIdx),
+    [filteredGroups, todayGroupIdx],
+  );
+  const upcomingGroups = useMemo(
+    () => filteredGroups.slice(todayGroupIdx),
+    [filteredGroups, todayGroupIdx],
+  );
 
   const [showPast, setShowPast] = useState(false);
 
@@ -921,7 +941,10 @@ function MatchesTab({ leagueInfo, teamsInSeason, theme, colors }) {
           Filter By Team
         </Text>
         <TouchableOpacity
-          style={[mStyles.teamPickerBtn, { borderColor: selectedTeam?.colorPrimary ?? theme.border }]}
+          style={[
+            mStyles.teamPickerBtn,
+            { borderColor: selectedTeam?.colorPrimary ?? theme.border },
+          ]}
           onPress={() => setModalVisible(true)}
           activeOpacity={0.7}
         >
@@ -976,8 +999,14 @@ function MatchesTab({ leagueInfo, teamsInSeason, theme, colors }) {
                 onPress={() => setShowPast((v) => !v)}
                 activeOpacity={0.7}
               >
-                <Text style={[mStyles.pastToggleText, { color: theme.textSecondary }]}>
-                  {showPast ? "Hide" : "Show"} {pastGroups.length} past match day{pastGroups.length !== 1 ? "s" : ""}
+                <Text
+                  style={[
+                    mStyles.pastToggleText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {showPast ? "Hide" : "Show"} {pastGroups.length} past match
+                  day{pastGroups.length !== 1 ? "s" : ""}
                 </Text>
                 <Ionicons
                   name={showPast ? "chevron-up" : "chevron-down"}
@@ -985,18 +1014,30 @@ function MatchesTab({ leagueInfo, teamsInSeason, theme, colors }) {
                   color={theme.textSecondary}
                 />
               </TouchableOpacity>
-              {showPast && pastGroups.map((group, gIdx) => (
-                <View key={group.dateKey}>
-                  <View style={mStyles.dateHeader}>
-                    <Text style={[mStyles.dateLabel, { color: theme.textSecondary, fontWeight: "600" }]}>
-                      {formatDateLabel(group.dateKey)}
-                    </Text>
+              {showPast &&
+                pastGroups.map((group, gIdx) => (
+                  <View key={group.dateKey}>
+                    <View style={mStyles.dateHeader}>
+                      <Text
+                        style={[
+                          mStyles.dateLabel,
+                          { color: theme.textSecondary, fontWeight: "600" },
+                        ]}
+                      >
+                        {formatDateLabel(group.dateKey)}
+                      </Text>
+                    </View>
+                    {group.matches.map((match, mIdx) => (
+                      <MatchCard
+                        key={match.id}
+                        match={match}
+                        idx={`past_${gIdx}_${mIdx}`}
+                        theme={theme}
+                        colors={colors}
+                      />
+                    ))}
                   </View>
-                  {group.matches.map((match, mIdx) => (
-                    <MatchCard key={match.id} match={match} idx={`past_${gIdx}_${mIdx}`} theme={theme} colors={colors} />
-                  ))}
-                </View>
-              ))}
+                ))}
             </View>
           ) : null
         }
@@ -1077,6 +1118,26 @@ function MatchesTab({ leagueInfo, teamsInSeason, theme, colors }) {
                       size={16}
                       color={colors.primary}
                     />
+                  )}
+                  {navigation && team.id != null && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setModalVisible(false);
+                        navigation.navigate("Top5TeamDetail", {
+                          teamId: team.id,
+                          teamName: team.name,
+                        });
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name="arrow-forward-circle-outline"
+                        size={20}
+                        color={theme.textSecondary}
+                        style={{ marginLeft: 8 }}
+                      />
+                    </TouchableOpacity>
                   )}
                 </TouchableOpacity>
               )}
@@ -1213,7 +1274,7 @@ const DETAILED_POS_MAP = {
   "Right Back": "RB",
   "Left Wing": "LW",
   "Right Wing": "RW",
-  "Sweeper": "SW",
+  Sweeper: "SW",
   // Defensive Mid
   "Defensive Midfielder": "DM",
   "Central Midfielder": "CM",
@@ -1240,7 +1301,11 @@ function getPosAbbr(name) {
   if (DETAILED_POS_MAP[name]) return DETAILED_POS_MAP[name];
 
   if (name.includes(" ")) {
-    return name.split(" ").map(w => w[0]).join("").toUpperCase();
+    return name
+      .split(" ")
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase();
   }
 
   return name.slice(0, 2).toUpperCase();
@@ -1271,7 +1336,11 @@ function formatSidelinedDate(dateStr) {
   if (!dateStr) return null;
   const d = new Date(dateStr + "T12:00:00");
   if (isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function isPlaceholder(uri) {
@@ -1280,10 +1349,27 @@ function isPlaceholder(uri) {
 
 // Group players into position sections
 const POS_SECTIONS = [
-  { label: "Attackers", test: (pos) => pos?.toLowerCase().includes("attack") || pos?.toLowerCase().includes("forward") || pos?.toLowerCase().includes("winger") || pos?.toLowerCase().includes("striker") },
+  {
+    label: "Attackers",
+    test: (pos) =>
+      pos?.toLowerCase().includes("attack") ||
+      pos?.toLowerCase().includes("forward") ||
+      pos?.toLowerCase().includes("winger") ||
+      pos?.toLowerCase().includes("striker"),
+  },
   { label: "Midfielders", test: (pos) => pos?.toLowerCase().includes("mid") },
-  { label: "Defenders", test: (pos) => pos?.toLowerCase().includes("defend") || pos?.toLowerCase().includes("back") || pos?.toLowerCase().includes("sweeper") || pos?.toLowerCase().includes("wingback") },
-  { label: "Goalkeepers", test: (pos) => pos?.toLowerCase().includes("goalkeeper") },
+  {
+    label: "Defenders",
+    test: (pos) =>
+      pos?.toLowerCase().includes("defend") ||
+      pos?.toLowerCase().includes("back") ||
+      pos?.toLowerCase().includes("sweeper") ||
+      pos?.toLowerCase().includes("wingback"),
+  },
+  {
+    label: "Goalkeepers",
+    test: (pos) => pos?.toLowerCase().includes("goalkeeper"),
+  },
 ];
 
 function classifyPlayer(pl) {
@@ -1298,15 +1384,22 @@ function PlayerCard({ pl, teamColor, sidelinedIds, theme }) {
   const name = pl.player?.lastname ?? pl.player?.name?.split(" ").pop() ?? "?";
   const imgUri = pl.player?.image_path;
   const showImg = !isPlaceholder(imgUri);
-  const initials = (
-    pl.player?.firstname && pl.player?.lastname
+  const initials =
+    (pl.player?.firstname && pl.player?.lastname
       ? pl.player.firstname[0] + pl.player.lastname[0]
-      : (pl.player?.name ?? name).split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]).join("")
-  ).toUpperCase().slice(0, 2) || "?";
+      : (pl.player?.name ?? name)
+          .split(" ")
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((p) => p[0])
+          .join("")
+    )
+      .toUpperCase()
+      .slice(0, 2) || "?";
   const posAbbr = getPosAbbr(pl.detailedposition?.name ?? pl.position?.name);
   const badgeBg = teamColor ?? "#888";
   const badgeText = getTextOnColor(badgeBg);
-  const headBg = teamColor ? teamColor + "33" : "#88888822";
+  const headBg = teamColor ? teamColor + "30" : "#88888822";
   const isSidelined = sidelinedIds.has(pl.player?.id ?? pl.id);
 
   return (
@@ -1314,16 +1407,26 @@ function PlayerCard({ pl, teamColor, sidelinedIds, theme }) {
       <View style={tStyles.headshotWrap}>
         <View style={[tStyles.headshotBox, { backgroundColor: headBg }]}>
           {showImg ? (
-            <Image source={{ uri: imgUri }} style={tStyles.headshot} resizeMode="cover" />
+            <Image
+              source={{ uri: imgUri }}
+              style={tStyles.headshot}
+              resizeMode="cover"
+            />
           ) : (
-            <View style={[tStyles.headshotFallback, { backgroundColor: headBg }]}>
-              <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>{initials}</Text>
+            <View
+              style={[tStyles.headshotFallback, { backgroundColor: headBg }]}
+            >
+              <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>
+                {initials}
+              </Text>
             </View>
           )}
         </View>
         {/* Position badge — bottom right */}
         <View style={[tStyles.posBadge, { backgroundColor: badgeBg }]}>
-          <Text style={[tStyles.posBadgeText, { color: badgeText }]}>{posAbbr}</Text>
+          <Text style={[tStyles.posBadgeText, { color: badgeText }]}>
+            {posAbbr}
+          </Text>
         </View>
         {/* Injury / suspension indicator — top right */}
         {isSidelined && (
@@ -1332,9 +1435,16 @@ function PlayerCard({ pl, teamColor, sidelinedIds, theme }) {
           </View>
         )}
       </View>
-      <Text style={[tStyles.playerName, { color: theme.text }]} numberOfLines={1}>{name}</Text>
+      <Text
+        style={[tStyles.playerName, { color: theme.text }]}
+        numberOfLines={1}
+      >
+        {name}
+      </Text>
       {pl.jersey_number != null && (
-        <Text style={[tStyles.jerseyNum, { color: theme.textTertiary }]}>#{pl.jersey_number}</Text>
+        <Text style={[tStyles.jerseyNum, { color: theme.textTertiary }]}>
+          #{pl.jersey_number}
+        </Text>
       )}
     </View>
   );
@@ -1344,7 +1454,9 @@ function PlayerSection({ label, players, teamColor, sidelinedIds, theme }) {
   if (!players.length) return null;
   return (
     <View style={tStyles.posSection}>
-      <Text style={[tStyles.posSectionLabel, { color: theme.textSecondary }]}>{label}</Text>
+      <Text style={[tStyles.posSectionLabel, { color: theme.textSecondary }]}>
+        {label}
+      </Text>
       <FlatList
         horizontal
         data={players}
@@ -1352,7 +1464,12 @@ function PlayerSection({ label, players, teamColor, sidelinedIds, theme }) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={tStyles.playerRow}
         renderItem={({ item: pl }) => (
-          <PlayerCard pl={pl} teamColor={teamColor} sidelinedIds={sidelinedIds} theme={theme} />
+          <PlayerCard
+            pl={pl}
+            teamColor={teamColor}
+            sidelinedIds={sidelinedIds}
+            theme={theme}
+          />
         )}
       />
     </View>
@@ -1363,12 +1480,19 @@ function SidelinedCard({ sl, teamColor, theme }) {
   const name = sl.player?.name ?? "?";
   const imgUri = sl.player?.image_path;
   const showImg = !isPlaceholder(imgUri);
-  const initials = (
-    sl.player?.firstname && sl.player?.lastname
+  const initials =
+    (sl.player?.firstname && sl.player?.lastname
       ? sl.player.firstname[0] + sl.player.lastname[0]
-      : (sl.player?.name ?? name).split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]).join("")
-  ).toUpperCase().slice(0, 2) || "?";
-  const headBg = teamColor ? teamColor + "33" : "#88888822";
+      : (sl.player?.name ?? name)
+          .split(" ")
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((p) => p[0])
+          .join("")
+    )
+      .toUpperCase()
+      .slice(0, 2) || "?";
+  const headBg = teamColor ? teamColor + "30" : "#88888822";
   const typeName = sl.type?.name ?? "Unknown";
   const susp = isSuspension(typeName);
   const cardColor = susp ? getSuspCardColor(typeName) : "#ef4444";
@@ -1376,7 +1500,9 @@ function SidelinedCard({ sl, teamColor, theme }) {
   const startFmt = formatSidelinedDate(sl.start_date);
   const endFmt = formatSidelinedDate(sl.end_date);
   const durationStr = startFmt
-    ? endFmt ? `${startFmt} - ${endFmt}` : startFmt
+    ? endFmt
+      ? `${startFmt} - ${endFmt}`
+      : startFmt
     : "Unknown";
 
   return (
@@ -1384,10 +1510,24 @@ function SidelinedCard({ sl, teamColor, theme }) {
       <View style={tStyles.headshotWrapSm}>
         <View style={[tStyles.headshotBoxSm, { backgroundColor: headBg }]}>
           {showImg ? (
-            <Image source={{ uri: imgUri }} style={tStyles.headshotSm} resizeMode="cover" />
+            <Image
+              source={{ uri: imgUri }}
+              style={tStyles.headshotSm}
+              resizeMode="cover"
+            />
           ) : (
-            <View style={{ width: 48, height: 48, alignItems: "center", justifyContent: "center", backgroundColor: headBg }}>
-              <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>{initials}</Text>
+            <View
+              style={{
+                width: 48,
+                height: 48,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: headBg,
+              }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>
+                {initials}
+              </Text>
             </View>
           )}
         </View>
@@ -1406,20 +1546,32 @@ function SidelinedCard({ sl, teamColor, theme }) {
         </View>
       </View>
       <View style={tStyles.sidelinedInfo}>
-        <Text style={[tStyles.sidelinedName, { color: theme.text }]} numberOfLines={1}>{name}</Text>
-        <Text style={[tStyles.sidelinedMeta, { color: theme.textSecondary }]}>Type: {typeName}</Text>
-        <Text style={[tStyles.sidelinedMeta, { color: theme.textSecondary }]}>Duration: {durationStr}</Text>
-        <Text style={[tStyles.sidelinedMeta, { color: theme.textSecondary }]}>Games Missed: {sl.games_missed ?? 0}</Text>
+        <Text
+          style={[tStyles.sidelinedName, { color: theme.text }]}
+          numberOfLines={1}
+        >
+          {name}
+        </Text>
+        <Text style={[tStyles.sidelinedMeta, { color: theme.textSecondary }]}>
+          Type: {typeName}
+        </Text>
+        <Text style={[tStyles.sidelinedMeta, { color: theme.textSecondary }]}>
+          Duration: {durationStr}
+        </Text>
+        <Text style={[tStyles.sidelinedMeta, { color: theme.textSecondary }]}>
+          Games Missed: {sl.games_missed ?? 0}
+        </Text>
       </View>
     </View>
   );
 }
 
-function TeamBubble({ team, theme, colors }) {
+function TeamBubble({ team, theme, colors, navigation }) {
   const [expanded, setExpanded] = useState(false);
   const primary = team.colorPrimary ?? null;
   const secondary = team.colorSecondary ?? null;
-  const shortCode = team.short_code ?? team.name?.slice(0, 3).toUpperCase() ?? "???";
+  const shortCode =
+    team.short_code ?? team.name?.slice(0, 3).toUpperCase() ?? "???";
   const borderColor = primary ?? theme.border;
 
   // Build sidelined player id set — only entries with a known end_date
@@ -1441,16 +1593,23 @@ function TeamBubble({ team, theme, colors }) {
     const map = {};
     for (const sec of POS_SECTIONS) map[sec.label] = [];
     map["Other"] = [];
-    for (const pl of (team.players ?? []).filter((p) => !sidelinedIds.has(p.player?.id ?? p.id))) {
+    for (const pl of (team.players ?? []).filter(
+      (p) => !sidelinedIds.has(p.player?.id ?? p.id),
+    )) {
       const sec = classifyPlayer(pl);
-      (map[sec] || (map["Other"])).push(pl);
+      (map[sec] || map["Other"]).push(pl);
     }
     return map;
   }, [team.players, sidelinedIds]);
 
   return (
-    <View style={[tStyles.teamBubble, { borderColor, backgroundColor: theme.surface }]}>
-      {/* Header row: arrow | logo | name+code | color dots */}
+    <View
+      style={[
+        tStyles.teamBubble,
+        { borderColor, backgroundColor: theme.surface },
+      ]}
+    >
+      {/* Header row: arrow | logo | name+code | color dots | navigate */}
       <TouchableOpacity
         style={tStyles.teamHeader}
         onPress={() => setExpanded((v) => !v)}
@@ -1463,24 +1622,71 @@ function TeamBubble({ team, theme, colors }) {
           style={tStyles.expandArrow}
         />
         {team.image_path ? (
-          <Image source={{ uri: team.image_path }} style={tStyles.teamLogo} resizeMode="contain" />
+          <Image
+            source={{ uri: team.image_path }}
+            style={tStyles.teamLogo}
+            resizeMode="contain"
+          />
         ) : (
-          <View style={[tStyles.teamLogo, tStyles.teamLogoFallback, { backgroundColor: primary + "33" ?? theme.surfaceSecondary }]}>
-            <Text style={{ fontSize: 14, color: primary ?? theme.text }}>{(team.name ?? "?")[0]}</Text>
+          <View
+            style={[
+              tStyles.teamLogo,
+              tStyles.teamLogoFallback,
+              { backgroundColor: primary + "30" ?? theme.surfaceSecondary },
+            ]}
+          >
+            <Text style={{ fontSize: 14, color: primary ?? theme.text }}>
+              {(team.name ?? "?")[0]}
+            </Text>
           </View>
         )}
         <View style={tStyles.teamInfo}>
-          <Text style={[tStyles.teamName, { color: theme.text }]} numberOfLines={1}>{team.name}</Text>
-          <Text style={[tStyles.teamCode, { color: theme.textSecondary }]}>{shortCode}</Text>
+          <Text
+            style={[tStyles.teamName, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {team.name}
+          </Text>
+          <Text style={[tStyles.teamCode, { color: theme.textSecondary }]}>
+            {shortCode}
+          </Text>
         </View>
         <View style={tStyles.colorDots}>
           {primary ? (
-            <View style={[tStyles.colorDot, { backgroundColor: primary, borderColor: theme.border }]} />
+            <View
+              style={[
+                tStyles.colorDot,
+                { backgroundColor: primary, borderColor: theme.border },
+              ]}
+            />
           ) : null}
           {secondary ? (
-            <View style={[tStyles.colorDot, { backgroundColor: secondary, borderColor: theme.border }]} />
+            <View
+              style={[
+                tStyles.colorDot,
+                { backgroundColor: secondary, borderColor: theme.border },
+              ]}
+            />
           ) : null}
         </View>
+        {navigation && team.id != null ? (
+          <TouchableOpacity
+            onPress={() =>
+              navigation.navigate("Top5TeamDetail", {
+                teamId: team.id,
+                teamName: team.name,
+              })
+            }
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="arrow-forward-circle-outline"
+              size={22}
+              color={primary ?? theme.textSecondary}
+            />
+          </TouchableOpacity>
+        ) : null}
       </TouchableOpacity>
 
       {/* Expanded: position sections + sidelined */}
@@ -1496,7 +1702,7 @@ function TeamBubble({ team, theme, colors }) {
                 sidelinedIds={sidelinedIds}
                 theme={theme}
               />
-            ) : null
+            ) : null,
           )}
           {sectionMap["Other"]?.length > 0 && (
             <PlayerSection
@@ -1509,9 +1715,21 @@ function TeamBubble({ team, theme, colors }) {
           )}
           {activeSidelined.length > 0 && (
             <View style={tStyles.sidelinedSection}>
-              <Text style={[tStyles.posSectionLabel, { color: theme.error ?? "#ef4444", marginLeft: 0 }]}>Sidelined / Suspended</Text>
+              <Text
+                style={[
+                  tStyles.posSectionLabel,
+                  { color: theme.error ?? "#ef4444", marginLeft: 0 },
+                ]}
+              >
+                Sidelined / Suspended
+              </Text>
               {activeSidelined.map((sl, i) => (
-                <SidelinedCard key={sl.player?.id ?? i} sl={sl} teamColor={primary} theme={theme} />
+                <SidelinedCard
+                  key={sl.player?.id ?? i}
+                  sl={sl}
+                  teamColor={primary}
+                  theme={theme}
+                />
               ))}
             </View>
           )}
@@ -1521,15 +1739,20 @@ function TeamBubble({ team, theme, colors }) {
   );
 }
 
-function TeamsTab({ teamsInSeason, theme, colors }) {
+function TeamsTab({ teamsInSeason, theme, colors, navigation }) {
   const teams = useMemo(
-    () => [...(teamsInSeason ?? [])].sort((a, b) => (a.name ?? "").localeCompare(b.name ?? "")),
+    () =>
+      [...(teamsInSeason ?? [])].sort((a, b) =>
+        (a.name ?? "").localeCompare(b.name ?? ""),
+      ),
     [teamsInSeason],
   );
   if (!teams.length) {
     return (
       <View style={tStyles.empty}>
-        <Text style={{ color: theme.textSecondary }}>No team data available</Text>
+        <Text style={{ color: theme.textSecondary }}>
+          No team data available
+        </Text>
       </View>
     );
   }
@@ -1539,14 +1762,24 @@ function TeamsTab({ teamsInSeason, theme, colors }) {
       keyExtractor={(t) => String(t.id)}
       contentContainerStyle={{ paddingVertical: 12, paddingBottom: 32 }}
       renderItem={({ item }) => (
-        <TeamBubble team={item} theme={theme} colors={colors} />
+        <TeamBubble
+          team={item}
+          theme={theme}
+          colors={colors}
+          navigation={navigation}
+        />
       )}
     />
   );
 }
 
 const tStyles = StyleSheet.create({
-  empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 60 },
+  empty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 60,
+  },
   teamBubble: {
     marginHorizontal: 12,
     marginBottom: 10,
@@ -1568,7 +1801,11 @@ const tStyles = StyleSheet.create({
   },
   expandArrow: { marginRight: 2 },
   teamLogo: { width: 38, height: 38 },
-  teamLogoFallback: { borderRadius: 19, alignItems: "center", justifyContent: "center" },
+  teamLogoFallback: {
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   teamInfo: { flex: 1 },
   teamName: { fontSize: 14, fontWeight: "700" },
   teamCode: { fontSize: 11, fontWeight: "600", marginTop: 1 },
@@ -1577,7 +1814,14 @@ const tStyles = StyleSheet.create({
   // Expanded
   expandedBody: { paddingBottom: 10 },
   posSection: { marginTop: 6 },
-  posSectionLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginLeft: 14, marginBottom: 6 },
+  posSectionLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginLeft: 14,
+    marginBottom: 6,
+  },
   playerRow: { paddingHorizontal: 12, gap: 10 },
   playerWrap: { alignItems: "center", width: 64 },
   headshotWrap: { width: 56, height: 56 },
@@ -1590,7 +1834,12 @@ const tStyles = StyleSheet.create({
     justifyContent: "center",
   },
   headshot: { width: 56, height: 56, borderRadius: 28 },
-  headshotFallback: { width: 56, height: 56, alignItems: "center", justifyContent: "center" },
+  headshotFallback: {
+    width: 56,
+    height: 56,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   posBadge: {
     position: "absolute",
     bottom: 0,
@@ -1615,7 +1864,12 @@ const tStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ef4444",
   },
-  playerName: { fontSize: 10, fontWeight: "600", marginTop: 4, textAlign: "center" },
+  playerName: {
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 4,
+    textAlign: "center",
+  },
   jerseyNum: { fontSize: 9, textAlign: "center" },
   // Sidelined
   sidelinedSection: { marginTop: 12, paddingHorizontal: 12 },
@@ -1669,16 +1923,20 @@ function getStatChips(value) {
     chips.push({ label: "Total", val: value.all.count });
     if (value.all.average != null)
       chips.push({ label: "Avg/G", val: Number(value.all.average).toFixed(2) });
-    if (value.home?.count != null) chips.push({ label: "Home", val: value.home.count });
-    if (value.away?.count != null) chips.push({ label: "Away", val: value.away.count });
+    if (value.home?.count != null)
+      chips.push({ label: "Home", val: value.home.count });
+    if (value.away?.count != null)
+      chips.push({ label: "Away", val: value.away.count });
     return chips.slice(0, 4);
   }
   if (typeof value.total === "number") {
     chips.push({ label: "Total", val: value.total });
     if (value.average != null)
       chips.push({ label: "Avg/G", val: Number(value.average).toFixed(2) });
-    if (typeof value.home === "number") chips.push({ label: "Home", val: value.home });
-    if (typeof value.away === "number") chips.push({ label: "Away", val: value.away });
+    if (typeof value.home === "number")
+      chips.push({ label: "Home", val: value.home });
+    if (typeof value.away === "number")
+      chips.push({ label: "Away", val: value.away });
     return chips.slice(0, 4);
   }
   if (typeof value.count === "number") {
@@ -1702,9 +1960,12 @@ function getStatChips(value) {
   if (value.total_minutes_played != null)
     return [{ label: "Minutes", val: value.total_minutes_played }];
   if (value.won_both_halves != null || value.scored_both_halves != null) {
-    if (value.won_both_halves != null) chips.push({ label: "Won Both", val: value.won_both_halves });
-    if (value.scored_both_halves != null) chips.push({ label: "Scored Both", val: value.scored_both_halves });
-    if (value.comebacks != null) chips.push({ label: "Comebacks", val: value.comebacks });
+    if (value.won_both_halves != null)
+      chips.push({ label: "Won Both", val: value.won_both_halves });
+    if (value.scored_both_halves != null)
+      chips.push({ label: "Scored Both", val: value.scored_both_halves });
+    if (value.comebacks != null)
+      chips.push({ label: "Comebacks", val: value.comebacks });
     return chips;
   }
   if (value.most_scored_half != null) {
@@ -1745,12 +2006,19 @@ function StatTeamEntry({ team, value, rank, showRank, isLast, theme }) {
     <View
       style={[
         ssStyles.teamEntry,
-        !isLast && { borderBottomColor: teamColor ?? theme.border, borderBottomWidth: 2 },
+        !isLast && {
+          borderBottomColor: teamColor ?? theme.border,
+          borderBottomWidth: 2,
+        },
       ]}
     >
       <View style={ssStyles.teamEntryRow}>
         {team.image_path && !isPlaceholder(team.image_path) ? (
-          <Image source={{ uri: team.image_path }} style={ssStyles.entryLogo} resizeMode="contain" />
+          <Image
+            source={{ uri: team.image_path }}
+            style={ssStyles.entryLogo}
+            resizeMode="contain"
+          />
         ) : (
           <View
             style={[
@@ -1763,20 +2031,43 @@ function StatTeamEntry({ team, value, rank, showRank, isLast, theme }) {
               },
             ]}
           >
-            <Text style={{ fontSize: 10, fontWeight: "700", color: teamColor ?? "#888" }}>
+            <Text
+              style={{
+                fontSize: 10,
+                fontWeight: "700",
+                color: teamColor ?? "#888",
+              }}
+            >
               {(team.name ?? "?")[0]}
             </Text>
           </View>
         )}
-        <Text style={[ssStyles.entryName, { color: theme.text }]} numberOfLines={1}>
+        <Text
+          style={[ssStyles.entryName, { color: theme.text }]}
+          numberOfLines={1}
+        >
           {team.name}
           {abbr ? (
-            <Text style={[ssStyles.entryAbbr, { color: theme.textSecondary }]}>{" \u00b7 " + abbr}</Text>
+            <Text style={[ssStyles.entryAbbr, { color: theme.textSecondary }]}>
+              {" \u00b7 " + abbr}
+            </Text>
           ) : null}
         </Text>
         {showRank && rank != null && (
-          <View style={[ssStyles.rankCircle, { backgroundColor: teamColor ?? "#888" }]}>
-            <Text style={[ssStyles.rankCircleText, { color: getTextOnColor(teamColor) }]}>{rank}</Text>
+          <View
+            style={[
+              ssStyles.rankCircle,
+              { backgroundColor: teamColor ?? "#888" },
+            ]}
+          >
+            <Text
+              style={[
+                ssStyles.rankCircleText,
+                { color: getTextOnColor(teamColor) },
+              ]}
+            >
+              {rank}
+            </Text>
           </View>
         )}
       </View>
@@ -1784,8 +2075,14 @@ function StatTeamEntry({ team, value, rank, showRank, isLast, theme }) {
         <View style={ssStyles.chipsRow}>
           {chips.map((c, i) => (
             <View key={i} style={ssStyles.chip}>
-              <Text style={[ssStyles.chipVal, { color: theme.text }]}>{c.val}</Text>
-              <Text style={[ssStyles.chipLabel, { color: theme.textSecondary }]}>{c.label}</Text>
+              <Text style={[ssStyles.chipVal, { color: theme.text }]}>
+                {c.val}
+              </Text>
+              <Text
+                style={[ssStyles.chipLabel, { color: theme.textSecondary }]}
+              >
+                {c.label}
+              </Text>
             </View>
           ))}
         </View>
@@ -1820,7 +2117,9 @@ function StatTypeCard({ typeName, statInfo, onPress, theme, colors }) {
       onPress={() => onPress({ typeName, sorted, isRankable })}
       activeOpacity={0.8}
     >
-      <Text style={[ssStyles.statCardTitle, { color: colors.primary }]}>{typeName}</Text>
+      <Text style={[ssStyles.statCardTitle, { color: colors.primary }]}>
+        {typeName}
+      </Text>
       {top3.map((e, i) => (
         <StatTeamEntry
           key={e.team.id}
@@ -1881,7 +2180,9 @@ function TeamStatsTab({ teamsInSeason, theme, colors }) {
   if (!statMap.size) {
     return (
       <View style={ssStyles.empty}>
-        <Text style={{ color: theme.textSecondary }}>No team stats available</Text>
+        <Text style={{ color: theme.textSecondary }}>
+          No team stats available
+        </Text>
       </View>
     );
   }
@@ -1894,7 +2195,10 @@ function TeamStatsTab({ teamsInSeason, theme, colors }) {
         contentContainerStyle={{ paddingBottom: 32 }}
         ListHeaderComponent={
           <TouchableOpacity
-            style={[ssStyles.groupBanner, { backgroundColor: colors.primary + "18" }]}
+            style={[
+              ssStyles.groupBanner,
+              { backgroundColor: colors.primary + "18" },
+            ]}
             onPress={() => setGroupPickerVisible(true)}
             activeOpacity={0.7}
           >
@@ -1922,15 +2226,25 @@ function TeamStatsTab({ teamsInSeason, theme, colors }) {
         animationType="fade"
         onRequestClose={() => setGroupPickerVisible(false)}
       >
-        <Pressable style={mStyles.modalOverlay} onPress={() => setGroupPickerVisible(false)}>
-          <Pressable style={[mStyles.modalSheet, { backgroundColor: theme.surface }]} onPress={() => {}}>
-            <Text style={[mStyles.modalTitle, { color: theme.text }]}>Select Group</Text>
+        <Pressable
+          style={mStyles.modalOverlay}
+          onPress={() => setGroupPickerVisible(false)}
+        >
+          <Pressable
+            style={[mStyles.modalSheet, { backgroundColor: theme.surface }]}
+            onPress={() => {}}
+          >
+            <Text style={[mStyles.modalTitle, { color: theme.text }]}>
+              Select Group
+            </Text>
             {groupNames.map((g) => (
               <TouchableOpacity
                 key={g}
                 style={[
                   mStyles.modalTeamRow,
-                  currentGroup === g && { backgroundColor: colors.primary + "18" },
+                  currentGroup === g && {
+                    backgroundColor: colors.primary + "18",
+                  },
                 ]}
                 onPress={() => {
                   setActiveGroup(g);
@@ -1966,16 +2280,29 @@ function TeamStatsTab({ teamsInSeason, theme, colors }) {
         onRequestClose={() => setModalData(null)}
       >
         <View style={{ flex: 1, justifyContent: "flex-end" }}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setModalData(null)} />
-          <View style={[ssStyles.detailSheet, { backgroundColor: theme.surface }]}>
-            <View style={[ssStyles.detailHeader, { borderBottomColor: theme.border }]}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setModalData(null)}
+          />
+          <View
+            style={[ssStyles.detailSheet, { backgroundColor: theme.surface }]}
+          >
+            <View
+              style={[
+                ssStyles.detailHeader,
+                { borderBottomColor: theme.border },
+              ]}
+            >
               <Text
                 style={[ssStyles.detailTitle, { color: theme.text }]}
                 numberOfLines={1}
               >
                 {modalData?.typeName}
               </Text>
-              <TouchableOpacity onPress={() => setModalData(null)} activeOpacity={0.7}>
+              <TouchableOpacity
+                onPress={() => setModalData(null)}
+                activeOpacity={0.7}
+              >
                 <Ionicons name="close" size={22} color={theme.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -2002,7 +2329,12 @@ function TeamStatsTab({ teamsInSeason, theme, colors }) {
 }
 
 const ssStyles = StyleSheet.create({
-  empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 60 },
+  empty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 60,
+  },
   groupBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -2041,7 +2373,7 @@ const ssStyles = StyleSheet.create({
     marginBottom: 6,
   },
   entryLogo: { width: 24, height: 24 },
-  entryName: { flex: 1, fontSize: 12, fontWeight: "600" },
+  entryName: { fontSize: 12, fontWeight: "600" },
   entryAbbr: { fontSize: 11, fontWeight: "400" },
   rankCircle: {
     width: 24,
@@ -2121,6 +2453,23 @@ function formatStatPairs(value) {
   for (const [k, v] of Object.entries(value)) {
     if (STAT_PAIR_SKIP.has(k)) continue;
     if (v == null) continue;
+    // Time-bucket keys like "0-15", "15-30", "90+"
+    if (typeof v === "object" && /^\d/.test(k)) {
+      const count = v?.count;
+      if (count != null) pairs.push({ label: k, val: String(count) });
+      continue;
+    }
+    // Goal Line nested structure: { over: { "0_5": {count, percentage} }, under: { ... } }
+    if (typeof v === "object" && (k === "over" || k === "under")) {
+      for (const [subKey, subVal] of Object.entries(v)) {
+        if (subVal?.count != null) {
+          const numStr = subKey.replace("_", ".");
+          const label = k.charAt(0).toUpperCase() + k.slice(1) + " " + numStr;
+          pairs.push({ label, val: String(subVal.count) });
+        }
+      }
+      continue;
+    }
     if (typeof v === "object") continue;
     const label = k
       .split("_")
@@ -2143,67 +2492,139 @@ function StageStatCard({ stat, teamMap, playerMap, theme, colors }) {
   const typeName = stat.type?.name ?? "";
 
   const hasParticipant = value.participant_id != null;
-  const hasPlayer = value.player_id != null;
+  const hasCorners = value.team_most_corners_id != null;
+  const hasPlayer =
+    value.player_id != null ||
+    (stat.relation_id != null && value.player_name != null);
 
-  if (hasParticipant || hasPlayer) {
-    let entityName, entityImage, teamColor, countVal;
+  if (hasParticipant || hasCorners || hasPlayer) {
+    let entityName,
+      entityImage,
+      teamColor,
+      entityCount,
+      allTeamsCount,
+      entitySubtitle;
 
     if (hasParticipant) {
       const team = teamMap.get(value.participant_id);
       entityName = value.participant_name;
       entityImage = team?.image_path;
       teamColor = team?.colorPrimary;
-      countVal = value.count ?? value.goals ?? value.assists ?? null;
+      // participant_count = this team's individual count; count = all-teams total
+      if (value.participant_count != null) {
+        entityCount = value.participant_count;
+        allTeamsCount = value.count ?? null;
+      } else {
+        entityCount = value.count ?? value.goals ?? value.assists ?? null;
+        allTeamsCount = null;
+      }
+    } else if (hasCorners) {
+      const team = teamMap.get(value.team_most_corners_id);
+      entityName = value.team_most_corners_name;
+      entityImage = team?.image_path;
+      teamColor = team?.colorPrimary;
+      entityCount = value.count ?? null;
+      allTeamsCount = null;
     } else {
-      const found = playerMap.get(value.player_id);
+      const playerId = value.player_id ?? stat.relation_id;
+      const found = playerMap.get(playerId);
       entityName = value.player_name;
+      // Construct image URL directly from Sportmonks pattern: players/{id%32}/{id}.png
       entityImage = found?.player?.image_path;
       teamColor = found?.team?.colorPrimary;
-      countVal = value.count ?? value.goals ?? value.assists ?? null;
+      entityCount = value.count ?? value.goals ?? value.assists ?? null;
+      allTeamsCount = null;
+      // Extra: pass team name for subtitle
+      entitySubtitle = found?.team?.name ?? null;
     }
 
-    const hasAllTeams = value.participant_count != null;
     const initials = (entityName ?? "?")[0]?.toUpperCase();
+    const showAllTeams = allTeamsCount != null;
 
     return (
-      <View style={[ssStyles.statCard, { backgroundColor: theme.surface }]}>
-        <Text style={[ssStyles.statCardTitle, { color: colors.primary }]}>{typeName}</Text>
+      <View
+        style={[
+          ssStyles.statCard,
+          { backgroundColor: theme.surface },
+          !showAllTeams && teamColor
+            ? { borderWidth: 2, borderColor: teamColor }
+            : {},
+        ]}
+      >
+        <Text style={[ssStyles.statCardTitle, { color: colors.primary }]}>
+          {typeName}
+        </Text>
         <View
           style={[
             ssStyles.stageEntityRow,
-            hasAllTeams && { borderBottomColor: teamColor ?? theme.border, borderBottomWidth: 2 },
+            showAllTeams && {
+              borderBottomColor: teamColor ?? theme.border,
+              borderBottomWidth: 2,
+            },
           ]}
         >
-          {entityImage && !isPlaceholder(entityImage) ? (
-            <Image source={{ uri: entityImage }} style={ssStyles.entryLogo} resizeMode="contain" />
-          ) : (
-            <View
-              style={[
-                ssStyles.entryLogo,
-                {
-                  backgroundColor: (teamColor ?? "#888") + "30",
-                  borderRadius: 12,
-                  alignItems: "center",
-                  justifyContent: "center",
-                },
-              ]}
-            >
-              <Text style={{ fontSize: 10, fontWeight: "700", color: teamColor ?? "#888" }}>
+          <View
+            style={[
+              ssStyles.entryLogo,
+              {
+                backgroundColor: (teamColor ?? theme.border) + "30",
+                borderRadius: 12,
+                overflow: "hidden",
+                alignItems: "center",
+                justifyContent: "center",
+              },
+            ]}
+          >
+            {entityImage && !isPlaceholder(entityImage) ? (
+              <Image
+                source={{ uri: entityImage }}
+                style={ssStyles.entryLogo}
+                resizeMode="cover"
+              />
+            ) : (
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontWeight: "700",
+                  color: teamColor ?? theme.textSecondary,
+                }}
+              >
                 {initials}
               </Text>
-            </View>
-          )}
-          <Text style={[ssStyles.entryName, { color: theme.text }]} numberOfLines={1}>
-            {entityName}
-          </Text>
-          {countVal != null && (
-            <Text style={[ssStyles.stageStatCount, { color: theme.text }]}>{countVal}</Text>
+            )}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[ssStyles.entryName, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {entityName}
+            </Text>
+            {entitySubtitle != null && (
+              <Text
+                style={{ fontSize: 10, color: theme.textSecondary }}
+                numberOfLines={1}
+              >
+                {entitySubtitle}
+              </Text>
+            )}
+          </View>
+          {entityCount != null && (
+            <Text style={[ssStyles.stageStatCount, { color: theme.text }]}>
+              {entityCount}
+            </Text>
           )}
         </View>
-        {hasAllTeams && (
+        {showAllTeams && (
           <View style={ssStyles.stageEntityRow}>
-            <Text style={[ssStyles.stagePairLabel, { color: theme.textSecondary }]}>All Teams</Text>
-            <Text style={[ssStyles.stageStatCount, { color: theme.text }]}>{value.participant_count}</Text>
+            <Text
+              style={[ssStyles.stagePairLabel, { color: theme.textSecondary }]}
+            >
+              All Teams
+            </Text>
+            <Text style={[ssStyles.stageStatCount, { color: theme.text }]}>
+              {allTeamsCount}
+            </Text>
           </View>
         )}
       </View>
@@ -2215,7 +2636,9 @@ function StageStatCard({ stat, teamMap, playerMap, theme, colors }) {
 
   return (
     <View style={[ssStyles.statCard, { backgroundColor: theme.surface }]}>
-      <Text style={[ssStyles.statCardTitle, { color: colors.primary }]}>{typeName}</Text>
+      <Text style={[ssStyles.statCardTitle, { color: colors.primary }]}>
+        {typeName}
+      </Text>
       {pairs.map(({ label, val }, i) => (
         <View
           key={i}
@@ -2227,8 +2650,14 @@ function StageStatCard({ stat, teamMap, playerMap, theme, colors }) {
             },
           ]}
         >
-          <Text style={[ssStyles.stagePairLabel, { color: theme.textSecondary }]}>{label}</Text>
-          <Text style={[ssStyles.stagePairVal, { color: theme.text }]}>{val}</Text>
+          <Text
+            style={[ssStyles.stagePairLabel, { color: theme.textSecondary }]}
+          >
+            {label}
+          </Text>
+          <Text style={[ssStyles.stagePairVal, { color: theme.text }]}>
+            {val}
+          </Text>
         </View>
       ))}
     </View>
@@ -2245,8 +2674,7 @@ function StatsTab({ stageStats, teamsInSeason, theme, colors }) {
     const map = new Map();
     for (const team of teamsInSeason ?? []) {
       for (const pl of team.players ?? []) {
-        const pid = pl.player?.id;
-        if (pid != null) map.set(pid, { player: pl.player, team });
+        if (pl.id != null) map.set(pl.id, { player: pl.player, team });
       }
     }
     return map;
@@ -2256,12 +2684,16 @@ function StatsTab({ stageStats, teamsInSeason, theme, colors }) {
     const g = new Map();
     for (const stat of stageStats ?? []) {
       if (!stat.type?.name) continue;
-      const grp = stat.type.stat_group ? capitalizeFirst(stat.type.stat_group) : "Other";
+      const grp = stat.type.stat_group
+        ? capitalizeFirst(stat.type.stat_group)
+        : "Other";
       if (!g.has(grp)) g.set(grp, []);
       g.get(grp).push(stat);
     }
     for (const list of g.values()) {
-      list.sort((a, b) => (a.type?.name ?? "").localeCompare(b.type?.name ?? ""));
+      list.sort((a, b) =>
+        (a.type?.name ?? "").localeCompare(b.type?.name ?? ""),
+      );
     }
     const GROUP_ORDER = ["Overall", "Offensive", "Defensive", "Other"];
     const names = [...g.keys()].sort((a, b) => {
@@ -2284,11 +2716,21 @@ function StatsTab({ stageStats, teamsInSeason, theme, colors }) {
   }
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 32 }}>
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingBottom: 32 }}
+    >
       {groupNames.map((grp) => (
         <View key={grp}>
-          <View style={[ssStyles.groupBanner, { backgroundColor: colors.primary + "18" }]}>
-            <Text style={[ssStyles.groupBannerText, { color: colors.primary }]}>{grp}</Text>
+          <View
+            style={[
+              ssStyles.groupBanner,
+              { backgroundColor: colors.primary + "18" },
+            ]}
+          >
+            <Text style={[ssStyles.groupBannerText, { color: colors.primary }]}>
+              {grp}
+            </Text>
           </View>
           {(groups.get(grp) ?? []).map((stat, i) => (
             <StageStatCard
@@ -2512,6 +2954,7 @@ export default function Top5LeagueDetailScreen({ route, navigation }) {
           stages={data?.standings ?? []}
           theme={theme}
           colors={colors}
+          navigation={navigation}
         />
       ) : activeTab === "matches" ? (
         <MatchesTab
@@ -2519,12 +2962,14 @@ export default function Top5LeagueDetailScreen({ route, navigation }) {
           teamsInSeason={data?.teamsInSeason}
           theme={theme}
           colors={colors}
+          navigation={navigation}
         />
       ) : activeTab === "teams" ? (
         <TeamsTab
           teamsInSeason={data?.teamsInSeason}
           theme={theme}
           colors={colors}
+          navigation={navigation}
         />
       ) : activeTab === "teamstats" ? (
         <TeamStatsTab

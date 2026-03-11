@@ -464,6 +464,7 @@ function transformLeagueResponse(combined) {
             jersey_number: pl.jersey_number ?? null,
             player: pl.player
               ? {
+                  id: pl.player.id ?? null,
                   firstname: pl.player.firstname ?? null,
                   lastname: pl.player.lastname ?? null,
                   name: pl.player.name ?? null,
@@ -722,8 +723,6 @@ function transformTeamResponse(combined) {
               lastname: sq.player.lastname ?? null,
               name: sq.player.name ?? null,
               image_path: sq.player.image_path ?? null,
-              height: sq.player.height ?? null,
-              weight: sq.player.weight ?? null,
               date_of_birth: sq.player.date_of_birth ?? null,
               country: sq.player.country
                 ? {
@@ -746,6 +745,16 @@ function transformTeamResponse(combined) {
                       : [],
                   )
                 : [],
+              detailedposition: sq.player.detailedposition
+                ? {
+                    name: sq.player.detailedposition.name ?? null,
+                  }
+                : null,
+              position: sq.player.position
+                ? {
+                    name: sq.player.position.name ?? null,
+                  }
+                : null,
             }
           : null,
       }))
@@ -974,7 +983,7 @@ app.get("/football/team/:teamId", async (req, res) => {
       ),
       fetchUrl(
         `${SM_BASE}/transfers/teams/${teamId}?api_token=${SM_TOKEN}` +
-          `&include=fromteam;toteam;player;type;detailedPosition`,
+          `&include=fromteam;toteam;player;type;detailedPosition&per_page=50`,
       ),
     ]);
 
