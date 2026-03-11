@@ -337,14 +337,36 @@ const Top5TabNavigator = () => {
             Teams: "people-outline",
             Search: "search-outline",
           };
-          return <Ionicons name={icons[route.name] ?? "ellipse-outline"} size={size} color={color} />;
+          return (
+            <Ionicons
+              name={icons[route.name] ?? "ellipse-outline"}
+              size={size}
+              color={color}
+            />
+          );
         },
       })}
     >
-      <Tab.Screen name="Matches" component={Top5ScoreboardScreen} options={{ title: "Matches" }} />
-      <Tab.Screen name="Leagues" component={Top5LeaguesScreen} options={{ title: "Leagues" }} />
-      <Tab.Screen name="Teams" component={Top5TeamsScreen} options={{ title: "Teams" }} />
-      <Tab.Screen name="Search" component={Top5SearchScreen} options={{ title: "Search" }} />
+      <Tab.Screen
+        name="Matches"
+        component={Top5ScoreboardScreen}
+        options={{ title: "Matches" }}
+      />
+      <Tab.Screen
+        name="Leagues"
+        component={Top5LeaguesScreen}
+        options={{ title: "Leagues" }}
+      />
+      <Tab.Screen
+        name="Teams"
+        component={Top5TeamsScreen}
+        options={{ title: "Teams" }}
+      />
+      <Tab.Screen
+        name="Search"
+        component={Top5SearchScreen}
+        options={{ title: "Search" }}
+      />
     </Tab.Navigator>
   );
 };

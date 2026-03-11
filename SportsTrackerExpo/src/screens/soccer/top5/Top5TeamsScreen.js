@@ -45,7 +45,10 @@ export default function Top5TeamsScreen() {
         }
       }
       const data = await fetchTeams();
-      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ data, fetchedAt: Date.now() }));
+      await AsyncStorage.setItem(
+        CACHE_KEY,
+        JSON.stringify({ data, fetchedAt: Date.now() }),
+      );
       setTeams(data);
       setError(null);
     } catch (err) {
@@ -56,7 +59,9 @@ export default function Top5TeamsScreen() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -74,15 +79,25 @@ export default function Top5TeamsScreen() {
   if (error) {
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <Text style={[styles.errorText, { color: theme.text }]}>Error: {error}</Text>
-        <TouchableOpacity onPress={() => { setLoading(true); load(true); }} style={[styles.retryBtn, { backgroundColor: colors.primary }]}>
+        <Text style={[styles.errorText, { color: theme.text }]}>
+          Error: {error}
+        </Text>
+        <TouchableOpacity
+          onPress={() => {
+            setLoading(true);
+            load(true);
+          }}
+          style={[styles.retryBtn, { backgroundColor: colors.primary }]}
+        >
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  const sorted = [...teams].sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+  const sorted = [...teams].sort((a, b) =>
+    (a.name ?? "").localeCompare(b.name ?? ""),
+  );
 
   return (
     <FlatList
@@ -90,32 +105,71 @@ export default function Top5TeamsScreen() {
       contentContainerStyle={styles.list}
       data={sorted}
       keyExtractor={(item) => String(item.id)}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.primary}
+        />
+      }
       renderItem={({ item }) => {
         const activeLeague = item.activeseasons?.[0]?.league;
         return (
-          <View style={[styles.row, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+          <View
+            style={[
+              styles.row,
+              {
+                backgroundColor: theme.surface,
+                borderBottomColor: theme.border,
+              },
+            ]}
+          >
             {/* Color swatch */}
             {item.colorPrimary ? (
-              <View style={[styles.swatch, { backgroundColor: item.colorPrimary }]} />
+              <View
+                style={[styles.swatch, { backgroundColor: item.colorPrimary }]}
+              />
             ) : null}
             {item.image_path ? (
-              <Image source={{ uri: item.image_path }} style={styles.logo} resizeMode="contain" />
+              <Image
+                source={{ uri: item.image_path }}
+                style={styles.logo}
+                resizeMode="contain"
+              />
             ) : (
-              <View style={[styles.logo, styles.logoPlaceholder, { backgroundColor: item.colorPrimary ?? theme.surfaceSecondary }]}>
+              <View
+                style={[
+                  styles.logo,
+                  styles.logoPlaceholder,
+                  {
+                    backgroundColor:
+                      item.colorPrimary ?? theme.surfaceSecondary,
+                  },
+                ]}
+              >
                 <Text style={styles.logoFallback}>{(item.name ?? "?")[0]}</Text>
               </View>
             )}
             <View style={styles.info}>
-              <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
+              <Text
+                style={[styles.name, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {item.name}
+              </Text>
               {activeLeague?.name ? (
-                <Text style={[styles.sub, { color: theme.textSecondary }]} numberOfLines={1}>
+                <Text
+                  style={[styles.sub, { color: theme.textSecondary }]}
+                  numberOfLines={1}
+                >
                   {activeLeague.name}
                 </Text>
               ) : null}
             </View>
             {item.short_code ? (
-              <Text style={[styles.code, { color: theme.textTertiary }]}>{item.short_code}</Text>
+              <Text style={[styles.code, { color: theme.textTertiary }]}>
+                {item.short_code}
+              </Text>
             ) : null}
           </View>
         );

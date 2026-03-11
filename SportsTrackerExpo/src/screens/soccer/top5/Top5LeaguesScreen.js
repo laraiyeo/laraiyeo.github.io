@@ -59,7 +59,10 @@ export default function Top5LeaguesScreen() {
         }
       }
       const data = await fetchLeagues();
-      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ data, fetchedAt: Date.now() }));
+      await AsyncStorage.setItem(
+        CACHE_KEY,
+        JSON.stringify({ data, fetchedAt: Date.now() }),
+      );
       setLeagues(data);
       setError(null);
     } catch (err) {
@@ -70,7 +73,9 @@ export default function Top5LeaguesScreen() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -88,9 +93,14 @@ export default function Top5LeaguesScreen() {
   if (error) {
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <Text style={[styles.errorText, { color: theme.text }]}>Error: {error}</Text>
+        <Text style={[styles.errorText, { color: theme.text }]}>
+          Error: {error}
+        </Text>
         <TouchableOpacity
-          onPress={() => { setLoading(true); load(true); }}
+          onPress={() => {
+            setLoading(true);
+            load(true);
+          }}
           style={[styles.retryBtn, { backgroundColor: colors.primary }]}
         >
           <Text style={styles.retryText}>Retry</Text>
@@ -112,7 +122,11 @@ export default function Top5LeaguesScreen() {
       data={rows}
       keyExtractor={(_, idx) => String(idx)}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.primary}
+        />
       }
       renderItem={({ item: row }) => (
         <View style={styles.rowWrap}>
@@ -120,34 +134,58 @@ export default function Top5LeaguesScreen() {
             <TouchableOpacity
               key={String(item.id)}
               activeOpacity={0.75}
-              style={[styles.card, { backgroundColor: theme.surface, width: CARD_WIDTH }]}
+              style={[
+                styles.card,
+                { backgroundColor: theme.surface, width: CARD_WIDTH },
+              ]}
             >
               {/* League logo */}
               <View style={styles.logoWrap}>
                 {item.image_path ? (
-                  <Image source={{ uri: item.image_path }} style={styles.logo} resizeMode="contain" />
+                  <Image
+                    source={{ uri: item.image_path }}
+                    style={styles.logo}
+                    resizeMode="contain"
+                  />
                 ) : (
-                  <View style={[styles.logo, styles.logoPlaceholder, { backgroundColor: theme.surfaceSecondary }]}>
+                  <View
+                    style={[
+                      styles.logo,
+                      styles.logoPlaceholder,
+                      { backgroundColor: theme.surfaceSecondary },
+                    ]}
+                  >
                     <Text style={{ fontSize: 22 }}>⚽</Text>
                   </View>
                 )}
               </View>
 
               {/* Name */}
-              <Text style={[styles.name, { color: theme.text }]} numberOfLines={2}>
+              <Text
+                style={[styles.name, { color: theme.text }]}
+                numberOfLines={2}
+              >
                 {item.name}
               </Text>
 
               {/* Season */}
               {item.currentseason?.name ? (
-                <Text style={[styles.season, { color: theme.textSecondary }]} numberOfLines={1}>
+                <Text
+                  style={[styles.season, { color: theme.textSecondary }]}
+                  numberOfLines={1}
+                >
                   {item.currentseason.name}
                 </Text>
               ) : null}
 
               {/* Sub-type badge */}
               {item.sub_type ? (
-                <View style={[styles.badge, { backgroundColor: colors.primary + "22" }]}>
+                <View
+                  style={[
+                    styles.badge,
+                    { backgroundColor: colors.primary + "22" },
+                  ]}
+                >
                   <Text style={[styles.badgeText, { color: colors.primary }]}>
                     {titleCaseHyphen(item.sub_type)}
                   </Text>
@@ -194,7 +232,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  name: { fontSize: 13, fontWeight: "700", textAlign: "center", marginBottom: 4 },
+  name: {
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 4,
+  },
   season: { fontSize: 11, textAlign: "center", marginBottom: 6 },
   badge: {
     paddingHorizontal: 8,

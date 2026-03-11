@@ -26,11 +26,21 @@ async function fetchSearchData() {
 }
 
 const TABS = ["leagues", "teams", "players", "matches"];
-const TAB_LABELS = { leagues: "Leagues", teams: "Teams", players: "Players", matches: "Matches" };
+const TAB_LABELS = {
+  leagues: "Leagues",
+  teams: "Teams",
+  players: "Players",
+  matches: "Matches",
+};
 
 export default function Top5SearchScreen() {
   const { theme, colors } = useTheme();
-  const [searchData, setSearchData] = useState({ leagues: [], teams: [], players: [], matches: [] });
+  const [searchData, setSearchData] = useState({
+    leagues: [],
+    teams: [],
+    players: [],
+    matches: [],
+  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -51,7 +61,10 @@ export default function Top5SearchScreen() {
         }
       }
       const data = await fetchSearchData();
-      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ data, fetchedAt: Date.now() }));
+      await AsyncStorage.setItem(
+        CACHE_KEY,
+        JSON.stringify({ data, fetchedAt: Date.now() }),
+      );
       setSearchData(data);
       setError(null);
     } catch (err) {
@@ -62,22 +75,27 @@ export default function Top5SearchScreen() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     load(true);
   }, [load]);
 
-  const filterItems = useCallback((items) => {
-    if (!query.trim()) return items;
-    const q = query.toLowerCase();
-    return items.filter((item) => {
-      const name = (item.name ?? item.display_name ?? "").toLowerCase();
-      const team = (item.team_name ?? "").toLowerCase();
-      return name.includes(q) || team.includes(q);
-    });
-  }, [query]);
+  const filterItems = useCallback(
+    (items) => {
+      if (!query.trim()) return items;
+      const q = query.toLowerCase();
+      return items.filter((item) => {
+        const name = (item.name ?? item.display_name ?? "").toLowerCase();
+        const team = (item.team_name ?? "").toLowerCase();
+        return name.includes(q) || team.includes(q);
+      });
+    },
+    [query],
+  );
 
   if (loading) {
     return (
@@ -90,8 +108,16 @@ export default function Top5SearchScreen() {
   if (error) {
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <Text style={[styles.errorText, { color: theme.text }]}>Error: {error}</Text>
-        <TouchableOpacity onPress={() => { setLoading(true); load(true); }} style={[styles.retryBtn, { backgroundColor: colors.primary }]}>
+        <Text style={[styles.errorText, { color: theme.text }]}>
+          Error: {error}
+        </Text>
+        <TouchableOpacity
+          onPress={() => {
+            setLoading(true);
+            load(true);
+          }}
+          style={[styles.retryBtn, { backgroundColor: colors.primary }]}
+        >
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -104,18 +130,45 @@ export default function Top5SearchScreen() {
     switch (activeTab) {
       case "leagues":
         return (
-          <View style={[styles.row, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+          <View
+            style={[
+              styles.row,
+              {
+                backgroundColor: theme.surface,
+                borderBottomColor: theme.border,
+              },
+            ]}
+          >
             {item.image_path ? (
-              <Image source={{ uri: item.image_path }} style={styles.logo} resizeMode="contain" />
+              <Image
+                source={{ uri: item.image_path }}
+                style={styles.logo}
+                resizeMode="contain"
+              />
             ) : (
-              <View style={[styles.logo, styles.logoPlaceholder, { backgroundColor: theme.surfaceSecondary }]}>
+              <View
+                style={[
+                  styles.logo,
+                  styles.logoPlaceholder,
+                  { backgroundColor: theme.surfaceSecondary },
+                ]}
+              >
                 <Text style={{ fontSize: 16 }}>⚽</Text>
               </View>
             )}
             <View style={styles.info}>
-              <Text style={[styles.primaryText, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
+              <Text
+                style={[styles.primaryText, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {item.name}
+              </Text>
               {item.currentseason?.name ? (
-                <Text style={[styles.secondaryText, { color: theme.textSecondary }]}>{item.currentseason.name}</Text>
+                <Text
+                  style={[styles.secondaryText, { color: theme.textSecondary }]}
+                >
+                  {item.currentseason.name}
+                </Text>
               ) : null}
             </View>
           </View>
@@ -123,42 +176,115 @@ export default function Top5SearchScreen() {
 
       case "teams":
         return (
-          <View style={[styles.row, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-            {item.colorPrimary ? <View style={[styles.swatch, { backgroundColor: item.colorPrimary }]} /> : null}
+          <View
+            style={[
+              styles.row,
+              {
+                backgroundColor: theme.surface,
+                borderBottomColor: theme.border,
+              },
+            ]}
+          >
+            {item.colorPrimary ? (
+              <View
+                style={[styles.swatch, { backgroundColor: item.colorPrimary }]}
+              />
+            ) : null}
             {item.image_path ? (
-              <Image source={{ uri: item.image_path }} style={styles.logo} resizeMode="contain" />
+              <Image
+                source={{ uri: item.image_path }}
+                style={styles.logo}
+                resizeMode="contain"
+              />
             ) : (
-              <View style={[styles.logo, styles.logoPlaceholder, { backgroundColor: item.colorPrimary ?? theme.surfaceSecondary }]}>
+              <View
+                style={[
+                  styles.logo,
+                  styles.logoPlaceholder,
+                  {
+                    backgroundColor:
+                      item.colorPrimary ?? theme.surfaceSecondary,
+                  },
+                ]}
+              >
                 <Text style={styles.logoFallback}>{(item.name ?? "?")[0]}</Text>
               </View>
             )}
             <View style={styles.info}>
-              <Text style={[styles.primaryText, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
+              <Text
+                style={[styles.primaryText, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {item.name}
+              </Text>
               {item.activeseasons?.[0]?.league?.name ? (
-                <Text style={[styles.secondaryText, { color: theme.textSecondary }]}>{item.activeseasons[0].league.name}</Text>
+                <Text
+                  style={[styles.secondaryText, { color: theme.textSecondary }]}
+                >
+                  {item.activeseasons[0].league.name}
+                </Text>
               ) : null}
             </View>
-            {item.short_code ? <Text style={[styles.code, { color: theme.textTertiary }]}>{item.short_code}</Text> : null}
+            {item.short_code ? (
+              <Text style={[styles.code, { color: theme.textTertiary }]}>
+                {item.short_code}
+              </Text>
+            ) : null}
           </View>
         );
 
       case "players":
         return (
-          <View style={[styles.row, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-            {item.team_colorPrimary ? <View style={[styles.swatch, { backgroundColor: item.team_colorPrimary }]} /> : null}
+          <View
+            style={[
+              styles.row,
+              {
+                backgroundColor: theme.surface,
+                borderBottomColor: theme.border,
+              },
+            ]}
+          >
+            {item.team_colorPrimary ? (
+              <View
+                style={[
+                  styles.swatch,
+                  { backgroundColor: item.team_colorPrimary },
+                ]}
+              />
+            ) : null}
             {item.image_path ? (
-              <Image source={{ uri: item.image_path }} style={styles.avatar} resizeMode="contain" />
+              <Image
+                source={{ uri: item.image_path }}
+                style={styles.avatar}
+                resizeMode="contain"
+              />
             ) : (
-              <View style={[styles.avatar, styles.logoPlaceholder, { backgroundColor: item.team_colorPrimary ?? theme.surfaceSecondary }]}>
+              <View
+                style={[
+                  styles.avatar,
+                  styles.logoPlaceholder,
+                  {
+                    backgroundColor:
+                      item.team_colorPrimary ?? theme.surfaceSecondary,
+                  },
+                ]}
+              >
                 <Ionicons name="person" size={18} color="#fff" />
               </View>
             )}
             <View style={styles.info}>
-              <Text style={[styles.primaryText, { color: theme.text }]} numberOfLines={1}>
+              <Text
+                style={[styles.primaryText, { color: theme.text }]}
+                numberOfLines={1}
+              >
                 {item.display_name ?? item.name}
               </Text>
               {item.team_name ? (
-                <Text style={[styles.secondaryText, { color: theme.textSecondary }]}>{item.team_name}</Text>
+                <Text
+                  style={[styles.secondaryText, { color: theme.textSecondary }]}
+                >
+                  {item.team_name}
+                </Text>
               ) : null}
             </View>
           </View>
@@ -166,21 +292,49 @@ export default function Top5SearchScreen() {
 
       case "matches":
         return (
-          <View style={[styles.row, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+          <View
+            style={[
+              styles.row,
+              {
+                backgroundColor: theme.surface,
+                borderBottomColor: theme.border,
+              },
+            ]}
+          >
             <View style={styles.info}>
-              <Text style={[styles.primaryText, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
+              <Text
+                style={[styles.primaryText, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {item.name}
+              </Text>
               {item.starting_at ? (
-                <Text style={[styles.secondaryText, { color: theme.textSecondary }]}>
+                <Text
+                  style={[styles.secondaryText, { color: theme.textSecondary }]}
+                >
                   {item.starting_at.slice(0, 10)}
                 </Text>
               ) : null}
             </View>
             <View style={styles.matchTeams}>
               {item.homeTeam?.colorPrimary ? (
-                <View style={[styles.dotSwatch, { backgroundColor: item.homeTeam.colorPrimary }]} />
+                <View
+                  style={[
+                    styles.dotSwatch,
+                    { backgroundColor: item.homeTeam.colorPrimary },
+                  ]}
+                />
               ) : null}
               {item.awayTeam?.colorPrimary ? (
-                <View style={[styles.dotSwatch, { backgroundColor: item.awayTeam.colorPrimary, marginLeft: 4 }]} />
+                <View
+                  style={[
+                    styles.dotSwatch,
+                    {
+                      backgroundColor: item.awayTeam.colorPrimary,
+                      marginLeft: 4,
+                    },
+                  ]}
+                />
               ) : null}
             </View>
           </View>
@@ -194,8 +348,18 @@ export default function Top5SearchScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       {/* Search bar */}
-      <View style={[styles.searchBar, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-        <Ionicons name="search" size={18} color={theme.textTertiary} style={styles.searchIcon} />
+      <View
+        style={[
+          styles.searchBar,
+          { backgroundColor: theme.surface, borderBottomColor: theme.border },
+        ]}
+      >
+        <Ionicons
+          name="search"
+          size={18}
+          color={theme.textTertiary}
+          style={styles.searchIcon}
+        />
         <TextInput
           style={[styles.searchInput, { color: theme.text }]}
           placeholder="Search…"
@@ -207,13 +371,22 @@ export default function Top5SearchScreen() {
         />
         {query.length > 0 && (
           <TouchableOpacity onPress={() => setQuery("")}>
-            <Ionicons name="close-circle" size={18} color={theme.textTertiary} />
+            <Ionicons
+              name="close-circle"
+              size={18}
+              color={theme.textTertiary}
+            />
           </TouchableOpacity>
         )}
       </View>
 
       {/* Tabs */}
-      <View style={[styles.tabBar, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+      <View
+        style={[
+          styles.tabBar,
+          { backgroundColor: theme.surface, borderBottomColor: theme.border },
+        ]}
+      >
         {TABS.map((tab) => {
           const isActive = tab === activeTab;
           return (
@@ -223,13 +396,28 @@ export default function Top5SearchScreen() {
               onPress={() => setActiveTab(tab)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.tabLabel, { color: isActive ? colors.primary : theme.textSecondary, fontWeight: isActive ? "700" : "400" }]}>
+              <Text
+                style={[
+                  styles.tabLabel,
+                  {
+                    color: isActive ? colors.primary : theme.textSecondary,
+                    fontWeight: isActive ? "700" : "400",
+                  },
+                ]}
+              >
                 {TAB_LABELS[tab]}
               </Text>
               <Text style={[styles.tabCount, { color: theme.textTertiary }]}>
                 {(searchData[tab] ?? []).length}
               </Text>
-              {isActive && <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />}
+              {isActive && (
+                <View
+                  style={[
+                    styles.tabIndicator,
+                    { backgroundColor: colors.primary },
+                  ]}
+                />
+              )}
             </TouchableOpacity>
           );
         })}
@@ -238,7 +426,13 @@ export default function Top5SearchScreen() {
       <FlatList
         data={items}
         keyExtractor={(item, idx) => String(item.id ?? item.player_id ?? idx)}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
         renderItem={renderItem}
         ListEmptyComponent={
           <View style={[styles.center, { paddingTop: 60 }]}>
