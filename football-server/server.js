@@ -389,7 +389,10 @@ function transformLeagueResponse(combined) {
         ? entry.details.map((d) => ({
             value: d.value ?? null,
             type: d.type
-              ? { name: d.type.name ?? null, stat_group: d.type.stat_group ?? null }
+              ? {
+                  name: d.type.name ?? null,
+                  stat_group: d.type.stat_group ?? null,
+                }
               : null,
           }))
         : [],
@@ -465,9 +468,7 @@ function transformLeagueResponse(combined) {
             detailedposition: pl.detailedposition
               ? { name: pl.detailedposition.name ?? null }
               : null,
-            position: pl.position
-              ? { name: pl.position.name ?? null }
-              : null,
+            position: pl.position ? { name: pl.position.name ?? null } : null,
           }))
         : [],
     };
@@ -600,7 +601,10 @@ app.get("/football/league/:leagueId", async (req, res) => {
 
   if (cacheValid(cacheKey, TTL_1H)) {
     setCacheControl(res, TTL_1H);
-    return res.json({ source: "cache", data: transformLeagueResponse(cache.get(cacheKey).data) });
+    return res.json({
+      source: "cache",
+      data: transformLeagueResponse(cache.get(cacheKey).data),
+    });
   }
 
   try {
@@ -931,7 +935,10 @@ app.get("/football/team/:teamId", async (req, res) => {
 
   if (cacheValid(cacheKey, TTL_1H)) {
     setCacheControl(res, TTL_1H);
-    return res.json({ source: "cache", data: transformTeamResponse(cache.get(cacheKey).data) });
+    return res.json({
+      source: "cache",
+      data: transformTeamResponse(cache.get(cacheKey).data),
+    });
   }
 
   try {
@@ -1177,7 +1184,10 @@ function transformCoachResponse(raw) {
     image_path: d.image_path ?? null,
     date_of_birth: d.date_of_birth ?? null,
     country: d.country
-      ? { name: d.country.name ?? null, image_path: d.country.image_path ?? null }
+      ? {
+          name: d.country.name ?? null,
+          image_path: d.country.image_path ?? null,
+        }
       : null,
     statistics: Array.isArray(d.statistics)
       ? d.statistics.map((s) => ({
@@ -1197,7 +1207,10 @@ function transformCoachResponse(raw) {
                   ? s.details.map((det) => ({
                       value: det.value ?? null,
                       type: det.type
-                        ? { name: det.type.name ?? null, stat_group: det.type.stat_group ?? null }
+                        ? {
+                            name: det.type.name ?? null,
+                            stat_group: det.type.stat_group ?? null,
+                          }
                         : null,
                     }))
                   : [],
@@ -1223,7 +1236,9 @@ function transformCoachResponse(raw) {
       : [],
     teams: Array.isArray(d.teams)
       ? d.teams.map((t) => {
-          const colors = t.team ? findSapColors(t.team.name, colorMap) : { colorPrimary: null, colorSecondary: null };
+          const colors = t.team
+            ? findSapColors(t.team.name, colorMap)
+            : { colorPrimary: null, colorSecondary: null };
           return {
             team_id: t.team_id ?? null,
             start: t.start ?? null,
@@ -1250,7 +1265,10 @@ app.get("/football/coach/:coachId", async (req, res) => {
 
   if (cacheValid(cacheKey, TTL_1H)) {
     setCacheControl(res, TTL_1H);
-    return res.json({ source: "cache", data: transformCoachResponse(cache.get(cacheKey).data) });
+    return res.json({
+      source: "cache",
+      data: transformCoachResponse(cache.get(cacheKey).data),
+    });
   }
 
   try {
@@ -1281,7 +1299,10 @@ function transformRefereeResponse(raw) {
     name: d.name ?? null,
     image_path: d.image_path ?? null,
     country: d.country
-      ? { name: d.country.name ?? null, image_path: d.country.image_path ?? null }
+      ? {
+          name: d.country.name ?? null,
+          image_path: d.country.image_path ?? null,
+        }
       : null,
     statistics: Array.isArray(d.statistics)
       ? d.statistics.map((s) => ({
@@ -1302,7 +1323,10 @@ function transformRefereeResponse(raw) {
             ? s.details.map((det) => ({
                 value: det.value ?? null,
                 type: det.type
-                  ? { name: det.type.name ?? null, stat_group: det.type.stat_group ?? null }
+                  ? {
+                      name: det.type.name ?? null,
+                      stat_group: det.type.stat_group ?? null,
+                    }
                   : null,
               }))
             : [],
@@ -1318,7 +1342,10 @@ app.get("/football/referee/:refereeId", async (req, res) => {
 
   if (cacheValid(cacheKey, TTL_1H)) {
     setCacheControl(res, TTL_1H);
-    return res.json({ source: "cache", data: transformRefereeResponse(cache.get(cacheKey).data) });
+    return res.json({
+      source: "cache",
+      data: transformRefereeResponse(cache.get(cacheKey).data),
+    });
   }
 
   try {
@@ -1995,14 +2022,21 @@ function transformCacheTeam(item) {
     short_code: item.short_code ?? null,
     image_path: item.image_path ?? null,
     rankings: Array.isArray(item.rankings)
-      ? item.rankings.map((r) => ({ points: r.points ?? null, type: r.type ?? null }))
+      ? item.rankings.map((r) => ({
+          points: r.points ?? null,
+          type: r.type ?? null,
+        }))
       : [],
     activeseasons: Array.isArray(item.activeseasons)
       ? item.activeseasons.map((s) => ({
-          league: s.league ? { id: s.league.id, name: s.league.name ?? null } : null,
+          league: s.league
+            ? { id: s.league.id, name: s.league.name ?? null }
+            : null,
         }))
       : [],
-    sidelined: Array.isArray(item.sidelined) ? item.sidelined.map(mapPlayer) : [],
+    sidelined: Array.isArray(item.sidelined)
+      ? item.sidelined.map(mapPlayer)
+      : [],
     players: Array.isArray(item.players) ? item.players.map(mapPlayer) : [],
   };
 }
@@ -2031,7 +2065,8 @@ function findTeamByName(name, teamsNameMap) {
   if (norm.length >= 4) {
     for (const [key, team] of teamsNameMap) {
       const kn = normalizeName(key);
-      if (kn.length >= 4 && (kn.includes(norm) || norm.includes(kn))) return team;
+      if (kn.length >= 4 && (kn.includes(norm) || norm.includes(kn)))
+        return team;
     }
   }
   return null;
@@ -2125,7 +2160,9 @@ async function warmCacheFixturesFetch() {
       page++;
     }
     cacheSet("cache:fixtures:raw", all);
-    console.log(`[startup] Cache fixtures raw — ${all.length} entries (${start}→${end})`);
+    console.log(
+      `[startup] Cache fixtures raw — ${all.length} entries (${start}→${end})`,
+    );
   } catch (err) {
     console.warn("[startup] Cache fixtures fetch failed:", err.message);
   }
