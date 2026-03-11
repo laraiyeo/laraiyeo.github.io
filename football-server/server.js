@@ -374,10 +374,15 @@ function transformLeagueResponse(combined) {
       season_id: entry.season_id ?? null,
       result: entry.result ?? null,
       points: entry.points ?? null,
-      rule: entry.rule ? { model_type: entry.rule.model_type ?? null, type: entry.rule.type.name ?? null } : null,
+      rule: entry.rule
+        ? {
+            model_type: entry.rule.model_type ?? null,
+            type: entry.rule.type?.name ?? null,
+          }
+        : null,
       participant: p
         ? {
-            id: p.id ?? null,
+            id: p.player_id ?? null,
             name: p.name ?? null,
             short_code: p.short_code ?? null,
             image_path: p.image_path ?? null,

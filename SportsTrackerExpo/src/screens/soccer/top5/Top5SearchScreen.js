@@ -124,7 +124,7 @@ function PlayerAvatar({ item, theme }) {
   const teamColor = item.team_colorPrimary ?? null;
   const bgColor = teamColor ? teamColor + "30" : theme.surfaceSecondary;
   const fallbackBg = teamColor ?? theme.surfaceSecondary;
-  if (item.image_path && !imgErr) {
+  if (item.image_path && !item.image_path.includes("placeholder") && !imgErr) {
     return (
       <Image
         source={{ uri: item.image_path }}
