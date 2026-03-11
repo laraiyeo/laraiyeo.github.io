@@ -970,7 +970,7 @@ app.get("/football/team/:teamId", async (req, res) => {
       ),
       fetchUrl(
         `${SM_BASE}/squads/teams/${teamId}?api_token=${SM_TOKEN}` +
-          `&player.country;player.statistics.details.type;player.detailedPosition;player.position` +
+          `&include=player.country;player.statistics.details.type;player.detailedPosition;player.position` +
           squadFilter,
       ),
       fetchUrl(
