@@ -724,6 +724,8 @@ function transformTeamResponse(combined) {
               name: sq.player.name ?? null,
               image_path: sq.player.image_path ?? null,
               date_of_birth: sq.player.date_of_birth ?? null,
+              detailedposition: sq.player.detailedposition.name ?? null,
+              position: sq.player.position.name ?? null,
               country: sq.player.country
                 ? {
                     name: sq.player.country.name ?? null,
@@ -745,16 +747,6 @@ function transformTeamResponse(combined) {
                       : [],
                   )
                 : [],
-              detailedposition: sq.player.detailedposition
-                ? {
-                    name: sq.player.detailedposition.name ?? null,
-                  }
-                : null,
-              position: sq.player.position
-                ? {
-                    name: sq.player.position.name ?? null,
-                  }
-                : null,
             }
           : null,
       }))
@@ -978,7 +970,7 @@ app.get("/football/team/:teamId", async (req, res) => {
       ),
       fetchUrl(
         `${SM_BASE}/squads/teams/${teamId}?api_token=${SM_TOKEN}` +
-          `&include=player.country;player.statistics.details.type` +
+          `&player.country;player.statistics.details.type;player.detailedPosition;player.position` +
           squadFilter,
       ),
       fetchUrl(

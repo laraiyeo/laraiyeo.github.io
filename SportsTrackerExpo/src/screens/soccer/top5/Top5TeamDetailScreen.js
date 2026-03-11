@@ -2042,7 +2042,7 @@ export default function Top5TeamDetailScreen({ route, navigation }) {
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  const cacheKey = `top5:team:${teamId}:v1`;
+  const cacheKey = `top5:team:${teamId}:v2`;
 
   const load = useCallback(
     async (isRefresh = false) => {
