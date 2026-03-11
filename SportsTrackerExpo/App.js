@@ -300,6 +300,9 @@ import UECLTeamPageScreen from "./src/screens/soccer/europa-conference/UECLTeamP
 import UECLPlayerPageScreen from "./src/screens/soccer/europa-conference/UECLPlayerPageScreen";
 import UECLMoreScreen from "./src/screens/soccer/europa-conference/MoreScreen";
 
+// Top 5 Leagues screen
+import Top5ScoreboardScreen from "./src/screens/soccer/top5/Top5ScoreboardScreen";
+
 // FIFA World Cup screens
 import FIFAWorldScoreboardScreen from "./src/screens/soccer/fifa.world/FIFAWorldScoreboardScreen";
 import FIFAWorldStandingsScreen from "./src/screens/soccer/fifa.world/FIFAWorldStandingsScreen";
@@ -1925,6 +1928,18 @@ const MainStackNavigator = () => {
         }}
         options={{
           title: "FIFA World Cup",
+          headerStyle: {
+            backgroundColor: colors.primary,
+          },
+          headerTintColor: "#fff",
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        }}
+      />
+      <Stack.Screen
+        name="top5"
+        component={Top5ScoreboardScreen}
+        options={{
+          title: "Top 5 Leagues",
           headerStyle: {
             backgroundColor: colors.primary,
           },

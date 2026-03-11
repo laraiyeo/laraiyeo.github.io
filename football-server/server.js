@@ -1947,6 +1947,307 @@ app.get("/football/cache-sap", (_req, res) => {
   res.json({ standings });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Cache data helpers — leagues / teams / fixtures bulk endpoints
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Fixture date window: end = yesterday in UTC-1, start = end − 100 days.
+function getFixtureDateRange() {
+  const utcMinus1Now = new Date(Date.now() - 60 * 60 * 1000);
+  const end = new Date(utcMinus1Now);
+  end.setUTCDate(end.getUTCDate() - 1);
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - 100);
+  const fmt = (d) => d.toISOString().slice(0, 10);
+  return { start: fmt(start), end: fmt(end) };
+}
+
+// Transform a league item per a.txt spec.
+function transformCacheLeague(item) {
+  return {
+    id: item.id,
+    name: item.name ?? null,
+    image_path: item.image_path ?? null,
+    sub_type: item.sub_type ?? null,
+    currentseason: item.currentseason
+      ? { id: item.currentseason.id, name: item.currentseason.name ?? null }
+      : null,
+  };
+}
+
+// Transform a team item per b.txt spec.
+function transformCacheTeam(item) {
+  const mapPlayer = (p) => ({
+    player_id: p.player_id ?? null,
+    player: p.player
+      ? {
+          firstname: p.player.firstname ?? null,
+          lastname: p.player.lastname ?? null,
+          name: p.player.name ?? null,
+          display_name: p.player.display_name ?? null,
+          image_path: p.player.image_path ?? null,
+        }
+      : null,
+  });
+  return {
+    id: item.id,
+    name: item.name ?? null,
+    short_code: item.short_code ?? null,
+    image_path: item.image_path ?? null,
+    rankings: Array.isArray(item.rankings)
+      ? item.rankings.map((r) => ({ points: r.points ?? null, type: r.type ?? null }))
+      : [],
+    activeseasons: Array.isArray(item.activeseasons)
+      ? item.activeseasons.map((s) => ({
+          league: s.league ? { id: s.league.id, name: s.league.name ?? null } : null,
+        }))
+      : [],
+    sidelined: Array.isArray(item.sidelined) ? item.sidelined.map(mapPlayer) : [],
+    players: Array.isArray(item.players) ? item.players.map(mapPlayer) : [],
+  };
+}
+
+// Builds a lowercased-name → team lookup from the teams cache.
+function buildTeamsNameMap() {
+  const map = new Map();
+  for (const team of cache.get("cache:teams")?.data ?? []) {
+    if (team.name) map.set(team.name.toLowerCase(), team);
+  }
+  return map;
+}
+
+// Resolve a team using the same progressive matching logic as findSapColors.
+function findTeamByName(name, teamsNameMap) {
+  if (!name) return null;
+  const lower = name.toLowerCase();
+  if (teamsNameMap.has(lower)) return teamsNameMap.get(lower);
+  const norm = normalizeName(name);
+  for (const [key, team] of teamsNameMap) {
+    if (normalizeName(key) === norm) return team;
+  }
+  for (const [key, team] of teamsNameMap) {
+    if (key.includes(lower) || lower.includes(key)) return team;
+  }
+  if (norm.length >= 4) {
+    for (const [key, team] of teamsNameMap) {
+      const kn = normalizeName(key);
+      if (kn.length >= 4 && (kn.includes(norm) || norm.includes(kn))) return team;
+    }
+  }
+  return null;
+}
+
+// Transform a raw fixture per c.txt spec + team enrichment.
+// Fixture name format: "Away Team vs Home Team" (left = away, right = home).
+function transformCacheFixture(item, teamsNameMap, colorMap) {
+  const name = item.name ?? "";
+  const sepIdx = name.indexOf(" vs ");
+  const awayName = sepIdx !== -1 ? name.slice(0, sepIdx).trim() : null;
+  const homeName = sepIdx !== -1 ? name.slice(sepIdx + 4).trim() : null;
+
+  const buildSide = (teamName) => {
+    const team = findTeamByName(teamName, teamsNameMap);
+    const colors = findSapColors(teamName ?? "", colorMap);
+    return {
+      id: team?.id ?? null,
+      name: teamName ?? null,
+      image_path: team?.image_path ?? null,
+      colorPrimary: colors.colorPrimary,
+      colorSecondary: colors.colorSecondary,
+    };
+  };
+
+  return {
+    league_id: item.league_id ?? null,
+    name: item.name ?? null,
+    starting_at: item.starting_at ?? null,
+    homeTeam: buildSide(homeName),
+    awayTeam: buildSide(awayName),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cache data warm-up
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function warmCacheLeagues() {
+  try {
+    let page = 1;
+    let all = [];
+    while (true) {
+      const url = `${SM_BASE}/leagues?api_token=${SM_TOKEN}&include=currentSeason&page=${page}`;
+      const resp = await fetchUrl(url);
+      if (!resp?.data || !Array.isArray(resp.data)) break;
+      all = all.concat(resp.data);
+      if (!resp.pagination?.has_more) break;
+      page++;
+    }
+    cacheSet("cache:leagues", all.map(transformCacheLeague));
+    console.log(`[startup] Cache leagues ready — ${all.length} entries`);
+  } catch (err) {
+    console.warn("[startup] Cache leagues failed:", err.message);
+  }
+}
+
+async function warmCacheTeams() {
+  try {
+    let page = 1;
+    let all = [];
+    while (true) {
+      const url =
+        `${SM_BASE}/teams?api_token=${SM_TOKEN}` +
+        `&include=rankings;activeSeasons.league;sidelined.player;players.player` +
+        `&per_page=50&filters=teamCountries:320,1161,462,17,251,32,11,75285&page=${page}`;
+      const resp = await fetchUrl(url);
+      if (!resp?.data || !Array.isArray(resp.data)) break;
+      all = all.concat(resp.data);
+      if (!resp.pagination?.has_more) break;
+      page++;
+    }
+    cacheSet("cache:teams", all.map(transformCacheTeam));
+    console.log(`[startup] Cache teams ready — ${all.length} entries`);
+  } catch (err) {
+    console.warn("[startup] Cache teams failed:", err.message);
+  }
+}
+
+async function warmCacheFixturesFetch() {
+  try {
+    const { start, end } = getFixtureDateRange();
+    let page = 1;
+    let all = [];
+    while (true) {
+      const url = `${SM_BASE}/fixtures/between/${start}/${end}?api_token=${SM_TOKEN}&filters=populate&page=${page}`;
+      const resp = await fetchUrl(url);
+      if (!resp?.data || !Array.isArray(resp.data)) break;
+      all = all.concat(resp.data);
+      if (!resp.pagination?.has_more) break;
+      page++;
+    }
+    cacheSet("cache:fixtures:raw", all);
+    console.log(`[startup] Cache fixtures raw — ${all.length} entries (${start}→${end})`);
+  } catch (err) {
+    console.warn("[startup] Cache fixtures fetch failed:", err.message);
+  }
+}
+
+function enrichCacheFixtures() {
+  const rawEntry = cache.get("cache:fixtures:raw");
+  if (!rawEntry?.data) return;
+  const teamsNameMap = buildTeamsNameMap();
+  const colorMap = buildSapColorMap();
+  const enriched = rawEntry.data.map((f) =>
+    transformCacheFixture(f, teamsNameMap, colorMap),
+  );
+  cacheSet("cache:fixtures", enriched);
+  console.log(`[startup] Cache fixtures enriched — ${enriched.length} entries`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /football/cache/leagues  —  all leagues (24 h TTL)
+// ─────────────────────────────────────────────────────────────────────────────
+app.get("/football/cache/leagues", (_req, res) => {
+  const entry = cache.get("cache:leagues");
+  if (!entry?.data) return res.status(503).json({ error: "Cache not ready" });
+  setCacheControl(res, TTL_24H);
+  res.json({ data: entry.data });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /football/cache/teams  —  all teams (24 h TTL)
+// ─────────────────────────────────────────────────────────────────────────────
+app.get("/football/cache/teams", (_req, res) => {
+  const entry = cache.get("cache:teams");
+  if (!entry?.data) return res.status(503).json({ error: "Cache not ready" });
+  const colorMap = buildSapColorMap();
+  const data = entry.data.map((t) => {
+    const { colorPrimary } = findSapColors(t.name ?? "", colorMap);
+    const { sidelined: _s, players: _p, ...rest } = t;
+    return { ...rest, colorPrimary };
+  });
+  setCacheControl(res, TTL_24H);
+  res.json({ data });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /football/cache/players  —  all players (squad + sidelined) from teams (24 h)
+// ─────────────────────────────────────────────────────────────────────────────
+app.get("/football/cache/players", (_req, res) => {
+  const entry = cache.get("cache:teams");
+  if (!entry?.data) return res.status(503).json({ error: "Cache not ready" });
+  const colorMap = buildSapColorMap();
+  const seen = new Set();
+  const players = [];
+  for (const team of entry.data) {
+    const { colorPrimary } = findSapColors(team.name ?? "", colorMap);
+    const addPlayer = (p) => {
+      if (!p.player || seen.has(p.player_id)) return;
+      seen.add(p.player_id);
+      players.push({
+        player_id: p.player_id,
+        team_id: team.id,
+        team_name: team.name,
+        team_colorPrimary: colorPrimary,
+        ...p.player,
+      });
+    };
+    for (const p of team.players ?? []) addPlayer(p);
+    for (const p of team.sidelined ?? []) addPlayer(p);
+  }
+  setCacheControl(res, TTL_24H);
+  res.json({ data: players });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /football/cache/fixtures  —  enriched fixture window (24 h TTL)
+// ─────────────────────────────────────────────────────────────────────────────
+app.get("/football/cache/fixtures", (_req, res) => {
+  const entry = cache.get("cache:fixtures");
+  if (!entry?.data) return res.status(503).json({ error: "Cache not ready" });
+  setCacheControl(res, TTL_24H);
+  res.json({ data: entry.data });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /football/search  —  combined { leagues, teams, players, matches }
+// ─────────────────────────────────────────────────────────────────────────────
+app.get("/football/search", (_req, res) => {
+  const leagues = cache.get("cache:leagues")?.data ?? [];
+  const rawTeams = cache.get("cache:teams")?.data ?? [];
+  const matches = cache.get("cache:fixtures")?.data ?? [];
+  const colorMap = buildSapColorMap();
+
+  // Teams: strip sidelined/players arrays, add colorPrimary
+  const teams = rawTeams.map((t) => {
+    const { colorPrimary } = findSapColors(t.name ?? "", colorMap);
+    const { sidelined: _s, players: _p, ...rest } = t;
+    return { ...rest, colorPrimary };
+  });
+
+  // Players: squad + sidelined, deduped, with team colorPrimary
+  const seen = new Set();
+  const players = [];
+  for (const team of rawTeams) {
+    const { colorPrimary } = findSapColors(team.name ?? "", colorMap);
+    const addPlayer = (p) => {
+      if (!p.player || seen.has(p.player_id)) return;
+      seen.add(p.player_id);
+      players.push({
+        player_id: p.player_id,
+        team_id: team.id,
+        team_name: team.name,
+        team_colorPrimary: colorPrimary,
+        ...p.player,
+      });
+    };
+    for (const p of team.players ?? []) addPlayer(p);
+    for (const p of team.sidelined ?? []) addPlayer(p);
+  }
+
+  setCacheControl(res, TTL_24H);
+  res.json({ leagues, teams, players, matches });
+});
+
 // Health & root
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1968,8 +2269,33 @@ app.get("/", (_req, res) => {
 
 async function init() {
   console.log("[init] Warming caches…");
-  await Promise.allSettled([warmSapStandings(), warmLeagueMeta()]);
+  // All independent fetches in parallel — SAP standings, league meta, and the
+  // three bulk cache endpoints (1-3.txt) run simultaneously.
+  await Promise.allSettled([
+    warmSapStandings(),
+    warmLeagueMeta(),
+    warmCacheLeagues(),
+    warmCacheTeams(),
+    warmCacheFixturesFetch(),
+  ]);
+  // Enrich fixtures with team data + colors (requires phase above to complete).
+  enrichCacheFixtures();
   console.log("[init] Warm-up complete");
+
+  // Auto-refresh bulk cache every 24 h.
+  const id = setInterval(async () => {
+    try {
+      await Promise.allSettled([
+        warmCacheLeagues(),
+        warmCacheTeams(),
+        warmCacheFixturesFetch(),
+      ]);
+      enrichCacheFixtures();
+    } catch (e) {
+      console.error("[auto-refresh] cache data:", e.message);
+    }
+  }, TTL_24H);
+  refreshIntervals.set("cache:data", id);
 }
 
 app.listen(PORT, () => {

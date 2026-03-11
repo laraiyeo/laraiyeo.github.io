@@ -1322,14 +1322,6 @@ const MLBScoreboardScreen = ({ navigation }) => {
 
         {/* Section title + date filters */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>
-              Games
-            </Text>
-            {fetching && (
-              <ActivityIndicator size="small" color={colors.primary} />
-            )}
-          </View>
 
           <View style={styles.filtersRow}>
             {["yesterday", "today", "upcoming"].map((filter) => (

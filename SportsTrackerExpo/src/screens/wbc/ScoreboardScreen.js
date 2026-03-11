@@ -1041,14 +1041,6 @@ const ScoreboardScreen = ({ navigation, route }) => {
 
         {/* Section title + date filters */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>
-              Games
-            </Text>
-            {fetching && (
-              <ActivityIndicator size="small" color={colors.primary} />
-            )}
-          </View>
 
           <View style={styles.upcomingFilters}>
             {["yesterday", "today", "tomorrow"].map((filter) => (
@@ -1171,7 +1163,7 @@ const styles = StyleSheet.create({
   upcomingFilters: {
     flexDirection: "row",
     paddingHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 4,
   },
   upcomingFilterButton: {
     paddingHorizontal: 16,

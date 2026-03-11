@@ -79,6 +79,17 @@ const SoccerHomeScreen = () => {
 
   const soccerLeagues = [
     {
+      id: "top5",
+      name: "Top 5 Leagues",
+      flag: null,
+      type: "competition",
+      mainLeague: { name: "Top 5", logo: "top5" },
+      competitions: [
+        { name: "Premier League", logo: "23", position: "left" },
+        { name: "La Liga", logo: "15", position: "right" },
+      ],
+    },
+    {
       id: "england",
       name: "England",
       flag: "https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/eng.png",
