@@ -151,7 +151,9 @@ function extractStatNumber(value) {
 }
 
 function getStatEntry(stats, matcher) {
-  return (stats ?? []).find((entry) => matcher((entry.type?.name ?? "").toLowerCase()));
+  return (stats ?? []).find((entry) =>
+    matcher((entry.type?.name ?? "").toLowerCase()),
+  );
 }
 
 function isGoalkeeperProfile(detailedPos, pos) {
@@ -163,7 +165,8 @@ function isGoalkeeperProfile(detailedPos, pos) {
 function getRosterBucket(detailedPos, pos) {
   const dp = (detailedPos ?? "").toLowerCase();
   const p = (pos ?? "").toLowerCase();
-  if (dp.includes("goalkeeper") || p.includes("goalkeeper")) return "Goalkeepers";
+  if (dp.includes("goalkeeper") || p.includes("goalkeeper"))
+    return "Goalkeepers";
   if (
     dp.includes("attack") ||
     dp.includes("forward") ||
@@ -2094,7 +2097,10 @@ const trStyles = StyleSheet.create({
 
 function RosterPlayerCard({ entry, theme, teamColor }) {
   const player = entry.player ?? {};
-  const isGoalkeeper = isGoalkeeperProfile(player.detailedposition, player.position);
+  const isGoalkeeper = isGoalkeeperProfile(
+    player.detailedposition,
+    player.position,
+  );
   const imageUri = player.image_path;
   const showImage = !isPlaceholder(imageUri);
   const playerName = player.name ?? player.display_name ?? "Unknown Player";
@@ -2115,20 +2121,27 @@ function RosterPlayerCard({ entry, theme, teamColor }) {
   const termEnd = formatLongDate(entry.end);
 
   const stats = player.statistics ?? [];
-  const app = extractStatNumber(getStatEntry(stats, (n) => n === "appearances")?.value);
+  const app = extractStatNumber(
+    getStatEntry(stats, (n) => n === "appearances")?.value,
+  );
   const goalsEntry = getStatEntry(stats, (n) => n === "goals");
   const goals = extractStatNumber(goalsEntry?.value);
   const penalties =
     goalsEntry && typeof goalsEntry.value?.penalties === "number"
       ? goalsEntry.value.penalties
       : 0;
-  const assists = extractStatNumber(getStatEntry(stats, (n) => n === "assists")?.value);
-  const minutes = extractStatNumber(getStatEntry(stats, (n) => n === "minutes played")?.value);
+  const assists = extractStatNumber(
+    getStatEntry(stats, (n) => n === "assists")?.value,
+  );
+  const minutes = extractStatNumber(
+    getStatEntry(stats, (n) => n === "minutes played")?.value,
+  );
   const goalsConceded = extractStatNumber(
     getStatEntry(stats, (n) => n === "goals conceded")?.value,
   );
   const cleanSheets = extractStatNumber(
-    getStatEntry(stats, (n) => n === "cleansheets" || n === "clean sheets")?.value,
+    getStatEntry(stats, (n) => n === "cleansheets" || n === "clean sheets")
+      ?.value,
   );
 
   return (
@@ -2147,16 +2160,29 @@ function RosterPlayerCard({ entry, theme, teamColor }) {
             ]}
           >
             {showImage ? (
-              <Image source={{ uri: imageUri }} style={roStyles.headshot} resizeMode="cover" />
+              <Image
+                source={{ uri: imageUri }}
+                style={roStyles.headshot}
+                resizeMode="cover"
+              />
             ) : (
               <View style={roStyles.headshotFallback}>
-                <Text style={[roStyles.initials, { color: theme.text }]}>{initials || "?"}</Text>
+                <Text style={[roStyles.initials, { color: theme.text }]}>
+                  {initials || "?"}
+                </Text>
               </View>
             )}
 
             {entry.jersey_number != null ? (
-              <View style={[roStyles.jerseyBadge, { backgroundColor: theme.surface }]}> 
-                <Text style={[roStyles.jerseyText, { color: theme.text }]}>{entry.jersey_number}</Text>
+              <View
+                style={[
+                  roStyles.jerseyBadge,
+                  { backgroundColor: theme.surface },
+                ]}
+              >
+                <Text style={[roStyles.jerseyText, { color: theme.text }]}>
+                  {entry.jersey_number}
+                </Text>
               </View>
             ) : null}
 
@@ -2169,8 +2195,18 @@ function RosterPlayerCard({ entry, theme, teamColor }) {
             ) : null}
 
             {posAbbr !== "--" ? (
-              <View style={[roStyles.posBadge, { backgroundColor: teamColor ?? theme.border }]}>
-                <Text style={[roStyles.posBadgeText, { color: getTextOnColor(teamColor ?? theme.border) }]}>
+              <View
+                style={[
+                  roStyles.posBadge,
+                  { backgroundColor: teamColor ?? theme.border },
+                ]}
+              >
+                <Text
+                  style={[
+                    roStyles.posBadgeText,
+                    { color: getTextOnColor(teamColor ?? theme.border) },
+                  ]}
+                >
                   {posAbbr}
                 </Text>
               </View>
@@ -2181,28 +2217,46 @@ function RosterPlayerCard({ entry, theme, teamColor }) {
         <View style={roStyles.infoCol}>
           {(termStart || termEnd) && (
             <View style={roStyles.termRow}>
-              <Text style={[roStyles.termText, { color: theme.textTertiary ?? theme.textSecondary }]}>
+              <Text
+                style={[
+                  roStyles.termText,
+                  { color: theme.textTertiary ?? theme.textSecondary },
+                ]}
+              >
                 {termStart ? `Term Start: ${termStart}` : ""}
               </Text>
-              <Text style={[roStyles.termText, { color: theme.textTertiary ?? theme.textSecondary }]}>
+              <Text
+                style={[
+                  roStyles.termText,
+                  { color: theme.textTertiary ?? theme.textSecondary },
+                ]}
+              >
                 {termEnd ? `Term End: ${termEnd}` : ""}
               </Text>
             </View>
           )}
 
-          <Text style={[roStyles.playerName, { color: theme.text }]} numberOfLines={2}>
+          <Text
+            style={[roStyles.playerName, { color: theme.text }]}
+            numberOfLines={2}
+          >
             {playerName}
           </Text>
-          <Text style={[roStyles.dobText, { color: theme.textSecondary }]} numberOfLines={1}>
+          <Text
+            style={[roStyles.dobText, { color: theme.textSecondary }]}
+            numberOfLines={1}
+          >
             {dobText}
           </Text>
         </View>
       </View>
 
-      <View style={[roStyles.statsRow, { borderTopColor: theme.border }]}> 
+      <View style={[roStyles.statsRow, { borderTopColor: theme.border }]}>
         <View style={roStyles.statItem}>
           <Text style={[roStyles.statValue, { color: theme.text }]}>{app}</Text>
-          <Text style={[roStyles.statLabel, { color: theme.textSecondary }]}>APP</Text>
+          <Text style={[roStyles.statLabel, { color: theme.textSecondary }]}>
+            APP
+          </Text>
         </View>
         <View style={roStyles.statItem}>
           <Text style={[roStyles.statValue, { color: theme.text }]}>
@@ -2225,15 +2279,25 @@ function RosterPlayerCard({ entry, theme, teamColor }) {
           </Text>
         </View>
         <View style={roStyles.statItem}>
-          <Text style={[roStyles.statValue, { color: theme.text }]}>{minutes}</Text>
-          <Text style={[roStyles.statLabel, { color: theme.textSecondary }]}>MP</Text>
+          <Text style={[roStyles.statValue, { color: theme.text }]}>
+            {minutes}
+          </Text>
+          <Text style={[roStyles.statLabel, { color: theme.textSecondary }]}>
+            MP
+          </Text>
         </View>
       </View>
     </View>
   );
 }
 
-function RosterGroup({ title, players, theme, teamColor, defaultExpanded = true }) {
+function RosterGroup({
+  title,
+  players,
+  theme,
+  teamColor,
+  defaultExpanded = true,
+}) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   if (!players.length) return null;
 
@@ -2244,11 +2308,21 @@ function RosterGroup({ title, players, theme, teamColor, defaultExpanded = true 
         onPress={() => setExpanded((v) => !v)}
         activeOpacity={0.75}
       >
-        <Text style={[roStyles.groupTitle, { color: theme.text }]}>{title}</Text>
-        <View style={[roStyles.groupCount, { backgroundColor: teamColor + "1a" }]}>
-          <Text style={[roStyles.groupCountText, { color: theme.textSecondary }]}>{players.length}</Text>
+        <Text style={[roStyles.groupTitle, { color: theme.text }]}>
+          {title}
+        </Text>
+        <View
+          style={[roStyles.groupCount, { backgroundColor: teamColor + "1a" }]}
+        >
+          <Text
+            style={[roStyles.groupCountText, { color: theme.textSecondary }]}
+          >
+            {players.length}
+          </Text>
         </View>
-        <Text style={[roStyles.groupChevron, { color: theme.textSecondary }]}>{expanded ? "⌄" : "›"}</Text>
+        <Text style={[roStyles.groupChevron, { color: theme.textSecondary }]}>
+          {expanded ? "⌄" : "›"}
+        </Text>
       </TouchableOpacity>
 
       {expanded &&
@@ -2329,18 +2403,45 @@ function RosterSection({ squad, sidelined, theme, teamColor }) {
   if (!hasAny) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No roster available</Text>
+        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+          No roster available
+        </Text>
       </View>
     );
   }
 
   return (
     <View style={{ paddingBottom: 8 }}>
-      <RosterGroup title="Attackers" players={grouped.Attackers} theme={theme} teamColor={teamColor} />
-      <RosterGroup title="Midfielders" players={grouped.Midfielders} theme={theme} teamColor={teamColor} />
-      <RosterGroup title="Defenders" players={grouped.Defenders} theme={theme} teamColor={teamColor} />
-      <RosterGroup title="Goalkeepers" players={grouped.Goalkeepers} theme={theme} teamColor={teamColor} />
-      <RosterGroup title="Sidelined" players={grouped.Sidelined} theme={theme} teamColor={teamColor} />
+      <RosterGroup
+        title="Attackers"
+        players={grouped.Attackers}
+        theme={theme}
+        teamColor={teamColor}
+      />
+      <RosterGroup
+        title="Midfielders"
+        players={grouped.Midfielders}
+        theme={theme}
+        teamColor={teamColor}
+      />
+      <RosterGroup
+        title="Defenders"
+        players={grouped.Defenders}
+        theme={theme}
+        teamColor={teamColor}
+      />
+      <RosterGroup
+        title="Goalkeepers"
+        players={grouped.Goalkeepers}
+        theme={theme}
+        teamColor={teamColor}
+      />
+      <RosterGroup
+        title="Sidelined"
+        players={grouped.Sidelined}
+        theme={theme}
+        teamColor={teamColor}
+      />
     </View>
   );
 }
