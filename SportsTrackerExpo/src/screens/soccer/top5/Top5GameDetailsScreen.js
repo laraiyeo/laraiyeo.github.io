@@ -402,36 +402,11 @@ function getLineupRating(lineup) {
 }
 
 function getPerformerBucket(lineup) {
-  const detailedPos = lineup?.detailedposition?.name ?? "";
-  const pos = lineup?.position?.name ?? "";
-  const dp = detailedPos.toLowerCase();
-  const p = pos.toLowerCase();
-
-  if (dp.includes("goalkeeper") || p.includes("goalkeeper")) {
-    return "Goalkeepers";
-  }
-  if (
-    dp.includes("attack") ||
-    dp.includes("forward") ||
-    dp.includes("wing") ||
-    dp.includes("striker") ||
-    p.includes("attack")
-  ) {
-    return "Attackers";
-  }
-  if (dp.includes("mid") || p.includes("mid")) {
-    return "Midfielders";
-  }
-  if (
-    dp.includes("def") ||
-    dp.includes("back") ||
-    dp.includes("sweeper") ||
-    dp.includes("wingback") ||
-    p.includes("def")
-  ) {
-    return "Defenders";
-  }
-  return "Midfielders";
+  const pos = (lineup?.position?.name ?? "").toLowerCase();
+  if (pos.includes("attack")) return "Attacker";
+  if (pos.includes("mid")) return "Midfielder";
+  if (pos.includes("def")) return "Defender";
+  return null;
 }
 
 // ─── Man of the Match card ────────────────────────────────────────────────────
@@ -622,12 +597,7 @@ const ManOfTheMatch = ({ entry, theme, colors }) => {
   );
 };
 
-const POSITION_BUCKET_ORDER = [
-  "Goalkeepers",
-  "Defenders",
-  "Midfielders",
-  "Attackers",
-];
+const POSITION_BUCKET_ORDER = ["Attacker", "Midfielder", "Defender"];
 
 const PerformerItem = ({ entry, side, theme, teamColor, onPress }) => {
   if (!entry) return null;
@@ -946,6 +916,9 @@ const TopPerformersSection = ({
 
 const EventsSection = ({
   events,
+  periods,
+  scores,
+  stateCode,
   homeId,
   awayId,
   theme,
@@ -968,6 +941,131 @@ const EventsSection = ({
     });
 
   if (!rows.length) return null;
+
+  const isFinished = isFinishedState(stateCode);
+
+  const scoreByDescription = (description, participant) => {
+    const value = scores?.find(
+      (s) =>
+        s?.description === description && s?.score?.participant === participant,
+    )?.score?.goals;
+    return value == null ? null : Number(value);
+  };
+
+  const getScoreTextStyle = (value, other) => {
+    const isHigher =
+      value != null && other != null && Number(value) > Number(other);
+    return {
+      color: isHigher ? colors.primary : theme.text,
+      fontWeight: isHigher ? "800" : "400",
+    };
+  };
+
+  const renderScorePair = (homeScore, awayScore) => {
+    const hs = homeScore == null ? "-" : String(homeScore);
+    const as = awayScore == null ? "-" : String(awayScore);
+    return (
+      <Text style={[evStyles.periodDividerScore, { color: theme.text }]}>
+        <Text style={getScoreTextStyle(homeScore, awayScore)}>{hs}</Text>
+        {" - "}
+        <Text style={getScoreTextStyle(awayScore, homeScore)}>{as}</Text>
+      </Text>
+    );
+  };
+
+  const periodIdsInOrder =
+    (periods ?? []).map((p) => p?.id).filter((id) => id != null) || [];
+  const knownPeriodIdSet = new Set(periodIdsInOrder);
+  const unknownPeriodIds = [...new Set(rows.map((e) => e?.period_id))].filter(
+    (id) => id != null && !knownPeriodIdSet.has(id),
+  );
+  const orderedPeriodIds = [...periodIdsInOrder, ...unknownPeriodIds];
+
+  const periodBlocks =
+    orderedPeriodIds.length > 0
+      ? orderedPeriodIds
+          .map((periodId, idx) => ({
+            key: periodId,
+            index: idx,
+            events: rows.filter((e) => e.period_id === periodId),
+          }))
+          .filter((block) => block.events.length > 0)
+      : [{ key: "all", index: 0, events: rows }];
+
+  const totalBlocks = periodBlocks.length;
+
+  const renderPeriodDivider = (label, key) => {
+    const firstHalfHome = scoreByDescription("1ST_HALF", "home");
+    const firstHalfAway = scoreByDescription("1ST_HALF", "away");
+    const currentHome = scoreByDescription("CURRENT", "home");
+    const currentAway = scoreByDescription("CURRENT", "away");
+    const secondOnlyHome = scoreByDescription("2ND_HALF_ONLY", "home");
+    const secondOnlyAway = scoreByDescription("2ND_HALF_ONLY", "away");
+
+    return (
+      <View key={key} style={evStyles.periodDividerRow}>
+        <View
+          style={[
+            evStyles.periodDividerLine,
+            { backgroundColor: theme.border },
+          ]}
+        />
+        <View
+          style={[
+            evStyles.periodDividerBadge,
+            {
+              borderColor: theme.border,
+              backgroundColor: theme.surfaceSecondary,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              evStyles.periodDividerLabel,
+              { color: theme.textSecondary },
+            ]}
+          >
+            {label}
+          </Text>
+          {label === "HT" ? (
+            renderScorePair(firstHalfHome, firstHalfAway)
+          ) : (
+            <View style={evStyles.periodDividerFtScores}>
+              {renderScorePair(currentHome, currentAway)}
+              {(secondOnlyHome != null || secondOnlyAway != null) && (
+                <Text
+                  style={[
+                    evStyles.periodDividerBracket,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {" ("}
+                  <Text
+                    style={getScoreTextStyle(secondOnlyHome, secondOnlyAway)}
+                  >
+                    {secondOnlyHome == null ? "-" : String(secondOnlyHome)}
+                  </Text>
+                  {" - "}
+                  <Text
+                    style={getScoreTextStyle(secondOnlyAway, secondOnlyHome)}
+                  >
+                    {secondOnlyAway == null ? "-" : String(secondOnlyAway)}
+                  </Text>
+                  {")"}
+                </Text>
+              )}
+            </View>
+          )}
+        </View>
+        <View
+          style={[
+            evStyles.periodDividerLine,
+            { backgroundColor: theme.border },
+          ]}
+        />
+      </View>
+    );
+  };
 
   const renderMinute = (e) => (
     <Text style={[evStyles.minuteText, { color: theme.text }]}>
@@ -1191,34 +1289,42 @@ const EventsSection = ({
       </View>
 
       <View style={evStyles.body}>
-        {rows.map((event, idx) => {
-          const isHome = event.participant_id === homeId;
-          return (
-            <View
-              key={`${event.participant_id}:${event.player_id ?? idx}:${event.minute}:${event.extra_minute ?? 0}:${idx}`}
-              style={evStyles.row}
-            >
-              <View
-                style={[
-                  evStyles.eventLane,
-                  isHome ? evStyles.eventLaneHome : evStyles.eventLaneAway,
-                ]}
-              >
-                {isHome ? (
-                  <View style={evStyles.inlineRowHome}>
-                    {renderMinute(event)}
-                    {renderEventContent(event, true)}
+        {periodBlocks.map((block, blockIdx) => (
+          <View key={`${block.key}:${blockIdx}`}>
+            {block.events.map((event, idx) => {
+              const isHome = event.participant_id === homeId;
+              return (
+                <View
+                  key={`${event.participant_id}:${event.player_id ?? idx}:${event.minute}:${event.extra_minute ?? 0}:${idx}`}
+                  style={evStyles.row}
+                >
+                  <View
+                    style={[
+                      evStyles.eventLane,
+                      isHome ? evStyles.eventLaneHome : evStyles.eventLaneAway,
+                    ]}
+                  >
+                    {isHome ? (
+                      <View style={evStyles.inlineRowHome}>
+                        {renderMinute(event)}
+                        {renderEventContent(event, true)}
+                      </View>
+                    ) : (
+                      <View style={evStyles.inlineRowAway}>
+                        {renderEventContent(event, false)}
+                        {renderMinute(event)}
+                      </View>
+                    )}
                   </View>
-                ) : (
-                  <View style={evStyles.inlineRowAway}>
-                    {renderEventContent(event, false)}
-                    {renderMinute(event)}
-                  </View>
-                )}
-              </View>
-            </View>
-          );
-        })}
+                </View>
+              );
+            })}
+
+            {blockIdx < totalBlocks - 1
+              ? renderPeriodDivider("HT", `ht:${block.key}`)
+              : isFinished && renderPeriodDivider("FT", `ft:${block.key}`)}
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -1230,8 +1336,8 @@ const degreesToCompass = (deg) => {
   return dirs[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
 };
 
-const GameInfoSection = ({ venue, weather, theme }) => {
-  if (!venue && !weather) return null;
+const GameInfoSection = ({ venue, weather, league, startingAt, theme }) => {
+  if (!venue && !weather && !league && !startingAt) return null;
 
   const capFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
 
@@ -1248,6 +1354,53 @@ const GameInfoSection = ({ venue, weather, theme }) => {
   const desc = weather?.description;
 
   const hasWeather = temp != null || windSpeed != null || clouds != null;
+
+  const leagueImgUri =
+    league?.image_path && !league.image_path.includes("placeholder")
+      ? league.image_path
+      : null;
+  const country = league?.country ?? null;
+  const countryImgUri =
+    country?.image_path && !country.image_path.includes("placeholder")
+      ? country.image_path
+      : null;
+
+  const hasMeta = !!league || !!country || !!startingAt;
+
+  let dateTop = null;
+  let dateBottom = null;
+  try {
+    if (startingAt) {
+      const d = new Date(startingAt.replace(" ", "T") + "Z");
+      if (!Number.isNaN(d.getTime())) {
+        const days = [
+          "Sunday",
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+        ];
+        const months = [
+          "January",
+          "February",
+          "March",
+          "April",
+          "May",
+          "June",
+          "July",
+          "August",
+          "September",
+          "October",
+          "November",
+          "December",
+        ];
+        dateTop = `${days[d.getUTCDay()]}, ${d.getUTCDate()}`;
+        dateBottom = `${months[d.getUTCMonth()]}, ${d.getUTCFullYear()}`;
+      }
+    }
+  } catch (_) {}
 
   const fmt1 = (n) => (n != null ? `${Math.round(n * 10) / 10}` : "—");
 
@@ -1374,6 +1527,90 @@ const GameInfoSection = ({ venue, weather, theme }) => {
           </View>
         </>
       ) : null}
+
+      {hasMeta ? (
+        <>
+          {(venue || hasWeather) && (
+            <View style={[giStyles.divider, { backgroundColor: theme.border }]} />
+          )}
+          <View style={giStyles.metaRow}>
+            <View style={giStyles.metaLeft}>
+              {(league?.name || leagueImgUri) && (
+                <View style={giStyles.metaLine}>
+                  {leagueImgUri ? (
+                    <Image
+                      source={{ uri: leagueImgUri }}
+                      style={giStyles.metaLogo}
+                      contentFit="contain"
+                      cachePolicy="memory-disk"
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        giStyles.metaLogoPlaceholder,
+                        { backgroundColor: theme.surfaceSecondary },
+                      ]}
+                    />
+                  )}
+                  <Text
+                    style={[giStyles.metaPrimaryText, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {league?.name || "League"}
+                  </Text>
+                </View>
+              )}
+
+              {(country?.name || countryImgUri) && (
+                <View style={giStyles.metaLine}>
+                  {countryImgUri ? (
+                    <Image
+                      source={{ uri: countryImgUri }}
+                      style={giStyles.metaLogo}
+                      contentFit="contain"
+                      cachePolicy="memory-disk"
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        giStyles.metaLogoPlaceholder,
+                        { backgroundColor: theme.surfaceSecondary },
+                      ]}
+                    />
+                  )}
+                  <Text
+                    style={[
+                      giStyles.metaSecondaryText,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {country?.name || "Country"}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <View style={giStyles.metaRight}>
+              {dateTop ? (
+                <Text style={[giStyles.metaDateTop, { color: theme.text }]}>
+                  {dateTop}
+                </Text>
+              ) : null}
+              {dateBottom ? (
+                <Text
+                  style={[
+                    giStyles.metaDateBottom,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {dateBottom}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        </>
+      ) : null}
     </View>
   );
 };
@@ -1449,6 +1686,88 @@ const RefereesSection = ({ referees, theme, navigation }) => {
             </View>
           );
         })}
+      </View>
+    </View>
+  );
+};
+
+const H2HSummarySection = ({ home, away, summary, theme }) => {
+  if (!home || !away || !summary) return null;
+
+  const homeLogoUri =
+    home?.image_path && !home.image_path.includes("placeholder")
+      ? home.image_path
+      : null;
+  const awayLogoUri =
+    away?.image_path && !away.image_path.includes("placeholder")
+      ? away.image_path
+      : null;
+
+  return (
+    <View style={[h2hStyles.card, { backgroundColor: theme.surface }]}>
+      <View style={[h2hStyles.headerRow, { borderBottomColor: theme.border }]}>
+        <Text style={[h2hStyles.headerTitle, { color: theme.text }]}>H2H</Text>
+      </View>
+
+      <View style={h2hStyles.bodyRow}>
+        <View style={[h2hStyles.sideBlock, h2hStyles.sideBlockLeft]}>
+          {homeLogoUri ? (
+            <Image
+              source={{ uri: homeLogoUri }}
+              style={h2hStyles.logo}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <View
+              style={[
+                h2hStyles.logoPlaceholder,
+                { backgroundColor: theme.surfaceSecondary },
+              ]}
+            >
+              <Text style={[h2hStyles.logoInitial, { color: theme.textSecondary }]}>
+                {(home?.name || "?")[0].toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <Text style={[h2hStyles.winCount, { color: theme.text }]}>
+            {summary.homeWins}
+          </Text>
+        </View>
+
+        <View style={h2hStyles.centerBlock}>
+          <Text style={[h2hStyles.drawCount, { color: theme.text }]}>
+            {summary.draws}
+          </Text>
+          <Text style={[h2hStyles.drawLabel, { color: theme.textSecondary }]}>
+            Draws
+          </Text>
+        </View>
+
+        <View style={[h2hStyles.sideBlock, h2hStyles.sideBlockRight]}>
+          <Text style={[h2hStyles.winCount, { color: theme.text }]}>
+            {summary.awayWins}
+          </Text>
+          {awayLogoUri ? (
+            <Image
+              source={{ uri: awayLogoUri }}
+              style={h2hStyles.logo}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <View
+              style={[
+                h2hStyles.logoPlaceholder,
+                { backgroundColor: theme.surfaceSecondary },
+              ]}
+            >
+              <Text style={[h2hStyles.logoInitial, { color: theme.textSecondary }]}>
+                {(away?.name || "?")[0].toUpperCase()}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -1769,6 +2088,38 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
       },
     };
   }, [fixture, home, away]);
+
+  const h2hSummary = useMemo(() => {
+    const matches = data?.h2hData ?? [];
+    if (!matches.length || !home?.id || !away?.id) {
+      return { homeWins: 0, awayWins: 0, draws: 0 };
+    }
+
+    let homeWinsCount = 0;
+    let awayWinsCount = 0;
+    let drawsCount = 0;
+
+    for (const m of matches) {
+      const participants = m?.participants ?? [];
+      const homeParticipant = participants.find((p) => p?.id === home.id);
+      const awayParticipant = participants.find((p) => p?.id === away.id);
+
+      if (!homeParticipant || !awayParticipant) continue;
+
+      const homeWinner = homeParticipant?.meta?.winner;
+      const awayWinner = awayParticipant?.meta?.winner;
+
+      if (homeWinner === true) homeWinsCount += 1;
+      else if (awayWinner === true) awayWinsCount += 1;
+      else if (homeWinner === false && awayWinner === false) drawsCount += 1;
+    }
+
+    return {
+      homeWins: homeWinsCount,
+      awayWins: awayWinsCount,
+      draws: drawsCount,
+    };
+  }, [data, home, away]);
 
   // ── Loading / error ───────────────────────────────────────────────────────
   if (loading) {
@@ -2172,6 +2523,9 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               ) : null}
               <EventsSection
                 events={fixture.events ?? []}
+                periods={fixture.periods ?? []}
+                scores={fixture.scores ?? []}
+                stateCode={stateCode}
                 homeId={home?.id}
                 awayId={away?.id}
                 theme={theme}
@@ -2193,6 +2547,8 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               <GameInfoSection
                 venue={fixture.venue ?? null}
                 weather={fixture.weatherreport ?? null}
+                league={fixture.league ?? null}
+                startingAt={fixture.starting_at ?? null}
                 theme={theme}
               />
               <RefereesSection
@@ -2239,12 +2595,13 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
             </View>
           )}
           {activeTab === "H2H" && (
-            <View style={styles.comingSoon}>
-              <Text
-                style={[styles.comingSoonText, { color: theme.textTertiary }]}
-              >
-                H2H tab coming soon
-              </Text>
+            <View style={{ paddingTop: 6 }}>
+              <H2HSummarySection
+                home={home}
+                away={away}
+                summary={h2hSummary}
+                theme={theme}
+              />
             </View>
           )}
         </View>
@@ -2758,6 +3115,43 @@ const evStyles = StyleSheet.create({
   eventTextAway: {
     textAlign: "right",
   },
+  periodDividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginVertical: 4,
+  },
+  periodDividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+  },
+  periodDividerBadge: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  periodDividerLabel: {
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+  },
+  periodDividerScore: {
+    fontSize: 16,
+    fontWeight: "400",
+  },
+  periodDividerFtScores: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  periodDividerBracket: {
+    fontSize: 16,
+    fontWeight: "400",
+  },
 });
 
 const tpStyles = StyleSheet.create({
@@ -3006,6 +3400,56 @@ const giStyles = StyleSheet.create({
     letterSpacing: 0.5,
     marginTop: 2,
   },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  metaLeft: {
+    flex: 1,
+    gap: 7,
+  },
+  metaLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  metaLogo: {
+    width: 16,
+    height: 16,
+  },
+  metaLogoPlaceholder: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+  },
+  metaPrimaryText: {
+    fontSize: 12,
+    fontWeight: "700",
+    flexShrink: 1,
+  },
+  metaSecondaryText: {
+    fontSize: 12,
+    fontWeight: "500",
+    flexShrink: 1,
+  },
+  metaRight: {
+    alignItems: "flex-end",
+    justifyContent: "center",
+    minWidth: 108,
+  },
+  metaDateTop: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  metaDateBottom: {
+    fontSize: 12,
+    fontWeight: "500",
+    marginTop: 2,
+  },
 });
 
 // ─── Referees styles ─────────────────────────────────────────────────────────
@@ -3053,6 +3497,83 @@ const refStyles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     lineHeight: 17,
+  },
+});
+
+const h2hStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  bodyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  sideBlock: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  sideBlockLeft: {
+    justifyContent: "flex-start",
+  },
+  sideBlockRight: {
+    justifyContent: "flex-end",
+  },
+  logo: {
+    width: 24,
+    height: 24,
+  },
+  logoPlaceholder: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoInitial: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  winCount: {
+    fontSize: 26,
+    fontWeight: "800",
+    lineHeight: 30,
+  },
+  centerBlock: {
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 76,
+  },
+  drawCount: {
+    fontSize: 26,
+    fontWeight: "800",
+    lineHeight: 30,
+  },
+  drawLabel: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: "500",
   },
 });
 

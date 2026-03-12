@@ -1869,6 +1869,7 @@ function transformH2hResponse(raw) {
 
     return {
       id: f.id ?? null,
+      starting_at: f.starting_at ?? null,
       league: f.league
         ? {
             id: f.league.id ?? null,
