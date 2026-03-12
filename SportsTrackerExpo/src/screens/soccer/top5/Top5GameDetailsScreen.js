@@ -378,7 +378,9 @@ function motmTextOnBg(hex) {
   const r = parseInt(c.substring(0, 2), 16);
   const g = parseInt(c.substring(2, 4), 16);
   const b = parseInt(c.substring(4, 6), 16);
-  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5 ? "#000000" : "#FFFFFF";
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5
+    ? "#000000"
+    : "#FFFFFF";
 }
 
 function motmGetStat(details, ...names) {
@@ -454,13 +456,11 @@ const ManOfTheMatch = ({ entry, theme, colors }) => {
     player?.image_path && !player.image_path.includes("placeholder")
       ? player.image_path
       : null;
-  const initials = [
-    player?.firstname?.[0],
-    player?.lastname?.[0],
-  ]
-    .filter(Boolean)
-    .join("")
-    .toUpperCase() || "?";
+  const initials =
+    [player?.firstname?.[0], player?.lastname?.[0]]
+      .filter(Boolean)
+      .join("")
+      .toUpperCase() || "?";
 
   const teamLogoUri =
     team?.image_path && !team.image_path.includes("placeholder")
@@ -468,12 +468,7 @@ const ManOfTheMatch = ({ entry, theme, colors }) => {
       : null;
 
   return (
-    <View
-      style={[
-        motmStyles.card,
-        { backgroundColor: theme.surface },
-      ]}
-    >
+    <View style={[motmStyles.card, { backgroundColor: theme.surface }]}>
       {/* Gradient */}
       <Svg
         width={width - 24}
@@ -490,9 +485,7 @@ const ManOfTheMatch = ({ entry, theme, colors }) => {
         <Rect width={width - 24} height={200} fill="url(#motmGrad)" />
       </Svg>
 
-      <View
-        style={[motmStyles.headerRow, { borderBottomColor: theme.border }]}
-      >
+      <View style={[motmStyles.headerRow, { borderBottomColor: theme.border }]}>
         <View
           style={[motmStyles.headerAccent, { backgroundColor: teamColor }]}
         />
@@ -508,7 +501,14 @@ const ManOfTheMatch = ({ entry, theme, colors }) => {
           {imgUri ? (
             <Image
               source={{ uri: imgUri }}
-              style={[motmStyles.headshot, { backgroundColor: teamColor + "30", borderColor: teamColor, borderWidth: 2 }]}
+              style={[
+                motmStyles.headshot,
+                {
+                  backgroundColor: teamColor + "30",
+                  borderColor: teamColor,
+                  borderWidth: 2,
+                },
+              ]}
               contentFit="cover"
               cachePolicy="memory-disk"
             />
@@ -531,7 +531,9 @@ const ManOfTheMatch = ({ entry, theme, colors }) => {
             </View>
           )}
           {/* Rating badge — top right */}
-          <View style={[motmStyles.ratingBadge, { backgroundColor: ratingColor }]}>
+          <View
+            style={[motmStyles.ratingBadge, { backgroundColor: ratingColor }]}
+          >
             <Text style={[motmStyles.ratingText, { color: ratingTextColor }]}>
               {rating.toFixed(1)} ★
             </Text>
@@ -544,7 +546,9 @@ const ManOfTheMatch = ({ entry, theme, colors }) => {
                 { backgroundColor: theme.surfaceSecondary },
               ]}
             >
-              <Text style={[motmStyles.posText, { color: theme.textSecondary }]}>
+              <Text
+                style={[motmStyles.posText, { color: theme.textSecondary }]}
+              >
                 {posAbbr}
               </Text>
             </View>
@@ -700,9 +704,7 @@ const PerformerItem = ({ entry, side, theme, teamColor, onPress }) => {
               },
             ]}
           >
-            <Text
-              style={[tpStyles.headshotInitials, { color: theme.text }]}
-            >
+            <Text style={[tpStyles.headshotInitials, { color: theme.text }]}>
               {initials}
             </Text>
           </View>
@@ -711,7 +713,9 @@ const PerformerItem = ({ entry, side, theme, teamColor, onPress }) => {
         <View
           style={[
             tpStyles.ratingBadge,
-            side === "away" ? tpStyles.ratingBadgeAway : tpStyles.ratingBadgeHome,
+            side === "away"
+              ? tpStyles.ratingBadgeAway
+              : tpStyles.ratingBadgeHome,
             { backgroundColor: ratingColor },
           ]}
         >
@@ -767,7 +771,9 @@ const PerformerItem = ({ entry, side, theme, teamColor, onPress }) => {
   }
 
   return (
-    <View style={[tpStyles.playerRow, side === "away" && tpStyles.playerRowAway]}>
+    <View
+      style={[tpStyles.playerRow, side === "away" && tpStyles.playerRowAway]}
+    >
       {content}
     </View>
   );
@@ -830,7 +836,10 @@ const TopPerformersSection = ({
           TOP PERFORMERS
         </Text>
         <View
-          style={[tpStyles.toggleWrap, { backgroundColor: theme.surfaceSecondary }]}
+          style={[
+            tpStyles.toggleWrap,
+            { backgroundColor: theme.surfaceSecondary },
+          ]}
         >
           {[
             { key: "match", label: "MATCH" },
@@ -872,7 +881,11 @@ const TopPerformersSection = ({
           <Defs>
             <LinearGradient id="topPerfGrad" x1="0%" y1="0%" x2="100%" y2="0%">
               <Stop offset="0%" stopColor={homeColor} stopOpacity="0.16" />
-              <Stop offset="50%" stopColor={theme.surfaceSecondary} stopOpacity="0" />
+              <Stop
+                offset="50%"
+                stopColor={theme.surfaceSecondary}
+                stopOpacity="0"
+              />
               <Stop offset="100%" stopColor={awayColor} stopOpacity="0.16" />
             </LinearGradient>
           </Defs>
@@ -886,8 +899,12 @@ const TopPerformersSection = ({
       </View>
 
       <View style={tpStyles.footerTopBar}>
-        <View style={[tpStyles.footerTopHalf, { backgroundColor: homeColor }]} />
-        <View style={[tpStyles.footerTopHalf, { backgroundColor: awayColor }]} />
+        <View
+          style={[tpStyles.footerTopHalf, { backgroundColor: homeColor }]}
+        />
+        <View
+          style={[tpStyles.footerTopHalf, { backgroundColor: awayColor }]}
+        />
       </View>
       <View style={tpStyles.footer}>
         <View style={tpStyles.footerTeamBlock}>
@@ -927,7 +944,14 @@ const TopPerformersSection = ({
   );
 };
 
-const EventsSection = ({ events, homeId, awayId, theme, accentColor, colors }) => {
+const EventsSection = ({
+  events,
+  homeId,
+  awayId,
+  theme,
+  accentColor,
+  colors,
+}) => {
   if (!events?.length) return null;
 
   const rows = [...events]
@@ -949,7 +973,9 @@ const EventsSection = ({ events, homeId, awayId, theme, accentColor, colors }) =
     <Text style={[evStyles.minuteText, { color: theme.text }]}>
       {e.minute}
       {e.extra_minute != null ? (
-        <Text style={{ color: theme.textSecondary }}>{`+${e.extra_minute}`}</Text>
+        <Text
+          style={{ color: theme.textSecondary }}
+        >{`+${e.extra_minute}`}</Text>
       ) : null}
       <Text style={{ color: theme.text }}>{"'"}</Text>
     </Text>
@@ -967,15 +993,23 @@ const EventsSection = ({ events, homeId, awayId, theme, accentColor, colors }) =
     return (
       <>
         {`${playerName} (`}
-        <Text style={isHome
-          ? { color: colors.primary, fontWeight: "800" }
-          : { color: theme.text, fontWeight: "400" }}>
+        <Text
+          style={
+            isHome
+              ? { color: colors.primary, fontWeight: "800" }
+              : { color: theme.text, fontWeight: "400" }
+          }
+        >
           {homeGoals}
         </Text>
         {" - "}
-        <Text style={!isHome
-          ? { color: colors.primary, fontWeight: "800" }
-          : { color: theme.text, fontWeight: "400" }}>
+        <Text
+          style={
+            !isHome
+              ? { color: colors.primary, fontWeight: "800" }
+              : { color: theme.text, fontWeight: "400" }
+          }
+        >
           {awayGoals}
         </Text>
         {")"}
@@ -1040,12 +1074,7 @@ const EventsSection = ({ events, homeId, awayId, theme, accentColor, colors }) =
     return null;
   };
 
-  const renderSubLine = ({
-    text,
-    color,
-    rotation,
-    iconFirst,
-  }) => {
+  const renderSubLine = ({ text, color, rotation, iconFirst }) => {
     if (!text) return null;
     const icon = (
       <FontAwesome6
@@ -1099,7 +1128,9 @@ const EventsSection = ({ events, homeId, awayId, theme, accentColor, colors }) =
     const goalDetail = getGoalDetail(event);
     const isDisallowed = addLow.includes("disallowed");
     const showsGoalDetail =
-      !isDisallowed && (addLow.includes("goal") || addLow.includes("penalty")) && !!goalDetail;
+      !isDisallowed &&
+      (addLow.includes("goal") || addLow.includes("penalty")) &&
+      !!goalDetail;
     const showsSecondLine = isDisallowed || showsGoalDetail;
 
     return (
@@ -1152,14 +1183,11 @@ const EventsSection = ({ events, homeId, awayId, theme, accentColor, colors }) =
   };
 
   return (
-    <View
-      style={[
-        evStyles.card,
-        { backgroundColor: theme.surface },
-      ]}
-    >
-      <View style={[evStyles.headerRow, { borderBottomColor: theme.surface }]}> 
-        <Text style={[evStyles.headerTitle, { color: theme.text }]}>EVENTS</Text>
+    <View style={[evStyles.card, { backgroundColor: theme.surface }]}>
+      <View style={[evStyles.headerRow, { borderBottomColor: theme.surface }]}>
+        <Text style={[evStyles.headerTitle, { color: theme.text }]}>
+          EVENTS
+        </Text>
       </View>
 
       <View style={evStyles.body}>
@@ -1205,8 +1233,7 @@ const degreesToCompass = (deg) => {
 const GameInfoSection = ({ venue, weather, theme }) => {
   if (!venue && !weather) return null;
 
-  const capFirst = (s) =>
-    s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+  const capFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
 
   const venueImgUri =
     venue?.image_path && !venue.image_path.includes("placeholder")
@@ -1220,11 +1247,9 @@ const GameInfoSection = ({ venue, weather, theme }) => {
   const clouds = weather?.clouds;
   const desc = weather?.description;
 
-  const hasWeather =
-    temp != null || windSpeed != null || clouds != null;
+  const hasWeather = temp != null || windSpeed != null || clouds != null;
 
-  const fmt1 = (n) =>
-    n != null ? `${Math.round(n * 10) / 10}` : "—";
+  const fmt1 = (n) => (n != null ? `${Math.round(n * 10) / 10}` : "—");
 
   const weatherItems = [
     {
@@ -1238,9 +1263,7 @@ const GameInfoSection = ({ venue, weather, theme }) => {
       value: windSpeed != null ? fmt1(windSpeed) : "—",
       windSuffix: " km/h",
       mini:
-        windDir != null
-          ? `${windDir}° (${degreesToCompass(windDir)})`
-          : null,
+        windDir != null ? `${windDir}° (${degreesToCompass(windDir)})` : null,
     },
     {
       label: "CLOUD",
@@ -1285,23 +1308,17 @@ const GameInfoSection = ({ venue, weather, theme }) => {
               </Text>
             ) : null}
             {venue.city_name ? (
-              <Text
-                style={[giStyles.venueSub, { color: theme.textSecondary }]}
-              >
+              <Text style={[giStyles.venueSub, { color: theme.textSecondary }]}>
                 {venue.city_name}
               </Text>
             ) : null}
             {venue.capacity != null ? (
-              <Text
-                style={[giStyles.venueSub, { color: theme.textTertiary }]}
-              >
+              <Text style={[giStyles.venueSub, { color: theme.textTertiary }]}>
                 {Number(venue.capacity).toLocaleString()} capacity
               </Text>
             ) : null}
             {venue.surface ? (
-              <Text
-                style={[giStyles.venueSub, { color: theme.textTertiary }]}
-              >
+              <Text style={[giStyles.venueSub, { color: theme.textTertiary }]}>
                 {capFirst(venue.surface)}
               </Text>
             ) : null}
@@ -1320,9 +1337,7 @@ const GameInfoSection = ({ venue, weather, theme }) => {
             {weatherItems.map((item) => (
               <View key={item.label} style={giStyles.weatherItem}>
                 {item.windSuffix ? (
-                  <Text
-                    style={[giStyles.weatherValue, { color: theme.text }]}
-                  >
+                  <Text style={[giStyles.weatherValue, { color: theme.text }]}>
                     {item.value}
                     <Text
                       style={[
@@ -1334,9 +1349,7 @@ const GameInfoSection = ({ venue, weather, theme }) => {
                     </Text>
                   </Text>
                 ) : (
-                  <Text
-                    style={[giStyles.weatherValue, { color: theme.text }]}
-                  >
+                  <Text style={[giStyles.weatherValue, { color: theme.text }]}>
                     {item.value}
                   </Text>
                 )}
@@ -1400,7 +1413,10 @@ const RefereesSection = ({ referees, theme, navigation }) => {
               >
                 <View style={refStyles.refItem}>
                   <Text
-                    style={[refStyles.firstName, { color: theme.textSecondary }]}
+                    style={[
+                      refStyles.firstName,
+                      { color: theme.textSecondary },
+                    ]}
                     numberOfLines={1}
                   >
                     {ref.firstname || ""}
@@ -1701,7 +1717,8 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
 
     let candidates = lineups;
     if (homeWins) candidates = lineups.filter((l) => l.team_id === home?.id);
-    else if (awayWins) candidates = lineups.filter((l) => l.team_id === away?.id);
+    else if (awayWins)
+      candidates = lineups.filter((l) => l.team_id === away?.id);
 
     let best = null;
     let bestRating = -1;
@@ -1784,8 +1801,10 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
     );
   }
 
-  const homeAbbr = home?.short_code || home?.name?.slice(0, 3)?.toUpperCase() || "";
-  const awayAbbr = away?.short_code || away?.name?.slice(0, 3)?.toUpperCase() || "";
+  const homeAbbr =
+    home?.short_code || home?.name?.slice(0, 3)?.toUpperCase() || "";
+  const awayAbbr =
+    away?.short_code || away?.name?.slice(0, 3)?.toUpperCase() || "";
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.background }]}>
@@ -1982,12 +2001,20 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               {live ? (
                 <>
                   <Text
-                    style={[styles.miniStatusLine, { color: theme.error || "#e03131" }]}
+                    style={[
+                      styles.miniStatusLine,
+                      { color: theme.error || "#e03131" },
+                    ]}
                   >
-                    {fixture?.state?.short_name || fixture?.state?.name || stateCode}
+                    {fixture?.state?.short_name ||
+                      fixture?.state?.name ||
+                      stateCode}
                   </Text>
                   <Text
-                    style={[styles.miniStatusSub, { color: theme.textTertiary }]}
+                    style={[
+                      styles.miniStatusSub,
+                      { color: theme.textTertiary },
+                    ]}
                   >
                     Live
                   </Text>
@@ -1995,12 +2022,20 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               ) : finished ? (
                 <>
                   <Text
-                    style={[styles.miniStatusLine, { color: theme.textSecondary }]}
+                    style={[
+                      styles.miniStatusLine,
+                      { color: theme.textSecondary },
+                    ]}
                   >
-                    {fixture?.state?.short_name || fixture?.state?.name || stateCode}
+                    {fixture?.state?.short_name ||
+                      fixture?.state?.name ||
+                      stateCode}
                   </Text>
                   <Text
-                    style={[styles.miniStatusSub, { color: theme.textTertiary }]}
+                    style={[
+                      styles.miniStatusSub,
+                      { color: theme.textTertiary },
+                    ]}
                     numberOfLines={1}
                   >
                     Final
@@ -2008,27 +2043,43 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 </>
               ) : (
                 <>
-                  <Text style={[styles.miniStatusLine, { color: theme.textSecondary }]}>
+                  <Text
+                    style={[
+                      styles.miniStatusLine,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
                     {(() => {
                       try {
-                        const d = new Date(fixture.starting_at.replace(" ", "T") + "Z");
+                        const d = new Date(
+                          fixture.starting_at.replace(" ", "T") + "Z",
+                        );
                         const est = new Date(d.getTime() - 4 * 60 * 60 * 1000);
                         const h = est.getUTCHours();
                         const m = String(est.getUTCMinutes()).padStart(2, "0");
                         const ampm = h >= 12 ? "PM" : "AM";
                         return `${h % 12 || 12}:${m} ${ampm}`;
                       } catch (_) {
-                        return fixture?.state?.short_name || fixture?.state?.name || stateCode;
+                        return (
+                          fixture?.state?.short_name ||
+                          fixture?.state?.name ||
+                          stateCode
+                        );
                       }
                     })()}
                   </Text>
                   <Text
-                    style={[styles.miniStatusSub, { color: theme.textTertiary }]}
+                    style={[
+                      styles.miniStatusSub,
+                      { color: theme.textTertiary },
+                    ]}
                     numberOfLines={1}
                   >
                     {(() => {
                       try {
-                        const d = new Date(fixture.starting_at.replace(" ", "T") + "Z");
+                        const d = new Date(
+                          fixture.starting_at.replace(" ", "T") + "Z",
+                        );
                         return d.toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",

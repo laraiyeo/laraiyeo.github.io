@@ -50,7 +50,8 @@ function getDetailCount(details, name) {
   );
   if (!detail?.value) return 0;
   if (typeof detail.value.count === "number") return detail.value.count;
-  if (typeof detail.value?.all?.count === "number") return detail.value.all.count;
+  if (typeof detail.value?.all?.count === "number")
+    return detail.value.all.count;
   return 0;
 }
 
@@ -109,11 +110,7 @@ function CareerStatsBubble({ statistics, theme, colors, accentColor }) {
   }, [statistics]);
 
   return (
-    <SectionBubble
-      title="Career Stats"
-      theme={theme}
-      accentColor={accentColor}
-    >
+    <SectionBubble title="Career Stats" theme={theme} accentColor={accentColor}>
       <View style={rStyles.statsRow}>
         <StatCell label="Played" value={totals.played} theme={theme} />
         <StatCell
@@ -247,7 +244,9 @@ function SeasonStatsBubble({ statistics, theme, accentColor, navigation }) {
       <View
         style={[rStyles.seasonHeaderRow, { borderBottomColor: theme.border }]}
       >
-        <Text style={[rStyles.seasonHeaderLeft, { color: theme.textSecondary }]}>
+        <Text
+          style={[rStyles.seasonHeaderLeft, { color: theme.textSecondary }]}
+        >
           Season
         </Text>
         {["P", "Y", "2Y", "R", "VAR"].map((header) => (
@@ -303,7 +302,9 @@ export default function Top5RefereeScreen({ route, navigation }) {
           }
         }
 
-        const res = await fetch(`${FOOTBALL_BASE}/football/referee/${refereeId}`);
+        const res = await fetch(
+          `${FOOTBALL_BASE}/football/referee/${refereeId}`,
+        );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         const data = json.data ?? json;
@@ -444,7 +445,10 @@ export default function Top5RefereeScreen({ route, navigation }) {
                 ) : null}
                 <Text
                   allowFontScaling={false}
-                  style={[rStyles.headerCountry, { color: theme.textSecondary }]}
+                  style={[
+                    rStyles.headerCountry,
+                    { color: theme.textSecondary },
+                  ]}
                   numberOfLines={1}
                 >
                   {countryName}
