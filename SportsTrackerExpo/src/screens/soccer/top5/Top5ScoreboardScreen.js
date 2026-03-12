@@ -6,10 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Image,
   Dimensions,
   RefreshControl,
 } from "react-native";
+import { Image } from "expo-image";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../../context/ThemeContext";
 import Top5ServiceEnhanced, {
@@ -84,7 +84,12 @@ const getStatusInfo = (match) => {
   const isLive = !isFinished && !isScheduled;
 
   if (isLive) {
-    return { line1: short || "LIVE", line2: "", isLive: true, isFinished: false };
+    return {
+      line1: short || "LIVE",
+      line2: "",
+      isLive: true,
+      isFinished: false,
+    };
   }
   if (isFinished) {
     const { time, ampm } = formatMatchTime(match);
@@ -131,8 +136,18 @@ const DATE_OPTIONS = (() => {
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_NAMES = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ];
 
 const getDateLabel = (date) => {
@@ -195,130 +210,158 @@ const DatePickerBar = ({
       ]}
     >
       <View style={dateBarStyles.wrapper}>
-      {/* Scrollable date list */}
-      <View
-        style={dateBarStyles.scrollArea}
-        onLayout={(e) => setScrollW(e.nativeEvent.layout.width)}
-      >
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          scrollEventThrottle={16}
+        {/* Scrollable date list */}
+        <View
+          style={dateBarStyles.scrollArea}
+          onLayout={(e) => setScrollW(e.nativeEvent.layout.width)}
         >
-          {dates.map((date, idx) => {
-            const ds = toDateStr(date);
-            const isSelected = ds === selectedDateStr;
-            const dist = Math.abs(idx - selectedIdx);
-            const opacity =
-              dist === 0 ? 1 : dist === 1 ? 0.6 : dist === 2 ? 0.35 : 0.18;
-            return (
-              <TouchableOpacity
-                key={ds}
-                style={dateBarStyles.item}
-                onPress={() => onSelect(ds)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    dateBarStyles.itemText,
-                    {
-                      color: isSelected ? colors.primary : theme.text,
-                      fontWeight: isSelected ? "700" : "500",
-                      opacity,
-                    },
-                  ]}
-                  numberOfLines={1}
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+          >
+            {dates.map((date, idx) => {
+              const ds = toDateStr(date);
+              const isSelected = ds === selectedDateStr;
+              const dist = Math.abs(idx - selectedIdx);
+              const opacity =
+                dist === 0 ? 1 : dist === 1 ? 0.6 : dist === 2 ? 0.35 : 0.18;
+              return (
+                <TouchableOpacity
+                  key={ds}
+                  style={dateBarStyles.item}
+                  onPress={() => onSelect(ds)}
+                  activeOpacity={0.7}
                 >
-                  {getDateLabel(date)}
-                </Text>
-                <View
-                  style={[
-                    dateBarStyles.itemIndicator,
-                    {
-                      backgroundColor: isSelected
-                        ? colors.primary
-                        : "transparent",
-                    },
-                  ]}
+                  <Text
+                    style={[
+                      dateBarStyles.itemText,
+                      {
+                        color: isSelected ? colors.primary : theme.text,
+                        fontWeight: isSelected ? "700" : "500",
+                        opacity,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {getDateLabel(date)}
+                  </Text>
+                  <View
+                    style={[
+                      dateBarStyles.itemIndicator,
+                      {
+                        backgroundColor: isSelected
+                          ? colors.primary
+                          : "transparent",
+                      },
+                    ]}
+                  />
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          {/* Left fade overlay */}
+          <Svg
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: DATE_FADE_W,
+              height: DATE_BAR_H,
+            }}
+            width={DATE_FADE_W}
+            height={DATE_BAR_H}
+            pointerEvents="none"
+          >
+            <Defs>
+              <LinearGradient id="dfL" x1="0%" y1="0%" x2="100%" y2="0%">
+                <Stop
+                  offset="0%"
+                  stopColor={theme.background}
+                  stopOpacity="1"
                 />
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-        {/* Left fade overlay */}
-        <Svg
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: DATE_FADE_W,
-            height: DATE_BAR_H,
-          }}
-          width={DATE_FADE_W}
-          height={DATE_BAR_H}
-          pointerEvents="none"
-        >
-          <Defs>
-            <LinearGradient id="dfL" x1="0%" y1="0%" x2="100%" y2="0%">
-              <Stop offset="0%" stopColor={theme.background} stopOpacity="1" />
-              <Stop
-                offset="100%"
-                stopColor={theme.background}
-                stopOpacity="0"
-              />
-            </LinearGradient>
-          </Defs>
-          <Rect x={0} y={0} width={DATE_FADE_W} height={DATE_BAR_H} fill="url(#dfL)" />
-        </Svg>
-        {/* Right fade overlay */}
-        <Svg
-          style={{
-            position: "absolute",
-            top: 0,
-            right: 0,
-            width: DATE_FADE_W,
-            height: DATE_BAR_H,
-          }}
-          width={DATE_FADE_W}
-          height={DATE_BAR_H}
-          pointerEvents="none"
-        >
-          <Defs>
-            <LinearGradient id="dfR" x1="100%" y1="0%" x2="0%" y2="0%">
-              <Stop offset="0%" stopColor={theme.background} stopOpacity="1" />
-              <Stop
-                offset="100%"
-                stopColor={theme.background}
-                stopOpacity="0"
-              />
-            </LinearGradient>
-          </Defs>
-          <Rect x={0} y={0} width={DATE_FADE_W} height={DATE_BAR_H} fill="url(#dfR)" />
-        </Svg>
-      </View>
+                <Stop
+                  offset="100%"
+                  stopColor={theme.background}
+                  stopOpacity="0"
+                />
+              </LinearGradient>
+            </Defs>
+            <Rect
+              x={0}
+              y={0}
+              width={DATE_FADE_W}
+              height={DATE_BAR_H}
+              fill="url(#dfL)"
+            />
+          </Svg>
+          {/* Right fade overlay */}
+          <Svg
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              width: DATE_FADE_W,
+              height: DATE_BAR_H,
+            }}
+            width={DATE_FADE_W}
+            height={DATE_BAR_H}
+            pointerEvents="none"
+          >
+            <Defs>
+              <LinearGradient id="dfR" x1="100%" y1="0%" x2="0%" y2="0%">
+                <Stop
+                  offset="0%"
+                  stopColor={theme.background}
+                  stopOpacity="1"
+                />
+                <Stop
+                  offset="100%"
+                  stopColor={theme.background}
+                  stopOpacity="0"
+                />
+              </LinearGradient>
+            </Defs>
+            <Rect
+              x={0}
+              y={0}
+              width={DATE_FADE_W}
+              height={DATE_BAR_H}
+              fill="url(#dfR)"
+            />
+          </Svg>
+        </View>
 
-      {/* Grid/list toggle */}
-      <TouchableOpacity
-        onPress={toggleViewMode}
-        style={dateBarStyles.toggleBtn}
-      >
-        <Ionicons
-          name={isGridView ? "list-outline" : "grid-outline"}
-          size={22}
-          color={theme.text}
-        />
-      </TouchableOpacity>
+        {/* Grid/list toggle */}
+        <TouchableOpacity
+          onPress={toggleViewMode}
+          style={dateBarStyles.toggleBtn}
+        >
+          <Ionicons
+            name={isGridView ? "list-outline" : "grid-outline"}
+            size={22}
+            color={theme.text}
+          />
+        </TouchableOpacity>
       </View>
       {/* Border as its own element — completely separated from the gradient overlays */}
-      <View style={[dateBarStyles.separator, { backgroundColor: theme.border }]} />
+      <View
+        style={[dateBarStyles.separator, { backgroundColor: theme.border }]}
+      />
     </View>
   );
 };
 
 // ─── List-view card gradient overlay (SVG) – top to bottom ──────────────────
 
-const CardGradient = ({ gradId, awayColor, homeColor, fallbackColor, theme }) => {
+const CardGradient = ({
+  gradId,
+  awayColor,
+  homeColor,
+  fallbackColor,
+  theme,
+}) => {
   const bot = awayColor || fallbackColor;
   const top = homeColor || fallbackColor;
   return (
@@ -381,7 +424,12 @@ const SOCCER_GRID_GAP = 8;
 const SOCCER_CARD_WIDTH = (width - SOCCER_GRID_H_PAD * 2 - SOCCER_GRID_GAP) / 2;
 
 // ─── Grid left–right gradient ─────────────────────────────────────────────────
-const SoccerGridCardGradient = ({ gradId, awayColor, homeColor, fallbackColor }) => {
+const SoccerGridCardGradient = ({
+  gradId,
+  awayColor,
+  homeColor,
+  fallbackColor,
+}) => {
   const right = awayColor || fallbackColor;
   const left = homeColor || fallbackColor;
   return (
@@ -400,193 +448,233 @@ const SoccerGridCardGradient = ({ gradId, awayColor, homeColor, fallbackColor })
 };
 
 // ─── Individual soccer grid card ──────────────────────────────────────────────
-const Top5GridCard = ({ match, theme, colors, gIdx, mIdx }) => {
-  const home = match.participants?.find((p) => p.meta?.location === "home");
-  const away = match.participants?.find((p) => p.meta?.location === "away");
-  const homeScore =
-    match.scores?.find((s) => s.participant === "home")?.goals ?? null;
-  const awayScore =
-    match.scores?.find((s) => s.participant === "away")?.goals ?? null;
-  const awayColor = away?.colorPrimary || null;
-  const homeColor = home?.colorPrimary || null;
-  const si = getStatusInfo(match);
-  const gradId = `gc_${gIdx}_${mIdx}`;
+const Top5GridCard = React.memo(
+  ({ match, theme, colors, gIdx, mIdx, navigation }) => {
+    const home = match.participants?.find((p) => p.meta?.location === "home");
+    const away = match.participants?.find((p) => p.meta?.location === "away");
+    const homeScore =
+      match.scores?.find((s) => s.participant === "home")?.goals ?? null;
+    const awayScore =
+      match.scores?.find((s) => s.participant === "away")?.goals ?? null;
+    const awayColor = away?.colorPrimary || null;
+    const homeColor = home?.colorPrimary || null;
+    const si = getStatusInfo(match);
+    const gradId = `gc_${gIdx}_${mIdx}`;
 
-  const homeWins = home.meta.winner;
-  const awayWins = away.meta.winner;
-  const awayAbbr = getAbbr(away);
-  const homeAbbr = getAbbr(home);
+    const homeWins = home.meta.winner;
+    const awayWins = away.meta.winner;
+    const awayAbbr = getAbbr(away);
+    const homeAbbr = getAbbr(home);
     function ordinal(n) {
-    const s = ["th", "st", "nd", "rd"];
-    const v = n % 100;
-    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+      const s = ["th", "st", "nd", "rd"];
+      const v = n % 100;
+      return n + (s[(v - 20) % 10] || s[v] || s[0]);
     }
 
     const homePos = ordinal(home.meta.position);
     const awayPos = ordinal(away.meta.position);
 
-  return (
-    <TouchableOpacity
-      style={[
-        soccerGridStyles.card,
-        { backgroundColor: theme.surfaceSecondary, width: SOCCER_CARD_WIDTH },
-      ]}
-      activeOpacity={0.8}
-    >
-      <SoccerGridCardGradient
-        gradId={gradId}
-        awayColor={awayColor}
-        homeColor={homeColor}
-        fallbackColor={colors.primary}
-      />
-
-      {/* Status / Time */}
-      <View style={soccerGridStyles.cardTop}>
-        {si.isLive ? (
-          <Text style={[soccerGridStyles.statusLive, { color: colors.primary }]}>
-            {si.line1}
-          </Text>
-        ) : si.isFinished ? (
-          <Text
-            style={[soccerGridStyles.statusText, { color: theme.textSecondary }]}
-            numberOfLines={1}
-          >
-            {si.line1}
-          </Text>
-        ) : (
-          <Text
-            style={[soccerGridStyles.statusText, { color: theme.text }]}
-            numberOfLines={1}
-          >
-            {si.line1}{" "}
-            <Text style={{ color: theme.textTertiary }}>{si.line2}</Text>
-          </Text>
-        )}
-        <LiveViewerBadge
-          gameId={String(match.id)}
-          status={si.isLive ? "live" : si.isFinished ? "final" : "pre"}
-          scale={0.7}
-          style={soccerGridStyles.cardBadge}
+    return (
+      <TouchableOpacity
+        style={[
+          soccerGridStyles.card,
+          { backgroundColor: theme.surfaceSecondary, width: SOCCER_CARD_WIDTH },
+        ]}
+        activeOpacity={0.8}
+        onPress={() => {
+          if (!home || !away) return;
+          navigation.navigate("Top5GameDetail", {
+            fixtureId: match.id,
+            homeTeamId: home.id,
+            awayTeamId: away.id,
+            matchTitle: `${home.short_code || home.name} vs ${away.short_code || away.name}`,
+          });
+        }}
+      >
+        <SoccerGridCardGradient
+          gradId={gradId}
+          awayColor={awayColor}
+          homeColor={homeColor}
+          fallbackColor={colors.primary}
         />
-      </View>
 
-      {/* Teams side by side */}
-      <View style={soccerGridStyles.teamsRow}>
-        {/* Home */}
-        <View style={soccerGridStyles.teamSide}>
-          {si.isLive || si.isFinished ? (
-            <View style={soccerGridStyles.scoreCell}>
-              <Text
-                style={[
-                  soccerGridStyles.scoreText,
-                  {
-                    color: homeWins ? colors.primary : theme.text,
-                    fontWeight: homeWins ? "700" : "400",
-                    opacity: si.isFinished && !homeWins ? 0.55 : 1,
-                  },
-                ]}
-              >
-                {homeScore ?? "\u2014"}
-              </Text>
-              {home?.image_path && (
-                <Image
-                  source={{ uri: home.image_path }}
-                  style={soccerGridStyles.scoreLogoOverlay}
-                  resizeMode="contain"
-                />
-              )}
-            </View>
-          ) : home?.image_path ? (
-            <Image
-              source={{ uri: home.image_path }}
-              style={soccerGridStyles.teamLogo}
-              resizeMode="contain"
-            />
-          ) : (
-            <View
-              style={[
-                soccerGridStyles.teamLogoPlaceholder,
-                { backgroundColor: homeColor || colors.secondary },
-              ]}
+        {/* Status / Time */}
+        <View style={soccerGridStyles.cardTop}>
+          {si.isLive ? (
+            <Text
+              style={[soccerGridStyles.statusLive, { color: colors.primary }]}
             >
-              <Text style={soccerGridStyles.teamLogoPlaceholderText}>
-                {(home?.name || "H")[0]}
-              </Text>
-            </View>
+              {si.line1}
+            </Text>
+          ) : si.isFinished ? (
+            <Text
+              style={[
+                soccerGridStyles.statusText,
+                { color: theme.textSecondary },
+              ]}
+              numberOfLines={1}
+            >
+              {si.line1}
+            </Text>
+          ) : (
+            <Text
+              style={[soccerGridStyles.statusText, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {si.line1}{" "}
+              <Text style={{ color: theme.textTertiary }}>{si.line2}</Text>
+            </Text>
           )}
-          <Text style={[soccerGridStyles.teamAbbr, { color: theme.text }]}>
-            {homeAbbr}
-          </Text>
-          <Text style={[soccerGridStyles.teamPosition, { color: theme.textSecondary, fontSize: 10 }]}>
-            {homePos} Place
-          </Text>
+          <LiveViewerBadge
+            gameId={String(match.id)}
+            status={si.isLive ? "live" : si.isFinished ? "final" : "pre"}
+            scale={0.7}
+            style={soccerGridStyles.cardBadge}
+          />
         </View>
 
-        <View style={[soccerGridStyles.divider, { backgroundColor: theme.border }]} />
-
-        {/* Away */}
-        <View style={soccerGridStyles.teamSide}>
-          {si.isLive || si.isFinished ? (
-            <View style={soccerGridStyles.scoreCell}>
-              <Text
+        {/* Teams side by side */}
+        <View style={soccerGridStyles.teamsRow}>
+          {/* Home */}
+          <View style={soccerGridStyles.teamSide}>
+            {si.isLive || si.isFinished ? (
+              <View style={soccerGridStyles.scoreCell}>
+                <Text
+                  style={[
+                    soccerGridStyles.scoreText,
+                    {
+                      color: homeWins ? colors.primary : theme.text,
+                      fontWeight: homeWins ? "700" : "400",
+                      opacity: si.isFinished && !homeWins ? 0.55 : 1,
+                    },
+                  ]}
+                >
+                  {homeScore ?? "\u2014"}
+                </Text>
+                {home?.image_path && (
+                  <Image
+                    source={{ uri: home.image_path }}
+                    style={soccerGridStyles.scoreLogoOverlay}
+                    contentFit="contain"
+                    cachePolicy="memory-disk"
+                  />
+                )}
+              </View>
+            ) : home?.image_path ? (
+              <Image
+                source={{ uri: home.image_path }}
+                style={soccerGridStyles.teamLogo}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+              />
+            ) : (
+              <View
                 style={[
-                  soccerGridStyles.scoreText,
-                  {
-                    color: awayWins ? colors.primary : theme.text,
-                    fontWeight: awayWins ? "700" : "400",
-                    opacity: si.isFinished && !awayWins ? 0.55 : 1,
-                  },
+                  soccerGridStyles.teamLogoPlaceholder,
+                  { backgroundColor: homeColor || colors.secondary },
                 ]}
               >
-                {awayScore ?? "\u2014"}
-              </Text>
-              {away?.image_path && (
-                <Image
-                  source={{ uri: away.image_path }}
-                  style={soccerGridStyles.scoreLogoOverlay}
-                  resizeMode="contain"
-                />
-              )}
-            </View>
-          ) : away?.image_path ? (
-            <Image
-              source={{ uri: away.image_path }}
-              style={soccerGridStyles.teamLogo}
-              resizeMode="contain"
-            />
-          ) : (
-            <View
+                <Text style={soccerGridStyles.teamLogoPlaceholderText}>
+                  {(home?.name || "H")[0]}
+                </Text>
+              </View>
+            )}
+            <Text style={[soccerGridStyles.teamAbbr, { color: theme.text }]}>
+              {homeAbbr}
+            </Text>
+            <Text
               style={[
-                soccerGridStyles.teamLogoPlaceholder,
-                { backgroundColor: awayColor || colors.primary },
+                soccerGridStyles.teamPosition,
+                { color: theme.textSecondary, fontSize: 10 },
               ]}
             >
-              <Text style={soccerGridStyles.teamLogoPlaceholderText}>
-                {(away?.name || "A")[0]}
-              </Text>
-            </View>
-          )}
-          <Text style={[soccerGridStyles.teamAbbr, { color: theme.text }]}>
-            {awayAbbr}
-          </Text>
-          <Text style={[soccerGridStyles.teamPosition, { color: theme.textSecondary, fontSize: 10 }]}>
-            {awayPos} Place
-          </Text>
-        </View>
-      </View>
+              {homePos} Place
+            </Text>
+          </View>
 
-      {/* Footer: venue */}
-      <View style={[soccerGridStyles.cardFooter, { borderTopColor: theme.border }]}>
-        <Text
-          style={[soccerGridStyles.venueText, { color: theme.textSecondary }]}
-          numberOfLines={1}
+          <View
+            style={[
+              soccerGridStyles.divider,
+              { backgroundColor: theme.border },
+            ]}
+          />
+
+          {/* Away */}
+          <View style={soccerGridStyles.teamSide}>
+            {si.isLive || si.isFinished ? (
+              <View style={soccerGridStyles.scoreCell}>
+                <Text
+                  style={[
+                    soccerGridStyles.scoreText,
+                    {
+                      color: awayWins ? colors.primary : theme.text,
+                      fontWeight: awayWins ? "700" : "400",
+                      opacity: si.isFinished && !awayWins ? 0.55 : 1,
+                    },
+                  ]}
+                >
+                  {awayScore ?? "\u2014"}
+                </Text>
+                {away?.image_path && (
+                  <Image
+                    source={{ uri: away.image_path }}
+                    style={soccerGridStyles.scoreLogoOverlay}
+                    contentFit="contain"
+                    cachePolicy="memory-disk"
+                  />
+                )}
+              </View>
+            ) : away?.image_path ? (
+              <Image
+                source={{ uri: away.image_path }}
+                style={soccerGridStyles.teamLogo}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+              />
+            ) : (
+              <View
+                style={[
+                  soccerGridStyles.teamLogoPlaceholder,
+                  { backgroundColor: awayColor || colors.primary },
+                ]}
+              >
+                <Text style={soccerGridStyles.teamLogoPlaceholderText}>
+                  {(away?.name || "A")[0]}
+                </Text>
+              </View>
+            )}
+            <Text style={[soccerGridStyles.teamAbbr, { color: theme.text }]}>
+              {awayAbbr}
+            </Text>
+            <Text
+              style={[
+                soccerGridStyles.teamPosition,
+                { color: theme.textSecondary, fontSize: 10 },
+              ]}
+            >
+              {awayPos} Place
+            </Text>
+          </View>
+        </View>
+
+        {/* Footer: venue */}
+        <View
+          style={[
+            soccerGridStyles.cardFooter,
+            { borderTopColor: theme.border },
+          ]}
         >
-          {match.venue?.name || ""}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-};
+          <Text
+            style={[soccerGridStyles.venueText, { color: theme.textSecondary }]}
+            numberOfLines={1}
+          >
+            {match.venue?.name || ""}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  },
+);
 
 // ─── Soccer Grid section (floating bubble headers + 2-col cards) ──────────────
 const Top5GridSection = ({
@@ -596,6 +684,7 @@ const Top5GridSection = ({
   activeFilter,
   collapsedGroups,
   toggleCollapse,
+  navigation,
 }) => (
   <View style={soccerGridStyles.container}>
     {groups.map((group, gIdx) => (
@@ -615,7 +704,8 @@ const Top5GridSection = ({
             <Image
               source={{ uri: group.imagePath }}
               style={soccerGridStyles.groupBubbleLogo}
-              resizeMode="contain"
+              contentFit="contain"
+              cachePolicy="memory-disk"
             />
           ) : (
             <Text style={{ fontSize: 18, marginRight: 6 }}>\u26bd</Text>
@@ -632,10 +722,13 @@ const Top5GridSection = ({
               { color: theme.textTertiary },
             ]}
           >
-            {" "}{group.matches.length}
+            {" "}
+            {group.matches.length}
           </Text>
           {activeFilter > todayDateStr && (
-            <Text style={{ color: theme.textTertiary, marginLeft: 4, fontSize: 12 }}>
+            <Text
+              style={{ color: theme.textTertiary, marginLeft: 4, fontSize: 12 }}
+            >
               {collapsedGroups[group.leagueKey] ? "\u25b6" : "\u25bc"}
             </Text>
           )}
@@ -657,6 +750,7 @@ const Top5GridSection = ({
                   colors={colors}
                   gIdx={gIdx}
                   mIdx={mIdx}
+                  navigation={navigation}
                 />
               ))}
             </View>
@@ -700,7 +794,8 @@ const Top5ScoreboardSection = ({
               <Image
                 source={{ uri: group.imagePath }}
                 style={styles.eventLogoImage}
-                resizeMode="contain"
+                contentFit="contain"
+                cachePolicy="memory-disk"
               />
             ) : (
               <View
@@ -746,8 +841,7 @@ const Top5ScoreboardSection = ({
         <View style={styles.matchesList}>
           {(() => {
             const isCollapsed =
-              activeFilter > todayDateStr &&
-              !!collapsedGroups[group.leagueKey];
+              activeFilter > todayDateStr && !!collapsedGroups[group.leagueKey];
             const displayed = isCollapsed
               ? group.matches.slice(0, 1)
               : group.matches;
@@ -762,20 +856,29 @@ const Top5ScoreboardSection = ({
               const homeColor = home?.colorPrimary || null;
               const homeWins = home.meta.winner;
               const awayWins = away.meta.winner;
-                function ordinal(n) {
+              function ordinal(n) {
                 const s = ["th", "st", "nd", "rd"];
                 const v = n % 100;
                 return n + (s[(v - 20) % 10] || s[v] || s[0]);
-                }
+              }
 
-                const homePos = ordinal(home.meta.position);
-                const awayPos = ordinal(away.meta.position);
+              const homePos = ordinal(home.meta.position);
+              const awayPos = ordinal(away.meta.position);
 
               return (
                 <TouchableOpacity
                   key={match.id || idx}
                   style={styles.gameRow}
                   activeOpacity={0.75}
+                  onPress={() => {
+                    if (!home || !away) return;
+                    navigation.navigate("Top5GameDetail", {
+                      fixtureId: match.id,
+                      homeTeamId: home.id,
+                      awayTeamId: away.id,
+                      matchTitle: `${home.short_code || home.name} vs ${away.short_code || away.name}`,
+                    });
+                  }}
                 >
                   <CardGradient
                     gradId={`${gIdx}_${idx}`}
@@ -853,15 +956,15 @@ const Top5ScoreboardSection = ({
                                   ? { opacity: 0.55 }
                                   : null,
                               ]}
-                              resizeMode="contain"
+                              contentFit="contain"
+                              cachePolicy="memory-disk"
                             />
                           ) : (
                             <View
                               style={[
                                 styles.teamLogoSmallImg,
                                 {
-                                  backgroundColor:
-                                    homeColor || colors.primary,
+                                  backgroundColor: homeColor || colors.primary,
                                   justifyContent: "center",
                                   alignItems: "center",
                                 },
@@ -927,15 +1030,15 @@ const Top5ScoreboardSection = ({
                                   ? { opacity: 0.55 }
                                   : null,
                               ]}
-                              resizeMode="contain"
+                              contentFit="contain"
+                              cachePolicy="memory-disk"
                             />
                           ) : (
                             <View
                               style={[
                                 styles.teamLogoSmallImg,
                                 {
-                                  backgroundColor:
-                                    awayColor || colors.primary,
+                                  backgroundColor: awayColor || colors.primary,
                                   justifyContent: "center",
                                   alignItems: "center",
                                 },
@@ -1092,7 +1195,10 @@ const Top5ScoreboardScreen = ({ navigation }) => {
           const nextGroups = Top5ServiceEnhanced.toGroups(raw);
           setGroups(nextGroups);
           lastLoadedFilterRef.current = filter;
-          fetchCacheRef.current[filter] = { groups: nextGroups, ts: Date.now() };
+          fetchCacheRef.current[filter] = {
+            groups: nextGroups,
+            ts: Date.now(),
+          };
 
           if (filter > todayDateStr) {
             setCollapsedGroups((prev) => {
@@ -1247,6 +1353,7 @@ const Top5ScoreboardScreen = ({ navigation }) => {
                 activeFilter={activeFilter}
                 collapsedGroups={collapsedGroups}
                 toggleCollapse={toggleCollapse}
+                navigation={navigation}
               />
             ) : (
               <View style={styles.listContainer}>

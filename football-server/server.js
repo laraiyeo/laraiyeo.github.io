@@ -22,6 +22,7 @@ const SAP_KEY = process.env.SAP_KEY || "0150000b-b709-4b1f-8c87-5fdad60acbbe";
 // ─── TTL constants ────────────────────────────────────────────────────────────
 const TTL_30S = 30 * 1000;
 const TTL_1H = 60 * 60 * 1000;
+const TTL_2H = 2 * TTL_1H;
 const TTL_24H = 24 * TTL_1H;
 
 // ─── Cache stores ─────────────────────────────────────────────────────────────
@@ -230,13 +231,17 @@ function gameTtlInfo(fixture) {
   if (!fixture) return { ttl: TTL_1H, fast: false, mode: "scheduled" };
 
   if (isFinished(fixture))
-    return { ttl: TTL_24H, fast: false, mode: "finished" };
+    return { ttl: TTL_2H, fast: false, mode: "finished" };
   if (isLive(fixture)) return { ttl: TTL_30S, fast: true, mode: "live" };
 
-  const t = startTimeMsOf(fixture);
-  if (t != null) {
+  // Date-based fallback: if kick-off was >24 h ago, treat as finished
+  const tNow = startTimeMsOf(fixture);
+  if (tNow != null && Date.now() - tNow > TTL_24H)
+    return { ttl: TTL_2H, fast: false, mode: "finished_by_date" };
+
+  if (tNow != null) {
     const now = Date.now();
-    const diff = t - now;
+    const diff = tNow - now;
     const FIFTEEN_MIN = 15 * 60 * 1000;
     if (diff >= 0 && diff <= FIFTEEN_MIN)
       return { ttl: TTL_30S, fast: true, mode: "pre_match" };
@@ -826,6 +831,14 @@ function transformTeamResponse(combined) {
                     lastname: sl.player.lastname ?? null,
                     display_name: sl.player.display_name ?? null,
                     image_path: sl.player.image_path ?? null,
+                    date_of_birth: sl.player.date_of_birth ?? null,
+                    country: sl.player.country
+                      ? {
+                          name: sl.player.country.name ?? null,
+                          image_path: sl.player.country.image_path ?? null,
+                        }
+                      : null,
+                    detailedposition: sl.player.detailedposition?.name ?? null,
                   }
                 : null,
               type: sl.type ? { name: sl.type.name ?? null } : null,
@@ -965,7 +978,7 @@ app.get("/football/team/:teamId", async (req, res) => {
     const [teamInfo, squadData, transfersData] = await Promise.all([
       fetchUrl(
         `${SM_BASE}/teams/${teamId}?api_token=${SM_TOKEN}` +
-          `&include=country;coaches.coach;trophies.trophy;trophies.season;trophies.league;rivals;sidelined.player;sidelined.type;activeSeasons.league;venue;rankings;statistics.details.type` +
+          `&include=country;coaches.coach;trophies.trophy;trophies.season;trophies.league;rivals;sidelined.player.country;sidelined.type;activeSeasons.league;venue;rankings;statistics.details.type` +
           statsFilter,
       ),
       fetchUrl(
@@ -1095,12 +1108,14 @@ function transformPlayerResponse(raw) {
           .map((l) => ({
             fixture_id: l.fixture_id ?? null,
             fixture: {
+              id: l.fixture_id ?? null,
               starting_at: l.fixture.starting_at ?? null,
               result_info: l.fixture.result_info ?? null,
               participants: Array.isArray(l.fixture.participants)
                 ? l.fixture.participants.map((pt) => {
                     const colors = findSapColors(pt.name, colorMap);
                     return {
+                      id: pt.id ?? null,
                       name: pt.name ?? null,
                       image_path: pt.image_path ?? null,
                       colorPrimary: colors.colorPrimary,
@@ -1596,6 +1611,13 @@ function transformFixtureGameResponse(raw) {
         };
       })
     : [];
+  
+  const periods = Array.isArray(f.periods)
+    ? f.periods.map((p) => ({
+        id: p.id ?? null,
+        description: p.description ?? null,
+      }))
+    : [];
 
   const scores = Array.isArray(f.scores)
     ? f.scores.map((s) => ({
@@ -1733,6 +1755,8 @@ function transformFixtureGameResponse(raw) {
               date_of_birth: l.player.date_of_birth ?? null,
             }
           : null,
+        type: l.type ? { name: l.type.name ?? null } : null,
+        position: l.position ? { name: l.position.name ?? null } : null,
         detailedposition: l.detailedposition
           ? { name: l.detailedposition.name ?? null }
           : null,
@@ -1862,7 +1886,7 @@ function transformH2hResponse(raw) {
 // Combines detailed fixture data with head-to-head history.
 // H2H is fetched once and cached for 24 h independently.
 // Fixture caching rules:
-//   - finished game         → 24 h (no auto-polling)
+//   - finished game         → 2 h  (no auto-polling)
 //   - scheduled > 1 h away  → 1 h  (no auto-polling)
 //   - scheduled 15 min–1 h  → cache until 15 min before kick-off
 //   - scheduled ≤ 15 min    → 30 s  + activity-based polling
@@ -1876,7 +1900,7 @@ app.get("/football/game/:fixtureId/:team1/:team2", async (req, res) => {
 
   const fixtureUrl =
     `${SM_BASE}/fixtures/${fixtureId}?api_token=${SM_TOKEN}` +
-    `&include=state;participants;scores;league.country;comments;formations;venue;weatherReport;events;statistics.type;formations;sidelined.player;sidelined.type;sidelined.sideline;lineups.player;lineups.detailedPosition;coaches;referees.referee;lineups.details.type`;
+    `&include=state;periods;participants;scores;league.country;comments;formations;venue;weatherReport;events;statistics.type;formations;sidelined.player;sidelined.type;sidelined.sideline;lineups.player;lineups.type;lineups.position;lineups.detailedPosition;coaches;referees.referee;lineups.details.type`;
 
   const h2hUrl =
     `${SM_BASE}/fixtures/head-to-head/${team1}/${team2}?api_token=${SM_TOKEN}` +

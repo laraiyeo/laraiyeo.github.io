@@ -663,7 +663,7 @@ function MatchGradient({ gradId, homeColor, awayColor }) {
   );
 }
 
-function MatchCard({ match, idx, theme, colors }) {
+function MatchCard({ match, idx, theme, colors, navigation }) {
   const home = match.participants?.find((p) => p.meta?.location === "home");
   const away = match.participants?.find((p) => p.meta?.location === "away");
   if (!home || !away) return null;
@@ -678,7 +678,18 @@ function MatchCard({ match, idx, theme, colors }) {
   const awayWon = away.meta?.winner === true;
 
   return (
-    <View style={[mStyles.card, { backgroundColor: theme.surface }]}>
+    <TouchableOpacity
+      style={[mStyles.card, { backgroundColor: theme.surface }]}
+      activeOpacity={0.75}
+      onPress={() =>
+        navigation?.navigate("Top5GameDetail", {
+          fixtureId: match.id,
+          homeTeamId: home.id,
+          awayTeamId: away.id,
+          matchTitle: `${home.short_code || home.name} vs ${away.short_code || away.name}`,
+        })
+      }
+    >
       <MatchGradient
         gradId={idx}
         homeColor={home.colorPrimary}
@@ -812,7 +823,7 @@ function MatchCard({ match, idx, theme, colors }) {
           )}
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -913,11 +924,12 @@ function MatchesTab({ leagueInfo, teamsInSeason, theme, colors, navigation }) {
             idx={`${gIdx}_${mIdx}`}
             theme={theme}
             colors={colors}
+            navigation={navigation}
           />
         ))}
       </View>
     ),
-    [theme, colors],
+    [theme, colors, navigation],
   );
 
   if (!groups.length) {
@@ -1296,7 +1308,7 @@ const DETAILED_POS_MAP = {
 };
 
 function getPosAbbr(name) {
-  if (!name) return "?";
+  if (!name) return "--";
 
   if (DETAILED_POS_MAP[name]) return DETAILED_POS_MAP[name];
 
@@ -1380,7 +1392,7 @@ function classifyPlayer(pl) {
   return "Other";
 }
 
-function PlayerCard({ pl, teamColor, sidelinedIds, theme }) {
+function PlayerCard({ pl, teamColor, sidelinedIds, theme, navigation }) {
   const name = pl.player?.lastname ?? pl.player?.name?.split(" ").pop() ?? "?";
   const imgUri = pl.player?.image_path;
   const showImg = !isPlaceholder(imgUri);
@@ -1402,55 +1414,81 @@ function PlayerCard({ pl, teamColor, sidelinedIds, theme }) {
   const headBg = teamColor ? teamColor + "30" : "#88888822";
   const isSidelined = sidelinedIds.has(pl.player?.id ?? pl.id);
 
+  const playerId = pl.player?.id ?? pl.id;
+  const playerFullName =
+    pl.player?.name ||
+    `${pl.player?.firstname ?? ""} ${pl.player?.lastname ?? ""}`.trim() ||
+    name;
+
   return (
-    <View style={tStyles.playerWrap}>
-      <View style={tStyles.headshotWrap}>
-        <View style={[tStyles.headshotBox, { backgroundColor: headBg }]}>
-          {showImg ? (
-            <Image
-              source={{ uri: imgUri }}
-              style={tStyles.headshot}
-              resizeMode="cover"
-            />
-          ) : (
-            <View
-              style={[tStyles.headshotFallback, { backgroundColor: headBg }]}
-            >
-              <Text style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}>
-                {initials}
-              </Text>
+    <TouchableOpacity
+      activeOpacity={0.8}
+      onPress={() =>
+        playerId != null &&
+        navigation?.navigate("Top5PlayerDetail", {
+          playerId,
+          playerName: playerFullName,
+        })
+      }
+    >
+      <View style={tStyles.playerWrap}>
+        <View style={tStyles.headshotWrap}>
+          <View style={[tStyles.headshotBox, { backgroundColor: headBg }]}>
+            {showImg ? (
+              <Image
+                source={{ uri: imgUri }}
+                style={tStyles.headshot}
+                resizeMode="cover"
+              />
+            ) : (
+              <View
+                style={[tStyles.headshotFallback, { backgroundColor: headBg }]}
+              >
+                <Text
+                  style={{ fontSize: 16, fontWeight: "700", color: "#fff" }}
+                >
+                  {initials}
+                </Text>
+              </View>
+            )}
+          </View>
+          {/* Position badge — bottom right */}
+          <View style={[tStyles.posBadge, { backgroundColor: badgeBg }]}>
+            <Text style={[tStyles.posBadgeText, { color: badgeText }]}>
+              {posAbbr}
+            </Text>
+          </View>
+          {/* Injury / suspension indicator — top right */}
+          {isSidelined && (
+            <View style={tStyles.injuryBadge}>
+              <Text style={tStyles.injuryBadgeText}>✕</Text>
             </View>
           )}
         </View>
-        {/* Position badge — bottom right */}
-        <View style={[tStyles.posBadge, { backgroundColor: badgeBg }]}>
-          <Text style={[tStyles.posBadgeText, { color: badgeText }]}>
-            {posAbbr}
+        <Text
+          style={[tStyles.playerName, { color: theme.text }]}
+          numberOfLines={1}
+        >
+          {name}
+        </Text>
+        {pl.jersey_number != null && (
+          <Text style={[tStyles.jerseyNum, { color: theme.textTertiary }]}>
+            #{pl.jersey_number}
           </Text>
-        </View>
-        {/* Injury / suspension indicator — top right */}
-        {isSidelined && (
-          <View style={tStyles.injuryBadge}>
-            <Text style={tStyles.injuryBadgeText}>✕</Text>
-          </View>
         )}
       </View>
-      <Text
-        style={[tStyles.playerName, { color: theme.text }]}
-        numberOfLines={1}
-      >
-        {name}
-      </Text>
-      {pl.jersey_number != null && (
-        <Text style={[tStyles.jerseyNum, { color: theme.textTertiary }]}>
-          #{pl.jersey_number}
-        </Text>
-      )}
-    </View>
+    </TouchableOpacity>
   );
 }
 
-function PlayerSection({ label, players, teamColor, sidelinedIds, theme }) {
+function PlayerSection({
+  label,
+  players,
+  teamColor,
+  sidelinedIds,
+  theme,
+  navigation,
+}) {
   if (!players.length) return null;
   return (
     <View style={tStyles.posSection}>
@@ -1469,6 +1507,7 @@ function PlayerSection({ label, players, teamColor, sidelinedIds, theme }) {
             teamColor={teamColor}
             sidelinedIds={sidelinedIds}
             theme={theme}
+            navigation={navigation}
           />
         )}
       />
@@ -1701,6 +1740,7 @@ function TeamBubble({ team, theme, colors, navigation }) {
                 teamColor={primary}
                 sidelinedIds={sidelinedIds}
                 theme={theme}
+                navigation={navigation}
               />
             ) : null,
           )}
@@ -1711,6 +1751,7 @@ function TeamBubble({ team, theme, colors, navigation }) {
               teamColor={primary}
               sidelinedIds={sidelinedIds}
               theme={theme}
+              navigation={navigation}
             />
           )}
           {activeSidelined.length > 0 && (
@@ -2373,7 +2414,7 @@ const ssStyles = StyleSheet.create({
     marginBottom: 6,
   },
   entryLogo: { width: 24, height: 24 },
-  entryName: { fontSize: 12, fontWeight: "600" },
+  entryName: { flex: 1, fontSize: 12, fontWeight: "600" },
   entryAbbr: { fontSize: 11, fontWeight: "400" },
   rankCircle: {
     width: 24,

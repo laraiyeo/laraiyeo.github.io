@@ -307,6 +307,10 @@ import Top5TeamsScreen from "./src/screens/soccer/top5/Top5TeamsScreen";
 import Top5SearchScreen from "./src/screens/soccer/top5/Top5SearchScreen";
 import Top5LeagueDetailScreen from "./src/screens/soccer/top5/Top5LeagueDetailScreen";
 import Top5TeamDetailScreen from "./src/screens/soccer/top5/Top5TeamDetailScreen";
+import Top5CoachScreen from "./src/screens/soccer/top5/Top5CoachScreen";
+import Top5RefereeScreen from "./src/screens/soccer/top5/Top5RefereeScreen";
+import Top5PlayerScreen from "./src/screens/soccer/top5/Top5PlayerScreen";
+import Top5GameDetailsScreen from "./src/screens/soccer/top5/Top5GameDetailsScreen";
 
 // FIFA World Cup screens
 import FIFAWorldScoreboardScreen from "./src/screens/soccer/fifa.world/FIFAWorldScoreboardScreen";
@@ -2022,6 +2026,46 @@ const MainStackNavigator = () => {
         component={Top5LeagueDetailScreen}
         options={({ route }) => ({
           title: route.params?.leagueName ?? "League",
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: "#fff",
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        })}
+      />
+      <Stack.Screen
+        name="Top5CoachDetail"
+        component={Top5CoachScreen}
+        options={({ route }) => ({
+          title: route.params?.coachName ?? "Coach",
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: "#fff",
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        })}
+      />
+      <Stack.Screen
+        name="Top5RefereeDetail"
+        component={Top5RefereeScreen}
+        options={({ route }) => ({
+          title: route.params?.refereeName ?? "Referee",
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: "#fff",
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        })}
+      />
+      <Stack.Screen
+        name="Top5PlayerDetail"
+        component={Top5PlayerScreen}
+        options={({ route }) => ({
+          title: route.params?.playerName ?? "Player",
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: "#fff",
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        })}
+      />
+      <Stack.Screen
+        name="Top5GameDetail"
+        component={Top5GameDetailsScreen}
+        options={({ route }) => ({
+          title: route.params?.matchTitle ?? "Match",
           headerStyle: { backgroundColor: colors.primary },
           headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,

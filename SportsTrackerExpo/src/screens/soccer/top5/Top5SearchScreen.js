@@ -379,6 +379,12 @@ export default function Top5SearchScreen() {
         return (
           <TouchableOpacity
             activeOpacity={0.75}
+            onPress={() =>
+              navigation.navigate("Top5PlayerDetail", {
+                playerId: item.player_id ?? item.id,
+                playerName: item.display_name ?? item.name,
+              })
+            }
             style={[
               styles.listCard,
               {
@@ -416,19 +422,27 @@ export default function Top5SearchScreen() {
           <TouchableOpacity
             activeOpacity={0.75}
             style={[styles.matchCardOuter, { backgroundColor: theme.surface }]}
+            onPress={() =>
+              navigation.navigate("Top5GameDetail", {
+                fixtureId: item.fixture_id,
+                homeTeamId: item.homeTeam?.id,
+                awayTeamId: item.awayTeam?.id,
+                matchTitle: `${item.homeTeam?.name ?? "Home"} vs ${item.awayTeam?.name ?? "Away"}`,
+              })
+            }
           >
             {/* Split colour border underlay */}
             <View style={styles.matchSplitBorder} pointerEvents="none">
               <View
                 style={[
                   styles.matchBorderHalfLeft,
-                  { backgroundColor: homeColor },
+                  { backgroundColor: awayColor },
                 ]}
               />
               <View
                 style={[
                   styles.matchBorderHalfRight,
-                  { backgroundColor: awayColor },
+                  { backgroundColor: homeColor },
                 ]}
               />
             </View>
@@ -440,11 +454,11 @@ export default function Top5SearchScreen() {
                 { backgroundColor: theme.surface },
               ]}
             >
-              {/* Home: logo → name */}
+              {/* Away: logo → name */}
               <View style={styles.matchTeamLeft}>
-                {item.homeTeam?.image_path ? (
+                {item.awayTeam?.image_path ? (
                   <Image
-                    source={{ uri: item.homeTeam.image_path }}
+                    source={{ uri: item.awayTeam.image_path }}
                     style={styles.matchLogo}
                     resizeMode="contain"
                   />
@@ -453,7 +467,7 @@ export default function Top5SearchScreen() {
                     style={[
                       styles.matchLogo,
                       styles.matchLogoFallback,
-                      { backgroundColor: homeColor + "40" },
+                      { backgroundColor: awayColor + "40" },
                     ]}
                   />
                 )}
@@ -461,7 +475,7 @@ export default function Top5SearchScreen() {
                   style={[styles.matchTeamName, { color: theme.text }]}
                   numberOfLines={2}
                 >
-                  {item.homeTeam?.name ?? "—"}
+                  {item.awayTeam?.name ?? "—"}
                 </Text>
               </View>
 
@@ -482,7 +496,7 @@ export default function Top5SearchScreen() {
                 ) : null}
               </View>
 
-              {/* Away: name → logo */}
+              {/* Home: name → logo */}
               <View style={styles.matchTeamRight}>
                 <Text
                   style={[
@@ -492,11 +506,11 @@ export default function Top5SearchScreen() {
                   ]}
                   numberOfLines={2}
                 >
-                  {item.awayTeam?.name ?? "—"}
+                  {item.homeTeam?.name ?? "—"}
                 </Text>
-                {item.awayTeam?.image_path ? (
+                {item.homeTeam?.image_path ? (
                   <Image
-                    source={{ uri: item.awayTeam.image_path }}
+                    source={{ uri: item.homeTeam.image_path }}
                     style={styles.matchLogo}
                     resizeMode="contain"
                   />
@@ -505,7 +519,7 @@ export default function Top5SearchScreen() {
                     style={[
                       styles.matchLogo,
                       styles.matchLogoFallback,
-                      { backgroundColor: awayColor + "40" },
+                      { backgroundColor: homeColor + "40" },
                     ]}
                   />
                 )}
