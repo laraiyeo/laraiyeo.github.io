@@ -1531,7 +1531,9 @@ const GameInfoSection = ({ venue, weather, league, startingAt, theme }) => {
       {hasMeta ? (
         <>
           {(venue || hasWeather) && (
-            <View style={[giStyles.divider, { backgroundColor: theme.border }]} />
+            <View
+              style={[giStyles.divider, { backgroundColor: theme.border }]}
+            />
           )}
           <View style={giStyles.metaRow}>
             <View style={giStyles.metaLeft}>
@@ -1725,7 +1727,9 @@ const H2HSummarySection = ({ home, away, summary, theme }) => {
                 { backgroundColor: theme.surfaceSecondary },
               ]}
             >
-              <Text style={[h2hStyles.logoInitial, { color: theme.textSecondary }]}>
+              <Text
+                style={[h2hStyles.logoInitial, { color: theme.textSecondary }]}
+              >
                 {(home?.name || "?")[0].toUpperCase()}
               </Text>
             </View>
@@ -1762,7 +1766,9 @@ const H2HSummarySection = ({ home, away, summary, theme }) => {
                 { backgroundColor: theme.surfaceSecondary },
               ]}
             >
-              <Text style={[h2hStyles.logoInitial, { color: theme.textSecondary }]}>
+              <Text
+                style={[h2hStyles.logoInitial, { color: theme.textSecondary }]}
+              >
                 {(away?.name || "?")[0].toUpperCase()}
               </Text>
             </View>
