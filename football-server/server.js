@@ -1695,6 +1695,7 @@ function transformFixtureGameResponse(raw) {
 
   const events = Array.isArray(f.events)
     ? f.events.map((e) => ({
+        period_id: e.period_id ?? null,
         participant_id: e.participant_id ?? null,
         player_id: e.player_id ?? null,
         related_player_id: e.related_player_id ?? null,
@@ -1810,6 +1811,7 @@ function transformFixtureGameResponse(raw) {
         }
       : null,
     participants,
+    periods,
     scores,
     league,
     comments,

@@ -28,7 +28,7 @@ const { width } = Dimensions.get("window");
 
 const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
 
-const GAME_CACHE_KEY = (id) => `@gameDetail_v1:${id}`;
+const GAME_CACHE_KEY = (id) => `@gameDetail_v2:${id}`;
 const GAME_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 // ─── Polling helpers (same pattern as Top5ScoreboardScreen) ──────────────────
