@@ -3292,7 +3292,10 @@ const GoalShareCardModal = ({ visible, onClose, payload, theme, colors }) => {
                     style={[
                       gscStyles.goalCardFieldContainer,
                       {
-                        transform: [{ rotate: "90deg" }, { scale: FIELD_SCALE }],
+                        transform: [
+                          { rotate: "90deg" },
+                          { scale: FIELD_SCALE },
+                        ],
                       },
                     ]}
                   >
