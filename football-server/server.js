@@ -1693,7 +1693,7 @@ app.get("/football/fixture/:date", async (req, res) => {
   const cacheKey = `fixture:date:${raw}`;
   const url =
     `${SM_BASE}/fixtures/date/${isoDate}?api_token=${SM_TOKEN}` +
-    `&per_page=50&include=state;participants;scores;venue;league.country`;
+    `&per_page=50&include=state;periods;participants;scores;venue;league.country`;
 
   // Serve from cache if still valid under the dynamic TTL
   const entry = cache.get(cacheKey);
@@ -2166,8 +2166,10 @@ app.get("/football/game/:fixtureId/:team1/:team2", async (req, res) => {
   let fixtureData;
   const fixtureEntry = cache.get(fixtureCacheKey);
   if (fixtureEntry) {
-    const { ttl } = gameTtlInfo(fixtureEntry.data?.data);
-    if (Date.now() - fixtureEntry.fetchedAt < ttl) {
+    const { ttl, fast } = gameTtlInfo(fixtureEntry.data?.data);
+    // For live-window games, every incoming request should revalidate against origin.
+    // Cached data is only served directly for non-live modes.
+    if (!fast && Date.now() - fixtureEntry.fetchedAt < ttl) {
       fixtureData = fixtureEntry.data;
     }
   }
