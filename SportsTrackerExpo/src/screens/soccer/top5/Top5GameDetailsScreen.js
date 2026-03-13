@@ -12,23 +12,36 @@ import {
   ScrollView,
   Animated,
   TouchableOpacity,
+  Modal,
   ActivityIndicator,
   Dimensions,
   RefreshControl,
 } from "react-native";
 import { Image } from "expo-image";
-import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
-import { FontAwesome6, MaterialCommunityIcons } from "@expo/vector-icons";
+import Svg, {
+  Defs,
+  LinearGradient,
+  Stop,
+  Rect,
+  Circle,
+} from "react-native-svg";
+import {
+  FontAwesome6,
+  MaterialCommunityIcons,
+  Ionicons,
+} from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useGamePresence } from "../../../hooks/useGamePresence";
 import { useTheme } from "../../../context/ThemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import ViewShot from "react-native-view-shot";
+import * as Sharing from "expo-sharing";
 
 const { width } = Dimensions.get("window");
 
 const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
 
-const GAME_CACHE_KEY = (id) => `@gameDetail_v3:${id}`;
+const GAME_CACHE_KEY = (id) => `@gameDetail_v1:${id}`;
 const GAME_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 // ─── Polling helpers (same pattern as Top5ScoreboardScreen) ──────────────────
@@ -98,6 +111,131 @@ function formatGoalTime(e) {
     !addLow.includes("missed");
   return `${min}${extra}${isP ? " (P.)" : ""}`;
 }
+
+const parseEventScore = (scoreText) => {
+  const parts = String(scoreText || "").split("-");
+  if (parts.length !== 2) return null;
+  const home = Number(parts[0]);
+  const away = Number(parts[1]);
+  if (!Number.isFinite(home) || !Number.isFinite(away)) return null;
+  return { home, away };
+};
+
+const isGoalLikeEvent = (event) => {
+  const addLow = String(event?.addition || "").toLowerCase();
+  return (
+    event?.rescinded !== true &&
+    (addLow.includes("goal") ||
+      (addLow.includes("penalty") &&
+        !addLow.includes("missed") &&
+        !addLow.includes("awarded")))
+  );
+};
+
+const isPenaltyGoalEvent = (event) => {
+  const addLow = String(event?.addition || "").toLowerCase();
+  return (
+    addLow.includes("penalty") &&
+    !addLow.includes("missed") &&
+    !addLow.includes("awarded")
+  );
+};
+
+const isOwnGoalEvent = (event, commentText = "") => {
+  const low = `${event?.addition || ""} ${event?.info || ""} ${commentText}`
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+  return low.includes("own goal") || low.includes("owngoal");
+};
+
+const deriveGoalSituation = (scoreAfter, scoringSide) => {
+  if (!scoreAfter || !scoringSide) return "";
+  const homeScore = Number(scoreAfter.home ?? 0);
+  const awayScore = Number(scoreAfter.away ?? 0);
+
+  if (scoringSide === "home") {
+    if (homeScore > awayScore) {
+      if (homeScore - awayScore === 1) {
+        return awayScore === 0 ? "Opening Goal" : "Go-ahead Goal";
+      }
+      return "Extends Lead";
+    }
+    if (homeScore === awayScore) return "Equalizer";
+    return "Pulls One Back";
+  }
+
+  if (scoringSide === "away") {
+    if (awayScore > homeScore) {
+      if (awayScore - homeScore === 1) {
+        return homeScore === 0 ? "Opening Goal" : "Go-ahead Goal";
+      }
+      return "Extends Lead";
+    }
+    if (awayScore === homeScore) return "Equalizer";
+    return "Pulls One Back";
+  }
+
+  return "";
+};
+
+const normalizeDetailKey = (name) =>
+  String(name || "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+
+const parseStatNum = (value) => {
+  if (value == null) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const n = Number(String(value).replace(/[^0-9.\-]/g, ""));
+  return Number.isFinite(n) ? n : null;
+};
+
+const getLineupDetailStat = (lineup, ...keys) => {
+  const wanted = keys.map((key) => normalizeDetailKey(key));
+  const detail = (lineup?.details ?? []).find((row) =>
+    wanted.includes(normalizeDetailKey(row?.type?.name)),
+  );
+  return parseStatNum(detail?.data?.value);
+};
+
+const formatGoalMinute = (minute, extraMinute) => {
+  if (minute == null) return "";
+  const extra = Number(extraMinute ?? 0);
+  return extra > 0 ? `${minute}'+${extra}` : `${minute}'`;
+};
+
+const buildGoalShareStats = (lineup, isOwnGoal) => {
+  const rating = getLineupRating(lineup);
+  const stats = {
+    rtg: rating != null ? Number(rating.toFixed(1)) : null,
+    gls: getLineupDetailStat(lineup, "goals", "goal"),
+    ast: getLineupDetailStat(lineup, "assists", "assist"),
+    sot: getLineupDetailStat(lineup, "shots on target", "shot on target"),
+    sht: getLineupDetailStat(lineup, "shots total", "shots", "shots on"),
+    yc: getLineupDetailStat(lineup, "yellowcards", "yellowcard"),
+    og: getLineupDetailStat(lineup, "owngoals", "owngoal"),
+  };
+
+  if (isOwnGoal) {
+    return [
+      { label: "RTG", value: stats.rtg },
+      { label: "OG", value: stats.og },
+      { label: "GLS", value: stats.gls },
+      { label: "AST", value: stats.ast },
+      { label: "SOT", value: stats.sot },
+      { label: "SHT", value: stats.sht },
+    ];
+  }
+
+  return [
+    { label: "RTG", value: stats.rtg },
+    { label: "GLS", value: stats.gls },
+    { label: "AST", value: stats.ast },
+    { label: "SOT", value: stats.sot },
+    { label: "SHT", value: stats.sht },
+    { label: "YC", value: stats.yc },
+  ];
+};
 
 // ─── Header gradient (home left → away right) ────────────────────────────────
 const HeaderGradient = ({ homeColor, awayColor, theme, height }) => (
@@ -421,7 +559,7 @@ function getPerformerBucket(lineup) {
 }
 
 // ─── Man of the Match card ────────────────────────────────────────────────────
-const ManOfTheMatch = ({ entry, theme, colors }) => {
+const ManOfTheMatch = ({ entry, theme, colors, onPress }) => {
   const { lineup, team, rating } = entry;
   const player = lineup.player;
   const teamColor = team?.colorPrimary || colors.primary;
@@ -454,7 +592,12 @@ const ManOfTheMatch = ({ entry, theme, colors }) => {
       : null;
 
   return (
-    <View style={[motmStyles.card, { backgroundColor: theme.surface }]}>
+    <TouchableOpacity
+      activeOpacity={onPress ? 0.78 : 1}
+      onPress={onPress}
+      disabled={!onPress}
+      style={[motmStyles.card, { backgroundColor: theme.surface }]}
+    >
       {/* Gradient */}
       <Svg
         width={width - 24}
@@ -604,7 +747,7 @@ const ManOfTheMatch = ({ entry, theme, colors }) => {
           {team?.name || ""}
         </Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -770,7 +913,7 @@ const TopPerformersSection = ({
   awayColor,
   theme,
   colors,
-  navigation,
+  onPlayerPress,
 }) => {
   const activePerformers = performers?.[mode] ?? { home: [], away: [] };
   const homeEntries = activePerformers.home ?? [];
@@ -798,9 +941,12 @@ const TopPerformersSection = ({
             onPress={
               playerId != null
                 ? () =>
-                    navigation.navigate("Top5PlayerDetail", {
+                    onPlayerPress?.({
+                      lineup: entry?.lineup,
                       playerId,
                       playerName,
+                      team:
+                        side === "home" ? home : side === "away" ? away : null,
                     })
                 : undefined
             }
@@ -927,15 +1073,414 @@ const TopPerformersSection = ({
 
 const EventsSection = ({
   events,
+  comments,
   periods,
   scores,
+  lineups,
+  participants,
   stateCode,
   homeId,
   awayId,
   theme,
   accentColor,
   colors,
+  onPlayerPress,
 }) => {
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [goalSharePayload, setGoalSharePayload] = useState(null);
+
+  const lineupsByPlayerId = useMemo(() => {
+    const m = new Map();
+    for (const l of lineups ?? []) {
+      const id = l?.player_id;
+      if (id == null) continue;
+      if (!m.has(id)) m.set(id, l);
+    }
+    return m;
+  }, [lineups]);
+
+  const participantsById = useMemo(() => {
+    const m = new Map();
+    for (const p of participants ?? []) {
+      if (p?.id != null) m.set(p.id, p);
+    }
+    return m;
+  }, [participants]);
+
+  const periodById = useMemo(() => {
+    const m = new Map();
+    for (const p of periods ?? []) {
+      if (p?.id != null) m.set(p.id, p);
+    }
+    return m;
+  }, [periods]);
+
+  const homeTeam = (participants ?? []).find(
+    (p) => String(p?.meta?.location || "").toLowerCase() === "home",
+  );
+  const awayTeam = (participants ?? []).find(
+    (p) => String(p?.meta?.location || "").toLowerCase() === "away",
+  );
+
+  const closeEventPlayerModal = () => setSelectedEvent(null);
+  const closeGoalShareModal = () => setGoalSharePayload(null);
+
+  const navigateFromEventPlayer = ({ playerId, lineup, team }) => {
+    if (playerId == null) return;
+    setSelectedEvent(null);
+    onPlayerPress?.({
+      playerId,
+      lineup: lineup ?? null,
+      player: lineup?.player ?? null,
+      team: team ?? null,
+    });
+  };
+
+  const getEventRelatedParticipantId = (event) =>
+    event?.relatedparticipant_id ??
+    event?.related_participant_id ??
+    event?.relatedParticipantId ??
+    null;
+
+  const parseCommentMinute = useCallback((item) => {
+    if (item?.minute != null && Number.isFinite(Number(item.minute))) {
+      return Number(item.minute);
+    }
+    const text = String(item?.comment || "");
+    const minuteMatch = text.match(/(\d{1,3})(?:st|nd|rd|th)?\s*minute/i);
+    if (minuteMatch?.[1] != null) return Number(minuteMatch[1]);
+    const markMatch = text.match(/(\d{1,3})\s*-\s*minute\s*mark/i);
+    if (markMatch?.[1] != null) return Number(markMatch[1]);
+    return null;
+  }, []);
+
+  const findGoalCommentForEvent = useCallback(
+    (event) => {
+      if (!event) return "";
+      const minute = Number(event?.minute);
+      const extra = Number(event?.extra_minute ?? 0);
+      if (!Number.isFinite(minute)) return "";
+
+      const playerLow = String(event?.player_name || "").toLowerCase();
+      const relatedLow = String(event?.related_player_name || "").toLowerCase();
+      const teamLow = String(
+        participantsById.get(event?.participant_id)?.name || "",
+      ).toLowerCase();
+
+      const candidates = (comments ?? [])
+        .filter((c) => c?.is_goal === true)
+        .map((c) => ({
+          comment: c,
+          minute: parseCommentMinute(c),
+          extra: Number(c?.extra_minute ?? 0),
+        }))
+        .filter((row) => row.minute === minute && row.extra === extra)
+        .map((row) => row.comment);
+
+      if (!candidates.length) return "";
+
+      const playerMatch = candidates.find((c) =>
+        String(c?.comment || "")
+          .toLowerCase()
+          .includes(playerLow),
+      );
+      if (playerMatch) return playerMatch.comment || "";
+
+      const relatedMatch = candidates.find((c) =>
+        String(c?.comment || "")
+          .toLowerCase()
+          .includes(relatedLow),
+      );
+      if (relatedMatch) return relatedMatch.comment || "";
+
+      const teamMatch = candidates.find((c) =>
+        String(c?.comment || "")
+          .toLowerCase()
+          .includes(teamLow),
+      );
+      if (teamMatch) return teamMatch.comment || "";
+
+      return candidates[0]?.comment || "";
+    },
+    [comments, parseCommentMinute, participantsById],
+  );
+
+  const resolveEventPlayerMeta = (event, kind = "player") => {
+    const isRelated = kind === "related";
+    const playerId = isRelated ? event?.related_player_id : event?.player_id;
+    const fallbackName = isRelated
+      ? event?.related_player_name
+      : event?.player_name;
+    const lineup =
+      playerId != null ? (lineupsByPlayerId.get(playerId) ?? null) : null;
+    const participantId = isRelated
+      ? (getEventRelatedParticipantId(event) ??
+        lineup?.team_id ??
+        event?.participant_id)
+      : (event?.participant_id ?? lineup?.team_id);
+    const team =
+      (participantId != null ? participantsById.get(participantId) : null) ??
+      (lineup?.team_id != null ? participantsById.get(lineup.team_id) : null) ??
+      null;
+
+    return { playerId, fallbackName, lineup, team };
+  };
+
+  const openGoalShareFromEvent = useCallback(
+    (event) => {
+      if (!event || !isGoalLikeEvent(event)) return;
+      const playerMeta = resolveEventPlayerMeta(event, "player");
+      const relatedMeta = resolveEventPlayerMeta(event, "related");
+      const lineup = playerMeta?.lineup ?? null;
+      const player = lineup?.player ?? null;
+      const relatedPlayer = relatedMeta?.lineup?.player ?? null;
+      const playerName =
+        player?.name ||
+        `${player?.firstname ?? ""} ${player?.lastname ?? ""}`.trim() ||
+        event?.player_name ||
+        "Unknown Player";
+      const assistName =
+        relatedPlayer?.name ||
+        `${relatedPlayer?.firstname ?? ""} ${relatedPlayer?.lastname ?? ""}`.trim() ||
+        relatedMeta?.fallbackName ||
+        event?.related_player_name ||
+        null;
+      const playerInitials =
+        [player?.firstname?.[0], player?.lastname?.[0]]
+          .filter(Boolean)
+          .join("")
+          .toUpperCase() ||
+        playerName
+          .split(" ")
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0])
+          .join("")
+          .toUpperCase() ||
+        "?";
+
+      const commentText = findGoalCommentForEvent(event);
+      const isOwnGoal = isOwnGoalEvent(event, commentText);
+      const isPenalty = isPenaltyGoalEvent(event);
+      const scoreAfter = parseEventScore(event?.result) || {
+        home: null,
+        away: null,
+      };
+
+      const scoringSide =
+        event?.participant_id === homeTeam?.id
+          ? "home"
+          : event?.participant_id === awayTeam?.id
+            ? "away"
+            : null;
+
+      const scoringTeam =
+        scoringSide === "home"
+          ? homeTeam
+          : scoringSide === "away"
+            ? awayTeam
+            : (playerMeta?.team ?? null);
+
+      const ownGoalerTeam =
+        isOwnGoal && scoringSide
+          ? scoringSide === "home"
+            ? awayTeam
+            : homeTeam
+          : null;
+
+      const displayTeam = ownGoalerTeam || playerMeta?.team || scoringTeam;
+      const teamColor =
+        displayTeam?.colorPrimary ||
+        scoringTeam?.colorPrimary ||
+        playerMeta?.team?.colorPrimary ||
+        accentColor ||
+        colors.primary;
+
+      const periodRaw = String(
+        periodById.get(event?.period_id)?.description || "",
+      ).toLowerCase();
+      const periodLabel =
+        periodRaw === "1st-half"
+          ? "1st Half"
+          : periodRaw === "2nd-half"
+            ? "2nd Half"
+            : periodRaw.replace(/-/g, " ");
+
+      const payload = {
+        scorerName: playerName,
+        scorerInitials: playerInitials,
+        playerImageUri:
+          player?.image_path &&
+          !String(player.image_path).includes("placeholder")
+            ? player.image_path
+            : null,
+        teamName: displayTeam?.name || "Team",
+        teamAbbr: displayTeam?.short_code || "",
+        teamLogoUri: displayTeam?.image_path || null,
+        teamColor,
+        homeLogo: homeTeam?.image_path || null,
+        awayLogo: awayTeam?.image_path || null,
+        minuteLabel: formatGoalMinute(event?.minute, event?.extra_minute),
+        periodLabel,
+        comment: commentText,
+        isPenalty,
+        isOwnGoal,
+        assistName,
+        scoreAfter,
+        goalSituation: deriveGoalSituation(scoreAfter, scoringSide),
+        statsItems: buildGoalShareStats(lineup, isOwnGoal),
+      };
+
+      setSelectedEvent(null);
+      setTimeout(() => setGoalSharePayload(payload), 70);
+    },
+    [
+      resolveEventPlayerMeta,
+      findGoalCommentForEvent,
+      homeTeam,
+      awayTeam,
+      accentColor,
+      colors.primary,
+      periodById,
+    ],
+  );
+
+  const renderEventPlayerSection = (title, meta) => {
+    if (!meta?.playerId && !meta?.fallbackName) return null;
+
+    const player = meta?.lineup?.player ?? null;
+    const firstName =
+      player?.firstname ||
+      String(meta?.fallbackName || "")
+        .split(" ")
+        .slice(0, -1)
+        .join(" ");
+    const lastName =
+      player?.lastname ||
+      String(meta?.fallbackName || "")
+        .split(" ")
+        .slice(-1)
+        .join(" ") ||
+      String(meta?.fallbackName || "Unknown");
+
+    const imageUri =
+      player?.image_path && !String(player.image_path).includes("placeholder")
+        ? player.image_path
+        : null;
+    const teamColor = meta?.team?.colorPrimary || accentColor || colors.primary;
+    const textOnTeam = getTextOnColor(teamColor);
+    const initials =
+      [player?.firstname?.[0], player?.lastname?.[0]]
+        .filter(Boolean)
+        .join("")
+        .toUpperCase() ||
+      String(meta?.fallbackName || "?")
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join("")
+        .toUpperCase() ||
+      "?";
+
+    return (
+      <View
+        key={`${title}:${meta?.playerId ?? meta?.fallbackName}`}
+        style={[evStyles.playerPopupSection, { borderColor: theme.border }]}
+      >
+        <Text
+          style={[evStyles.playerPopupTitle, { color: theme.textSecondary }]}
+        >
+          {title}
+        </Text>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => navigateFromEventPlayer(meta)}
+          disabled={!meta?.playerId || !onPlayerPress}
+          style={[
+            evStyles.playerPopupRow,
+            { backgroundColor: theme.surfaceSecondary },
+          ]}
+        >
+          {imageUri ? (
+            <Image
+              source={{ uri: imageUri }}
+              style={[
+                evStyles.playerPopupAvatar,
+                {
+                  backgroundColor: `${teamColor}30`,
+                  borderColor: teamColor,
+                },
+              ]}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <View
+              style={[
+                evStyles.playerPopupAvatar,
+                evStyles.playerPopupAvatarFallback,
+                {
+                  backgroundColor: `${teamColor}30`,
+                  borderColor: teamColor,
+                },
+              ]}
+            >
+              <Text
+                style={[evStyles.playerPopupInitials, { color: textOnTeam }]}
+              >
+                {initials}
+              </Text>
+            </View>
+          )}
+
+          <View style={evStyles.playerPopupNameCol}>
+            <Text
+              style={[
+                evStyles.playerPopupFirstName,
+                { color: theme.textSecondary },
+              ]}
+              numberOfLines={1}
+            >
+              {firstName || " "}
+            </Text>
+            <Text
+              style={[evStyles.playerPopupLastName, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {lastName}
+            </Text>
+          </View>
+
+          {meta?.team?.image_path ? (
+            <Image
+              source={{ uri: meta.team.image_path }}
+              style={evStyles.playerPopupTeamLogo}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <View
+              style={[
+                evStyles.playerPopupTeamLogoFallback,
+                { backgroundColor: `${teamColor}30` },
+              ]}
+            >
+              <Text
+                style={[
+                  evStyles.playerPopupTeamLogoFallbackText,
+                  { color: teamColor },
+                ]}
+              >
+                {(meta?.team?.name || "?")[0]?.toUpperCase?.() || "?"}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   if (!events?.length) return null;
 
   const rows = [...events]
@@ -1305,9 +1850,11 @@ const EventsSection = ({
             {block.events.map((event, idx) => {
               const isHome = event.participant_id === homeId;
               return (
-                <View
+                <TouchableOpacity
                   key={`${event.participant_id}:${event.player_id ?? idx}:${event.minute}:${event.extra_minute ?? 0}:${idx}`}
                   style={evStyles.row}
+                  activeOpacity={0.75}
+                  onPress={() => setSelectedEvent(event)}
                 >
                   <View
                     style={[
@@ -1327,7 +1874,7 @@ const EventsSection = ({
                       </View>
                     )}
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
 
@@ -1337,12 +1884,140 @@ const EventsSection = ({
           </View>
         ))}
       </View>
+
+      <Modal
+        visible={!!selectedEvent}
+        transparent
+        animationType="fade"
+        onRequestClose={closeEventPlayerModal}
+      >
+        <View style={evStyles.playerPopupOverlay}>
+          <TouchableOpacity
+            style={evStyles.playerPopupBackdropTap}
+            activeOpacity={1}
+            onPress={closeEventPlayerModal}
+          />
+          <View
+            style={[
+              evStyles.playerPopupCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View
+              style={[
+                evStyles.playerPopupHeader,
+                { borderBottomColor: theme.border },
+              ]}
+            >
+              <Text
+                style={[evStyles.playerPopupHeaderTitle, { color: theme.text }]}
+              >
+                Event Players
+              </Text>
+              <TouchableOpacity
+                onPress={closeEventPlayerModal}
+                style={[
+                  evStyles.playerPopupCloseBtn,
+                  { backgroundColor: theme.error },
+                ]}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    evStyles.playerPopupCloseText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  ✕
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={evStyles.playerPopupBody}>
+              {selectedEvent
+                ? renderEventPlayerSection(
+                    "Player",
+                    resolveEventPlayerMeta(selectedEvent, "player"),
+                  )
+                : null}
+              {selectedEvent
+                ? renderEventPlayerSection(
+                    "Related Player",
+                    resolveEventPlayerMeta(selectedEvent, "related"),
+                  )
+                : null}
+
+              {selectedEvent && isGoalLikeEvent(selectedEvent) ? (
+                <View
+                  style={[
+                    evStyles.playerPopupSection,
+                    { borderColor: theme.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      evStyles.playerPopupTitle,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    Goal Share Card
+                  </Text>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => openGoalShareFromEvent(selectedEvent)}
+                    style={[
+                      evStyles.goalShareActionBtn,
+                      {
+                        backgroundColor: theme.surfaceSecondary,
+                        borderColor: theme.border,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="share-outline"
+                      size={16}
+                      color={theme.text}
+                    />
+                    <Text
+                      style={[
+                        evStyles.goalShareActionText,
+                        { color: theme.text },
+                      ]}
+                    >
+                      Open Goal Share Card
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <GoalShareCardModal
+        visible={!!goalSharePayload}
+        onClose={closeGoalShareModal}
+        payload={goalSharePayload}
+        theme={theme}
+        colors={colors}
+      />
     </View>
   );
 };
 
-const CommentarySection = ({ comments, events, lineups, participants, theme }) => {
+const CommentarySection = ({
+  comments,
+  events,
+  periods,
+  lineups,
+  participants,
+  theme,
+  colors,
+  onPlayerPress,
+}) => {
   const [activeType, setActiveType] = useState("ALL");
+  const [selectedGoalEntry, setSelectedGoalEntry] = useState(null);
+  const [goalSharePayload, setGoalSharePayload] = useState(null);
 
   const homeTeam = (participants ?? []).find(
     (p) => String(p?.meta?.location || "").toLowerCase() === "home",
@@ -1388,6 +2063,14 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
     return map;
   }, [participants]);
 
+  const periodById = useMemo(() => {
+    const map = new Map();
+    for (const p of periods ?? []) {
+      if (p?.id != null) map.set(p.id, p);
+    }
+    return map;
+  }, [periods]);
+
   const eventTimelines = useMemo(() => {
     const parseScore = (scoreText) => {
       const parts = String(scoreText || "").split("-");
@@ -1401,13 +2084,14 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
     const scoreTimeline = (events ?? [])
       .map((e, idx) => {
         const parsed = parseScore(e?.result);
-        if (!parsed) return null;
+        const minute = Number(e?.minute);
+        if (!parsed || !Number.isFinite(minute)) return null;
         return {
           idx,
           event: e,
-          minute: e?.minute,
-          extra: e?.extra_minute ?? 0,
-          timeKey: (e?.minute ?? 0) * 100 + (e?.extra_minute ?? 0),
+          minute,
+          extra: Number(e?.extra_minute ?? 0),
+          timeKey: minute * 100 + Number(e?.extra_minute ?? 0),
           home: parsed.home,
           away: parsed.away,
         };
@@ -1449,7 +2133,10 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
     };
 
     const parseCommentExtra = (item) => {
-      if (item?.extra_minute != null && Number.isFinite(Number(item.extra_minute))) {
+      if (
+        item?.extra_minute != null &&
+        Number.isFinite(Number(item.extra_minute))
+      ) {
         return Number(item.extra_minute);
       }
       return 0;
@@ -1481,7 +2168,19 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
         if (row.timeKey <= timeKey) found = row;
         else break;
       }
-      return found ? { home: found.home, away: found.away } : { home: 0, away: 0 };
+      return found
+        ? { home: found.home, away: found.away }
+        : { home: 0, away: 0 };
+    };
+
+    const parseEventScore = (resultText) => {
+      const parts = String(resultText || "").split("-");
+      if (parts.length !== 2) return null;
+      const homeScore = Number(parts[0]);
+      const awayScore = Number(parts[1]);
+      if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore))
+        return null;
+      return { home: homeScore, away: awayScore };
     };
 
     const findGoalEvent = (item) => {
@@ -1507,7 +2206,9 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
           text.includes(String(g?.event?.player_name || "").toLowerCase()),
         );
         const relatedNameMatch = teamFilteredSameTime.find((g) =>
-          text.includes(String(g?.event?.related_player_name || "").toLowerCase()),
+          text.includes(
+            String(g?.event?.related_player_name || "").toLowerCase(),
+          ),
         );
         return (
           playerNameMatch?.event ||
@@ -1531,7 +2232,9 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
             text.includes(String(g?.event?.player_name || "").toLowerCase()),
           );
           const relatedNameMatch = teamFilteredNearBy.find((g) =>
-            text.includes(String(g?.event?.related_player_name || "").toLowerCase()),
+            text.includes(
+              String(g?.event?.related_player_name || "").toLowerCase(),
+            ),
           );
           return (
             playerNameMatch?.event ||
@@ -1560,7 +2263,9 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
         }
         const last =
           eventTimelines.scoreTimeline[eventTimelines.scoreTimeline.length - 1];
-        return last ? { home: last.home, away: last.away } : { home: 0, away: 0 };
+        return last
+          ? { home: last.home, away: last.away }
+          : { home: 0, away: 0 };
       }
 
       const key = Number(parsed.minute) * 100 + Number(parsed.extra ?? 0);
@@ -1573,7 +2278,13 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
       const goalEvent = findGoalEvent(item);
       const commentTeam = detectCommentTeam(item);
       const timeKey = getCommentTimeKey(item);
-      const scoreAt = findScoreAtComment(item);
+      const goalEventScore = goalEvent
+        ? parseEventScore(goalEvent?.result)
+        : null;
+      const scoreAt =
+        type === "GOAL" && goalEventScore
+          ? goalEventScore
+          : findScoreAtComment(item);
       const scoreBefore =
         timeKey != null ? scoreAtOrBeforeKey(timeKey - 1) : scoreAt;
 
@@ -1611,7 +2322,7 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
               ? "home"
               : commentTeam?.id === awayTeam?.id
                 ? "away"
-            : inferredGoalSide;
+                : inferredGoalSide;
 
       return {
         item,
@@ -1668,18 +2379,321 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
     return commentsPrepared.filter((entry) => entry.type === activeType);
   }, [commentsPrepared, activeType]);
 
+  const closeGoalPlayerModal = () => setSelectedGoalEntry(null);
+  const closeGoalShareModal = () => setGoalSharePayload(null);
+
+  const getRelatedParticipantId = (goalEvent) =>
+    goalEvent?.relatedparticipant_id ??
+    goalEvent?.related_participant_id ??
+    goalEvent?.relatedParticipantId ??
+    null;
+
+  const resolveGoalPlayerMeta = (entry, kind = "player") => {
+    const isRelated = kind === "related";
+    const goalEvent = entry?.goalEvent ?? null;
+    const lineup = isRelated
+      ? (entry?.relatedLineup ?? null)
+      : (entry?.lineup ?? null);
+    const fallbackName = isRelated
+      ? goalEvent?.related_player_name
+      : goalEvent?.player_name;
+    const playerId =
+      (isRelated ? goalEvent?.related_player_id : goalEvent?.player_id) ??
+      lineup?.player_id ??
+      null;
+
+    const participantId = isRelated
+      ? (getRelatedParticipantId(goalEvent) ??
+        lineup?.team_id ??
+        goalEvent?.participant_id)
+      : (goalEvent?.participant_id ?? lineup?.team_id);
+
+    const team =
+      (participantId != null ? teamByParticipantId.get(participantId) : null) ??
+      (lineup?.team_id != null
+        ? teamByParticipantId.get(lineup.team_id)
+        : null) ??
+      (!isRelated ? (entry?.team ?? null) : null);
+
+    return { playerId, lineup, team, fallbackName };
+  };
+
+  const openFromGoalPlayer = (meta) => {
+    if (!meta?.playerId) return;
+    setSelectedGoalEntry(null);
+    onPlayerPress?.({
+      playerId: meta.playerId,
+      lineup: meta.lineup ?? null,
+      player: meta.lineup?.player ?? null,
+      team: meta.team ?? null,
+    });
+  };
+
+  const openGoalShareFromCommentary = useCallback(
+    (entry) => {
+      if (!entry?.goalEvent) return;
+
+      const goalEvent = entry.goalEvent;
+      const playerMeta = resolveGoalPlayerMeta(entry, "player");
+      const relatedMeta = resolveGoalPlayerMeta(entry, "related");
+      const lineup = playerMeta?.lineup ?? null;
+      const player = lineup?.player ?? null;
+      const playerName =
+        player?.name ||
+        `${player?.firstname ?? ""} ${player?.lastname ?? ""}`.trim() ||
+        goalEvent?.player_name ||
+        "Unknown Player";
+      const playerInitials =
+        [player?.firstname?.[0], player?.lastname?.[0]]
+          .filter(Boolean)
+          .join("")
+          .toUpperCase() ||
+        playerName
+          .split(" ")
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0])
+          .join("")
+          .toUpperCase() ||
+        "?";
+
+      const commentText = String(entry?.item?.comment || "");
+      const isOwnGoal = isOwnGoalEvent(goalEvent, commentText);
+      const isPenalty = isPenaltyGoalEvent(goalEvent);
+      const scoreAfter =
+        parseEventScore(goalEvent?.result) ||
+        (entry?.scoreAt
+          ? {
+              home: Number(entry.scoreAt.home ?? 0),
+              away: Number(entry.scoreAt.away ?? 0),
+            }
+          : { home: null, away: null });
+
+      const scoringSide = entry?.scoreTeamSide ?? null;
+      const scoringTeam =
+        scoringSide === "home"
+          ? homeTeam
+          : scoringSide === "away"
+            ? awayTeam
+            : (entry?.team ?? playerMeta?.team ?? null);
+      const ownGoalerTeam =
+        isOwnGoal && scoringSide
+          ? scoringSide === "home"
+            ? awayTeam
+            : homeTeam
+          : null;
+
+      const displayTeam = ownGoalerTeam || playerMeta?.team || scoringTeam;
+      const teamColor =
+        displayTeam?.colorPrimary ||
+        scoringTeam?.colorPrimary ||
+        playerMeta?.team?.colorPrimary ||
+        colors.primary;
+
+      const periodRaw = String(
+        periodById.get(goalEvent?.period_id)?.description || "",
+      ).toLowerCase();
+      const periodLabel =
+        periodRaw === "1st-half"
+          ? "1st Half"
+          : periodRaw === "2nd-half"
+            ? "2nd Half"
+            : periodRaw.replace(/-/g, " ");
+
+      const relatedPlayer = relatedMeta?.lineup?.player ?? null;
+      const assistName =
+        relatedPlayer?.name ||
+        `${relatedPlayer?.firstname ?? ""} ${relatedPlayer?.lastname ?? ""}`.trim() ||
+        relatedMeta?.fallbackName ||
+        goalEvent?.related_player_name ||
+        null;
+
+      const payload = {
+        scorerName: playerName,
+        scorerInitials: playerInitials,
+        playerImageUri:
+          player?.image_path &&
+          !String(player.image_path).includes("placeholder")
+            ? player.image_path
+            : null,
+        teamName: displayTeam?.name || "Team",
+        teamAbbr: displayTeam?.short_code || "",
+        teamLogoUri: displayTeam?.image_path || null,
+        teamColor,
+        homeLogo: homeTeam?.image_path || null,
+        awayLogo: awayTeam?.image_path || null,
+        minuteLabel: formatGoalMinute(
+          entry?.commentMinute,
+          entry?.commentExtra,
+        ),
+        periodLabel,
+        comment: commentText,
+        isPenalty,
+        isOwnGoal,
+        assistName,
+        scoreAfter,
+        goalSituation: deriveGoalSituation(scoreAfter, scoringSide),
+        statsItems: buildGoalShareStats(lineup, isOwnGoal),
+      };
+
+      setSelectedGoalEntry(null);
+      setTimeout(() => setGoalSharePayload(payload), 70);
+    },
+    [resolveGoalPlayerMeta, homeTeam, awayTeam, colors.primary],
+  );
+
+  const renderGoalPlayerSection = (title, meta) => {
+    if (!meta?.playerId && !meta?.fallbackName) return null;
+
+    const player = meta?.lineup?.player ?? null;
+    const fullName =
+      player?.name ||
+      `${player?.firstname ?? ""} ${player?.lastname ?? ""}`.trim() ||
+      String(meta?.fallbackName || "Unknown Player");
+    const firstName =
+      player?.firstname ||
+      fullName.split(" ").slice(0, -1).join(" ") ||
+      fullName;
+    const lastName =
+      player?.lastname || fullName.split(" ").slice(-1).join(" ") || fullName;
+
+    const teamColor = meta?.team?.colorPrimary || theme.border;
+    const imageUri =
+      player?.image_path && !String(player.image_path).includes("placeholder")
+        ? player.image_path
+        : null;
+    const initials =
+      [player?.firstname?.[0], player?.lastname?.[0]]
+        .filter(Boolean)
+        .join("")
+        .toUpperCase() ||
+      fullName
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join("")
+        .toUpperCase() ||
+      "?";
+
+    return (
+      <View
+        key={`${title}:${meta?.playerId ?? fullName}`}
+        style={[cmStyles.goalPopupSection, { borderColor: theme.border }]}
+      >
+        <Text
+          style={[
+            cmStyles.goalPopupSectionTitle,
+            { color: theme.textSecondary },
+          ]}
+        >
+          {title}
+        </Text>
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => openFromGoalPlayer(meta)}
+          disabled={!meta?.playerId || !onPlayerPress}
+          style={[
+            cmStyles.goalPopupPlayerRow,
+            { backgroundColor: theme.surfaceSecondary },
+          ]}
+        >
+          {imageUri ? (
+            <Image
+              source={{ uri: imageUri }}
+              style={[
+                cmStyles.goalPopupAvatar,
+                {
+                  backgroundColor: `${teamColor}30`,
+                  borderColor: teamColor,
+                },
+              ]}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <View
+              style={[
+                cmStyles.goalPopupAvatar,
+                cmStyles.goalPopupAvatarFallback,
+                {
+                  backgroundColor: `${teamColor}30`,
+                  borderColor: teamColor,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  cmStyles.goalPopupInitials,
+                  { color: getTextOnColor(teamColor) },
+                ]}
+              >
+                {initials}
+              </Text>
+            </View>
+          )}
+
+          <View style={cmStyles.goalPopupNameCol}>
+            <Text
+              style={[
+                cmStyles.goalPopupFirstName,
+                { color: theme.textSecondary },
+              ]}
+              numberOfLines={1}
+            >
+              {firstName || " "}
+            </Text>
+            <Text
+              style={[cmStyles.goalPopupLastName, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {lastName}
+            </Text>
+          </View>
+
+          {meta?.team?.image_path ? (
+            <Image
+              source={{ uri: meta.team.image_path }}
+              style={cmStyles.goalPopupTeamLogo}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <View
+              style={[
+                cmStyles.goalPopupTeamLogoFallback,
+                { backgroundColor: `${teamColor}30` },
+              ]}
+            >
+              <Text
+                style={[
+                  cmStyles.goalPopupTeamLogoFallbackText,
+                  { color: teamColor },
+                ]}
+              >
+                {(meta?.team?.name || "?")[0]?.toUpperCase?.() || "?"}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   if (!commentsPrepared.length) return null;
 
-  const renderScore = (entry) => {
+  const renderScore = (entry, colorOverride = null) => {
     if (!entry?.scoreAt) return null;
     const isGoal = entry?.type === "GOAL";
+    const textColor = colorOverride || theme.text;
     return (
-      <Text style={[cmStyles.scoreText, { color: theme.text }]}> 
+      <Text style={[cmStyles.scoreText, { color: textColor }]}>
         <Text
           style={
             isGoal && entry?.scoreTeamSide === "home"
-              ? cmStyles.scoreTextBold
-              : cmStyles.scoreTextNormal
+              ? [cmStyles.scoreTextBold, { color: textColor }]
+              : [cmStyles.scoreTextNormal, { color: textColor }]
           }
         >
           {entry.scoreAt.home}
@@ -1688,8 +2702,8 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
         <Text
           style={
             isGoal && entry?.scoreTeamSide === "away"
-              ? cmStyles.scoreTextBold
-              : cmStyles.scoreTextNormal
+              ? [cmStyles.scoreTextBold, { color: textColor }]
+              : [cmStyles.scoreTextNormal, { color: textColor }]
           }
         >
           {entry.scoreAt.away}
@@ -1741,7 +2755,7 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
           const hasMinute = entry?.commentMinute != null;
           const hasExtra = Number(entry?.commentExtra ?? 0) > 0;
           const teamColor = entry?.team?.colorPrimary || theme.border;
-          const goalBg = `${teamColor}22`;
+          const goalBg = `${teamColor}50`;
           const goalTextColor = getTextOnColor(teamColor);
 
           let cardBorderColor = theme.border;
@@ -1774,7 +2788,9 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
               ? goalPlayer.image_path
               : null;
           const goalInitial = (goalPlayerName || "?")[0].toUpperCase();
-          const goalRating = entry?.lineup ? getLineupRating(entry.lineup) : null;
+          const goalRating = entry?.lineup
+            ? getLineupRating(entry.lineup)
+            : null;
           const goalPos = motmGetPosAbbr(
             entry?.lineup?.detailedposition?.name ??
               entry?.lineup?.position?.name ??
@@ -1782,16 +2798,22 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
           );
 
           return (
-            <View key={`${c?.id ?? idx}:${c?.order ?? idx}`} style={cmStyles.rowWrap}>
+            <View
+              key={`${c?.id ?? idx}:${c?.order ?? idx}`}
+              style={cmStyles.rowWrap}
+            >
               <View style={cmStyles.timeCol}>
                 {hasMinute ? (
                   <>
-                    <Text style={[cmStyles.minuteText, { color: theme.text }]}> 
+                    <Text style={[cmStyles.minuteText, { color: theme.text }]}>
                       {entry.commentMinute}'
                     </Text>
                     {hasExtra ? (
                       <Text
-                        style={[cmStyles.extraMinuteText, { color: theme.textSecondary }]}
+                        style={[
+                          cmStyles.extraMinuteText,
+                          { color: theme.textSecondary },
+                        ]}
                       >
                         +{entry.commentExtra}'
                       </Text>
@@ -1800,7 +2822,7 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
                 ) : null}
               </View>
 
-              <View
+              <TouchableOpacity
                 style={[
                   cmStyles.card,
                   {
@@ -1808,17 +2830,56 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
                     borderColor: cardBorderColor,
                   },
                 ]}
+                activeOpacity={
+                  entry.type === "GOAL" && entry.goalEvent ? 0.8 : 1
+                }
+                disabled={!(entry.type === "GOAL" && entry.goalEvent)}
+                onPress={() =>
+                  entry.type === "GOAL" && entry.goalEvent
+                    ? setSelectedGoalEntry(entry)
+                    : null
+                }
               >
                 <View style={cmStyles.cardHeaderRow}>
-                  <Text
-                    style={[
-                      cmStyles.cardHeaderTitle,
-                      { color: entry.type === "GOAL" ? goalTextColor : theme.text },
-                    ]}
-                  >
-                    {entry.type}
-                  </Text>
-                  {renderScore(entry)}
+                  <View style={cmStyles.cardHeaderLeft}>
+                    {entry.type === "GOAL" ? (
+                      <MaterialCommunityIcons
+                        name="soccer"
+                        size={14}
+                        color={goalTextColor}
+                      />
+                    ) : entry.type === "YELLOW CARD" ? (
+                      <MaterialCommunityIcons
+                        name="card"
+                        size={14}
+                        color="#facc15"
+                        style={cmStyles.headerCardIcon}
+                      />
+                    ) : entry.type === "RED CARD" ? (
+                      <MaterialCommunityIcons
+                        name="card"
+                        size={14}
+                        color="#d62828"
+                        style={cmStyles.headerCardIcon}
+                      />
+                    ) : null}
+
+                    <Text
+                      style={[
+                        cmStyles.cardHeaderTitle,
+                        {
+                          color:
+                            entry.type === "GOAL" ? goalTextColor : theme.text,
+                        },
+                      ]}
+                    >
+                      {entry.type}
+                    </Text>
+                  </View>
+                  {renderScore(
+                    entry,
+                    entry.type === "GOAL" ? goalTextColor : theme.text,
+                  )}
                 </View>
 
                 <Text
@@ -1826,7 +2887,9 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
                     cmStyles.commentText,
                     {
                       color:
-                        entry.type === "GOAL" ? goalTextColor : theme.textSecondary,
+                        entry.type === "GOAL"
+                          ? goalTextColor
+                          : theme.textSecondary,
                     },
                   ]}
                 >
@@ -1883,7 +2946,9 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
                             style={[
                               cmStyles.goalRatingText,
                               {
-                                color: motmTextOnBg(motmGetRatingColor(goalRating)),
+                                color: motmTextOnBg(
+                                  motmGetRatingColor(goalRating),
+                                ),
                               },
                             ]}
                           >
@@ -1900,7 +2965,10 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
                           ]}
                         >
                           <Text
-                            style={[cmStyles.goalPosText, { color: theme.textSecondary }]}
+                            style={[
+                              cmStyles.goalPosText,
+                              { color: theme.textSecondary },
+                            ]}
                           >
                             {goalPos}
                           </Text>
@@ -1910,14 +2978,20 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
 
                     <View style={cmStyles.goalPlayerTextWrap}>
                       <Text
-                        style={[cmStyles.goalPlayerName, { color: goalTextColor }]}
+                        style={[
+                          cmStyles.goalPlayerName,
+                          { color: goalTextColor },
+                        ]}
                         numberOfLines={1}
                       >
                         {goalPlayerName}
                       </Text>
                       {goalSubtitle ? (
                         <Text
-                          style={[cmStyles.goalPlayerSub, { color: goalTextColor }]}
+                          style={[
+                            cmStyles.goalPlayerSub,
+                            { color: goalTextColor },
+                          ]}
                           numberOfLines={2}
                         >
                           {goalSubtitle}
@@ -1926,11 +3000,748 @@ const CommentarySection = ({ comments, events, lineups, participants, theme }) =
                     </View>
                   </View>
                 ) : null}
-              </View>
+              </TouchableOpacity>
             </View>
           );
         })}
       </View>
+
+      <Modal
+        visible={!!selectedGoalEntry}
+        transparent
+        animationType="fade"
+        onRequestClose={closeGoalPlayerModal}
+      >
+        <View style={cmStyles.goalPopupOverlay}>
+          <TouchableOpacity
+            style={cmStyles.goalPopupBackdropTap}
+            activeOpacity={1}
+            onPress={closeGoalPlayerModal}
+          />
+
+          <View
+            style={[
+              cmStyles.goalPopupCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View
+              style={[
+                cmStyles.goalPopupHeader,
+                { borderBottomColor: theme.border },
+              ]}
+            >
+              <Text
+                style={[cmStyles.goalPopupHeaderTitle, { color: theme.text }]}
+              >
+                Goal Players
+              </Text>
+              <TouchableOpacity
+                onPress={closeGoalPlayerModal}
+                style={[
+                  cmStyles.goalPopupCloseBtn,
+                  { backgroundColor: theme.error },
+                ]}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    cmStyles.goalPopupCloseText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  ✕
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={cmStyles.goalPopupBody}>
+              {selectedGoalEntry
+                ? renderGoalPlayerSection(
+                    "Player",
+                    resolveGoalPlayerMeta(selectedGoalEntry, "player"),
+                  )
+                : null}
+              {selectedGoalEntry
+                ? renderGoalPlayerSection(
+                    "Related Player",
+                    resolveGoalPlayerMeta(selectedGoalEntry, "related"),
+                  )
+                : null}
+
+              {selectedGoalEntry?.goalEvent ? (
+                <View
+                  style={[
+                    cmStyles.goalPopupSection,
+                    { borderColor: theme.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      cmStyles.goalPopupSectionTitle,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    Goal Share Card
+                  </Text>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() =>
+                      openGoalShareFromCommentary(selectedGoalEntry)
+                    }
+                    style={[
+                      cmStyles.goalShareActionBtn,
+                      {
+                        backgroundColor: theme.surfaceSecondary,
+                        borderColor: theme.border,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="share-social-outline"
+                      size={16}
+                      color={theme.text}
+                    />
+                    <Text
+                      style={[
+                        cmStyles.goalShareActionText,
+                        { color: theme.text },
+                      ]}
+                    >
+                      Open Goal Share Card
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <GoalShareCardModal
+        visible={!!goalSharePayload}
+        onClose={closeGoalShareModal}
+        payload={goalSharePayload}
+        theme={theme}
+        colors={colors}
+      />
+    </View>
+  );
+};
+
+const GoalShareCardModal = ({ visible, onClose, payload, theme, colors }) => {
+  const shareCardRef = useRef(null);
+  const [sharing, setSharing] = useState(false);
+
+  useEffect(() => {
+    if (!visible) setSharing(false);
+  }, [visible]);
+
+  const handleShare = useCallback(async () => {
+    if (sharing || !shareCardRef.current) return;
+    try {
+      setSharing(true);
+      await new Promise((resolve) => setTimeout(resolve, 260));
+      const uri = await shareCardRef.current.capture();
+      await Sharing.shareAsync(uri, {
+        mimeType: "image/png",
+        dialogTitle: "Share Goal",
+      });
+    } catch (error) {
+      console.error("Error sharing goal card:", error);
+    } finally {
+      setSharing(false);
+    }
+  }, [sharing]);
+
+  const teamColor = payload?.teamColor || colors.primary;
+  const textOnTeam = getTextOnColor(teamColor);
+  const homeScore = payload?.scoreAfter?.home ?? "-";
+  const awayScore = payload?.scoreAfter?.away ?? "-";
+  const homeBold = Number(homeScore) > Number(awayScore);
+  const awayBold = Number(awayScore) > Number(homeScore);
+  const cardWidth = Math.min(width - 48, 540);
+  const playerImageUri = payload?.playerImageUri || null;
+  const scorerName = payload?.scorerName || "Unknown Player";
+  const scorerInitials =
+    payload?.scorerInitials ||
+    scorerName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() ||
+    "?";
+  const isOwnGoal = !!payload?.isOwnGoal;
+  const goalType = isOwnGoal
+    ? "Own Goal"
+    : payload?.isPenalty
+      ? "Penalty Goal"
+      : "Goal";
+  const goalSituation = payload?.goalSituation || "";
+  const teamLogoUri = payload?.teamLogoUri || null;
+  const teamName = payload?.teamName || payload?.teamAbbr || "Team";
+  const FIELD_LEFT_PANEL_W = Math.round(cardWidth * 0.41);
+  const FIELD_SCALE = (FIELD_LEFT_PANEL_W - 12) / 120;
+
+  return (
+    <Modal
+      visible={!!visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={gscStyles.overlay}>
+        <TouchableOpacity
+          style={gscStyles.backdropTap}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+
+        <View style={gscStyles.centerWrap}>
+          <ViewShot
+            ref={shareCardRef}
+            options={{ format: "png", quality: 1 }}
+            style={{ overflow: "hidden" }}
+          >
+            <View
+              style={[
+                gscStyles.card,
+                {
+                  width: cardWidth,
+                  backgroundColor: theme.surface,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  gscStyles.header,
+                  {
+                    backgroundColor: `${teamColor}33`,
+                    borderBottomColor: teamColor,
+                  },
+                ]}
+              >
+                <View style={gscStyles.headerTopRow}>
+                  <Text style={[gscStyles.timeText, { color: theme.text }]}>
+                    {payload?.minuteLabel || ""}
+                    {payload?.periodLabel ? ` • ${payload.periodLabel}` : ""}
+                  </Text>
+
+                  <View style={gscStyles.scoreWrap}>
+                    {payload?.homeLogo ? (
+                      <Image
+                        source={{ uri: payload.homeLogo }}
+                        style={gscStyles.scoreLogo}
+                        contentFit="contain"
+                        cachePolicy="memory-disk"
+                      />
+                    ) : null}
+                    <Text style={[gscStyles.scoreText, { color: theme.text }]}>
+                      <Text style={{ fontWeight: homeBold ? "800" : "400" }}>
+                        {homeScore}
+                      </Text>
+                      {" - "}
+                      <Text style={{ fontWeight: awayBold ? "800" : "400" }}>
+                        {awayScore}
+                      </Text>
+                    </Text>
+                    {payload?.awayLogo ? (
+                      <Image
+                        source={{ uri: payload.awayLogo }}
+                        style={gscStyles.scoreLogo}
+                        contentFit="contain"
+                        cachePolicy="memory-disk"
+                      />
+                    ) : null}
+                  </View>
+                </View>
+
+                <Text style={[gscStyles.goalTypeText, { color: theme.text }]}>
+                  <FontAwesome6 name="soccer-ball" size={18} color="#fff" />{" "}
+                  {goalType}
+                  {goalSituation ? ` • ${goalSituation}` : ""}
+                </Text>
+
+                {!!payload?.comment && (
+                  <Text
+                    style={[
+                      gscStyles.commentText,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {payload.comment}
+                  </Text>
+                )}
+              </View>
+
+              <View style={gscStyles.bodyRow}>
+                <View
+                  style={[
+                    gscStyles.goalCardFieldPane,
+                    {
+                      width: 150 * FIELD_SCALE,
+                      height: 200 * FIELD_SCALE,
+                      borderRightColor: theme.border,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      gscStyles.goalCardFieldContainer,
+                      {
+                        transform: [{ rotate: "90deg" }, { scale: FIELD_SCALE }],
+                      },
+                    ]}
+                  >
+                    <View style={gscStyles.miniField}>
+                      <View
+                        style={[
+                          gscStyles.fieldContainer,
+                          { backgroundColor: "#2d5a2d" },
+                        ]}
+                      >
+                        <View style={gscStyles.fieldOutline} />
+                        <View style={gscStyles.centerLine} />
+                        <View style={gscStyles.centerCircleMini} />
+                        <View style={gscStyles.penaltyAreaLeft} />
+                        <View style={gscStyles.penaltyAreaRight} />
+                        <View style={gscStyles.goalAreaLeft} />
+                        <View style={gscStyles.goalAreaRight} />
+                        <View style={gscStyles.goalLeft} />
+                        <View style={gscStyles.goalRight} />
+                      </View>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={gscStyles.infoPanel}>
+                  {playerImageUri ? (
+                    <Image
+                      source={{ uri: playerImageUri }}
+                      style={[
+                        gscStyles.avatar,
+                        {
+                          backgroundColor: `${teamColor}30`,
+                          borderColor: teamColor,
+                        },
+                      ]}
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        gscStyles.avatar,
+                        gscStyles.avatarFallback,
+                        {
+                          backgroundColor: `${teamColor}30`,
+                          borderColor: teamColor,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[gscStyles.avatarInitial, { color: textOnTeam }]}
+                      >
+                        {scorerInitials}
+                      </Text>
+                    </View>
+                  )}
+
+                  <Text
+                    style={[gscStyles.playerName, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {scorerName}
+                  </Text>
+
+                  <View style={gscStyles.teamRow}>
+                    {teamLogoUri ? (
+                      <Image
+                        source={{ uri: teamLogoUri }}
+                        style={gscStyles.teamLogo}
+                        contentFit="contain"
+                        cachePolicy="memory-disk"
+                      />
+                    ) : null}
+                    <Text
+                      style={[
+                        gscStyles.teamName,
+                        { color: theme.textSecondary },
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {teamName}
+                    </Text>
+                  </View>
+
+                  {!!payload?.assistName && (
+                    <View style={gscStyles.assistWrap}>
+                      <Text
+                        style={[gscStyles.assistName, { color: theme.text }]}
+                        numberOfLines={1}
+                      >
+                        {payload.assistName}
+                      </Text>
+                      <Text
+                        style={[
+                          gscStyles.assistLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        Assist
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={gscStyles.statsGrid}>
+                    {(payload?.statsItems ?? []).map((item) => (
+                      <View key={item.label} style={gscStyles.statCell}>
+                        <Text
+                          style={[gscStyles.statValue, { color: theme.text }]}
+                        >
+                          {item.value != null ? String(item.value) : "0"}
+                        </Text>
+                        <Text
+                          style={[
+                            gscStyles.statLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {item.label}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </View>
+
+              <View
+                style={[
+                  gscStyles.footer,
+                  {
+                    borderTopColor: theme.border,
+                    backgroundColor: theme.surface,
+                  },
+                ]}
+              >
+                <Text style={[gscStyles.footerBrand, { color: theme.text }]}>
+                  SportsHeart{" "}
+                  <Ionicons name="heart" size={10} color={colors.primary} />
+                </Text>
+              </View>
+            </View>
+          </ViewShot>
+
+          <View style={gscStyles.actionsRow}>
+            <TouchableOpacity
+              style={[gscStyles.actionBtn, { backgroundColor: colors.primary }]}
+              onPress={handleShare}
+              disabled={sharing}
+            >
+              <Ionicons name="share-outline" size={18} color="#fff" />
+              <Text style={gscStyles.actionBtnText}>
+                {sharing ? "Sharing..." : "Share"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                gscStyles.actionBtn,
+                { backgroundColor: theme.surfaceSecondary },
+              ]}
+              onPress={onClose}
+            >
+              <Ionicons name="close" size={18} color={theme.text} />
+              <Text style={[gscStyles.actionBtnText, { color: theme.text }]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const StatsSection = ({
+  statistics,
+  lineups,
+  home,
+  away,
+  homeColor,
+  awayColor,
+  theme,
+}) => {
+  const sections = useMemo(() => {
+    const parseNumeric = (v) => {
+      if (v == null) return null;
+      if (typeof v === "number") return Number.isFinite(v) ? v : null;
+      const n = Number(String(v).replace(/[^0-9.\-]/g, ""));
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const titleCase = (s) =>
+      String(s || "")
+        .toLowerCase()
+        .replace(/(^|\s|-|_)[a-z]/g, (m) => m.toUpperCase())
+        .replace(/_/g, " ");
+
+    const formatStatValue = (value, statName) => {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return "0";
+      const isPct = String(statName || "")
+        .toLowerCase()
+        .includes("percentage");
+      if (isPct) {
+        return Number.isInteger(n) ? `${n}%` : `${n.toFixed(1)}%`;
+      }
+      if (Number.isInteger(n)) return String(n);
+      return n.toFixed(1);
+    };
+
+    const lowerBetterKeywords = [
+      "foul",
+      "yellow",
+      "red",
+      "card",
+      "offside",
+      "offsides",
+      "conceded",
+      "error",
+      "errors",
+      "turnover",
+      "turnovers",
+      "lost",
+    ];
+
+    const isLowerBetter = (name) => {
+      const l = String(name || "").toLowerCase();
+      return lowerBetterKeywords.some((kw) => l.includes(kw));
+    };
+
+    const toBarShares = (homeValue, awayValue, reverse = false) => {
+      const h = Number(homeValue) || 0;
+      const a = Number(awayValue) || 0;
+      if (!reverse) {
+        const total = h + a;
+        if (total <= 0) return { homeShare: 0.5, awayShare: 0.5 };
+        return { homeShare: h / total, awayShare: a / total };
+      }
+
+      const max = Math.max(h, a);
+      const compHome = Math.max(0, max - h);
+      const compAway = Math.max(0, max - a);
+      const total = compHome + compAway;
+      if (total <= 0) return { homeShare: 0.5, awayShare: 0.5 };
+      return { homeShare: compHome / total, awayShare: compAway / total };
+    };
+
+    const groupedMap = {
+      overall: new Map(),
+      offensive: new Map(),
+      defensive: new Map(),
+      other: new Map(),
+    };
+
+    const seenMainStatNames = new Set();
+
+    for (const row of statistics ?? []) {
+      const statName = row?.type?.name;
+      if (!statName) continue;
+      const groupRaw = String(row?.type?.stat_group || "overall").toLowerCase();
+      const group = ["overall", "offensive", "defensive"].includes(groupRaw)
+        ? groupRaw
+        : "other";
+      const value = parseNumeric(row?.data?.value);
+      if (value == null) continue;
+
+      seenMainStatNames.add(statName.toLowerCase());
+
+      if (!groupedMap[group].has(statName)) {
+        groupedMap[group].set(statName, { home: 0, away: 0, name: statName });
+      }
+
+      const rec = groupedMap[group].get(statName);
+      if (row?.participant_id === home?.id) rec.home = value;
+      if (row?.participant_id === away?.id) rec.away = value;
+    }
+
+    const lineupAgg = new Map();
+
+    for (const lineup of lineups ?? []) {
+      const teamId = lineup?.team_id;
+      if (teamId !== home?.id && teamId !== away?.id) continue;
+
+      for (const detail of lineup?.details ?? []) {
+        const statNameRaw = detail?.type?.name;
+        if (!statNameRaw) continue;
+
+        if (seenMainStatNames.has(String(statNameRaw).toLowerCase())) continue;
+
+        const value = parseNumeric(detail?.data?.value);
+        if (value == null) continue;
+
+        if (!lineupAgg.has(statNameRaw)) {
+          lineupAgg.set(statNameRaw, {
+            name: statNameRaw,
+            homeSum: 0,
+            awaySum: 0,
+            homeCount: 0,
+            awayCount: 0,
+          });
+        }
+
+        const rec = lineupAgg.get(statNameRaw);
+        if (teamId === home?.id) {
+          rec.homeSum += value;
+          rec.homeCount += 1;
+        }
+        if (teamId === away?.id) {
+          rec.awaySum += value;
+          rec.awayCount += 1;
+        }
+      }
+    }
+
+    for (const [name, rec] of lineupAgg.entries()) {
+      const statNameLower = String(name).toLowerCase();
+      const shouldAverage =
+        statNameLower.includes("percentage") ||
+        statNameLower === "rating" ||
+        statNameLower.includes(" rating");
+
+      const homeValue = shouldAverage
+        ? rec.homeCount > 0
+          ? rec.homeSum / rec.homeCount
+          : 0
+        : rec.homeSum;
+      const awayValue = shouldAverage
+        ? rec.awayCount > 0
+          ? rec.awaySum / rec.awayCount
+          : 0
+        : rec.awaySum;
+
+      groupedMap.other.set(name, {
+        name,
+        home: homeValue,
+        away: awayValue,
+      });
+    }
+
+    const buildRows = (map) =>
+      [...map.values()]
+        .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+        .map((row) => {
+          const reverse = isLowerBetter(row.name);
+          const shares = toBarShares(row.home, row.away, reverse);
+          return {
+            ...row,
+            label: titleCase(row.name),
+            homeText: formatStatValue(row.home, row.name),
+            awayText: formatStatValue(row.away, row.name),
+            reverse,
+            ...shares,
+          };
+        });
+
+    return {
+      overall: buildRows(groupedMap.overall),
+      offensive: buildRows(groupedMap.offensive),
+      defensive: buildRows(groupedMap.defensive),
+      other: buildRows(groupedMap.other),
+    };
+  }, [statistics, lineups, home, away]);
+
+  const renderSection = (title, rows) => (
+    <View
+      style={[
+        stStyles.card,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+      ]}
+    >
+      <View style={[stStyles.headerRow, { borderBottomColor: theme.border }]}>
+        <Text style={[stStyles.headerTitle, { color: theme.text }]}>
+          {title}
+        </Text>
+      </View>
+
+      <View style={stStyles.body}>
+        {rows.length === 0 ? (
+          <Text style={[stStyles.emptyText, { color: theme.textTertiary }]}>
+            No stats
+          </Text>
+        ) : (
+          rows.map((row) => (
+            <View key={row.name} style={stStyles.rowWrap}>
+              <View style={stStyles.valueRow}>
+                <Text
+                  style={[
+                    stStyles.valueText,
+                    stStyles.valueLeft,
+                    { color: theme.text },
+                  ]}
+                >
+                  {row.homeText}
+                </Text>
+                <Text
+                  style={[
+                    stStyles.valueText,
+                    stStyles.valueRight,
+                    { color: theme.text },
+                  ]}
+                >
+                  {row.awayText}
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  stStyles.barTrack,
+                  { backgroundColor: theme.surfaceSecondary },
+                ]}
+              >
+                <View
+                  style={[
+                    stStyles.barFillLeft,
+                    {
+                      width: `${Math.max(0, Math.min(100, row.homeShare * 100))}%`,
+                      backgroundColor: homeColor,
+                    },
+                  ]}
+                />
+                <View
+                  style={[
+                    stStyles.barFillRight,
+                    {
+                      width: `${Math.max(0, Math.min(100, row.awayShare * 100))}%`,
+                      backgroundColor: awayColor,
+                    },
+                  ]}
+                />
+              </View>
+
+              <Text
+                style={[stStyles.statName, { color: theme.textSecondary }]}
+                numberOfLines={2}
+              >
+                {row.label}
+              </Text>
+            </View>
+          ))
+        )}
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={{ paddingTop: 6 }}>
+      {renderSection("OVERALL", sections.overall)}
+      {renderSection("OFFENSIVE", sections.offensive)}
+      {renderSection("DEFENSIVE", sections.defensive)}
+      {renderSection("OTHER", sections.other)}
     </View>
   );
 };
@@ -2867,14 +4678,17 @@ const HomeTeamOverviewSection = ({
   );
 };
 
-const HomeManagerSection = ({ manager, teamColor, theme }) => {
+const HomeManagerSection = ({ manager, teamColor, theme, navigation }) => {
   if (!manager) return null;
 
   const coach = manager?.coach ?? manager;
+  const coachId = manager?.coach_id ?? coach?.id ?? coach?.coach_id ?? null;
+  const coachName =
+    coach?.name ||
+    `${coach?.firstname ?? ""} ${coach?.lastname ?? ""}`.trim() ||
+    "Coach";
   const firstName =
-    coach?.firstname ||
-    coach?.name?.split(" ").slice(0, -1).join(" ") ||
-    "";
+    coach?.firstname || coach?.name?.split(" ").slice(0, -1).join(" ") || "";
   const lastName =
     coach?.lastname ||
     coach?.name?.split(" ").slice(-1).join(" ") ||
@@ -2888,7 +4702,15 @@ const HomeManagerSection = ({ manager, teamColor, theme }) => {
   const initial = (lastName || "?")[0]?.toUpperCase?.() || "?";
 
   return (
-    <View
+    <TouchableOpacity
+      activeOpacity={coachId && navigation ? 0.78 : 1}
+      disabled={!coachId || !navigation}
+      onPress={() =>
+        navigation?.navigate("Top5CoachDetail", {
+          coachId,
+          coachName,
+        })
+      }
       style={[
         styles.homeManagerCard,
         {
@@ -2897,8 +4719,12 @@ const HomeManagerSection = ({ manager, teamColor, theme }) => {
         },
       ]}
     >
-      <View style={[styles.homeManagerHeader, { borderBottomColor: theme.surface }]}>
-        <Text style={[styles.homeManagerTitle, { color: theme.text }]}>MANAGER</Text>
+      <View
+        style={[styles.homeManagerHeader, { borderBottomColor: theme.surface }]}
+      >
+        <Text style={[styles.homeManagerTitle, { color: theme.text }]}>
+          MANAGER
+        </Text>
       </View>
 
       <View style={styles.homeManagerBody}>
@@ -2956,7 +4782,7 @@ const HomeManagerSection = ({ manager, teamColor, theme }) => {
           </Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -2968,6 +4794,7 @@ const HomeTeamPitchSection = ({
   teamColor,
   isDarkMode,
   reverseFormationX = true,
+  onPlayerPress,
   theme,
 }) => {
   const pitchGreen = isDarkMode ? "#1f5b2b" : "#67c06d";
@@ -3054,6 +4881,7 @@ const HomeTeamPitchSection = ({
       null,
     subOutEvent:
       substitutionEvents.find((e) => e?.player_id === l?.player_id) || null,
+    sourceLineup: l,
     ...extras,
   });
 
@@ -3089,19 +4917,15 @@ const HomeTeamPitchSection = ({
     .sort((a, b) => {
       const getSubOnSortMinute = (player) => {
         const directSubOn = substitutionEvents.find(
-          (e) =>
-            e?.participant_id === team?.id &&
-            e?.player_id === player?.id,
+          (e) => e?.participant_id === team?.id && e?.player_id === player?.id,
         );
         const ev = directSubOn || player?.subInEvent || null;
         if (ev?.minute == null) return Number.MAX_SAFE_INTEGER;
         return ev.minute * 100 + (ev.extra_minute ?? 0);
       };
 
-      const aMinute =
-        getSubOnSortMinute(a);
-      const bMinute =
-        getSubOnSortMinute(b);
+      const aMinute = getSubOnSortMinute(a);
+      const bMinute = getSubOnSortMinute(b);
 
       if (aMinute !== bMinute) return aMinute - bMinute;
       return String(a?.lastname || "").localeCompare(String(b?.lastname || ""));
@@ -3122,7 +4946,18 @@ const HomeTeamPitchSection = ({
     const subInLeft = player?.subOutEvent ? -3 : -3;
 
     return (
-      <View style={styles.homePitchPlayerWrap}>
+      <TouchableOpacity
+        style={styles.homePitchPlayerWrap}
+        activeOpacity={onPlayerPress ? 0.75 : 1}
+        disabled={!onPlayerPress}
+        onPress={() =>
+          onPlayerPress?.({
+            lineup: player?.sourceLineup ?? null,
+            playerId: player?.id,
+            team,
+          })
+        }
+      >
         <View style={styles.homePitchPlayerCard}>
           {logoUri ? (
             <Image
@@ -3393,7 +5228,7 @@ const HomeTeamPitchSection = ({
             {player.positionName || "-"}
           </Text>
         ) : null}
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -3408,7 +5243,7 @@ const HomeTeamPitchSection = ({
         <View style={styles.homePitchGoalBox} />
         <View style={styles.homePitchPenaltyArc} />
 
-        <View pointerEvents="none" style={styles.homePitchPlayersOverlay}>
+        <View pointerEvents="box-none" style={styles.homePitchPlayersOverlay}>
           {visualRows.map((row) => {
             const colCount = rowColumnCounts[row - 1] ?? 1;
             return (
@@ -3444,12 +5279,7 @@ const HomeTeamPitchSection = ({
             },
           ]}
         >
-          <View
-            style={[
-              styles.homeBenchHeader,
-              { borderBottomWidth: 0 },
-            ]}
-          >
+          <View style={[styles.homeBenchHeader, { borderBottomWidth: 0 }]}>
             <Text style={[styles.homeBenchTitle, { color: theme.text }]}>
               BENCH
             </Text>
@@ -3470,6 +5300,1171 @@ const HomeTeamPitchSection = ({
   );
 };
 
+const HomeSidelinedSection = ({
+  team,
+  sidelined,
+  teamColor,
+  theme,
+  onPlayerPress,
+}) => {
+  if (!team) return null;
+
+  const entries = (sidelined ?? []).filter(
+    (s) => s?.participant_id === team?.id,
+  );
+
+  if (!entries.length) return null;
+
+  const renderSidelinedTile = (entry) => {
+    const p = entry?.player ?? {};
+    const imagePath = p?.image_path ?? null;
+    const logoUri =
+      imagePath && !String(imagePath).includes("placeholder")
+        ? imagePath
+        : null;
+    const lastName =
+      p?.lastname || p?.name?.split(" ").slice(-1).join(" ") || "Player";
+    const initial = (lastName || "?")[0]?.toUpperCase?.() || "?";
+    const statusLabel = entry?.type?.name || "Unavailable";
+
+    return (
+      <TouchableOpacity
+        style={styles.homePitchPlayerWrap}
+        activeOpacity={0.75}
+        onPress={() =>
+          onPlayerPress?.({
+            playerId: entry?.player_id,
+            player: entry?.player ?? null,
+            team,
+          })
+        }
+        disabled={!onPlayerPress}
+      >
+        <View style={styles.homePitchPlayerCard}>
+          {logoUri ? (
+            <Image
+              source={{ uri: logoUri }}
+              style={[
+                styles.homePitchPlayerAvatar,
+                {
+                  backgroundColor: `${teamColor}30`,
+                  borderColor: teamColor,
+                },
+              ]}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <View
+              style={[
+                styles.homePitchPlayerAvatar,
+                {
+                  backgroundColor: `${teamColor}30`,
+                  borderColor: teamColor,
+                  alignItems: "center",
+                  justifyContent: "center",
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.homePitchPlayerInitial,
+                  { color: getTextOnColor(teamColor) },
+                ]}
+              >
+                {initial}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.homePitchPlayerMetaRow}>
+          <Text
+            style={[styles.homePitchPlayerLastName, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {lastName}
+          </Text>
+        </View>
+
+        <Text
+          style={[styles.homeBenchPosition, { color: theme.textSecondary }]}
+          numberOfLines={2}
+        >
+          {statusLabel}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <View
+      style={[
+        styles.homeBenchCard,
+        {
+          backgroundColor: theme.surface,
+          borderColor: teamColor ?? theme.border,
+          borderWidth: 2,
+        },
+      ]}
+    >
+      <View style={[styles.homeBenchHeader, { borderBottomWidth: 0 }]}>
+        <Text style={[styles.homeBenchTitle, { color: theme.text }]}>
+          SIDELINED
+        </Text>
+      </View>
+
+      <View style={styles.homeBenchGrid}>
+        {entries.map((entry, idx) => (
+          <View
+            key={`sidelined-${entry?.player_id ?? idx}`}
+            style={styles.homeBenchItem}
+          >
+            {renderSidelinedTile(entry)}
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+};
+
+const SoccerPlayerDetailModal = ({
+  visible,
+  onClose,
+  lineup,
+  team,
+  allLineups,
+  home,
+  away,
+  homeScore,
+  awayScore,
+  startingAt,
+  theme,
+  colors,
+}) => {
+  const player = lineup?.player ?? {};
+  const resolvedTeam =
+    team ??
+    (lineup?.team_id === home?.id
+      ? home
+      : lineup?.team_id === away?.id
+        ? away
+        : null);
+  const fullName =
+    player?.name ||
+    `${player?.firstname ?? ""} ${player?.lastname ?? ""}`.trim() ||
+    `Player ${lineup?.player_id ?? ""}`;
+  const jerseyNum = lineup?.jersey_number ? `#${lineup.jersey_number}` : "";
+  const teamName = resolvedTeam?.name || "";
+  const subtitleText = [jerseyNum, teamName].filter(Boolean).join(" \u00B7 ");
+  const positionName =
+    lineup?.detailedposition?.name ?? lineup?.position?.name ?? "—";
+  const rating = getLineupRating(lineup);
+  const minutesPlayed = motmGetStat(
+    lineup?.details,
+    "minutes played",
+    "minutes",
+  );
+  const lineupTypeName = lineup?.type?.name ?? "";
+
+  const age = (() => {
+    const dob = player?.date_of_birth;
+    if (!dob) return null;
+    const birth = new Date(`${dob}T00:00:00Z`);
+    if (Number.isNaN(birth.getTime())) return null;
+    const now = new Date();
+    let years = now.getUTCFullYear() - birth.getUTCFullYear();
+    const mDiff = now.getUTCMonth() - birth.getUTCMonth();
+    const dDiff = now.getUTCDate() - birth.getUTCDate();
+    if (mDiff < 0 || (mDiff === 0 && dDiff < 0)) years -= 1;
+    return years >= 0 ? years : null;
+  })();
+
+  const { statRows, keyStats } = useMemo(() => {
+    const parseNum = (v) => {
+      if (v == null) return null;
+      if (typeof v === "number") return Number.isFinite(v) ? v : null;
+      const n = Number(String(v).replace(/[^0-9.\-]/g, ""));
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const label = (name) =>
+      String(name || "")
+        .replace(/([A-Z])/g, " $1")
+        .replace(/\s+/g, " ")
+        .trim()
+        .replace(/^./, (c) => c.toUpperCase());
+
+    const minMaxByKey = {};
+    for (const l of allLineups ?? []) {
+      for (const d of l?.details ?? []) {
+        const key = String(d?.type?.name || "").toLowerCase();
+        if (!key) continue;
+        const value = parseNum(d?.data?.value);
+        if (value == null) continue;
+        if (!minMaxByKey[key]) {
+          minMaxByKey[key] = { min: value, max: value };
+        } else {
+          minMaxByKey[key].min = Math.min(minMaxByKey[key].min, value);
+          minMaxByKey[key].max = Math.max(minMaxByKey[key].max, value);
+        }
+      }
+    }
+
+    const byName = new Map();
+    for (const d of lineup?.details ?? []) {
+      const rawName = d?.type?.name;
+      if (!rawName) continue;
+      const value = parseNum(d?.data?.value);
+      if (value == null) continue;
+      byName.set(rawName, value);
+    }
+
+    const keyToMetric = {
+      rating: "rtg",
+      goals: "gls",
+      goal: "gls",
+      assists: "ast",
+      assist: "ast",
+    };
+
+    const keyStatsMap = {
+      rtg: null,
+      gls: null,
+      ast: null,
+    };
+
+    const rows = [...byName.entries()]
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+      .map(([rawName, value]) => {
+        const key = String(rawName).toLowerCase();
+        const mm = minMaxByKey[key] ?? { min: value, max: value };
+        const pct =
+          mm.max === mm.min
+            ? 1
+            : Math.max(0, Math.min(1, (value - mm.min) / (mm.max - mm.min)));
+        const isPct = key.includes("percentage");
+        const valueText = isPct
+          ? Number.isInteger(value)
+            ? `${value}%`
+            : `${value.toFixed(1)}%`
+          : Number.isInteger(value)
+            ? String(value)
+            : value.toFixed(1);
+
+        return {
+          key,
+          name: label(rawName),
+          valueText,
+          pct,
+          rawValue: value,
+        };
+      });
+
+    for (const row of rows) {
+      const metric = keyToMetric[row.key];
+      if (!metric) continue;
+      const max =
+        metric === "rtg"
+          ? Math.max(10, minMaxByKey.rating?.max ?? row.rawValue ?? 0)
+          : Math.max(1, minMaxByKey[row.key]?.max ?? row.rawValue ?? 0);
+      const ratio = Math.max(0, Math.min(1, (row.rawValue ?? 0) / max));
+      if (!keyStatsMap[metric]) {
+        keyStatsMap[metric] = {
+          key: metric,
+          label: metric === "rtg" ? "RTG" : metric === "gls" ? "GLS" : "AST",
+          valueText: row.valueText,
+          ratio,
+        };
+      }
+    }
+
+    const filteredRows = rows.filter(
+      (row) =>
+        !["rating", "goals", "goal", "assists", "assist"].includes(row.key),
+    );
+
+    const finalKeyStats = [
+      keyStatsMap.rtg,
+      keyStatsMap.gls,
+      keyStatsMap.ast,
+    ].filter(Boolean);
+
+    return { statRows: filteredRows, keyStats: finalKeyStats };
+  }, [lineup, allLineups]);
+
+  const playerImageUri =
+    player?.image_path && !String(player.image_path).includes("placeholder")
+      ? player.image_path
+      : null;
+  const resolvedPlayerId =
+    lineup?.player_id ?? player?.id ?? player?.player_id ?? null;
+  const playerInitials =
+    [player?.firstname?.[0], player?.lastname?.[0]]
+      .filter(Boolean)
+      .join("")
+      .toUpperCase() ||
+    fullName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() ||
+    "?";
+  const teamColor = resolvedTeam?.colorPrimary || "#4c6ef5";
+  const [playerShareVisible, setPlayerShareVisible] = useState(false);
+  const [sharingPlayerCard, setSharingPlayerCard] = useState(false);
+  const shareCardRef = useRef(null);
+
+  useEffect(() => {
+    if (!visible) {
+      setPlayerShareVisible(false);
+      setSharingPlayerCard(false);
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    console.log("[Top5Share] playerShareVisible changed:", playerShareVisible);
+  }, [playerShareVisible]);
+
+  useEffect(() => {
+    if (!playerShareVisible) return;
+    console.log("[Top5Share] Share modal requested", {
+      resolvedPlayerId,
+      hasLineup: !!lineup,
+      hasPlayer: !!player,
+      hasShareCardRef: !!shareCardRef.current,
+    });
+
+    const t = setTimeout(() => {
+      console.log("[Top5Share] Post-open ref check", {
+        hasShareCardRef: !!shareCardRef.current,
+      });
+    }, 250);
+
+    return () => clearTimeout(t);
+  }, [playerShareVisible, resolvedPlayerId, lineup, player]);
+
+  const handlePlayerShare = useCallback(async () => {
+    console.log("[Top5Share] Share action tapped", {
+      sharingPlayerCard,
+      hasShareCardRef: !!shareCardRef.current,
+      playerId: resolvedPlayerId,
+      lineupPlayerId: lineup?.player_id,
+    });
+
+    if (sharingPlayerCard || !shareCardRef.current) {
+      console.warn("[Top5Share] Share action aborted", {
+        reason: sharingPlayerCard
+          ? "already-sharing"
+          : "missing-share-card-ref",
+      });
+      return;
+    }
+
+    try {
+      setSharingPlayerCard(true);
+      // Let dynamic images paint before capture for stable output.
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      console.log("[Top5Share] Capturing share card...");
+      const uri = await shareCardRef.current.capture();
+      console.log("[Top5Share] Share card captured", { uri });
+      console.log("[Top5Share] Opening native share sheet...");
+      await Sharing.shareAsync(uri, {
+        mimeType: "image/png",
+        dialogTitle: "Share Player Stats",
+      });
+      console.log("[Top5Share] Native share sheet completed");
+    } catch (err) {
+      console.error("[Top5Share] Error sharing soccer player card", err);
+    } finally {
+      console.log("[Top5Share] Share action finished");
+      setSharingPlayerCard(false);
+    }
+  }, [sharingPlayerCard, resolvedPlayerId, lineup?.player_id]);
+
+  const normalizedPos = String(positionName || "").toLowerCase();
+  const posAbbr = motmGetPosAbbr(positionName) || "";
+  const isGK = normalizedPos.includes("goalkeeper") || normalizedPos === "gk";
+  const isDEF =
+    normalizedPos.includes("def") ||
+    normalizedPos.includes("back") ||
+    normalizedPos.includes("sweeper") ||
+    normalizedPos.includes("centre back") ||
+    normalizedPos.includes("center back");
+  const isMF =
+    normalizedPos.includes("mid") ||
+    normalizedPos.includes("wing") ||
+    normalizedPos.includes("playmaker");
+
+  const normalizeStatKey = (name) =>
+    String(name || "")
+      .toLowerCase()
+      .replace(/[^a-z]/g, "");
+
+  const getLineupStat = (...keys) => {
+    const wanted = keys.map((k) => normalizeStatKey(k));
+    const d = (lineup?.details ?? []).find((item) =>
+      wanted.includes(normalizeStatKey(item?.type?.name)),
+    );
+    return d?.data?.value ?? null;
+  };
+
+  const parseNum = (v) => {
+    if (v == null) return null;
+    if (typeof v === "number") return Number.isFinite(v) ? v : null;
+    const n = Number(String(v).replace(/[^0-9.\-]/g, ""));
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const statNum = (v) => {
+    const n = parseNum(v);
+    return n == null ? null : n;
+  };
+
+  const passesAcc = statNum(
+    getLineupStat("accurate passes", "successful passes", "passes accurate"),
+  );
+  const passesTotal = statNum(
+    getLineupStat("passes total", "passes", "total passes"),
+  );
+  const passPct =
+    passesAcc != null && passesTotal != null && passesTotal > 0
+      ? `${Math.round((passesAcc / passesTotal) * 100)}%`
+      : null;
+  const passDisplay =
+    passesAcc != null && passesTotal != null && passesTotal > 0
+      ? `${passesAcc}-${passesTotal}`
+      : "—";
+
+  const duelsWon = statNum(
+    getLineupStat("duels won", "tackles won", "duels success"),
+  );
+  const duelsTotal = statNum(getLineupStat("total duels", "duels"));
+  const duelsPct =
+    duelsWon != null && duelsTotal != null && duelsTotal > 0
+      ? `${Math.round((duelsWon / duelsTotal) * 100)}%`
+      : null;
+  const duelsDisplay =
+    duelsWon != null && duelsTotal != null && duelsTotal > 0
+      ? `${duelsWon}-${duelsTotal}`
+      : "—";
+
+  const statsObj = {
+    rating: statNum(getLineupRating("rating")),
+    goals: statNum(getLineupStat("goals", "goal")),
+    assists: statNum(getLineupStat("assists", "assist")),
+    shots: statNum(getLineupStat("shots total", "shots", "shots on")),
+    shotsOnTarget: statNum(getLineupStat("shots on target", "shot on target")),
+    tackles: statNum(getLineupStat("tackles", "duels won")),
+    interceptions: statNum(getLineupStat("interceptions")),
+    clearances: statNum(getLineupStat("clearances", "clearance")),
+    blockedShots: statNum(getLineupStat("blocked shots", "blocks")),
+    foulsCommitted: statNum(getLineupStat("fouls", "fouls committed")),
+    foulsDrawn: statNum(getLineupStat("fouls drawn", "was fouled")),
+    saves: statNum(getLineupStat("saves", "goalkeeper saves")),
+    goalsConceded: statNum(getLineupStat("goals conceded")),
+    yellowCards: statNum(getLineupStat("yellowcards", "yellowcard")),
+    redCards: statNum(getLineupStat("redcards", "redcard")),
+    ownGoals: statNum(getLineupStat("owngoals", "owngoal")),
+    touches: statNum(getLineupStat("touches")),
+    duels: statNum(getLineupStat("total duels", "duels")),
+    recovery: statNum(getLineupStat("ball recovery")),
+    minutes: minutesPlayed != null ? parseNum(minutesPlayed) : null,
+    rating: rating != null ? Number(rating.toFixed(1)) : null,
+  };
+
+  let shareStatItems;
+  if (isGK) {
+    shareStatItems = [
+      { label: "RTG", value: statsObj.rating },
+      { label: "SVS", value: statsObj.saves },
+      { label: "GA", value: statsObj.goalsConceded },
+      { label: "PASS", value: passDisplay, pct: passPct },
+      { label: "REC", value: statsObj.recovery },
+      { label: "TCH", value: statsObj.touches },
+      { label: "MIN", value: statsObj.minutes },
+      { label: "YC", value: statsObj.yellowCards },
+      { label: "RC", value: statsObj.redCards },
+    ];
+  } else if (isDEF) {
+    shareStatItems = [
+      { label: "RTG", value: statsObj.rating },
+      { label: "TCKL", value: statsObj.tackles },
+      { label: "INT", value: statsObj.interceptions },
+      { label: "CLR", value: statsObj.clearances },
+      { label: "PASS", value: passDisplay, pct: passPct },
+      { label: "DUEL", value: duelsDisplay, pct: duelsPct },
+      { label: "SHB", value: statsObj.blockedShots },
+      { label: "MIN", value: statsObj.minutes },
+      { label: "YC", value: statsObj.yellowCards },
+    ];
+  } else if (isMF) {
+    shareStatItems = [
+      { label: "RTG", value: statsObj.rating },
+      { label: "GLS", value: statsObj.goals },
+      { label: "AST", value: statsObj.assists },
+      { label: "SHT", value: statsObj.shots },
+      { label: "DUEL", value: duelsDisplay, pct: duelsPct },
+      { label: "TCH", value: statsObj.touches },
+      { label: "PASS", value: passDisplay, pct: passPct },
+      { label: "MIN", value: statsObj.minutes },
+      { label: "YC", value: statsObj.yellowCards },
+    ];
+  } else {
+    shareStatItems = [
+      { label: "RTG", value: statsObj.rating },
+      { label: "GLS", value: statsObj.goals },
+      { label: "AST", value: statsObj.assists },
+      { label: "SHT", value: statsObj.shots },
+      { label: "SOT", value: statsObj.shotsOnTarget },
+      { label: "TCH", value: statsObj.touches },
+      { label: "PASS", value: passDisplay, pct: passPct },
+      { label: "MIN", value: statsObj.minutes },
+      { label: "YC", value: statsObj.yellowCards },
+    ];
+  }
+
+  const summaryPriority = isGK
+    ? ["RTG", "SVS", "GA", "PASS", "MIN"]
+    : isDEF
+      ? ["RTG", "TCKL", "INT", "CLR", "MIN"]
+      : isMF
+        ? ["RTG", "GLS", "AST", "SHT", "DUEL", "TCH", "MIN"]
+        : ["RTG", "GLS", "AST", "SOT", "TCH", "MIN"];
+
+  const summaryOrdered = shareStatItems
+    .filter(({ label }) => summaryPriority.includes(label))
+    .sort(
+      (a, b) =>
+        summaryPriority.indexOf(a.label) - summaryPriority.indexOf(b.label),
+    );
+  const summaryNonZero = summaryOrdered.filter(
+    ({ value }) =>
+      value != null && value !== 0 && value !== "0%" && value !== "—",
+  );
+  const summaryFill = summaryOrdered.filter(
+    ({ label }) => !summaryNonZero.find((n) => n.label === label),
+  );
+  const summaryStats = [...summaryNonZero, ...summaryFill].slice(0, 4);
+
+  const scoreHome = homeScore != null ? String(homeScore) : "-";
+  const scoreAway = awayScore != null ? String(awayScore) : "-";
+  const homeWon = Number(scoreHome) > Number(scoreAway);
+  const awayWon = Number(scoreAway) > Number(scoreHome);
+  const textOnTeam = getTextOnColor(teamColor);
+
+  const gameDateParts = (() => {
+    if (!startingAt) return null;
+    try {
+      const d = new Date(startingAt.replace(" ", "T") + "Z");
+      const monthDate = d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
+      const year = d.toLocaleDateString("en-US", { year: "numeric" });
+      return { monthDate, year };
+    } catch {
+      return null;
+    }
+  })();
+
+  if (!lineup) return null;
+
+  return (
+    <>
+      <Modal
+        visible={visible && !playerShareVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={onClose}
+      >
+        <View style={spmStyles.backdrop}>
+          <TouchableOpacity
+            style={spmStyles.backdropTap}
+            activeOpacity={1}
+            onPress={onClose}
+          />
+
+          <View
+            style={[
+              spmStyles.sheet,
+              {
+                backgroundColor: theme.surface,
+                borderTopColor: teamColor,
+              },
+            ]}
+          >
+            <View
+              style={[spmStyles.dragStrip, { borderBottomColor: theme.border }]}
+            >
+              <View style={spmStyles.handleRow}>
+                <View style={spmStyles.handleRowSpacer} />
+                <View style={spmStyles.headerActions}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      console.log("[Top5Share] Header share icon tapped", {
+                        playerId: resolvedPlayerId,
+                        lineupPlayerId: lineup?.player_id,
+                      });
+                      if (!resolvedPlayerId) {
+                        console.warn(
+                          "[Top5Share] Missing resolvedPlayerId at share tap; modal will still open",
+                        );
+                      }
+                      console.log(
+                        "[Top5Share] Switching from stats modal to share modal",
+                      );
+                      setPlayerShareVisible(true);
+                    }}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    style={[
+                      spmStyles.iconBtn,
+                      { backgroundColor: `${teamColor}2B` },
+                    ]}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name="share-outline"
+                      size={16}
+                      color={teamColor}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={onClose}
+                    style={[
+                      spmStyles.iconBtn,
+                      { backgroundColor: theme.error },
+                    ]}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        spmStyles.closeBtnText,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      ✕
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {playerImageUri ? (
+                <Image
+                  source={{ uri: playerImageUri }}
+                  style={[spmStyles.headshot, { borderColor: teamColor }]}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                />
+              ) : (
+                <View
+                  style={[
+                    spmStyles.headshot,
+                    {
+                      borderColor: teamColor,
+                      backgroundColor: `${teamColor}30`,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      spmStyles.headshotInitial,
+                      { color: getTextOnColor(teamColor) },
+                    ]}
+                  >
+                    {playerInitials}
+                  </Text>
+                </View>
+              )}
+
+              <Text
+                style={[spmStyles.playerName, { color: theme.text }]}
+                numberOfLines={2}
+              >
+                {fullName}
+              </Text>
+              <Text
+                style={[spmStyles.jerseyNum, { color: theme.textSecondary }]}
+              >
+                {subtitleText || " "}
+              </Text>
+
+              <View style={spmStyles.triRow}>
+                <View style={spmStyles.triCell}>
+                  <Text
+                    style={[spmStyles.triValue, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {positionName}
+                  </Text>
+                  <Text
+                    style={[spmStyles.triLabel, { color: theme.textSecondary }]}
+                  >
+                    POSITION
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    spmStyles.triCell,
+                    spmStyles.triCellMid,
+                    { borderColor: theme.border },
+                  ]}
+                >
+                  <Text style={[spmStyles.triValue, { color: theme.text }]}>
+                    {minutesPlayed != null
+                      ? `${minutesPlayed}${String(minutesPlayed).includes("'") ? "" : "'"}`
+                      : lineupTypeName || "—"}
+                  </Text>
+                  {minutesPlayed != null ? (
+                    <Text
+                      style={[
+                        spmStyles.triLabel,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      MIN PLAYED
+                    </Text>
+                  ) : null}
+                </View>
+                <View style={spmStyles.triCell}>
+                  <Text style={[spmStyles.triValue, { color: theme.text }]}>
+                    {age ?? "—"}
+                  </Text>
+                  <Text
+                    style={[spmStyles.triLabel, { color: theme.textSecondary }]}
+                  >
+                    AGE
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={spmStyles.scrollContent}
+            >
+              <Text
+                style={[spmStyles.statSection, { color: theme.textSecondary }]}
+              >
+                STATS
+              </Text>
+
+              {keyStats.length > 0 ? (
+                <View style={spmStyles.keyStatsRow}>
+                  {keyStats.map((stat) => (
+                    <View key={stat.key} style={spmStyles.keyStatItem}>
+                      <View style={spmStyles.keyStatRing}>
+                        <Svg
+                          width={62}
+                          height={62}
+                          style={spmStyles.keyStatRingSvg}
+                        >
+                          <Circle
+                            cx={31}
+                            cy={31}
+                            r={27}
+                            stroke={`${teamColor}33`}
+                            strokeWidth={4}
+                            fill="none"
+                          />
+                          <Circle
+                            cx={31}
+                            cy={31}
+                            r={27}
+                            stroke={teamColor}
+                            strokeWidth={4}
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeDasharray={`${2 * Math.PI * 27} ${2 * Math.PI * 27}`}
+                            strokeDashoffset={
+                              2 *
+                              Math.PI *
+                              27 *
+                              (1 - Math.max(0, Math.min(1, stat.ratio)))
+                            }
+                            transform="rotate(-90 31 31)"
+                          />
+                        </Svg>
+                        <View
+                          style={[
+                            spmStyles.keyStatCoreTrack,
+                            {
+                              backgroundColor: theme.surfaceSecondary,
+                              borderColor: `${teamColor}22`,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              spmStyles.keyStatValue,
+                              { color: theme.text },
+                            ]}
+                          >
+                            {stat.valueText}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text
+                        style={[
+                          spmStyles.keyStatLabel,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {stat.label}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
+              {keyStats.length > 0 && statRows.length > 0 ? (
+                <View
+                  style={[
+                    spmStyles.keyStatsDivider,
+                    { backgroundColor: theme.border },
+                  ]}
+                />
+              ) : null}
+
+              {statRows.length === 0 ? (
+                <Text
+                  style={[spmStyles.emptyText, { color: theme.textTertiary }]}
+                >
+                  No player stats available.
+                </Text>
+              ) : (
+                statRows.map((row) => (
+                  <View key={row.name} style={spmStyles.statRow}>
+                    <Text
+                      style={[spmStyles.statRowLabel, { color: theme.text }]}
+                      numberOfLines={2}
+                    >
+                      {row.name}
+                    </Text>
+                    <View style={spmStyles.statRowRight}>
+                      <View
+                        style={[
+                          spmStyles.statBarTrack,
+                          { backgroundColor: theme.surfaceSecondary },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            spmStyles.statBarFill,
+                            {
+                              width: `${Math.max(3, row.pct * 100)}%`,
+                              backgroundColor: teamColor,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text
+                        style={[spmStyles.statRowValue, { color: theme.text }]}
+                      >
+                        {row.valueText}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={visible && playerShareVisible}
+        animationType="fade"
+        transparent
+        onShow={() =>
+          console.log("[Top5Share] Share modal shown", {
+            hasShareCardRef: !!shareCardRef.current,
+          })
+        }
+        onRequestClose={() => setPlayerShareVisible(false)}
+      >
+        <View
+          style={spmStyles.shareOverlay}
+          onLayout={() => {
+            console.log("[Top5Share] Share modal overlay layout", {
+              hasShareCardRef: !!shareCardRef.current,
+              resolvedPlayerId,
+            });
+          }}
+        >
+          <ViewShot
+            ref={shareCardRef}
+            options={{ format: "png", quality: 1 }}
+            style={{ overflow: "hidden" }}
+          >
+            <View
+              collapsable={false}
+              style={[spmStyles.shareCard, { backgroundColor: theme.surface }]}
+            >
+              <View
+                style={[
+                  spmStyles.shareHeader,
+                  {
+                    backgroundColor: `${teamColor}22`,
+                    borderBottomColor: teamColor,
+                  },
+                ]}
+              >
+                <View style={spmStyles.shareTopRow}>
+                  <View
+                    style={[
+                      spmStyles.sharePosBadge,
+                      { backgroundColor: teamColor },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        spmStyles.sharePosBadgeText,
+                        { color: textOnTeam },
+                      ]}
+                    >
+                      {jerseyNum || "#?"}
+                      {positionName ? ` \u00B7 ${positionName}` : ""}
+                    </Text>
+                  </View>
+
+                  <View style={spmStyles.shareScoreWrap}>
+                    {home?.image_path ? (
+                      <Image
+                        source={{ uri: home.image_path }}
+                        style={spmStyles.shareScoreLogo}
+                        contentFit="contain"
+                      />
+                    ) : null}
+                    <Text
+                      style={[spmStyles.shareScoreText, { color: theme.text }]}
+                    >
+                      <Text style={{ fontWeight: homeWon ? "800" : "400" }}>
+                        {scoreHome}
+                      </Text>
+                      {" - "}
+                      <Text style={{ fontWeight: awayWon ? "800" : "400" }}>
+                        {scoreAway}
+                      </Text>
+                    </Text>
+                    {away?.image_path ? (
+                      <Image
+                        source={{ uri: away.image_path }}
+                        style={spmStyles.shareScoreLogo}
+                        contentFit="contain"
+                      />
+                    ) : null}
+                  </View>
+                </View>
+
+                <View style={spmStyles.shareNameRow}>
+                  {playerImageUri ? (
+                    <Image
+                      source={{ uri: playerImageUri }}
+                      style={[
+                        spmStyles.shareInitialsCircle,
+                        {
+                          backgroundColor: `${teamColor}30`,
+                          borderColor: teamColor,
+                          borderWidth: 2,
+                        },
+                      ]}
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        spmStyles.shareInitialsCircle,
+                        {
+                          backgroundColor: `${teamColor}30`,
+                          borderColor: teamColor,
+                          borderWidth: 2,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          spmStyles.shareInitialsText,
+                          { color: textOnTeam },
+                        ]}
+                      >
+                        {playerInitials}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={spmStyles.shareNameRight}>
+                    <View style={spmStyles.shareSummaryRow}>
+                      {summaryStats.map(({ label, value }) => (
+                        <View key={label} style={spmStyles.shareSummaryCell}>
+                          <Text
+                            style={[
+                              spmStyles.shareSummaryVal,
+                              { color: theme.text },
+                            ]}
+                          >
+                            {value != null ? String(value) : "—"}
+                          </Text>
+                          <Text
+                            style={[
+                              spmStyles.shareSummaryLbl,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {label}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+
+                    <View style={spmStyles.shareMetaRow}>
+                      <View style={spmStyles.shareMetaLeft}>
+                        <Text
+                          style={[spmStyles.shareName, { color: theme.text }]}
+                          numberOfLines={1}
+                        >
+                          {fullName}
+                        </Text>
+                        <View style={spmStyles.shareTeamRow}>
+                          {resolvedTeam?.image_path ? (
+                            <Image
+                              source={{ uri: resolvedTeam.image_path }}
+                              style={spmStyles.shareTeamLogo}
+                              contentFit="contain"
+                            />
+                          ) : null}
+                          <Text
+                            style={[
+                              spmStyles.shareTeamLabel,
+                              { color: theme.textSecondary },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {teamName}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {gameDateParts ? (
+                        <View style={spmStyles.shareDateBlock}>
+                          <Text
+                            style={[
+                              spmStyles.shareDateText,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {gameDateParts.monthDate}
+                          </Text>
+                          <Text
+                            style={[
+                              spmStyles.shareDateText,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {gameDateParts.year}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              <View style={spmStyles.shareStatGrid}>
+                {shareStatItems.map(({ label, value, pct }, i) => (
+                  <View
+                    key={label}
+                    style={[
+                      spmStyles.shareStatCell,
+                      { borderColor: theme.border },
+                      i % 3 !== 2 && {
+                        borderRightWidth: StyleSheet.hairlineWidth,
+                      },
+                      i < 6 && { borderBottomWidth: StyleSheet.hairlineWidth },
+                    ]}
+                  >
+                    {!!pct && (
+                      <Text
+                        style={[
+                          spmStyles.shareStatPct,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        {pct}
+                      </Text>
+                    )}
+                    <Text
+                      style={[spmStyles.shareStatVal, { color: theme.text }]}
+                    >
+                      {value != null ? String(value) : "—"}
+                    </Text>
+                    <Text
+                      style={[
+                        spmStyles.shareStatLbl,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              <View
+                style={[
+                  spmStyles.shareFooter,
+                  { borderTopColor: theme.border },
+                ]}
+              >
+                <Text style={[spmStyles.shareBrand, { color: theme.text }]}>
+                  SportsHeart{" "}
+                  <Ionicons name="heart" size={10} color={colors.primary} />
+                </Text>
+              </View>
+            </View>
+          </ViewShot>
+
+          <View style={spmStyles.shareActions}>
+            <TouchableOpacity
+              style={[spmStyles.shareActionBtn, { backgroundColor: teamColor }]}
+              onPress={handlePlayerShare}
+              disabled={sharingPlayerCard}
+            >
+              {sharingPlayerCard ? (
+                <Text style={spmStyles.shareActionBtnText}>Sharing...</Text>
+              ) : (
+                <>
+                  <Ionicons name="share-outline" size={18} color="#fff" />
+                  <Text style={spmStyles.shareActionBtnText}>Share</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                spmStyles.shareActionBtn,
+                { backgroundColor: theme.surfaceSecondary },
+              ]}
+              onPress={() => setPlayerShareVisible(false)}
+            >
+              <Text
+                style={[spmStyles.shareActionBtnText, { color: theme.text }]}
+              >
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
+};
+
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 const TABS = ["Main", "Home", "Away", "Stats", "Commentary", "H2H"];
 
@@ -3486,6 +6481,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   const [headerH, setHeaderH] = useState(180);
   const [activeTab, setActiveTab] = useState("Main");
   const [performerMode, setPerformerMode] = useState("match");
+  const [playerModalContext, setPlayerModalContext] = useState(null);
   const [h2hVisibleCount, setH2hVisibleCount] = useState(5);
   const [h2hHomeOnly, setH2hHomeOnly] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -3828,6 +6824,51 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
       },
     };
   }, [fixture, home, away]);
+
+  const openPlayerModal = useCallback(
+    (payload) => {
+      if (!payload) return;
+
+      const allLineups = fixture?.lineups ?? [];
+      const team = payload?.team ?? null;
+
+      let lineup = payload?.lineup ?? null;
+      if (!lineup && payload?.playerId != null) {
+        lineup =
+          allLineups.find(
+            (l) =>
+              l?.player_id === payload.playerId &&
+              (team?.id == null || l?.team_id === team.id),
+          ) ?? allLineups.find((l) => l?.player_id === payload.playerId);
+      }
+
+      if (!lineup && !payload?.player) return;
+
+      const resolvedTeam =
+        team ??
+        (lineup?.team_id === home?.id
+          ? home
+          : lineup?.team_id === away?.id
+            ? away
+            : null);
+
+      const fallbackLineup = lineup ?? {
+        player_id: payload?.playerId ?? payload?.player?.id ?? null,
+        team_id: resolvedTeam?.id ?? null,
+        player: payload?.player ?? null,
+        details: [],
+        position: null,
+        detailedposition: null,
+      };
+
+      setPlayerModalContext({ lineup: fallbackLineup, team: resolvedTeam });
+    },
+    [fixture, home, away],
+  );
+
+  const closePlayerModal = useCallback(() => {
+    setPlayerModalContext(null);
+  }, []);
 
   const h2hMatches = useMemo(() => {
     const matches = data?.h2hData ?? [];
@@ -4285,18 +7326,28 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                   entry={manOfTheMatch}
                   theme={theme}
                   colors={colors}
+                  onPress={() =>
+                    openPlayerModal({
+                      lineup: manOfTheMatch?.lineup,
+                      team: manOfTheMatch?.team,
+                    })
+                  }
                 />
               ) : null}
               <EventsSection
                 events={fixture.events ?? []}
+                comments={fixture.comments ?? []}
                 periods={fixture.periods ?? []}
                 scores={fixture.scores ?? []}
+                lineups={fixture.lineups ?? []}
+                participants={fixture.participants ?? []}
                 stateCode={stateCode}
                 homeId={home?.id}
                 awayId={away?.id}
                 theme={theme}
                 accentColor={homeColor}
                 colors={colors}
+                onPlayerPress={openPlayerModal}
               />
               <TopPerformersSection
                 mode={performerMode}
@@ -4308,7 +7359,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 awayColor={awayColor}
                 theme={theme}
                 colors={colors}
-                navigation={navigation}
+                onPlayerPress={openPlayerModal}
               />
               <GameInfoSection
                 venue={fixture.venue ?? null}
@@ -4341,12 +7392,21 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 teamColor={homeColor}
                 isDarkMode={isDarkMode}
                 reverseFormationX={true}
+                onPlayerPress={openPlayerModal}
+                theme={theme}
+              />
+              <HomeSidelinedSection
+                team={home}
+                sidelined={fixture.sidelined ?? []}
+                teamColor={homeColor}
+                onPlayerPress={openPlayerModal}
                 theme={theme}
               />
               <HomeManagerSection
                 manager={homeManager}
                 teamColor={homeColor}
                 theme={theme}
+                navigation={navigation}
               />
             </View>
           )}
@@ -4367,32 +7427,46 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 teamColor={awayColor}
                 isDarkMode={isDarkMode}
                 reverseFormationX={false}
+                onPlayerPress={openPlayerModal}
+                theme={theme}
+              />
+              <HomeSidelinedSection
+                team={away}
+                sidelined={fixture.sidelined ?? []}
+                teamColor={awayColor}
+                onPlayerPress={openPlayerModal}
                 theme={theme}
               />
               <HomeManagerSection
                 manager={awayManager}
                 teamColor={awayColor}
                 theme={theme}
+                navigation={navigation}
               />
             </View>
           )}
           {activeTab === "Stats" && (
-            <View style={styles.comingSoon}>
-              <Text
-                style={[styles.comingSoonText, { color: theme.textTertiary }]}
-              >
-                Stats tab coming soon
-              </Text>
-            </View>
+            <StatsSection
+              statistics={fixture.statistics ?? []}
+              lineups={fixture.lineups ?? []}
+              home={home}
+              away={away}
+              homeColor={homeColor}
+              awayColor={awayColor}
+              theme={theme}
+            />
           )}
           {activeTab === "Commentary" && (
             <View style={{ paddingTop: 6 }}>
               <CommentarySection
                 comments={fixture.comments ?? []}
                 events={fixture.events ?? []}
+                periods={fixture.periods ?? []}
                 lineups={fixture.lineups ?? []}
                 participants={fixture.participants ?? []}
                 theme={theme}
+                colors={colors}
+                onPlayerPress={openPlayerModal}
               />
             </View>
           )}
@@ -4463,6 +7537,21 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
             </View>
           )}
         </View>
+
+        <SoccerPlayerDetailModal
+          visible={!!playerModalContext}
+          onClose={closePlayerModal}
+          lineup={playerModalContext?.lineup ?? null}
+          team={playerModalContext?.team ?? null}
+          allLineups={fixture?.lineups ?? []}
+          home={home}
+          away={away}
+          homeScore={homeScore}
+          awayScore={awayScore}
+          startingAt={fixture?.starting_at ?? null}
+          theme={theme}
+          colors={colors}
+        />
 
         <View style={{ height: 32 }} />
       </Animated.ScrollView>
@@ -5347,6 +8436,130 @@ const evStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "400",
   },
+  playerPopupOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  playerPopupBackdropTap: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  playerPopupCard: {
+    width: "100%",
+    maxWidth: 520,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  playerPopupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  playerPopupHeaderTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  playerPopupCloseBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerPopupCloseText: {
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  playerPopupBody: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  playerPopupSection: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    padding: 10,
+  },
+  playerPopupTitle: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.45,
+    marginBottom: 8,
+  },
+  playerPopupRow: {
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  playerPopupAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+  },
+  playerPopupAvatarFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerPopupInitials: {
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  playerPopupNameCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  playerPopupFirstName: {
+    fontSize: 12,
+    fontWeight: "500",
+    lineHeight: 16,
+  },
+  playerPopupLastName: {
+    fontSize: 15,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
+  playerPopupTeamLogo: {
+    width: 26,
+    height: 26,
+  },
+  playerPopupTeamLogoFallback: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerPopupTeamLogoFallbackText: {
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  goalShareActionBtn: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  goalShareActionText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
 });
 
 const tpStyles = StyleSheet.create({
@@ -5940,6 +9153,87 @@ const h2hStyles = StyleSheet.create({
   },
 });
 
+const stStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  body: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  rowWrap: {
+    gap: 5,
+  },
+  valueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  valueText: {
+    fontSize: 12,
+    fontWeight: "700",
+    minWidth: 44,
+  },
+  valueLeft: {
+    textAlign: "left",
+  },
+  valueRight: {
+    textAlign: "right",
+  },
+  barTrack: {
+    height: 8,
+    borderRadius: 999,
+    overflow: "hidden",
+    position: "relative",
+  },
+  barFillLeft: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    bottom: 0,
+    borderTopLeftRadius: 999,
+    borderBottomLeftRadius: 999,
+  },
+  barFillRight: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    borderTopRightRadius: 999,
+    borderBottomRightRadius: 999,
+  },
+  statName: {
+    fontSize: 11,
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 1,
+  },
+  emptyText: {
+    fontSize: 12,
+    textAlign: "center",
+    paddingVertical: 8,
+  },
+});
+
 const cmStyles = StyleSheet.create({
   sectionWrap: {
     marginTop: 8,
@@ -5999,6 +9293,15 @@ const cmStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
+  },
+  cardHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    minWidth: 0,
+  },
+  headerCardIcon: {
+    transform: [{ rotate: "90deg" }],
   },
   cardHeaderTitle: {
     fontSize: 12,
@@ -6082,6 +9385,819 @@ const cmStyles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
     lineHeight: 15,
+  },
+  goalPopupOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  goalPopupBackdropTap: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  goalPopupCard: {
+    width: "100%",
+    maxWidth: 520,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  goalPopupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  goalPopupHeaderTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  goalPopupCloseBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  goalPopupCloseText: {
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  goalPopupBody: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  goalPopupSection: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    padding: 10,
+  },
+  goalPopupSectionTitle: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.45,
+    marginBottom: 8,
+  },
+  goalPopupPlayerRow: {
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  goalPopupAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+  },
+  goalPopupAvatarFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  goalPopupInitials: {
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  goalPopupNameCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  goalPopupFirstName: {
+    fontSize: 12,
+    fontWeight: "500",
+    lineHeight: 16,
+  },
+  goalPopupLastName: {
+    fontSize: 15,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
+  goalPopupTeamLogo: {
+    width: 26,
+    height: 26,
+  },
+  goalPopupTeamLogoFallback: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  goalPopupTeamLogoFallbackText: {
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  goalShareActionBtn: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  goalShareActionText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+});
+
+const gscStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  backdropTap: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  centerWrap: {
+    alignItems: "center",
+  },
+  card: {
+    borderRadius: 0,
+    overflow: "hidden",
+  },
+  header: {
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 2,
+  },
+  headerTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+    gap: 8,
+  },
+  timeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    flexShrink: 1,
+  },
+  scoreWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  scoreLogo: {
+    width: 18,
+    height: 18,
+  },
+  scoreText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  goalTypeText: {
+    fontSize: 17,
+    fontWeight: "800",
+    marginBottom: 3,
+  },
+  commentText: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  bodyRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+  },
+  goalCardFieldPane: {
+    borderRightWidth: StyleSheet.hairlineWidth,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  goalCardFieldContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  miniField: {
+    width: 180,
+    height: 120, // Landscape orientation - wider than tall
+    marginVertical: 16,
+    alignSelf: "center",
+  },
+  fieldContainer: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#2d5a2d",
+    borderRadius: 8,
+    position: "relative",
+    overflow: "hidden",
+  },
+  fieldOutline: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    right: 4,
+    bottom: 4,
+    borderWidth: 2,
+    borderColor: "white",
+    borderRadius: 4,
+  },
+  centerLine: {
+    position: "absolute",
+    left: "50%",
+    top: 4,
+    bottom: 4,
+    width: 2,
+    backgroundColor: "white",
+    marginLeft: -1,
+  },
+  centerCircleMini: {
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    width: 40,
+    height: 40,
+    borderWidth: 2,
+    borderColor: "white",
+    borderRadius: 20,
+    marginLeft: -20,
+    marginTop: -20,
+  },
+  penaltyAreaLeft: {
+    position: "absolute",
+    left: 4,
+    top: "25%",
+    bottom: "25%",
+    width: 30,
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderColor: "white",
+  },
+  penaltyAreaRight: {
+    position: "absolute",
+    right: 4,
+    top: "25%",
+    bottom: "25%",
+    width: 30,
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderLeftWidth: 2,
+    borderColor: "white",
+  },
+  goalAreaLeft: {
+    position: "absolute",
+    left: 4,
+    top: "37.5%",
+    bottom: "37.5%",
+    width: 15,
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderColor: "white",
+  },
+  goalAreaRight: {
+    position: "absolute",
+    right: 4,
+    top: "37.5%",
+    bottom: "37.5%",
+    width: 15,
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderLeftWidth: 2,
+    borderColor: "white",
+  },
+  goalLeft: {
+    position: "absolute",
+    left: 2,
+    top: "42.5%",
+    bottom: "42.5%",
+    width: 4,
+    backgroundColor: "white",
+  },
+  goalRight: {
+    position: "absolute",
+    right: 2,
+    top: "42.5%",
+    bottom: "42.5%",
+    width: 4,
+    backgroundColor: "white",
+  },
+  infoPanel: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatar: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 2,
+    marginBottom: 5,
+  },
+  avatarFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitial: {
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  playerName: {
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 3,
+  },
+  teamRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 8,
+  },
+  teamLogo: {
+    width: 14,
+    height: 14,
+  },
+  teamName: {
+    fontSize: 11,
+    fontWeight: "600",
+    textAlign: "center",
+    maxWidth: 160,
+  },
+  assistWrap: {
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  assistName: {
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  assistLabel: {
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    width: "100%",
+  },
+  statCell: {
+    width: "33.333%",
+    alignItems: "center",
+    paddingVertical: 6,
+  },
+  statValue: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  statLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginTop: 2,
+  },
+  footer: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignItems: "flex-end",
+  },
+  footerBrand: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  actionsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 14,
+    paddingHorizontal: 4,
+  },
+  actionBtn: {
+    minWidth: 132,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 13,
+    borderRadius: 28,
+    gap: 6,
+  },
+  actionBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#fff",
+  },
+});
+
+const spmStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.52)",
+    justifyContent: "flex-end",
+  },
+  backdropTap: {
+    flex: 1,
+  },
+  sheet: {
+    maxHeight: 720,
+    height: "88%",
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderTopWidth: 3,
+    overflow: "hidden",
+  },
+  dragStrip: {
+    paddingTop: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  handleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: -10,
+  },
+  handleRowSpacer: {
+    width: 64,
+  },
+  headerActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  handle: {
+    width: 42,
+    height: 5,
+    borderRadius: 3,
+    opacity: 0.7,
+  },
+  iconBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeBtnText: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  headshot: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    borderWidth: 2,
+    alignSelf: "center",
+    marginTop: 2,
+  },
+  headshotInitial: {
+    fontSize: 26,
+    fontWeight: "800",
+  },
+  playerName: {
+    marginTop: 10,
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: "800",
+    textAlign: "center",
+    paddingHorizontal: 24,
+  },
+  jerseyNum: {
+    marginTop: 2,
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  triRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "stretch",
+  },
+  triCell: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  triCellMid: {
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+  },
+  triValue: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  triLabel: {
+    marginTop: 3,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.35,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 24,
+    gap: 10,
+  },
+  statSection: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  keyStatsRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "center",
+    gap: 16,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  keyStatItem: {
+    alignItems: "center",
+    width: 82,
+  },
+  keyStatRing: {
+    width: 62,
+    height: 62,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  keyStatRingSvg: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+  },
+  keyStatCoreTrack: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  keyStatValue: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  keyStatLabel: {
+    marginTop: 6,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+  },
+  keyStatsDivider: {
+    height: 1,
+    marginTop: 8,
+    marginBottom: 4,
+    marginHorizontal: 4,
+    opacity: 0.85,
+  },
+  emptyText: {
+    fontSize: 13,
+    fontWeight: "600",
+    paddingVertical: 8,
+  },
+  statRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  statRowLabel: {
+    flex: 0.48,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  statRowRight: {
+    flex: 0.52,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  statBarTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  statBarFill: {
+    height: "100%",
+    borderRadius: 999,
+  },
+  statRowValue: {
+    minWidth: 34,
+    textAlign: "right",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  shareOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  shareCard: {
+    width: width - 48,
+    overflow: "hidden",
+  },
+  shareHeader: {
+    padding: 14,
+    borderBottomWidth: 2,
+  },
+  shareTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  sharePosBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  sharePosBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  shareScoreWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  shareScoreLogo: {
+    width: 18,
+    height: 18,
+  },
+  shareScoreText: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  shareNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  shareInitialsCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  shareInitialsText: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  shareNameRight: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  shareSummaryRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 2,
+  },
+  shareSummaryCell: {
+    alignItems: "flex-start",
+    gap: 1,
+  },
+  shareSummaryVal: {
+    fontSize: 16,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  shareSummaryLbl: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  shareMetaRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginTop: 6,
+  },
+  shareMetaLeft: {
+    flex: 1,
+    gap: 3,
+  },
+  shareName: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  shareTeamRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  shareTeamLogo: {
+    width: 14,
+    height: 14,
+  },
+  shareTeamLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  shareDateText: {
+    fontSize: 11,
+    fontWeight: "500",
+    marginLeft: 6,
+    lineHeight: 13,
+    textAlign: "right",
+  },
+  shareDateBlock: {
+    marginLeft: 6,
+    alignItems: "flex-end",
+  },
+  shareStatGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  shareStatCell: {
+    width: "33.333%",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    position: "relative",
+  },
+  shareStatPct: {
+    position: "absolute",
+    top: 5,
+    right: 7,
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  shareStatVal: {
+    fontSize: 18,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  shareStatLbl: {
+    fontSize: 9,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 3,
+    textAlign: "center",
+  },
+  shareFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    alignItems: "flex-end",
+  },
+  shareBrand: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  shareActions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 14,
+    width: width - 48,
+  },
+  shareActionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 13,
+    borderRadius: 28,
+    gap: 6,
+  },
+  shareActionBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#fff",
   },
 });
 

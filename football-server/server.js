@@ -42,7 +42,7 @@ const gameActivity = new Map();
 let leagueMeta = null;
 
 // ─── SportsApiPro competition IDs to warm on startup ─────────────────────────
-const SAP_COMPETITION_IDS = [61, 119, 7, 11, 25, 17, 35];
+const SAP_COMPETITION_IDS = [7, 11, 25, 17, 35];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Low-level helpers
@@ -2175,7 +2175,7 @@ async function warmCacheTeams() {
       const url =
         `${SM_BASE}/teams?api_token=${SM_TOKEN}` +
         `&include=rankings;activeSeasons.league;sidelined.player;players.player` +
-        `&per_page=50&filters=teamCountries:320,1161,462,17,251,32,11,75285&page=${page}`;
+        `&per_page=50&filters=teamCountries:462,17,251,32,11,75285&page=${page}`;
       const resp = await fetchUrl(url);
       if (!resp?.data || !Array.isArray(resp.data)) break;
       all = all.concat(resp.data);
