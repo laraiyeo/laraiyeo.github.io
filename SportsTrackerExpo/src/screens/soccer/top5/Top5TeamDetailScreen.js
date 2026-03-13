@@ -628,6 +628,7 @@ function BestMatch({
   teamId,
   theme,
   colors,
+  isDarkMode,
   teamColor,
   leagueNameMap,
   navigation,
@@ -726,7 +727,7 @@ function BestMatch({
             {leagueLogoUri ? (
               <Image
                 source={{ uri: leagueLogoUri }}
-                style={bmStyles.leagueLogo}
+                style={[bmStyles.leagueLogo, { tintColor: (best.league_id === 8 && isDarkMode) ? theme.text : undefined }]}
                 resizeMode="contain"
               />
             ) : null}
@@ -1581,7 +1582,7 @@ function RivalsSection({ teamInfo, theme, navigation }) {
   );
 }
 
-function CurrentSeasonsSection({ teamInfo, theme, navigation }) {
+function CurrentSeasonsSection({ teamInfo, theme, isDarkMode, navigation }) {
   const activeSeasons = teamInfo?.activeseasons ?? [];
   if (activeSeasons.length === 0) return null;
 
@@ -1621,7 +1622,7 @@ function CurrentSeasonsSection({ teamInfo, theme, navigation }) {
           {season.league?.image_path ? (
             <Image
               source={{ uri: season.league.image_path }}
-              style={infoStyles.logo}
+              style={[infoStyles.logo, { tintColor: (season.league_id === 8 && isDarkMode) ? theme.text : undefined }]}
               resizeMode="contain"
             />
           ) : (
@@ -4444,7 +4445,7 @@ const inStyles = StyleSheet.create({
 
 export default function Top5TeamDetailScreen({ route, navigation }) {
   const { teamId, teamName } = route.params ?? {};
-  const { theme, colors } = useTheme();
+  const { theme, colors, isDarkMode } = useTheme();
 
   const [teamData, setTeamData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -4856,6 +4857,7 @@ export default function Top5TeamDetailScreen({ route, navigation }) {
                 teamId={teamId}
                 theme={theme}
                 colors={colors}
+                isDarkMode={isDarkMode}
                 teamColor={resolvedColor}
                 leagueNameMap={leagueNameMap}
                 navigation={navigation}
@@ -4877,6 +4879,7 @@ export default function Top5TeamDetailScreen({ route, navigation }) {
               <CurrentSeasonsSection
                 teamInfo={teamInfo}
                 theme={theme}
+                isDarkMode={isDarkMode}
                 navigation={navigation}
               />
               <VenueSection teamInfo={teamInfo} theme={theme} />

@@ -357,7 +357,7 @@ function PlayerTeamRow({ stint, last, theme, navigation }) {
   return inner;
 }
 
-function CurrentSeasonCard({ stat, theme, accentColor }) {
+function CurrentSeasonCard({ stat, theme, isDarkMode, accentColor }) {
   const league = stat.season?.league ?? {};
   const team = stat.team ?? {};
   const teamColor = team.colorPrimary ?? accentColor;
@@ -395,7 +395,7 @@ function CurrentSeasonCard({ stat, theme, accentColor }) {
           {leagueLogo ? (
             <Image
               source={{ uri: leagueLogo }}
-              style={iStyles.csLeagueLogo}
+              style={[iStyles.csLeagueLogo, { tintColor: (league.id === 8 && isDarkMode) ? theme.text : undefined }]}
               resizeMode="contain"
             />
           ) : null}
@@ -1664,7 +1664,7 @@ function RatingsTracker({
 
 export default function Top5PlayerScreen({ route, navigation }) {
   const { playerId, playerName: routeName } = route.params ?? {};
-  const { theme, colors } = useTheme();
+  const { theme, colors, isDarkMode } = useTheme();
 
   const [playerData, setPlayerData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -2077,6 +2077,7 @@ export default function Top5PlayerScreen({ route, navigation }) {
           <CurrentSeasonCard
             stat={currentSeason}
             theme={theme}
+            isDarkMode={isDarkMode}
             accentColor={accentColor}
           />
         ) : null}

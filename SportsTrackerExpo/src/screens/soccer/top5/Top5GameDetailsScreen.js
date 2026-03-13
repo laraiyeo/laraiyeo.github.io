@@ -27,6 +27,7 @@ import Svg, {
 } from "react-native-svg";
 import {
   FontAwesome6,
+  FontAwesome5,
   MaterialCommunityIcons,
   Ionicons,
 } from "@expo/vector-icons";
@@ -50,8 +51,10 @@ const GAME_FACTS_CACHE_KEY = (fixtureId) => `@gameDetail_facts_v1:${fixtureId}`;
 
 // ─── Polling helpers (same pattern as Top5ScoreboardScreen) ──────────────────
 const INTERVAL_SLOW = 30 * 60 * 1000; // 30 minutes
-const INTERVAL_FAST = 5 * 1000; // 5 seconds
-const SOON_THRESHOLD = 5 * 60 * 1000; // 5 minutes before kick-off
+const INTERVAL_FAST = 10 * 1000; // 10 seconds
+const INTERVAL_SOON = 60 * 1000; // 1 minute
+const INTERVAL_FINISHED = 6 * 60 * 60 * 1000; // 6 hours
+const LIVE_SHORT_NAMES = new Set(["1ST", "2ND", "HT"]);
 
 const isLiveState = (stateCode) => {
   const code = (stateCode || "").toUpperCase();
@@ -87,33 +90,155 @@ const isFinishedState = (stateCode) => {
   ].includes(code);
 };
 
-const getPollingIntervalForFixture = (fixture) => {
-  if (!fixture) return INTERVAL_SLOW;
-  const code = fixture?.state?.state || "";
-  if (isLiveState(code)) return INTERVAL_FAST;
-  if (!isFinishedState(code)) {
-    try {
-      const startMs = new Date(
-        fixture.starting_at.replace(" ", "T") + "Z",
-      ).getTime();
-      const now = Date.now();
-      if (startMs - now <= SOON_THRESHOLD && startMs > now)
-        return INTERVAL_FAST;
-    } catch (_) {}
+const shortNameOf = (fixture) =>
+  String(fixture?.state?.short_name || "").toUpperCase();
+
+const startMsOf = (fixture) => {
+  try {
+    return new Date(fixture.starting_at.replace(" ", "T") + "Z").getTime();
+  } catch (_) {
+    return null;
   }
-  return INTERVAL_SLOW;
+};
+
+const getFixturePolicy = (fixture) => {
+  if (!fixture) {
+    return { mode: "default", intervalMs: INTERVAL_SLOW, cacheMs: 0 };
+  }
+
+  const short = shortNameOf(fixture);
+  if (LIVE_SHORT_NAMES.has(short)) {
+    return { mode: "live", intervalMs: INTERVAL_FAST, cacheMs: INTERVAL_FAST };
+  }
+
+  if (short === "FT") {
+    return {
+      mode: "finished",
+      intervalMs: INTERVAL_FINISHED,
+      cacheMs: INTERVAL_FINISHED,
+    };
+  }
+
+  if (short === "NS") {
+    const now = Date.now();
+    const startMs = startMsOf(fixture);
+    const withinHour =
+      Number.isFinite(startMs) &&
+      startMs > now &&
+      startMs - now <= 60 * 60 * 1000;
+
+    if (withinHour) {
+      return {
+        mode: "scheduled_soon",
+        intervalMs: INTERVAL_SOON,
+        cacheMs: INTERVAL_SOON,
+      };
+    }
+
+    return {
+      mode: "scheduled",
+      intervalMs: INTERVAL_SLOW,
+      cacheMs: INTERVAL_SLOW,
+    };
+  }
+
+  return {
+    mode: "default",
+    intervalMs: INTERVAL_SLOW,
+    cacheMs: INTERVAL_SLOW,
+  };
+};
+
+const formatFixtureTime = (fixture) => {
+  try {
+    const date = new Date(fixture.starting_at.replace(" ", "T") + "Z");
+    const hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const h = hours % 12 || 12;
+    return { time: `${h}:${minutes}`, ampm };
+  } catch (_) {
+    return { time: "--:--", ampm: "" };
+  }
+};
+
+const pad2 = (v) => String(Math.max(0, v)).padStart(2, "0");
+
+const getTickingClock = (fixture, nowMs, snapshotTsMs) => {
+  const ticking = (fixture?.periods ?? []).find((p) => p?.ticking === true);
+  if (!ticking) return null;
+
+  const anchorTotal = Number(fixture?.__tickAnchorTotal ?? 0);
+  const anchorTs = Number(fixture?.__tickAnchorTs ?? snapshotTsMs ?? nowMs);
+  const safeAnchorTotal = Number.isFinite(anchorTotal) ? anchorTotal : 0;
+  const safeAnchorTs = Number.isFinite(anchorTs) ? anchorTs : nowMs;
+
+  const elapsed = Math.max(0, Math.floor((nowMs - safeAnchorTs) / 1000));
+  const total = safeAnchorTotal + elapsed;
+  const mm = Math.floor(total / 60);
+  const ss = total % 60;
+
+  return `${mm}:${pad2(ss)}`;
+};
+
+const getStatusInfo = (fixture, nowMs = Date.now(), snapshotTsMs = nowMs) => {
+  const code = (fixture?.state?.state || "").toUpperCase();
+  const long = fixture?.state?.name || "";
+  const short =
+    getTickingClock(fixture, nowMs, snapshotTsMs) ||
+    fixture?.state?.short_name ||
+    code;
+  const isFinished = [
+    "FT",
+    "AET",
+    "FT_PEN",
+    "POSTP",
+    "CANC",
+    "ABAN",
+    "WO",
+    "WALKOVER",
+    "CUT",
+    "AWA",
+  ].includes(code);
+  const isScheduled = !code || ["NS", "TBA", "DELAYED"].includes(code);
+  const isLive = !isFinished && !isScheduled;
+
+  if (isLive) {
+    return {
+      line1: short || "LIVE",
+      line2: long || "",
+      isLive: true,
+      isFinished: false,
+    };
+  }
+
+  if (isFinished) {
+    const { time, ampm } = formatFixtureTime(fixture);
+    return {
+      line1: short || "FT",
+      line2: `${time} ${ampm}`,
+      isLive: false,
+      isFinished: true,
+    };
+  }
+
+  const { time, ampm } = formatFixtureTime(fixture);
+  return { line1: time, line2: ampm, isLive: false, isFinished: false };
 };
 
 // ─── Goal time formatter ──────────────────────────────────────────────────────
 function formatGoalTime(e) {
   const min = e.minute != null ? `${e.minute}'` : "";
   const extra = e.extra_minute ? `+${e.extra_minute}'` : "";
-  const addLow = (e.addition || "").toLowerCase();
+  const low = `${e?.addition || ""} ${e?.info || ""}`
+    .toLowerCase()
+    .replace(/\s+/g, " ");
   const isP =
-    addLow.includes("penalty") &&
-    !addLow.includes("awarded") &&
-    !addLow.includes("missed");
-  return `${min}${extra}${isP ? " (P.)" : ""}`;
+    low.includes("penalty") &&
+    !low.includes("awarded") &&
+    !low.includes("missed");
+  const isOG = low.includes("own goal") || low.includes("owngoal");
+  return `${min}${extra}${isP ? " (P.)" : ""}${isOG ? " (OG.)" : ""}`;
 }
 
 const parseEventScore = (scoreText) => {
@@ -267,82 +392,45 @@ const HeaderGradient = ({ homeColor, awayColor, theme, height }) => (
 );
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
-const StatusBadge = ({ fixture, theme }) => {
-  const code = (fixture?.state?.state || "").toUpperCase();
-  const shortName =
-    fixture?.state?.short_name || fixture?.state?.name || code || "—";
-  const live = isLiveState(code);
-  const finished = isFinishedState(code);
-
-  // Format kick-off time in EST (source is UTC-1, EST is UTC-5 → subtract 4 h)
-  let timeStr = null;
-  try {
-    const d = new Date(fixture.starting_at.replace(" ", "T") + "Z");
-    const est = new Date(d.getTime() - 4 * 60 * 60 * 1000);
-    const h = est.getUTCHours();
-    const m = String(est.getUTCMinutes()).padStart(2, "0");
-    const ampm = h >= 12 ? "PM" : "AM";
-    timeStr = `${h % 12 || 12}:${m} ${ampm} EST`;
-  } catch (_) {}
-
-  // Format date
-  let dateStr = null;
-  try {
-    const d = new Date(fixture.starting_at.replace(" ", "T") + "Z");
-    const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    dateStr = `${months[d.getUTCMonth()]} ${d.getUTCDate()}`;
-  } catch (_) {}
+const StatusBadge = ({ fixture, theme, nowMs, snapshotTsMs }) => {
+  const si = getStatusInfo(fixture, nowMs, snapshotTsMs);
 
   return (
     <View style={styles.statusBadge}>
-      {live ? (
+      {si.isLive ? (
         <View style={{ alignItems: "center" }}>
-          <View
-            style={[
-              styles.liveDot,
-              { backgroundColor: theme.error || "#e03131" },
-            ]}
-          />
           <Text
             style={[styles.statusMain, { color: theme.error || "#e03131" }]}
           >
-            {shortName}
+            {si.line1}
           </Text>
+          {!!si.line2 && (
+            <Text style={[styles.statusSub, { color: theme.textTertiary }]}>
+              {si.line2}
+            </Text>
+          )}
         </View>
-      ) : finished ? (
+      ) : si.isFinished ? (
         <View style={{ alignItems: "center" }}>
           <Text style={[styles.statusMain, { color: theme.textSecondary }]}>
-            {shortName}
+            {si.line1}
           </Text>
-          {!!timeStr && (
+          {!!si.line2 && (
             <Text style={[styles.statusSub, { color: theme.textTertiary }]}>
-              {timeStr}
+              {si.line2}
             </Text>
           )}
         </View>
       ) : (
         <View style={{ alignItems: "center" }}>
-          {!!dateStr && (
+          <Text style={[styles.statusMain, { color: theme.text }]}>
+            {si.line1}
+          </Text>
+          {!!si.line2 && (
             <Text style={[styles.statusSub, { color: theme.textTertiary }]}>
-              {dateStr}
+              {si.line2}
             </Text>
           )}
-          <Text style={[styles.statusMain, { color: theme.text }]}>
-            {timeStr || shortName}
-          </Text>
         </View>
       )}
     </View>
@@ -1707,6 +1795,18 @@ const EventsSection = ({
       );
     }
     if (
+      (addLow.includes("own goal")) && e.result != null
+    ) {
+      return (
+        <FontAwesome6
+          name="soccer-ball"
+          size={14}
+          color={theme.error || "#e67700"}
+          style={evStyles.ballIcon}
+        />
+      );
+    }
+    if (
       (addLow.includes("goal") || addLow.includes("penalty")) &&
       e.result != null
     ) {
@@ -1722,8 +1822,8 @@ const EventsSection = ({
     if (addLow.includes("goal") && e.result == null) {
       return (
         <FontAwesome6
-          name="soccer-ball"
-          size={14}
+          name="video-slash"
+          size={12}
           color={theme.error || "#e03131"}
           style={evStyles.ballIcon}
         />
@@ -1785,6 +1885,7 @@ const EventsSection = ({
 
     const goalDetail = getGoalDetail(event);
     const isDisallowed = addLow.includes("disallowed");
+    const isOwnGoal = isOwnGoalEvent(event);
     const showsGoalDetail =
       !isDisallowed &&
       (addLow.includes("goal") || addLow.includes("penalty")) &&
@@ -1823,6 +1924,17 @@ const EventsSection = ({
             numberOfLines={1}
           >
             Goal disallowed
+          </Text>
+        ) : isOwnGoal ? (
+          <Text
+            style={[
+              evStyles.goalDetailText,
+              { color: theme.textSecondary },
+              !isHome && evStyles.goalDetailTextAway,
+            ]}
+            numberOfLines={1}
+          >
+            Own Goal - {goalDetail || ""}
           </Text>
         ) : showsGoalDetail ? (
           <Text
@@ -3759,7 +3871,7 @@ const degreesToCompass = (deg) => {
   return dirs[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
 };
 
-const GameInfoSection = ({ venue, weather, league, startingAt, theme }) => {
+const GameInfoSection = ({ venue, weather, league, startingAt, theme, isDarkMode }) => {
   if (!venue && !weather && !league && !startingAt) return null;
 
   const capFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
@@ -3965,7 +4077,7 @@ const GameInfoSection = ({ venue, weather, league, startingAt, theme }) => {
                   {leagueImgUri ? (
                     <Image
                       source={{ uri: leagueImgUri }}
-                      style={giStyles.metaLogo}
+                      style={[giStyles.metaLogo, { tintColor: (league?.id === 8 && isDarkMode) ? theme.text : undefined }]}
                       contentFit="contain"
                       cachePolicy="memory-disk"
                     />
@@ -5159,7 +5271,7 @@ const HomeTeamPitchSection = ({
               ]}
             >
               <Text
-                style={styles.homePitchSubMinuteText}
+                style={[styles.homePitchSubMinuteText, { color: theme.text}]}
                 numberOfLines={1}
                 ellipsizeMode="clip"
               >
@@ -5182,7 +5294,7 @@ const HomeTeamPitchSection = ({
               ]}
             >
               <Text
-                style={styles.homePitchSubMinuteText}
+                style={[styles.homePitchSubMinuteText, { color: theme.text }]}
                 numberOfLines={1}
                 ellipsizeMode="clip"
               >
@@ -5322,6 +5434,30 @@ const HomeSidelinedSection = ({
 
   if (!entries.length) return null;
 
+  const formatSidelineEndDate = (value) => {
+    if (!value) return null;
+    const d = new Date(`${value}T00:00:00Z`);
+    if (Number.isNaN(d.getTime())) return null;
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const mon = months[d.getUTCMonth()] || "";
+    const year = d.getUTCFullYear();
+    return `${day} ${mon} ${year}`;
+  };
+
   const renderSidelinedTile = (entry) => {
     const p = entry?.player ?? {};
     const imagePath = p?.image_path ?? null;
@@ -5333,6 +5469,36 @@ const HomeSidelinedSection = ({
       p?.lastname || p?.name?.split(" ").slice(-1).join(" ") || "Player";
     const initial = (lastName || "?")[0]?.toUpperCase?.() || "?";
     const statusLabel = entry?.type?.name || "Unavailable";
+    const typeLow = String(entry?.type?.name || "").toLowerCase();
+    const sidelineEndDate = formatSidelineEndDate(entry?.sideline?.end_date);
+
+    let statusIcon = (
+      <FontAwesome5
+        name="user-injured"
+        size={11}
+        color={theme.error || "#e03131"}
+      />
+    );
+
+    if (typeLow.includes("yellow")) {
+      statusIcon = (
+        <MaterialCommunityIcons
+          name="card"
+          size={12}
+          color="#facc15"
+          style={styles.redCardIcon}
+        />
+      );
+    } else if (typeLow.includes("red")) {
+      statusIcon = (
+        <MaterialCommunityIcons
+          name="card"
+          size={12}
+          color={theme.error || "#e03131"}
+          style={styles.redCardIcon}
+        />
+      );
+    }
 
     return (
       <TouchableOpacity
@@ -5383,6 +5549,16 @@ const HomeSidelinedSection = ({
               </Text>
             </View>
           )}
+
+          <View
+            style={[
+              styles.homePitchIconBubble,
+              styles.homePitchIconBottomRight,
+              { backgroundColor: "#fff" },
+            ]}
+          >
+            {statusIcon}
+          </View>
         </View>
 
         <View style={styles.homePitchPlayerMetaRow}>
@@ -5400,6 +5576,15 @@ const HomeSidelinedSection = ({
         >
           {statusLabel}
         </Text>
+
+        {entry?.sideline != null && sidelineEndDate ? (
+          <Text
+            style={[styles.homeBenchPosition, { color: theme.textSecondary }]}
+            numberOfLines={1}
+          >
+            {sidelineEndDate}
+          </Text>
+        ) : null}
       </TouchableOpacity>
     );
   };
@@ -6491,153 +6676,250 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   const [playerModalContext, setPlayerModalContext] = useState(null);
   const [h2hVisibleCount, setH2hVisibleCount] = useState(5);
   const [h2hHomeOnly, setH2hHomeOnly] = useState(false);
+  const [snapshotTsMs, setSnapshotTsMs] = useState(Date.now());
+  const [nowMs, setNowMs] = useState(Date.now());
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const dataRef = useRef(null);
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
 
+  const fetchCacheRef = useRef(null);
+  const inFlightRef = useRef(null);
+  const tickClockStateRef = useRef({});
+
+  const applyTickingSnapshot = useCallback(
+    (fixtureData) => {
+      if (!fixtureData) return fixtureData;
+
+      const key = String(fixtureData?.id ?? fixtureId ?? "fixture");
+      const fetchTs = Date.now();
+      const ticking = (fixtureData?.periods ?? []).find(
+        (p) => p?.ticking === true,
+      );
+
+      if (!ticking) {
+        delete tickClockStateRef.current[key];
+        return {
+          ...fixtureData,
+          __tickAnchorTotal: null,
+          __tickAnchorTs: null,
+        };
+      }
+
+      const m = Number(ticking?.minutes ?? 0);
+      const s = Number(ticking?.seconds ?? 0);
+      const safeM = Number.isFinite(m) ? m : 0;
+      const safeS = Number.isFinite(s) ? s : 0;
+      const tickSig = `${safeM}:${safeS}`;
+      const prev = tickClockStateRef.current[key];
+
+      if (!prev || prev.lastFetchedSig !== tickSig) {
+        tickClockStateRef.current[key] = {
+          lastFetchedSig: tickSig,
+          anchorTotal: safeM * 60 + safeS,
+          anchorTs: fetchTs,
+        };
+      }
+
+      const current = tickClockStateRef.current[key];
+      return {
+        ...fixtureData,
+        __tickAnchorTotal: current.anchorTotal,
+        __tickAnchorTs: current.anchorTs,
+      };
+    },
+    [fixtureId],
+  );
+
   const loadData = useCallback(
-    async (silent = false) => {
-      if (!silent) setLoading(true);
-      setError(null);
-      try {
-        const gameUrl = `${FOOTBALL_BASE}/football/game/${fixtureId}/${homeTeamId}/${awayTeamId}`;
-        const h2hUrl = `${FOOTBALL_BASE}/football/game/h2h/${homeTeamId}/${awayTeamId}`;
-        const factsUrl = `${FOOTBALL_BASE}/football/game/facts/${fixtureId}`;
+    async (silent = false, background = false) => {
+      const now = Date.now();
+      const cached = fetchCacheRef.current;
+      if (cached) {
+        const policy = getFixturePolicy(cached.data?.fixtureData ?? null);
+        const cacheMs = policy.cacheMs ?? 0;
+        const canUseCache =
+          cacheMs > 0 &&
+          now - cached.ts < cacheMs &&
+          !(background && policy.mode === "live");
 
-        // ── AsyncStorage cache for finished / old games ───────────────────
-        if (!silent) {
-          try {
-            const raw = await AsyncStorage.getItem(GAME_CACHE_KEY(fixtureId));
-            if (raw) {
-              const { data: cachedData, ts } = JSON.parse(raw);
-              if (Date.now() - ts < GAME_CACHE_TTL_MS) {
-                setData(cachedData);
-              }
-            }
-          } catch (_) {}
+        if (canUseCache) {
+          setData(cached.data);
+          setSnapshotTsMs(cached.ts);
+          return cached.data;
         }
+      }
 
-        let responseData = null;
+      if (inFlightRef.current) return inFlightRef.current;
 
-        if (silent) {
-          const gameRes = await fetch(gameUrl);
-          if (!gameRes.ok) throw new Error(`HTTP ${gameRes.status}`);
+      const promise = (async () => {
+        if (!silent) setLoading(true);
+        setError(null);
+        try {
+          const gameUrl = `${FOOTBALL_BASE}/football/game/${fixtureId}/${homeTeamId}/${awayTeamId}`;
+          const h2hUrl = `${FOOTBALL_BASE}/football/game/h2h/${homeTeamId}/${awayTeamId}`;
+          const factsUrl = `${FOOTBALL_BASE}/football/game/facts/${fixtureId}`;
 
-          const gameJson = await gameRes.json();
-          responseData = {
-            fixtureData: gameJson?.data?.fixtureData ?? null,
-            h2hData: dataRef.current?.h2hData ?? [],
-            matchFacts: dataRef.current?.matchFacts ?? [],
-          };
-        } else {
-          let cachedH2hData = dataRef.current?.h2hData ?? [];
-          let cachedFactsData = dataRef.current?.matchFacts ?? [];
-          let shouldFetchH2h = true;
-          let shouldFetchFacts = true;
+          // ── AsyncStorage cache for finished / old games ───────────────────
+          if (!silent) {
+            try {
+              const raw = await AsyncStorage.getItem(GAME_CACHE_KEY(fixtureId));
+              if (raw) {
+                const { data: cachedData, ts } = JSON.parse(raw);
+                if (Date.now() - ts < GAME_CACHE_TTL_MS) {
+                  setData(cachedData);
+                  setSnapshotTsMs(Number(ts) || Date.now());
+                }
+              }
+            } catch (_) {}
+          }
 
-          try {
-            const [h2hRaw, factsRaw] = await Promise.all([
-              AsyncStorage.getItem(GAME_H2H_CACHE_KEY(homeTeamId, awayTeamId)),
-              AsyncStorage.getItem(GAME_FACTS_CACHE_KEY(fixtureId)),
+          let responseData = null;
+
+          if (background) {
+            const gameRes = await fetch(gameUrl);
+            if (!gameRes.ok) throw new Error(`HTTP ${gameRes.status}`);
+
+            const gameJson = await gameRes.json();
+            responseData = {
+              fixtureData: applyTickingSnapshot(
+                gameJson?.data?.fixtureData ?? null,
+              ),
+              h2hData: dataRef.current?.h2hData ?? [],
+              matchFacts: dataRef.current?.matchFacts ?? [],
+            };
+          } else {
+            let cachedH2hData = dataRef.current?.h2hData ?? [];
+            let cachedFactsData = dataRef.current?.matchFacts ?? [];
+            let shouldFetchH2h = true;
+            let shouldFetchFacts = true;
+
+            try {
+              const [h2hRaw, factsRaw] = await Promise.all([
+                AsyncStorage.getItem(
+                  GAME_H2H_CACHE_KEY(homeTeamId, awayTeamId),
+                ),
+                AsyncStorage.getItem(GAME_FACTS_CACHE_KEY(fixtureId)),
+              ]);
+
+              if (h2hRaw) {
+                const parsed = JSON.parse(h2hRaw);
+                if (
+                  Date.now() - Number(parsed?.ts ?? 0) <
+                    GAME_AUX_CACHE_TTL_MS &&
+                  Array.isArray(parsed?.data)
+                ) {
+                  cachedH2hData = parsed.data;
+                  shouldFetchH2h = false;
+                }
+              }
+
+              if (factsRaw) {
+                const parsed = JSON.parse(factsRaw);
+                if (
+                  Date.now() - Number(parsed?.ts ?? 0) <
+                    GAME_AUX_CACHE_TTL_MS &&
+                  Array.isArray(parsed?.data)
+                ) {
+                  cachedFactsData = parsed.data;
+                  shouldFetchFacts = false;
+                }
+              }
+            } catch (_) {}
+
+            const [gameRes, h2hRes, factsRes] = await Promise.all([
+              fetch(gameUrl),
+              shouldFetchH2h ? fetch(h2hUrl) : Promise.resolve(null),
+              shouldFetchFacts ? fetch(factsUrl) : Promise.resolve(null),
             ]);
 
-            if (h2hRaw) {
-              const parsed = JSON.parse(h2hRaw);
-              if (
-                Date.now() - Number(parsed?.ts ?? 0) < GAME_AUX_CACHE_TTL_MS &&
-                Array.isArray(parsed?.data)
-              ) {
-                cachedH2hData = parsed.data;
-                shouldFetchH2h = false;
+            if (!gameRes.ok) throw new Error(`HTTP ${gameRes.status}`);
+
+            const gameJson = await gameRes.json();
+
+            let h2hData = cachedH2hData;
+            if (h2hRes) {
+              if (h2hRes.ok) {
+                const h2hJson = await h2hRes.json();
+                h2hData = h2hJson?.data?.h2hData ?? cachedH2hData;
+                AsyncStorage.setItem(
+                  GAME_H2H_CACHE_KEY(homeTeamId, awayTeamId),
+                  JSON.stringify({ data: h2hData, ts: Date.now() }),
+                ).catch(() => {});
+              } else {
+                console.warn(`Top5 h2h fetch error: HTTP ${h2hRes.status}`);
               }
             }
 
-            if (factsRaw) {
-              const parsed = JSON.parse(factsRaw);
-              if (
-                Date.now() - Number(parsed?.ts ?? 0) < GAME_AUX_CACHE_TTL_MS &&
-                Array.isArray(parsed?.data)
-              ) {
-                cachedFactsData = parsed.data;
-                shouldFetchFacts = false;
+            let matchFacts = cachedFactsData;
+            if (factsRes) {
+              if (factsRes.ok) {
+                const factsJson = await factsRes.json();
+                matchFacts = factsJson?.data?.matchFacts ?? cachedFactsData;
+                AsyncStorage.setItem(
+                  GAME_FACTS_CACHE_KEY(fixtureId),
+                  JSON.stringify({ data: matchFacts, ts: Date.now() }),
+                ).catch(() => {});
+              } else {
+                console.warn(`Top5 facts fetch error: HTTP ${factsRes.status}`);
               }
             }
-          } catch (_) {}
 
-          const [gameRes, h2hRes, factsRes] = await Promise.all([
-            fetch(gameUrl),
-            shouldFetchH2h ? fetch(h2hUrl) : Promise.resolve(null),
-            shouldFetchFacts ? fetch(factsUrl) : Promise.resolve(null),
-          ]);
+            responseData = {
+              fixtureData: applyTickingSnapshot(
+                gameJson?.data?.fixtureData ?? null,
+              ),
+              h2hData,
+              matchFacts,
+            };
+          }
 
-          if (!gameRes.ok) throw new Error(`HTTP ${gameRes.status}`);
+          setData(responseData);
+          const ts = Date.now();
+          setSnapshotTsMs(ts);
+          fetchCacheRef.current = { data: responseData, ts };
 
-          const gameJson = await gameRes.json();
-
-          let h2hData = cachedH2hData;
-          if (h2hRes) {
-            if (h2hRes.ok) {
-              const h2hJson = await h2hRes.json();
-              h2hData = h2hJson?.data?.h2hData ?? cachedH2hData;
+          // Persist cache for finished or started-more-than-24h-ago games
+          const fx = responseData?.fixtureData;
+          if (fx) {
+            const code = fx.state?.state || "";
+            const startMs = fx.starting_at
+              ? new Date(fx.starting_at.replace(" ", "T") + "Z").getTime()
+              : null;
+            const isOld =
+              startMs != null && Date.now() - startMs > 24 * 60 * 60 * 1000;
+            if (isFinishedState(code) || isOld) {
               AsyncStorage.setItem(
-                GAME_H2H_CACHE_KEY(homeTeamId, awayTeamId),
-                JSON.stringify({ data: h2hData, ts: Date.now() }),
+                GAME_CACHE_KEY(fixtureId),
+                JSON.stringify({ data: responseData, ts: Date.now() }),
               ).catch(() => {});
-            } else {
-              console.warn(`Top5 h2h fetch error: HTTP ${h2hRes.status}`);
             }
           }
-
-          let matchFacts = cachedFactsData;
-          if (factsRes) {
-            if (factsRes.ok) {
-              const factsJson = await factsRes.json();
-              matchFacts = factsJson?.data?.matchFacts ?? cachedFactsData;
-              AsyncStorage.setItem(
-                GAME_FACTS_CACHE_KEY(fixtureId),
-                JSON.stringify({ data: matchFacts, ts: Date.now() }),
-              ).catch(() => {});
-            } else {
-              console.warn(`Top5 facts fetch error: HTTP ${factsRes.status}`);
-            }
-          }
-
-          responseData = {
-            fixtureData: gameJson?.data?.fixtureData ?? null,
-            h2hData,
-            matchFacts,
-          };
+          return responseData;
+        } catch (err) {
+          console.error("Top5 game fetch error:", err);
+          if (!silent) setError("Failed to load match data.");
+          return null;
+        } finally {
+          if (!silent) setLoading(false);
         }
+      })();
 
-        setData(responseData);
-
-        // Persist cache for finished or started-more-than-24h-ago games
-        const fx = responseData?.fixtureData;
-        if (fx) {
-          const code = fx.state?.state || "";
-          const startMs = fx.starting_at
-            ? new Date(fx.starting_at.replace(" ", "T") + "Z").getTime()
-            : null;
-          const isOld =
-            startMs != null && Date.now() - startMs > 24 * 60 * 60 * 1000;
-          if (isFinishedState(code) || isOld) {
-            AsyncStorage.setItem(
-              GAME_CACHE_KEY(fixtureId),
-              JSON.stringify({ data: responseData, ts: Date.now() }),
-            ).catch(() => {});
-          }
-        }
-      } catch (err) {
-        console.error("Top5 game fetch error:", err);
-        if (!silent) setError("Failed to load match data.");
+      inFlightRef.current = promise;
+      try {
+        return await promise;
       } finally {
-        if (!silent) setLoading(false);
+        inFlightRef.current = null;
       }
     },
-    [fixtureId, homeTeamId, awayTeamId],
+    [fixtureId, homeTeamId, awayTeamId, applyTickingSnapshot],
   );
 
   // ── Polling (same pattern as Top5ScoreboardScreen) ───────────────────────
@@ -6648,25 +6930,17 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   const schedulePolling = useCallback(
     (fixture) => {
       if (!isFocusedRef.current) return;
-      const desired = getPollingIntervalForFixture(fixture);
-
-      // Don't poll for finished games
-      if (!fixture || isFinishedState(fixture?.state?.state ?? "")) {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-          currentIntervalMs.current = null;
-        }
-        return;
-      }
+      const desired = getFixturePolicy(fixture).intervalMs;
 
       if (currentIntervalMs.current === desired && intervalRef.current) return;
 
       if (intervalRef.current) clearInterval(intervalRef.current);
       currentIntervalMs.current = desired;
       intervalRef.current = setInterval(async () => {
-        await loadData(true);
-        schedulePolling(dataRef.current?.fixtureData ?? null);
+        const fresh = await loadData(true, true);
+        schedulePolling(
+          fresh?.fixtureData ?? dataRef.current?.fixtureData ?? null,
+        );
       }, desired);
     },
     [loadData],
@@ -6676,8 +6950,10 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
     useCallback(() => {
       isFocusedRef.current = true;
       const hasExistingData = !!dataRef.current?.fixtureData;
-      loadData(hasExistingData).then(() => {
-        schedulePolling(dataRef.current?.fixtureData ?? null);
+      loadData(hasExistingData, false).then((fresh) => {
+        schedulePolling(
+          fresh?.fixtureData ?? dataRef.current?.fixtureData ?? null,
+        );
       });
       return () => {
         isFocusedRef.current = false;
@@ -6692,8 +6968,8 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData(true);
-    schedulePolling(dataRef.current?.fixtureData ?? null);
+    const fresh = await loadData(true, false);
+    schedulePolling(fresh?.fixtureData ?? dataRef.current?.fixtureData ?? null);
     setRefreshing(false);
   };
 
@@ -6716,6 +6992,29 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   const stateCode = fixture?.state?.state || "";
   const live = isLiveState(stateCode);
   const finished = isFinishedState(stateCode);
+  const statusInfo = getStatusInfo(fixture, nowMs, snapshotTsMs);
+  const hasLineups = (fixture?.lineups ?? []).length > 0;
+  const isScheduledGame = !stateCode || ["NS", "TBA", "DELAYED"].includes((stateCode || "").toUpperCase());
+
+  const availableTabs = useMemo(
+    () =>
+      TABS.filter((tab) => {
+        if ((tab === "Stats" || tab === "Commentary") && isScheduledGame) {
+          return false;
+        }
+        if ((tab === "Home" || tab === "Away") && !hasLineups) {
+          return false;
+        }
+        return true;
+      }),
+    [isScheduledGame, hasLineups],
+  );
+
+  useEffect(() => {
+    if (!availableTabs.includes(activeTab)) {
+      setActiveTab("Main");
+    }
+  }, [availableTabs, activeTab]);
 
   const homeWins = home?.meta?.winner === true;
   const awayWins = away?.meta?.winner === true;
@@ -7096,7 +7395,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               {fixture.league?.image_path ? (
                 <Image
                   source={{ uri: fixture.league.image_path }}
-                  style={styles.leagueLogo}
+                  style={[styles.leagueLogo, { tintColor: (fixture.league?.id === 8 && isDarkMode) ? theme.text : undefined }]}
                   contentFit="contain"
                   cachePolicy="memory-disk"
                 />
@@ -7136,7 +7435,12 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
             />
 
             {/* Status (centre) */}
-            <StatusBadge fixture={fixture} theme={theme} />
+            <StatusBadge
+              fixture={fixture}
+              theme={theme}
+              nowMs={nowMs}
+              snapshotTsMs={snapshotTsMs}
+            />
 
             {/* Away (right) */}
             <TeamSide
@@ -7170,7 +7474,10 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 {scorers.home.map((scorer, idx) => (
                   <Text
                     key={idx}
-                    style={[styles.scorerText, { color: theme.textSecondary }]}
+                    style={[
+                      styles.scorerText,
+                      { color: theme.textSecondary, textAlign: "right" },
+                    ]}
                     numberOfLines={2}
                   >
                     {scorer.lastName}
@@ -7235,7 +7542,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                   cachePolicy="memory-disk"
                 />
               ) : null}
-              <Text style={[styles.miniAbbr, { color: homeColor }]}>
+              <Text style={[styles.miniAbbr, { color: theme.text }]}>
                 {homeAbbr}
               </Text>
               <Text
@@ -7252,7 +7559,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
             </View>
 
             <View style={styles.miniStatusBlock}>
-              {live ? (
+              {statusInfo.isLive ? (
                 <>
                   <Text
                     style={[
@@ -7260,9 +7567,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                       { color: theme.error || "#e03131" },
                     ]}
                   >
-                    {fixture?.state?.short_name ||
-                      fixture?.state?.name ||
-                      stateCode}
+                    {statusInfo.line1}
                   </Text>
                   <Text
                     style={[
@@ -7270,10 +7575,10 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                       { color: theme.textTertiary },
                     ]}
                   >
-                    Live
+                    {statusInfo.line2 || ""}
                   </Text>
                 </>
-              ) : finished ? (
+              ) : statusInfo.isFinished ? (
                 <>
                   <Text
                     style={[
@@ -7281,9 +7586,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                       { color: theme.textSecondary },
                     ]}
                   >
-                    {fixture?.state?.short_name ||
-                      fixture?.state?.name ||
-                      stateCode}
+                    {statusInfo.line1}
                   </Text>
                   <Text
                     style={[
@@ -7292,7 +7595,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                     ]}
                     numberOfLines={1}
                   >
-                    Final
+                    {statusInfo.line2}
                   </Text>
                 </>
               ) : (
@@ -7303,24 +7606,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                       { color: theme.textSecondary },
                     ]}
                   >
-                    {(() => {
-                      try {
-                        const d = new Date(
-                          fixture.starting_at.replace(" ", "T") + "Z",
-                        );
-                        const est = new Date(d.getTime() - 4 * 60 * 60 * 1000);
-                        const h = est.getUTCHours();
-                        const m = String(est.getUTCMinutes()).padStart(2, "0");
-                        const ampm = h >= 12 ? "PM" : "AM";
-                        return `${h % 12 || 12}:${m} ${ampm}`;
-                      } catch (_) {
-                        return (
-                          fixture?.state?.short_name ||
-                          fixture?.state?.name ||
-                          stateCode
-                        );
-                      }
-                    })()}
+                    {statusInfo.line1}
                   </Text>
                   <Text
                     style={[
@@ -7329,20 +7615,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                     ]}
                     numberOfLines={1}
                   >
-                    {(() => {
-                      try {
-                        const d = new Date(
-                          fixture.starting_at.replace(" ", "T") + "Z",
-                        );
-                        return d.toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          timeZone: "UTC",
-                        });
-                      } catch (_) {
-                        return "";
-                      }
-                    })()}
+                    {statusInfo.line2}
                   </Text>
                 </>
               )}
@@ -7360,7 +7633,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               >
                 {awayScore ?? ""}
               </Text>
-              <Text style={[styles.miniAbbr, { color: awayColor }]}>
+              <Text style={[styles.miniAbbr, { color: theme.text }]}>
                 {awayAbbr}
               </Text>
               {away?.image_path ? (
@@ -7381,7 +7654,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
             style={styles.tabBarWrapper}
             bounces={false}
           >
-            {TABS.map((tab) => (
+            {availableTabs.map((tab) => (
               <TouchableOpacity
                 key={tab}
                 style={[
@@ -7463,6 +7736,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 league={fixture.league ?? null}
                 startingAt={fixture.starting_at ?? null}
                 theme={theme}
+                isDarkMode={isDarkMode}
               />
               <RefereesSection
                 referees={fixture.referees ?? []}

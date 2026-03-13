@@ -88,6 +88,12 @@ function setCacheControl(res, ttlMs) {
   );
 }
 
+function getPstDateString() {
+  // Fixed PST offset (UTC-8) as requested.
+  const pstNow = new Date(Date.now() - 8 * 60 * 60 * 1000);
+  return pstNow.toISOString().slice(0, 10);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Startup warm-up
 // ─────────────────────────────────────────────────────────────────────────────
@@ -678,6 +684,74 @@ function transformTeamOfTheWeekResponse(raw) {
       : null,
   }));
 }
+
+// Transforms raw SM team-rankings response per 1.txt spec.
+function transformTeamRankingsResponse(raw) {
+  const rows = Array.isArray(raw?.data) ? raw.data : [];
+
+  return rows.map((item) => ({
+    team_id: item.team_id ?? null,
+    current_rank: item.current_rank ?? null,
+    scaled_score: item.scaled_score ?? null,
+    team: item.team
+      ? {
+          id: item.team.id ?? null,
+          name: item.team.name ?? null,
+          short_code: item.team.short_code ?? null,
+          image_path: item.team.image_path ?? null,
+          activeseasons: Array.isArray(item.team.activeseasons)
+            ? item.team.activeseasons.map((as) => ({
+                league: as?.league
+                  ? {
+                      name: as.league.name ?? null,
+                      image_path: as.league.image_path ?? null,
+                      type: as.league.type ?? null,
+                      sub_type: as.league.sub_type ?? null,
+                    }
+                  : null,
+              }))
+            : [],
+        }
+      : null,
+  }));
+}
+
+// GET /football/rank
+// Fetches team rankings for today's PST date and returns transformed rows per 1.txt.
+app.get("/football/rank", async (_req, res) => {
+  const pstDate = getPstDateString();
+  const cacheKey = `rank:${pstDate}`;
+
+  if (cacheValid(cacheKey, TTL_1H)) {
+    setCacheControl(res, TTL_1H);
+    return res.json({
+      source: "cache",
+      date: pstDate,
+      data: transformTeamRankingsResponse(cache.get(cacheKey).data),
+    });
+  }
+
+  try {
+    const url =
+      `${SM_BASE}/team-rankings/date/${pstDate}?api_token=${SM_TOKEN}` +
+      `&per_page=50&include=team;team.activeseasons.league`;
+
+    const raw = await fetchUrl(url);
+    cacheSet(cacheKey, raw);
+
+    setCacheControl(res, TTL_1H);
+    res.json({
+      source: "origin",
+      date: pstDate,
+      data: transformTeamRankingsResponse(raw),
+    });
+  } catch (err) {
+    res.status(502).json({
+      error: "Failed to fetch team rankings",
+      details: err.message,
+    });
+  }
+});
 
 // GET /football/league/:leagueId
 // Fetches 5 SportMonks endpoints in parallel: standings, teams, league info, stage stats, team of the week.

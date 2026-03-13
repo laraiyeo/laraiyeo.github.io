@@ -19,6 +19,7 @@ import { LiveViewerBadge } from "../../../components/ViewerCounter";
 import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { count } from "firebase/firestore";
 
 const { width } = Dimensions.get("window");
 
@@ -26,28 +27,77 @@ const { width } = Dimensions.get("window");
 
 const INTERVAL_SLOW = 30 * 60 * 1000; // 30 minutes
 const INTERVAL_FAST = 5 * 1000; // 5 seconds
-const SOON_THRESHOLD = 5 * 60 * 1000; // 5 minutes before kick-off
+const INTERVAL_SOON = 60 * 1000; // 1 minute
+const INTERVAL_FINISHED = 6 * 60 * 60 * 1000; // 6 hours
+const LIVE_SHORT_NAMES = new Set(["1ST", "2ND", "HT"]);
+
+const shortNameOf = (match) =>
+  String(match?.state?.short_name || "").toUpperCase();
+
+const startMsOf = (match) => {
+  try {
+    return new Date(match.starting_at.replace(" ", "T") + "Z").getTime();
+  } catch (_) {
+    return null;
+  }
+};
+
+const getScoreboardPolicy = (groups) => {
+  const allMatches = groups.flatMap((g) => g.matches);
+  if (allMatches.length === 0)
+    return { mode: "none", intervalMs: null, cacheMs: 0 };
+
+  const hasLive = allMatches.some((m) => LIVE_SHORT_NAMES.has(shortNameOf(m)));
+  if (hasLive) {
+    return { mode: "live", intervalMs: INTERVAL_FAST, cacheMs: INTERVAL_FAST };
+  }
+
+  const allFinished = allMatches.every((m) => shortNameOf(m) === "FT");
+  if (allFinished) {
+    return {
+      mode: "finished",
+      intervalMs: INTERVAL_FINISHED,
+      cacheMs: INTERVAL_FINISHED,
+    };
+  }
+
+  const hasScheduledNs = allMatches.some((m) => shortNameOf(m) === "NS");
+  if (hasScheduledNs) {
+    const now = Date.now();
+    const hasWithinHourStart = allMatches.some((m) => {
+      if (shortNameOf(m) !== "NS") return false;
+      const startMs = startMsOf(m);
+      return (
+        Number.isFinite(startMs) &&
+        startMs > now &&
+        startMs - now <= 60 * 60 * 1000
+      );
+    });
+
+    if (hasWithinHourStart) {
+      return {
+        mode: "scheduled_soon",
+        intervalMs: INTERVAL_SOON,
+        cacheMs: INTERVAL_SOON,
+      };
+    }
+
+    return {
+      mode: "scheduled",
+      intervalMs: INTERVAL_SLOW,
+      cacheMs: INTERVAL_SLOW,
+    };
+  }
+
+  return {
+    mode: "default",
+    intervalMs: INTERVAL_SLOW,
+    cacheMs: INTERVAL_SLOW,
+  };
+};
 
 const getPollingInterval = (groups) => {
-  const allMatches = groups.flatMap((g) => g.matches);
-  if (allMatches.length === 0) return null;
-
-  const now = Date.now();
-  for (const m of allMatches) {
-    if (getMatchStatusType(m) === "live") return INTERVAL_FAST;
-  }
-  for (const m of allMatches) {
-    if (getMatchStatusType(m) === "scheduled") {
-      try {
-        const startMs = new Date(
-          m.starting_at.replace(" ", "T") + "Z",
-        ).getTime();
-        if (startMs - now <= SOON_THRESHOLD && startMs > now)
-          return INTERVAL_FAST;
-      } catch (_) {}
-    }
-  }
-  return INTERVAL_SLOW;
+  return getScoreboardPolicy(groups).intervalMs;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -65,9 +115,32 @@ const formatMatchTime = (match) => {
   }
 };
 
-const getStatusInfo = (match) => {
+const pad2 = (v) => String(Math.max(0, v)).padStart(2, "0");
+
+const getTickingClock = (match, nowMs, snapshotTsMs) => {
+  const ticking = (match?.periods ?? []).find((p) => p?.ticking === true);
+  if (!ticking) return null;
+
+  const anchorTotal = Number(match?.__tickAnchorTotal ?? 0);
+  const anchorTs = Number(match?.__tickAnchorTs ?? snapshotTsMs ?? nowMs);
+  const safeAnchorTotal = Number.isFinite(anchorTotal) ? anchorTotal : 0;
+  const safeAnchorTs = Number.isFinite(anchorTs) ? anchorTs : nowMs;
+
+  const elapsed = Math.max(0, Math.floor((nowMs - safeAnchorTs) / 1000));
+  const total = safeAnchorTotal + elapsed;
+  const mm = Math.floor(total / 60);
+  const ss = total % 60;
+
+  return `${mm}:${pad2(ss)}`;
+};
+
+const getStatusInfo = (match, nowMs = Date.now(), snapshotTsMs = nowMs) => {
   const code = (match?.state?.state || "").toUpperCase();
-  const short = match?.state?.name || code;
+  const long = match?.state?.name || "";
+  const short =
+    getTickingClock(match, nowMs, snapshotTsMs) ||
+    match?.state?.short_name ||
+    code;
   const isFinished = [
     "FT",
     "AET",
@@ -86,7 +159,7 @@ const getStatusInfo = (match) => {
   if (isLive) {
     return {
       line1: short || "LIVE",
-      line2: "",
+      line2: long || "",
       isLive: true,
       isFinished: false,
     };
@@ -449,7 +522,7 @@ const SoccerGridCardGradient = ({
 
 // ─── Individual soccer grid card ──────────────────────────────────────────────
 const Top5GridCard = React.memo(
-  ({ match, theme, colors, gIdx, mIdx, navigation }) => {
+  ({ match, theme, colors, gIdx, mIdx, navigation, nowMs, snapshotTsMs }) => {
     const home = match.participants?.find((p) => p.meta?.location === "home");
     const away = match.participants?.find((p) => p.meta?.location === "away");
     const homeScore =
@@ -458,7 +531,7 @@ const Top5GridCard = React.memo(
       match.scores?.find((s) => s.participant === "away")?.goals ?? null;
     const awayColor = away?.colorPrimary || null;
     const homeColor = home?.colorPrimary || null;
-    const si = getStatusInfo(match);
+    const si = getStatusInfo(match, nowMs, snapshotTsMs);
     const gradId = `gc_${gIdx}_${mIdx}`;
 
     const homeWins = home.meta.winner;
@@ -504,7 +577,7 @@ const Top5GridCard = React.memo(
             <Text
               style={[soccerGridStyles.statusLive, { color: colors.primary }]}
             >
-              {si.line1}
+              {si.line1} ∙{si.line2 ? ` ${si.line2}` : ""}
             </Text>
           ) : si.isFinished ? (
             <Text
@@ -681,10 +754,13 @@ const Top5GridSection = ({
   groups,
   theme,
   colors,
+  isDarkMode,
   activeFilter,
   collapsedGroups,
   toggleCollapse,
   navigation,
+  nowMs,
+  snapshotTsMs,
 }) => (
   <View style={soccerGridStyles.container}>
     {groups.map((group, gIdx) => (
@@ -703,7 +779,7 @@ const Top5GridSection = ({
           {group.imagePath ? (
             <Image
               source={{ uri: group.imagePath }}
-              style={soccerGridStyles.groupBubbleLogo}
+              style={[soccerGridStyles.groupBubbleLogo, { tintColor: (group.leagueKey === "8" && isDarkMode) ? theme.text : undefined }]}
               contentFit="contain"
               cachePolicy="memory-disk"
             />
@@ -751,6 +827,8 @@ const Top5GridSection = ({
                   gIdx={gIdx}
                   mIdx={mIdx}
                   navigation={navigation}
+                  nowMs={nowMs}
+                  snapshotTsMs={snapshotTsMs}
                 />
               ))}
             </View>
@@ -768,9 +846,12 @@ const Top5ScoreboardSection = ({
   navigation,
   theme,
   colors,
+  isDarkMode,
   activeFilter,
   collapsedGroups,
   toggleCollapse,
+  nowMs,
+  snapshotTsMs,
 }) => (
   <View style={styles.scoreboardContainer}>
     {groups.map((group, gIdx) => (
@@ -793,7 +874,7 @@ const Top5ScoreboardSection = ({
             {group.imagePath ? (
               <Image
                 source={{ uri: group.imagePath }}
-                style={styles.eventLogoImage}
+                style={[styles.eventLogoImage, { tintColor: (group.leagueKey === "8" && isDarkMode) ? theme.text : undefined }]}
                 contentFit="contain"
                 cachePolicy="memory-disk"
               />
@@ -815,6 +896,15 @@ const Top5ScoreboardSection = ({
             >
               {group.label}
             </Text>
+            <View style={styles.countryInfo}>
+            {group.countryImage ? (
+            <Image
+                source={{ uri: group.countryImage }}
+                style={styles.countryFlag}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+            />
+            ) : null}
             {group.countryName ? (
               <Text
                 style={[styles.eventSubLabel, { color: theme.textTertiary }]}
@@ -822,6 +912,7 @@ const Top5ScoreboardSection = ({
                 {group.countryName}
               </Text>
             ) : null}
+            </View>
           </View>
           <View style={styles.eventHeaderRight} pointerEvents="none">
             <Text style={[styles.eventCount, { color: theme.textTertiary }]}>
@@ -851,7 +942,7 @@ const Top5ScoreboardSection = ({
               const away = getAway(match);
               const homeScore = getGoals(match, "home");
               const awayScore = getGoals(match, "away");
-              const si = getStatusInfo(match);
+              const si = getStatusInfo(match, nowMs, snapshotTsMs);
               const awayColor = away?.colorPrimary || null;
               const homeColor = home?.colorPrimary || null;
               const homeWins = home.meta.winner;
@@ -893,12 +984,6 @@ const Top5ScoreboardSection = ({
                     <View style={styles.statusContainer}>
                       {si.isLive ? (
                         <View style={{ alignItems: "center" }}>
-                          <View
-                            style={[
-                              styles.liveDot,
-                              { backgroundColor: theme.error || "#e03131" },
-                            ]}
-                          />
                           <Text
                             style={[
                               styles.statusLine1,
@@ -910,6 +995,18 @@ const Top5ScoreboardSection = ({
                           >
                             {si.line1}
                           </Text>
+                          {si.line2 && (
+                            <Text
+                              style={[
+                                styles.statusLine2,
+                                { color: theme.textTertiary },
+                              ]}
+                              numberOfLines={2}
+                            >
+                              {si.line2}
+                            </Text>
+                          )}
+
                         </View>
                       ) : (
                         <>
@@ -1142,7 +1239,7 @@ const Top5ScoreboardSection = ({
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 const Top5ScoreboardScreen = ({ navigation }) => {
-  const { colors, theme } = useTheme();
+  const { colors, theme, isDarkMode } = useTheme();
 
   const [groups, setGroups] = useState([]);
   const [collapsedGroups, setCollapsedGroups] = useState({});
@@ -1151,6 +1248,13 @@ const Top5ScoreboardScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState(todayDateStr);
   const [isGridView, setIsGridView] = useState(false);
+  const [snapshotTsMs, setSnapshotTsMs] = useState(Date.now());
+  const [nowMs, setNowMs] = useState(Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // Persist grid/list preference
   useEffect(() => {
@@ -1173,16 +1277,67 @@ const Top5ScoreboardScreen = ({ navigation }) => {
   const lastLoadedFilterRef = useRef(null);
   const fetchCacheRef = useRef({});
   const inFlightRef = useRef({});
-  const IN_MEMORY_CACHE_MS = 10 * 1000;
+  const tickClockStateRef = useRef({});
+
+  const applyTickingSnapshot = useCallback((sourceGroups) => {
+    const fetchTs = Date.now();
+
+    return sourceGroups.map((group) => ({
+      ...group,
+      matches: (group.matches ?? []).map((match, idx) => {
+        const ticking = (match?.periods ?? []).find((p) => p?.ticking === true);
+        const key = String(match?.id ?? `${group.leagueKey}:${idx}`);
+
+        if (!ticking) {
+          delete tickClockStateRef.current[key];
+          return { ...match, __tickAnchorTotal: null, __tickAnchorTs: null };
+        }
+
+        const m = Number(ticking?.minutes ?? 0);
+        const s = Number(ticking?.seconds ?? 0);
+        const safeM = Number.isFinite(m) ? m : 0;
+        const safeS = Number.isFinite(s) ? s : 0;
+        const tickSig = `${safeM}:${safeS}`;
+        const prev = tickClockStateRef.current[key];
+
+        // Only reset baseline when fetched ticking value actually changes.
+        if (!prev || prev.lastFetchedSig !== tickSig) {
+          tickClockStateRef.current[key] = {
+            lastFetchedSig: tickSig,
+            anchorTotal: safeM * 60 + safeS,
+            anchorTs: fetchTs,
+          };
+        }
+
+        const current = tickClockStateRef.current[key];
+
+        return {
+          ...match,
+          __tickAnchorTotal: current.anchorTotal,
+          __tickAnchorTs: current.anchorTs,
+        };
+      }),
+    }));
+  }, []);
 
   const loadData = useCallback(
     async (filter, silent = false, background = false) => {
       const now = Date.now();
       const cached = fetchCacheRef.current[filter];
-      if (cached && now - cached.ts < IN_MEMORY_CACHE_MS) {
-        setGroups(cached.groups);
-        lastLoadedFilterRef.current = filter;
-        return cached.groups;
+      if (cached) {
+        const policy = getScoreboardPolicy(cached.groups ?? []);
+        const cacheMs = policy.cacheMs ?? 0;
+        const canUseCache =
+          cacheMs > 0 &&
+          now - cached.ts < cacheMs &&
+          !(background && policy.mode === "live");
+
+        if (canUseCache) {
+          setGroups(cached.groups);
+          setSnapshotTsMs(cached.ts);
+          lastLoadedFilterRef.current = filter;
+          return cached.groups;
+        }
       }
 
       if (inFlightRef.current[filter]) return inFlightRef.current[filter];
@@ -1192,12 +1347,16 @@ const Top5ScoreboardScreen = ({ navigation }) => {
         else if (!background) setFetching(true);
         try {
           const raw = await Top5ServiceEnhanced.getScoreboard(filter);
-          const nextGroups = Top5ServiceEnhanced.toGroups(raw);
+          const nextGroups = applyTickingSnapshot(
+            Top5ServiceEnhanced.toGroups(raw),
+          );
+          const ts = Date.now();
           setGroups(nextGroups);
+          setSnapshotTsMs(ts);
           lastLoadedFilterRef.current = filter;
           fetchCacheRef.current[filter] = {
             groups: nextGroups,
-            ts: Date.now(),
+            ts,
           };
 
           if (filter > todayDateStr) {
@@ -1214,6 +1373,7 @@ const Top5ScoreboardScreen = ({ navigation }) => {
         } catch (err) {
           console.error("Top5 scoreboard fetch error:", err);
           setGroups([]);
+          setSnapshotTsMs(Date.now());
           return [];
         } finally {
           setLoading(false);
@@ -1229,7 +1389,7 @@ const Top5ScoreboardScreen = ({ navigation }) => {
         delete inFlightRef.current[filter];
       }
     },
-    [],
+    [applyTickingSnapshot],
   );
 
   const toggleCollapse = (key) =>
@@ -1350,10 +1510,13 @@ const Top5ScoreboardScreen = ({ navigation }) => {
                 groups={groups}
                 theme={theme}
                 colors={colors}
+                isDarkMode={isDarkMode}
                 activeFilter={activeFilter}
                 collapsedGroups={collapsedGroups}
                 toggleCollapse={toggleCollapse}
                 navigation={navigation}
+                nowMs={nowMs}
+                snapshotTsMs={snapshotTsMs}
               />
             ) : (
               <View style={styles.listContainer}>
@@ -1362,9 +1525,12 @@ const Top5ScoreboardScreen = ({ navigation }) => {
                   navigation={navigation}
                   theme={theme}
                   colors={colors}
+                  isDarkMode={isDarkMode}
                   activeFilter={activeFilter}
                   collapsedGroups={collapsedGroups}
                   toggleCollapse={toggleCollapse}
+                  nowMs={nowMs}
+                  snapshotTsMs={snapshotTsMs}
                 />
               </View>
             )
@@ -1501,10 +1667,19 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 2,
   },
+    countryInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
   eventSubLabel: {
     fontSize: 12,
     fontWeight: "500",
     textTransform: "uppercase",
+  },
+  countryFlag: {
+    width: 16,
+    height: 16,
   },
   matchesList: {},
   gameRow: {

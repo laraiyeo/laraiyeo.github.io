@@ -2799,7 +2799,7 @@ const TABS = [
 
 export default function Top5LeagueDetailScreen({ route, navigation }) {
   const { leagueId, leagueName } = route.params;
-  const { theme, colors } = useTheme();
+  const { theme, colors, isDarkMode } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
   const tabWidth = screenWidth / 4;
   const [data, setData] = useState(null);
@@ -2895,7 +2895,7 @@ export default function Top5LeagueDetailScreen({ route, navigation }) {
           {info?.image_path ? (
             <Image
               source={{ uri: info.image_path }}
-              style={styles.logo}
+              style={[styles.logo, { tintColor: (info.id === 8 && isDarkMode) ? theme.text : undefined }]}
               resizeMode="contain"
             />
           ) : (

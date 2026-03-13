@@ -161,7 +161,7 @@ function PlayerAvatar({ item, theme }) {
 }
 
 export default function Top5SearchScreen() {
-  const { theme, colors } = useTheme();
+  const { theme, colors, isDarkMode } = useTheme();
   const [searchData, setSearchData] = useState({
     leagues: [],
     teams: [],
@@ -278,7 +278,7 @@ export default function Top5SearchScreen() {
             {item.image_path ? (
               <Image
                 source={{ uri: item.image_path }}
-                style={styles.logo}
+                style={[styles.logo, { tintColor: (item.id === 8 && isDarkMode) ? theme.text : undefined }]}
                 resizeMode="contain"
               />
             ) : (

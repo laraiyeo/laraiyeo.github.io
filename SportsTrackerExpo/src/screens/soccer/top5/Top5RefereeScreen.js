@@ -116,7 +116,7 @@ function CareerStatsBubble({ statistics, theme, colors, accentColor }) {
         <StatCell
           label="Yellow"
           value={totals.yellow}
-          color="#ffd000"
+          color="#f59e0b"
           theme={theme}
         />
         <StatCell
@@ -142,7 +142,7 @@ function CareerStatsBubble({ statistics, theme, colors, accentColor }) {
   );
 }
 
-function SeasonRow({ stat, last, theme, accentColor, navigation }) {
+function SeasonRow({ stat, last, theme, isDarkMode, accentColor, navigation }) {
   const details = stat.details ?? [];
   const league = stat.season?.league;
 
@@ -166,7 +166,7 @@ function SeasonRow({ stat, last, theme, accentColor, navigation }) {
         {showLogo ? (
           <Image
             source={{ uri: logoUri }}
-            style={rStyles.seasonLogo}
+            style={[rStyles.seasonLogo, { tintColor: (league?.id === 8 && isDarkMode) ? theme.text : undefined }]}
             resizeMode="contain"
           />
         ) : (
@@ -232,7 +232,7 @@ function SeasonRow({ stat, last, theme, accentColor, navigation }) {
   return inner;
 }
 
-function SeasonStatsBubble({ statistics, theme, accentColor, navigation }) {
+function SeasonStatsBubble({ statistics, theme, isDarkMode, accentColor, navigation }) {
   if (!statistics?.length) return null;
 
   const sorted = [...statistics].sort((a, b) =>
@@ -264,6 +264,7 @@ function SeasonStatsBubble({ statistics, theme, accentColor, navigation }) {
           stat={stat}
           last={idx === sorted.length - 1}
           theme={theme}
+          isDarkMode={isDarkMode}
           accentColor={accentColor}
           navigation={navigation}
         />
@@ -274,7 +275,7 @@ function SeasonStatsBubble({ statistics, theme, accentColor, navigation }) {
 
 export default function Top5RefereeScreen({ route, navigation }) {
   const { refereeId, refereeName } = route.params ?? {};
-  const { theme, colors } = useTheme();
+  const { theme, colors, isDarkMode } = useTheme();
 
   const [refereeData, setRefereeData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -468,6 +469,7 @@ export default function Top5RefereeScreen({ route, navigation }) {
           <SeasonStatsBubble
             statistics={refereeData?.statistics}
             theme={theme}
+            isDarkMode={isDarkMode}
             accentColor={accentColor}
             navigation={navigation}
           />

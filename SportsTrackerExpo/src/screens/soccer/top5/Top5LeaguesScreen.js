@@ -39,7 +39,7 @@ function titleCaseHyphen(str) {
 }
 
 export default function Top5LeaguesScreen({ navigation }) {
-  const { theme, colors } = useTheme();
+  const { theme, colors, isDarkMode } = useTheme();
   const [leagues, setLeagues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -150,7 +150,7 @@ export default function Top5LeaguesScreen({ navigation }) {
                 {item.image_path ? (
                   <Image
                     source={{ uri: item.image_path }}
-                    style={styles.logo}
+                    style={[styles.logo, { tintColor: (item.id === 8 && isDarkMode) ? theme.text : undefined }]}
                     resizeMode="contain"
                   />
                 ) : (

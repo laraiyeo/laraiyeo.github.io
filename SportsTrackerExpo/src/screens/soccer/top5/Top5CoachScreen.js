@@ -156,7 +156,7 @@ function CareerStatsBubble({ statistics, theme, colors, accentColor }) {
   );
 }
 
-function SeasonRow({ stat, last, theme, accentColor, teamColor, navigation }) {
+function SeasonRow({ stat, last, theme, isDarkMode, accentColor, teamColor, navigation }) {
   const details = stat.season?.details ?? [];
   const league = stat.season?.league;
 
@@ -186,7 +186,7 @@ function SeasonRow({ stat, last, theme, accentColor, teamColor, navigation }) {
         {showLogo ? (
           <Image
             source={{ uri: logoUri }}
-            style={cStyles.seasonLogo}
+            style={[cStyles.seasonLogo, { tintColor: (league?.id === 8 && isDarkMode) ? theme.text : undefined }]}
             resizeMode="contain"
           />
         ) : (
@@ -256,6 +256,7 @@ function SeasonStatsBubble({
   statistics,
   teams,
   theme,
+  isDarkMode,
   accentColor,
   navigation,
 }) {
@@ -303,6 +304,7 @@ function SeasonStatsBubble({
           stat={s}
           last={i === sorted.length - 1}
           theme={theme}
+          isDarkMode={isDarkMode}
           accentColor={accentColor}
           teamColor={
             s.team_id != null ? (teamColorMap[s.team_id] ?? null) : null
@@ -314,7 +316,7 @@ function SeasonStatsBubble({
   );
 }
 
-function TeamRow({ entry, last, theme, navigation }) {
+function TeamRow({ entry, last, theme, isDarkMode, navigation }) {
   const team = entry.team ?? {};
   const logoUri = team.image_path;
   const showLogo = logoUri && !isPlaceholder(logoUri);
@@ -420,7 +422,7 @@ function TeamsBubble({ teams, theme, accentColor, navigation }) {
 
 export default function Top5CoachScreen({ route, navigation }) {
   const { coachId, coachName } = route.params ?? {};
-  const { theme, colors } = useTheme();
+  const { theme, colors, isDarkMode } = useTheme();
 
   const [coachData, setCoachData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -625,12 +627,14 @@ export default function Top5CoachScreen({ route, navigation }) {
             statistics={coachData?.statistics}
             teams={coachData?.teams}
             theme={theme}
+            isDarkMode={isDarkMode}
             accentColor={accentColor}
             navigation={navigation}
           />
           <TeamsBubble
             teams={coachData?.teams}
             theme={theme}
+            isDarkMode={isDarkMode}
             accentColor={accentColor}
             navigation={navigation}
           />
