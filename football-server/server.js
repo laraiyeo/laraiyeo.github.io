@@ -1700,7 +1700,8 @@ function transformFixtureGameResponse(raw) {
   const round = f.round
     ? {
         name: f.round.name ?? null,
-    } : null;
+      }
+    : null;
 
   const periods = Array.isArray(f.periods)
     ? f.periods.map((p) => ({
@@ -1902,7 +1903,7 @@ function transformFixtureGameResponse(raw) {
         timer: b.timer ?? null,
         x: b.x ?? null,
         y: b.y ?? null,
-    }))
+      }))
     : [];
 
   return {
