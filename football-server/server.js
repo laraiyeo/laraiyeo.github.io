@@ -978,7 +978,7 @@ app.get("/football/team/:teamId", async (req, res) => {
     const [teamInfo, squadData, transfersData] = await Promise.all([
       fetchUrl(
         `${SM_BASE}/teams/${teamId}?api_token=${SM_TOKEN}` +
-          `&include=country;coaches.coach;trophies.trophy;trophies.season;trophies.league;rivals;sidelined.player.country;sidelined.type;activeSeasons.league;venue;rankings;statistics.details.type` +
+          `&include=country;coaches.coach;trophies.trophy;trophies.season;trophies.league;rivals;sidelined.player.country;sidelined.type;activeSeasons.league;venue;statistics.details.type` +
           statsFilter,
       ),
       fetchUrl(
