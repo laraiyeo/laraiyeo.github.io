@@ -22,6 +22,7 @@ const SAP_KEY = process.env.SAP_KEY || "0150000b-b709-4b1f-8c87-5fdad60acbbe";
 // ─── TTL constants ────────────────────────────────────────────────────────────
 const TTL_30S = 30 * 1000;
 const TTL_1H = 60 * 60 * 1000;
+const TTL_12H = 12 * TTL_1H;
 const TTL_2H = 2 * TTL_1H;
 const TTL_24H = 24 * TTL_1H;
 
@@ -43,6 +44,15 @@ let leagueMeta = null;
 
 // ─── SportsApiPro competition IDs to warm on startup ─────────────────────────
 const SAP_COMPETITION_IDS = [7, 11, 25, 17, 35];
+
+// Optional aliases: SportsApiPro team name -> SportMonks team name.
+// Keys and values are compared through normalizeName(), so accents/casing/punctuation
+// differences are handled automatically.
+const SAP_TO_SM_TEAM_NAME_MAP = Object.freeze({
+  "athletic bilbao": "athletic club",
+  "celta vigo": "celta de vigo",
+  "olympique de marseille": "olympique marseille",
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Low-level helpers
@@ -583,11 +593,51 @@ function transformLeagueResponse(combined) {
       }))
     : null;
 
-  return { standings, teamsInSeason, leagueInfo, stageStats };
+  const teamOfTheWeek = transformTeamOfTheWeekResponse(combined.teamOfTheWeek);
+
+  return { standings, teamsInSeason, leagueInfo, stageStats, teamOfTheWeek };
+}
+
+// Transforms raw SM team-of-the-week response per 1.txt spec.
+function transformTeamOfTheWeekResponse(raw) {
+  const rows = Array.isArray(raw?.data) ? raw.data : [];
+
+  return rows.map((item) => ({
+    rating: item.rating ?? null,
+    formation_position: item.formation_position ?? null,
+    formation: item.formation ?? null,
+    player: item.player
+      ? {
+          id: item.player.id ?? null,
+          firstname: item.player.firstname ?? null,
+          lastname: item.player.lastname ?? null,
+          name: item.player.name ?? null,
+          image_path: item.player.image_path ?? null,
+          country: item.player.country
+            ? {
+                name: item.player.country.name ?? null,
+                image_path: item.player.country.image_path ?? null,
+              }
+            : null,
+        }
+      : null,
+    team: item.team
+      ? {
+          id: item.team.id ?? null,
+          name: item.team.name ?? null,
+          image_path: item.team.image_path ?? null,
+        }
+      : null,
+    round: item.round
+      ? {
+          name: item.round.name ?? null,
+        }
+      : null,
+  }));
 }
 
 // GET /football/league/:leagueId
-// Fetches 4 SportMonks endpoints in parallel: standings, teams, league info, stage stats.
+// Fetches 5 SportMonks endpoints in parallel: standings, teams, league info, stage stats, team of the week.
 app.get("/football/league/:leagueId", async (req, res) => {
   const leagueId = Number(req.params.leagueId);
   if (!Number.isInteger(leagueId) || leagueId <= 0) {
@@ -619,7 +669,7 @@ app.get("/football/league/:leagueId", async (req, res) => {
   }
 
   try {
-    const [standings, teamsInSeason, leagueInfo, stageStats] =
+    const [standings, teamsInSeason, leagueInfo, stageStats, teamOfTheWeek] =
       await Promise.all([
         fetchUrl(
           `${SM_BASE}/standings/seasons/${seasonId}?api_token=${SM_TOKEN}` +
@@ -640,9 +690,19 @@ app.get("/football/league/:leagueId", async (req, res) => {
                 `&include=type;participant`,
             )
           : Promise.resolve(null),
+        fetchUrl(
+          `${SM_BASE}/team-of-the-week/leagues/${leagueId}/latest?api_token=${SM_TOKEN}` +
+            `&include=player;team;round`,
+        ),
       ]);
 
-    const combined = { standings, teamsInSeason, leagueInfo, stageStats };
+    const combined = {
+      standings,
+      teamsInSeason,
+      leagueInfo,
+      stageStats,
+      teamOfTheWeek,
+    };
     cacheSet(cacheKey, combined);
 
     setCacheControl(res, TTL_1H);
@@ -1389,6 +1449,25 @@ app.get("/football/referee/:refereeId", async (req, res) => {
 // Both `name` and `longName` are indexed so either can match.
 function buildSapColorMap() {
   const map = new Map();
+
+  const indexName = (rawName, colors) => {
+    if (!rawName) return;
+
+    const rawLower = String(rawName).toLowerCase().trim();
+    const normalized = normalizeName(rawName);
+
+    if (rawLower) map.set(rawLower, colors);
+    if (normalized) map.set(normalized, colors);
+
+    const mappedSportMonksName = SAP_TO_SM_TEAM_NAME_MAP[normalized];
+    if (mappedSportMonksName) {
+      const mappedLower = String(mappedSportMonksName).toLowerCase().trim();
+      const mappedNormalized = normalizeName(mappedSportMonksName);
+      if (mappedLower) map.set(mappedLower, colors);
+      if (mappedNormalized) map.set(mappedNormalized, colors);
+    }
+  };
+
   for (const compId of SAP_COMPETITION_IDS) {
     const entry = cache.get(`sap:standings:${compId}`);
     if (!entry?.data?.standings) continue;
@@ -1401,8 +1480,8 @@ function buildSapColorMap() {
           colorPrimary: c.color ?? null,
           colorSecondary: c.awayColor ?? null,
         };
-        if (c.name) map.set(c.name.toLowerCase(), colors);
-        if (c.longName) map.set(c.longName.toLowerCase(), colors);
+        indexName(c.name, colors);
+        indexName(c.longName, colors);
       }
     }
   }
@@ -1411,7 +1490,9 @@ function buildSapColorMap() {
 
 // Strip common football suffixes so "Celtic FC" matches "Celtic", etc.
 function normalizeName(str) {
-  return str
+  return String(str || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(
       /\b(fc|if|fk|ac|sk|sc|bk|cf|afc|rfc|utd|united|city|town|hotspur)\b/g,
@@ -1433,6 +1514,9 @@ function findSapColors(name, colorMap) {
 
   // 1. Exact match
   if (colorMap.has(lower)) return colorMap.get(lower);
+
+  // 1b. Normalized key match
+  if (colorMap.has(norm)) return colorMap.get(norm);
 
   // 2. Normalized exact match
   for (const [key, colors] of colorMap) {
@@ -1527,6 +1611,7 @@ function transformFixtureDateResponse(raw) {
             short_name: f.state.short_name ?? null,
           }
         : null,
+      round: f.round ? { name: f.round.name ?? null } : null,
       participants,
       scores,
       venue: f.venue ? { name: f.venue.name ?? null } : null,
@@ -1554,7 +1639,7 @@ app.get("/football/fixture/:date", async (req, res) => {
   const cacheKey = `fixture:date:${raw}`;
   const url =
     `${SM_BASE}/fixtures/date/${isoDate}?api_token=${SM_TOKEN}` +
-    `&per_page=50&include=state;participants;scores;venue;league.country`;
+    `&per_page=50&include=state;round;participants;scores;venue;league.country`;
 
   // Serve from cache if still valid under the dynamic TTL
   const entry = cache.get(cacheKey);
@@ -1611,7 +1696,12 @@ function transformFixtureGameResponse(raw) {
         };
       })
     : [];
-  
+
+  const round = f.round
+    ? {
+        name: f.round.name ?? null,
+    } : null;
+
   const periods = Array.isArray(f.periods)
     ? f.periods.map((p) => ({
         id: p.id ?? null,
@@ -1786,7 +1876,7 @@ function transformFixtureGameResponse(raw) {
         meta: c.meta
           ? {
               participant_id: c.meta.participant_id ?? null,
-           }
+            }
           : null,
       }))
     : [];
@@ -1805,6 +1895,16 @@ function transformFixtureGameResponse(raw) {
       }))
     : [];
 
+  const ballcoordinates = Array.isArray(f.ballcoordinates)
+    ? f.ballcoordinates.map((b) => ({
+        id: b.id ?? null,
+        period_id: b.period_id ?? null,
+        timer: b.timer ?? null,
+        x: b.x ?? null,
+        y: b.y ?? null,
+    }))
+    : [];
+
   return {
     id: f.id ?? null,
     league_id: f.league_id ?? null,
@@ -1817,6 +1917,7 @@ function transformFixtureGameResponse(raw) {
         }
       : null,
     participants,
+    round,
     periods,
     scores,
     league,
@@ -1830,6 +1931,7 @@ function transformFixtureGameResponse(raw) {
     lineups,
     coaches,
     referees,
+    ballcoordinates,
   };
 }
 
@@ -1881,7 +1983,8 @@ function transformH2hResponse(raw) {
             name: f.league.name ?? null,
           }
         : null,
-      season: f.season        ? {
+      season: f.season
+        ? {
             name: f.season.name ?? null,
           }
         : null,
@@ -1892,10 +1995,102 @@ function transformH2hResponse(raw) {
   });
 }
 
+// Transforms raw SM match-facts response per 2.txt spec.
+// Only include objects where natural_language is not null.
+function transformMatchFactsResponse(raw) {
+  const rows = Array.isArray(raw?.data) ? raw.data : [];
+
+  return rows
+    .filter((item) => item?.natural_language != null)
+    .map((item) => ({
+      team: item.team ?? null,
+      category: item.category ?? null,
+      data: item.data ?? null,
+      natural_language: item.natural_language ?? null,
+    }));
+}
+
+// GET /football/game/h2h/:team1/:team2
+// Fetches head-to-head history and caches for 12 h.
+app.get("/football/game/h2h/:team1/:team2", async (req, res) => {
+  const { team1, team2 } = req.params;
+  const h2hCacheKey = `h2h:${team1}:${team2}`;
+
+  const h2hUrl =
+    `${SM_BASE}/fixtures/head-to-head/${team1}/${team2}?api_token=${SM_TOKEN}` +
+    `&include=league;participants;scores;venue`;
+
+  if (cacheValid(h2hCacheKey, TTL_12H)) {
+    setCacheControl(res, TTL_12H);
+    return res.json({
+      source: "cache",
+      data: {
+        h2hData: transformH2hResponse(cache.get(h2hCacheKey).data),
+      },
+    });
+  }
+
+  try {
+    const freshH2h = await fetchUrl(h2hUrl);
+    cacheSet(h2hCacheKey, freshH2h);
+
+    setCacheControl(res, TTL_12H);
+    res.json({
+      source: "origin",
+      data: {
+        h2hData: transformH2hResponse(freshH2h),
+      },
+    });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch H2H data", details: err.message });
+  }
+});
+
+// GET /football/game/facts/:fixtureId
+// Fetches match facts and caches for 12 h.
+app.get("/football/game/facts/:fixtureId", async (req, res) => {
+  const { fixtureId } = req.params;
+  const matchFactsCacheKey = `matchfacts:${fixtureId}`;
+
+  const matchFactsUrl =
+    `${SM_BASE}/match-facts/${fixtureId}?api_token=${SM_TOKEN}` +
+    `&filters=populate`;
+
+  if (cacheValid(matchFactsCacheKey, TTL_12H)) {
+    setCacheControl(res, TTL_12H);
+    return res.json({
+      source: "cache",
+      data: {
+        matchFacts: transformMatchFactsResponse(
+          cache.get(matchFactsCacheKey).data,
+        ),
+      },
+    });
+  }
+
+  try {
+    const freshMatchFacts = await fetchUrl(matchFactsUrl);
+    cacheSet(matchFactsCacheKey, freshMatchFacts);
+
+    setCacheControl(res, TTL_12H);
+    res.json({
+      source: "origin",
+      data: {
+        matchFacts: transformMatchFactsResponse(freshMatchFacts),
+      },
+    });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch match facts", details: err.message });
+  }
+});
+
 // GET /football/game/:fixtureId/:team1/:team2
 //
-// Combines detailed fixture data with head-to-head history.
-// H2H is fetched once and cached for 24 h independently.
+// Returns detailed fixture data only.
 // Fixture caching rules:
 //   - finished game         → 2 h  (no auto-polling)
 //   - scheduled > 1 h away  → 1 h  (no auto-polling)
@@ -1905,17 +2100,12 @@ function transformH2hResponse(raw) {
 // Activity-based polling stops after 60 s of no incoming requests and
 // restarts on the next request.
 app.get("/football/game/:fixtureId/:team1/:team2", async (req, res) => {
-  const { fixtureId, team1, team2 } = req.params;
-  const fixtureCacheKey = `game:${fixtureId}:${team1}:${team2}`;
-  const h2hCacheKey = `h2h:${team1}:${team2}`;
+  const { fixtureId } = req.params;
+  const fixtureCacheKey = `game:${fixtureId}`;
 
   const fixtureUrl =
     `${SM_BASE}/fixtures/${fixtureId}?api_token=${SM_TOKEN}` +
-    `&include=state;periods;participants;scores;league.country;comments;formations;venue;weatherReport;events;statistics.type;formations;sidelined.player;sidelined.type;sidelined.sideline;lineups.player;lineups.type;lineups.position;lineups.detailedPosition;coaches;referees.referee;lineups.details.type`;
-
-  const h2hUrl =
-    `${SM_BASE}/fixtures/head-to-head/${team1}/${team2}?api_token=${SM_TOKEN}` +
-    `&include=league;participants;scores;venue`;
+    `&include=state;round;periods;participants;scores;league.country;comments;formations;venue;weatherReport;events;statistics.type;formations;sidelined.player;sidelined.type;sidelined.sideline;lineups.player;lineups.type;lineups.position;lineups.detailedPosition;coaches;referees.referee;lineups.details.type;ballCoordinates`;
 
   // Update activity timestamp
   const act = gameActivity.get(fixtureCacheKey);
@@ -1931,14 +2121,8 @@ app.get("/football/game/:fixtureId/:team1/:team2", async (req, res) => {
     }
   }
 
-  // Resolve H2H data (24 h TTL, fetch-once)
-  let h2hData;
-  if (cacheValid(h2hCacheKey, TTL_24H)) {
-    h2hData = cache.get(h2hCacheKey).data;
-  }
-
-  // If both are cached, respond immediately
-  if (fixtureData && h2hData) {
+  // If fixture is cached, respond immediately
+  if (fixtureData) {
     const { ttl } = gameTtlInfo(fixtureData?.data);
     ensureGamePolling(fixtureCacheKey, fixtureUrl, fixtureData?.data);
     setCacheControl(res, ttl);
@@ -1946,20 +2130,14 @@ app.get("/football/game/:fixtureId/:team1/:team2", async (req, res) => {
       source: "cache",
       data: {
         fixtureData: transformFixtureGameResponse(fixtureData),
-        h2hData: transformH2hResponse(h2hData),
       },
     });
   }
 
   try {
-    // Fetch only what's missing in parallel
-    const [freshFixture, freshH2h] = await Promise.all([
-      fixtureData ? Promise.resolve(fixtureData) : fetchUrl(fixtureUrl),
-      h2hData ? Promise.resolve(h2hData) : fetchUrl(h2hUrl),
-    ]);
+    const freshFixture = await fetchUrl(fixtureUrl);
 
     cacheSet(fixtureCacheKey, freshFixture);
-    if (!h2hData) cacheSet(h2hCacheKey, freshH2h);
 
     const fixture = freshFixture?.data;
     const { ttl } = gameTtlInfo(fixture);
@@ -1971,7 +2149,6 @@ app.get("/football/game/:fixtureId/:team1/:team2", async (req, res) => {
       source: "origin",
       data: {
         fixtureData: transformFixtureGameResponse(freshFixture),
-        h2hData: transformH2hResponse(freshH2h),
       },
     });
   } catch (err) {

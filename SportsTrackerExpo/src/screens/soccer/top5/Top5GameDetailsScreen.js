@@ -6499,6 +6499,10 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
       if (!silent) setLoading(true);
       setError(null);
       try {
+        const gameUrl = `${FOOTBALL_BASE}/football/game/${fixtureId}/${homeTeamId}/${awayTeamId}`;
+        const h2hUrl = `${FOOTBALL_BASE}/football/game/h2h/${homeTeamId}/${awayTeamId}`;
+        const factsUrl = `${FOOTBALL_BASE}/football/game/facts/${fixtureId}`;
+
         // ── AsyncStorage cache for finished / old games ───────────────────
         if (!silent) {
           try {
@@ -6507,18 +6511,56 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               const { data: cachedData, ts } = JSON.parse(raw);
               if (Date.now() - ts < GAME_CACHE_TTL_MS) {
                 setData(cachedData);
-                return;
               }
             }
           } catch (_) {}
         }
 
-        const res = await fetch(
-          `${FOOTBALL_BASE}/football/game/${fixtureId}/${homeTeamId}/${awayTeamId}`,
-        );
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        const responseData = json?.data ?? null;
+        let responseData = null;
+
+        if (silent) {
+          const gameRes = await fetch(gameUrl);
+          if (!gameRes.ok) throw new Error(`HTTP ${gameRes.status}`);
+
+          const gameJson = await gameRes.json();
+          responseData = {
+            fixtureData: gameJson?.data?.fixtureData ?? null,
+            h2hData: dataRef.current?.h2hData ?? [],
+            matchFacts: dataRef.current?.matchFacts ?? [],
+          };
+        } else {
+          const [gameRes, h2hRes, factsRes] = await Promise.all([
+            fetch(gameUrl),
+            fetch(h2hUrl),
+            fetch(factsUrl),
+          ]);
+
+          if (!gameRes.ok) throw new Error(`HTTP ${gameRes.status}`);
+
+          const gameJson = await gameRes.json();
+
+          let h2hJson = null;
+          if (h2hRes.ok) {
+            h2hJson = await h2hRes.json();
+          } else {
+            console.warn(`Top5 h2h fetch error: HTTP ${h2hRes.status}`);
+          }
+
+          let factsJson = null;
+          if (factsRes.ok) {
+            factsJson = await factsRes.json();
+          } else {
+            console.warn(`Top5 facts fetch error: HTTP ${factsRes.status}`);
+          }
+
+          responseData = {
+            fixtureData: gameJson?.data?.fixtureData ?? null,
+            h2hData: h2hJson?.data?.h2hData ?? dataRef.current?.h2hData ?? [],
+            matchFacts:
+              factsJson?.data?.matchFacts ?? dataRef.current?.matchFacts ?? [],
+          };
+        }
+
         setData(responseData);
 
         // Persist cache for finished or started-more-than-24h-ago games
