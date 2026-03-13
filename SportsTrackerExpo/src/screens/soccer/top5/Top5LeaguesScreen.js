@@ -150,7 +150,13 @@ export default function Top5LeaguesScreen({ navigation }) {
                 {item.image_path ? (
                   <Image
                     source={{ uri: item.image_path }}
-                    style={[styles.logo, { tintColor: (item.id === 8 && isDarkMode) ? theme.text : undefined }]}
+                    style={[
+                      styles.logo,
+                      {
+                        tintColor:
+                          item.id === 8 && isDarkMode ? theme.text : undefined,
+                      },
+                    ]}
                     resizeMode="contain"
                   />
                 ) : (

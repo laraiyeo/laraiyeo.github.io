@@ -1794,9 +1794,7 @@ const EventsSection = ({
         />
       );
     }
-    if (
-      (addLow.includes("own goal")) && e.result != null
-    ) {
+    if (addLow.includes("own goal") && e.result != null) {
       return (
         <FontAwesome6
           name="soccer-ball"
@@ -3871,7 +3869,14 @@ const degreesToCompass = (deg) => {
   return dirs[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
 };
 
-const GameInfoSection = ({ venue, weather, league, startingAt, theme, isDarkMode }) => {
+const GameInfoSection = ({
+  venue,
+  weather,
+  league,
+  startingAt,
+  theme,
+  isDarkMode,
+}) => {
   if (!venue && !weather && !league && !startingAt) return null;
 
   const capFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
@@ -4077,7 +4082,15 @@ const GameInfoSection = ({ venue, weather, league, startingAt, theme, isDarkMode
                   {leagueImgUri ? (
                     <Image
                       source={{ uri: leagueImgUri }}
-                      style={[giStyles.metaLogo, { tintColor: (league?.id === 8 && isDarkMode) ? theme.text : undefined }]}
+                      style={[
+                        giStyles.metaLogo,
+                        {
+                          tintColor:
+                            league?.id === 8 && isDarkMode
+                              ? theme.text
+                              : undefined,
+                        },
+                      ]}
                       contentFit="contain"
                       cachePolicy="memory-disk"
                     />
@@ -5271,7 +5284,7 @@ const HomeTeamPitchSection = ({
               ]}
             >
               <Text
-                style={[styles.homePitchSubMinuteText, { color: theme.text}]}
+                style={[styles.homePitchSubMinuteText, { color: theme.text }]}
                 numberOfLines={1}
                 ellipsizeMode="clip"
               >
@@ -6994,7 +7007,9 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   const finished = isFinishedState(stateCode);
   const statusInfo = getStatusInfo(fixture, nowMs, snapshotTsMs);
   const hasLineups = (fixture?.lineups ?? []).length > 0;
-  const isScheduledGame = !stateCode || ["NS", "TBA", "DELAYED"].includes((stateCode || "").toUpperCase());
+  const isScheduledGame =
+    !stateCode ||
+    ["NS", "TBA", "DELAYED"].includes((stateCode || "").toUpperCase());
 
   const availableTabs = useMemo(
     () =>
@@ -7395,7 +7410,15 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               {fixture.league?.image_path ? (
                 <Image
                   source={{ uri: fixture.league.image_path }}
-                  style={[styles.leagueLogo, { tintColor: (fixture.league?.id === 8 && isDarkMode) ? theme.text : undefined }]}
+                  style={[
+                    styles.leagueLogo,
+                    {
+                      tintColor:
+                        fixture.league?.id === 8 && isDarkMode
+                          ? theme.text
+                          : undefined,
+                    },
+                  ]}
                   contentFit="contain"
                   cachePolicy="memory-disk"
                 />
