@@ -1648,6 +1648,7 @@ function transformFixtureGameResponse(raw) {
   const comments = Array.isArray(f.comments)
     ? f.comments.map((c) => ({
         comment: c.comment ?? null,
+        minute: c.minute ?? null,
         extra_minute: c.extra_minute ?? null,
         is_goal: c.is_goal ?? null,
         is_important: c.is_important ?? null,
@@ -1782,6 +1783,11 @@ function transformFixtureGameResponse(raw) {
         lastname: c.lastname ?? null,
         name: c.name ?? null,
         image_path: c.image_path ?? null,
+        meta: c.meta
+          ? {
+              participant_id: c.meta.participant_id ?? null,
+           }
+          : null,
       }))
     : [];
 
@@ -1872,9 +1878,11 @@ function transformH2hResponse(raw) {
       starting_at: f.starting_at ?? null,
       league: f.league
         ? {
-            id: f.league.id ?? null,
             name: f.league.name ?? null,
-            image_path: f.league.image_path ?? null,
+          }
+        : null,
+      season: f.season        ? {
+            name: f.season.name ?? null,
           }
         : null,
       participants,
