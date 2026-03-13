@@ -18,7 +18,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../../../context/ThemeContext";
 
 const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
-const CACHE_KEY = "top5:search";
+const CACHE_KEY = "top5:search:v1";
 const CACHE_TTL = 12 * 60 * 60 * 1000; // 12 hours
 
 const H_PAD = 16;

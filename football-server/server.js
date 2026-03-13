@@ -2174,7 +2174,7 @@ async function warmCacheTeams() {
     while (true) {
       const url =
         `${SM_BASE}/teams?api_token=${SM_TOKEN}` +
-        `&include=rankings;activeSeasons.league;sidelined.player;players.player` +
+        `&include=activeSeasons.league;sidelined.player;players.player` +
         `&per_page=50&filters=teamCountries:462,17,251,32,11,75285&page=${page}`;
       const resp = await fetchUrl(url);
       if (!resp?.data || !Array.isArray(resp.data)) break;

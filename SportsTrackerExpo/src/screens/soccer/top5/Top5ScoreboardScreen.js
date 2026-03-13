@@ -1327,7 +1327,7 @@ const Top5ScoreboardScreen = ({ navigation }) => {
           />
         }
         showsVerticalScrollIndicator={false}
-        stickyHeaderIndices={[1]}
+        stickyHeaderIndices={[0]}
       >
         {/* Title (not sticky) */}
 
@@ -1598,7 +1598,6 @@ const styles = StyleSheet.create({
 // ─── Date picker bar styles ───────────────────────────────────────────────────
 const dateBarStyles = StyleSheet.create({
   outerWrapper: {
-    marginTop: 5,
     marginBottom: 15,
   },
   wrapper: {
