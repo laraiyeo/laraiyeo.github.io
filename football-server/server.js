@@ -20,7 +20,9 @@ const SAP_BASE = "https://v1.football.sportsapipro.com";
 const SAP_KEY = process.env.SAP_KEY || "0150000b-b709-4b1f-8c87-5fdad60acbbe";
 
 // ─── TTL constants ────────────────────────────────────────────────────────────
+const TTL_20S = 20 * 1000;
 const TTL_30S = 30 * 1000;
+const TTL_5M = 5 * 60 * 1000;
 const TTL_1H = 60 * 60 * 1000;
 const TTL_12H = 12 * TTL_1H;
 const TTL_2H = 2 * TTL_1H;
@@ -33,8 +35,8 @@ const cache = new Map();
 // key -> intervalId  (used for SAP standings / league meta auto-refresh)
 const refreshIntervals = new Map();
 
-// key -> { id: intervalId, fast: boolean }  (fixture-date dynamic intervals)
-const fixtureIntervals = new Map();
+// key -> { intervalId: number | null, lastRequest: number }  (fixture-date activity polling)
+const fixtureActivity = new Map();
 
 // key -> { intervalId: number | null, lastRequest: number }  (game activity polling)
 const gameActivity = new Map();
@@ -209,6 +211,21 @@ function isLive(fixture) {
   return c !== "" && !FINISHED_STATES.has(c) && !FUTURE_STATES.has(c);
 }
 
+function shortNameOf(fixture) {
+  return String(fixture?.state?.short_name || "").toUpperCase();
+}
+
+const LIVE_SHORT_NAMES = new Set(["1ST", "HT", "2ND"]);
+
+function isLiveByShortName(fixture) {
+  return LIVE_SHORT_NAMES.has(shortNameOf(fixture));
+}
+
+function isFinishedByShortName(fixture) {
+  const sn = shortNameOf(fixture);
+  return sn === "FT" || FINISHED_STATES.has(stateCode(fixture));
+}
+
 function startTimeMsOf(fixture) {
   if (fixture?.starting_at_timestamp)
     return fixture.starting_at_timestamp * 1000;
@@ -220,84 +237,110 @@ function startTimeMsOf(fixture) {
 // TTL for the /fixture date-list endpoint (evaluates over all fixtures on that day)
 function fixtureDateTtlInfo(fixtures) {
   if (!Array.isArray(fixtures) || fixtures.length === 0) {
-    return { ttl: TTL_1H, fast: false };
+    return { ttl: TTL_2H, fast: false, mode: "scheduled_empty" };
   }
-  const now = Date.now();
-  const PRE = 15 * 60 * 1000;
 
-  for (const f of fixtures) {
-    if (isLive(f)) return { ttl: TTL_30S, fast: true };
+  if (fixtures.some((f) => isLiveByShortName(f))) {
+    return { ttl: TTL_20S, fast: true, mode: "live" };
   }
+
+  const now = Date.now();
+  let nearestStart = null;
   for (const f of fixtures) {
+    if (isFinishedByShortName(f)) continue;
     const t = startTimeMsOf(f);
-    if (t != null && t > now && t - now <= PRE)
-      return { ttl: TTL_30S, fast: true };
+    if (t != null && t > now) {
+      if (nearestStart == null || t < nearestStart) nearestStart = t;
+    }
   }
-  return { ttl: TTL_1H, fast: false };
+
+  if (nearestStart != null) {
+    const diff = nearestStart - now;
+    if (diff <= TTL_1H)
+      return { ttl: TTL_5M, fast: false, mode: "scheduled_soon" };
+    return { ttl: TTL_2H, fast: false, mode: "scheduled_far" };
+  }
+
+  return { ttl: TTL_12H, fast: false, mode: "finished" };
 }
 
 // TTL for a single game fixture (/game endpoint)
 function gameTtlInfo(fixture) {
-  if (!fixture) return { ttl: TTL_1H, fast: false, mode: "scheduled" };
+  if (!fixture) return { ttl: TTL_2H, fast: false, mode: "scheduled" };
 
-  if (isFinished(fixture))
-    return { ttl: TTL_2H, fast: false, mode: "finished" };
-  if (isLive(fixture)) return { ttl: TTL_30S, fast: true, mode: "live" };
-
-  // Date-based fallback: if kick-off was >24 h ago, treat as finished
-  const tNow = startTimeMsOf(fixture);
-  if (tNow != null && Date.now() - tNow > TTL_24H)
-    return { ttl: TTL_2H, fast: false, mode: "finished_by_date" };
-
-  if (tNow != null) {
-    const now = Date.now();
-    const diff = tNow - now;
-    const FIFTEEN_MIN = 15 * 60 * 1000;
-    if (diff >= 0 && diff <= FIFTEEN_MIN)
-      return { ttl: TTL_30S, fast: true, mode: "pre_match" };
-    if (diff > FIFTEEN_MIN && diff <= TTL_1H)
-      return { ttl: diff - FIFTEEN_MIN, fast: false, mode: "pre_1h" };
+  if (isLiveByShortName(fixture)) {
+    return { ttl: TTL_20S, fast: true, mode: "live" };
   }
 
-  return { ttl: TTL_1H, fast: false, mode: "scheduled" };
+  if (isFinishedByShortName(fixture)) {
+    return { ttl: TTL_12H, fast: false, mode: "finished" };
+  }
+
+  const tStart = startTimeMsOf(fixture);
+  if (tStart != null) {
+    const now = Date.now();
+    const diff = tStart - now;
+
+    // Future game: 2h cache; tighten to 5m in the final hour.
+    if (diff > TTL_1H) {
+      return { ttl: TTL_2H, fast: false, mode: "scheduled_far" };
+    }
+    if (diff > 0) {
+      return { ttl: TTL_5M, fast: false, mode: "scheduled_soon" };
+    }
+
+    // Kick-off time passed but state is not yet in live/finished buckets.
+    return { ttl: TTL_5M, fast: false, mode: "post_start_pending" };
+  }
+
+  return { ttl: TTL_2H, fast: false, mode: "scheduled" };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Fixture-date dynamic interval management
+// Fixture-date activity-based polling
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Starts (or adjusts) the auto-refresh interval for a fixture-date cache key.
- * Re-evaluates the desired speed after every fetch so it can transition
- * between TTL_1H and TTL_30S dynamically as games go live.
- *
- * Called on every incoming request (idempotent if already at correct speed).
+ * Ensures the fixture-date endpoint is polled every 20 s while any game is live
+ * AND requests have been seen within the last 60 s.
  */
-function manageFixtureDateInterval(cacheKey, url, latestData) {
-  const { fast: wantFast } = fixtureDateTtlInfo(latestData?.data);
-  const current = fixtureIntervals.get(cacheKey);
+function ensureFixtureDatePolling(cacheKey, url, latestData) {
+  const { fast } = fixtureDateTtlInfo(latestData?.data);
+  if (!fast) return;
 
-  // Already running at the correct speed — nothing to do
-  if (current && current.fast === wantFast) return;
+  let act = fixtureActivity.get(cacheKey);
+  if (!act) {
+    act = { intervalId: null, lastRequest: Date.now() };
+    fixtureActivity.set(cacheKey, act);
+  }
+  act.lastRequest = Date.now();
 
-  // Cancel any existing interval before creating a new one
-  if (current) clearInterval(current.id);
+  if (act.intervalId != null) return;
 
-  const intervalMs = wantFast ? TTL_30S : TTL_1H;
-  const id = setInterval(async () => {
-    try {
-      const freshData = await fetchAndCache(cacheKey, url);
-      // Re-evaluate speed immediately after each fetch
-      manageFixtureDateInterval(cacheKey, url, freshData);
-    } catch (e) {
-      console.error(`[fixture-interval] ${cacheKey}:`, e.message);
+  act.intervalId = setInterval(async () => {
+    if (Date.now() - act.lastRequest > 60_000) {
+      clearInterval(act.intervalId);
+      act.intervalId = null;
+      console.log(`[fixture-poll] ${cacheKey}: stopped (inactivity)`);
+      return;
     }
-  }, intervalMs);
 
-  fixtureIntervals.set(cacheKey, { id, fast: wantFast });
-  console.log(
-    `[fixture-interval] ${cacheKey}: ${wantFast ? "30s" : "1h"} interval`,
-  );
+    try {
+      const freshData = await fetchUrl(url);
+      cacheSet(cacheKey, freshData);
+
+      const { fast: stillFast, mode } = fixtureDateTtlInfo(freshData?.data);
+      if (!stillFast) {
+        clearInterval(act.intervalId);
+        act.intervalId = null;
+        console.log(`[fixture-poll] ${cacheKey}: stopped (mode: ${mode})`);
+      }
+    } catch (e) {
+      console.error(`[fixture-poll] ${cacheKey}:`, e.message);
+    }
+  }, TTL_20S);
+
+  console.log(`[fixture-poll] ${cacheKey}: started 20s polling`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -305,7 +348,7 @@ function manageFixtureDateInterval(cacheKey, url, latestData) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Ensures the game endpoint is polled every 30 s while it's live/pre-match
+ * Ensures the game endpoint is polled every 20 s while short_name is live window
  * AND requests have been seen within the last 60 s.  Stops automatically on
  * inactivity, game-end, or leaving the fast-poll window.
  */
@@ -345,9 +388,9 @@ function ensureGamePolling(cacheKey, fixtureUrl, fixture) {
     } catch (e) {
       console.error(`[game-poll] ${cacheKey}:`, e.message);
     }
-  }, TTL_30S);
+  }, TTL_20S);
 
-  console.log(`[game-poll] ${cacheKey}: started 30s polling`);
+  console.log(`[game-poll] ${cacheKey}: started 20s polling`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1567,6 +1610,17 @@ function transformFixtureDateResponse(raw) {
       });
     }
 
+    const periods = Array.isArray(f.periods)
+      ? f.periods.map((p) => ({
+          id: p.id ?? null,
+          ended: p.ended ?? null,
+          ticking: p.ticking ?? null,
+          description: p.description ?? null,
+          minutes: p.minutes ?? null,
+          seconds: p.seconds ?? null,
+        }))
+      : [];
+
     // Slim participants, enriched with SAP colors
     const participants = Array.isArray(f.participants)
       ? f.participants.map((p) => {
@@ -1611,7 +1665,7 @@ function transformFixtureDateResponse(raw) {
             short_name: f.state.short_name ?? null,
           }
         : null,
-      round: f.round ? { name: f.round.name ?? null } : null,
+      periods,
       participants,
       scores,
       venue: f.venue ? { name: f.venue.name ?? null } : null,
@@ -1627,8 +1681,8 @@ function transformFixtureDateResponse(raw) {
 }
 
 // GET /football/fixture/:date  (date = YYYYMMDD)
-// Auto-refreshes every 1 h normally; switches to every 30 s when any game is
-// live or within 15 minutes of kick-off.
+// Uses smart caching by game states/start times, and polls every 20 s while
+// any game is live and requests are active.
 app.get("/football/fixture/:date", async (req, res) => {
   const raw = req.params.date;
   if (!/^\d{8}$/.test(raw)) {
@@ -1639,14 +1693,14 @@ app.get("/football/fixture/:date", async (req, res) => {
   const cacheKey = `fixture:date:${raw}`;
   const url =
     `${SM_BASE}/fixtures/date/${isoDate}?api_token=${SM_TOKEN}` +
-    `&per_page=50&include=state;round;participants;scores;venue;league.country`;
+    `&per_page=50&include=state;participants;scores;venue;league.country`;
 
   // Serve from cache if still valid under the dynamic TTL
   const entry = cache.get(cacheKey);
   if (entry) {
     const { ttl } = fixtureDateTtlInfo(entry.data?.data);
     if (Date.now() - entry.fetchedAt < ttl) {
-      manageFixtureDateInterval(cacheKey, url, entry.data);
+      ensureFixtureDatePolling(cacheKey, url, entry.data);
       setCacheControl(res, ttl);
       return res.json({
         source: "cache",
@@ -1659,7 +1713,7 @@ app.get("/football/fixture/:date", async (req, res) => {
     const data = await fetchAndCache(cacheKey, url);
     const { ttl } = fixtureDateTtlInfo(data?.data);
 
-    manageFixtureDateInterval(cacheKey, url, data);
+    ensureFixtureDatePolling(cacheKey, url, data);
 
     setCacheControl(res, ttl);
     res.json({ source: "origin", data: transformFixtureDateResponse(data) });
@@ -1697,16 +1751,14 @@ function transformFixtureGameResponse(raw) {
       })
     : [];
 
-  const round = f.round
-    ? {
-        name: f.round.name ?? null,
-      }
-    : null;
-
   const periods = Array.isArray(f.periods)
     ? f.periods.map((p) => ({
         id: p.id ?? null,
+        ended: p.ended ?? null,
+        ticking: p.ticking ?? null,
         description: p.description ?? null,
+        minutes: p.minutes ?? null,
+        seconds: p.seconds ?? null,
       }))
     : [];
 
@@ -1918,7 +1970,6 @@ function transformFixtureGameResponse(raw) {
         }
       : null,
     participants,
-    round,
     periods,
     scores,
     league,
@@ -2093,11 +2144,10 @@ app.get("/football/game/facts/:fixtureId", async (req, res) => {
 //
 // Returns detailed fixture data only.
 // Fixture caching rules:
-//   - finished game         → 2 h  (no auto-polling)
-//   - scheduled > 1 h away  → 1 h  (no auto-polling)
-//   - scheduled 15 min–1 h  → cache until 15 min before kick-off
-//   - scheduled ≤ 15 min    → 30 s  + activity-based polling
-//   - live                  → 30 s  + activity-based polling
+//   - short_name in [1st, HT, 2nd]  → 20 s + activity-based polling
+//   - future game (> 1 h to kick-off) → 2 h
+//   - future game (<= 1 h to kick-off) → 5 min
+//   - finished (FT)                    → 12 h
 // Activity-based polling stops after 60 s of no incoming requests and
 // restarts on the next request.
 app.get("/football/game/:fixtureId/:team1/:team2", async (req, res) => {
@@ -2106,7 +2156,7 @@ app.get("/football/game/:fixtureId/:team1/:team2", async (req, res) => {
 
   const fixtureUrl =
     `${SM_BASE}/fixtures/${fixtureId}?api_token=${SM_TOKEN}` +
-    `&include=state;round;periods;participants;scores;league.country;comments;formations;venue;weatherReport;events;statistics.type;formations;sidelined.player;sidelined.type;sidelined.sideline;lineups.player;lineups.type;lineups.position;lineups.detailedPosition;coaches;referees.referee;lineups.details.type;ballCoordinates`;
+    `&include=state;periods;participants;scores;league.country;comments;formations;venue;weatherReport;events;statistics.type;formations;sidelined.player;sidelined.type;sidelined.sideline;lineups.player;lineups.type;lineups.position;lineups.detailedPosition;coaches;referees.referee;lineups.details.type;ballCoordinates`;
 
   // Update activity timestamp
   const act = gameActivity.get(fixtureCacheKey);

@@ -67,7 +67,7 @@ const formatMatchTime = (match) => {
 
 const getStatusInfo = (match) => {
   const code = (match?.state?.state || "").toUpperCase();
-  const short = match?.state?.short_name || code;
+  const short = match?.state?.name || code;
   const isFinished = [
     "FT",
     "AET",

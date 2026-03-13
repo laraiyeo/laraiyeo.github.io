@@ -16,7 +16,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../../context/ThemeContext";
 
 const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
-const CACHE_KEY = "top5:teams:v1";
+const CACHE_KEY = "top5:teams:v2";
 const CACHE_TTL = 12 * 60 * 60 * 1000;
 
 const { width } = Dimensions.get("window");

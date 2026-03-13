@@ -43,6 +43,10 @@ const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
 
 const GAME_CACHE_KEY = (id) => `@gameDetail_v1:${id}`;
 const GAME_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+const GAME_AUX_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const GAME_H2H_CACHE_KEY = (homeId, awayId) =>
+  `@gameDetail_h2h_v1:${homeId}:${awayId}`;
+const GAME_FACTS_CACHE_KEY = (fixtureId) => `@gameDetail_facts_v1:${fixtureId}`;
 
 // ─── Polling helpers (same pattern as Top5ScoreboardScreen) ──────────────────
 const INTERVAL_SLOW = 30 * 60 * 1000; // 30 minutes
@@ -6529,35 +6533,82 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
             matchFacts: dataRef.current?.matchFacts ?? [],
           };
         } else {
+          let cachedH2hData = dataRef.current?.h2hData ?? [];
+          let cachedFactsData = dataRef.current?.matchFacts ?? [];
+          let shouldFetchH2h = true;
+          let shouldFetchFacts = true;
+
+          try {
+            const [h2hRaw, factsRaw] = await Promise.all([
+              AsyncStorage.getItem(GAME_H2H_CACHE_KEY(homeTeamId, awayTeamId)),
+              AsyncStorage.getItem(GAME_FACTS_CACHE_KEY(fixtureId)),
+            ]);
+
+            if (h2hRaw) {
+              const parsed = JSON.parse(h2hRaw);
+              if (
+                Date.now() - Number(parsed?.ts ?? 0) < GAME_AUX_CACHE_TTL_MS &&
+                Array.isArray(parsed?.data)
+              ) {
+                cachedH2hData = parsed.data;
+                shouldFetchH2h = false;
+              }
+            }
+
+            if (factsRaw) {
+              const parsed = JSON.parse(factsRaw);
+              if (
+                Date.now() - Number(parsed?.ts ?? 0) < GAME_AUX_CACHE_TTL_MS &&
+                Array.isArray(parsed?.data)
+              ) {
+                cachedFactsData = parsed.data;
+                shouldFetchFacts = false;
+              }
+            }
+          } catch (_) {}
+
           const [gameRes, h2hRes, factsRes] = await Promise.all([
             fetch(gameUrl),
-            fetch(h2hUrl),
-            fetch(factsUrl),
+            shouldFetchH2h ? fetch(h2hUrl) : Promise.resolve(null),
+            shouldFetchFacts ? fetch(factsUrl) : Promise.resolve(null),
           ]);
 
           if (!gameRes.ok) throw new Error(`HTTP ${gameRes.status}`);
 
           const gameJson = await gameRes.json();
 
-          let h2hJson = null;
-          if (h2hRes.ok) {
-            h2hJson = await h2hRes.json();
-          } else {
-            console.warn(`Top5 h2h fetch error: HTTP ${h2hRes.status}`);
+          let h2hData = cachedH2hData;
+          if (h2hRes) {
+            if (h2hRes.ok) {
+              const h2hJson = await h2hRes.json();
+              h2hData = h2hJson?.data?.h2hData ?? cachedH2hData;
+              AsyncStorage.setItem(
+                GAME_H2H_CACHE_KEY(homeTeamId, awayTeamId),
+                JSON.stringify({ data: h2hData, ts: Date.now() }),
+              ).catch(() => {});
+            } else {
+              console.warn(`Top5 h2h fetch error: HTTP ${h2hRes.status}`);
+            }
           }
 
-          let factsJson = null;
-          if (factsRes.ok) {
-            factsJson = await factsRes.json();
-          } else {
-            console.warn(`Top5 facts fetch error: HTTP ${factsRes.status}`);
+          let matchFacts = cachedFactsData;
+          if (factsRes) {
+            if (factsRes.ok) {
+              const factsJson = await factsRes.json();
+              matchFacts = factsJson?.data?.matchFacts ?? cachedFactsData;
+              AsyncStorage.setItem(
+                GAME_FACTS_CACHE_KEY(fixtureId),
+                JSON.stringify({ data: matchFacts, ts: Date.now() }),
+              ).catch(() => {});
+            } else {
+              console.warn(`Top5 facts fetch error: HTTP ${factsRes.status}`);
+            }
           }
 
           responseData = {
             fixtureData: gameJson?.data?.fixtureData ?? null,
-            h2hData: h2hJson?.data?.h2hData ?? dataRef.current?.h2hData ?? [],
-            matchFacts:
-              factsJson?.data?.matchFacts ?? dataRef.current?.matchFacts ?? [],
+            h2hData,
+            matchFacts,
           };
         }
 
