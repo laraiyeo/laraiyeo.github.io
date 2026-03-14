@@ -844,7 +844,15 @@ const Top5GridSection = ({
           {group.imagePath ? (
             <Image
               source={{ uri: group.imagePath }}
-              style={[soccerGridStyles.groupBubbleLogo, { tintColor: (group.leagueKey === "8" && isDarkMode) ? theme.text : undefined }]}
+              style={[
+                soccerGridStyles.groupBubbleLogo,
+                {
+                  tintColor:
+                    group.leagueKey === "8" && isDarkMode
+                      ? theme.text
+                      : undefined,
+                },
+              ]}
               contentFit="contain"
               cachePolicy="memory-disk"
             />
@@ -939,7 +947,15 @@ const Top5ScoreboardSection = ({
             {group.imagePath ? (
               <Image
                 source={{ uri: group.imagePath }}
-                style={[styles.eventLogoImage, { tintColor: (group.leagueKey === "8" && isDarkMode) ? theme.text : undefined }]}
+                style={[
+                  styles.eventLogoImage,
+                  {
+                    tintColor:
+                      group.leagueKey === "8" && isDarkMode
+                        ? theme.text
+                        : undefined,
+                  },
+                ]}
                 contentFit="contain"
                 cachePolicy="memory-disk"
               />
@@ -962,21 +978,21 @@ const Top5ScoreboardSection = ({
               {group.label}
             </Text>
             <View style={styles.countryInfo}>
-            {group.countryImage ? (
-            <Image
-                source={{ uri: group.countryImage }}
-                style={styles.countryFlag}
-                contentFit="contain"
-                cachePolicy="memory-disk"
-            />
-            ) : null}
-            {group.countryName ? (
-              <Text
-                style={[styles.eventSubLabel, { color: theme.textTertiary }]}
-              >
-                {group.countryName}
-              </Text>
-            ) : null}
+              {group.countryImage ? (
+                <Image
+                  source={{ uri: group.countryImage }}
+                  style={styles.countryFlag}
+                  contentFit="contain"
+                  cachePolicy="memory-disk"
+                />
+              ) : null}
+              {group.countryName ? (
+                <Text
+                  style={[styles.eventSubLabel, { color: theme.textTertiary }]}
+                >
+                  {group.countryName}
+                </Text>
+              ) : null}
             </View>
           </View>
           <View style={styles.eventHeaderRight} pointerEvents="none">
@@ -1077,7 +1093,6 @@ const Top5ScoreboardSection = ({
                               {si.line2}
                             </Text>
                           )}
-
                         </View>
                       ) : (
                         <>
@@ -1738,7 +1753,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 2,
   },
-    countryInfo: {
+  countryInfo: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,

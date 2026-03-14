@@ -1669,7 +1669,7 @@ const EventsSection = ({
                   { color: teamColor },
                 ]}
               >
-                  {(effectiveTeam?.name || "?")[0]?.toUpperCase?.() || "?"}
+                {(effectiveTeam?.name || "?")[0]?.toUpperCase?.() || "?"}
               </Text>
             </View>
           )}
@@ -2177,9 +2177,9 @@ const EventsSection = ({
                     }
                   : null;
 
-                return effectivePlayerMeta ? (
-                  renderEventPlayerSection("Player", effectivePlayerMeta)
-                ) : null;
+                return effectivePlayerMeta
+                  ? renderEventPlayerSection("Player", effectivePlayerMeta)
+                  : null;
               })()}
               {selectedEvent
                 ? renderEventPlayerSection(
@@ -2482,7 +2482,9 @@ const CommentarySection = ({
           Number(g?.event?.extra_minute ?? 0) === Number(parsed.extra ?? 0),
       );
 
-      const getClosestCandidate = (candidateRows = eventTimelines.goalTimeline) => {
+      const getClosestCandidate = (
+        candidateRows = eventTimelines.goalTimeline,
+      ) => {
         const candidates = candidateRows;
         if (!candidates.length) return null;
 
@@ -2494,8 +2496,7 @@ const CommentarySection = ({
               evt?.related_player_name || "",
             ).toLowerCase();
             const playerMatch = !!eventPlayer && text.includes(eventPlayer);
-            const relatedMatch =
-              !!eventRelated && text.includes(eventRelated);
+            const relatedMatch = !!eventRelated && text.includes(eventRelated);
             const teamMatch =
               !!commentTeam && evt?.participant_id === commentTeam?.id;
             const timeDiff =
@@ -3103,7 +3104,7 @@ const CommentarySection = ({
                   { color: teamColor },
                 ]}
               >
-                  {(effectiveTeam?.name || "?")[0]?.toUpperCase?.() || "?"}
+                {(effectiveTeam?.name || "?")[0]?.toUpperCase?.() || "?"}
               </Text>
             </View>
           )}
@@ -6175,25 +6176,25 @@ const SoccerPlayerDetailModal = ({
       .join("")
       .toUpperCase() ||
     "?";
-    const { homeColor: resolvedHomeColor, awayColor: resolvedAwayColor } =
-      useMemo(
-        () =>
-          resolveMatchColors({
-            homePrimary: home?.colorPrimary,
-            homeSecondary: home?.colorSecondary,
-            awayPrimary: away?.colorPrimary,
-            awaySecondary: away?.colorSecondary,
-            homeFallback: colors.primary,
-            awayFallback: colors.secondary || colors.primary,
-          }),
-        [home, away, colors.primary, colors.secondary],
-      );
-    const teamColor =
-      resolvedTeam?.id === home?.id
-        ? resolvedHomeColor
-        : resolvedTeam?.id === away?.id
-          ? resolvedAwayColor
-          : resolvedTeam?.colorPrimary || "#4c6ef5";
+  const { homeColor: resolvedHomeColor, awayColor: resolvedAwayColor } =
+    useMemo(
+      () =>
+        resolveMatchColors({
+          homePrimary: home?.colorPrimary,
+          homeSecondary: home?.colorSecondary,
+          awayPrimary: away?.colorPrimary,
+          awaySecondary: away?.colorSecondary,
+          homeFallback: colors.primary,
+          awayFallback: colors.secondary || colors.primary,
+        }),
+      [home, away, colors.primary, colors.secondary],
+    );
+  const teamColor =
+    resolvedTeam?.id === home?.id
+      ? resolvedHomeColor
+      : resolvedTeam?.id === away?.id
+        ? resolvedAwayColor
+        : resolvedTeam?.colorPrimary || "#4c6ef5";
   const [playerShareVisible, setPlayerShareVisible] = useState(false);
   const [sharingPlayerCard, setSharingPlayerCard] = useState(false);
   const shareCardRef = useRef(null);
@@ -7012,7 +7013,10 @@ const SoccerPlayerDetailModal = ({
 
           <View style={spmStyles.shareActions}>
             <TouchableOpacity
-              style={[spmStyles.shareActionBtn, { backgroundColor: colors.primary }]}
+              style={[
+                spmStyles.shareActionBtn,
+                { backgroundColor: colors.primary },
+              ]}
               onPress={handlePlayerShare}
               disabled={sharingPlayerCard}
             >

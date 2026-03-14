@@ -758,11 +758,7 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
         })
       }
     >
-      <MatchGradient
-        gradId={idx}
-        homeColor={homeColor}
-        awayColor={awayColor}
-      />
+      <MatchGradient gradId={idx} homeColor={homeColor} awayColor={awayColor} />
       <View style={mStyles.cardInner}>
         {/* Home side */}
         <View style={mStyles.teamSide}>
@@ -1369,7 +1365,14 @@ function normalizeTotwPlayerName(player) {
   };
 }
 
-function TeamOfTheWeekTab({ teamOfTheWeek, teamsInSeason, theme, colors, isDarkMode, navigation }) {
+function TeamOfTheWeekTab({
+  teamOfTheWeek,
+  teamsInSeason,
+  theme,
+  colors,
+  isDarkMode,
+  navigation,
+}) {
   const { width } = useWindowDimensions();
   const pitchWidth = Math.max(300, width - 24);
   const pitchHeight = Math.round((width - 40) * 1.2);
@@ -1383,9 +1386,13 @@ function TeamOfTheWeekTab({ teamOfTheWeek, teamsInSeason, theme, colors, isDarkM
         const ratingNum = Number(item?.rating);
         const teamId = item?.team?.id;
         const mappedTeam =
-          (teamsInSeason ?? []).find((t) => t.id === teamId) || item?.team || null;
+          (teamsInSeason ?? []).find((t) => t.id === teamId) ||
+          item?.team ||
+          null;
         const teamColor =
-          mappedTeam?.colorPrimary || mappedTeam?.colorSecondary || colors.primary;
+          mappedTeam?.colorPrimary ||
+          mappedTeam?.colorSecondary ||
+          colors.primary;
 
         return {
           id: item?.player?.id ?? item?.id ?? idx,
@@ -1457,10 +1464,12 @@ function TeamOfTheWeekTab({ teamOfTheWeek, teamsInSeason, theme, colors, isDarkM
   }
 
   const renderPlayerTile = (entry) => {
-    const hasImage = entry?.image && !String(entry.image).includes("placeholder");
-    const initials = `${entry?.nameParts?.firstName?.[0] ?? ""}${entry?.nameParts?.lastName?.[0] ?? ""}`
-      .toUpperCase()
-      .trim() || "?";
+    const hasImage =
+      entry?.image && !String(entry.image).includes("placeholder");
+    const initials =
+      `${entry?.nameParts?.firstName?.[0] ?? ""}${entry?.nameParts?.lastName?.[0] ?? ""}`
+        .toUpperCase()
+        .trim() || "?";
 
     return (
       <TouchableOpacity
@@ -1524,7 +1533,9 @@ function TeamOfTheWeekTab({ teamOfTheWeek, teamsInSeason, theme, colors, isDarkM
                 },
               ]}
             >
-              <Text style={totwStyles.ratingBadgeText}>{entry.rating.toFixed(2)}</Text>
+              <Text style={totwStyles.ratingBadgeText}>
+                {entry.rating.toFixed(2)}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -1551,12 +1562,16 @@ function TeamOfTheWeekTab({ teamOfTheWeek, teamsInSeason, theme, colors, isDarkM
         ]}
       >
         <View style={totwStyles.headerRow}>
-          <Text style={[totwStyles.headerTitle, { color: theme.text }]}>ROUND {entries[0]?.roundName}</Text>
-          <Text style={[totwStyles.headerMeta, { color: colors.primary }]}>{formationStr}</Text>
-        </View>
-          <Text style={[totwStyles.roundText, { color: theme.textSecondary }]}>
-            TEAM OF THE WEEK
+          <Text style={[totwStyles.headerTitle, { color: theme.text }]}>
+            ROUND {entries[0]?.roundName}
           </Text>
+          <Text style={[totwStyles.headerMeta, { color: colors.primary }]}>
+            {formationStr}
+          </Text>
+        </View>
+        <Text style={[totwStyles.roundText, { color: theme.textSecondary }]}>
+          TEAM OF THE WEEK
+        </Text>
       </View>
 
       <View
@@ -1583,7 +1598,10 @@ function TeamOfTheWeekTab({ teamOfTheWeek, teamsInSeason, theme, colors, isDarkM
                   const col = colIdx + 1;
                   const player = playersByRowCol.get(`${row}:${col}`);
                   return (
-                    <View key={`totw-cell-${row}-${col}`} style={totwStyles.gridCell}>
+                    <View
+                      key={`totw-cell-${row}-${col}`}
+                      style={totwStyles.gridCell}
+                    >
                       {player ? renderPlayerTile(player) : null}
                     </View>
                   );
@@ -3371,7 +3389,13 @@ export default function Top5LeagueDetailScreen({ route, navigation }) {
           {info?.image_path ? (
             <Image
               source={{ uri: info.image_path }}
-              style={[styles.logo, { tintColor: (info.id === 8 && isDarkMode) ? theme.text : undefined }]}
+              style={[
+                styles.logo,
+                {
+                  tintColor:
+                    info.id === 8 && isDarkMode ? theme.text : undefined,
+                },
+              ]}
               resizeMode="contain"
             />
           ) : (

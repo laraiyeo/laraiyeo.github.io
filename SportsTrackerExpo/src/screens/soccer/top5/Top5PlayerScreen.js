@@ -454,7 +454,13 @@ function CurrentSeasonCard({ stat, theme, isDarkMode, accentColor }) {
           {leagueLogo ? (
             <Image
               source={{ uri: leagueLogo }}
-              style={[iStyles.csLeagueLogo, { tintColor: (league.id === 8 && isDarkMode) ? theme.text : undefined }]}
+              style={[
+                iStyles.csLeagueLogo,
+                {
+                  tintColor:
+                    league.id === 8 && isDarkMode ? theme.text : undefined,
+                },
+              ]}
               resizeMode="contain"
             />
           ) : null}

@@ -798,7 +798,15 @@ function BestMatch({
             {leagueLogoUri ? (
               <Image
                 source={{ uri: leagueLogoUri }}
-                style={[bmStyles.leagueLogo, { tintColor: (best.league_id === 8 && isDarkMode) ? theme.text : undefined }]}
+                style={[
+                  bmStyles.leagueLogo,
+                  {
+                    tintColor:
+                      best.league_id === 8 && isDarkMode
+                        ? theme.text
+                        : undefined,
+                  },
+                ]}
                 resizeMode="contain"
               />
             ) : null}
@@ -1693,7 +1701,15 @@ function CurrentSeasonsSection({ teamInfo, theme, isDarkMode, navigation }) {
           {season.league?.image_path ? (
             <Image
               source={{ uri: season.league.image_path }}
-              style={[infoStyles.logo, { tintColor: (season.league_id === 8 && isDarkMode) ? theme.text : undefined }]}
+              style={[
+                infoStyles.logo,
+                {
+                  tintColor:
+                    season.league_id === 8 && isDarkMode
+                      ? theme.text
+                      : undefined,
+                },
+              ]}
               resizeMode="contain"
             />
           ) : (
