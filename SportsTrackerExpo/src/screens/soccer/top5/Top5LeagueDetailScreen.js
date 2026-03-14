@@ -840,11 +840,14 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
               const [timePart, period] = toEST(match.starting_at).split(/\s+/);
               return (
                 <View style={mStyles.timeBlock}>
-                <Text
-                    style={[mStyles.finishedTime, { color: theme.textTertiary }]}
-                >
+                  <Text
+                    style={[
+                      mStyles.finishedTime,
+                      { color: theme.textTertiary },
+                    ]}
+                  >
                     Round {roundName}
-                </Text>
+                  </Text>
                   <Text style={[mStyles.timeText, { color: theme.text }]}>
                     {timePart}
                   </Text>

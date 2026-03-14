@@ -1443,15 +1443,21 @@ const Top5ScoreboardScreen = ({ navigation }) => {
           const nextGroups = applyTickingSnapshot(rawGroups);
           // Apply forced league ordering: put leagues in FORCE_LEAGUE_ORDER first (in that order)
           if (Array.isArray(nextGroups) && nextGroups.length > 0) {
-            const orderMap = new Map(FORCE_LEAGUE_ORDER.map((k, i) => [String(k), i]));
+            const orderMap = new Map(
+              FORCE_LEAGUE_ORDER.map((k, i) => [String(k), i]),
+            );
             const withIdx = nextGroups.map((g, idx) => ({ g, idx }));
             const ordered = withIdx
               .slice()
               .sort((a, b) => {
                 const aKey = String(a.g.leagueKey ?? a.g.league_id ?? "");
                 const bKey = String(b.g.leagueKey ?? b.g.league_id ?? "");
-                const ai = orderMap.has(aKey) ? orderMap.get(aKey) : 1000 + a.idx;
-                const bi = orderMap.has(bKey) ? orderMap.get(bKey) : 1000 + b.idx;
+                const ai = orderMap.has(aKey)
+                  ? orderMap.get(aKey)
+                  : 1000 + a.idx;
+                const bi = orderMap.has(bKey)
+                  ? orderMap.get(bKey)
+                  : 1000 + b.idx;
                 return ai - bi;
               })
               .map((x) => x.g);
@@ -1465,16 +1471,19 @@ const Top5ScoreboardScreen = ({ navigation }) => {
             // assign nextGroups variable to ordered for downstream usage
             // (we cannot reassign const, so use a new variable)
             var orderedGroups = ordered; // eslint-disable-line no-var
-            
+
             // use orderedGroups from here on
             // setGroups will be called with orderedGroups below
           }
           const ts = Date.now();
-          setGroups(typeof orderedGroups !== 'undefined' ? orderedGroups : nextGroups);
+          setGroups(
+            typeof orderedGroups !== "undefined" ? orderedGroups : nextGroups,
+          );
           setSnapshotTsMs(ts);
           lastLoadedFilterRef.current = filter;
           fetchCacheRef.current[filter] = {
-            groups: typeof orderedGroups !== 'undefined' ? orderedGroups : nextGroups,
+            groups:
+              typeof orderedGroups !== "undefined" ? orderedGroups : nextGroups,
             ts,
           };
 

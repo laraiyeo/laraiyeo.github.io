@@ -2038,7 +2038,10 @@ const EventsSection = ({
         />
       );
     }
-    if ((addLow.includes("disallowed") || (addLow.includes("var"))) && e.result == null) {
+    if (
+      (addLow.includes("disallowed") || addLow.includes("var")) &&
+      e.result == null
+    ) {
       return (
         <FontAwesome6
           name="video-slash"
@@ -2048,9 +2051,7 @@ const EventsSection = ({
         />
       );
     }
-    if (
-      (addLow.includes("goal") || addLow.includes("penalty"))
-    ) {
+    if (addLow.includes("goal") || addLow.includes("penalty")) {
       return (
         <FontAwesome6
           name="soccer-ball"
@@ -5289,9 +5290,7 @@ const StatsSection = ({
               </Text>
             </View>
           </View>
-          <View
-            style={[stStyles.attackLineMid, { backgroundColor: "#ccc" }]}
-          />
+          <View style={[stStyles.attackLineMid, { backgroundColor: "#ccc" }]} />
           <View style={[stStyles.attackCircle, { borderColor: "#ccc" }]} />
           <View style={[stStyles.attackBoxLeft, { borderColor: "#ccc" }]} />
           <View style={[stStyles.attackBoxRight, { borderColor: "#ccc" }]} />
@@ -5663,7 +5662,8 @@ const GameInfoSection = ({
                     style={[giStyles.metaPrimaryText, { color: theme.text }]}
                     numberOfLines={1}
                   >
-                    {league?.name || "League"} {roundName && `∙ Round ${roundName}`}
+                    {league?.name || "League"}{" "}
+                    {roundName && `∙ Round ${roundName}`}
                   </Text>
                 </View>
               )}
