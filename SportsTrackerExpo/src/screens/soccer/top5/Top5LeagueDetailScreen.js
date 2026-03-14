@@ -37,6 +37,65 @@ import { useTheme } from "../../../context/ThemeContext";
 const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
+function parseHexColor(hex) {
+  if (!hex || typeof hex !== "string") return null;
+  const raw = hex.trim().replace("#", "");
+  if (raw.length !== 3 && raw.length !== 6) return null;
+  const expanded =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((ch) => ch + ch)
+          .join("")
+      : raw;
+  if (!/^[0-9a-fA-F]{6}$/.test(expanded)) return null;
+  return {
+    r: parseInt(expanded.slice(0, 2), 16),
+    g: parseInt(expanded.slice(2, 4), 16),
+    b: parseInt(expanded.slice(4, 6), 16),
+  };
+}
+
+function areColorsSimilar(colorA, colorB) {
+  const a = parseHexColor(colorA);
+  const b = parseHexColor(colorB);
+  if (!a || !b) return false;
+  const dr = a.r - b.r;
+  const dg = a.g - b.g;
+  const db = a.b - b.b;
+  const distance = Math.sqrt(dr * dr + dg * dg + db * db);
+  return distance <= 70;
+}
+
+function resolveMatchColors({
+  homePrimary,
+  homeSecondary,
+  awayPrimary,
+  awaySecondary,
+  homeFallback,
+  awayFallback,
+}) {
+  const homeColor = homePrimary ?? homeSecondary ?? homeFallback;
+  const awayColor = awayPrimary ?? awaySecondary ?? awayFallback;
+
+  if (!areColorsSimilar(homePrimary, awayPrimary)) {
+    return { homeColor, awayColor };
+  }
+
+  const awaySecondarySimilar = areColorsSimilar(homePrimary, awaySecondary);
+  if (awaySecondarySimilar) {
+    return {
+      homeColor: homeSecondary ?? homeColor,
+      awayColor: awayPrimary ?? awayColor,
+    };
+  }
+
+  return {
+    homeColor,
+    awayColor: awaySecondary ?? awayColor,
+  };
+}
+
 async function fetchLeague(leagueId) {
   const res = await fetch(`${FOOTBALL_BASE}/football/league/${leagueId}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -668,6 +727,15 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
   const away = match.participants?.find((p) => p.meta?.location === "away");
   if (!home || !away) return null;
 
+  const { homeColor, awayColor } = resolveMatchColors({
+    homePrimary: home.colorPrimary,
+    homeSecondary: home.colorSecondary,
+    awayPrimary: away.colorPrimary,
+    awaySecondary: away.colorSecondary,
+    homeFallback: FALLBACK_COLOR,
+    awayFallback: FALLBACK_COLOR,
+  });
+
   const homeScore = match.scores?.find((s) => s.score?.participant === "home")
     ?.score?.goals;
   const awayScore = match.scores?.find((s) => s.score?.participant === "away")
@@ -692,8 +760,8 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
     >
       <MatchGradient
         gradId={idx}
-        homeColor={home.colorPrimary}
-        awayColor={away.colorPrimary}
+        homeColor={homeColor}
+        awayColor={awayColor}
       />
       <View style={mStyles.cardInner}>
         {/* Home side */}
@@ -709,7 +777,7 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
               style={[
                 mStyles.teamLogo,
                 mStyles.logoFallback,
-                { backgroundColor: (home.colorPrimary ?? "#888") + "40" },
+                { backgroundColor: homeColor + "40" },
               ]}
             >
               <Text style={{ fontSize: 11, color: theme.text }}>
@@ -813,7 +881,7 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
               style={[
                 mStyles.teamLogo,
                 mStyles.logoFallback,
-                { backgroundColor: (away.colorPrimary ?? "#888") + "40" },
+                { backgroundColor: awayColor + "40" },
               ]}
             >
               <Text style={{ fontSize: 11, color: theme.text }}>
@@ -1272,6 +1340,413 @@ const mStyles = StyleSheet.create({
   },
   modalTeamLogo: { width: 30, height: 30 },
   modalTeamName: { flex: 1, fontSize: 14 },
+});
+
+// ─── Team Of The Week Tab ───────────────────────────────────────────────────
+
+function parseFormationParts(formation) {
+  const parts = String(formation || "")
+    .split("-")
+    .map((p) => parseInt(p.trim(), 10))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  return parts.length ? parts : [4, 3, 3];
+}
+
+function normalizeTotwPlayerName(player) {
+  const full =
+    player?.display_name ||
+    player?.common_name ||
+    player?.name ||
+    `${player?.firstname ?? ""} ${player?.lastname ?? ""}`.trim();
+  if (!full) return { firstName: "Unknown", lastName: "Player" };
+
+  const chunks = String(full).split(" ").filter(Boolean);
+  if (chunks.length === 1) return { firstName: chunks[0], lastName: "" };
+
+  return {
+    firstName: chunks.slice(0, -1).join(" "),
+    lastName: chunks[chunks.length - 1],
+  };
+}
+
+function TeamOfTheWeekTab({ teamOfTheWeek, teamsInSeason, theme, colors, isDarkMode, navigation }) {
+  const { width } = useWindowDimensions();
+  const pitchWidth = Math.max(300, width - 24);
+  const pitchHeight = Math.round((width - 40) * 1.2);
+
+  const entries = useMemo(() => {
+    return (teamOfTheWeek ?? [])
+      .map((item, idx) => {
+        const formationPos = Number(item?.formation_position);
+        if (!Number.isFinite(formationPos) || formationPos < 1) return null;
+
+        const ratingNum = Number(item?.rating);
+        const teamId = item?.team?.id;
+        const mappedTeam =
+          (teamsInSeason ?? []).find((t) => t.id === teamId) || item?.team || null;
+        const teamColor =
+          mappedTeam?.colorPrimary || mappedTeam?.colorSecondary || colors.primary;
+
+        return {
+          id: item?.player?.id ?? item?.id ?? idx,
+          formationPos,
+          formation: item?.formation,
+          rating: Number.isFinite(ratingNum) ? ratingNum : null,
+          roundName: item?.round?.name ?? null,
+          player: item?.player ?? null,
+          team: mappedTeam,
+          teamColor,
+          image: item?.player?.image_path || null,
+          nameParts: normalizeTotwPlayerName(item?.player),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.formationPos - b.formationPos);
+  }, [teamOfTheWeek, teamsInSeason, colors.primary]);
+
+  const formationStr = entries[0]?.formation || "4-3-3";
+
+  const rowColumnCounts = useMemo(() => {
+    return [1, ...parseFormationParts(formationStr)];
+  }, [formationStr]);
+
+  const playersByRowCol = useMemo(() => {
+    const map = new Map();
+
+    const getRowColFromFormationPos = (formationPos) => {
+      if (formationPos <= 1) return { row: 1, col: 1 };
+
+      let offset = formationPos - 2;
+      for (let row = 2; row <= rowColumnCounts.length; row += 1) {
+        const count = rowColumnCounts[row - 1] ?? 1;
+        if (offset < count) {
+          const indexInRow = offset;
+          // TOTW formation positions run right-to-left across each row.
+          const col = count - indexInRow;
+          return { row, col };
+        }
+        offset -= count;
+      }
+
+      const lastRow = rowColumnCounts.length;
+      return { row: lastRow, col: 1 };
+    };
+
+    for (const entry of entries) {
+      const { row, col } = getRowColFromFormationPos(entry.formationPos);
+      map.set(`${row}:${col}`, entry);
+    }
+    return map;
+  }, [entries, rowColumnCounts]);
+
+  const visualRows = useMemo(() => {
+    const total = rowColumnCounts.length;
+    return Array.from({ length: total }, (_, i) => total - i);
+  }, [rowColumnCounts]);
+
+  const pitchGreen = isDarkMode ? "#1f5b2b" : "#67c06d";
+
+  if (!entries.length) {
+    return (
+      <View style={totwStyles.empty}>
+        <Text style={{ color: theme.textSecondary }}>
+          No Team of the Week data available
+        </Text>
+      </View>
+    );
+  }
+
+  const renderPlayerTile = (entry) => {
+    const hasImage = entry?.image && !String(entry.image).includes("placeholder");
+    const initials = `${entry?.nameParts?.firstName?.[0] ?? ""}${entry?.nameParts?.lastName?.[0] ?? ""}`
+      .toUpperCase()
+      .trim() || "?";
+
+    return (
+      <TouchableOpacity
+        style={totwStyles.playerWrap}
+        activeOpacity={0.75}
+        onPress={() => {
+          const playerId = entry?.player?.id;
+          const playerName =
+            entry?.player?.name ||
+            `${entry?.nameParts?.firstName ?? ""} ${entry?.nameParts?.lastName ?? ""}`.trim();
+          if (playerId != null) {
+            navigation?.navigate("Top5PlayerDetail", {
+              playerId,
+              playerName,
+            });
+          }
+        }}
+      >
+        <View style={totwStyles.playerCard}>
+          {hasImage ? (
+            <Image
+              source={{ uri: entry.image }}
+              style={[
+                totwStyles.playerAvatar,
+                {
+                  backgroundColor: `${entry.teamColor}30`,
+                  borderColor: entry.teamColor,
+                },
+              ]}
+              resizeMode="cover"
+            />
+          ) : (
+            <View
+              style={[
+                totwStyles.playerAvatar,
+                {
+                  backgroundColor: `${entry.teamColor}30`,
+                  borderColor: entry.teamColor,
+                  alignItems: "center",
+                  justifyContent: "center",
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  totwStyles.playerInitial,
+                  { color: getTextOnColor(entry.teamColor) },
+                ]}
+              >
+                {initials}
+              </Text>
+            </View>
+          )}
+
+          {entry.rating != null ? (
+            <View
+              style={[
+                totwStyles.ratingBadge,
+                {
+                  backgroundColor: entry.rating >= 8 ? "#22c55e" : "#f59e0b",
+                },
+              ]}
+            >
+              <Text style={totwStyles.ratingBadgeText}>{entry.rating.toFixed(2)}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <Text
+          style={[totwStyles.playerLastName, { color: theme.text }]}
+          numberOfLines={1}
+        >
+          {entry?.nameParts?.lastName || entry?.nameParts?.firstName || "-"}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingBottom: 24 }}
+    >
+      <View
+        style={[
+          totwStyles.headerCard,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
+        <View style={totwStyles.headerRow}>
+          <Text style={[totwStyles.headerTitle, { color: theme.text }]}>ROUND {entries[0]?.roundName}</Text>
+          <Text style={[totwStyles.headerMeta, { color: colors.primary }]}>{formationStr}</Text>
+        </View>
+          <Text style={[totwStyles.roundText, { color: theme.textSecondary }]}>
+            TEAM OF THE WEEK
+          </Text>
+      </View>
+
+      <View
+        style={[
+          totwStyles.pitch,
+          {
+            backgroundColor: pitchGreen,
+            width: pitchWidth,
+            height: pitchHeight,
+          },
+        ]}
+      >
+        <View style={totwStyles.pitchCenterCircle} />
+        <View style={totwStyles.pitchPenaltyBox} />
+        <View style={totwStyles.pitchGoalBox} />
+        <View style={totwStyles.pitchPenaltyArc} />
+
+        <View pointerEvents="box-none" style={totwStyles.playersOverlay}>
+          {visualRows.map((row) => {
+            const colCount = rowColumnCounts[row - 1] ?? 1;
+            return (
+              <View key={`totw-row-${row}`} style={totwStyles.gridRow}>
+                {Array.from({ length: colCount }).map((_, colIdx) => {
+                  const col = colIdx + 1;
+                  const player = playersByRowCol.get(`${row}:${col}`);
+                  return (
+                    <View key={`totw-cell-${row}-${col}`} style={totwStyles.gridCell}>
+                      {player ? renderPlayerTile(player) : null}
+                    </View>
+                  );
+                })}
+              </View>
+            );
+          })}
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+const totwStyles = StyleSheet.create({
+  empty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 60,
+  },
+  headerCard: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  headerTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  headerMeta: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+  },
+  roundText: {
+    marginTop: 4,
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  pitch: {
+    alignSelf: "center",
+    marginHorizontal: 12,
+    marginTop: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#777",
+    overflow: "hidden",
+    position: "relative",
+  },
+  pitchCenterCircle: {
+    position: "absolute",
+    top: "-0.5%",
+    left: "29.5%",
+    width: "41%",
+    height: "20%",
+    borderWidth: 2,
+    borderColor: "#777",
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderBottomLeftRadius: 120,
+    borderBottomRightRadius: 120,
+    backgroundColor: "transparent",
+  },
+  pitchPenaltyBox: {
+    position: "absolute",
+    bottom: 0,
+    left: "20%",
+    width: "60%",
+    height: "25%",
+    borderWidth: 2,
+    borderColor: "#777",
+    borderBottomWidth: 0,
+    backgroundColor: "transparent",
+  },
+  pitchGoalBox: {
+    position: "absolute",
+    bottom: 0,
+    left: "32.5%",
+    width: "35%",
+    height: "12%",
+    borderWidth: 2,
+    borderColor: "#777",
+    borderBottomWidth: 0,
+    backgroundColor: "transparent",
+  },
+  pitchPenaltyArc: {
+    position: "absolute",
+    top: "63.5%",
+    left: "37.7%",
+    width: "24.6%",
+    height: "12%",
+    borderWidth: 2,
+    borderColor: "#777",
+    borderTopLeftRadius: 60,
+    borderTopRightRadius: 60,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    backgroundColor: "transparent",
+  },
+  playersOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    transform: [{ translateY: 5 }],
+  },
+  gridRow: {
+    flex: 1,
+    flexDirection: "row",
+  },
+  gridCell: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerWrap: {
+    width: 86,
+    alignItems: "center",
+  },
+  playerCard: {
+    width: 56,
+    height: 56,
+    position: "relative",
+  },
+  playerAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1,
+  },
+  playerInitial: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  ratingBadge: {
+    position: "absolute",
+    top: -4,
+    right: -8,
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    minWidth: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ratingBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#fff",
+  },
+  playerLastName: {
+    marginTop: 4,
+    maxWidth: 84,
+    fontSize: 10,
+    fontWeight: "700",
+    textAlign: "center",
+  },
 });
 
 // ─── Teams Tab ───────────────────────────────────────────────────────────────
@@ -2793,6 +3268,7 @@ const TABS = [
   { key: "standings", label: "Standings", icon: "podium-outline" },
   { key: "teams", label: "Teams", icon: "people-outline" },
   { key: "matches", label: "Matches", icon: "football-outline" },
+  { key: "totw", label: "TOTW", icon: "star-outline" },
   { key: "teamstats", label: "Team Stats", icon: "pie-chart-outline" },
   { key: "stats", label: "Stats", icon: "stats-chart-outline" },
 ];
@@ -3003,6 +3479,15 @@ export default function Top5LeagueDetailScreen({ route, navigation }) {
           teamsInSeason={data?.teamsInSeason}
           theme={theme}
           colors={colors}
+          navigation={navigation}
+        />
+      ) : activeTab === "totw" ? (
+        <TeamOfTheWeekTab
+          teamOfTheWeek={data?.teamOfTheWeek}
+          teamsInSeason={data?.teamsInSeason}
+          theme={theme}
+          colors={colors}
+          isDarkMode={isDarkMode}
           navigation={navigation}
         />
       ) : activeTab === "teams" ? (

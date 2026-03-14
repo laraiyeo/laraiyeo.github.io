@@ -54,6 +54,65 @@ function getTextOnColor(hex) {
   return r * 0.299 + g * 0.587 + b * 0.114 > 150 ? "#000" : "#fff";
 }
 
+function parseHexColor(hex) {
+  if (!hex || typeof hex !== "string") return null;
+  const raw = hex.trim().replace("#", "");
+  if (raw.length !== 3 && raw.length !== 6) return null;
+  const expanded =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((ch) => ch + ch)
+          .join("")
+      : raw;
+  if (!/^[0-9a-fA-F]{6}$/.test(expanded)) return null;
+  return {
+    r: parseInt(expanded.slice(0, 2), 16),
+    g: parseInt(expanded.slice(2, 4), 16),
+    b: parseInt(expanded.slice(4, 6), 16),
+  };
+}
+
+function areColorsSimilar(colorA, colorB) {
+  const a = parseHexColor(colorA);
+  const b = parseHexColor(colorB);
+  if (!a || !b) return false;
+  const dr = a.r - b.r;
+  const dg = a.g - b.g;
+  const db = a.b - b.b;
+  const distance = Math.sqrt(dr * dr + dg * dg + db * db);
+  return distance <= 70;
+}
+
+function resolveMatchColors({
+  homePrimary,
+  homeSecondary,
+  awayPrimary,
+  awaySecondary,
+  homeFallback,
+  awayFallback,
+}) {
+  const homeColor = homePrimary ?? homeSecondary ?? homeFallback;
+  const awayColor = awayPrimary ?? awaySecondary ?? awayFallback;
+
+  if (!areColorsSimilar(homePrimary, awayPrimary)) {
+    return { homeColor, awayColor };
+  }
+
+  const awaySecondarySimilar = areColorsSimilar(homePrimary, awaySecondary);
+  if (awaySecondarySimilar) {
+    return {
+      homeColor: homeSecondary ?? homeColor,
+      awayColor: awayPrimary ?? awayColor,
+    };
+  }
+
+  return {
+    homeColor,
+    awayColor: awaySecondary ?? awayColor,
+  };
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return null;
   const d = new Date(dateStr + "T00:00:00Z");
@@ -601,7 +660,11 @@ function getSeasonStat(details, ...names) {
     const d = details.find(
       (d) => (d.type?.name ?? "").toLowerCase() === name.toLowerCase(),
     );
-    if (d?.value?.total != null) return d.value.total;
+    if (d?.value != null) {
+      if (d.value.total != null) return d.value.total;
+      if (d.value.average != null) return d.value.average;
+      if (typeof d.value === "number") return d.value;
+    }
   }
   return null;
 }
@@ -892,8 +955,14 @@ function MatchCard({
     {};
   const oppP = participants.find((p) => p !== playerP) ?? participants[1] ?? {};
 
-  const playerColor = playerP.colorPrimary ?? accentColor ?? "#888";
-  const oppColor = oppP.colorPrimary ?? "#888";
+  const { homeColor: playerColor, awayColor: oppColor } = resolveMatchColors({
+    homePrimary: playerP.colorPrimary,
+    homeSecondary: playerP.colorSecondary,
+    awayPrimary: oppP.colorPrimary,
+    awaySecondary: oppP.colorSecondary,
+    homeFallback: accentColor ?? "#888",
+    awayFallback: "#888",
+  });
   const isHome = playerP.meta?.location === "home";
   const playerWon = playerP.meta?.winner === true;
   const oppWon = oppP.meta?.winner === true;

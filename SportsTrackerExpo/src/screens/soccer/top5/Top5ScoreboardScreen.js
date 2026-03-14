@@ -177,6 +177,65 @@ const getStatusInfo = (match, nowMs = Date.now(), snapshotTsMs = nowMs) => {
   return { line1: time, line2: ampm, isLive: false, isFinished: false };
 };
 
+const parseHexColor = (hex) => {
+  if (!hex || typeof hex !== "string") return null;
+  const raw = hex.trim().replace("#", "");
+  if (raw.length !== 3 && raw.length !== 6) return null;
+  const expanded =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((ch) => ch + ch)
+          .join("")
+      : raw;
+  if (!/^[0-9a-fA-F]{6}$/.test(expanded)) return null;
+  return {
+    r: parseInt(expanded.slice(0, 2), 16),
+    g: parseInt(expanded.slice(2, 4), 16),
+    b: parseInt(expanded.slice(4, 6), 16),
+  };
+};
+
+const areColorsSimilar = (colorA, colorB) => {
+  const a = parseHexColor(colorA);
+  const b = parseHexColor(colorB);
+  if (!a || !b) return false;
+  const dr = a.r - b.r;
+  const dg = a.g - b.g;
+  const db = a.b - b.b;
+  const distance = Math.sqrt(dr * dr + dg * dg + db * db);
+  return distance <= 70;
+};
+
+const resolveMatchColors = ({
+  homePrimary,
+  homeSecondary,
+  awayPrimary,
+  awaySecondary,
+  homeFallback,
+  awayFallback,
+}) => {
+  const homeColor = homePrimary ?? homeSecondary ?? homeFallback;
+  const awayColor = awayPrimary ?? awaySecondary ?? awayFallback;
+
+  if (!areColorsSimilar(homePrimary, awayPrimary)) {
+    return { homeColor, awayColor };
+  }
+
+  const awaySecondarySimilar = areColorsSimilar(homePrimary, awaySecondary);
+  if (awaySecondarySimilar) {
+    return {
+      homeColor: homeSecondary ?? homeColor,
+      awayColor: awayPrimary ?? awayColor,
+    };
+  }
+
+  return {
+    homeColor,
+    awayColor: awaySecondary ?? awayColor,
+  };
+};
+
 const getHome = (match) =>
   match.participants?.find((p) => p.meta?.location === "home");
 const getAway = (match) =>
@@ -529,8 +588,14 @@ const Top5GridCard = React.memo(
       match.scores?.find((s) => s.participant === "home")?.goals ?? null;
     const awayScore =
       match.scores?.find((s) => s.participant === "away")?.goals ?? null;
-    const awayColor = away?.colorPrimary || null;
-    const homeColor = home?.colorPrimary || null;
+    const { homeColor, awayColor } = resolveMatchColors({
+      homePrimary: home?.colorPrimary,
+      homeSecondary: home?.colorSecondary,
+      awayPrimary: away?.colorPrimary,
+      awaySecondary: away?.colorSecondary,
+      homeFallback: null,
+      awayFallback: null,
+    });
     const si = getStatusInfo(match, nowMs, snapshotTsMs);
     const gradId = `gc_${gIdx}_${mIdx}`;
 
@@ -943,8 +1008,14 @@ const Top5ScoreboardSection = ({
               const homeScore = getGoals(match, "home");
               const awayScore = getGoals(match, "away");
               const si = getStatusInfo(match, nowMs, snapshotTsMs);
-              const awayColor = away?.colorPrimary || null;
-              const homeColor = home?.colorPrimary || null;
+              const { homeColor, awayColor } = resolveMatchColors({
+                homePrimary: home?.colorPrimary,
+                homeSecondary: home?.colorSecondary,
+                awayPrimary: away?.colorPrimary,
+                awaySecondary: away?.colorSecondary,
+                homeFallback: null,
+                awayFallback: null,
+              });
               const homeWins = home.meta.winner;
               const awayWins = away.meta.winner;
               function ordinal(n) {

@@ -652,6 +652,7 @@ function transformTeamOfTheWeekResponse(raw) {
   const rows = Array.isArray(raw?.data) ? raw.data : [];
 
   return rows.map((item) => ({
+    fixture_id: item.fixture_id ?? null,
     rating: item.rating ?? null,
     formation_position: item.formation_position ?? null,
     formation: item.formation ?? null,
@@ -703,6 +704,7 @@ function transformTeamRankingsResponse(raw) {
             ? item.team.activeseasons.map((as) => ({
                 league: as?.league
                   ? {
+                      id: as.league.id ?? null,
                       name: as.league.name ?? null,
                       image_path: as.league.image_path ?? null,
                       type: as.league.type ?? null,
@@ -809,7 +811,7 @@ app.get("/football/league/:leagueId", async (req, res) => {
           : Promise.resolve(null),
         fetchUrl(
           `${SM_BASE}/team-of-the-week/leagues/${leagueId}/latest?api_token=${SM_TOKEN}` +
-            `&include=player;team;round`,
+            `&include=player.country;team;round`,
         ),
       ]);
 

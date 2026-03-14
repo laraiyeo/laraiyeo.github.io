@@ -109,6 +109,65 @@ function getTextOnColor(hex) {
   return lum > 0.5 ? "#000000" : "#FFFFFF";
 }
 
+function parseHexColor(hex) {
+  if (!hex || typeof hex !== "string") return null;
+  const raw = hex.trim().replace("#", "");
+  if (raw.length !== 3 && raw.length !== 6) return null;
+  const expanded =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((ch) => ch + ch)
+          .join("")
+      : raw;
+  if (!/^[0-9a-fA-F]{6}$/.test(expanded)) return null;
+  return {
+    r: parseInt(expanded.slice(0, 2), 16),
+    g: parseInt(expanded.slice(2, 4), 16),
+    b: parseInt(expanded.slice(4, 6), 16),
+  };
+}
+
+function areColorsSimilar(colorA, colorB) {
+  const a = parseHexColor(colorA);
+  const b = parseHexColor(colorB);
+  if (!a || !b) return false;
+  const dr = a.r - b.r;
+  const dg = a.g - b.g;
+  const db = a.b - b.b;
+  const distance = Math.sqrt(dr * dr + dg * dg + db * db);
+  return distance <= 70;
+}
+
+function resolveMatchColors({
+  homePrimary,
+  homeSecondary,
+  awayPrimary,
+  awaySecondary,
+  homeFallback,
+  awayFallback,
+}) {
+  const homeColor = homePrimary ?? homeSecondary ?? homeFallback;
+  const awayColor = awayPrimary ?? awaySecondary ?? awayFallback;
+
+  if (!areColorsSimilar(homePrimary, awayPrimary)) {
+    return { homeColor, awayColor };
+  }
+
+  const awaySecondarySimilar = areColorsSimilar(homePrimary, awaySecondary);
+  if (awaySecondarySimilar) {
+    return {
+      homeColor: homeSecondary ?? homeColor,
+      awayColor: awayPrimary ?? awayColor,
+    };
+  }
+
+  return {
+    homeColor,
+    awayColor: awaySecondary ?? awayColor,
+  };
+}
+
 function getInitials(item) {
   if (item.firstname && item.lastname) {
     return (item.firstname[0] + item.lastname[0]).toUpperCase();
@@ -415,8 +474,14 @@ export default function Top5SearchScreen() {
 
       // ── Match bubble (split border) ───────────────────────────────────────
       if (item._type === "match") {
-        const homeColor = item.homeTeam?.colorPrimary ?? theme.border;
-        const awayColor = item.awayTeam?.colorPrimary ?? theme.border;
+        const { homeColor, awayColor } = resolveMatchColors({
+          homePrimary: item.homeTeam?.colorPrimary,
+          homeSecondary: item.homeTeam?.colorSecondary,
+          awayPrimary: item.awayTeam?.colorPrimary,
+          awaySecondary: item.awayTeam?.colorSecondary,
+          homeFallback: theme.border,
+          awayFallback: theme.border,
+        });
         const { date, time } = formatMatchDateTime(item.starting_at);
         return (
           <TouchableOpacity

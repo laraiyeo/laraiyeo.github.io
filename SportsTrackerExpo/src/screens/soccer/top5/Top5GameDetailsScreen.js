@@ -277,6 +277,13 @@ const isOwnGoalEvent = (event, commentText = "") => {
   return low.includes("own goal") || low.includes("owngoal");
 };
 
+const isDisallowedGoalEvent = (event) => {
+  const low = `${event?.addition || ""} ${event?.info || ""}`
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+  return low.includes("disallowed");
+};
+
 const deriveGoalSituation = (scoreAfter, scoringSide) => {
   if (!scoreAfter || !scoringSide) return "";
   const homeScore = Number(scoreAfter.home ?? 0);
@@ -624,6 +631,65 @@ function getTextOnColor(hex) {
   return lum > 0.5 ? "#000000" : "#FFFFFF";
 }
 
+function parseHexColor(hex) {
+  if (!hex || typeof hex !== "string") return null;
+  const raw = hex.trim().replace("#", "");
+  if (raw.length !== 3 && raw.length !== 6) return null;
+  const expanded =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((ch) => ch + ch)
+          .join("")
+      : raw;
+  if (!/^[0-9a-fA-F]{6}$/.test(expanded)) return null;
+  return {
+    r: parseInt(expanded.slice(0, 2), 16),
+    g: parseInt(expanded.slice(2, 4), 16),
+    b: parseInt(expanded.slice(4, 6), 16),
+  };
+}
+
+function areColorsSimilar(colorA, colorB) {
+  const a = parseHexColor(colorA);
+  const b = parseHexColor(colorB);
+  if (!a || !b) return false;
+  const dr = a.r - b.r;
+  const dg = a.g - b.g;
+  const db = a.b - b.b;
+  const distance = Math.sqrt(dr * dr + dg * dg + db * db);
+  return distance <= 70;
+}
+
+function resolveMatchColors({
+  homePrimary,
+  homeSecondary,
+  awayPrimary,
+  awaySecondary,
+  homeFallback,
+  awayFallback,
+}) {
+  const homeColor = homePrimary ?? homeSecondary ?? homeFallback;
+  const awayColor = awayPrimary ?? awaySecondary ?? awayFallback;
+
+  if (!areColorsSimilar(homePrimary, awayPrimary)) {
+    return { homeColor, awayColor };
+  }
+
+  const awaySecondarySimilar = areColorsSimilar(homePrimary, awaySecondary);
+  if (awaySecondarySimilar) {
+    return {
+      homeColor: homeSecondary ?? homeColor,
+      awayColor: awayPrimary ?? awayColor,
+    };
+  }
+
+  return {
+    homeColor,
+    awayColor: awaySecondary ?? awayColor,
+  };
+}
+
 function motmGetStat(details, ...names) {
   for (const n of names) {
     const d = (details ?? []).find(
@@ -651,10 +717,24 @@ function getPerformerBucket(lineup) {
 }
 
 // ─── Man of the Match card ────────────────────────────────────────────────────
-const ManOfTheMatch = ({ entry, theme, colors, onPress }) => {
+const ManOfTheMatch = ({
+  entry,
+  home,
+  away,
+  homeColor,
+  awayColor,
+  theme,
+  colors,
+  onPress,
+}) => {
   const { lineup, team, rating } = entry;
   const player = lineup.player;
-  const teamColor = team?.colorPrimary || colors.primary;
+  const teamColor =
+    team?.id === home?.id
+      ? homeColor
+      : team?.id === away?.id
+        ? awayColor
+        : team?.colorPrimary || colors.primary;
   const posAbbr = motmGetPosAbbr(lineup.detailedposition?.name ?? null);
   const ratingColor = motmGetRatingColor(rating);
   const ratingTextColor = motmTextOnBg(ratingColor);
@@ -1213,6 +1293,35 @@ const EventsSection = ({
   const awayTeam = (participants ?? []).find(
     (p) => String(p?.meta?.location || "").toLowerCase() === "away",
   );
+  const { homeColor: resolvedHomeColor, awayColor: resolvedAwayColor } =
+    useMemo(
+      () =>
+        resolveMatchColors({
+          homePrimary: homeTeam?.colorPrimary,
+          homeSecondary: homeTeam?.colorSecondary,
+          awayPrimary: awayTeam?.colorPrimary,
+          awaySecondary: awayTeam?.colorSecondary,
+          homeFallback: accentColor || colors.primary,
+          awayFallback: colors.secondary || colors.primary,
+        }),
+      [homeTeam, awayTeam, accentColor, colors.primary, colors.secondary],
+    );
+
+  const getResolvedTeamColor = useCallback(
+    (team) => {
+      if (team?.id === homeTeam?.id) return resolvedHomeColor;
+      if (team?.id === awayTeam?.id) return resolvedAwayColor;
+      return team?.colorPrimary || accentColor || colors.primary;
+    },
+    [
+      homeTeam?.id,
+      awayTeam?.id,
+      resolvedHomeColor,
+      resolvedAwayColor,
+      accentColor,
+      colors.primary,
+    ],
+  );
 
   const closeEventPlayerModal = () => setSelectedEvent(null);
   const closeGoalShareModal = () => setGoalSharePayload(null);
@@ -1321,6 +1430,7 @@ const EventsSection = ({
   const openGoalShareFromEvent = useCallback(
     (event) => {
       if (!event || !isGoalLikeEvent(event)) return;
+      if (isDisallowedGoalEvent(event)) return;
       const playerMeta = resolveEventPlayerMeta(event, "player");
       const relatedMeta = resolveEventPlayerMeta(event, "related");
       const lineup = playerMeta?.lineup ?? null;
@@ -1381,12 +1491,7 @@ const EventsSection = ({
           : null;
 
       const displayTeam = ownGoalerTeam || playerMeta?.team || scoringTeam;
-      const teamColor =
-        displayTeam?.colorPrimary ||
-        scoringTeam?.colorPrimary ||
-        playerMeta?.team?.colorPrimary ||
-        accentColor ||
-        colors.primary;
+      const teamColor = getResolvedTeamColor(displayTeam);
 
       const periodRaw = String(
         periodById.get(event?.period_id)?.description || "",
@@ -1431,8 +1536,7 @@ const EventsSection = ({
       findGoalCommentForEvent,
       homeTeam,
       awayTeam,
-      accentColor,
-      colors.primary,
+      getResolvedTeamColor,
       periodById,
     ],
   );
@@ -1459,7 +1563,8 @@ const EventsSection = ({
       player?.image_path && !String(player.image_path).includes("placeholder")
         ? player.image_path
         : null;
-    const teamColor = meta?.team?.colorPrimary || accentColor || colors.primary;
+    const effectiveTeam = meta?.displayTeam ?? meta?.team;
+    const teamColor = getResolvedTeamColor(effectiveTeam);
     const textOnTeam = getTextOnColor(teamColor);
     const initials =
       [player?.firstname?.[0], player?.lastname?.[0]]
@@ -1544,9 +1649,9 @@ const EventsSection = ({
             </Text>
           </View>
 
-          {meta?.team?.image_path ? (
+          {effectiveTeam?.image_path ? (
             <Image
-              source={{ uri: meta.team.image_path }}
+              source={{ uri: effectiveTeam.image_path }}
               style={evStyles.playerPopupTeamLogo}
               contentFit="contain"
               cachePolicy="memory-disk"
@@ -1564,7 +1669,7 @@ const EventsSection = ({
                   { color: teamColor },
                 ]}
               >
-                {(meta?.team?.name || "?")[0]?.toUpperCase?.() || "?"}
+                  {(effectiveTeam?.name || "?")[0]?.toUpperCase?.() || "?"}
               </Text>
             </View>
           )}
@@ -2048,12 +2153,34 @@ const EventsSection = ({
             </View>
 
             <View style={evStyles.playerPopupBody}>
-              {selectedEvent
-                ? renderEventPlayerSection(
-                    "Player",
-                    resolveEventPlayerMeta(selectedEvent, "player"),
-                  )
-                : null}
+              {(() => {
+                const playerMeta = selectedEvent
+                  ? resolveEventPlayerMeta(selectedEvent, "player")
+                  : null;
+                const commentText = selectedEvent
+                  ? findGoalCommentForEvent(selectedEvent)
+                  : "";
+                const ownGoal = selectedEvent
+                  ? isOwnGoalEvent(selectedEvent, commentText)
+                  : false;
+                const ownGoalDisplayTeam = ownGoal
+                  ? selectedEvent?.participant_id === homeTeam?.id
+                    ? awayTeam
+                    : selectedEvent?.participant_id === awayTeam?.id
+                      ? homeTeam
+                      : null
+                  : null;
+                const effectivePlayerMeta = playerMeta
+                  ? {
+                      ...playerMeta,
+                      displayTeam: ownGoalDisplayTeam || playerMeta.team,
+                    }
+                  : null;
+
+                return effectivePlayerMeta ? (
+                  renderEventPlayerSection("Player", effectivePlayerMeta)
+                ) : null;
+              })()}
               {selectedEvent
                 ? renderEventPlayerSection(
                     "Related Player",
@@ -2061,7 +2188,9 @@ const EventsSection = ({
                   )
                 : null}
 
-              {selectedEvent && isGoalLikeEvent(selectedEvent) ? (
+              {selectedEvent &&
+              isGoalLikeEvent(selectedEvent) &&
+              !isDisallowedGoalEvent(selectedEvent) ? (
                 <View
                   style={[
                     evStyles.playerPopupSection,
@@ -2138,6 +2267,34 @@ const CommentarySection = ({
   );
   const awayTeam = (participants ?? []).find(
     (p) => String(p?.meta?.location || "").toLowerCase() === "away",
+  );
+  const { homeColor: resolvedHomeColor, awayColor: resolvedAwayColor } =
+    useMemo(
+      () =>
+        resolveMatchColors({
+          homePrimary: homeTeam?.colorPrimary,
+          homeSecondary: homeTeam?.colorSecondary,
+          awayPrimary: awayTeam?.colorPrimary,
+          awaySecondary: awayTeam?.colorSecondary,
+          homeFallback: colors.primary,
+          awayFallback: colors.secondary || colors.primary,
+        }),
+      [homeTeam, awayTeam, colors.primary, colors.secondary],
+    );
+
+  const getResolvedTeamColor = useCallback(
+    (team) => {
+      if (team?.id === homeTeam?.id) return resolvedHomeColor;
+      if (team?.id === awayTeam?.id) return resolvedAwayColor;
+      return team?.colorPrimary || theme.border;
+    },
+    [
+      homeTeam?.id,
+      awayTeam?.id,
+      resolvedHomeColor,
+      resolvedAwayColor,
+      theme.border,
+    ],
   );
 
   const getCommentType = useCallback((item) => {
@@ -2234,6 +2391,20 @@ const CommentarySection = ({
       (a, b) => Number(b?.order ?? 0) - Number(a?.order ?? 0),
     );
 
+    const summarizeEvent = (event) => {
+      if (!event) return null;
+      return {
+        id: event?.id ?? null,
+        minute: event?.minute ?? null,
+        extra: event?.extra_minute ?? 0,
+        participantId: event?.participant_id ?? null,
+        player: event?.player_name ?? null,
+        relatedPlayer: event?.related_player_name ?? null,
+        addition: event?.addition ?? null,
+        result: event?.result ?? null,
+      };
+    };
+
     const parseCommentMinute = (item) => {
       if (item?.minute != null && Number.isFinite(Number(item.minute))) {
         return Number(item.minute);
@@ -2311,9 +2482,74 @@ const CommentarySection = ({
           Number(g?.event?.extra_minute ?? 0) === Number(parsed.extra ?? 0),
       );
 
+      const getClosestCandidate = (candidateRows = eventTimelines.goalTimeline) => {
+        const candidates = candidateRows;
+        if (!candidates.length) return null;
+
+        const ranked = candidates
+          .map((g) => {
+            const evt = g?.event;
+            const eventPlayer = String(evt?.player_name || "").toLowerCase();
+            const eventRelated = String(
+              evt?.related_player_name || "",
+            ).toLowerCase();
+            const playerMatch = !!eventPlayer && text.includes(eventPlayer);
+            const relatedMatch =
+              !!eventRelated && text.includes(eventRelated);
+            const teamMatch =
+              !!commentTeam && evt?.participant_id === commentTeam?.id;
+            const timeDiff =
+              commentKey != null
+                ? Math.abs((g?.timeKey ?? 0) - commentKey)
+                : Number.MAX_SAFE_INTEGER;
+
+            // Lower score is better: prioritize minute proximity first, then text/team hints.
+            const score =
+              timeDiff +
+              (playerMatch ? -300 : 0) +
+              (relatedMatch ? -220 : 0) +
+              (teamMatch ? -120 : 0);
+
+            return {
+              g,
+              score,
+              timeDiff,
+              playerMatch,
+              relatedMatch,
+              teamMatch,
+            };
+          })
+          .sort((a, b) => a.score - b.score || a.timeDiff - b.timeDiff);
+
+        const top = ranked[0];
+        if (!top?.g?.event) return null;
+
+        return {
+          event: top.g.event,
+          minuteDiff:
+            top.timeDiff === Number.MAX_SAFE_INTEGER ? null : top.timeDiff,
+          playerMatch: top.playerMatch,
+          relatedMatch: top.relatedMatch,
+          teamMatch: top.teamMatch,
+          score: top.score,
+        };
+      };
+
       const teamFilteredSameTime = commentTeam
         ? atSameTime.filter((g) => g?.event?.participant_id === commentTeam?.id)
         : atSameTime;
+
+      console.log("[Top5CommentaryGoalMatch] same-time candidates", {
+        commentOrder: item?.order ?? null,
+        commentMinute: parsed.minute,
+        commentExtra: parsed.extra,
+        commentText: item?.comment ?? "",
+        detectedTeamId: commentTeam?.id ?? null,
+        sameTimeCandidates: atSameTime.map((g) => summarizeEvent(g?.event)),
+        teamFilteredCandidates: teamFilteredSameTime.map((g) =>
+          summarizeEvent(g?.event),
+        ),
+      });
 
       if (teamFilteredSameTime.length) {
         const playerNameMatch = teamFilteredSameTime.find((g) =>
@@ -2324,12 +2560,21 @@ const CommentarySection = ({
             String(g?.event?.related_player_name || "").toLowerCase(),
           ),
         );
-        return (
+        const picked =
           playerNameMatch?.event ||
           relatedNameMatch?.event ||
           teamFilteredSameTime[0]?.event ||
-          null
-        );
+          null;
+        console.log("[Top5CommentaryGoalMatch] same-time selected", {
+          commentOrder: item?.order ?? null,
+          selectedEvent: summarizeEvent(picked),
+          reason: playerNameMatch
+            ? "player-name-match"
+            : relatedNameMatch
+              ? "related-player-match"
+              : "first-team-filtered-candidate",
+        });
+        return picked;
       }
 
       if (commentKey != null) {
@@ -2341,6 +2586,21 @@ const CommentarySection = ({
           ? nearBy.filter((g) => g?.event?.participant_id === commentTeam?.id)
           : nearBy;
 
+        console.log("[Top5CommentaryGoalMatch] nearby candidates", {
+          commentOrder: item?.order ?? null,
+          commentKey,
+          commentText: item?.comment ?? "",
+          detectedTeamId: commentTeam?.id ?? null,
+          nearByCandidates: nearBy.map((g) => ({
+            timeKey: g?.timeKey ?? null,
+            event: summarizeEvent(g?.event),
+          })),
+          teamFilteredCandidates: teamFilteredNearBy.map((g) => ({
+            timeKey: g?.timeKey ?? null,
+            event: summarizeEvent(g?.event),
+          })),
+        });
+
         if (teamFilteredNearBy.length) {
           const playerNameMatch = teamFilteredNearBy.find((g) =>
             text.includes(String(g?.event?.player_name || "").toLowerCase()),
@@ -2350,15 +2610,58 @@ const CommentarySection = ({
               String(g?.event?.related_player_name || "").toLowerCase(),
             ),
           );
-          return (
+          const picked =
             playerNameMatch?.event ||
             relatedNameMatch?.event ||
             teamFilteredNearBy[0]?.event ||
-            null
-          );
+            null;
+          console.log("[Top5CommentaryGoalMatch] nearby selected", {
+            commentOrder: item?.order ?? null,
+            selectedEvent: summarizeEvent(picked),
+            reason: playerNameMatch
+              ? "player-name-match"
+              : relatedNameMatch
+                ? "related-player-match"
+                : "first-nearby-team-candidate",
+          });
+          return picked;
+        }
+
+        if (nearBy.length) {
+          const closestNearBy = getClosestCandidate(nearBy);
+          if (closestNearBy?.event) {
+            console.log("[Top5CommentaryGoalMatch] nearby selected", {
+              commentOrder: item?.order ?? null,
+              selectedEvent: summarizeEvent(closestNearBy.event),
+              reason: "closest-nearby-candidate",
+              minuteDiff: closestNearBy.minuteDiff,
+              playerMatch: closestNearBy.playerMatch,
+              relatedMatch: closestNearBy.relatedMatch,
+              teamMatch: closestNearBy.teamMatch,
+            });
+            return closestNearBy.event;
+          }
         }
       }
 
+      console.log("[Top5CommentaryGoalMatch] no event match", {
+        commentOrder: item?.order ?? null,
+        commentMinute: parsed.minute,
+        commentExtra: parsed.extra,
+        commentText: item?.comment ?? "",
+        closestCandidate: (() => {
+          const closest = getClosestCandidate();
+          if (!closest) return null;
+          return {
+            minuteDiff: closest.minuteDiff,
+            playerMatch: closest.playerMatch,
+            relatedMatch: closest.relatedMatch,
+            teamMatch: closest.teamMatch,
+            score: closest.score,
+            event: summarizeEvent(closest.event),
+          };
+        })(),
+      });
       return null;
     };
 
@@ -2437,6 +2740,23 @@ const CommentarySection = ({
               : commentTeam?.id === awayTeam?.id
                 ? "away"
                 : inferredGoalSide;
+
+      if (type === "GOAL") {
+        console.log("[Top5CommentaryGoalMatch] final mapping", {
+          commentOrder: item?.order ?? null,
+          commentMinute: parsed.minute,
+          commentExtra: parsed.extra,
+          commentText: item?.comment ?? "",
+          matchedGoalEvent: summarizeEvent(goalEvent),
+          scoreAt,
+          scoreBefore,
+          inferredGoalSide,
+          scoreTeamSide,
+          resolvedTeamId: team?.id ?? null,
+          lineupPlayerId: lineup?.player_id ?? null,
+          relatedLineupPlayerId: relatedLineup?.player_id ?? null,
+        });
+      }
 
       return {
         item,
@@ -2598,11 +2918,7 @@ const CommentarySection = ({
           : null;
 
       const displayTeam = ownGoalerTeam || playerMeta?.team || scoringTeam;
-      const teamColor =
-        displayTeam?.colorPrimary ||
-        scoringTeam?.colorPrimary ||
-        playerMeta?.team?.colorPrimary ||
-        colors.primary;
+      const teamColor = getResolvedTeamColor(displayTeam);
 
       const periodRaw = String(
         periodById.get(goalEvent?.period_id)?.description || "",
@@ -2653,7 +2969,7 @@ const CommentarySection = ({
       setSelectedGoalEntry(null);
       setTimeout(() => setGoalSharePayload(payload), 70);
     },
-    [resolveGoalPlayerMeta, homeTeam, awayTeam, colors.primary],
+    [resolveGoalPlayerMeta, homeTeam, awayTeam, getResolvedTeamColor],
   );
 
   const renderGoalPlayerSection = (title, meta) => {
@@ -2671,7 +2987,8 @@ const CommentarySection = ({
     const lastName =
       player?.lastname || fullName.split(" ").slice(-1).join(" ") || fullName;
 
-    const teamColor = meta?.team?.colorPrimary || theme.border;
+    const effectiveTeam = meta?.displayTeam ?? meta?.team;
+    const teamColor = getResolvedTeamColor(effectiveTeam);
     const imageUri =
       player?.image_path && !String(player.image_path).includes("placeholder")
         ? player.image_path
@@ -2766,9 +3083,9 @@ const CommentarySection = ({
             </Text>
           </View>
 
-          {meta?.team?.image_path ? (
+          {effectiveTeam?.image_path ? (
             <Image
-              source={{ uri: meta.team.image_path }}
+              source={{ uri: effectiveTeam.image_path }}
               style={cmStyles.goalPopupTeamLogo}
               contentFit="contain"
               cachePolicy="memory-disk"
@@ -2786,7 +3103,7 @@ const CommentarySection = ({
                   { color: teamColor },
                 ]}
               >
-                {(meta?.team?.name || "?")[0]?.toUpperCase?.() || "?"}
+                  {(effectiveTeam?.name || "?")[0]?.toUpperCase?.() || "?"}
               </Text>
             </View>
           )}
@@ -2868,9 +3185,23 @@ const CommentarySection = ({
           const c = entry.item;
           const hasMinute = entry?.commentMinute != null;
           const hasExtra = Number(entry?.commentExtra ?? 0) > 0;
-          const teamColor = entry?.team?.colorPrimary || theme.border;
+          const teamColor = getResolvedTeamColor(entry?.team);
           const goalBg = `${teamColor}50`;
           const goalTextColor = getTextOnColor(teamColor);
+          const ownGoalForComment =
+            entry.type === "GOAL" &&
+            !!entry.goalEvent &&
+            isOwnGoalEvent(entry.goalEvent, c?.comment || "");
+          const ownGoalDisplayTeam = ownGoalForComment
+            ? entry?.scoreTeamSide === "home"
+              ? awayTeam
+              : entry?.scoreTeamSide === "away"
+                ? homeTeam
+                : null
+            : null;
+          const goalPlayerColor = ownGoalDisplayTeam
+            ? getResolvedTeamColor(ownGoalDisplayTeam)
+            : teamColor;
 
           let cardBorderColor = theme.border;
           if (entry.type === "YELLOW CARD") cardBorderColor = "#facc15";
@@ -3019,8 +3350,8 @@ const CommentarySection = ({
                           style={[
                             cmStyles.goalAvatar,
                             {
-                              backgroundColor: `${teamColor}30`,
-                              borderColor: teamColor,
+                              backgroundColor: `${goalPlayerColor}30`,
+                              borderColor: goalPlayerColor,
                             },
                           ]}
                           contentFit="cover"
@@ -3031,8 +3362,8 @@ const CommentarySection = ({
                           style={[
                             cmStyles.goalAvatar,
                             {
-                              backgroundColor: `${teamColor}30`,
-                              borderColor: teamColor,
+                              backgroundColor: `${goalPlayerColor}30`,
+                              borderColor: goalPlayerColor,
                               alignItems: "center",
                               justifyContent: "center",
                             },
@@ -3041,7 +3372,7 @@ const CommentarySection = ({
                           <Text
                             style={[
                               cmStyles.goalAvatarInitial,
-                              { color: getTextOnColor(teamColor) },
+                              { color: getTextOnColor(goalPlayerColor) },
                             ]}
                           >
                             {goalInitial}
@@ -3170,12 +3501,33 @@ const CommentarySection = ({
             </View>
 
             <View style={cmStyles.goalPopupBody}>
-              {selectedGoalEntry
-                ? renderGoalPlayerSection(
-                    "Player",
-                    resolveGoalPlayerMeta(selectedGoalEntry, "player"),
-                  )
-                : null}
+              {(() => {
+                if (!selectedGoalEntry) return null;
+                const playerMeta = resolveGoalPlayerMeta(
+                  selectedGoalEntry,
+                  "player",
+                );
+                const ownGoal = isOwnGoalEvent(
+                  selectedGoalEntry?.goalEvent,
+                  selectedGoalEntry?.item?.comment || "",
+                );
+                const ownGoalDisplayTeam = ownGoal
+                  ? selectedGoalEntry?.scoreTeamSide === "home"
+                    ? awayTeam
+                    : selectedGoalEntry?.scoreTeamSide === "away"
+                      ? homeTeam
+                      : null
+                  : null;
+                const effectivePlayerMeta = playerMeta
+                  ? {
+                      ...playerMeta,
+                      displayTeam: ownGoalDisplayTeam || playerMeta.team,
+                    }
+                  : null;
+                return effectivePlayerMeta
+                  ? renderGoalPlayerSection("Player", effectivePlayerMeta)
+                  : null;
+              })()}
               {selectedGoalEntry
                 ? renderGoalPlayerSection(
                     "Related Player",
@@ -4437,8 +4789,14 @@ const H2HMatchCard = ({ match, theme, navigation }) => {
   const homeWon = homeTeam?.meta?.winner === true;
   const awayWon = awayTeam?.meta?.winner === true;
 
-  const homeColor = homeTeam?.colorPrimary || theme.text;
-  const awayColor = awayTeam?.colorPrimary || theme.text;
+  const { homeColor, awayColor } = resolveMatchColors({
+    homePrimary: homeTeam?.colorPrimary,
+    homeSecondary: homeTeam?.colorSecondary,
+    awayPrimary: awayTeam?.colorPrimary,
+    awaySecondary: awayTeam?.colorSecondary,
+    homeFallback: theme.text,
+    awayFallback: theme.text,
+  });
 
   const homeScoreEntry =
     match?.scores?.find(
@@ -5817,7 +6175,25 @@ const SoccerPlayerDetailModal = ({
       .join("")
       .toUpperCase() ||
     "?";
-  const teamColor = resolvedTeam?.colorPrimary || "#4c6ef5";
+    const { homeColor: resolvedHomeColor, awayColor: resolvedAwayColor } =
+      useMemo(
+        () =>
+          resolveMatchColors({
+            homePrimary: home?.colorPrimary,
+            homeSecondary: home?.colorSecondary,
+            awayPrimary: away?.colorPrimary,
+            awaySecondary: away?.colorSecondary,
+            homeFallback: colors.primary,
+            awayFallback: colors.secondary || colors.primary,
+          }),
+        [home, away, colors.primary, colors.secondary],
+      );
+    const teamColor =
+      resolvedTeam?.id === home?.id
+        ? resolvedHomeColor
+        : resolvedTeam?.id === away?.id
+          ? resolvedAwayColor
+          : resolvedTeam?.colorPrimary || "#4c6ef5";
   const [playerShareVisible, setPlayerShareVisible] = useState(false);
   const [sharingPlayerCard, setSharingPlayerCard] = useState(false);
   const shareCardRef = useRef(null);
@@ -6636,7 +7012,7 @@ const SoccerPlayerDetailModal = ({
 
           <View style={spmStyles.shareActions}>
             <TouchableOpacity
-              style={[spmStyles.shareActionBtn, { backgroundColor: teamColor }]}
+              style={[spmStyles.shareActionBtn, { backgroundColor: colors.primary }]}
               onPress={handlePlayerShare}
               disabled={sharingPlayerCard}
             >
@@ -7034,8 +7410,14 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   const homeWins = home?.meta?.winner === true;
   const awayWins = away?.meta?.winner === true;
 
-  const homeColor = home?.colorPrimary || colors.primary;
-  const awayColor = away?.colorPrimary || colors.secondary || "#666";
+  const { homeColor, awayColor } = resolveMatchColors({
+    homePrimary: home?.colorPrimary,
+    homeSecondary: home?.colorSecondary,
+    awayPrimary: away?.colorPrimary,
+    awaySecondary: away?.colorSecondary,
+    homeFallback: colors.primary,
+    awayFallback: colors.secondary || "#666",
+  });
 
   const { homeManager, awayManager } = useMemo(() => {
     const coaches = fixture?.coaches ?? [];
@@ -7716,6 +8098,10 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               {manOfTheMatch ? (
                 <ManOfTheMatch
                   entry={manOfTheMatch}
+                  home={home}
+                  away={away}
+                  homeColor={homeColor}
+                  awayColor={awayColor}
                   theme={theme}
                   colors={colors}
                   onPress={() =>
