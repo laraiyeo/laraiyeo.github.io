@@ -738,6 +738,8 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
     awayFallback: FALLBACK_COLOR,
   });
 
+  const roundName = match.round?.name ?? "";
+
   const homeScore = match.scores?.find((s) => s.score?.participant === "home")
     ?.score?.goals;
   const awayScore = match.scores?.find((s) => s.score?.participant === "away")
@@ -746,6 +748,9 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
 
   const homeWon = home.meta?.winner === true;
   const awayWon = away.meta?.winner === true;
+
+  const homeShort = home.short_code ?? home.name.slice(0, 3).toUpperCase();
+  const awayShort = away.short_code ?? away.name.slice(0, 3).toUpperCase();
 
   return (
     <TouchableOpacity
@@ -756,7 +761,7 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
           fixtureId: match.id,
           homeTeamId: home.id,
           awayTeamId: away.id,
-          matchTitle: `${home.short_code || home.name} vs ${away.short_code || away.name}`,
+          matchTitle: `${homeShort} vs ${awayShort}`,
         })
       }
     >
@@ -802,7 +807,7 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
               <Text
                 style={[mStyles.finishedTime, { color: theme.textTertiary }]}
               >
-                {toEST(match.starting_at)}
+                {toEST(match.starting_at)} ∙ Round {roundName}
               </Text>
               <View style={mStyles.scoreRow}>
                 <Text
@@ -835,6 +840,11 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
               const [timePart, period] = toEST(match.starting_at).split(/\s+/);
               return (
                 <View style={mStyles.timeBlock}>
+                <Text
+                    style={[mStyles.finishedTime, { color: theme.textTertiary }]}
+                >
+                    Round {roundName}
+                </Text>
                   <Text style={[mStyles.timeText, { color: theme.text }]}>
                     {timePart}
                   </Text>
@@ -1112,6 +1122,7 @@ function MatchesTab({ leagueInfo, teamsInSeason, theme, colors, navigation }) {
                         idx={`past_${gIdx}_${mIdx}`}
                         theme={theme}
                         colors={colors}
+                        navigation={navigation}
                       />
                     ))}
                   </View>
@@ -1304,7 +1315,7 @@ const mStyles = StyleSheet.create({
   timeText: { fontSize: 15, fontWeight: "600" },
   timePeriod: { fontSize: 10, marginTop: 1, fontWeight: "700" },
   finishedTime: { fontSize: 9, marginBottom: 3 },
-  venue: { fontSize: 9, marginTop: 4, textAlign: "center", maxWidth: 90 },
+  venue: { fontSize: 9, marginTop: 4, textAlign: "center" },
   pastToggle: {
     flexDirection: "row",
     alignItems: "center",

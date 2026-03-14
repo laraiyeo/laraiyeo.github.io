@@ -1813,6 +1813,10 @@ const EventsSection = ({
       return aT - bT;
     });
 
+  // If the match is live, show newest events first (reverse chronological)
+  const liveMatch = isLiveState(stateCode);
+  if (liveMatch) rows.reverse();
+
   if (!rows.length) return null;
 
   const isFinished = isFinishedState(stateCode);
@@ -1865,7 +1869,12 @@ const EventsSection = ({
           .filter((block) => block.events.length > 0)
       : [{ key: "all", index: 0, events: rows }];
 
-  const totalBlocks = periodBlocks.length;
+  // If match is live, show later periods first (e.g. 2nd half above 1st)
+  const displayPeriodBlocks = isLiveState(stateCode)
+    ? periodBlocks.slice().reverse()
+    : periodBlocks;
+
+  const totalBlocks = displayPeriodBlocks.length;
 
   const renderPeriodDivider = (label, key) => {
     const firstHalfHome = scoreByDescription("1ST_HALF", "home");
@@ -1999,7 +2008,7 @@ const EventsSection = ({
 
   const renderEventIcon = (e) => {
     const addLow = (e.addition || "").toLowerCase();
-    if (addLow.includes("redcard")) {
+    if (addLow.includes("red")) {
       return (
         <MaterialCommunityIcons
           name="card"
@@ -2029,25 +2038,24 @@ const EventsSection = ({
         />
       );
     }
+    if ((addLow.includes("disallowed") || (addLow.includes("var"))) && e.result == null) {
+      return (
+        <FontAwesome6
+          name="video-slash"
+          size={12}
+          color={theme.error || "#e03131"}
+          style={evStyles.ballIcon}
+        />
+      );
+    }
     if (
-      (addLow.includes("goal") || addLow.includes("penalty")) &&
-      e.result != null
+      (addLow.includes("goal") || addLow.includes("penalty"))
     ) {
       return (
         <FontAwesome6
           name="soccer-ball"
           size={14}
           color="#FFFFFF"
-          style={evStyles.ballIcon}
-        />
-      );
-    }
-    if (addLow.includes("goal") && e.result == null) {
-      return (
-        <FontAwesome6
-          name="video-slash"
-          size={12}
-          color={theme.error || "#e03131"}
           style={evStyles.ballIcon}
         />
       );
@@ -2184,7 +2192,7 @@ const EventsSection = ({
       </View>
 
       <View style={evStyles.body}>
-        {periodBlocks.map((block, blockIdx) => (
+        {displayPeriodBlocks.map((block, blockIdx) => (
           <View key={`${block.key}:${blockIdx}`}>
             {block.events.map((event, idx) => {
               const isHome = event.participant_id === homeId;
@@ -5420,6 +5428,7 @@ const GameInfoSection = ({
   venue,
   weather,
   league,
+  round,
   startingAt,
   theme,
   isDarkMode,
@@ -5451,7 +5460,7 @@ const GameInfoSection = ({
     country?.image_path && !country.image_path.includes("placeholder")
       ? country.image_path
       : null;
-  const round = round?.name ?? null;
+  const roundName = round?.name ?? null;
 
   const hasMeta = !!league || !!country || !!startingAt;
 
@@ -5654,7 +5663,7 @@ const GameInfoSection = ({
                     style={[giStyles.metaPrimaryText, { color: theme.text }]}
                     numberOfLines={1}
                   >
-                    {league?.name || "League"} {round && `∙ Round ${round}`}
+                    {league?.name || "League"} {roundName && `∙ Round ${roundName}`}
                   </Text>
                 </View>
               )}
@@ -8668,7 +8677,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
     const counts = { home: 0, away: 0 };
     for (const event of fixture?.events ?? []) {
       const addLow = (event?.addition || "").toLowerCase();
-      if (!addLow.includes("redcard")) continue;
+      if (!addLow.includes("red")) continue;
       if (event?.player_id == null) continue;
       if (event?.rescinded === true) continue;
       if (event.participant_id === home?.id) counts.home += 1;
@@ -9347,6 +9356,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 venue={fixture.venue ?? null}
                 weather={fixture.weatherreport ?? null}
                 league={fixture.league ?? null}
+                round={fixture.round ?? null}
                 startingAt={fixture.starting_at ?? null}
                 theme={theme}
                 isDarkMode={isDarkMode}

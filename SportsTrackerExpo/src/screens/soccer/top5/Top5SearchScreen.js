@@ -498,7 +498,7 @@ export default function Top5SearchScreen() {
                 fixtureId: item.fixture_id,
                 homeTeamId: item.homeTeam?.id,
                 awayTeamId: item.awayTeam?.id,
-                matchTitle: `${item.homeTeam?.name ?? "Home"} vs ${item.awayTeam?.name ?? "Away"}`,
+                matchTitle: `${item.awayTeam?.name.slice(0, 3).toUpperCase() ?? "Home"} vs ${item.homeTeam?.name.slice(0, 3).toUpperCase() ?? "Away"}`,
               })
             }
           >

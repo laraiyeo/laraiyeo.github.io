@@ -727,14 +727,24 @@ export default function Top5TeamsScreen({ navigation }) {
                 },
               ]}
             >
-              <Text
-                style={[
-                  styles.sortBtnText,
-                  { color: sortMode === mode ? "#fff" : theme.textSecondary },
-                ]}
-              >
-                {mode}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                {mode === "RANK" ? (
+                  <Ionicons
+                    name="heart"
+                    size={14}
+                    color={theme.text}
+                    style={{ marginRight: 6 }}
+                  />
+                ) : null}
+                <Text
+                  style={[
+                    styles.sortBtnText,
+                    { color: sortMode === mode ? "#fff" : theme.textSecondary },
+                  ]}
+                >
+                  {mode}
+                </Text>
+              </View>
             </TouchableOpacity>
           ))}
         </View>
@@ -874,6 +884,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   cardLeagueLogo: {
+    marginTop: 3,
     width: 12,
     height: 12,
   },

@@ -1095,6 +1095,8 @@ function MatchCard({
         const awayP =
           participants.find((p) => p.meta?.location === "away") ??
           participants[1];
+        const homeShort = homeP.short_code ?? homeP.name.slice(0, 3).toUpperCase();
+        const awayShort = awayP.short_code ?? awayP.name.slice(0, 3).toUpperCase();
         const fId = fixture.id;
         const hId = homeP?.id;
         const aId = awayP?.id;
@@ -1103,7 +1105,7 @@ function MatchCard({
           fixtureId: fId,
           homeTeamId: hId,
           awayTeamId: aId,
-          matchTitle: `${homeP?.name ?? "Home"} vs ${awayP?.name ?? "Away"}`,
+          matchTitle: `${homeShort} vs ${awayShort}`,
         });
       }}
     >

@@ -31,6 +31,9 @@ const INTERVAL_SOON = 60 * 1000; // 1 minute
 const INTERVAL_FINISHED = 6 * 60 * 60 * 1000; // 6 hours
 const LIVE_SHORT_NAMES = new Set(["1ST", "2ND", "HT"]);
 
+// Force ordering for leagues on scoreboard (those keys appear first, in this order)
+const FORCE_LEAGUE_ORDER = ["8", "564", "82", "384", "301"];
+
 const shortNameOf = (match) =>
   String(match?.state?.short_name || "").toUpperCase();
 
@@ -612,6 +615,9 @@ const Top5GridCard = React.memo(
     const homePos = ordinal(home.meta.position);
     const awayPos = ordinal(away.meta.position);
 
+    const homeShort = home.short_code ?? home.name.slice(0, 3).toUpperCase();
+    const awayShort = away.short_code ?? away.name.slice(0, 3).toUpperCase();
+
     return (
       <TouchableOpacity
         style={[
@@ -625,7 +631,7 @@ const Top5GridCard = React.memo(
             fixtureId: match.id,
             homeTeamId: home.id,
             awayTeamId: away.id,
-            matchTitle: `${home.short_code || home.name} vs ${away.short_code || away.name}`,
+            matchTitle: `${homeShort} vs ${awayShort}`,
           });
         }}
       >
@@ -1433,15 +1439,42 @@ const Top5ScoreboardScreen = ({ navigation }) => {
         else if (!background) setFetching(true);
         try {
           const raw = await Top5ServiceEnhanced.getScoreboard(filter);
-          const nextGroups = applyTickingSnapshot(
-            Top5ServiceEnhanced.toGroups(raw),
-          );
+          const rawGroups = Top5ServiceEnhanced.toGroups(raw);
+          const nextGroups = applyTickingSnapshot(rawGroups);
+          // Apply forced league ordering: put leagues in FORCE_LEAGUE_ORDER first (in that order)
+          if (Array.isArray(nextGroups) && nextGroups.length > 0) {
+            const orderMap = new Map(FORCE_LEAGUE_ORDER.map((k, i) => [String(k), i]));
+            const withIdx = nextGroups.map((g, idx) => ({ g, idx }));
+            const ordered = withIdx
+              .slice()
+              .sort((a, b) => {
+                const aKey = String(a.g.leagueKey ?? a.g.league_id ?? "");
+                const bKey = String(b.g.leagueKey ?? b.g.league_id ?? "");
+                const ai = orderMap.has(aKey) ? orderMap.get(aKey) : 1000 + a.idx;
+                const bi = orderMap.has(bKey) ? orderMap.get(bKey) : 1000 + b.idx;
+                return ai - bi;
+              })
+              .map((x) => x.g);
+            // replace nextGroups with ordered list
+            // preserve reference type expected elsewhere
+            // eslint-disable-next-line no-unused-expressions
+            (function replace() {
+              // use ordered array
+              return ordered;
+            })();
+            // assign nextGroups variable to ordered for downstream usage
+            // (we cannot reassign const, so use a new variable)
+            var orderedGroups = ordered; // eslint-disable-line no-var
+            
+            // use orderedGroups from here on
+            // setGroups will be called with orderedGroups below
+          }
           const ts = Date.now();
-          setGroups(nextGroups);
+          setGroups(typeof orderedGroups !== 'undefined' ? orderedGroups : nextGroups);
           setSnapshotTsMs(ts);
           lastLoadedFilterRef.current = filter;
           fetchCacheRef.current[filter] = {
-            groups: nextGroups,
+            groups: typeof orderedGroups !== 'undefined' ? orderedGroups : nextGroups,
             ts,
           };
 

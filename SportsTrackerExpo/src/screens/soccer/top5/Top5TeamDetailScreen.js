@@ -345,6 +345,9 @@ const MatchCard = ({ match, idx, leagueName, theme, colors, teamColor }) => {
   const homePos = home?.meta?.position;
   const awayPos = away?.meta?.position;
 
+  const homeShort = home.short_code ?? home.name.slice(0, 3).toUpperCase();
+  const awayShort = away.short_code ?? away.name.slice(0, 3).toUpperCase();
+
   const statusLabel =
     isPast && hasScores
       ? "Final"
@@ -368,7 +371,7 @@ const MatchCard = ({ match, idx, leagueName, theme, colors, teamColor }) => {
           fixtureId: fId,
           homeTeamId: hId,
           awayTeamId: aId,
-          matchTitle: `${home?.name ?? "Home"} vs ${away?.name ?? "Away"}`,
+          matchTitle: `${homeShort} vs ${awayShort}`,
         });
       }}
     >
@@ -769,6 +772,9 @@ function BestMatch({
   const leagueName = leagueEntry?.name ?? null;
   const leagueLogoUri = leagueEntry?.image_path ?? null;
 
+  const homeShort = home.short_code ?? home.name.slice(0, 3).toUpperCase();
+  const awayShort = away.short_code ?? away.name.slice(0, 3).toUpperCase();
+
   return (
     <TouchableOpacity
       activeOpacity={0.8}
@@ -777,7 +783,7 @@ function BestMatch({
           fixtureId: best.id,
           homeTeamId: home.id,
           awayTeamId: away.id,
-          matchTitle: `${home.name} vs ${away.name}`,
+          matchTitle: `${homeShort} vs ${awayShort}`,
         })
       }
       style={[
