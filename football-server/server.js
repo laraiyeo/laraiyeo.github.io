@@ -571,6 +571,7 @@ function transformLeagueResponse(combined) {
           ? li.latest.map((f) => ({
               id: f.id ?? null,
               starting_at: f.starting_at ?? null,
+              round: f.round ? { name: f.round.name ?? null } : null,
               scores: Array.isArray(f.scores)
                 ? f.scores
                     .filter((s) => s.description === "CURRENT")
@@ -801,7 +802,7 @@ app.get("/football/league/:leagueId", async (req, res) => {
         ),
         fetchUrl(
           `${SM_BASE}/leagues/${leagueId}?api_token=${SM_TOKEN}` +
-            `&include=currentSeason;country;latest.scores;latest.participants;latest.venue;upcoming.participants;upcoming.venue`,
+            `&include=currentSeason;country;latest.round;latest.scores;latest.participants;latest.venue;upcoming.participants;upcoming.venue`,
         ),
         stageId
           ? fetchUrl(
@@ -2045,6 +2046,7 @@ function transformFixtureGameResponse(raw) {
           short_name: f.state.short_name ?? null,
         }
       : null,
+    round: f.round ? { name: f.round.name ?? null } : null,
     participants,
     periods,
     scores,
@@ -2232,7 +2234,7 @@ app.get("/football/game/:fixtureId/:team1/:team2", async (req, res) => {
 
   const fixtureUrl =
     `${SM_BASE}/fixtures/${fixtureId}?api_token=${SM_TOKEN}` +
-    `&include=state;periods;participants;scores;league.country;comments;formations;venue;weatherReport;events;statistics.type;formations;sidelined.player;sidelined.type;sidelined.sideline;lineups.player;lineups.type;lineups.position;lineups.detailedPosition;coaches;referees.referee;lineups.details.type;ballCoordinates`;
+    `&include=state;round;periods;participants;scores;league.country;comments;formations;venue;weatherReport;events;statistics.type;formations;sidelined.player;sidelined.type;sidelined.sideline;lineups.player;lineups.type;lineups.position;lineups.detailedPosition;coaches;referees.referee;lineups.details.type;ballCoordinates`;
 
   // Update activity timestamp
   const act = gameActivity.get(fixtureCacheKey);

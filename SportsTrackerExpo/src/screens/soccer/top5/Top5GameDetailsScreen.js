@@ -373,6 +373,126 @@ const buildGoalShareStats = (lineup, isOwnGoal) => {
   ];
 };
 
+const getBallZone = (x) => {
+  if (!Number.isFinite(x)) return "Unknown";
+  if (x < 0.33) return "Defensive third";
+  if (x < 0.67) return "Middle third";
+  return "Attacking third";
+};
+
+const calculateZoneDistribution = (coordinates) => {
+  const zones = { defensive: 0, middle: 0, attacking: 0 };
+
+  for (const coord of coordinates ?? []) {
+    const x = Number(coord?.x);
+    if (!Number.isFinite(x)) continue;
+    if (x < 0.33) zones.defensive += 1;
+    else if (x < 0.67) zones.middle += 1;
+    else zones.attacking += 1;
+  }
+
+  const total = zones.defensive + zones.middle + zones.attacking;
+  if (total <= 0) {
+    return { defensive: 0, middle: 0, attacking: 0 };
+  }
+
+  return {
+    defensive: (zones.defensive / total) * 100,
+    middle: (zones.middle / total) * 100,
+    attacking: (zones.attacking / total) * 100,
+  };
+};
+
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const normalizeBallPoint = (coord) => {
+  const x = Number(coord?.x);
+  const y = Number(coord?.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+
+  const xNorm = clamp((x - 0.01) / 1.0, 0, 1);
+  const yNorm = clamp((y + 0.02) / 1.04, 0, 1);
+
+  return {
+    id: coord?.id ?? `${coord?.timer || "time"}_${x}_${y}`,
+    periodId: coord?.period_id ?? null,
+    timer: coord?.timer || "--:--",
+    x,
+    y,
+    xNorm,
+    yNorm,
+    zone: getBallZone(x),
+  };
+};
+
+const formatPeriodLabel = (period) => {
+  const desc = String(period?.description || "")
+    .replace(/[_-]+/g, " ")
+    .trim();
+  if (!desc) return `Period ${period?.id ?? "-"}`;
+  return desc
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+};
+
+const HEATMAP_COLS = 24;
+const HEATMAP_ROWS = 16;
+
+const buildBallHeatmap = (points, cols = HEATMAP_COLS, rows = HEATMAP_ROWS) => {
+  const size = cols * rows;
+  const raw = new Array(size).fill(0);
+  const indexOf = (r, c) => r * cols + c;
+
+  for (const p of points ?? []) {
+    const col = clamp(Math.floor((p?.xNorm ?? 0) * cols), 0, cols - 1);
+    const row = clamp(Math.floor((p?.yNorm ?? 0) * rows), 0, rows - 1);
+    raw[indexOf(row, col)] += 1;
+  }
+
+  const smoothOnce = (source) => {
+    const target = new Array(size).fill(0);
+    for (let r = 0; r < rows; r += 1) {
+      for (let c = 0; c < cols; c += 1) {
+        let sum = 0;
+        let weight = 0;
+        for (let dr = -1; dr <= 1; dr += 1) {
+          for (let dc = -1; dc <= 1; dc += 1) {
+            const rr = r + dr;
+            const cc = c + dc;
+            if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
+            const w = dr === 0 && dc === 0 ? 4 : dr === 0 || dc === 0 ? 2 : 1;
+            sum += source[indexOf(rr, cc)] * w;
+            weight += w;
+          }
+        }
+        target[indexOf(r, c)] = weight > 0 ? sum / weight : 0;
+      }
+    }
+    return target;
+  };
+
+  const smoothed = smoothOnce(smoothOnce(raw));
+  const maxVal = smoothed.reduce((mx, v) => (v > mx ? v : mx), 0);
+
+  return {
+    cols,
+    rows,
+    maxVal,
+    cells: smoothed.map((v) => (maxVal > 0 ? v / maxVal : 0)),
+  };
+};
+
+const getHeatColor = (intensity) => {
+  const t = clamp(Number(intensity) || 0, 0, 1);
+  const r = 255;
+  const g = Math.round(210 - t * 180);
+  const b = Math.round(70 - t * 60);
+  const a = 0.06 + t * 0.84;
+  return `rgba(${r},${g},${Math.max(0, b)},${a.toFixed(3)})`;
+};
+
 // ─── Header gradient (home left → away right) ────────────────────────────────
 const HeaderGradient = ({ homeColor, awayColor, theme, height }) => (
   <View style={[StyleSheet.absoluteFill, { height }]} pointerEvents="none">
@@ -3596,6 +3716,437 @@ const CommentarySection = ({
   );
 };
 
+const BallSection = ({
+  ballCoordinates,
+  periods,
+  home,
+  away,
+  homeColor,
+  awayColor,
+  theme,
+  colors,
+}) => {
+  const [selectedWindow, setSelectedWindow] = useState("all");
+  const [selectedPeriod, setSelectedPeriod] = useState("all");
+
+  const windowOptions = ["100", "250", "500", "all"];
+
+  const parsedCoords = useMemo(
+    () =>
+      (ballCoordinates ?? [])
+        .map((coord) => normalizeBallPoint(coord))
+        .filter(Boolean),
+    [ballCoordinates],
+  );
+
+  const periodOptions = useMemo(() => {
+    const labelsById = new Map(
+      (periods ?? []).map((p) => [String(p?.id), formatPeriodLabel(p)]),
+    );
+
+    const idsFromData = new Set(
+      parsedCoords
+        .map((p) => p?.periodId)
+        .filter((id) => id != null)
+        .map((id) => String(id)),
+    );
+
+    const merged = [];
+    for (const id of idsFromData) {
+      merged.push({
+        value: id,
+        label: labelsById.get(id) || `Period ${id}`,
+      });
+    }
+
+    return [{ value: "all", label: "All Periods" }, ...merged];
+  }, [periods, parsedCoords]);
+
+  const periodFilteredCoords = useMemo(() => {
+    if (selectedPeriod === "all") return parsedCoords;
+    return parsedCoords.filter((p) => String(p?.periodId) === selectedPeriod);
+  }, [parsedCoords, selectedPeriod]);
+
+  const scopedCoords = useMemo(() => {
+    if (selectedWindow === "all") return periodFilteredCoords;
+    const n = Number(selectedWindow);
+    if (!Number.isFinite(n) || n <= 0) return periodFilteredCoords;
+    return periodFilteredCoords.slice(-n);
+  }, [periodFilteredCoords, selectedWindow]);
+
+  const zoneDistribution = useMemo(
+    () => calculateZoneDistribution(scopedCoords),
+    [scopedCoords],
+  );
+
+  const trailPoints = scopedCoords;
+  const trailUniqueSpots = useMemo(() => {
+    const buckets = new Set(
+      trailPoints.map(
+        (p) => `${Math.round(p.xNorm * 100)}:${Math.round(p.yNorm * 100)}`,
+      ),
+    );
+    return buckets.size;
+  }, [trailPoints]);
+  const heatmap = useMemo(() => buildBallHeatmap(scopedCoords), [scopedCoords]);
+
+  return (
+    <View style={{ paddingTop: 6 }}>
+      <View
+        style={[
+          ballStyles.card,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
+        <View
+          style={[
+            ballStyles.headerRow,
+            {
+              borderBottomColor: theme.border,
+              backgroundColor: theme.surfaceSecondary,
+            },
+          ]}
+        >
+          <Text style={[ballStyles.headerTitle, { color: theme.text }]}>
+            Ball Tracking
+          </Text>
+          <Text style={[ballStyles.headerMeta, { color: theme.textSecondary }]}>
+            Entries: {scopedCoords.length} / {parsedCoords.length}
+          </Text>
+        </View>
+
+        {parsedCoords.length === 0 ? (
+          <View style={ballStyles.emptyWrap}>
+            <Text
+              style={[ballStyles.emptyText, { color: theme.textSecondary }]}
+            >
+              No ball coordinate data for this fixture.
+            </Text>
+          </View>
+        ) : (
+          <>
+            <View
+              style={[
+                ballStyles.filtersWrap,
+                {
+                  borderBottomColor: theme.border,
+                  backgroundColor: theme.surface,
+                },
+              ]}
+            >
+              <Text
+                style={[ballStyles.filterLabel, { color: theme.textSecondary }]}
+              >
+                Period
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={ballStyles.filterRow}
+              >
+                {periodOptions.map((opt) => {
+                  const active = selectedPeriod === opt.value;
+                  return (
+                    <TouchableOpacity
+                      key={`period_${opt.value}`}
+                      style={[
+                        ballStyles.filterChip,
+                        {
+                          borderColor: active ? colors.primary : theme.border,
+                          backgroundColor: active
+                            ? `${colors.primary}20`
+                            : theme.surface,
+                        },
+                      ]}
+                      onPress={() => setSelectedPeriod(opt.value)}
+                      activeOpacity={0.8}
+                    >
+                      <Text
+                        style={[
+                          ballStyles.filterChipText,
+                          {
+                            color: active
+                              ? colors.primary
+                              : theme.textSecondary,
+                          },
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              <Text
+                style={[ballStyles.filterLabel, { color: theme.textSecondary }]}
+              >
+                Window
+              </Text>
+              <View style={ballStyles.filterRow}>
+                {windowOptions.map((opt) => {
+                  const active = selectedWindow === opt;
+                  return (
+                    <TouchableOpacity
+                      key={`window_${opt}`}
+                      style={[
+                        ballStyles.filterChip,
+                        {
+                          borderColor: active ? colors.primary : theme.border,
+                          backgroundColor: active
+                            ? `${colors.primary}20`
+                            : theme.surface,
+                        },
+                      ]}
+                      onPress={() => setSelectedWindow(opt)}
+                      activeOpacity={0.8}
+                    >
+                      <Text
+                        style={[
+                          ballStyles.filterChipText,
+                          {
+                            color: active
+                              ? colors.primary
+                              : theme.textSecondary,
+                          },
+                        ]}
+                      >
+                        {opt === "all" ? "All" : opt}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View
+              style={[
+                ballStyles.pitch,
+                { backgroundColor: "#2d5a2d", borderColor: "#6b7280" },
+              ]}
+            >
+              <View style={ballStyles.pitchOutline} />
+              <View style={ballStyles.pitchMidline} />
+              <View style={ballStyles.pitchCenterCircle} />
+              <View style={ballStyles.pitchLeftBox} />
+              <View style={ballStyles.pitchRightBox} />
+
+              {trailPoints.map((coord, idx, arr) => {
+                const isLatest = idx === arr.length - 1;
+                const dotColor =
+                  coord.zone === "Defensive third"
+                    ? homeColor
+                    : coord.zone === "Middle third"
+                      ? "#f59e0b"
+                      : awayColor;
+                return (
+                  <View
+                    key={`ball_${coord.id}_${idx}`}
+                    style={[
+                      ballStyles.dot,
+                      {
+                        left: `${coord.xNorm * 100}%`,
+                        top: `${coord.yNorm * 100}%`,
+                        backgroundColor: dotColor,
+                        width: isLatest ? 8 : 5,
+                        height: isLatest ? 8 : 5,
+                        borderRadius: isLatest ? 4 : 2.5,
+                        opacity: isLatest ? 1 : 0.45,
+                        transform: [
+                          { translateX: isLatest ? -4 : -2.5 },
+                          { translateY: isLatest ? -4 : -2.5 },
+                        ],
+                      },
+                    ]}
+                  />
+                );
+              })}
+            </View>
+
+            <Text
+              style={[ballStyles.trailHintText, { color: theme.textTertiary }]}
+            >
+              Showing {trailPoints.length} points for selected filters. Many
+              overlap at the same locations (about {trailUniqueSpots} unique
+              spots).
+            </Text>
+
+            <View
+              style={[
+                ballStyles.heatmapWrap,
+                {
+                  borderTopColor: theme.border,
+                  borderBottomColor: theme.border,
+                  backgroundColor: theme.surfaceSecondary,
+                },
+              ]}
+            >
+              <Text style={[ballStyles.heatmapTitle, { color: theme.text }]}>
+                Ball Concentration Heatmap
+              </Text>
+
+              <View
+                style={[
+                  ballStyles.heatPitch,
+                  {
+                    backgroundColor: "#1f3d1f",
+                    borderColor: "#5b6470",
+                  },
+                ]}
+              >
+                <View style={ballStyles.heatGrid}>
+                  {heatmap.cells.map((intensity, idx) => (
+                    <View
+                      key={`heat_${idx}`}
+                      style={{
+                        width: `${100 / heatmap.cols}%`,
+                        height: `${100 / heatmap.rows}%`,
+                        backgroundColor:
+                          intensity > 0
+                            ? getHeatColor(intensity)
+                            : "rgba(0,0,0,0)",
+                      }}
+                    />
+                  ))}
+                </View>
+
+                <View style={ballStyles.pitchOutline} />
+                <View style={ballStyles.pitchMidline} />
+                <View style={ballStyles.pitchCenterCircle} />
+                <View style={ballStyles.pitchLeftBox} />
+                <View style={ballStyles.pitchRightBox} />
+              </View>
+
+              <View style={ballStyles.heatLegendRow}>
+                <Text
+                  style={[
+                    ballStyles.heatLegendText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  Low
+                </Text>
+                <View style={ballStyles.heatLegendScale}>
+                  {Array.from({ length: 10 }).map((_, idx) => {
+                    const t = idx / 9;
+                    return (
+                      <View
+                        key={`heat_scale_${idx}`}
+                        style={[
+                          ballStyles.heatLegendSwatch,
+                          { backgroundColor: getHeatColor(t) },
+                        ]}
+                      />
+                    );
+                  })}
+                </View>
+                <Text
+                  style={[
+                    ballStyles.heatLegendText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  High
+                </Text>
+              </View>
+            </View>
+
+            <View style={ballStyles.zoneRow}>
+              <View
+                style={[
+                  ballStyles.zoneCard,
+                  { backgroundColor: `${homeColor}20` },
+                ]}
+              >
+                <Text
+                  style={[ballStyles.zoneLabel, { color: theme.textSecondary }]}
+                >
+                  Defensive
+                </Text>
+                <Text style={[ballStyles.zoneValue, { color: homeColor }]}>
+                  {zoneDistribution.defensive.toFixed(1)}%
+                </Text>
+              </View>
+              <View
+                style={[
+                  ballStyles.zoneCard,
+                  { backgroundColor: "rgba(245,158,11,0.2)" },
+                ]}
+              >
+                <Text
+                  style={[ballStyles.zoneLabel, { color: theme.textSecondary }]}
+                >
+                  Middle
+                </Text>
+                <Text style={[ballStyles.zoneValue, { color: "#d97706" }]}>
+                  {zoneDistribution.middle.toFixed(1)}%
+                </Text>
+              </View>
+              <View
+                style={[
+                  ballStyles.zoneCard,
+                  { backgroundColor: `${awayColor}20` },
+                ]}
+              >
+                <Text
+                  style={[ballStyles.zoneLabel, { color: theme.textSecondary }]}
+                >
+                  Attacking
+                </Text>
+                <Text style={[ballStyles.zoneValue, { color: awayColor }]}>
+                  {zoneDistribution.attacking.toFixed(1)}%
+                </Text>
+              </View>
+            </View>
+
+            <View style={ballStyles.legendRow}>
+              <View style={ballStyles.legendItem}>
+                <View
+                  style={[ballStyles.legendDot, { backgroundColor: homeColor }]}
+                />
+                <Text
+                  style={[
+                    ballStyles.legendText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {home?.short_code || home?.name || "Home"}
+                </Text>
+              </View>
+              <View style={ballStyles.legendItem}>
+                <View
+                  style={[ballStyles.legendDot, { backgroundColor: "#f59e0b" }]}
+                />
+                <Text
+                  style={[
+                    ballStyles.legendText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  Middle
+                </Text>
+              </View>
+              <View style={ballStyles.legendItem}>
+                <View
+                  style={[ballStyles.legendDot, { backgroundColor: awayColor }]}
+                />
+                <Text
+                  style={[
+                    ballStyles.legendText,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {away?.short_code || away?.name || "Away"}
+                </Text>
+              </View>
+            </View>
+          </>
+        )}
+      </View>
+    </View>
+  );
+};
+
 const GoalShareCardModal = ({ visible, onClose, payload, theme, colors }) => {
   const shareCardRef = useRef(null);
   const [sharing, setSharing] = useState(false);
@@ -3959,6 +4510,35 @@ const StatsSection = ({
         .replace(/(^|\s|-|_)[a-z]/g, (m) => m.toUpperCase())
         .replace(/_/g, " ");
 
+    const toKey = (s) =>
+      String(s || "")
+        .toLowerCase()
+        .replace(/[_-]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    const isExcludedStat = (name) => {
+      const l = toKey(name);
+      return (
+        l.includes("rating") ||
+        l.includes("goals") ||
+        l.includes("captain") ||
+        l.includes("minutes played")
+      );
+    };
+
+    const isPercentageStat = (name) => {
+      const l = toKey(name);
+      return l.includes("percentage") || l.includes("%");
+    };
+
+    const stripPercentageWord = (name) =>
+      toKey(name)
+        .replace(/\bpercentage\b/g, "")
+        .replace(/%/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
     const formatStatValue = (value, statName) => {
       const n = Number(value);
       if (!Number.isFinite(n)) return "0";
@@ -4101,14 +4681,16 @@ const StatsSection = ({
       });
     }
 
-    const buildRows = (map) =>
-      [...map.values()]
+    const buildRows = (map) => {
+      const rows = [...map.values()]
+        .filter((row) => !isExcludedStat(row.name))
         .sort((a, b) => String(a.name).localeCompare(String(b.name)))
         .map((row) => {
           const reverse = isLowerBetter(row.name);
           const shares = toBarShares(row.home, row.away, reverse);
           return {
             ...row,
+            keyNorm: normalizeDetailKey(row.name),
             label: titleCase(row.name),
             homeText: formatStatValue(row.home, row.name),
             awayText: formatStatValue(row.away, row.name),
@@ -4117,6 +4699,25 @@ const StatsSection = ({
           };
         });
 
+      const nonPercentageByKey = new Map(
+        rows
+          .filter((r) => !isPercentageStat(r.name))
+          .map((r) => [r.keyNorm, r]),
+      );
+
+      for (const row of rows) {
+        if (!isPercentageStat(row.name)) continue;
+        const baseKey = normalizeDetailKey(stripPercentageWord(row.name));
+        const baseMatch = nonPercentageByKey.get(baseKey);
+        if (!baseMatch) continue;
+        baseMatch.homeText = `${baseMatch.homeText} (${row.homeText})`;
+        baseMatch.awayText = `${baseMatch.awayText} (${row.awayText})`;
+        row._mergedIntoBase = true;
+      }
+
+      return rows.filter((r) => !r._mergedIntoBase);
+    };
+
     return {
       overall: buildRows(groupedMap.overall),
       offensive: buildRows(groupedMap.offensive),
@@ -4124,6 +4725,574 @@ const StatsSection = ({
       other: buildRows(groupedMap.other),
     };
   }, [statistics, lineups, home, away]);
+
+  const allRows = useMemo(
+    () => [
+      ...sections.overall,
+      ...sections.offensive,
+      ...sections.defensive,
+      ...sections.other,
+    ],
+    [sections],
+  );
+
+  const findMainStat = useCallback(
+    (matcher) =>
+      allRows.find((row) => {
+        const k = normalizeDetailKey(row?.name || "");
+        return matcher(k);
+      }) ?? null,
+    [allRows],
+  );
+
+  const mainStats = useMemo(
+    () => ({
+      possession: findMainStat(
+        (k) => k === "ballpossession" || k === "possession",
+      ),
+      dangerousAttacks: findMainStat((k) => k === "dangerousattacks"),
+      shotsOffTarget: findMainStat(
+        (k) => k === "shotsofftarget" || k === "shotofftarget",
+      ),
+      shotsOnTarget: findMainStat(
+        (k) => k === "shotsontarget" || k === "shotontarget",
+      ),
+      shotsOutsideBox: findMainStat(
+        (k) => k === "shotsoutsidebox" || k === "shotoutsidebox",
+      ),
+      shotsInsideBox: findMainStat(
+        (k) => k === "shotsinsidebox" || k === "shotinsidebox",
+      ),
+    }),
+    [findMainStat],
+  );
+
+  const mainStatKeys = useMemo(() => {
+    const keys = new Set();
+    for (const r of Object.values(mainStats)) {
+      if (r?.name) keys.add(String(r.name));
+    }
+    return keys;
+  }, [mainStats]);
+
+  const filteredSections = useMemo(
+    () => ({
+      overall: sections.overall.filter(
+        (r) => !mainStatKeys.has(String(r.name)),
+      ),
+      offensive: sections.offensive.filter(
+        (r) => !mainStatKeys.has(String(r.name)),
+      ),
+      defensive: sections.defensive.filter(
+        (r) => !mainStatKeys.has(String(r.name)),
+      ),
+      other: sections.other.filter((r) => !mainStatKeys.has(String(r.name))),
+    }),
+    [sections, mainStatKeys],
+  );
+
+  const arrowScale = useCallback((homeVal, awayVal) => {
+    const h = Number(homeVal) || 0;
+    const a = Number(awayVal) || 0;
+    const max = Math.max(h, a, 1);
+    return Math.min(1, Math.abs(h - a) / max);
+  }, []);
+
+  const shouldShowSideValue = useCallback((own, other) => {
+    const a = Number(own) || 0;
+    const b = Number(other) || 0;
+    if (a === 0 && b > 0) return false;
+    return true;
+  }, []);
+
+  const renderPossession = (row) => {
+    if (!row) return null;
+    const leftWidth = Math.max(0, Math.min(100, row.homeShare * 100));
+    const rightWidth = Math.max(0, Math.min(100, row.awayShare * 100));
+    const showHome = shouldShowSideValue(row.home, row.away);
+    const showAway = shouldShowSideValue(row.away, row.home);
+    return (
+      <View style={stStyles.mainBlock}>
+        <Text style={[stStyles.mainLabel, { color: theme.textSecondary }]}>
+          Ball Possession
+        </Text>
+        <View
+          style={[
+            stStyles.posTrack,
+            { backgroundColor: theme.surfaceSecondary },
+          ]}
+        >
+          <View
+            style={[
+              stStyles.posFillLeft,
+              {
+                width: `${leftWidth}%`,
+                backgroundColor: homeColor,
+              },
+            ]}
+          >
+            {showHome ? (
+              <Text
+                style={[
+                  stStyles.posFillText,
+                  { color: getTextOnColor(homeColor) },
+                ]}
+              >
+                {row.homeText}%
+              </Text>
+            ) : null}
+          </View>
+          <View
+            style={[
+              stStyles.posFillRight,
+              {
+                width: `${rightWidth}%`,
+                backgroundColor: awayColor,
+              },
+            ]}
+          >
+            {showAway ? (
+              <Text
+                style={[
+                  stStyles.posFillText,
+                  { color: getTextOnColor(awayColor) },
+                ]}
+              >
+                {row.awayText}%
+              </Text>
+            ) : null}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const renderGoalShotsWidget = (onTarget, offTarget) => {
+    if (!onTarget && !offTarget) return null;
+    const onRow = onTarget || {
+      home: 0,
+      away: 0,
+      homeShare: 0.5,
+      awayShare: 0.5,
+      homeText: "0",
+      awayText: "0",
+    };
+    const offRow = offTarget || {
+      home: 0,
+      away: 0,
+      homeShare: 0.5,
+      awayShare: 0.5,
+      homeText: "0",
+      awayText: "0",
+    };
+    const showHome = shouldShowSideValue(onRow.home, onRow.away);
+    const showAway = shouldShowSideValue(onRow.away, onRow.home);
+    const showHomeOff = shouldShowSideValue(offRow.home, offRow.away);
+    const showAwayOff = shouldShowSideValue(offRow.away, offRow.home);
+    const homeFillWidth = Math.max(0, Math.min(100, onRow.homeShare * 100));
+    const awayFillWidth = Math.max(0, Math.min(100, onRow.awayShare * 100));
+    const homeOuterWidth = Math.max(0, Math.min(100, offRow.homeShare * 100));
+    const awayOuterWidth = Math.max(0, Math.min(100, offRow.awayShare * 100));
+    return (
+      <View style={stStyles.mainBlock}>
+        <Text style={[stStyles.mainLabel, { color: theme.textSecondary }]}>
+          Shots (On / Off Target)
+        </Text>
+
+        <View
+          style={[
+            stStyles.shotsSimpleOuter,
+            {
+              backgroundColor: theme.surfaceSecondary,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <View style={stStyles.shotsSimpleOuterValuesLayer}>
+            <View
+              style={[
+                stStyles.shotsSimpleOuterFillLeft,
+                {
+                  width: `${homeOuterWidth}%`,
+                  backgroundColor: homeColor,
+                },
+              ]}
+            />
+            <View
+              style={[
+                stStyles.shotsSimpleOuterFillRight,
+                {
+                  width: `${awayOuterWidth}%`,
+                  backgroundColor: awayColor,
+                },
+              ]}
+            />
+          </View>
+
+          <View style={stStyles.shotsSimpleOuterValuesRow}>
+            {showHomeOff ? (
+              <Text
+                style={[
+                  stStyles.shotsSimpleOuterValueText,
+                  stStyles.shotsSimpleOuterValueLeft,
+                  { color: getTextOnColor(homeColor) },
+                ]}
+              >
+                {offRow.homeText}
+              </Text>
+            ) : (
+              <View style={stStyles.shotsSimpleOuterValueSpacer} />
+            )}
+
+            {showAwayOff ? (
+              <Text
+                style={[
+                  stStyles.shotsSimpleOuterValueText,
+                  stStyles.shotsSimpleOuterValueRight,
+                  { color: getTextOnColor(awayColor) },
+                ]}
+              >
+                {offRow.awayText}
+              </Text>
+            ) : (
+              <View style={stStyles.shotsSimpleOuterValueSpacer} />
+            )}
+          </View>
+
+          <View
+            style={[
+              stStyles.shotsSimpleInner,
+              {
+                borderColor: "#ccc",
+                backgroundColor: theme.surfaceSecondary,
+              },
+            ]}
+          >
+            <View style={stStyles.shotsSimpleInnerValues}>
+              <View
+                style={[
+                  stStyles.shotsSimpleFillLeft,
+                  {
+                    width: `${homeFillWidth}%`,
+                    backgroundColor: homeColor,
+                  },
+                ]}
+              >
+                {showHome ? (
+                  <Text
+                    style={[
+                      stStyles.shotsSimpleInnerValueText,
+                      { color: getTextOnColor(homeColor) },
+                    ]}
+                  >
+                    {onRow.homeText}
+                  </Text>
+                ) : null}
+              </View>
+              <View
+                style={[
+                  stStyles.shotsSimpleFillRight,
+                  {
+                    width: `${awayFillWidth}%`,
+                    backgroundColor: awayColor,
+                  },
+                ]}
+              >
+                {showAway ? (
+                  <Text
+                    style={[
+                      stStyles.shotsSimpleInnerValueText,
+                      { color: getTextOnColor(awayColor) },
+                    ]}
+                  >
+                    {onRow.awayText}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const renderBoxShotsWidget = (insideBox, outsideBox) => {
+    if (!insideBox && !outsideBox) return null;
+    const inRow = insideBox || {
+      home: 0,
+      away: 0,
+      homeShare: 0.5,
+      awayShare: 0.5,
+      homeText: "0",
+      awayText: "0",
+    };
+    const outRow = outsideBox || {
+      home: 0,
+      away: 0,
+      homeShare: 0.5,
+      awayShare: 0.5,
+      homeText: "0",
+      awayText: "0",
+    };
+    const showHomeOut = shouldShowSideValue(outRow.home, outRow.away);
+    const showAwayOut = shouldShowSideValue(outRow.away, outRow.home);
+    const showHomeIn = shouldShowSideValue(inRow.home, inRow.away);
+    const showAwayIn = shouldShowSideValue(inRow.away, inRow.home);
+
+    const outLeftWidth = Math.max(0, Math.min(100, outRow.homeShare * 100));
+    const outRightWidth = Math.max(0, Math.min(100, outRow.awayShare * 100));
+    const inLeftWidth = Math.max(0, Math.min(100, inRow.homeShare * 100));
+    const inRightWidth = Math.max(0, Math.min(100, inRow.awayShare * 100));
+
+    return (
+      <View style={stStyles.mainBlock}>
+        <Text style={[stStyles.mainLabel, { color: theme.textSecondary }]}>
+          Shots (Inside / Outside Box)
+        </Text>
+
+        <View
+          style={[
+            stStyles.boxOuter,
+            {
+              borderColor: theme.border,
+              backgroundColor: theme.surfaceSecondary,
+            },
+          ]}
+        >
+          {/* outer fills (outside box) */}
+          <View
+            style={[
+              stStyles.boxOuterFillLeft,
+              { width: `${outLeftWidth}%`, backgroundColor: homeColor },
+            ]}
+          />
+          <View
+            style={[
+              stStyles.boxOuterFillRight,
+              { width: `${outRightWidth}%`, backgroundColor: awayColor },
+            ]}
+          />
+
+          {/* outer values raised above inner */}
+          <View style={stStyles.boxOuterValuesRow} pointerEvents="none">
+            <Text
+              style={[
+                stStyles.boxOuterValueText,
+                stStyles.boxOuterValueLeft,
+                {
+                  color: getTextOnColor(homeColor),
+                  opacity: showHomeOut ? 1 : 0.35,
+                },
+              ]}
+            >
+              {outRow.homeText}
+            </Text>
+            <Text style={stStyles.boxOuterValueSpacer} />
+            <Text
+              style={[
+                stStyles.boxOuterValueText,
+                stStyles.boxOuterValueRight,
+                {
+                  color: getTextOnColor(awayColor),
+                  opacity: showAwayOut ? 1 : 0.35,
+                },
+              ]}
+            >
+              {outRow.awayText}
+            </Text>
+          </View>
+
+          {/* inner box (inside box) */}
+          <View
+            style={[
+              stStyles.boxInner,
+              {
+                borderColor: "#CCC",
+                backgroundColor: theme.surfaceSecondary,
+              },
+            ]}
+          >
+            <View style={stStyles.boxInnerValues}>
+              <View
+                style={[
+                  stStyles.boxFillLeft,
+                  { width: `${inLeftWidth}%`, backgroundColor: homeColor },
+                ]}
+              >
+                {showHomeIn ? (
+                  <Text
+                    style={[
+                      stStyles.boxInnerValueText,
+                      stStyles.boxInnerValuePosLeft,
+                      { color: getTextOnColor(homeColor) },
+                    ]}
+                  >
+                    {inRow.homeText}
+                  </Text>
+                ) : null}
+              </View>
+              <View
+                style={[
+                  stStyles.boxFillRight,
+                  { width: `${inRightWidth}%`, backgroundColor: awayColor },
+                ]}
+              >
+                {showAwayIn ? (
+                  <Text
+                    style={[
+                      stStyles.boxInnerValueText,
+                      stStyles.boxInnerValuePosRight,
+                      { color: getTextOnColor(awayColor) },
+                    ]}
+                  >
+                    {inRow.awayText}
+                  </Text>
+                ) : null}
+              </View>
+
+              {/* second inner box centered */}
+              <View style={stStyles.boxInnerInner} />
+            </View>
+
+            {/* semicircle on top of first inner */}
+            <View style={stStyles.boxSemiCircle} pointerEvents="none" />
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const renderDangerousAttacks = (row) => {
+    if (!row) return null;
+    const h = Number(row.home) || 0;
+    const a = Number(row.away) || 0;
+    const maxVal = Math.max(h, a, 1);
+    const homeRel = h / maxVal;
+    const awayRel = a / maxVal;
+    const homeArrowSize = 20 + Math.round(homeRel * 30);
+    const awayArrowSize = 20 + Math.round(awayRel * 30);
+    const homeValSize = 20 + Math.round(homeRel * 30);
+    const awayValSize = 20 + Math.round(awayRel * 30);
+
+    const isDarkMode = theme.text === "#ffffff";
+
+    return (
+      <View style={stStyles.mainBlock}>
+        <Text style={[stStyles.mainLabel, { color: theme.textSecondary }]}>
+          Dangerous Attacks
+        </Text>
+
+        <View
+          style={[
+            stStyles.attackField,
+            {
+              borderColor: theme.border,
+              backgroundColor: isDarkMode ? "#1f5b2b" : "#67c06d",
+            },
+          ]}
+        >
+          <View
+            style={[
+              stStyles.attackFillLeft,
+              {
+                width: `${Math.max(0, Math.min(100, row.homeShare * 100))}%`,
+                backgroundColor: homeColor,
+              },
+            ]}
+          >
+            <View
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "row",
+                gap: 6,
+                paddingHorizontal: 6,
+              }}
+            >
+              <Text
+                style={{
+                  color: getTextOnColor(homeColor),
+                  fontSize: homeValSize,
+                  fontWeight: "900",
+                  lineHeight: homeValSize + 6,
+                }}
+              >
+                {row.homeText}
+              </Text>
+              <Text
+                style={{
+                  color: getTextOnColor(homeColor),
+                  fontSize: homeArrowSize + 4,
+                  fontWeight: "900",
+                  lineHeight: homeArrowSize + 10,
+                }}
+              >
+                →
+              </Text>
+            </View>
+          </View>
+          <View
+            style={[
+              stStyles.attackFillRight,
+              {
+                width: `${Math.max(0, Math.min(100, row.awayShare * 100))}%`,
+                backgroundColor: awayColor,
+              },
+            ]}
+          >
+            <View
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "row",
+                gap: 6,
+                paddingHorizontal: 6,
+              }}
+            >
+              <Text
+                style={{
+                  color: getTextOnColor(awayColor),
+                  fontSize: awayArrowSize + 4,
+                  fontWeight: "900",
+                  lineHeight: awayArrowSize + 10,
+                }}
+              >
+                ←
+              </Text>
+              <Text
+                style={{
+                  color: getTextOnColor(awayColor),
+                  fontSize: awayValSize,
+                  fontWeight: "900",
+                  lineHeight: awayValSize + 6,
+                }}
+              >
+                {row.awayText}
+              </Text>
+            </View>
+          </View>
+          <View
+            style={[stStyles.attackLineMid, { backgroundColor: "#ccc" }]}
+          />
+          <View style={[stStyles.attackCircle, { borderColor: "#ccc" }]} />
+          <View style={[stStyles.attackBoxLeft, { borderColor: "#ccc" }]} />
+          <View style={[stStyles.attackBoxRight, { borderColor: "#ccc" }]} />
+
+          {/* values are rendered inside the left/right fills for proper centering */}
+        </View>
+      </View>
+    );
+  };
 
   const renderSection = (title, rows) => (
     <View
@@ -4208,10 +5377,35 @@ const StatsSection = ({
 
   return (
     <View style={{ paddingTop: 6 }}>
-      {renderSection("OVERALL", sections.overall)}
-      {renderSection("OFFENSIVE", sections.offensive)}
-      {renderSection("DEFENSIVE", sections.defensive)}
-      {renderSection("OTHER", sections.other)}
+      <View
+        style={[
+          stStyles.card,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
+        <View style={[stStyles.headerRow, { borderBottomColor: theme.border }]}>
+          <Text style={[stStyles.headerTitle, { color: theme.text }]}>
+            MAIN STATS
+          </Text>
+        </View>
+        <View style={stStyles.body}>
+          {renderPossession(mainStats.possession)}
+          {renderGoalShotsWidget(
+            mainStats.shotsOnTarget,
+            mainStats.shotsOffTarget,
+          )}
+          {renderBoxShotsWidget(
+            mainStats.shotsInsideBox,
+            mainStats.shotsOutsideBox,
+          )}
+          {renderDangerousAttacks(mainStats.dangerousAttacks)}
+        </View>
+      </View>
+
+      {renderSection("OVERALL", filteredSections.overall)}
+      {renderSection("OFFENSIVE", filteredSections.offensive)}
+      {renderSection("DEFENSIVE", filteredSections.defensive)}
+      {renderSection("OTHER", filteredSections.other)}
     </View>
   );
 };
@@ -4257,6 +5451,7 @@ const GameInfoSection = ({
     country?.image_path && !country.image_path.includes("placeholder")
       ? country.image_path
       : null;
+  const round = round?.name ?? null;
 
   const hasMeta = !!league || !!country || !!startingAt;
 
@@ -4459,7 +5654,7 @@ const GameInfoSection = ({
                     style={[giStyles.metaPrimaryText, { color: theme.text }]}
                     numberOfLines={1}
                   >
-                    {league?.name || "League"}
+                    {league?.name || "League"} {round && `∙ Round ${round}`}
                   </Text>
                 </View>
               )}
@@ -6890,7 +8085,7 @@ const SoccerPlayerDetailModal = ({
                               { color: theme.text },
                             ]}
                           >
-                            {value != null ? String(value) : "—"}
+                            {value != null ? String(value) : "0"}
                           </Text>
                           <Text
                             style={[
@@ -6983,7 +8178,7 @@ const SoccerPlayerDetailModal = ({
                     <Text
                       style={[spmStyles.shareStatVal, { color: theme.text }]}
                     >
-                      {value != null ? String(value) : "—"}
+                      {value != null ? String(value) : "0"}
                     </Text>
                     <Text
                       style={[
@@ -7051,7 +8246,7 @@ const SoccerPlayerDetailModal = ({
 };
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
-const TABS = ["Main", "Home", "Away", "Stats", "Commentary", "H2H"];
+const TABS = ["Main", "Home", "Away", "Stats", "Commentary", "Ball", "H2H"];
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 const Top5GameDetailsScreen = ({ navigation, route }) => {
@@ -7368,6 +8563,8 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const fixture = data?.fixtureData ?? null;
+  const ballCoordinates =
+    fixture?.ballcoordinates ?? fixture?.ballCoordinates ?? [];
 
   const home = fixture?.participants?.find((p) => p.meta?.location === "home");
   const away = fixture?.participants?.find((p) => p.meta?.location === "away");
@@ -7394,7 +8591,10 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   const availableTabs = useMemo(
     () =>
       TABS.filter((tab) => {
-        if ((tab === "Stats" || tab === "Commentary") && isScheduledGame) {
+        if (
+          (tab === "Stats" || tab === "Commentary" || tab === "Ball") &&
+          isScheduledGame
+        ) {
           return false;
         }
         if ((tab === "Home" || tab === "Away") && !hasLineups) {
@@ -8252,6 +9452,18 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 onPlayerPress={openPlayerModal}
               />
             </View>
+          )}
+          {activeTab === "Ball" && (
+            <BallSection
+              ballCoordinates={ballCoordinates}
+              periods={fixture.periods ?? []}
+              home={home}
+              away={away}
+              homeColor={homeColor}
+              awayColor={awayColor}
+              theme={theme}
+              colors={colors}
+            />
           )}
           {activeTab === "H2H" && (
             <View style={{ paddingTop: 6 }}>
@@ -10010,10 +11222,759 @@ const stStyles = StyleSheet.create({
     textAlign: "center",
     marginTop: 1,
   },
+  mainBlock: {
+    gap: 8,
+    marginBottom: 4,
+  },
+  mainLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.35,
+  },
+  posTrack: {
+    height: 28,
+    borderRadius: 999,
+    overflow: "hidden",
+    position: "relative",
+  },
+  posFillLeft: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    borderTopLeftRadius: 999,
+    borderBottomLeftRadius: 999,
+  },
+  posFillRight: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    borderTopRightRadius: 999,
+    borderBottomRightRadius: 999,
+  },
+  posFillText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  goalWidgetWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  outerShotPill: {
+    minWidth: 44,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  outerShotText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  goalFrame: {
+    flex: 1,
+    height: 56,
+    borderWidth: 1,
+    borderRadius: 10,
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  goalInner: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  goalInnerPill: {
+    flex: 1,
+    borderRadius: 999,
+    minHeight: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  goalInnerText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  shotsSimpleOuter: {
+    height: 130,
+    borderRadius: 10,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    overflow: "hidden",
+    position: "relative",
+  },
+  shotsSimpleOuterValuesLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  shotsSimpleOuterFillLeft: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+  },
+  shotsSimpleOuterFillRight: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  shotsSimpleOuterValuesRow: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    right: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    zIndex: 2,
+  },
+  shotsSimpleOuterValueText: {
+    fontSize: 25,
+    fontWeight: "900",
+    minWidth: 36,
+  },
+  shotsSimpleOuterValueLeft: {
+    textAlign: "left",
+  },
+  shotsSimpleOuterValueRight: {
+    textAlign: "right",
+  },
+  shotsSimpleOuterValueSpacer: {
+    minWidth: 36,
+  },
+  shotsSimpleInner: {
+    width: "62%",
+    height: "62.5%",
+    borderBottomWidth: 0,
+    borderWidth: 10,
+    borderColor: "#ffffff",
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    justifyContent: "center",
+  },
+  shotsSimpleInnerValues: {
+    flex: 1,
+    position: "relative",
+    overflow: "hidden",
+  },
+  shotsSimpleFillLeft: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shotsSimpleFillRight: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shotsSimpleInnerValueText: {
+    fontSize: 22,
+    fontWeight: "900",
+  },
+  /* Box (copied from shotsSimple and renamed to box*) */
+  boxOuter: {
+    height: 130,
+    borderRadius: 10,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    overflow: "hidden",
+    position: "relative",
+  },
+  boxOuterValuesLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  boxOuterFillLeft: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+  },
+  boxOuterFillRight: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  boxOuterValuesRow: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    right: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    zIndex: 2,
+  },
+  boxOuterValueText: {
+    fontSize: 25,
+    fontWeight: "900",
+    minWidth: 36,
+  },
+  boxOuterValueLeft: {
+    textAlign: "left",
+  },
+  boxOuterValueRight: {
+    textAlign: "right",
+  },
+  boxOuterValueSpacer: {
+    minWidth: 36,
+  },
+  boxInner: {
+    width: "62%",
+    height: "62.5%",
+    borderBottomWidth: 0,
+    borderWidth: 10,
+    borderColor: "#ffffff",
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    justifyContent: "center",
+  },
+  boxInnerValues: {
+    flex: 1,
+    position: "relative",
+    overflow: "hidden",
+  },
+  boxFillLeft: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  boxFillRight: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  boxInnerValueText: {
+    fontSize: 22,
+    fontWeight: "900",
+  },
+  boxInnerValuePosLeft: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+  },
+  boxInnerValuePosRight: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+  },
+  /* Second inner box */
+  boxInnerInner: {
+    bottom: -40,
+    width: "44%",
+    height: "44%",
+    borderBottomWidth: 0,
+    borderWidth: 8,
+    borderColor: "#ccc",
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
+    alignSelf: "center",
+    marginBottom: 6,
+    overflow: "hidden",
+    justifyContent: "center",
+  },
+  /* Semicircle sitting on top of the first inner */
+  boxSemiCircle: {
+    position: "absolute",
+    top: -45,
+    alignSelf: "center",
+    width: "45%",
+    height: 45,
+    borderTopLeftRadius: 999,
+    borderTopRightRadius: 999,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    overflow: "hidden",
+    borderWidth: 8,
+    borderColor: "#ccc",
+    backgroundColor: "transparent",
+  },
+  shotsGoalPanel: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 12,
+    overflow: "hidden",
+    gap: 10,
+  },
+  shotsRow: {
+    minHeight: 38,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    position: "relative",
+    overflow: "hidden",
+  },
+  shotsHalfFillLeft: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: "50%",
+  },
+  shotsHalfFillRight: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    right: 0,
+    width: "50%",
+  },
+  shotsRowValue: {
+    width: 40,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  shotsRowValueLeft: {
+    textAlign: "left",
+    paddingLeft: 4,
+  },
+  shotsRowValueRight: {
+    textAlign: "right",
+    paddingRight: 4,
+  },
+  shotsRowLabel: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  goalFrameCard: {
+    marginHorizontal: 2,
+    borderWidth: 1.25,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  goalInnerFrameCard: {
+    borderWidth: 1,
+    borderRadius: 8,
+    minHeight: 36,
+    position: "relative",
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  boxAreaFrame: {
+    flex: 1,
+    height: 62,
+    borderWidth: 1,
+    borderRadius: 10,
+    justifyContent: "flex-end",
+    paddingHorizontal: 8,
+    paddingBottom: 7,
+    position: "relative",
+  },
+  boxAreaInner: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  boxSemiArc: {
+    position: "absolute",
+    top: -11,
+    left: "50%",
+    width: 44,
+    height: 22,
+    marginLeft: -22,
+    borderWidth: 1,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderBottomWidth: 0,
+    backgroundColor: "transparent",
+  },
+  customBarsWrap: {
+    gap: 4,
+  },
+  customBarsLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  attackField: {
+    height: 130,
+    borderRadius: 10,
+    borderWidth: 2,
+    overflow: "hidden",
+    position: "relative",
+    justifyContent: "center",
+  },
+  attackFillLeft: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+  },
+  attackFillRight: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  attackLineTopLeft: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: "50%",
+    height: 1,
+  },
+  attackLineTopRight: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    width: "50%",
+    height: 1,
+  },
+  attackLineBottomLeft: {
+    position: "absolute",
+    left: 0,
+    bottom: 0,
+    width: "50%",
+    height: 1,
+  },
+  attackLineBottomRight: {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    width: "50%",
+    height: 1,
+  },
+  attackLineMid: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: "50%",
+    width: 1,
+  },
+  attackCircle: {
+    position: "absolute",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    left: "50%",
+    top: "50%",
+    marginLeft: -15,
+    marginTop: -15,
+  },
+  attackBoxLeft: {
+    position: "absolute",
+    left: 0,
+    top: "33%",
+    width: 24,
+    height: "34%",
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderRightWidth: 1,
+  },
+  attackBoxRight: {
+    position: "absolute",
+    right: 0,
+    top: "33%",
+    width: 24,
+    height: "34%",
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderLeftWidth: 1,
+  },
+  attackValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+  },
+  attackSideLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  attackSideRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  attackArrow: {
+    fontWeight: "900",
+    lineHeight: 20,
+  },
+  attackValue: {
+    fontWeight: "900",
+    lineHeight: 24,
+  },
   emptyText: {
     fontSize: 12,
     textAlign: "center",
     paddingVertical: 8,
+  },
+});
+
+const ballStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: 12,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  headerMeta: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  emptyWrap: {
+    paddingHorizontal: 14,
+    paddingVertical: 18,
+  },
+  emptyText: {
+    fontSize: 12,
+    textAlign: "center",
+  },
+  filtersWrap: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 10,
+    gap: 7,
+  },
+  filterLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.35,
+  },
+  filterRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  filterChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  filterChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  pitch: {
+    marginHorizontal: 14,
+    marginTop: 12,
+    height: 190,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    overflow: "hidden",
+    position: "relative",
+  },
+  pitchOutline: {
+    position: "absolute",
+    top: 5,
+    left: 5,
+    right: 5,
+    bottom: 5,
+    borderWidth: 1.5,
+    borderColor: "#ffffff",
+    borderRadius: 8,
+  },
+  pitchMidline: {
+    position: "absolute",
+    top: 5,
+    bottom: 5,
+    left: "50%",
+    width: 1.5,
+    marginLeft: -0.75,
+    backgroundColor: "#ffffff",
+  },
+  pitchCenterCircle: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: "#ffffff",
+    marginTop: -22,
+    marginLeft: -22,
+  },
+  pitchLeftBox: {
+    position: "absolute",
+    left: 5,
+    top: "30%",
+    width: 34,
+    height: "40%",
+    borderTopWidth: 1.5,
+    borderBottomWidth: 1.5,
+    borderRightWidth: 1.5,
+    borderColor: "#ffffff",
+  },
+  pitchRightBox: {
+    position: "absolute",
+    right: 5,
+    top: "30%",
+    width: 34,
+    height: "40%",
+    borderTopWidth: 1.5,
+    borderBottomWidth: 1.5,
+    borderLeftWidth: 1.5,
+    borderColor: "#ffffff",
+  },
+  dot: {
+    position: "absolute",
+  },
+  trailHintText: {
+    marginTop: 8,
+    paddingHorizontal: 14,
+    fontSize: 11,
+    fontWeight: "500",
+    lineHeight: 15,
+  },
+  heatmapWrap: {
+    marginTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 12,
+  },
+  heatmapTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.35,
+    marginBottom: 8,
+  },
+  heatPitch: {
+    height: 190,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    overflow: "hidden",
+    position: "relative",
+  },
+  heatGrid: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  heatLegendRow: {
+    marginTop: 9,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  heatLegendScale: {
+    flex: 1,
+    flexDirection: "row",
+    borderRadius: 999,
+    overflow: "hidden",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.35)",
+  },
+  heatLegendSwatch: {
+    flex: 1,
+    height: 8,
+  },
+  heatLegendText: {
+    fontSize: 10,
+    fontWeight: "700",
+    minWidth: 26,
+    textAlign: "center",
+  },
+  zoneRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 14,
+    marginTop: 10,
+  },
+  zoneCard: {
+    flex: 1,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    alignItems: "center",
+  },
+  zoneLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.35,
+  },
+  zoneValue: {
+    marginTop: 2,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  legendRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 12,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  legendDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+  },
+  legendText: {
+    fontSize: 10,
+    fontWeight: "600",
   },
 });
 

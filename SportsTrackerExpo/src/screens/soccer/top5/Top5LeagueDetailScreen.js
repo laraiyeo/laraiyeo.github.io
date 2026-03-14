@@ -32,6 +32,8 @@ import Svg, {
   Rect,
 } from "react-native-svg";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import ViewShot from "react-native-view-shot";
+import * as Sharing from "expo-sharing";
 import { useTheme } from "../../../context/ThemeContext";
 
 const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
@@ -318,11 +320,11 @@ function StandingsTab({ stages, theme, colors, navigation }) {
               return (
                 <TouchableOpacity
                   key={entry.id ?? idx}
-                  activeOpacity={p?.id != null ? 0.7 : 1}
+                  activeOpacity={p?.id != null && navigation ? 0.7 : 1}
                   onPress={
-                    p?.id != null
+                    p?.id != null && navigation
                       ? () =>
-                          navigation.navigate("Top5TeamDetail", {
+                          navigation?.navigate("Top5TeamDetail", {
                             teamId: p.id,
                             teamName: p.name,
                           })
@@ -1365,8 +1367,23 @@ function normalizeTotwPlayerName(player) {
   };
 }
 
+function motmGetRatingColor(r) {
+  if (r <= 6.0) return "#dc3545";
+  if (r <= 7.0) return "#ffbf00";
+  if (r <= 8.0) return "#28a745";
+  return "#8b5cf6";
+}
+
+function roundRatingTo1(rating) {
+  const n = Number(rating);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 10) / 10;
+}
+
 function TeamOfTheWeekTab({
   teamOfTheWeek,
+  leagueInfo,
+  leagueShortCode,
   teamsInSeason,
   theme,
   colors,
@@ -1376,6 +1393,10 @@ function TeamOfTheWeekTab({
   const { width } = useWindowDimensions();
   const pitchWidth = Math.max(300, width - 24);
   const pitchHeight = Math.round((width - 40) * 1.2);
+  const [selectedEntryId, setSelectedEntryId] = useState(null);
+  const [shareVisible, setShareVisible] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const shareCardRef = useRef(null);
 
   const entries = useMemo(() => {
     return (teamOfTheWeek ?? [])
@@ -1383,7 +1404,8 @@ function TeamOfTheWeekTab({
         const formationPos = Number(item?.formation_position);
         if (!Number.isFinite(formationPos) || formationPos < 1) return null;
 
-        const ratingNum = Number(item?.rating);
+        const rawRating = Number(item?.rating);
+        const roundedRating = roundRatingTo1(rawRating);
         const teamId = item?.team?.id;
         const mappedTeam =
           (teamsInSeason ?? []).find((t) => t.id === teamId) ||
@@ -1398,7 +1420,9 @@ function TeamOfTheWeekTab({
           id: item?.player?.id ?? item?.id ?? idx,
           formationPos,
           formation: item?.formation,
-          rating: Number.isFinite(ratingNum) ? ratingNum : null,
+          fixtureId: item?.fixture_id ?? null,
+          rawRating: Number.isFinite(rawRating) ? rawRating : null,
+          rating: roundedRating,
           roundName: item?.round?.name ?? null,
           player: item?.player ?? null,
           team: mappedTeam,
@@ -1410,6 +1434,31 @@ function TeamOfTheWeekTab({
       .filter(Boolean)
       .sort((a, b) => a.formationPos - b.formationPos);
   }, [teamOfTheWeek, teamsInSeason, colors.primary]);
+
+  const bestRatedEntryId = useMemo(() => {
+    let best = null;
+    for (const e of entries) {
+      if (e.rawRating == null) continue;
+      if (!best || e.rawRating > best.rawRating) {
+        best = e;
+      }
+    }
+    return best?.id ?? null;
+  }, [entries]);
+
+  const selectedEntry = useMemo(() => {
+    if (!entries.length) return null;
+    if (selectedEntryId == null) return entries[0];
+    return entries.find((e) => e.id === selectedEntryId) ?? entries[0];
+  }, [entries, selectedEntryId]);
+
+  const selectedFixture = useMemo(() => {
+    const fixtureId = selectedEntry?.fixtureId;
+    if (fixtureId == null) return null;
+    return (
+      (leagueInfo?.latest ?? []).find((fx) => fx?.id === fixtureId) ?? null
+    );
+  }, [leagueInfo, selectedEntry]);
 
   const formationStr = entries[0]?.formation || "4-3-3";
 
@@ -1463,30 +1512,35 @@ function TeamOfTheWeekTab({
     );
   }
 
-  const renderPlayerTile = (entry) => {
+  const renderPlayerTile = (entry, pressable = true, hideSelection = false) => {
     const hasImage =
       entry?.image && !String(entry.image).includes("placeholder");
+    const teamLogo = entry?.team?.image_path;
     const initials =
       `${entry?.nameParts?.firstName?.[0] ?? ""}${entry?.nameParts?.lastName?.[0] ?? ""}`
         .toUpperCase()
         .trim() || "?";
+    const isBestRated = entry.id === bestRatedEntryId;
+    const ratingLabel =
+      entry.rating != null
+        ? `${entry.rating.toFixed(1)}${isBestRated ? " ★" : ""}`
+        : null;
+    const ratingColor =
+      entry.rating != null ? motmGetRatingColor(entry.rating) : colors.primary;
+    const isSelected = !hideSelection && selectedEntry?.id === entry.id;
 
     return (
       <TouchableOpacity
-        style={totwStyles.playerWrap}
-        activeOpacity={0.75}
-        onPress={() => {
-          const playerId = entry?.player?.id;
-          const playerName =
-            entry?.player?.name ||
-            `${entry?.nameParts?.firstName ?? ""} ${entry?.nameParts?.lastName ?? ""}`.trim();
-          if (playerId != null) {
-            navigation?.navigate("Top5PlayerDetail", {
-              playerId,
-              playerName,
-            });
-          }
-        }}
+        style={[
+          totwStyles.playerWrap,
+          isSelected && {
+            borderColor: colors.primary,
+            backgroundColor: colors.primary + "22",
+          },
+        ]}
+        activeOpacity={pressable ? 0.75 : 1}
+        onPress={pressable ? () => setSelectedEntryId(entry.id) : undefined}
+        disabled={!pressable}
       >
         <View style={totwStyles.playerCard}>
           {hasImage ? (
@@ -1524,18 +1578,39 @@ function TeamOfTheWeekTab({
             </View>
           )}
 
-          {entry.rating != null ? (
+          <View style={totwStyles.teamBadgeWrap}>
+            {teamLogo && !isPlaceholder(teamLogo) ? (
+              <Image
+                source={{ uri: teamLogo }}
+                style={totwStyles.teamBadgeImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <View
+                style={[
+                  totwStyles.teamBadgeFallback,
+                  { backgroundColor: `${entry.teamColor}35` },
+                ]}
+              >
+                <Text style={totwStyles.teamBadgeFallbackText}>
+                  {(entry?.team?.short_code || entry?.team?.name || "?")
+                    .slice(0, 1)
+                    .toUpperCase()}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {ratingLabel ? (
             <View
               style={[
                 totwStyles.ratingBadge,
                 {
-                  backgroundColor: entry.rating >= 8 ? "#22c55e" : "#f59e0b",
+                  backgroundColor: ratingColor,
                 },
               ]}
             >
-              <Text style={totwStyles.ratingBadgeText}>
-                {entry.rating.toFixed(2)}
-              </Text>
+              <Text style={totwStyles.ratingBadgeText}>{ratingLabel}</Text>
             </View>
           ) : null}
         </View>
@@ -1550,6 +1625,48 @@ function TeamOfTheWeekTab({
     );
   };
 
+  const selectedPlayerName =
+    selectedEntry?.player?.name ||
+    `${selectedEntry?.nameParts?.firstName ?? ""} ${selectedEntry?.nameParts?.lastName ?? ""}`.trim() ||
+    "Unknown Player";
+  const selectedPlayerImage = selectedEntry?.image;
+  const selectedPlayerHasImage = !isPlaceholder(selectedPlayerImage);
+  const selectedInitials =
+    `${selectedEntry?.nameParts?.firstName?.[0] ?? ""}${selectedEntry?.nameParts?.lastName?.[0] ?? ""}`
+      .toUpperCase()
+      .trim() || "?";
+  const selectedCountry = selectedEntry?.player?.country ?? null;
+  const selectedCountryName = selectedCountry?.name ?? "Unknown Country";
+  const selectedCountryImage = selectedCountry?.image_path;
+  const selectedTeamName = selectedEntry?.team?.name ?? "Unknown Team";
+  const selectedTeamLogo = selectedEntry?.team?.image_path;
+  const selectedRatingColor =
+    selectedEntry?.rating != null
+      ? motmGetRatingColor(selectedEntry.rating)
+      : colors.primary;
+  const leagueLogoUri = leagueInfo?.image_path ?? null;
+  const sharePitchSize = pitchWidth;
+
+  const handleTotwShare = useCallback(async () => {
+    if (sharing || !shareCardRef.current) return;
+    try {
+      setSharing(true);
+      await new Promise((resolve) => setTimeout(resolve, 260));
+      const uri = await shareCardRef.current.capture();
+      await Sharing.shareAsync(uri, {
+        mimeType: "image/png",
+        dialogTitle: "Share Team of the Week",
+      });
+    } catch (error) {
+      console.error("Error sharing TOTW card:", error);
+    } finally {
+      setSharing(false);
+    }
+  }, [sharing]);
+
+  const roundLabel =
+    `${leagueShortCode ? `${leagueShortCode} ∙ ` : ""}ROUND ${entries[0]?.roundName ?? "-"}`.trim();
+
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -1562,16 +1679,34 @@ function TeamOfTheWeekTab({
         ]}
       >
         <View style={totwStyles.headerRow}>
-          <Text style={[totwStyles.headerTitle, { color: theme.text }]}>
-            ROUND {entries[0]?.roundName}
-          </Text>
-          <Text style={[totwStyles.headerMeta, { color: colors.primary }]}>
-            {formationStr}
-          </Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[totwStyles.headerTitle, { color: theme.text }]}>
+              {roundLabel}
+            </Text>
+            <Text
+              style={[totwStyles.roundText, { color: theme.textSecondary }]}
+            >
+              TEAM OF THE WEEK
+            </Text>
+          </View>
+
+          <View style={{ alignItems: "flex-end" }}>
+            <Text style={[totwStyles.headerMeta, { color: colors.primary }]}>
+              {formationStr}
+            </Text>
+            <TouchableOpacity
+              style={[
+                totwStyles.shareBtn,
+                { backgroundColor: colors.primary, marginTop: 6 },
+              ]}
+              activeOpacity={0.85}
+              onPress={() => setShareVisible(true)}
+            >
+              <Ionicons name="share-outline" size={14} color="#fff" />
+              <Text style={totwStyles.shareBtnText}>Share</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <Text style={[totwStyles.roundText, { color: theme.textSecondary }]}>
-          TEAM OF THE WEEK
-        </Text>
       </View>
 
       <View
@@ -1602,7 +1737,7 @@ function TeamOfTheWeekTab({
                       key={`totw-cell-${row}-${col}`}
                       style={totwStyles.gridCell}
                     >
-                      {player ? renderPlayerTile(player) : null}
+                      {player ? renderPlayerTile(player, true) : null}
                     </View>
                   );
                 })}
@@ -1611,6 +1746,330 @@ function TeamOfTheWeekTab({
           })}
         </View>
       </View>
+
+      {selectedEntry ? (
+        <View style={totwStyles.detailsSection}>
+          {selectedFixture ? (
+            <MatchCard
+              match={selectedFixture}
+              idx={`totw_selected_${selectedFixture.id}`}
+              theme={theme}
+              colors={colors}
+              navigation={navigation}
+            />
+          ) : null}
+
+          <TouchableOpacity
+            activeOpacity={
+              selectedEntry?.team?.id != null && navigation ? 0.85 : 1
+            }
+            onPress={
+              selectedEntry?.team?.id != null && navigation
+                ? () =>
+                    navigation?.navigate("Top5TeamDetail", {
+                      teamId: selectedEntry.team.id,
+                      teamName: selectedTeamName,
+                    })
+                : undefined
+            }
+            style={[
+              totwStyles.teamInfoCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            {selectedTeamLogo && !isPlaceholder(selectedTeamLogo) ? (
+              <Image
+                source={{ uri: selectedTeamLogo }}
+                style={totwStyles.teamInfoLogo}
+                resizeMode="contain"
+              />
+            ) : (
+              <View
+                style={[
+                  totwStyles.teamInfoLogo,
+                  totwStyles.teamInfoLogoFallback,
+                  { backgroundColor: `${selectedEntry.teamColor}30` },
+                ]}
+              >
+                <Text
+                  style={[
+                    totwStyles.teamInfoLogoFallbackText,
+                    { color: selectedEntry.teamColor },
+                  ]}
+                >
+                  {selectedTeamName.slice(0, 1).toUpperCase()}
+                </Text>
+              </View>
+            )}
+            <Text
+              style={[totwStyles.teamInfoName, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {selectedTeamName}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={
+              selectedEntry?.player?.id != null && navigation ? 0.85 : 1
+            }
+            onPress={
+              selectedEntry?.player?.id != null && navigation
+                ? () =>
+                    navigation?.navigate("Top5PlayerDetail", {
+                      playerId: selectedEntry.player.id,
+                      playerName: selectedPlayerName,
+                    })
+                : undefined
+            }
+            style={[
+              totwStyles.playerInfoCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View
+              style={[
+                totwStyles.playerInfoAvatarWrap,
+                {
+                  backgroundColor: "transparent",
+                  borderColor: "transparent",
+                },
+              ]}
+            >
+              <View style={totwStyles.playerInfoAvatarCard}>
+                {selectedPlayerHasImage ? (
+                  <Image
+                    source={{ uri: selectedPlayerImage }}
+                    style={[
+                      totwStyles.playerInfoAvatar,
+                      {
+                        backgroundColor: `${selectedEntry.teamColor}30`,
+                        borderColor: selectedEntry.teamColor,
+                      },
+                    ]}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View
+                    style={[
+                      totwStyles.playerInfoAvatar,
+                      {
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: `${selectedEntry.teamColor}30`,
+                        borderColor: selectedEntry.teamColor,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        totwStyles.playerInfoInitial,
+                        { color: getTextOnColor(selectedEntry.teamColor) },
+                      ]}
+                    >
+                      {selectedInitials}
+                    </Text>
+                  </View>
+                )}
+
+                {selectedCountryImage &&
+                !isPlaceholder(selectedCountryImage) ? (
+                  <View style={totwStyles.countryBadgeWrap}>
+                    <Image
+                      source={{ uri: selectedCountryImage }}
+                      style={totwStyles.countryBadgeImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+                ) : null}
+
+                {selectedEntry?.rating != null ? (
+                  <View
+                    style={[
+                      totwStyles.playerInfoRating,
+                      { backgroundColor: selectedRatingColor },
+                    ]}
+                  >
+                    <Text style={totwStyles.playerInfoRatingText}>
+                      {selectedEntry.rating.toFixed(1)}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+
+            <View style={totwStyles.playerInfoTextWrap}>
+              <Text
+                style={[totwStyles.playerInfoName, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {selectedPlayerName}
+              </Text>
+              <Text
+                style={[
+                  totwStyles.playerInfoCountry,
+                  { color: theme.textSecondary },
+                ]}
+                numberOfLines={1}
+              >
+                {selectedCountryName}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      <Modal
+        visible={shareVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShareVisible(false)}
+      >
+        <View style={totwStyles.shareOverlay}>
+          <Pressable
+            style={totwStyles.shareBackdropTap}
+            onPress={() => setShareVisible(false)}
+          />
+
+          <View style={totwStyles.shareCenterWrap}>
+            <ViewShot
+              ref={shareCardRef}
+              options={{ format: "png", quality: 1 }}
+              style={[
+                totwStyles.shareCard,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: "#777",
+                  width: sharePitchSize,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  totwStyles.sharePitch,
+                  {
+                    backgroundColor: pitchGreen,
+                    width: sharePitchSize,
+                    height: sharePitchSize,
+                  },
+                ]}
+              >
+                <View style={totwStyles.pitchCenterCircle} />
+                <View style={totwStyles.pitchPenaltyBox} />
+                <View style={totwStyles.pitchGoalBox} />
+                <View style={totwStyles.pitchPenaltyArc} />
+
+                <View pointerEvents="none" style={totwStyles.playersOverlay}>
+                  {visualRows.map((row) => {
+                    const colCount = rowColumnCounts[row - 1] ?? 1;
+                    return (
+                      <View
+                        key={`share-totw-row-${row}`}
+                        style={totwStyles.gridRow}
+                      >
+                        {Array.from({ length: colCount }).map((_, colIdx) => {
+                          const col = colIdx + 1;
+                          const player = playersByRowCol.get(`${row}:${col}`);
+                          return (
+                            <View
+                              key={`share-totw-cell-${row}-${col}`}
+                              style={totwStyles.gridCell}
+                            >
+                              {player
+                                ? renderPlayerTile(player, false, true)
+                                : null}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    );
+                  })}
+                </View>
+
+                <View
+                  style={[
+                    totwStyles.shareBrandBadge,
+                    {
+                      backgroundColor: isDarkMode ? "#000" : "#fff",
+                      borderColor: isDarkMode ? "#222" : "#ddd",
+                    },
+                  ]}
+                >
+                  {leagueLogoUri && !isPlaceholder(leagueLogoUri) ? (
+                    <Image
+                      source={{ uri: leagueLogoUri }}
+                      style={[
+                        totwStyles.shareBrandLogo,
+                        {
+                          tintColor:
+                            leagueInfo?.id === 8 && isDarkMode
+                              ? "#fff"
+                              : undefined,
+                        },
+                      ]}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <Text
+                      style={[
+                        totwStyles.shareBrandFallback,
+                        { color: isDarkMode ? "#fff" : "#111" },
+                      ]}
+                    >
+                      ⚽
+                    </Text>
+                  )}
+                  <View style={totwStyles.shareBrandRow}>
+                    <Text
+                      style={[
+                        totwStyles.shareBrandText,
+                        { color: isDarkMode ? "#fff" : "#111" },
+                      ]}
+                    >
+                      SportsHeart
+                    </Text>
+                    <Ionicons name="heart" size={10} color={colors.primary} />
+                  </View>
+                </View>
+              </View>
+            </ViewShot>
+
+            <View style={totwStyles.shareActionsRow}>
+              <TouchableOpacity
+                style={[
+                  totwStyles.sharePrimaryBtn,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={handleTotwShare}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="share-outline" size={16} color="#fff" />
+                <Text style={totwStyles.sharePrimaryBtnText}>
+                  {sharing ? "Sharing..." : "Share"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  totwStyles.shareSecondaryBtn,
+                  { borderColor: theme.border, backgroundColor: theme.surface },
+                ]}
+                onPress={() => setShareVisible(false)}
+                activeOpacity={0.85}
+              >
+                <Text
+                  style={[
+                    totwStyles.shareSecondaryBtnText,
+                    { color: theme.text },
+                  ]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -1649,6 +2108,21 @@ const totwStyles = StyleSheet.create({
     marginTop: 4,
     fontSize: 11,
     fontWeight: "500",
+  },
+  shareBtn: {
+    marginTop: 10,
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  shareBtnText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
   },
   pitch: {
     alignSelf: "center",
@@ -1726,6 +2200,10 @@ const totwStyles = StyleSheet.create({
   playerWrap: {
     width: 86,
     alignItems: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "transparent",
+    paddingVertical: 4,
   },
   playerCard: {
     width: 56,
@@ -1741,6 +2219,36 @@ const totwStyles = StyleSheet.create({
   playerInitial: {
     fontSize: 20,
     fontWeight: "800",
+  },
+  teamBadgeWrap: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  teamBadgeImage: {
+    width: 16,
+    height: 16,
+  },
+  teamBadgeFallback: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  teamBadgeFallbackText: {
+    fontSize: 8,
+    fontWeight: "800",
+    color: "#222",
   },
   ratingBadge: {
     position: "absolute",
@@ -1764,6 +2272,205 @@ const totwStyles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
     textAlign: "center",
+  },
+  detailsSection: {
+    marginTop: 14,
+    gap: 10,
+  },
+  teamInfoCard: {
+    marginHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  teamInfoLogo: {
+    width: 50,
+    height: 50,
+  },
+  teamInfoLogoFallback: {
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  teamInfoLogoFallbackText: {
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  teamInfoName: {
+    flex: 1,
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  playerInfoCard: {
+    marginHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  playerInfoAvatarWrap: {
+    width: 56,
+    height: 56,
+    overflow: "visible",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerInfoAvatarCard: {
+    width: 56,
+    height: 56,
+    position: "relative",
+  },
+  playerInfoAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1,
+  },
+  playerInfoInitial: {
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  countryBadgeWrap: {
+    position: "absolute",
+    right: -3,
+    bottom: -3,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#fff",
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  countryBadgeImage: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+  },
+  playerInfoRating: {
+    position: "absolute",
+    right: -8,
+    top: -6,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    minWidth: 30,
+    alignItems: "center",
+  },
+  playerInfoRatingText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#fff",
+  },
+  playerInfoTextWrap: {
+    flex: 1,
+  },
+  playerInfoName: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  playerInfoCountry: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  shareOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  shareBackdropTap: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  shareCenterWrap: {
+    alignItems: "center",
+  },
+  shareCard: {
+    borderRadius: 0,
+    borderWidth: 2,
+    overflow: "hidden",
+  },
+  sharePitch: {
+    borderRadius: 0,
+    overflow: "hidden",
+    position: "relative",
+  },
+  shareBrandBadge: {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    width: 95,
+    height: 60,
+    borderTopLeftRadius: 10,
+    borderLeftWidth: 1,
+    borderTopWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingTop: -5,
+  },
+  shareBrandLogo: {
+    width: 24,
+    height: 24,
+  },
+  shareBrandFallback: {
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 14,
+  },
+  shareBrandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  shareBrandText: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+  },
+  shareActionsRow: {
+    marginTop: 14,
+    width: "100%",
+    maxWidth: 420,
+    flexDirection: "row",
+    gap: 12,
+  },
+  sharePrimaryBtn: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  sharePrimaryBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  shareSecondaryBtn: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shareSecondaryBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
   },
 });
 
@@ -3508,6 +4215,8 @@ export default function Top5LeagueDetailScreen({ route, navigation }) {
       ) : activeTab === "totw" ? (
         <TeamOfTheWeekTab
           teamOfTheWeek={data?.teamOfTheWeek}
+          leagueInfo={data?.leagueInfo}
+          leagueShortCode={info?.short_code}
           teamsInSeason={data?.teamsInSeason}
           theme={theme}
           colors={colors}
