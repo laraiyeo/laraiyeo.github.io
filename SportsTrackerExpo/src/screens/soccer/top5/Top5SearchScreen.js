@@ -16,6 +16,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../../../context/ThemeContext";
+import { useBetSlip } from "../../../context/BetSlipContext";
+import { BannerAdWrapper } from "../../../services/ads";
 
 const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
 const CACHE_KEY = "top5:search:v2";
@@ -221,6 +223,8 @@ function PlayerAvatar({ item, theme }) {
 
 export default function Top5SearchScreen() {
   const { theme, colors, isDarkMode } = useTheme();
+  const { isPro } = useBetSlip();
+  const AD_SPACE = 80;
   const [searchData, setSearchData] = useState({
     leagues: [],
     teams: [],
@@ -724,8 +728,14 @@ export default function Top5SearchScreen() {
             </Text>
           </View>
         }
-        contentContainerStyle={{ paddingBottom: 24, paddingTop: 8 }}
+        contentContainerStyle={{ paddingBottom: isPro ? 24 : 24 + AD_SPACE, paddingTop: 8 }}
       />
+
+      {!isPro && (
+        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+          <BannerAdWrapper />
+        </View>
+      )}
     </View>
   );
 }

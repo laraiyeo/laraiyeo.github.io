@@ -13,6 +13,8 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import NBADataService from '../../services/NBADataService';
+import { useBetSlip } from '../../context/BetSlipContext';
+import { BannerAdWrapper } from '../../services/ads';
 
 // Helper function to convert HTTP URLs to HTTPS
 const convertToHttps = (url) => {
@@ -40,6 +42,8 @@ const StatsScreen = ({ route }) => {
   const { sport } = route.params;
   const { theme, colors, getTeamLogoUrl } = useTheme();
   const navigation = useNavigation();
+  const { isPro } = useBetSlip();
+  const AD_SPACE = 80;
   
   const [selectedType, setSelectedType] = useState('ATHLETES');
   const [playerStats, setPlayerStats] = useState({});
@@ -437,7 +441,7 @@ const StatsScreen = ({ route }) => {
         ))}
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: isPro ? 32 : 32 + AD_SPACE }}>
         {/* NBA Statistics */}
         <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>
           {selectedType === 'ATHLETES' ? 'Player Leaders' : 'Team Leaders'}
@@ -448,6 +452,12 @@ const StatsScreen = ({ route }) => {
           : Object.values(teamStats).map(category => renderCategory(category))
         }
       </ScrollView>
+
+      {!isPro && (
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
+          <BannerAdWrapper />
+        </View>
+      )}
 
       {/* Modal for full top 10 */}
       <Modal

@@ -11,6 +11,8 @@ import {
   RefreshControl,
 } from "react-native";
 import { useTheme } from "../../context/ThemeContext";
+import { useBetSlip } from '../../context/BetSlipContext';
+import { BannerAdWrapper } from '../../services/ads';
 import WBCService from "../../services/WBCService";
 import { LiveViewerBadge } from "../../components/ViewerCounter";
 import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
@@ -882,6 +884,8 @@ const UpcomingMatchesSection = ({
 
 const ScoreboardScreen = ({ navigation, route }) => {
   const { colors, theme, isDarkMode } = useTheme();
+  const { isPro } = useBetSlip();
+  const AD_SPACE = 80;
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true); // initial mount only
   const [fetching, setFetching] = useState(false); // silent filter-change fetch
@@ -1104,8 +1108,13 @@ const ScoreboardScreen = ({ navigation, route }) => {
           )}
         </View>
 
-        <View style={styles.bottomPadding} />
+        <View style={{ height: isPro ? 32 : 32 + AD_SPACE }} />
       </ScrollView>
+      {!isPro && (
+        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+          <BannerAdWrapper />
+        </View>
+      )}
     </View>
   );
 };

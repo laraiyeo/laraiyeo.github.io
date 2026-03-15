@@ -12,10 +12,14 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
+import { useBetSlip } from '../../context/BetSlipContext';
+import { BannerAdWrapper } from '../../services/ads';
 
 const StatsScreen = ({ route }) => {
   const { sport } = route.params;
   const { theme, colors, getTeamLogoUrl } = useTheme();
+  const { isPro } = useBetSlip();
+  const AD_SPACE = 80;
   const navigation = useNavigation();
   
   const [selectedLeague, setSelectedLeague] = useState('ALL');
@@ -266,7 +270,7 @@ const StatsScreen = ({ route }) => {
         ))}
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollView, { paddingBottom: isPro ? 16 : 16 + AD_SPACE }] }>
         {/* Hitting Stats */}
         <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text, marginTop: -5 }]}>
           Hitting Leaders
@@ -313,6 +317,11 @@ const StatsScreen = ({ route }) => {
           />
         </View>
       </Modal>
+      {!isPro && (
+        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+          <BannerAdWrapper />
+        </View>
+      )}
     </View>
   );
 };

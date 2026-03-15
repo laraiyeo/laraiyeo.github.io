@@ -12,10 +12,14 @@ import {
   Alert
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { useBetSlip } from '../../context/BetSlipContext';
+import { BannerAdWrapper } from '../../services/ads';
 
 const CompareScreen = ({ route }) => {
   const { sport } = route.params;
   const { theme, colors, isDarkMode, getTeamLogoUrl } = useTheme();
+  const { isPro } = useBetSlip();
+  const AD_SPACE = 80;
   
   // State for player comparison
   const [player1, setPlayer1] = useState(null);
@@ -610,7 +614,7 @@ const CompareScreen = ({ route }) => {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView 
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: isPro ? 20 : 20 + AD_SPACE }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
@@ -737,6 +741,11 @@ const CompareScreen = ({ route }) => {
           </View>
         </View>
       </Modal>
+      {!isPro && (
+        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+          <BannerAdWrapper />
+        </View>
+      )}
     </View>
   );
 };

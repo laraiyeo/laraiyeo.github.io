@@ -13,6 +13,8 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../../context/ThemeContext";
+import { useBetSlip } from "../../../context/BetSlipContext";
+import { BannerAdWrapper } from "../../../services/ads";
 
 const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
 const CACHE_KEY = "top5:leagues:v1";
@@ -40,6 +42,7 @@ function titleCaseHyphen(str) {
 
 export default function Top5LeaguesScreen({ navigation }) {
   const { theme, colors, isDarkMode } = useTheme();
+  const { isPro } = useBetSlip();
   const [leagues, setLeagues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -115,11 +118,14 @@ export default function Top5LeaguesScreen({ navigation }) {
     rows.push(leagues.slice(i, i + 2));
   }
 
+  const AD_SPACE = 80;
+
   return (
-    <FlatList
-      style={{ backgroundColor: theme.background }}
-      contentContainerStyle={styles.list}
-      data={rows}
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+      <FlatList
+        style={{ backgroundColor: theme.background }}
+        contentContainerStyle={{ ...styles.list, paddingBottom: isPro ? 32 : 32 + AD_SPACE }}
+        data={rows}
       keyExtractor={(_, idx) => String(idx)}
       refreshControl={
         <RefreshControl
@@ -209,7 +215,14 @@ export default function Top5LeaguesScreen({ navigation }) {
           {row.length === 1 && <View style={{ width: CARD_WIDTH }} />}
         </View>
       )}
-    />
+      />
+
+      {!isPro && (
+        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+          <BannerAdWrapper />
+        </View>
+      )}
+    </View>
   );
 }
 

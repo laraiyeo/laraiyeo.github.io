@@ -13,10 +13,14 @@ import {
 import { useTheme } from "../../context/ThemeContext";
 import WBCService from "../../services/WBCService";
 import { loadWBCSearchData } from "../../services/WBCSearchCache";
+import { useBetSlip } from '../../context/BetSlipContext';
+import { BannerAdWrapper } from '../../services/ads';
 
 const SearchScreen = ({ route, navigation }) => {
   const { sport } = route.params;
   const { theme, colors, isDarkMode } = useTheme();
+  const { isPro } = useBetSlip();
+  const AD_SPACE = 80;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -278,7 +282,7 @@ const SearchScreen = ({ route, navigation }) => {
             renderItem={renderResultItem}
             keyExtractor={(item) => `${item.type}-${item.id}`}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.resultsList}
+            contentContainerStyle={[styles.resultsList, { paddingBottom: isPro ? 20 : 20 + AD_SPACE }]}
           />
         )}
 
@@ -293,6 +297,11 @@ const SearchScreen = ({ route, navigation }) => {
           </View>
         )}
       </View>
+      {!isPro && (
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
+          <BannerAdWrapper />
+        </View>
+      )}
     </View>
   );
 };

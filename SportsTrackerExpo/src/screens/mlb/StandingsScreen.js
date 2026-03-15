@@ -10,6 +10,8 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
+import { useBetSlip } from "../../context/BetSlipContext";
+import { BannerAdWrapper } from "../../services/ads";
 import { useFavorites } from "../../context/FavoritesContext";
 import { convertMLBIdToESPNId } from "../../utils/TeamIdMapping";
 import { MLBService } from "../../services/MLBService";
@@ -308,6 +310,8 @@ const TeamRow = ({
 const StandingsScreen = ({ route }) => {
   const navigation = useNavigation();
   const { theme, colors, getTeamLogoUrl } = useTheme();
+  const { isPro } = useBetSlip();
+  const AD_SPACE = 80;
   const { isFavorite } = useFavorites();
   const [standings, setStandings] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -605,7 +609,7 @@ const StandingsScreen = ({ route }) => {
       {hasData && (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: isPro ? 16 : 16 + AD_SPACE }]}
           onScrollBeginDrag={() => dropdownOpen && setDropdownOpen(false)}
         >
           {sortBy
@@ -651,6 +655,11 @@ const StandingsScreen = ({ route }) => {
             </View>
           </View>
         </ScrollView>
+      {!isPro && (
+        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+          <BannerAdWrapper />
+        </View>
+      )}
       )}
 
       {/* ── Show mode bar (sticky bottom) ── */}

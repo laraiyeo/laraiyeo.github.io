@@ -2237,6 +2237,7 @@ const MATCH_FACT_TYPE_NAME_MAP = Object.freeze({
   87932: "Match Fact Last 10 Cards Count in Match",
   76086: "Match Facts Outcomes by goals",
   76087: "Match Facts Outcomes by Players Sent Off Field",
+  81181: "Match Fact Late Goal Streak",
 });
 
 function transformMatchFactsResponse(raw) {

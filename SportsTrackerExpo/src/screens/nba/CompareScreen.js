@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import NBADataService from '../../services/NBADataService';
+import { useBetSlip } from '../../context/BetSlipContext';
+import { BannerAdWrapper } from '../../services/ads';
 
 const getNBAYear = () => {
   const now = new Date();
@@ -30,6 +32,8 @@ const getNBAYear = () => {
 const CompareScreen = ({ route }) => {
   const { sport } = route.params;
   const { theme, colors, isDarkMode, getTeamLogoUrl } = useTheme();
+  const { isPro } = useBetSlip();
+  const AD_SPACE = 80;
   
   // State for player comparison
   const [player1, setPlayer1] = useState(null);
@@ -470,7 +474,7 @@ const CompareScreen = ({ route }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: isPro ? 20 : 20 + AD_SPACE }]}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.primary }]}>Compare Players</Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
@@ -507,6 +511,12 @@ const CompareScreen = ({ route }) => {
           </View>
         )}
       </ScrollView>
+
+      {!isPro && (
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
+          <BannerAdWrapper />
+        </View>
+      )}
 
       {/* Player Search Modal */}
       <Modal 

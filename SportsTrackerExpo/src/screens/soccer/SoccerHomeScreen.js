@@ -77,106 +77,114 @@ const SoccerHomeScreen = () => {
   const navigation = useNavigation();
   const { theme, colors, isDarkMode } = useTheme();
 
-  const soccerLeagues = [
-    {
-      id: "top5",
-      name: "Top 5 Leagues",
-      flag: null,
-      type: "competition",
-      mainLeague: { name: "Top 5", logo: "top5" },
-      competitions: [
-        { name: "Premier League", logo: "23", position: "left" },
-        { name: "La Liga", logo: "15", position: "right" },
-      ],
-    },
-    {
-      id: "england",
-      name: "England",
-      flag: "https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/eng.png",
-      type: "country",
-      mainLeague: { name: "Premier League", logo: "23" },
-      competitions: [
-        { name: "FA Cup", logo: "40", position: "left" },
-        { name: "EFL Cup", logo: "41", position: "right" },
-      ],
-    },
-    {
-      id: "spain",
-      name: "Spain",
-      flag: "https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/esp.png",
-      type: "country",
-      mainLeague: { name: "La Liga", logo: "15" },
-      competitions: [
-        { name: "Copa del Rey", logo: "80", position: "left" },
-        { name: "Spanish Supercopa", logo: "431", position: "right" },
-      ],
-    },
-    {
-      id: "italy",
-      name: "Italy",
-      flag: "https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/ita.png",
-      type: "country",
-      mainLeague: { name: "Serie A", logo: "12" },
-      competitions: [
-        { name: "Coppa Italia", logo: "2192", position: "left" },
-        { name: "Italian Supercoppa", logo: "2316", position: "right" },
-      ],
-    },
-    {
-      id: "germany",
-      name: "Germany",
-      flag: "https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/ger.png",
-      type: "country",
-      mainLeague: { name: "Bundesliga", logo: "10" },
-      competitions: [
-        { name: "DFB Pokal", logo: "2061", position: "left" },
-        { name: "German Super Cup", logo: "2315", position: "right" },
-      ],
-    },
-    {
-      id: "france",
-      name: "France",
-      flag: "https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/fra.png",
-      type: "country",
-      mainLeague: { name: "Ligue 1", logo: "9" },
-      competitions: [
-        { name: "Coupe de France", logo: "182", position: "left" },
-        { name: "Trophee des Champions", logo: "2345", position: "right" },
-      ],
-    },
-    {
-      id: "champions-league",
-      name: "Champions League",
-      flag: null,
-      type: "competition",
-      mainLeague: { name: "Champions League", logo: "2" },
-      competitions: [],
-    },
-    {
-      id: "europa-league",
-      name: "Europa League",
-      flag: null,
-      type: "competition",
-      mainLeague: { name: "Europa League", logo: "2310" },
-      competitions: [],
-    },
-    {
-      id: "europa-conference",
-      name: "Europa Conference",
-      flag: null,
-      type: "competition",
-      mainLeague: { name: "Europa Conference League", logo: "20296" },
-      competitions: [],
-    },
-    {
-      id: "fifa.world",
-      name: "FIFA World Cup",
-      flag: null,
-      type: "competition",
-      mainLeague: { name: "FIFA World Cup", logo: "4" },
-      competitions: [],
-    },
-  ];
+  const show = false; // Placeholder for future "show more" functionality
+
+const soccerLeagues = [
+  {
+    id: "top5",
+    name: "Top 5 Leagues",
+    flag: null,
+    type: "competition",
+    mainLeague: { name: "TOP 5", logo: "23" },
+    competitions: [
+      { name: "La Liga", logo: "15", position: "left" },
+      { name: "Bundesliga", logo: "10", position: "right" },
+    ],
+  },
+
+  ...(show
+    ? [
+        {
+          id: "england",
+          name: "England",
+          flag: "https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/eng.png",
+          type: "country",
+          mainLeague: { name: "Premier League", logo: "23" },
+          competitions: [
+            { name: "FA Cup", logo: "40", position: "left" },
+            { name: "EFL Cup", logo: "41", position: "right" },
+          ],
+        },
+        {
+          id: "spain",
+          name: "Spain",
+          flag: "https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/esp.png",
+          type: "country",
+          mainLeague: { name: "La Liga", logo: "15" },
+          competitions: [
+            { name: "Copa del Rey", logo: "80", position: "left" },
+            { name: "Spanish Supercopa", logo: "431", position: "right" },
+          ],
+        },
+        {
+          id: "italy",
+          name: "Italy",
+          flag: "https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/ita.png",
+          type: "country",
+          mainLeague: { name: "Serie A", logo: "12" },
+          competitions: [
+            { name: "Coppa Italia", logo: "2192", position: "left" },
+            { name: "Italian Supercoppa", logo: "2316", position: "right" },
+          ],
+        },
+        {
+          id: "germany",
+          name: "Germany",
+          flag: "https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/ger.png",
+          type: "country",
+          mainLeague: { name: "Bundesliga", logo: "10" },
+          competitions: [
+            { name: "DFB Pokal", logo: "2061", position: "left" },
+            { name: "German Super Cup", logo: "2315", position: "right" },
+          ],
+        },
+        {
+          id: "france",
+          name: "France",
+          flag: "https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/fra.png",
+          type: "country",
+          mainLeague: { name: "Ligue 1", logo: "9" },
+          competitions: [
+            { name: "Coupe de France", logo: "182", position: "left" },
+            { name: "Trophee des Champions", logo: "2345", position: "right" },
+          ],
+        },
+      ]
+    : []),
+
+  {
+    id: "champions-league",
+    name: "Champions League",
+    flag: null,
+    type: "competition",
+    mainLeague: { name: "Champions League", logo: "2" },
+    competitions: [],
+  },
+  {
+    id: "europa-league",
+    name: "Europa League",
+    flag: null,
+    type: "competition",
+    mainLeague: { name: "Europa League", logo: "2310" },
+    competitions: [],
+  },
+  {
+    id: "europa-conference",
+    name: "Europa Conference",
+    flag: null,
+    type: "competition",
+    mainLeague: { name: "Europa Conference League", logo: "20296" },
+    competitions: [],
+  },
+  {
+    id: "fifa.world",
+    name: "FIFA World Cup",
+    flag: null,
+    type: "competition",
+    mainLeague: { name: "FIFA World Cup", logo: "4" },
+    competitions: [],
+  },
+];
 
   const handleLeaguePress = (league) => {
     console.log("Navigating to:", league.id);

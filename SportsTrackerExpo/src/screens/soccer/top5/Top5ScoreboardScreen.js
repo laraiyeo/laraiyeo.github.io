@@ -12,6 +12,8 @@ import {
 import { Image } from "expo-image";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../../context/ThemeContext";
+import { useBetSlip } from "../../../context/BetSlipContext";
+import { BannerAdWrapper } from "../../../services/ads";
 import Top5ServiceEnhanced, {
   getMatchStatusType,
 } from "../../../services/soccer/Top5ServiceEnhanced";
@@ -1332,6 +1334,8 @@ const Top5ScoreboardSection = ({
 
 const Top5ScoreboardScreen = ({ navigation }) => {
   const { colors, theme, isDarkMode } = useTheme();
+  const { isPro } = useBetSlip();
+  const AD_SPACE = 80;
 
   const [groups, setGroups] = useState([]);
   const [collapsedGroups, setCollapsedGroups] = useState({});
@@ -1673,8 +1677,13 @@ const Top5ScoreboardScreen = ({ navigation }) => {
           )}
         </View>
 
-        <View style={styles.bottomPadding} />
+        <View style={[styles.bottomPadding, { height: isPro ? 32 : 32 + AD_SPACE }]} />
       </ScrollView>
+      {!isPro && (
+        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+          <BannerAdWrapper />
+        </View>
+      )}
     </View>
   );
 };

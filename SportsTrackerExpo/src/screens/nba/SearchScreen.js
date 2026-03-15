@@ -11,10 +11,14 @@ import {
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import NBADataService from '../../services/NBADataService';
+import { useBetSlip } from '../../context/BetSlipContext';
+import { BannerAdWrapper } from '../../services/ads';
 
 const SearchScreen = ({ route, navigation }) => {
   const { sport } = route.params;
   const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
+  const { isPro } = useBetSlip();
+  const AD_SPACE = 80;
   
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -239,7 +243,7 @@ const SearchScreen = ({ route, navigation }) => {
             renderItem={renderResultItem}
             keyExtractor={(item) => `${item.type}-${item.id}`}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.resultsList}
+            contentContainerStyle={[styles.resultsList, { paddingBottom: isPro ? 20 : 20 + AD_SPACE }]}
           />
         )}
 

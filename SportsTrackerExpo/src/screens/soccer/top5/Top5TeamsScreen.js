@@ -14,6 +14,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../../context/ThemeContext";
+import { useBetSlip } from "../../../context/BetSlipContext";
+import { BannerAdWrapper } from "../../../services/ads";
 
 const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
 const CACHE_KEY = "top5:teams:v2";
@@ -70,6 +72,7 @@ function ordinal(n) {
 
 export default function Top5TeamsScreen({ navigation }) {
   const { theme, colors, isDarkMode } = useTheme();
+  const { isPro } = useBetSlip();
   const [teams, setTeams] = useState([]);
   const [ranks, setRanks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -619,7 +622,7 @@ export default function Top5TeamsScreen({ navigation }) {
                   {item._league?.image_path ? (
                     <Image
                       source={{ uri: item._league.image_path }}
-                      style={styles.rowLeagueLogo}
+                      style={[styles.rowLeagueLogo, { tintColor: item._league.name === "Premier League" && isDarkMode ? theme.text : undefined }]}
                       resizeMode="contain"
                     />
                   ) : null}
@@ -702,6 +705,8 @@ export default function Top5TeamsScreen({ navigation }) {
     );
   }
 
+  const AD_SPACE = 80;
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       {/* ── Sort & view-mode banner ── */}
@@ -762,7 +767,7 @@ export default function Top5TeamsScreen({ navigation }) {
 
       <FlatList
         style={{ flex: 1 }}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={{ ...styles.listContent, paddingBottom: isPro ? 32 : 32 + AD_SPACE }}
         data={flatListData}
         keyExtractor={(item) => item.key}
         refreshControl={
@@ -774,6 +779,13 @@ export default function Top5TeamsScreen({ navigation }) {
         }
         renderItem={renderItem}
       />
+
+      {!isPro && (
+        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+          <BannerAdWrapper />
+        </View>
+      )}
+
     </View>
   );
 }
@@ -922,6 +934,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   rowLeagueLogo: {
+    marginTop: 3,
     width: 13,
     height: 13,
   },

@@ -524,7 +524,7 @@ function CurrentSeasonCard({ stat, theme, isDarkMode, accentColor }) {
   );
 }
 
-function TrophiesSection({ trophies, theme, accentColor }) {
+function TrophiesSection({ trophies, theme, accentColor, isDarkMode }) {
   if (!trophies?.length) return null;
 
   const leagueMap = new Map();
@@ -566,7 +566,7 @@ function TrophiesSection({ trophies, theme, accentColor }) {
               {lg.league?.image_path && !isPlaceholder(lg.league.image_path) ? (
                 <Image
                   source={{ uri: lg.league.image_path }}
-                  style={iStyles.trLeagueLogo}
+                  style={[iStyles.trLeagueLogo, { tintColor: lg.league.name === "Premier League" && isDarkMode ? theme.text : undefined }]}
                   resizeMode="contain"
                 />
               ) : null}
@@ -1185,32 +1185,41 @@ function MatchCard({
           {/* Middle: stat chips */}
           <View style={mcStyles.middle}>
             <View style={mcStyles.statsRow}>
-              {stats.map((s, i) => (
+            {stats?.length ? (
+                stats.map((s, i) => (
                 <View key={i} style={mcStyles.statChip}>
-                  <Text
+                    <Text
                     allowFontScaling={false}
                     style={[
-                      mcStyles.chipValue,
-                      { color: s.color ?? theme.text },
+                        mcStyles.chipValue,
+                        { color: s.color ?? theme.text },
                     ]}
-                  >
+                    >
                     {s.value != null
-                      ? s.format
+                        ? s.format
                         ? s.format(s.value)
                         : String(s.value)
-                      : "--"}
-                  </Text>
-                  <Text
+                        : "--"}
+                    </Text>
+                    <Text
                     allowFontScaling={false}
                     style={[
-                      mcStyles.chipLabel,
-                      { color: s.color ?? theme.textSecondary },
+                        mcStyles.chipLabel,
+                        { color: s.color ?? theme.textSecondary },
                     ]}
-                  >
+                    >
                     {s.label}
-                  </Text>
+                    </Text>
                 </View>
-              ))}
+                ))
+            ) : (
+                <Text
+                allowFontScaling={false}
+                style={{ color: theme.text, fontWeight: "700", fontSize: 25 }}
+                >
+                On Bench
+                </Text>
+            )}
             </View>
           </View>
 
@@ -2273,6 +2282,7 @@ export default function Top5PlayerScreen({ route, navigation }) {
             trophies={player.trophies}
             theme={theme}
             accentColor={accentColor}
+            isDarkMode={isDarkMode}
           />
         ) : null}
       </View>

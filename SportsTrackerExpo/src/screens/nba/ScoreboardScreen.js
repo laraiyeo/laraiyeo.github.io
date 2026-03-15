@@ -14,6 +14,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { NBAService } from "../../services/NBAService";
 import { useTheme } from "../../context/ThemeContext";
+import { useBetSlip } from "../../context/BetSlipContext";
+import { BannerAdWrapper } from "../../services/ads";
 import { useFavorites } from "../../context/FavoritesContext";
 import { LiveViewerBadge } from "../../components/ViewerCounter";
 
@@ -53,6 +55,8 @@ const TeamLogo = React.memo(
 
 const NBAScoreboardScreen = ({ navigation }) => {
   const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
+  const { isPro } = useBetSlip();
+  const AD_SPACE = 80;
   const { isFavorite } = useFavorites();
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -956,9 +960,14 @@ const NBAScoreboardScreen = ({ navigation }) => {
             tintColor={colors.primary}
           />
         }
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: isPro ? 16 : 16 + AD_SPACE }]}
         showsVerticalScrollIndicator={false}
       />
+      {!isPro && (
+        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+          <BannerAdWrapper />
+        </View>
+      )}
     </View>
   );
 };

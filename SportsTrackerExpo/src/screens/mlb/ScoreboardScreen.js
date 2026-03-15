@@ -12,6 +12,8 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
+import { useBetSlip } from "../../context/BetSlipContext";
+import { BannerAdWrapper } from "../../services/ads";
 import { useFavorites } from "../../context/FavoritesContext";
 import { MLBService } from "../../services/MLBService";
 import { convertMLBIdToESPNId } from "../../utils/TeamIdMapping";
@@ -1080,6 +1082,8 @@ const ScoreboardSection = ({
 const MLBScoreboardScreen = ({ navigation }) => {
   const { colors, theme, isDarkMode, getTeamLogoUrl } = useTheme();
   const { isFavorite } = useFavorites();
+  const { isPro } = useBetSlip();
+  const AD_SPACE = 80;
 
   const [groups, setGroups] = useState([]);
   const [collapsedGroups, setCollapsedGroups] = useState({});
@@ -1396,8 +1400,13 @@ const MLBScoreboardScreen = ({ navigation }) => {
           )}
         </View>
 
-        <View style={styles.bottomPadding} />
+        <View style={[styles.bottomPadding, { height: isPro ? 32 : 32 + AD_SPACE }]} />
       </ScrollView>
+      {!isPro && (
+        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+          <BannerAdWrapper />
+        </View>
+      )}
     </View>
   );
 };

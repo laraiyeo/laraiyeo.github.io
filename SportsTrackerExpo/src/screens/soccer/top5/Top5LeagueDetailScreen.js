@@ -2006,6 +2006,7 @@ function TeamOfTheWeekTab({
                     {
                       backgroundColor: isDarkMode ? "#000" : "#fff",
                       borderColor: isDarkMode ? "#222" : "#ddd",
+                      height: entries[0]?.roundName ? 70 : 60,
                     },
                   ]}
                 >
@@ -2034,6 +2035,17 @@ function TeamOfTheWeekTab({
                     </Text>
                   )}
                   <View style={totwStyles.shareBrandRow}>
+                    {entries[0]?.roundName && (
+                    <Text
+                      style={[
+                        totwStyles.shareBrandText,
+                        { color: isDarkMode ? "#ccc" : "#333" },
+                      ]}
+                    >
+                      Round {entries[0]?.roundName}
+                    </Text>
+                    )}
+                    <View style={{ flexDirection: "row" }}>
                     <Text
                       style={[
                         totwStyles.shareBrandText,
@@ -2043,6 +2055,7 @@ function TeamOfTheWeekTab({
                       SportsHeart
                     </Text>
                     <Ionicons name="heart" size={10} color={colors.primary} />
+                    </View>
                   </View>
                 </View>
               </View>
@@ -2444,7 +2457,7 @@ const totwStyles = StyleSheet.create({
     lineHeight: 14,
   },
   shareBrandRow: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
     gap: 3,
   },
@@ -3161,13 +3174,25 @@ function capitalizeFirst(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-function extractRankVal(value) {
+function extractRankVal(value, typeName) {
   if (!value || typeof value !== "object") return null;
+  const t = (typeName || "").toLowerCase();
+
+  // Type-specific ranking overrides
+  if (t === "penalties" && typeof value.scored === "number") return value.scored;
+  if (t === "assist stats" && typeof value.total_assists === "number") return value.total_assists;
+  if (t === "interception stats" && typeof value.total_interceptions === "number") return value.total_interceptions;
+  if (t === "pass stats" && typeof value.total_passes === "number") return value.total_passes;
+  if (t === "scoring frequency" && typeof value.scoring_frequency === "number") return -Number(value.scoring_frequency); // lower is better => invert
+
+  // Generic fallbacks
   if (value.all?.count != null) return value.all.count;
   if (typeof value.total === "number") return value.total;
   if (typeof value.count === "number") return value.count;
   if (value.avg_total_height != null) return value.avg_total_height;
+  if (typeof value.rating === "number") return value.rating;
   if (value.total_minutes_played != null) return value.total_minutes_played;
+  if (value.value != null && !isNaN(Number(value.value))) return Number(value.value);
   return null;
 }
 
@@ -3212,8 +3237,14 @@ function getStatChips(value) {
       chips.push({ label: "ATT", val: value.avg_attacker_height + "cm" });
     return chips;
   }
-  if (value.total_minutes_played != null)
-    return [{ label: "Minutes", val: value.total_minutes_played }];
+  // Assist stats: show minutes per assist rounded to 2 decimals when present
+  if (value.minutes_per_assist != null) {
+    const mpa = Number(value.minutes_per_assist);
+    const apg = Number(value.assists_per_game);
+    if (!isNaN(mpa)) {
+      return [{ label: "Min/Assist", val: mpa.toFixed(2) }, {label: "Assists/G", val: apg?.toFixed(2) ?? "-" }, { label: "Total", val: value.total_assists ?? "-" }];
+    }
+  }
   if (value.won_both_halves != null || value.scored_both_halves != null) {
     if (value.won_both_halves != null)
       chips.push({ label: "Won Both", val: value.won_both_halves });
@@ -3250,6 +3281,61 @@ function getStatChips(value) {
         return { label, val };
       });
   }
+  // Simple single-value payloads: { value: "6.79" } or { rating: 7.2 }
+  if (value.value != null && (typeof value.value === "string" || typeof value.value === "number")) {
+    const v = value.value;
+    return [{ label: "Value", val: String(v) }];
+  }
+  // Highest Rated Player / similar: { rating, player_id, player_name }
+  if (value.player_name != null && (value.rating != null || value.value != null)) {
+    const chipsOut = [];
+    if (value.rating != null) chipsOut.push({ label: "Rating", val: String(value.rating) });
+    // show player name but never player_id
+    chipsOut.push({ label: "Player", val: String(value.player_name) });
+    return chipsOut.slice(0, 4);
+  }
+  if (typeof value.rating === "number") {
+    return [{ label: "Rating", val: String(value.rating) }];
+  }
+  // Penalties: { scored, missed, conversion_rate }
+  if (value.scored != null || value.missed != null || value.conversion_rate != null) {
+    if (value.scored != null) chips.push({ label: "Scored", val: String(value.scored) });
+    if (value.missed != null) chips.push({ label: "Missed", val: String(value.missed) });
+    if (value.conversion_rate != null) chips.push({ label: "Conv %", val: String(value.conversion_rate) });
+    return chips.slice(0, 4);
+  }
+  // Players Footing: { left, right, unknown }
+  if (keys.some((k) => ["left", "right", "unknown"].includes(k))) {
+    if (value.left != null) chips.push({ label: "Left", val: String(value.left) });
+    if (value.right != null) chips.push({ label: "Right", val: String(value.right) });
+    if (value.unknown != null) chips.push({ label: "Unknown", val: String(value.unknown) });
+    return chips.slice(0, 4);
+  }
+  // Fouls per card style: { fouls_per_card, cards_per_foul }
+  if (value.fouls_per_card != null || value.cards_per_foul != null) {
+    if (value.fouls_per_card != null) chips.push({ label: "Fouls/Card", val: String(value.fouls_per_card) });
+    if (value.cards_per_foul != null) chips.push({ label: "Cards/Foul", val: String(value.cards_per_foul) });
+    return chips.slice(0, 4);
+  }
+  // Most frequent scoring minute: { most_frequent_scoring_minute, amount_of_goals }
+  if (value.most_frequent_scoring_minute != null || value.amount_of_goals != null) {
+    if (value.most_frequent_scoring_minute != null) chips.push({ label: "Minute", val: String(value.most_frequent_scoring_minute) });
+    if (value.amount_of_goals != null) chips.push({ label: "Goals", val: String(value.amount_of_goals) });
+    return chips.slice(0, 4);
+  }
+  // Generic fallback: pick first up to 4 non-id/name keys
+  for (const k of keys) {
+    if (/id$|name$/.test(k)) continue;
+    const v = value[k];
+    if (v == null || typeof v === "object") continue;
+    const label = k
+      .split(/_|\s+/)
+      .map((w, i) => (i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+      .join(" ");
+    chips.push({ label, val: String(v) });
+    if (chips.length >= 4) break;
+  }
+  if (chips.length) return chips;
   return [];
 }
 
@@ -3352,7 +3438,7 @@ function StatTypeCard({ typeName, statInfo, onPress, theme, colors }) {
   const { sorted, isRankable } = useMemo(() => {
     const withRank = statInfo.entries.map((e) => ({
       ...e,
-      rankVal: extractRankVal(e.value),
+      rankVal: extractRankVal(e.value, typeName),
     }));
     const rankable =
       withRank.filter((e) => e.rankVal != null).length > withRank.length / 2;
@@ -3397,12 +3483,22 @@ function TeamStatsTab({ teamsInSeason, theme, colors }) {
 
   const { statMap, groupNames, groups } = useMemo(() => {
     const map = new Map();
+    const SKIP_TEAM_STATS = new Set([
+      "most injured players",
+      "most substituted players",
+      "appearing players",
+      "goal results",
+      "total minutes played",
+    ]);
+
     for (const team of teamsInSeason ?? []) {
       const details = team.statistics?.[0]?.details ?? [];
       for (const stat of details) {
         const name = stat.type?.name;
         if (!name) continue;
-        if (name.toLowerCase() === "national team players") continue;
+        const lname = name.toLowerCase();
+        if (lname === "national team players") continue;
+        if (SKIP_TEAM_STATS.has(lname)) continue;
         if (!map.has(name)) map.set(name, { type: stat.type, entries: [] });
         map.get(name).entries.push({ team, value: stat.value });
       }
@@ -3787,7 +3883,7 @@ function StageStatCard({ stat, teamMap, playerMap, theme, colors }) {
       // Construct image URL directly from Sportmonks pattern: players/{id%32}/{id}.png
       entityImage = found?.player?.image_path;
       teamColor = found?.team?.colorPrimary;
-      entityCount = value.count ?? value.goals ?? value.assists ?? null;
+      entityCount = value.count ?? value.goals ?? value.assists ?? value.rating ?? null;
       allTeamsCount = null;
       // Extra: pass team name for subtitle
       entitySubtitle = found?.team?.name ?? null;

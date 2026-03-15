@@ -4352,7 +4352,7 @@ function ManagersSection({ teamInfo, theme, teamColor, navigation }) {
   );
 }
 
-function TrophiesSection({ teamInfo, theme, teamColor }) {
+function TrophiesSection({ teamInfo, theme, teamColor, isDarkMode }) {
   const trophies = teamInfo?.trophies ?? [];
   if (!trophies.length) return null;
 
@@ -4407,7 +4407,7 @@ function TrophiesSection({ teamInfo, theme, teamColor }) {
               {lg.league?.image_path && !isPlaceholder(lg.league.image_path) ? (
                 <Image
                   source={{ uri: lg.league.image_path }}
-                  style={inStyles.leagueLogo}
+                  style={[inStyles.leagueLogo, { tintColor: lg.league.name === "Premier League" && isDarkMode ? theme.text : undefined }]}
                   resizeMode="contain"
                 />
               ) : null}
@@ -5058,6 +5058,7 @@ export default function Top5TeamDetailScreen({ route, navigation }) {
                 teamInfo={teamInfo}
                 theme={theme}
                 teamColor={resolvedColor}
+                isDarkMode={isDarkMode}
               />
             </View>
           )}

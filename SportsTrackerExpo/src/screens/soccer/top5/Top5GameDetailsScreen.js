@@ -1,3 +1,63 @@
+// Gradient overlay for MatchCard (replicated from league details)
+const FALLBACK_COLOR = "#888888";
+function MatchGradient({ gradId, homeColor, awayColor }) {
+  const left = homeColor || FALLBACK_COLOR;
+  const right = awayColor || FALLBACK_COLOR;
+  return (
+    <Svg
+      style={StyleSheet.absoluteFill}
+      width="100%"
+      height="100%"
+      pointerEvents="none"
+    >
+      <Defs>
+        <LinearGradient id={`mg_${gradId}`} x1="0%" y1="0%" x2="100%" y2="0%">
+          <Stop offset="0%" stopColor={left} stopOpacity="0.35" />
+          <Stop offset="35%" stopColor={left} stopOpacity="0" />
+          <Stop offset="65%" stopColor={right} stopOpacity="0" />
+          <Stop offset="100%" stopColor={right} stopOpacity="0.35" />
+        </LinearGradient>
+      </Defs>
+      <Rect width="100%" height="100%" fill={`url(#mg_${gradId})`} />
+    </Svg>
+  );
+}
+// Styles for MatchCard replication (from league details)
+const mStyles = StyleSheet.create({
+  card: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  cardInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+  },
+  teamSide: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  teamSideAway: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  teamLogo: { width: 32, height: 32 },
+  logoFallback: {
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  teamName: { flex: 1, fontSize: 14, fontWeight: "700", flexWrap: "wrap" },
+  teamNameAway: { textAlign: "right" },
+  teamNameWin: { fontWeight: "700" },
+  scoreBlock: { alignItems: "center", paddingHorizontal: 8, minWidth: 80 },
+  scoreRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  score: { fontSize: 20, fontWeight: "800", minWidth: 22, textAlign: "center" },
+  scoreWin: { fontWeight: "800" },
+  scoreDash: { fontSize: 16 },
+  finishedTime: { fontSize: 9, marginBottom: 3 },
+});
 import React, {
   useState,
   useCallback,
@@ -21,6 +81,7 @@ import { Image } from "expo-image";
 import Svg, {
   Defs,
   LinearGradient,
+  SvgLinearGradient,
   Stop,
   Rect,
   Circle,
@@ -55,6 +116,8 @@ const INTERVAL_FAST = 10 * 1000; // 10 seconds
 const INTERVAL_SOON = 60 * 1000; // 1 minute
 const INTERVAL_FINISHED = 6 * 60 * 60 * 1000; // 6 hours
 const LIVE_SHORT_NAMES = new Set(["1ST", "2ND", "HT"]);
+
+const TIME_BUCKETS = ["0-15", "15-30", "30-45", "45-60", "60-75", "75-90"];
 
 const isLiveState = (stateCode) => {
   const code = (stateCode || "").toUpperCase();
@@ -2028,6 +2091,16 @@ const EventsSection = ({
         />
       );
     }
+    if (addLow.includes("adjusted")) {
+      return (
+        <MaterialCommunityIcons
+          name="card-off"
+          size={16}
+          color={theme.textSecondary}
+          style={evStyles.cardIcon}
+        />
+      );
+    }
     if (addLow.includes("own goal") && e.result != null) {
       return (
         <FontAwesome6
@@ -2064,7 +2137,14 @@ const EventsSection = ({
     return null;
   };
 
-  const renderSubLine = ({ text, color, rotation, iconFirst }) => {
+  const renderSubLine = ({
+    text,
+    theme,
+    color,
+    rotation,
+    injured,
+    iconFirst,
+  }) => {
     if (!text) return null;
     const icon = (
       <FontAwesome6
@@ -2078,9 +2158,35 @@ const EventsSection = ({
     return (
       <View style={evStyles.detailLine}>
         {iconFirst ? icon : null}
-        <Text style={[evStyles.detailText, { color }]} numberOfLines={1}>
-          {text}
-        </Text>
+
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+          {injured && iconFirst && (
+            <View
+              style={[
+                evStyles.homePitchIconBubble,
+                { backgroundColor: theme, borderColor: color },
+              ]}
+            >
+              <FontAwesome5 name="user-injured" size={11} color={color} />
+            </View>
+          )}
+
+          <Text style={[evStyles.detailText, { color }]} numberOfLines={1}>
+            {text}
+          </Text>
+
+          {injured && !iconFirst && (
+            <View
+              style={[
+                evStyles.homePitchIconBubble,
+                { backgroundColor: theme, borderColor: color },
+              ]}
+            >
+              <FontAwesome5 name="user-injured" size={11} color={color} />
+            </View>
+          )}
+        </View>
+
         {!iconFirst ? icon : null}
       </View>
     );
@@ -2109,6 +2215,8 @@ const EventsSection = ({
             text: event.related_player_name,
             color: theme.error || "#e03131",
             rotation: isHome ? "0deg" : "180deg",
+            injured: event.injured,
+            theme: theme.text,
             iconFirst,
           })}
         </View>
@@ -2122,6 +2230,7 @@ const EventsSection = ({
       !isDisallowed &&
       (addLow.includes("goal") || addLow.includes("penalty")) &&
       !!goalDetail;
+    const isCardAdjusted = addLow.includes("adjusted");
     const showsSecondLine = isDisallowed || showsGoalDetail;
 
     return (
@@ -2156,6 +2265,17 @@ const EventsSection = ({
             numberOfLines={1}
           >
             Goal disallowed
+          </Text>
+        ) : isCardAdjusted ? (
+          <Text
+            style={[
+              evStyles.goalDetailText,
+              { color: theme.textSecondary },
+              !isHome && evStyles.goalDetailTextAway,
+            ]}
+            numberOfLines={1}
+          >
+            Card adjusted
           </Text>
         ) : isOwnGoal ? (
           <Text
@@ -4072,7 +4192,7 @@ const BallSection = ({
                 >
                   Defensive
                 </Text>
-                <Text style={[ballStyles.zoneValue, { color: homeColor }]}>
+                <Text style={[ballStyles.zoneValue, { color: theme.text }]}>
                   {zoneDistribution.defensive.toFixed(1)}%
                 </Text>
               </View>
@@ -4087,7 +4207,7 @@ const BallSection = ({
                 >
                   Middle
                 </Text>
-                <Text style={[ballStyles.zoneValue, { color: "#d97706" }]}>
+                <Text style={[ballStyles.zoneValue, { color: theme.text }]}>
                   {zoneDistribution.middle.toFixed(1)}%
                 </Text>
               </View>
@@ -4102,7 +4222,7 @@ const BallSection = ({
                 >
                   Attacking
                 </Text>
-                <Text style={[ballStyles.zoneValue, { color: awayColor }]}>
+                <Text style={[ballStyles.zoneValue, { color: theme.text }]}>
                   {zoneDistribution.attacking.toFixed(1)}%
                 </Text>
               </View>
@@ -4212,6 +4332,8 @@ const GoalShareCardModal = ({ visible, onClose, payload, theme, colors }) => {
   const FIELD_LEFT_PANEL_W = Math.round(cardWidth * 0.41);
   const FIELD_SCALE = (FIELD_LEFT_PANEL_W - 12) / 120;
 
+  const showField = false; // can toggle this on if we want to show the field diagram on the card
+
   return (
     <Modal
       visible={!!visible}
@@ -4305,47 +4427,49 @@ const GoalShareCardModal = ({ visible, onClose, payload, theme, colors }) => {
               </View>
 
               <View style={gscStyles.bodyRow}>
-                <View
-                  style={[
-                    gscStyles.goalCardFieldPane,
-                    {
-                      width: 150 * FIELD_SCALE,
-                      height: 200 * FIELD_SCALE,
-                      borderRightColor: theme.border,
-                    },
-                  ]}
-                >
+                {showField && (
                   <View
                     style={[
-                      gscStyles.goalCardFieldContainer,
+                      gscStyles.goalCardFieldPane,
                       {
-                        transform: [
-                          { rotate: "90deg" },
-                          { scale: FIELD_SCALE },
-                        ],
+                        width: 150 * FIELD_SCALE,
+                        height: 200 * FIELD_SCALE,
+                        borderRightColor: theme.border,
                       },
                     ]}
                   >
-                    <View style={gscStyles.miniField}>
-                      <View
-                        style={[
-                          gscStyles.fieldContainer,
-                          { backgroundColor: "#2d5a2d" },
-                        ]}
-                      >
-                        <View style={gscStyles.fieldOutline} />
-                        <View style={gscStyles.centerLine} />
-                        <View style={gscStyles.centerCircleMini} />
-                        <View style={gscStyles.penaltyAreaLeft} />
-                        <View style={gscStyles.penaltyAreaRight} />
-                        <View style={gscStyles.goalAreaLeft} />
-                        <View style={gscStyles.goalAreaRight} />
-                        <View style={gscStyles.goalLeft} />
-                        <View style={gscStyles.goalRight} />
+                    <View
+                      style={[
+                        gscStyles.goalCardFieldContainer,
+                        {
+                          transform: [
+                            { rotate: "90deg" },
+                            { scale: FIELD_SCALE },
+                          ],
+                        },
+                      ]}
+                    >
+                      <View style={gscStyles.miniField}>
+                        <View
+                          style={[
+                            gscStyles.fieldContainer,
+                            { backgroundColor: "#2d5a2d" },
+                          ]}
+                        >
+                          <View style={gscStyles.fieldOutline} />
+                          <View style={gscStyles.centerLine} />
+                          <View style={gscStyles.centerCircleMini} />
+                          <View style={gscStyles.penaltyAreaLeft} />
+                          <View style={gscStyles.penaltyAreaRight} />
+                          <View style={gscStyles.goalAreaLeft} />
+                          <View style={gscStyles.goalAreaRight} />
+                          <View style={gscStyles.goalLeft} />
+                          <View style={gscStyles.goalRight} />
+                        </View>
                       </View>
                     </View>
                   </View>
-                </View>
+                )}
 
                 <View style={gscStyles.infoPanel}>
                   {playerImageUri ? (
@@ -4532,7 +4656,9 @@ const StatsSection = ({
         l.includes("rating") ||
         l.includes("goals") ||
         l.includes("captain") ||
-        l.includes("minutes played")
+        l.includes("minutes played") ||
+        l.includes("injuries") ||
+        l.includes("substitutions")
       );
     };
 
@@ -5431,6 +5557,7 @@ const GameInfoSection = ({
   startingAt,
   theme,
   isDarkMode,
+  navigation,
 }) => {
   if (!venue && !weather && !league && !startingAt) return null;
 
@@ -5870,7 +5997,7 @@ const H2HSummarySection = ({
           <Text
             style={[
               h2hStyles.homeFilterText,
-              { color: homeOnly ? homeColor : theme.textSecondary },
+              { color: homeOnly ? theme.text : theme.textSecondary },
             ]}
           >
             HOME
@@ -6789,9 +6916,7 @@ const HomeTeamPitchSection = ({
                   style={[
                     styles.homePitchIconBubble,
                     styles.homePitchIconMiddleLeft,
-                    {
-                      left: -8 - (player.yellowCards + idx) * 8,
-                    },
+                    { left: -8 - idx * 8 },
                   ]}
                 >
                   <MaterialCommunityIcons
@@ -6811,22 +6936,19 @@ const HomeTeamPitchSection = ({
                   style={[
                     styles.homePitchIconBubble,
                     styles.homePitchIconMiddleLeft,
-                    {
-                      left:
-                        -8 - (player.yellowCards + player.redCards + idx) * 8,
-                    },
+                    { left: -8 - idx * 8 },
                   ]}
                 >
                   <View style={styles.homePitchDualCardWrap}>
                     <MaterialCommunityIcons
                       name="card"
-                      size={8}
+                      size={10}
                       color="#facc15"
                       style={{ transform: [{ rotate: "90deg" }] }}
                     />
                     <MaterialCommunityIcons
                       name="card"
-                      size={8}
+                      size={9.5}
                       color="#d62828"
                       style={[
                         styles.homePitchDualCardTop,
@@ -7209,6 +7331,7 @@ const SoccerPlayerDetailModal = ({
   startingAt,
   theme,
   colors,
+  navigation,
 }) => {
   const player = lineup?.player ?? {};
   const resolvedTeam =
@@ -7349,7 +7472,14 @@ const SoccerPlayerDetailModal = ({
 
     const filteredRows = rows.filter(
       (row) =>
-        !["rating", "goals", "goal", "assists", "assist"].includes(row.key),
+        ![
+          "rating",
+          "goals",
+          "goal",
+          "assists",
+          "assist",
+          "minutes played",
+        ].includes(row.key),
     );
 
     const finalKeyStats = [
@@ -7558,7 +7688,7 @@ const SoccerPlayerDetailModal = ({
     duels: statNum(getLineupStat("total duels", "duels")),
     recovery: statNum(getLineupStat("ball recovery")),
     minutes: minutesPlayed != null ? parseNum(minutesPlayed) : null,
-    rating: rating != null ? Number(rating.toFixed(1)) : null,
+    rating: rating != null ? rating.toFixed(1) : null,
   };
 
   let shareStatItems;
@@ -7737,35 +7867,49 @@ const SoccerPlayerDetailModal = ({
                 </View>
               </View>
 
-              {playerImageUri ? (
-                <Image
-                  source={{ uri: playerImageUri }}
-                  style={[spmStyles.headshot, { borderColor: teamColor }]}
-                  contentFit="cover"
-                  cachePolicy="memory-disk"
-                />
-              ) : (
-                <View
-                  style={[
-                    spmStyles.headshot,
-                    {
-                      borderColor: teamColor,
-                      backgroundColor: `${teamColor}30`,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    },
-                  ]}
-                >
-                  <Text
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => {
+                  const pid = resolvedPlayerId;
+                  if (pid != null) {
+                    onClose();
+                    navigation?.navigate("Top5PlayerDetail", {
+                      playerId: pid,
+                      playerName: fullName,
+                    });
+                  }
+                }}
+              >
+                {playerImageUri ? (
+                  <Image
+                    source={{ uri: playerImageUri }}
+                    style={[spmStyles.headshot, { borderColor: teamColor }]}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                  />
+                ) : (
+                  <View
                     style={[
-                      spmStyles.headshotInitial,
-                      { color: getTextOnColor(teamColor) },
+                      spmStyles.headshot,
+                      {
+                        borderColor: teamColor,
+                        backgroundColor: `${teamColor}30`,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      },
                     ]}
                   >
-                    {playerInitials}
-                  </Text>
-                </View>
-              )}
+                    <Text
+                      style={[
+                        spmStyles.headshotInitial,
+                        { color: getTextOnColor(teamColor) },
+                      ]}
+                    >
+                      {playerInitials}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
 
               <Text
                 style={[spmStyles.playerName, { color: theme.text }]}
@@ -8254,8 +8398,1567 @@ const SoccerPlayerDetailModal = ({
   );
 };
 
+const FACTS_EXCLUDED_TYPE_IDS = new Set([76104, 81170]);
+const FACTS_RELATED_VALUE_LABEL = {
+  76101: "xGOT",
+  76114: "xG",
+  81173: "RATING",
+};
+
+const normalizeFactTeam = (team) => {
+  const t = String(team || "both").toLowerCase();
+  if (t === "home" || t === "away" || t === "both") return t;
+  return "both";
+};
+
+const formatFactTitle = (name, typeId) => {
+  const raw = String(name || "").trim();
+  const cleaned = raw.replace(/^match\s+facts?\s*/i, "").trim();
+  if (cleaned) return cleaned;
+  return `Fact ${typeId ?? ""}`.trim();
+};
+
+const formatFactValue = (value) => {
+  if (value == null) return "-";
+  if (typeof value === "string") return value;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return "-";
+    if (Number.isInteger(value)) return String(value);
+    return value.toFixed(2).replace(/\.00$/, "");
+  }
+  return String(value);
+};
+
+const formatFactDate = (dateValue) => {
+  if (!dateValue) return "-";
+  try {
+    const d = new Date(String(dateValue));
+    if (Number.isNaN(d.getTime())) return String(dateValue);
+    return d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return String(dateValue);
+  }
+};
+
+const FactsSection = ({
+  facts,
+  home,
+  away,
+  fixture,
+  homeColor,
+  awayColor,
+  theme,
+  onPlayerPress,
+}) => {
+  const [teamFilter, setTeamFilter] = useState("both");
+  const [categoryFilter, setCategoryFilter] = useState("h2h");
+  const [categoryOpen, setCategoryOpen] = useState(false);
+
+  const homeLogoUri =
+    home?.image_path && !home.image_path.includes("placeholder")
+      ? home.image_path
+      : null;
+  const awayLogoUri =
+    away?.image_path && !away.image_path.includes("placeholder")
+      ? away.image_path
+      : null;
+
+  const homeShort =
+    home?.short_code || home?.name.slice(0, 3).toUpperCase() || "Home";
+  const homeName = home?.name || "Home Team";
+  const awayShort =
+    away?.short_code || away?.name.slice(0, 3).toUpperCase() || "Away";
+  const awayName = away?.name || "Away Team";
+
+  const cleanedFacts = useMemo(
+    () =>
+      (facts ?? []).filter((fact) => {
+        const id = Number(fact?.type_id);
+        return !FACTS_EXCLUDED_TYPE_IDS.has(id) && fact?.data;
+      }),
+    [facts],
+  );
+
+  const categories = useMemo(() => {
+    const set = new Set(
+      cleanedFacts
+        .map((fact) => String(fact?.category || "overall").toLowerCase())
+        .filter(Boolean),
+    );
+    if (!set.has("overall")) set.add("overall");
+    const ordered = [...set].sort((a, b) => a.localeCompare(b));
+    const overall = ordered.filter((item) => item === "overall");
+    const rest = ordered.filter((item) => item !== "overall");
+    return [...overall, ...rest];
+  }, [cleanedFacts]);
+
+  useEffect(() => {
+    if (!categories.includes(categoryFilter)) {
+      setCategoryFilter(categories[0] || "overall");
+    }
+  }, [categories, categoryFilter]);
+
+  const filteredFacts = useMemo(
+    () =>
+      cleanedFacts.filter((fact) => {
+        const factCategory = String(fact?.category || "overall").toLowerCase();
+        const factTeam = normalizeFactTeam(fact?.team);
+        if (factCategory !== categoryFilter) return false;
+        return factTeam === teamFilter;
+      }),
+    [cleanedFacts, categoryFilter, teamFilter],
+  );
+
+  const renderTeamPill = (teamKey) => {
+    if (teamKey === "home") {
+      return homeLogoUri ? (
+        <Image
+          source={{ uri: homeLogoUri }}
+          style={factsStyles.filterLogo}
+          contentFit="contain"
+          cachePolicy="memory-disk"
+        />
+      ) : (
+        <View
+          style={[
+            factsStyles.filterLogoFallback,
+            { backgroundColor: `${homeColor}22` },
+          ]}
+        >
+          <Text
+            style={[factsStyles.filterLogoFallbackText, { color: homeColor }]}
+          >
+            H
+          </Text>
+        </View>
+      );
+    }
+    if (teamKey === "away") {
+      return awayLogoUri ? (
+        <Image
+          source={{ uri: awayLogoUri }}
+          style={factsStyles.filterLogo}
+          contentFit="contain"
+          cachePolicy="memory-disk"
+        />
+      ) : (
+        <View
+          style={[
+            factsStyles.filterLogoFallback,
+            { backgroundColor: `${awayColor}22` },
+          ]}
+        >
+          <Text
+            style={[factsStyles.filterLogoFallbackText, { color: awayColor }]}
+          >
+            A
+          </Text>
+        </View>
+      );
+    }
+    return (
+      <View style={factsStyles.bothLogoWrap}>
+        {homeLogoUri ? (
+          <Image
+            source={{ uri: homeLogoUri }}
+            style={factsStyles.bothLogo}
+            contentFit="contain"
+            cachePolicy="memory-disk"
+          />
+        ) : (
+          <View
+            style={[
+              factsStyles.bothLogoFallback,
+              { backgroundColor: `${homeColor}22` },
+            ]}
+          >
+            <Text
+              style={[factsStyles.filterLogoFallbackText, { color: homeColor }]}
+            >
+              H
+            </Text>
+          </View>
+        )}
+        {awayLogoUri ? (
+          <Image
+            source={{ uri: awayLogoUri }}
+            style={[factsStyles.bothLogo, factsStyles.bothLogoSecond]}
+            contentFit="contain"
+            cachePolicy="memory-disk"
+          />
+        ) : (
+          <View
+            style={[
+              factsStyles.bothLogoFallback,
+              factsStyles.bothLogoSecond,
+              { backgroundColor: `${awayColor}22` },
+            ]}
+          >
+            <Text
+              style={[factsStyles.filterLogoFallbackText, { color: awayColor }]}
+            >
+              A
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderTeamLogoPill = (teamKey) => {
+    if (teamKey === "home") {
+      return homeLogoUri ? (
+        <Image
+          source={{ uri: homeLogoUri }}
+          style={[factsStyles.filterLogo, { width: 45, height: 45 }]}
+          contentFit="contain"
+          cachePolicy="memory-disk"
+        />
+      ) : (
+        <View
+          style={[
+            factsStyles.filterLogoFallback,
+            { backgroundColor: `${homeColor}22`, width: 45, height: 45 },
+          ]}
+        >
+          <Text
+            style={[factsStyles.filterLogoFallbackText, { color: homeColor }]}
+          >
+            H
+          </Text>
+        </View>
+      );
+    }
+    if (teamKey === "away") {
+      return awayLogoUri ? (
+        <Image
+          source={{ uri: awayLogoUri }}
+          style={[factsStyles.filterLogo, { width: 45, height: 45 }]}
+          contentFit="contain"
+          cachePolicy="memory-disk"
+        />
+      ) : (
+        <View
+          style={[
+            factsStyles.filterLogoFallback,
+            { backgroundColor: `${awayColor}22`, width: 45, height: 45 },
+          ]}
+        >
+          <Text
+            style={[factsStyles.filterLogoFallbackText, { color: awayColor }]}
+          >
+            A
+          </Text>
+        </View>
+      );
+    }
+  };
+
+  const renderMetrics = (fact) => {
+    const dataObj = fact?.data ?? {};
+    const blocks = ["all", "home", "away"]
+      .map((key) => ({ key, value: dataObj?.[key] }))
+      .filter((entry) => entry.value && typeof entry.value === "object");
+    if (!blocks.length) return null;
+    const renderMetricFallbackLine = (obj) => {
+      const parts = [];
+      if (obj?.count != null) parts.push(`Count ${formatFactValue(obj.count)}`);
+      if (obj?.average != null)
+        parts.push(`Avg ${formatFactValue(obj.average)}`);
+      if (obj?.percentage != null)
+        parts.push(`${formatFactValue(obj.percentage)}%`);
+      if (obj?.streak != null && obj?.matches != null)
+        parts.push(
+          `${formatFactValue(obj.streak)}/${formatFactValue(obj.matches)}`,
+        );
+      if (!parts.length) {
+        const fallback = Object.entries(obj)
+          .map(([k, v]) => `${k}: ${formatFactValue(v)}`)
+          .join(" \u00B7 ");
+        return fallback || "-";
+      }
+      return parts.join(" \u00B7 ");
+    };
+
+    const pickPrimaryValue = (obj) => {
+      if (obj == null) return null;
+      if (obj?.value != null) return obj.value;
+      if (obj?.count != null) return obj.count;
+      if (obj?.streak != null) return obj.streak;
+      if (obj?.matches != null) return obj.matches;
+      if (obj?.average != null) return obj.average;
+      if (obj?.percentage != null) return obj.percentage;
+      return null;
+    };
+
+    const labelSuffixFor = (obj) => {
+      if (obj?.percentage != null) return `${formatFactValue(obj.percentage)}%`;
+      if (obj?.average != null) return `${formatFactValue(obj.average)}`;
+      if (obj?.matches != null) return `${formatFactValue(obj.matches)}`;
+      return null;
+    };
+
+    return (
+      <View style={factsStyles.metricsRow}>
+        {blocks.map((block) => {
+          const obj = block.value || {};
+          const primary = pickPrimaryValue(obj);
+          const suffix = labelSuffixFor(obj);
+
+          // If we have a clear primary value, render stacked value (top) + label (bottom)
+          if (primary != null) {
+            return (
+              <View
+                key={block.key}
+                style={[
+                  factsStyles.simpleCell,
+                  {
+                    borderColor: theme.border,
+                    backgroundColor: theme.surfaceSecondary,
+                  },
+                ]}
+              >
+                <Text style={[factsStyles.simpleValue, { color: theme.text }]}>
+                  {formatFactValue(primary)}
+                </Text>
+                <Text
+                  style={[
+                    factsStyles.simpleLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {block.key.toUpperCase()}
+                  {suffix ? ` (${suffix})` : ""}
+                </Text>
+              </View>
+            );
+          }
+
+          // Fallback: render the combined metric line stacked
+          return (
+            <View
+              key={block.key}
+              style={[
+                factsStyles.metricCol,
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.surfaceSecondary,
+                },
+              ]}
+            >
+              <Text style={[factsStyles.simpleValue, { color: theme.text }]}>
+                {renderMetricFallbackLine(obj)}
+              </Text>
+              <Text
+                style={[
+                  factsStyles.simpleLabel,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                {block.key.toUpperCase()}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
+  const renderTimingBars = (fact) => {
+    const dataObj = fact?.data ?? {};
+    // only render the chart when the data object includes all expected time buckets
+    if (
+      !TIME_BUCKETS.every((k) =>
+        Object.prototype.hasOwnProperty.call(dataObj, k),
+      )
+    ) {
+      return null;
+    }
+    const counts = TIME_BUCKETS.map((b) =>
+      Number(dataObj?.[b]?.count ?? dataObj?.[b] ?? 0),
+    );
+    const maxCount = Math.max(...counts, 1);
+    const team = normalizeFactTeam(fact?.team);
+    const barColor = team === "away" ? awayColor : homeColor;
+
+    return (
+      <View
+        style={[
+          factsStyles.chartCard,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
+        <View style={factsStyles.chartBars}>
+          {TIME_BUCKETS.map((bucket, i) => {
+            const count = counts[i];
+            const barH = Math.max(2, Math.round((count / maxCount) * 80));
+            return (
+              <View key={bucket} style={factsStyles.chartBarCol}>
+                <Text
+                  style={[
+                    factsStyles.chartCountLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {count > 0 ? count : ""}
+                </Text>
+                <View style={factsStyles.chartBarArea}>
+                  <View
+                    style={{
+                      height: barH,
+                      width: "100%",
+                      backgroundColor: barColor,
+                      borderRadius: 4,
+                    }}
+                  />
+                </View>
+                <Text
+                  style={[
+                    factsStyles.chartBucketLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {bucket}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
+
+  const renderDateScoreCard = (fact) => {
+    // Extract values
+    const dateValue = fact?.data?.date;
+    const scoreText = String(fact?.data?.score || "").trim();
+    if (!dateValue || !scoreText.includes("-")) return null;
+
+    const [leftRaw, rightRaw] = scoreText.split("-").map((v) => Number(v));
+    const left = Number.isFinite(leftRaw) ? leftRaw : null;
+    const right = Number.isFinite(rightRaw) ? rightRaw : null;
+
+    let scored = left;
+    let conceded = right;
+    const natural = String(fact?.natural_language || "").toLowerCase();
+    if (left != null && right != null) {
+      if (natural.includes(" won ")) {
+        scored = Math.max(left, right);
+        conceded = Math.min(left, right);
+      } else if (natural.includes(" lost ")) {
+        scored = Math.min(left, right);
+        conceded = Math.max(left, right);
+      }
+    }
+
+    // Retrieve home/away team info using consistent logic
+    const home = fact?.data?.home_team || {};
+    const away = fact?.data?.away_team || {};
+    // Logo URIs
+    const homeLogoUri =
+      home?.image_path && !home.image_path.includes("placeholder")
+        ? home.image_path
+        : null;
+    const awayLogoUri =
+      away?.image_path && !away.image_path.includes("placeholder")
+        ? away.image_path
+        : null;
+    let teamLogoUri = null;
+    let teamInitial = "?";
+    if (teamKey === "home") {
+      teamLogoUri = homeLogoUri;
+      teamInitial = (home.name ?? "?")[0];
+    } else if (teamKey === "away") {
+      teamLogoUri = awayLogoUri;
+      teamInitial = (away.name ?? "?")[0];
+    }
+    // Colors
+    const teamKey = normalizeFactTeam(fact?.team);
+
+    const teamColor =
+      teamKey === "home"
+        ? home?.colorPrimary || home?.colorSecondary || FALLBACK_COLOR
+        : teamKey === "away"
+          ? away?.colorPrimary || away?.colorSecondary || FALLBACK_COLOR
+          : theme.border;
+    const showBothLogos = natural.includes("against");
+
+    const teamLeftLogo =
+      teamKey === "home" ? "home" : teamKey === "away" ? "away" : null;
+    const teamRightLogo =
+      teamKey === "home" ? "away" : teamKey === "away" ? "home" : null;
+    const teamLeftName =
+      teamKey === "home" && showBothLogos
+        ? homeShort
+        : teamKey === "away" && showBothLogos
+          ? awayShort
+          : teamKey === "home" && !showBothLogos
+            ? homeName
+            : teamKey === "away" && !showBothLogos
+              ? awayName
+              : null;
+    const teamRightName =
+      teamKey === "home" && showBothLogos
+        ? awayShort
+        : teamKey === "away" && showBothLogos
+          ? homeShort
+          : teamKey === "home" && !showBothLogos
+            ? homeName
+            : teamKey === "away" && !showBothLogos
+              ? awayName
+              : null;
+    const teamLeftColor =
+      teamKey === "home"
+        ? homeColor
+        : teamKey === "away"
+          ? awayColor
+          : theme.border;
+    const teamRightColor =
+      teamKey === "home"
+        ? awayColor
+        : teamKey === "away"
+          ? homeColor
+          : theme.border;
+
+    const gradId = dateValue;
+    return (
+      <View
+        style={[
+          mStyles.card,
+          {
+            backgroundColor: theme.surfaceSecondary,
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        <MatchGradient
+          gradId={gradId}
+          homeColor={teamLeftColor}
+          awayColor={showBothLogos ? teamRightColor : theme.surfaceSecondary}
+        />
+        <View style={mStyles.cardInner}>
+          {/* Home side */}
+          <View style={mStyles.teamSide}>
+            {renderTeamLogoPill(teamLeftLogo)}
+            <Text
+              style={[mStyles.teamName, { color: theme.text }]}
+              numberOfLines={2}
+            >
+              {teamLeftName}
+            </Text>
+          </View>
+
+          {/* Score / time */}
+          <View style={mStyles.scoreBlock}>
+            <View style={mStyles.scoreRow}>
+              <Text style={[mStyles.score, { color: theme.text }]}>
+                {formatFactValue(scored)}
+              </Text>
+              <Text style={[mStyles.scoreDash, { color: theme.textTertiary }]}>
+                -
+              </Text>
+              <Text style={[mStyles.score, { color: theme.text }]}>
+                {formatFactValue(conceded)}
+              </Text>
+            </View>
+            <Text style={[mStyles.finishedTime, { color: theme.textTertiary }]}>
+              LAST RESULT
+            </Text>
+            <Text style={[mStyles.finishedTime, { color: theme.textTertiary }]}>
+              {formatFactDate(dateValue)}
+            </Text>
+          </View>
+
+          {/* Away side */}
+          {showBothLogos ? (
+            <View style={mStyles.teamSideAway}>
+              <Text
+                style={[
+                  mStyles.teamName,
+                  mStyles.teamNameAway,
+                  { color: theme.text },
+                ]}
+                numberOfLines={2}
+              >
+                {teamRightName}
+              </Text>
+              {renderTeamLogoPill(teamRightLogo)}
+            </View>
+          ) : null}
+        </View>
+      </View>
+    );
+  };
+
+  const renderRelatedPlayerCard = (fact) => {
+    const relatedPlayer = fact?.data?.related_player;
+    if (!relatedPlayer?.display_name) return null;
+    const value = fact?.data?.value;
+    const metric = FACTS_RELATED_VALUE_LABEL[Number(fact?.type_id)] || "VALUE";
+    // helper: search team objects for player info by common fields
+    const findPlayerMeta = (playerId, teamObj) => {
+      if (!playerId || !teamObj) return null;
+      const arrayFields = [
+        "players",
+        "squad",
+        "lineups",
+        "lineup",
+        "roster",
+        "squad_list",
+      ];
+      for (const field of arrayFields) {
+        const arr = teamObj[field] || teamObj?.[field + "s"];
+        if (Array.isArray(arr)) {
+          for (const entry of arr) {
+            if (
+              entry == null ||
+              (entry.player_id == null && entry.id == null && !entry.player)
+            )
+              continue;
+            const idMatch =
+              Number(entry.player_id) === Number(playerId) ||
+              Number(entry.id) === Number(playerId) ||
+              (entry.player && Number(entry.player.id) === Number(playerId));
+            if (idMatch) {
+              const playerObj = entry.player || entry;
+              const img =
+                playerObj?.image_path ||
+                playerObj?.image ||
+                playerObj?.headshot ||
+                null;
+              const first =
+                playerObj?.first_name || playerObj?.given_name || null;
+              const last = playerObj?.last_name || playerObj?.surname || null;
+              const display =
+                playerObj?.display_name ||
+                playerObj?.name ||
+                `${first || ""} ${last || ""}`.trim();
+              return { img, first, last, display };
+            }
+          }
+        }
+      }
+
+      // try participant lists or nested objects
+      if (teamObj?.participants && Array.isArray(teamObj.participants)) {
+        for (const p of teamObj.participants) {
+          if (
+            Number(p?.player_id) === Number(playerId) ||
+            Number(p?.id) === Number(playerId)
+          ) {
+            const img = p?.image_path || p?.image || null;
+            const display = p?.display_name || p?.name || null;
+            return { img, first: p?.first_name, last: p?.last_name, display };
+          }
+        }
+      }
+      return null;
+    };
+
+    const playerId = relatedPlayer?.player_id ?? relatedPlayer?.id ?? null;
+    const teamKey = normalizeFactTeam(fact?.team);
+
+    let meta = null;
+    if (teamKey === "home") meta = findPlayerMeta(playerId, home);
+    else if (teamKey === "away") meta = findPlayerMeta(playerId, away);
+    if (!meta) {
+      meta = findPlayerMeta(playerId, home) || findPlayerMeta(playerId, away);
+      // If still not found, try fixture participants -> lineups lookup
+      if (!meta && fixture) {
+        try {
+          const participant = (fixture.participants || []).find(
+            (p) => String(p?.meta?.location || "").toLowerCase() === teamKey,
+          );
+
+          const teamParticipantId = participant?.id ?? null;
+          const lineups = fixture.lineups || [];
+          for (const l of lineups) {
+            if (!l) continue;
+            const entryPlayerId = l?.player_id ?? l?.player?.id ?? null;
+            const entryParticipantId = l?.participant_id ?? l?.team_id ?? null;
+            if (!entryPlayerId) continue;
+            if (Number(entryPlayerId) === Number(playerId)) {
+              // optional check participant match if available
+              if (
+                teamParticipantId == null ||
+                Number(entryParticipantId) === Number(teamParticipantId)
+              ) {
+                const pObj = l?.player || l;
+                const img =
+                  pObj?.image_path || pObj?.image || pObj?.headshot || null;
+                const first = pObj?.first_name || pObj?.given_name || null;
+                const last = pObj?.last_name || pObj?.surname || null;
+                const display =
+                  pObj?.display_name ||
+                  pObj?.name ||
+                  `${first || ""} ${last || ""}`.trim();
+                meta = { img, first, last, display };
+                break;
+              }
+            }
+          }
+          if (!meta) {
+          }
+        } catch (e) {}
+      }
+    }
+
+    const imageUri =
+      meta?.img && !String(meta.img).includes("placeholder") ? meta.img : null;
+    const displayName = meta?.display || relatedPlayer?.display_name;
+    const initials = String(displayName || "")
+      .split(" ")
+      .map((s) => s?.[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+    const teamColor =
+      teamKey === "home"
+        ? homeColor
+        : teamKey === "away"
+          ? awayColor
+          : theme.border;
+    const textOnTeam = getTextOnColor(teamColor);
+    const gradId = `relatedGrad_${String(fact?.type_id || "").replace(/\s+/g, "_")}_${playerId || ""}`;
+
+    return (
+      <TouchableOpacity
+        activeOpacity={0.8}
+        disabled={!onPlayerPress || playerId == null}
+        onPress={() =>
+          onPlayerPress?.({
+            playerId,
+            player: {
+              id: playerId,
+              display_name: displayName,
+              name: displayName,
+            },
+            team: teamKey === "home" ? home : away,
+          })
+        }
+        style={[
+          factsStyles.relatedPlayerWrap,
+          {
+            borderColor: theme.border,
+            backgroundColor: theme.surfaceSecondary,
+            flexDirection: "row",
+            alignItems: "center",
+            position: "relative",
+          },
+        ]}
+      >
+        <Svg
+          width="100%"
+          height={64}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        >
+          <Defs>
+            <LinearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+              <Stop offset="0%" stopColor={teamColor} stopOpacity="0.35" />
+              <Stop offset="50%" stopColor={teamColor} stopOpacity="0" />
+              <Stop
+                offset="50%"
+                stopColor={theme.surfaceSecondary}
+                stopOpacity="0"
+              />
+              <Stop
+                offset="100%"
+                stopColor={theme.surfaceSecondary}
+                stopOpacity="0.35"
+              />
+            </LinearGradient>
+          </Defs>
+          <Rect width="100%" height={64} fill={`url(#${gradId})`} />
+        </Svg>
+        <View style={{ marginRight: 10 }}>
+          {imageUri ? (
+            <Image
+              source={{ uri: imageUri }}
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 21,
+                borderWidth: 1,
+                borderColor: teamColor,
+                backgroundColor: `${teamColor}30`,
+              }}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <View
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 21,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: `${teamColor}30`,
+                borderWidth: 1,
+                borderColor: teamColor,
+              }}
+            >
+              <Text
+                style={{ fontSize: 14, fontWeight: "800", color: textOnTeam }}
+              >
+                {initials}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <Text style={[factsStyles.relatedPlayerName, { color: theme.text }]}>
+            {String(displayName).trim()}{" "}
+          </Text>
+          <Text
+            style={[
+              factsStyles.relatedPlayerMeta,
+              { color: theme.textSecondary },
+            ]}
+          >
+            TOP PLAYER
+          </Text>
+        </View>
+
+        <View style={factsStyles.relatedPlayerRight}>
+          <Text style={[factsStyles.relatedPlayerValue, { color: theme.text }]}>
+            {formatFactValue(value)}
+          </Text>
+          <Text
+            style={[
+              factsStyles.relatedPlayerMetric,
+              { color: theme.textSecondary },
+            ]}
+          >
+            {metric}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Lines 9138-9227: renderGoalLine split into two halves (Over/Under)
+  const renderGoalLine = (fact) => {
+    if (Number(fact?.type_id) !== 76103) return null;
+    const over = fact?.data?.over ?? {};
+    const under = fact?.data?.under ?? {};
+    const thresholds = Object.keys({ ...over, ...under }).sort((a, b) => {
+      const aa = Number(String(a).replace("_", "."));
+      const bb = Number(String(b).replace("_", "."));
+      return aa - bb;
+    });
+
+    const teamKey = normalizeFactTeam(fact?.team);
+    const color =
+      teamKey === "home"
+        ? homeColor
+        : teamKey === "away"
+          ? awayColor
+          : theme.border;
+
+    // detect which data shape each half uses so we can label the circle and
+    // render values correctly (streak/matches vs count/percentage)
+    const overHasStreak = thresholds.some((key) => {
+      const o = over?.[key] ?? {};
+      return o && (o.streak != null || o.matches != null);
+    });
+    const overHasCount = thresholds.some((key) => {
+      const o = over?.[key] ?? {};
+      return o && (o.count != null || o.percentage != null);
+    });
+    const overPosLabel = overHasStreak ? "STRK" : overHasCount ? "CNT" : "Pos";
+
+    const underHasStreak = thresholds.some((key) => {
+      const u = under?.[key] ?? {};
+      return u && (u.streak != null || u.matches != null);
+    });
+    const underHasCount = thresholds.some((key) => {
+      const u = under?.[key] ?? {};
+      return u && (u.count != null || u.percentage != null);
+    });
+    const underPosLabel = underHasStreak
+      ? "STRK"
+      : underHasCount
+        ? "CNT"
+        : "Pos";
+
+    if (!thresholds.length) return null;
+
+    // Build segment lists and color maps for Over and Under halves
+    const PALETTE = [
+      "#e74c3c",
+      "#e67e22",
+      "#f1c40f",
+      "#2ecc71",
+      "#1abc9c",
+      "#3498db",
+      "#9b59b6",
+      "#e84393",
+    ];
+
+    const buildSegments = (obj, useStreak) => {
+      const segs = [];
+      thresholds.forEach((k) => {
+        const item = obj?.[k] ?? {};
+        const val = useStreak
+          ? Number(item.streak ?? 0)
+          : Number(item.count ?? 0);
+        if (val > 0) segs.push({ key: k, value: val });
+      });
+      const total = segs.reduce((s, it) => s + it.value, 0);
+      const colorMap = {};
+      segs.forEach((it, idx) => {
+        colorMap[it.key] = PALETTE[idx % PALETTE.length];
+      });
+      return { segs, total, colorMap };
+    };
+
+    const overSegments = overHasStreak
+      ? buildSegments(over, true)
+      : overHasCount
+        ? buildSegments(over, false)
+        : { segs: [], total: 0, colorMap: {} };
+
+    const underSegments = underHasStreak
+      ? buildSegments(under, true)
+      : underHasCount
+        ? buildSegments(under, false)
+        : { segs: [], total: 0, colorMap: {} };
+
+    return (
+      <View style={factsStyles.goalLineSplitWrap}>
+        {/* Top Half: Over */}
+        <View style={factsStyles.goalLineHalf}>
+          <Text style={[factsStyles.goalLineHalfTitle, { color: theme.text }]}>
+            Over
+          </Text>
+          <View style={factsStyles.goalLineHalfBody}>
+            <View style={factsStyles.possessionSmallWrap}>
+              <View style={factsStyles.possessionCircleSmall}>
+                <Svg
+                  width={80}
+                  height={80}
+                  style={factsStyles.possessionSvgSmall}
+                >
+                  <Defs />
+                  <Circle
+                    cx="40"
+                    cy="40"
+                    r="32"
+                    stroke="#ddd"
+                    strokeWidth={12}
+                    fill="transparent"
+                  />
+                  {(() => {
+                    const r = 32;
+                    const c = 2 * Math.PI * r;
+                    const segs = overSegments.segs || [];
+                    return segs.map((s, i) => {
+                      const fraction = overSegments.total
+                        ? s.value / overSegments.total
+                        : 0;
+                      const arcLen = c * fraction;
+                      const startFrac =
+                        segs.slice(0, i).reduce((a, b) => a + b.value, 0) /
+                        (overSegments.total || 1);
+                      const startAngle = startFrac * 360;
+                      const strokeColor =
+                        overSegments.colorMap[s.key] || theme.border;
+                      return (
+                        <Circle
+                          key={`ovseg_${s.key}`}
+                          cx="40"
+                          cy="40"
+                          r={r}
+                          stroke={strokeColor}
+                          strokeWidth={12}
+                          fill="transparent"
+                          strokeDasharray={`${arcLen} ${Math.max(0, c - arcLen)}`}
+                          transform={`rotate(${startAngle - 90} 40 40)`}
+                        />
+                      );
+                    });
+                  })()}
+                </Svg>
+                <View
+                  style={[
+                    factsStyles.possessionCenterSmall,
+                    { backgroundColor: theme.surface },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      factsStyles.possessionCenterTextSmall,
+                      { color: theme.text },
+                    ]}
+                  >
+                    {overPosLabel}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={factsStyles.goalLineRowsCol}>
+              {thresholds.map((key) => {
+                const overObj = over?.[key] ?? {};
+                const lineLabel = String(key).replace("_", ".");
+
+                const isStreakType =
+                  overObj &&
+                  (overObj.streak != null || overObj.matches != null);
+                const isCountType =
+                  overObj &&
+                  (overObj.count != null || overObj.percentage != null);
+
+                if (isStreakType) {
+                  const matches = Number(overObj.matches ?? 0);
+                  const streak = Number(overObj.streak ?? 0);
+                  if (matches === 0) return null;
+                  return (
+                    <View key={key} style={factsStyles.goalLineRowSplit}>
+                      <View style={factsStyles.goalLineSideSplit}>
+                        {(() => {
+                          const assigned =
+                            overSegments.colorMap?.[key] ?? color;
+                          return (
+                            <View
+                              style={[
+                                factsStyles.goalLineDot,
+                                {
+                                  borderColor: assigned,
+                                  backgroundColor:
+                                    streak > 0 ? assigned : "transparent",
+                                },
+                              ]}
+                            />
+                          );
+                        })()}
+                        <Text
+                          style={[
+                            factsStyles.goalLineLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {lineLabel}
+                        </Text>
+                        <Text
+                          style={[
+                            factsStyles.goalLineValue,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {formatFactValue(streak)} {"\u00B7"} (
+                          {formatFactValue(matches)} Matches)
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                }
+
+                if (isCountType) {
+                  const count = Number(overObj.count ?? 0);
+                  const perc = overObj.percentage ?? null;
+                  if (count === 0) return null;
+                  return (
+                    <View key={key} style={factsStyles.goalLineRowSplit}>
+                      <View style={factsStyles.goalLineSideSplit}>
+                        {(() => {
+                          const assigned =
+                            overSegments.colorMap?.[key] ?? color;
+                          return (
+                            <View
+                              style={[
+                                factsStyles.goalLineDot,
+                                {
+                                  borderColor: assigned,
+                                  backgroundColor:
+                                    count > 0 ? assigned : "transparent",
+                                },
+                              ]}
+                            />
+                          );
+                        })()}
+                        <Text
+                          style={[
+                            factsStyles.goalLineLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {lineLabel}
+                        </Text>
+                        <Text
+                          style={[
+                            factsStyles.goalLineValue,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {formatFactValue(count)}
+                          {perc != null ? ` (${perc}%)` : ""}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                }
+
+                return null;
+              })}
+            </View>
+          </View>
+        </View>
+        {/* Divider (non-connecting) */}
+        <View style={factsStyles.goalLineDivider} />
+        {/* Bottom Half: Under */}
+        <View style={factsStyles.goalLineHalf}>
+          <Text style={[factsStyles.goalLineHalfTitle, { color: theme.text }]}>
+            Under
+          </Text>
+          <View style={factsStyles.goalLineHalfBody}>
+            <View style={factsStyles.possessionSmallWrap}>
+              <View style={factsStyles.possessionCircleSmall}>
+                <Svg
+                  width={80}
+                  height={80}
+                  style={factsStyles.possessionSvgSmall}
+                >
+                  <Defs />
+                  <Circle
+                    cx="40"
+                    cy="40"
+                    r="32"
+                    stroke="#ddd"
+                    strokeWidth={12}
+                    fill="transparent"
+                  />
+                  {(() => {
+                    const r = 32;
+                    const c = 2 * Math.PI * r;
+                    const segs = underSegments.segs || [];
+                    return segs.map((s, i) => {
+                      const fraction = underSegments.total
+                        ? s.value / underSegments.total
+                        : 0;
+                      const arcLen = c * fraction;
+                      const startFrac =
+                        segs.slice(0, i).reduce((a, b) => a + b.value, 0) /
+                        (underSegments.total || 1);
+                      const startAngle = startFrac * 360;
+                      const strokeColor =
+                        underSegments.colorMap[s.key] || theme.border;
+                      return (
+                        <Circle
+                          key={`udseg_${s.key}`}
+                          cx="40"
+                          cy="40"
+                          r={r}
+                          stroke={strokeColor}
+                          strokeWidth={12}
+                          fill="transparent"
+                          strokeDasharray={`${arcLen} ${Math.max(0, c - arcLen)}`}
+                          transform={`rotate(${startAngle - 90} 40 40)`}
+                        />
+                      );
+                    });
+                  })()}
+                </Svg>
+                <View
+                  style={[
+                    factsStyles.possessionCenterSmall,
+                    { backgroundColor: theme.surface },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      factsStyles.possessionCenterTextSmall,
+                      { color: theme.text },
+                    ]}
+                  >
+                    {underPosLabel}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={factsStyles.goalLineRowsCol}>
+              {thresholds.map((key) => {
+                const underObj = under?.[key] ?? {};
+                const lineLabel = String(key).replace("_", ".");
+
+                const isStreakType =
+                  underObj &&
+                  (underObj.streak != null || underObj.matches != null);
+                const isCountType =
+                  underObj &&
+                  (underObj.count != null || underObj.percentage != null);
+
+                if (isStreakType) {
+                  const matches = Number(underObj.matches ?? 0);
+                  const streak = Number(underObj.streak ?? 0);
+                  if (matches === 0) return null;
+                  return (
+                    <View key={key} style={factsStyles.goalLineRowSplit}>
+                      <View style={factsStyles.goalLineSideSplit}>
+                        {(() => {
+                          const assigned =
+                            underSegments.colorMap?.[key] ?? color;
+                          return (
+                            <View
+                              style={[
+                                factsStyles.goalLineDot,
+                                {
+                                  borderColor: assigned,
+                                  backgroundColor:
+                                    streak > 0 ? assigned : "transparent",
+                                },
+                              ]}
+                            />
+                          );
+                        })()}
+                        <Text
+                          style={[
+                            factsStyles.goalLineLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {lineLabel}
+                        </Text>
+                        <Text
+                          style={[
+                            factsStyles.goalLineValue,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {formatFactValue(streak)} {"\u00B7"} (
+                          {formatFactValue(matches)} Matches)
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                }
+
+                if (isCountType) {
+                  const count = Number(underObj.count ?? 0);
+                  const perc = underObj.percentage ?? null;
+                  if (count === 0) return null;
+                  return (
+                    <View key={key} style={factsStyles.goalLineRowSplit}>
+                      <View style={factsStyles.goalLineSideSplit}>
+                        {(() => {
+                          const assigned =
+                            underSegments.colorMap?.[key] ?? color;
+                          return (
+                            <View
+                              style={[
+                                factsStyles.goalLineDot,
+                                {
+                                  borderColor: assigned,
+                                  backgroundColor:
+                                    count > 0 ? assigned : "transparent",
+                                },
+                              ]}
+                            />
+                          );
+                        })()}
+                        <Text
+                          style={[
+                            factsStyles.goalLineLabel,
+                            { color: theme.textSecondary },
+                          ]}
+                        >
+                          {lineLabel}
+                        </Text>
+                        <Text
+                          style={[
+                            factsStyles.goalLineValue,
+                            { color: theme.text },
+                          ]}
+                        >
+                          {formatFactValue(count)}
+                          {perc != null ? ` (${perc}%)` : ""}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                }
+
+                return null;
+              })}
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const renderSimpleStat = (fact) => {
+    const dataObj = fact?.data ?? {};
+    const keys = Object.keys(dataObj).filter(
+      (key) => typeof dataObj[key] !== "object",
+    );
+    if (!keys.length) return null;
+    return (
+      <View style={factsStyles.simpleRow}>
+        {keys.map((key) => (
+          <View
+            key={key}
+            style={[
+              factsStyles.simpleCell,
+              {
+                borderColor: theme.border,
+                backgroundColor: theme.surfaceSecondary,
+              },
+            ]}
+          >
+            <Text style={[factsStyles.simpleValue, { color: theme.text }]}>
+              {formatFactValue(dataObj[key])}
+            </Text>
+            <Text
+              style={[factsStyles.simpleLabel, { color: theme.textSecondary }]}
+            >
+              {String(key).replace(/_/g, " ").toUpperCase()}
+            </Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  const renderFactBody = (fact) => {
+    return (
+      renderGoalLine(fact) ||
+      renderTimingBars(fact) ||
+      renderDateScoreCard(fact) ||
+      renderRelatedPlayerCard(fact) ||
+      renderMetrics(fact) ||
+      renderSimpleStat(fact)
+    );
+  };
+
+  const options = [
+    { key: "home", label: "HOME", color: theme.text },
+    { key: "both", label: "BOTH", color: theme.border },
+    { key: "away", label: "AWAY", color: theme.text },
+  ];
+
+  return (
+    <View style={factsStyles.wrap}>
+      <View
+        style={[
+          factsStyles.filterBar,
+          { borderColor: theme.border, backgroundColor: theme.surface },
+        ]}
+      >
+        <View style={factsStyles.segmentedRow}>
+          {options.map((option) => {
+            const selected = teamFilter === option.key;
+            const borderColor =
+              option.key === "home"
+                ? homeColor
+                : option.key === "away"
+                  ? awayColor
+                  : theme.border;
+            return (
+              <TouchableOpacity
+                key={option.key}
+                activeOpacity={0.8}
+                onPress={() => setTeamFilter(option.key)}
+                style={[
+                  factsStyles.segmentBtn,
+                  {
+                    borderColor,
+                    backgroundColor: selected
+                      ? `${borderColor}1A`
+                      : theme.surface,
+                  },
+                ]}
+              >
+                {renderTeamPill(option.key)}
+                <Text
+                  style={[
+                    factsStyles.segmentText,
+                    { color: selected ? theme.text : theme.textSecondary },
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setCategoryOpen(true)}
+          style={[
+            factsStyles.categoryBtn,
+            {
+              borderColor: theme.border,
+              backgroundColor: theme.surfaceSecondary,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              factsStyles.categoryBtnLabel,
+              { color: theme.textSecondary },
+            ]}
+          >
+            CATEGORY
+          </Text>
+          <Text style={[factsStyles.categoryBtnValue, { color: theme.text }]}>
+            {String(categoryFilter || "overall").toUpperCase()}
+          </Text>
+          <Ionicons name="chevron-down" size={15} color={theme.textSecondary} />
+        </TouchableOpacity>
+      </View>
+
+      {filteredFacts.length === 0 ? (
+        <Text
+          style={[
+            factsStyles.emptyText,
+            { color: theme.textTertiary, borderColor: theme.border },
+          ]}
+        >
+          No facts available for this filter.
+        </Text>
+      ) : (
+        filteredFacts.map((fact, idx) => {
+          const team = normalizeFactTeam(fact?.team);
+          const accent =
+            team === "home"
+              ? homeColor
+              : team === "away"
+                ? awayColor
+                : theme.border;
+          const body = renderFactBody(fact);
+          return (
+            <View
+              key={`${fact?.type_id || "fact"}_${idx}`}
+              style={[
+                factsStyles.card,
+                { borderColor: theme.border, backgroundColor: theme.surface },
+              ]}
+            >
+              <View
+                style={[
+                  factsStyles.cardHeader,
+                  {
+                    borderBottomColor: accent,
+                    backgroundColor: theme.surfaceSecondary,
+                  },
+                ]}
+              >
+                <Text style={[factsStyles.cardTitle, { color: theme.text }]}>
+                  {formatFactTitle(fact?.name, fact?.type_id)}
+                </Text>
+                <Text style={[factsStyles.cardTeam, { color: theme.text }]}>
+                  {team.toUpperCase()}
+                </Text>
+              </View>
+
+              <View style={factsStyles.cardBody}>{body}</View>
+
+              {fact?.natural_language ? (
+                <View
+                  style={[
+                    factsStyles.cardFooter,
+                    {
+                      borderTopColor: theme.border,
+                      backgroundColor: theme.surfaceSecondary,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      factsStyles.cardFooterText,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {fact.natural_language}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          );
+        })
+      )}
+
+      <Modal
+        transparent
+        visible={categoryOpen}
+        animationType="fade"
+        onRequestClose={() => setCategoryOpen(false)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setCategoryOpen(false)}
+          style={factsStyles.categoryOverlay}
+        >
+          <View
+            style={[
+              factsStyles.categorySheet,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            {categories.map((cat) => {
+              const selected = categoryFilter === cat;
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setCategoryFilter(cat);
+                    setCategoryOpen(false);
+                  }}
+                  style={[
+                    factsStyles.categoryOption,
+                    {
+                      borderBottomColor: theme.border,
+                      backgroundColor: selected
+                        ? theme.surfaceSecondary
+                        : theme.surface,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      factsStyles.categoryOptionText,
+                      { color: selected ? theme.text : theme.textSecondary },
+                    ]}
+                  >
+                    {cat.toUpperCase()}
+                  </Text>
+                  {selected ? (
+                    <Ionicons name="checkmark" size={16} color={theme.text} />
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
+  );
+};
+
 // ─── Tabs ────────────────────────────────────────────────────────────────────
-const TABS = ["Main", "Home", "Away", "Stats", "Commentary", "Ball", "H2H"];
+const TABS = [
+  "Main",
+  "Home",
+  "Away",
+  "Stats",
+  "Commentary",
+  "Ball",
+  "Facts",
+  "H2H",
+];
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 const Top5GameDetailsScreen = ({ navigation, route }) => {
@@ -8596,6 +10299,14 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   const isScheduledGame =
     !stateCode ||
     ["NS", "TBA", "DELAYED"].includes((stateCode || "").toUpperCase());
+  const hasFacts = useMemo(
+    () =>
+      (data?.matchFacts ?? []).some((fact) => {
+        const typeId = Number(fact?.type_id);
+        return !FACTS_EXCLUDED_TYPE_IDS.has(typeId) && !!fact?.data;
+      }),
+    [data],
+  );
 
   const availableTabs = useMemo(
     () =>
@@ -8609,9 +10320,12 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
         if ((tab === "Home" || tab === "Away") && !hasLineups) {
           return false;
         }
+        if (tab === "Facts" && !hasFacts) {
+          return false;
+        }
         return true;
       }),
-    [isScheduledGame, hasLineups],
+    [isScheduledGame, hasLineups, hasFacts],
   );
 
   useEffect(() => {
@@ -9360,6 +11074,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 startingAt={fixture.starting_at ?? null}
                 theme={theme}
                 isDarkMode={isDarkMode}
+                navigation={navigation}
               />
               <RefereesSection
                 referees={fixture.referees ?? []}
@@ -9475,6 +11190,20 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               colors={colors}
             />
           )}
+          {activeTab === "Facts" && (
+            <View style={{ paddingTop: 6 }}>
+              <FactsSection
+                facts={data?.matchFacts ?? []}
+                home={home}
+                away={away}
+                fixture={fixture}
+                homeColor={homeColor}
+                awayColor={awayColor}
+                theme={theme}
+                onPlayerPress={openPlayerModal}
+              />
+            </View>
+          )}
           {activeTab === "H2H" && (
             <View style={{ paddingTop: 6 }}>
               <H2HSummarySection
@@ -9556,6 +11285,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
           startingAt={fixture?.starting_at ?? null}
           theme={theme}
           colors={colors}
+          navigation={navigation}
         />
 
         <View style={{ height: 32 }} />
@@ -10050,8 +11780,8 @@ const styles = StyleSheet.create({
   },
   homePitchDualCardTop: {
     position: "absolute",
-    top: -1,
-    right: -1,
+    top: -0.5,
+    right: -0.5,
   },
   homePitchCaptainText: {
     fontSize: 10,
@@ -10422,6 +12152,14 @@ const evStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+  },
+  homePitchIconBubble: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 0.5,
   },
   periodDividerLabel: {
     fontSize: 16,
@@ -10911,6 +12649,467 @@ const refStyles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     lineHeight: 17,
+  },
+});
+
+const factsStyles = StyleSheet.create({
+  wrap: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    gap: 10,
+  },
+  filterBar: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 10,
+    gap: 10,
+  },
+  segmentedRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  segmentBtn: {
+    flex: 1,
+    minHeight: 38,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  segmentText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  filterLogo: {
+    width: 18,
+    height: 18,
+  },
+  filterLogoFallback: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterLogoFallbackText: {
+    fontSize: 8,
+    fontWeight: "800",
+  },
+  bothLogoWrap: {
+    width: 24,
+    height: 18,
+  },
+  bothLogo: {
+    width: 18,
+    height: 18,
+    position: "absolute",
+    left: 0,
+    top: 0,
+  },
+  bothLogoSecond: {
+    left: 9,
+  },
+  bothLogoFallback: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "absolute",
+    left: 0,
+    top: 0,
+  },
+  categoryBtn: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  categoryBtnLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  categoryBtnValue: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  emptyText: {
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "500",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+  },
+  card: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  cardHeader: {
+    borderBottomWidth: 1.5,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  cardTitle: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  cardTeam: {
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  cardBody: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  cardFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  cardFooterText: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: "500",
+  },
+  metricsRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  metricCol: {
+    flex: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    minHeight: 62,
+  },
+  metricLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.25,
+  },
+  metricValue: {
+    marginTop: 4,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: "600",
+  },
+  timingWrap: {
+    gap: 8,
+  },
+  timingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  timingLabel: {
+    width: 42,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  timingTrack: {
+    flex: 1,
+    height: 10,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  timingFill: {
+    height: "100%",
+    minWidth: 3,
+    borderRadius: 999,
+  },
+  timingValue: {
+    width: 20,
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "right",
+  },
+  chartCard: {
+    marginTop: 6,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+    paddingHorizontal: 12,
+    paddingTop: 14,
+    paddingBottom: 12,
+  },
+  chartBars: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 4,
+  },
+  chartBarCol: { flex: 1, alignItems: "center" },
+  chartCountLabel: { fontSize: 10, minHeight: 14, textAlign: "center" },
+  chartBarArea: {
+    height: 80,
+    width: "100%",
+    justifyContent: "flex-end",
+    alignItems: "center",
+  },
+  chartBucketLabel: {
+    fontSize: 9,
+    marginTop: 4,
+    textAlign: "center",
+  },
+  scoreInfoRow: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  scoreInfoDateWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  scoreInfoDate: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  scoreInfoHint: {
+    marginTop: 2,
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  scoreInfoValues: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  scoreInfoItem: {
+    alignItems: "center",
+    minWidth: 44,
+  },
+  scoreInfoValue: {
+    fontSize: 18,
+    lineHeight: 20,
+    fontWeight: "800",
+  },
+  scoreInfoLabel: {
+    marginTop: 1,
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  relatedPlayerWrap: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    overflow: "hidden",
+    width: "100%",
+    marginHorizontal: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  relatedPlayerLeft: {
+    flex: 1,
+    minWidth: 0,
+  },
+  relatedPlayerRight: {
+    alignItems: "flex-end",
+  },
+  relatedPlayerName: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  relatedPlayerMeta: {
+    marginTop: 2,
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  relatedPlayerValue: {
+    fontSize: 18,
+    lineHeight: 20,
+    fontWeight: "800",
+  },
+  relatedPlayerMetric: {
+    marginTop: 1,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  goalLineWrap: {
+    gap: 8,
+  },
+  goalLineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  goalLineLabel: {
+    width: 34,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  goalLineSide: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    minWidth: 96,
+  },
+  goalLineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+  },
+  goalLineValue: {
+    fontSize: 11,
+    fontWeight: "700",
+    minWidth: 34,
+  },
+  goalLineSideLabel: {
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  goalLineSplitWrap: {
+    flexDirection: "column",
+    gap: 8,
+  },
+  goalLineHalf: {
+    flex: 1,
+    paddingVertical: 8,
+    backgroundColor: "transparent",
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  goalLineHalfTitle: {
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  goalLineRowSplit: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    marginVertical: 2,
+    paddingHorizontal: 8,
+    width: "100%",
+  },
+  goalLineSideSplit: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    minWidth: 60,
+  },
+  goalLineHalfBody: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  goalLineRowsCol: {
+    flex: 1,
+    alignItems: "flex-end",
+    paddingRight: 6,
+  },
+  goalLineDivider: {
+    alignSelf: "center",
+    width: "60%",
+    height: 1.5,
+    backgroundColor: "#bbb",
+    borderRadius: 2,
+    marginVertical: 6,
+    opacity: 0.5,
+  },
+
+  possessionSmallWrap: {
+    width: 96,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+  },
+  possessionCircleSmall: {
+    width: 80,
+    height: 80,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  possessionSvgSmall: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+  },
+  possessionCenterSmall: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  possessionCenterTextSmall: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  simpleRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  simpleCell: {
+    flex: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingVertical: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  simpleValue: {
+    fontSize: 17,
+    lineHeight: 19,
+    fontWeight: "800",
+  },
+  simpleLabel: {
+    marginTop: 2,
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.25,
+  },
+  categoryOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.24)",
+    justifyContent: "center",
+    paddingHorizontal: 30,
+  },
+  categorySheet: {
+    marginTop: 31,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  categoryOption: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  categoryOptionText: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.25,
   },
 });
 

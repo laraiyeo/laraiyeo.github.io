@@ -10,6 +10,8 @@ import {
 } from "react-native";
 import { useTheme } from "../../context/ThemeContext";
 import WBCService from "../../services/WBCService";
+import { useBetSlip } from '../../context/BetSlipContext';
+import { BannerAdWrapper } from '../../services/ads';
 
 // Expected-record helper: find the xWinLoss entry
 const getXR = (teamRecord) => {
@@ -153,6 +155,8 @@ const TeamRow = ({ teamRecord, isDarkMode, theme, route, navigation }) => {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 const WBCStandingsScreen = ({ route, navigation }) => {
   const { theme, colors, isDarkMode } = useTheme();
+  const { isPro } = useBetSlip();
+  const AD_SPACE = 80;
   const [selectedLeague, setSelectedLeague] = useState("WBC");
   const [standings, setStandings] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -246,7 +250,7 @@ const WBCStandingsScreen = ({ route, navigation }) => {
       {!loading && standings && (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: isPro ? 32 : 32 + AD_SPACE }]}
         >
           {standings.map((record, divIdx) => (
             <View key={divIdx} style={styles.divisionContainer}>
@@ -276,6 +280,11 @@ const WBCStandingsScreen = ({ route, navigation }) => {
             </View>
           ))}
         </ScrollView>
+      )}
+      {!isPro && (
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
+          <BannerAdWrapper />
+        </View>
       )}
     </View>
   );

@@ -3,6 +3,8 @@ import { View, Text, ScrollView, ActivityIndicator, Image, TouchableOpacity, Sty
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { useBetSlip } from '../../context/BetSlipContext';
+import { BannerAdWrapper } from '../../services/ads';
 import { useFavorites } from '../../context/FavoritesContext';
 import { NBAService } from '../../services/NBAService';
 
@@ -69,6 +71,8 @@ const TeamLogo = ({ teamAbbreviation, size, style, iconStyle }) => {
 
 const NBAStandingsScreen = () => {
   const { theme, colors, getTeamLogoUrl } = useTheme();
+  const { isPro } = useBetSlip();
+  const AD_SPACE = 80;
   const { isFavorite } = useFavorites();
   const navigation = useNavigation();
   const [loading, setLoading] = useState(false);
@@ -260,11 +264,16 @@ const NBAStandingsScreen = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: isPro ? 16 : 16 + AD_SPACE }]} showsVerticalScrollIndicator={false}>
         {Object.entries(standings).map(([conferenceName, divisions], conferenceIndex) => 
           renderConference(conferenceName, divisions, conferenceIndex)
         )}
       </ScrollView>
+      {!isPro && (
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
+          <BannerAdWrapper />
+        </View>
+      )}
     </View>
   );
 };
