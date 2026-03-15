@@ -1,30 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  FlatList, 
-  TouchableOpacity, 
-  Image, 
-  ActivityIndicator, 
-  StyleSheet 
-} from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
-import NBADataService from '../../services/NBADataService';
-import { useBetSlip } from '../../context/BetSlipContext';
-import { BannerAdWrapper } from '../../services/ads';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  StyleSheet,
+} from "react-native";
+import { useTheme } from "../../context/ThemeContext";
+import NBADataService from "../../services/NBADataService";
+import { useBetSlip } from "../../context/BetSlipContext";
+import { BannerAdWrapper } from "../../services/ads";
 
 const SearchScreen = ({ route, navigation }) => {
   const { sport } = route.params;
   const { theme, colors, getTeamLogoUrl, isDarkMode } = useTheme();
   const { isPro } = useBetSlip();
   const AD_SPACE = 80;
-  
-  const [searchQuery, setSearchQuery] = useState('');
+
+  const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  
+
   // Local state for NBA data
   const [nbaData, setNbaData] = useState(NBADataService.getData());
 
@@ -33,7 +33,7 @@ const SearchScreen = ({ route, navigation }) => {
     const initData = async () => {
       await NBADataService.initializeData();
     };
-    
+
     initData();
 
     // Listen for data updates
@@ -57,7 +57,7 @@ const SearchScreen = ({ route, navigation }) => {
 
   const performSearch = async (query) => {
     if (query.length < 3) return;
-    
+
     // Wait for data to be initialized if not already
     if (!nbaData.teamsCache || !nbaData.playersCache) {
       if (!nbaData.isInitializing) {
@@ -65,22 +65,22 @@ const SearchScreen = ({ route, navigation }) => {
       }
       return;
     }
-    
+
     setLoading(true);
     setHasSearched(true);
-    
+
     try {
       const teamResults = NBADataService.searchTeams(query);
       const playerResults = NBADataService.searchPlayers(query);
-      
+
       const combinedResults = [
-        ...teamResults.map(team => ({ ...team, type: 'team' })),
-        ...playerResults.map(player => ({ ...player, type: 'player' }))
+        ...teamResults.map((team) => ({ ...team, type: "team" })),
+        ...playerResults.map((player) => ({ ...player, type: "player" })),
       ];
-      
+
       setSearchResults(combinedResults);
     } catch (error) {
-      console.error('Search error:', error);
+      console.error("Search error:", error);
       setSearchResults([]);
     } finally {
       setLoading(false);
@@ -89,59 +89,87 @@ const SearchScreen = ({ route, navigation }) => {
 
   const getNBATeamAbbreviation = (team) => {
     const teamMapping = {
-      '1': 'ATL', '2': 'BOS', '3': 'BKN', '4': 'CHA', '5': 'CHI', '6': 'CLE',
-      '7': 'DAL', '8': 'DEN', '9': 'DET', '10': 'GSW', '11': 'HOU', '12': 'IND',
-      '13': 'LAC', '14': 'LAL', '15': 'MEM', '16': 'MIA', '17': 'MIL', '18': 'MIN',
-      '19': 'NOP', '20': 'NYK', '21': 'OKC', '22': 'ORL', '23': 'PHI', '24': 'PHX',
-      '25': 'POR', '26': 'SAC', '27': 'SAS', '28': 'TOR', '29': 'UTA', '30': 'WAS'
+      1: "ATL",
+      2: "BOS",
+      3: "BKN",
+      4: "CHA",
+      5: "CHI",
+      6: "CLE",
+      7: "DAL",
+      8: "DEN",
+      9: "DET",
+      10: "GSW",
+      11: "HOU",
+      12: "IND",
+      13: "LAC",
+      14: "LAL",
+      15: "MEM",
+      16: "MIA",
+      17: "MIL",
+      18: "MIN",
+      19: "NOP",
+      20: "NYK",
+      21: "OKC",
+      22: "ORL",
+      23: "PHI",
+      24: "PHX",
+      25: "POR",
+      26: "SAC",
+      27: "SAS",
+      28: "TOR",
+      29: "UTA",
+      30: "WAS",
     };
 
     if (team?.abbreviation) {
       return team.abbreviation;
     }
-    
+
     const abbr = teamMapping[team?.id?.toString()];
     if (abbr) {
       return abbr;
     }
-    
-    return team?.name?.substring(0, 3)?.toUpperCase() || 'NBA';
+
+    return team?.name?.substring(0, 3)?.toUpperCase() || "NBA";
   };
 
   const handleItemPress = (item) => {
-    if (item.type === 'team') {
-      navigation.navigate('TeamPage', {
+    if (item.type === "team") {
+      navigation.navigate("TeamPage", {
         teamId: item.id,
         teamName: item.displayName,
-        sport: sport
+        sport: sport,
       });
     } else {
-      navigation.navigate('PlayerPage', {
+      navigation.navigate("PlayerPage", {
         playerId: item.id,
         playerName: item.displayName,
         teamId: item.team?.id,
-        sport: sport
+        sport: sport,
       });
     }
   };
 
   const renderTeamItem = (item) => {
     const teamLogoUrl = `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500${isDarkMode ? "-dark" : ""}/scoreboard/${(item.abbreviation || "").toLowerCase()}.png&w=200&h=200`;
-    
+
     return (
       <TouchableOpacity
         style={[styles.resultItem, { backgroundColor: theme.surface }]}
         onPress={() => handleItemPress(item)}
       >
-        <Image
-          source={{ uri: teamLogoUrl }}
-          style={styles.teamLogo}
-        />
+        <Image source={{ uri: teamLogoUrl }} style={styles.teamLogo} />
         <View style={styles.teamInfo}>
-          <Text allowFontScaling={false} style={[styles.teamName, { color: theme.text }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.teamName, { color: theme.text }]}
+          >
             {item.displayName}
           </Text>
-          <Text allowFontScaling={false} style={[styles.teamDetails, { color: theme.textSecondary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.teamDetails, { color: theme.textSecondary }]}
+          >
             {item.location} • NBA
           </Text>
         </View>
@@ -150,25 +178,37 @@ const SearchScreen = ({ route, navigation }) => {
   };
 
   const renderPlayerItem = (item) => {
-    const teamAbbr = item.team?.abbreviation || getNBATeamAbbreviation(item.team) || 'NBA';
-    
+    const teamAbbr =
+      item.team?.abbreviation || getNBATeamAbbreviation(item.team) || "NBA";
+
     return (
       <TouchableOpacity
         style={[styles.resultItem, { backgroundColor: theme.surface }]}
         onPress={() => handleItemPress(item)}
       >
         <Image
-          source={{ 
-            uri: `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${item.id}.png&w=150` || `../../../assets/nba.png`
+          source={{
+            uri:
+              `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${item.id}.png&w=150` ||
+              `../../../assets/nba.png`,
           }}
-          style={[styles.playerHeadshot, { backgroundColor: `#${item.team?.color || '000000'}` + '88' }]}
+          style={[
+            styles.playerHeadshot,
+            { backgroundColor: `#${item.team?.color || "000000"}` + "88" },
+          ]}
         />
         <View style={styles.playerInfo}>
-          <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.playerName, { color: theme.text }]}
+          >
             {item.displayName}
           </Text>
-          <Text allowFontScaling={false} style={[styles.playerDetails, { color: theme.textSecondary }]}>
-            {item.position?.displayName || 'Player'} • {teamAbbr}
+          <Text
+            allowFontScaling={false}
+            style={[styles.playerDetails, { color: theme.textSecondary }]}
+          >
+            {item.position?.displayName || "Player"} • {teamAbbr}
           </Text>
         </View>
       </TouchableOpacity>
@@ -176,27 +216,43 @@ const SearchScreen = ({ route, navigation }) => {
   };
 
   const renderResultItem = ({ item }) => {
-    return item.type === 'team' ? renderTeamItem(item) : renderPlayerItem(item);
+    return item.type === "team" ? renderTeamItem(item) : renderPlayerItem(item);
   };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
       <View style={[styles.searchHeader, { backgroundColor: theme.surface }]}>
-        <Text allowFontScaling={false} style={[styles.title, { color: colors.primary }]}>Search</Text>
-        <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textSecondary }]}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.title, { color: colors.primary }]}
+        >
+          Search
+        </Text>
+        <Text
+          allowFontScaling={false}
+          style={[styles.subtitle, { color: theme.textSecondary }]}
+        >
           Search for {sport.toUpperCase()} teams and players
         </Text>
       </View>
 
       {/* Search Input */}
-      <View style={[styles.searchInputContainer, { backgroundColor: theme.surface }]}>
+      <View
+        style={[
+          styles.searchInputContainer,
+          { backgroundColor: theme.surface },
+        ]}
+      >
         <TextInput
-          style={[styles.searchInput, { 
-            color: theme.text, 
-            backgroundColor: theme.background,
-            borderColor: theme.border 
-          }]}
+          style={[
+            styles.searchInput,
+            {
+              color: theme.text,
+              backgroundColor: theme.background,
+              borderColor: theme.border,
+            },
+          ]}
           placeholder="Search teams and players... (3 characters minimum)"
           placeholderTextColor={theme.textSecondary}
           value={searchQuery}
@@ -211,7 +267,10 @@ const SearchScreen = ({ route, navigation }) => {
         {nbaData.isInitializing && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.loadingText, { color: theme.textSecondary }]}
+            >
               Loading NBA data...
             </Text>
           </View>
@@ -220,22 +279,34 @@ const SearchScreen = ({ route, navigation }) => {
         {!nbaData.isInitializing && loading && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.loadingText, { color: theme.textSecondary }]}
+            >
               Searching...
             </Text>
           </View>
         )}
 
-        {!nbaData.isInitializing && !loading && hasSearched && searchResults.length === 0 && (
-          <View style={styles.noResultsContainer}>
-            <Text allowFontScaling={false} style={[styles.noResultsText, { color: theme.textSecondary }]}>
-              No results found for "{searchQuery}"
-            </Text>
-            <Text allowFontScaling={false} style={[styles.noResultsSubtext, { color: theme.textTertiary }]}>
-              Try searching for team names or player names
-            </Text>
-          </View>
-        )}
+        {!nbaData.isInitializing &&
+          !loading &&
+          hasSearched &&
+          searchResults.length === 0 && (
+            <View style={styles.noResultsContainer}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.noResultsText, { color: theme.textSecondary }]}
+              >
+                No results found for "{searchQuery}"
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.noResultsSubtext, { color: theme.textTertiary }]}
+              >
+                Try searching for team names or player names
+              </Text>
+            </View>
+          )}
 
         {!nbaData.isInitializing && !loading && searchResults.length > 0 && (
           <FlatList
@@ -243,17 +314,28 @@ const SearchScreen = ({ route, navigation }) => {
             renderItem={renderResultItem}
             keyExtractor={(item) => `${item.type}-${item.id}`}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={[styles.resultsList, { paddingBottom: isPro ? 20 : 20 + AD_SPACE }]}
+            contentContainerStyle={[
+              styles.resultsList,
+              { paddingBottom: isPro ? 20 : 20 + AD_SPACE },
+            ]}
           />
         )}
 
-        {!nbaData.isInitializing && !hasSearched && searchQuery.length === 0 && (
-          <View style={styles.instructionsContainer}>
-            <Text allowFontScaling={false} style={[styles.instructionsText, { color: theme.textSecondary }]}>
-              Enter at least 3 characters to search for teams and players
-            </Text>
-          </View>
-        )}
+        {!nbaData.isInitializing &&
+          !hasSearched &&
+          searchQuery.length === 0 && (
+            <View style={styles.instructionsContainer}>
+              <Text
+                allowFontScaling={false}
+                style={[
+                  styles.instructionsText,
+                  { color: theme.textSecondary },
+                ]}
+              >
+                Enter at least 3 characters to search for teams and players
+              </Text>
+            </View>
+          )}
       </View>
     </View>
   );
@@ -266,7 +348,7 @@ const styles = StyleSheet.create({
   searchHeader: {
     padding: 20,
     paddingBottom: 15,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -277,7 +359,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 5,
   },
   subtitle: {
@@ -285,7 +367,7 @@ const styles = StyleSheet.create({
   },
   searchInputContainer: {
     padding: 15,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
@@ -307,8 +389,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingTop: 50,
   },
   loadingText: {
@@ -317,28 +399,28 @@ const styles = StyleSheet.create({
   },
   noResultsContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingTop: 50,
   },
   noResultsText: {
     fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
     marginBottom: 5,
   },
   noResultsSubtext: {
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
   },
   instructionsContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   instructionsText: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginHorizontal: 20,
   },
   resultsList: {
@@ -346,12 +428,12 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   resultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 15,
     marginVertical: 5,
     borderRadius: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
@@ -370,7 +452,7 @@ const styles = StyleSheet.create({
   },
   teamName: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 2,
   },
   teamDetails: {
@@ -387,7 +469,7 @@ const styles = StyleSheet.create({
   },
   playerName: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 2,
   },
   playerDetails: {

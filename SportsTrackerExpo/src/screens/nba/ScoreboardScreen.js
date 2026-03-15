@@ -877,20 +877,33 @@ const NBAScoreboardScreen = ({ navigation }) => {
                   </Text>
                 )}
                 {item.season &&
-                (item.season.type === 3 || item.season.type === 4 || item.season.type === 5) && item.notes ? (
-                <View style = {{ flexDirection: "row", alignItems: "center", marginBottom: 2 }}>
-                  <Ionicons
-                    name="trophy"
-                    size={16}
-                    color={colors.primary}
-                    style={{ marginRight: 8 }}
-                  />
-                  <Text
-                    allowFontScaling={false}
-                    style={[styles.playoffIndicator, { color: colors.primary, fontWeight: '700' }]}>
-                    {item.notes}
-                  </Text>
-                </View>
+                (item.season.type === 3 ||
+                  item.season.type === 4 ||
+                  item.season.type === 5) &&
+                item.notes ? (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginBottom: 2,
+                    }}
+                  >
+                    <Ionicons
+                      name="trophy"
+                      size={16}
+                      color={colors.primary}
+                      style={{ marginRight: 8 }}
+                    />
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.playoffIndicator,
+                        { color: colors.primary, fontWeight: "700" },
+                      ]}
+                    >
+                      {item.notes}
+                    </Text>
+                  </View>
                 ) : null}
                 {item.broadcast && (
                   <Text
@@ -960,11 +973,22 @@ const NBAScoreboardScreen = ({ navigation }) => {
             tintColor={colors.primary}
           />
         }
-        contentContainerStyle={[styles.listContent, { paddingBottom: isPro ? 16 : 16 + AD_SPACE }]}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: isPro ? 16 : 16 + AD_SPACE },
+        ]}
         showsVerticalScrollIndicator={false}
       />
       {!isPro && (
-        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: "center",
+          }}
+        >
           <BannerAdWrapper />
         </View>
       )}

@@ -10,8 +10,8 @@ import {
 } from "react-native";
 import { useTheme } from "../../context/ThemeContext";
 import WBCService from "../../services/WBCService";
-import { useBetSlip } from '../../context/BetSlipContext';
-import { BannerAdWrapper } from '../../services/ads';
+import { useBetSlip } from "../../context/BetSlipContext";
+import { BannerAdWrapper } from "../../services/ads";
 
 // Expected-record helper: find the xWinLoss entry
 const getXR = (teamRecord) => {
@@ -250,7 +250,10 @@ const WBCStandingsScreen = ({ route, navigation }) => {
       {!loading && standings && (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: isPro ? 32 : 32 + AD_SPACE }]}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: isPro ? 32 : 32 + AD_SPACE },
+          ]}
         >
           {standings.map((record, divIdx) => (
             <View key={divIdx} style={styles.divisionContainer}>
@@ -282,7 +285,15 @@ const WBCStandingsScreen = ({ route, navigation }) => {
         </ScrollView>
       )}
       {!isPro && (
-        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: "center",
+          }}
+        >
           <BannerAdWrapper />
         </View>
       )}

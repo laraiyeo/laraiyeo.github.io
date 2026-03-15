@@ -728,11 +728,22 @@ export default function Top5SearchScreen() {
             </Text>
           </View>
         }
-        contentContainerStyle={{ paddingBottom: isPro ? 24 : 24 + AD_SPACE, paddingTop: 8 }}
+        contentContainerStyle={{
+          paddingBottom: isPro ? 24 : 24 + AD_SPACE,
+          paddingTop: 8,
+        }}
       />
 
       {!isPro && (
-        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: "center",
+          }}
+        >
           <BannerAdWrapper />
         </View>
       )}

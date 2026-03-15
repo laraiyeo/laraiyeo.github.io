@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
-  Image, 
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
   ActivityIndicator,
   Modal,
-  FlatList 
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '../../context/ThemeContext';
-import { useBetSlip } from '../../context/BetSlipContext';
-import { BannerAdWrapper } from '../../services/ads';
+  FlatList,
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { useTheme } from "../../context/ThemeContext";
+import { useBetSlip } from "../../context/BetSlipContext";
+import { BannerAdWrapper } from "../../services/ads";
 
 const StatsScreen = ({ route }) => {
   const { sport } = route.params;
@@ -21,35 +21,35 @@ const StatsScreen = ({ route }) => {
   const { isPro } = useBetSlip();
   const AD_SPACE = 80;
   const navigation = useNavigation();
-  
-  const [selectedLeague, setSelectedLeague] = useState('ALL');
+
+  const [selectedLeague, setSelectedLeague] = useState("ALL");
   const [hittingStats, setHittingStats] = useState({});
   const [pitchingStats, setPitchingStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalData, setModalData] = useState([]);
-  const [modalTitle, setModalTitle] = useState('');
+  const [modalTitle, setModalTitle] = useState("");
 
   const leagues = [
-    { key: 'ALL', name: 'All MLB', id: null },
-    { key: 'AL', name: 'American League', id: 103 },
-    { key: 'NL', name: 'National League', id: 104 }
+    { key: "ALL", name: "All MLB", id: null },
+    { key: "AL", name: "American League", id: 103 },
+    { key: "NL", name: "National League", id: 104 },
   ];
 
   const hittingCategories = [
-    { key: 'battingAverage', name: 'Batting Average', abbr: 'AVG' },
-    { key: 'homeRuns', name: 'Home Runs', abbr: 'HR' },
-    { key: 'runsBattedIn', name: 'RBIs', abbr: 'RBI' },
-    { key: 'hits', name: 'Hits', abbr: 'H' },
-    { key: 'runs', name: 'Runs', abbr: 'R' },
-    { key: 'stolenBases', name: 'Stolen Bases', abbr: 'SB' }
+    { key: "battingAverage", name: "Batting Average", abbr: "AVG" },
+    { key: "homeRuns", name: "Home Runs", abbr: "HR" },
+    { key: "runsBattedIn", name: "RBIs", abbr: "RBI" },
+    { key: "hits", name: "Hits", abbr: "H" },
+    { key: "runs", name: "Runs", abbr: "R" },
+    { key: "stolenBases", name: "Stolen Bases", abbr: "SB" },
   ];
 
   const pitchingCategories = [
-    { key: 'earnedRunAverage', name: 'Earned Run Average', abbr: 'ERA' },
-    { key: 'strikeouts', name: 'Strikeouts', abbr: 'SO' },
-    { key: 'wins', name: 'Wins', abbr: 'W' },
-    { key: 'saves', name: 'Saves', abbr: 'SV' }
+    { key: "earnedRunAverage", name: "Earned Run Average", abbr: "ERA" },
+    { key: "strikeouts", name: "Strikeouts", abbr: "SO" },
+    { key: "wins", name: "Wins", abbr: "W" },
+    { key: "saves", name: "Saves", abbr: "SV" },
   ];
 
   useEffect(() => {
@@ -59,38 +59,41 @@ const StatsScreen = ({ route }) => {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const leagueParam = selectedLeague === 'ALL' ? '' : `&leagueId=${leagues.find(l => l.key === selectedLeague).id}`;
-      
+      const leagueParam =
+        selectedLeague === "ALL"
+          ? ""
+          : `&leagueId=${leagues.find((l) => l.key === selectedLeague).id}`;
+
       // Use current year for API calls since MLB has 2026 data available
       const currentYear = new Date().getFullYear();
       const [hittingResponse, pitchingResponse] = await Promise.all([
         fetch(
-          `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=battingAverage,homeRuns,rbi,hits,runs,stolenBases&leaderGameTypes=R&season=${currentYear}&limit=10${leagueParam}&statGroup=hitting`
+          `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=battingAverage,homeRuns,rbi,hits,runs,stolenBases&leaderGameTypes=R&season=${currentYear}&limit=10${leagueParam}&statGroup=hitting`,
         ),
         fetch(
-          `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=era,strikeouts,wins,saves&leaderGameTypes=R&season=${currentYear}&limit=10${leagueParam}&statGroup=pitching`
-        )
+          `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=era,strikeouts,wins,saves&leaderGameTypes=R&season=${currentYear}&limit=10${leagueParam}&statGroup=pitching`,
+        ),
       ]);
-      
+
       const hittingData = await hittingResponse.json();
       const pitchingData = await pitchingResponse.json();
-      
+
       // Process hitting stats
       const processedHitting = {};
-      hittingData.leagueLeaders?.forEach(category => {
+      hittingData.leagueLeaders?.forEach((category) => {
         processedHitting[category.leaderCategory] = category.leaders;
       });
-      
+
       // Process pitching stats
       const processedPitching = {};
-      pitchingData.leagueLeaders?.forEach(category => {
+      pitchingData.leagueLeaders?.forEach((category) => {
         processedPitching[category.leaderCategory] = category.leaders;
       });
-      
+
       setHittingStats(processedHitting);
       setPitchingStats(processedPitching);
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error("Error fetching stats:", error);
     } finally {
       setLoading(false);
     }
@@ -98,14 +101,38 @@ const StatsScreen = ({ route }) => {
 
   const getTeamAbbreviation = (teamId) => {
     const teamMapping = {
-      108: 'LAA', 109: 'ARI', 110: 'BAL', 111: 'BOS', 112: 'CHC',
-      113: 'CIN', 114: 'CLE', 115: 'COL', 116: 'DET', 117: 'HOU',
-      118: 'KC', 119: 'LAD', 120: 'WSH', 121: 'NYM', 133: 'OAK',
-      134: 'PIT', 135: 'SD', 136: 'SEA', 137: 'SF', 138: 'STL',
-      139: 'TB', 140: 'TEX', 141: 'TOR', 142: 'MIN', 143: 'PHI',
-      144: 'ATL', 145: 'CWS', 146: 'MIA', 147: 'NYY', 158: 'MIL'
+      108: "LAA",
+      109: "ARI",
+      110: "BAL",
+      111: "BOS",
+      112: "CHC",
+      113: "CIN",
+      114: "CLE",
+      115: "COL",
+      116: "DET",
+      117: "HOU",
+      118: "KC",
+      119: "LAD",
+      120: "WSH",
+      121: "NYM",
+      133: "OAK",
+      134: "PIT",
+      135: "SD",
+      136: "SEA",
+      137: "SF",
+      138: "STL",
+      139: "TB",
+      140: "TEX",
+      141: "TOR",
+      142: "MIN",
+      143: "PHI",
+      144: "ATL",
+      145: "CWS",
+      146: "MIA",
+      147: "NYY",
+      158: "MIL",
     };
-    return teamMapping[teamId] || 'MLB';
+    return teamMapping[teamId] || "MLB";
   };
 
   const openModal = (leaders, categoryName) => {
@@ -116,32 +143,46 @@ const StatsScreen = ({ route }) => {
 
   const renderLeaderRow = (leader, index, isFirst = false) => {
     const teamAbbr = getTeamAbbreviation(leader.team.id);
-    
+
     if (isFirst) {
       return (
-        <View key={leader.person.id} style={[styles.firstLeaderRow, { borderBottomColor: theme.border }]}>
+        <View
+          key={leader.person.id}
+          style={[styles.firstLeaderRow, { borderBottomColor: theme.border }]}
+        >
           <Image
-            source={{ 
-              uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${leader.person.id}/headshot/67/current`
+            source={{
+              uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${leader.person.id}/headshot/67/current`,
             }}
             style={styles.playerHeadshot}
-            defaultSource={{ uri: 'https://via.placeholder.com/50x50?text=MLB' }}
+            defaultSource={{
+              uri: "https://via.placeholder.com/50x50?text=MLB",
+            }}
           />
           <View style={styles.firstLeaderInfo}>
             <View style={styles.playerNameRow}>
               <Image
-                source={{ uri: getTeamLogoUrl('mlb', teamAbbr) }}
+                source={{ uri: getTeamLogoUrl("mlb", teamAbbr) }}
                 style={styles.teamLogoSmall}
               />
-              <Text allowFontScaling={false} style={[styles.playerName, { color: theme.text }]}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.playerName, { color: theme.text }]}
+              >
                 {leader.person.fullName}
               </Text>
             </View>
-            <Text allowFontScaling={false} style={[styles.teamName, { color: theme.textSecondary }]}>
+            <Text
+              allowFontScaling={false}
+              style={[styles.teamName, { color: theme.textSecondary }]}
+            >
               {leader.team.name}
             </Text>
           </View>
-          <Text allowFontScaling={false} style={[styles.statValue, { color: colors.primary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.statValue, { color: colors.primary }]}
+          >
             {leader.value}
           </Text>
         </View>
@@ -149,17 +190,26 @@ const StatsScreen = ({ route }) => {
     } else {
       return (
         <View key={leader.person.id} style={styles.leaderRow}>
-          <Text allowFontScaling={false} style={[styles.rank, { color: theme.textSecondary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.rank, { color: theme.textSecondary }]}
+          >
             {leader.rank}
           </Text>
           <Image
-            source={{ uri: getTeamLogoUrl('mlb', teamAbbr) }}
+            source={{ uri: getTeamLogoUrl("mlb", teamAbbr) }}
             style={styles.teamLogoSmall}
           />
-          <Text allowFontScaling={false} style={[styles.playerNameCompact, { color: theme.text }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.playerNameCompact, { color: theme.text }]}
+          >
             {leader.person.fullName}
           </Text>
-          <Text allowFontScaling={false} style={[styles.statValueCompact, { color: colors.primary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.statValueCompact, { color: colors.primary }]}
+          >
             {leader.value}
           </Text>
         </View>
@@ -170,21 +220,27 @@ const StatsScreen = ({ route }) => {
   const renderCategory = (categoryKey, categoryInfo, stats) => {
     const leaders = stats[categoryKey] || [];
     const displayLeaders = leaders.slice(0, 5);
-    
+
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         key={categoryKey}
         style={[styles.categoryContainer, { backgroundColor: theme.surface }]}
         onPress={() => openModal(leaders, categoryInfo.name)}
       >
-        <Text allowFontScaling={false} style={[styles.categoryTitle, { color: colors.primary }]}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.categoryTitle, { color: colors.primary }]}
+        >
           {categoryInfo.name}
         </Text>
-        {displayLeaders.map((leader, index) => 
-          renderLeaderRow(leader, index, index === 0)
+        {displayLeaders.map((leader, index) =>
+          renderLeaderRow(leader, index, index === 0),
         )}
         {leaders.length > 5 && (
-          <Text allowFontScaling={false} style={[styles.viewMore, { color: colors.secondary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.viewMore, { color: colors.secondary }]}
+          >
             Tap to view all {leaders.length} leaders
           </Text>
         )}
@@ -193,41 +249,55 @@ const StatsScreen = ({ route }) => {
   };
 
   const renderModalItem = ({ item, index }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={[styles.modalItem, { backgroundColor: theme.surface }]}
       onPress={() => {
         setModalVisible(false);
-        navigation.navigate('PlayerPage', { 
-          playerId: item.person.id, 
-          sport: 'mlb' 
+        navigation.navigate("PlayerPage", {
+          playerId: item.person.id,
+          sport: "mlb",
         });
       }}
     >
-      <Text allowFontScaling={false} style={[styles.modalRank, { color: theme.textSecondary }]}>
+      <Text
+        allowFontScaling={false}
+        style={[styles.modalRank, { color: theme.textSecondary }]}
+      >
         {item.rank}
       </Text>
       <Image
-        source={{ 
-          uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${item.person.id}/headshot/67/current`
+        source={{
+          uri: `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${item.person.id}/headshot/67/current`,
         }}
         style={styles.modalHeadshot}
-        defaultSource={{ uri: 'https://via.placeholder.com/40x40?text=MLB' }}
+        defaultSource={{ uri: "https://via.placeholder.com/40x40?text=MLB" }}
       />
       <View style={styles.modalPlayerInfo}>
         <View style={styles.modalNameRow}>
           <Image
-            source={{ uri: getTeamLogoUrl('mlb', getTeamAbbreviation(item.team.id)) }}
+            source={{
+              uri: getTeamLogoUrl("mlb", getTeamAbbreviation(item.team.id)),
+            }}
             style={styles.modalTeamLogo}
           />
-          <Text allowFontScaling={false} style={[styles.modalPlayerName, { color: theme.text }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.modalPlayerName, { color: theme.text }]}
+          >
             {item.person.fullName}
           </Text>
         </View>
-        <Text allowFontScaling={false} style={[styles.modalTeamName, { color: theme.textSecondary }]}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.modalTeamName, { color: theme.textSecondary }]}
+        >
           {item.team.name}
         </Text>
       </View>
-      <Text allowFontScaling={false} style={[styles.modalStatValue, { color: colors.primary }]}>
+      <Text
+        allowFontScaling={false}
+        style={[styles.modalStatValue, { color: colors.primary }]}
+      >
         {item.value}
       </Text>
     </TouchableOpacity>
@@ -235,9 +305,14 @@ const StatsScreen = ({ route }) => {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+      <View
+        style={[styles.loadingContainer, { backgroundColor: theme.background }]}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text allowFontScaling={false} style={[styles.loadingText, { color: theme.textSecondary }]}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.loadingText, { color: theme.textSecondary }]}
+        >
           Loading stats...
         </Text>
       </View>
@@ -247,44 +322,71 @@ const StatsScreen = ({ route }) => {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* League Selector */}
-      <View style={[styles.leagueSelector, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-        {leagues.map(league => (
+      <View
+        style={[
+          styles.leagueSelector,
+          { backgroundColor: theme.surface, borderBottomColor: theme.border },
+        ]}
+      >
+        {leagues.map((league) => (
           <TouchableOpacity
             key={league.key}
             style={[
               styles.leagueButton,
-              { 
-                backgroundColor: selectedLeague === league.key ? colors.primary : 'transparent',
-                borderColor: colors.primary
-              }
+              {
+                backgroundColor:
+                  selectedLeague === league.key
+                    ? colors.primary
+                    : "transparent",
+                borderColor: colors.primary,
+              },
             ]}
             onPress={() => setSelectedLeague(league.key)}
           >
-            <Text allowFontScaling={false} style={[
-              styles.leagueButtonText,
-              { color: selectedLeague === league.key ? '#fff' : colors.primary }
-            ]}>
+            <Text
+              allowFontScaling={false}
+              style={[
+                styles.leagueButtonText,
+                {
+                  color:
+                    selectedLeague === league.key ? "#fff" : colors.primary,
+                },
+              ]}
+            >
               {league.key}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollView, { paddingBottom: isPro ? 16 : 16 + AD_SPACE }] }>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollView,
+          { paddingBottom: isPro ? 16 : 16 + AD_SPACE },
+        ]}
+      >
         {/* Hitting Stats */}
-        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text, marginTop: -5 }]}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.sectionTitle, { color: theme.text, marginTop: -5 }]}
+        >
           Hitting Leaders
         </Text>
-        {hittingCategories.map(category => 
-          renderCategory(category.key, category, hittingStats)
+        {hittingCategories.map((category) =>
+          renderCategory(category.key, category, hittingStats),
         )}
 
         {/* Pitching Stats */}
-        <Text allowFontScaling={false} style={[styles.sectionTitle, { color: theme.text }]}>
+        <Text
+          allowFontScaling={false}
+          style={[styles.sectionTitle, { color: theme.text }]}
+        >
           Pitching Leaders
         </Text>
-        {pitchingCategories.map(category => 
-          renderCategory(category.key, category, pitchingStats)
+        {pitchingCategories.map((category) =>
+          renderCategory(category.key, category, pitchingStats),
         )}
       </ScrollView>
 
@@ -295,16 +397,32 @@ const StatsScreen = ({ route }) => {
         presentationStyle="pageSheet"
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
-          <View style={[styles.modalHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-            <Text allowFontScaling={false} style={[styles.modalHeaderTitle, { color: theme.text }]}>
+        <View
+          style={[styles.modalContainer, { backgroundColor: theme.background }]}
+        >
+          <View
+            style={[
+              styles.modalHeader,
+              {
+                backgroundColor: theme.surface,
+                borderBottomColor: theme.border,
+              },
+            ]}
+          >
+            <Text
+              allowFontScaling={false}
+              style={[styles.modalHeaderTitle, { color: theme.text }]}
+            >
               {modalTitle} Leaders
             </Text>
             <TouchableOpacity
               onPress={() => setModalVisible(false)}
               style={styles.modalCloseButton}
             >
-              <Text allowFontScaling={false} style={[styles.modalCloseText, { color: colors.primary }]}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.modalCloseText, { color: colors.primary }]}
+              >
                 Close
               </Text>
             </TouchableOpacity>
@@ -312,13 +430,21 @@ const StatsScreen = ({ route }) => {
           <FlatList
             data={modalData}
             renderItem={renderModalItem}
-            keyExtractor={item => item.person.id.toString()}
+            keyExtractor={(item) => item.person.id.toString()}
             style={styles.modalList}
           />
         </View>
       </Modal>
       {!isPro && (
-        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: "center",
+          }}
+        >
           <BannerAdWrapper />
         </View>
       )}
@@ -332,20 +458,20 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
   },
   leagueSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: "#e0e0e0",
   },
   leagueButton: {
     paddingVertical: 8,
@@ -353,11 +479,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     minWidth: 60,
-    alignItems: 'center',
+    alignItems: "center",
   },
   leagueButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   scrollView: {
     flex: 1,
@@ -365,16 +491,16 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 22,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginTop: 20,
     marginBottom: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   categoryContainer: {
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -385,16 +511,16 @@ const styles = StyleSheet.create({
   },
   categoryTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   firstLeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: "#e0e0e0",
     marginBottom: 8,
   },
   playerHeadshot: {
@@ -407,8 +533,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   playerNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 4,
   },
   teamLogoSmall: {
@@ -418,27 +544,27 @@ const styles = StyleSheet.create({
   },
   playerName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   teamName: {
     fontSize: 14,
   },
   statValue: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     minWidth: 60,
-    textAlign: 'right',
+    textAlign: "right",
   },
   leaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 8,
   },
   rank: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     width: 30,
-    textAlign: 'center',
+    textAlign: "center",
   },
   playerNameCompact: {
     flex: 1,
@@ -447,54 +573,54 @@ const styles = StyleSheet.create({
   },
   statValueCompact: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     minWidth: 50,
-    textAlign: 'right',
+    textAlign: "right",
   },
   viewMore: {
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 8,
     fontSize: 12,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   modalContainer: {
     flex: 1,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: "#e0e0e0",
   },
   modalHeaderTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   modalCloseButton: {
     padding: 8,
   },
   modalCloseText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   modalList: {
     flex: 1,
     padding: 16,
   },
   modalItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
   },
   modalRank: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     width: 30,
-    textAlign: 'center',
+    textAlign: "center",
   },
   modalHeadshot: {
     width: 40,
@@ -506,8 +632,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 2,
   },
   modalTeamLogo: {
@@ -517,16 +643,16 @@ const styles = StyleSheet.create({
   },
   modalPlayerName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   modalTeamName: {
     fontSize: 12,
   },
   modalStatValue: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     minWidth: 60,
-    textAlign: 'right',
+    textAlign: "right",
   },
 });
 

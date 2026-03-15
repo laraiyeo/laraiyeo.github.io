@@ -124,101 +124,114 @@ export default function Top5LeaguesScreen({ navigation }) {
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       <FlatList
         style={{ backgroundColor: theme.background }}
-        contentContainerStyle={{ ...styles.list, paddingBottom: isPro ? 32 : 32 + AD_SPACE }}
+        contentContainerStyle={{
+          ...styles.list,
+          paddingBottom: isPro ? 32 : 32 + AD_SPACE,
+        }}
         data={rows}
-      keyExtractor={(_, idx) => String(idx)}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={colors.primary}
-        />
-      }
-      renderItem={({ item: row }) => (
-        <View style={styles.rowWrap}>
-          {row.map((item) => (
-            <TouchableOpacity
-              key={String(item.id)}
-              activeOpacity={0.75}
-              onPress={() =>
-                navigation.navigate("Top5LeagueDetail", {
-                  leagueId: item.id,
-                  leagueName: item.name,
-                })
-              }
-              style={[
-                styles.card,
-                { backgroundColor: theme.surface, width: CARD_WIDTH },
-              ]}
-            >
-              {/* League logo */}
-              <View style={styles.logoWrap}>
-                {item.image_path ? (
-                  <Image
-                    source={{ uri: item.image_path }}
-                    style={[
-                      styles.logo,
-                      {
-                        tintColor:
-                          item.id === 8 && isDarkMode ? theme.text : undefined,
-                      },
-                    ]}
-                    resizeMode="contain"
-                  />
-                ) : (
+        keyExtractor={(_, idx) => String(idx)}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+        renderItem={({ item: row }) => (
+          <View style={styles.rowWrap}>
+            {row.map((item) => (
+              <TouchableOpacity
+                key={String(item.id)}
+                activeOpacity={0.75}
+                onPress={() =>
+                  navigation.navigate("Top5LeagueDetail", {
+                    leagueId: item.id,
+                    leagueName: item.name,
+                  })
+                }
+                style={[
+                  styles.card,
+                  { backgroundColor: theme.surface, width: CARD_WIDTH },
+                ]}
+              >
+                {/* League logo */}
+                <View style={styles.logoWrap}>
+                  {item.image_path ? (
+                    <Image
+                      source={{ uri: item.image_path }}
+                      style={[
+                        styles.logo,
+                        {
+                          tintColor:
+                            item.id === 8 && isDarkMode
+                              ? theme.text
+                              : undefined,
+                        },
+                      ]}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.logo,
+                        styles.logoPlaceholder,
+                        { backgroundColor: theme.surfaceSecondary },
+                      ]}
+                    >
+                      <Text style={{ fontSize: 22 }}>⚽</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Name */}
+                <Text
+                  style={[styles.name, { color: theme.text }]}
+                  numberOfLines={2}
+                >
+                  {item.name}
+                </Text>
+
+                {/* Season */}
+                {item.currentseason?.name ? (
+                  <Text
+                    style={[styles.season, { color: theme.textSecondary }]}
+                    numberOfLines={1}
+                  >
+                    {item.currentseason.name}
+                  </Text>
+                ) : null}
+
+                {/* Sub-type badge */}
+                {item.sub_type ? (
                   <View
                     style={[
-                      styles.logo,
-                      styles.logoPlaceholder,
-                      { backgroundColor: theme.surfaceSecondary },
+                      styles.badge,
+                      { backgroundColor: colors.primary + "22" },
                     ]}
                   >
-                    <Text style={{ fontSize: 22 }}>⚽</Text>
+                    <Text style={[styles.badgeText, { color: colors.primary }]}>
+                      {titleCaseHyphen(item.sub_type)}
+                    </Text>
                   </View>
-                )}
-              </View>
-
-              {/* Name */}
-              <Text
-                style={[styles.name, { color: theme.text }]}
-                numberOfLines={2}
-              >
-                {item.name}
-              </Text>
-
-              {/* Season */}
-              {item.currentseason?.name ? (
-                <Text
-                  style={[styles.season, { color: theme.textSecondary }]}
-                  numberOfLines={1}
-                >
-                  {item.currentseason.name}
-                </Text>
-              ) : null}
-
-              {/* Sub-type badge */}
-              {item.sub_type ? (
-                <View
-                  style={[
-                    styles.badge,
-                    { backgroundColor: colors.primary + "22" },
-                  ]}
-                >
-                  <Text style={[styles.badgeText, { color: colors.primary }]}>
-                    {titleCaseHyphen(item.sub_type)}
-                  </Text>
-                </View>
-              ) : null}
-            </TouchableOpacity>
-          ))}
-          {/* Fill empty slot in odd row */}
-          {row.length === 1 && <View style={{ width: CARD_WIDTH }} />}
-        </View>
-      )}
+                ) : null}
+              </TouchableOpacity>
+            ))}
+            {/* Fill empty slot in odd row */}
+            {row.length === 1 && <View style={{ width: CARD_WIDTH }} />}
+          </View>
+        )}
       />
 
       {!isPro && (
-        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: "center",
+          }}
+        >
           <BannerAdWrapper />
         </View>
       )}

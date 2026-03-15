@@ -1326,7 +1326,6 @@ const MLBScoreboardScreen = ({ navigation }) => {
 
         {/* Section title + date filters */}
         <View style={styles.section}>
-
           <View style={styles.filtersRow}>
             {["yesterday", "today", "upcoming"].map((filter) => (
               <TouchableOpacity
@@ -1400,10 +1399,20 @@ const MLBScoreboardScreen = ({ navigation }) => {
           )}
         </View>
 
-        <View style={[styles.bottomPadding, { height: isPro ? 32 : 32 + AD_SPACE }]} />
+        <View
+          style={[styles.bottomPadding, { height: isPro ? 32 : 32 + AD_SPACE }]}
+        />
       </ScrollView>
       {!isPro && (
-        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: "center",
+          }}
+        >
           <BannerAdWrapper />
         </View>
       )}

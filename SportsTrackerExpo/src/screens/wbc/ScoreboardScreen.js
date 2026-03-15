@@ -11,8 +11,8 @@ import {
   RefreshControl,
 } from "react-native";
 import { useTheme } from "../../context/ThemeContext";
-import { useBetSlip } from '../../context/BetSlipContext';
-import { BannerAdWrapper } from '../../services/ads';
+import { useBetSlip } from "../../context/BetSlipContext";
+import { BannerAdWrapper } from "../../services/ads";
 import WBCService from "../../services/WBCService";
 import { LiveViewerBadge } from "../../components/ViewerCounter";
 import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
@@ -1045,7 +1045,6 @@ const ScoreboardScreen = ({ navigation, route }) => {
 
         {/* Section title + date filters */}
         <View style={styles.section}>
-
           <View style={styles.upcomingFilters}>
             {["yesterday", "today", "tomorrow"].map((filter) => (
               <TouchableOpacity
@@ -1111,7 +1110,15 @@ const ScoreboardScreen = ({ navigation, route }) => {
         <View style={{ height: isPro ? 32 : 32 + AD_SPACE }} />
       </ScrollView>
       {!isPro && (
-        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: "center",
+          }}
+        >
           <BannerAdWrapper />
         </View>
       )}

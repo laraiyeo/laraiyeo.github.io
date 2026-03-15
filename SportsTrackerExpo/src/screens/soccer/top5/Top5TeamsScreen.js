@@ -622,7 +622,15 @@ export default function Top5TeamsScreen({ navigation }) {
                   {item._league?.image_path ? (
                     <Image
                       source={{ uri: item._league.image_path }}
-                      style={[styles.rowLeagueLogo, { tintColor: item._league.name === "Premier League" && isDarkMode ? theme.text : undefined }]}
+                      style={[
+                        styles.rowLeagueLogo,
+                        {
+                          tintColor:
+                            item._league.name === "Premier League" && isDarkMode
+                              ? theme.text
+                              : undefined,
+                        },
+                      ]}
                       resizeMode="contain"
                     />
                   ) : null}
@@ -767,7 +775,10 @@ export default function Top5TeamsScreen({ navigation }) {
 
       <FlatList
         style={{ flex: 1 }}
-        contentContainerStyle={{ ...styles.listContent, paddingBottom: isPro ? 32 : 32 + AD_SPACE }}
+        contentContainerStyle={{
+          ...styles.listContent,
+          paddingBottom: isPro ? 32 : 32 + AD_SPACE,
+        }}
         data={flatListData}
         keyExtractor={(item) => item.key}
         refreshControl={
@@ -781,11 +792,18 @@ export default function Top5TeamsScreen({ navigation }) {
       />
 
       {!isPro && (
-        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: "center",
+          }}
+        >
           <BannerAdWrapper />
         </View>
       )}
-
     </View>
   );
 }

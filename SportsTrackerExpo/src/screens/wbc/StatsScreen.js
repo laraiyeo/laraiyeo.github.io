@@ -13,8 +13,8 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
 import WBCService from "../../services/WBCService";
-import { useBetSlip } from '../../context/BetSlipContext';
-import { BannerAdWrapper } from '../../services/ads';
+import { useBetSlip } from "../../context/BetSlipContext";
+import { BannerAdWrapper } from "../../services/ads";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -702,7 +702,15 @@ const StatsScreen = ({ route }) => {
         <View style={{ height: isPro ? 32 : 32 + AD_SPACE }} />
       </ScrollView>
       {!isPro && (
-        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: "center",
+          }}
+        >
           <BannerAdWrapper />
         </View>
       )}
