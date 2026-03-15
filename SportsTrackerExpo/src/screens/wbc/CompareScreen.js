@@ -14,14 +14,10 @@ import {
 import { useTheme } from "../../context/ThemeContext";
 import WBCService from "../../services/WBCService";
 import { loadWBCSearchData } from "../../services/WBCSearchCache";
-import { useBetSlip } from '../../context/BetSlipContext';
-import { BannerAdWrapper } from '../../services/ads';
 
 const CompareScreen = ({ route }) => {
   const { sport } = route.params;
   const { theme, colors, isDarkMode } = useTheme();
-  const { isPro } = useBetSlip();
-  const AD_SPACE = 80;
 
   const [player1, setPlayer1] = useState(null);
   const [player2, setPlayer2] = useState(null);
@@ -107,13 +103,7 @@ const CompareScreen = ({ route }) => {
     else setPlayer2(null);
     setComparisonStats(null);
   };
-        <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingBottom: isPro ? 20 : 20 + AD_SPACE }] }>
 
-        {!isPro && (
-          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
-            <BannerAdWrapper />
-          </View>
-        )}
   const openPlayerSearch = (playerNumber) => {
     setSearchingForPlayer(playerNumber);
     setShowSearchModal(true);
@@ -530,7 +520,7 @@ const CompareScreen = ({ route }) => {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: isPro ? 20 : 20 + AD_SPACE }]}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
@@ -577,11 +567,6 @@ const CompareScreen = ({ route }) => {
       </ScrollView>
 
       {renderSearchModal()}
-      {!isPro && (
-        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
-          <BannerAdWrapper />
-        </View>
-      )}
     </View>
   );
 };

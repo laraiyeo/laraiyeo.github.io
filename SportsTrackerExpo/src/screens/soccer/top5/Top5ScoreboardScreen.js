@@ -157,6 +157,7 @@ const getStatusInfo = (match, nowMs = Date.now(), snapshotTsMs = nowMs) => {
     "WALKOVER",
     "CUT",
     "AWA",
+    "POST"
   ].includes(code);
   const isScheduled = !code || ["NS", "TBA", "DELAYED"].includes(code);
   const isLive = !isFinished && !isScheduled;

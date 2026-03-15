@@ -194,6 +194,7 @@ const FINISHED_STATES = new Set([
   "WALKOVER",
   "CUT",
   "AWA",
+  "POST"
 ]);
 const FUTURE_STATES = new Set(["NS", "TBA", "DELAYED"]);
 

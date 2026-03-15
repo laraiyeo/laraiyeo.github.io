@@ -6,10 +6,14 @@ import StatsScreen from "./StatsScreen";
 import FinderScreen from "../FinderScreen";
 import TransactionsScreen from './TransactionsScreen';
 import DraftScreen from './DraftScreen';
+import { useBetSlip } from '../../context/BetSlipContext';
+import { BannerAdWrapper } from '../../services/ads';
 
 const MoreScreen = ({ navigation, route }) => {
   const { colors, theme } = useTheme();
   const [selected, setSelected] = useState("menu");
+  const { isPro } = useBetSlip();
+  const AD_SPACE = 80;
 
   const sport = (route?.params?.sport || "mlb").toLowerCase();
 
@@ -163,12 +167,24 @@ const MoreScreen = ({ navigation, route }) => {
     </View>
   );
 
-  if (selected === 'menu') return renderMenu();
-  if (selected === 'stats') return renderStats();
-  if (selected === 'finder') return renderFinder();
-  if (selected === 'transactions') return renderTransfers();
-  if (selected === 'draft') return renderDraft();
-  return renderMenu();
+  let main = null;
+  if (selected === 'menu') main = renderMenu();
+  else if (selected === 'stats') main = renderStats();
+  else if (selected === 'finder') main = renderFinder();
+  else if (selected === 'transactions') main = renderTransfers();
+  else if (selected === 'draft') main = renderDraft();
+  else main = renderMenu();
+
+  return (
+    <View style={{ flex: 1 }}>
+      {main}
+      {!isPro && (
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
+          <BannerAdWrapper />
+        </View>
+      )}
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({

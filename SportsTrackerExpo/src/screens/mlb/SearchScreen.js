@@ -329,12 +329,12 @@ const SearchScreen = ({ route, navigation }) => {
           </View>
         )}
       </View>
+          {!isPro && (
+            <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
+              <BannerAdWrapper />
+            </View>
+          )}
     </View>
-    {!isPro && (
-      <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
-        <BannerAdWrapper />
-      </View>
-    )}
   );
 };
 

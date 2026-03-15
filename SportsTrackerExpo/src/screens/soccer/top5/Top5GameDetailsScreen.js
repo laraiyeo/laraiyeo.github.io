@@ -132,6 +132,7 @@ const isLiveState = (stateCode) => {
     "WALKOVER",
     "CUT",
     "AWA",
+    "POST",
   ];
   const scheduled = ["", "NS", "TBA", "DELAYED"];
   return !finished.includes(code) && !scheduled.includes(code);
@@ -150,6 +151,7 @@ const isFinishedState = (stateCode) => {
     "WALKOVER",
     "CUT",
     "AWA",
+    "POST"
   ].includes(code);
 };
 
@@ -262,6 +264,7 @@ const getStatusInfo = (fixture, nowMs = Date.now(), snapshotTsMs = nowMs) => {
     "WALKOVER",
     "CUT",
     "AWA",
+    "POST",
   ].includes(code);
   const isScheduled = !code || ["NS", "TBA", "DELAYED"].includes(code);
   const isLive = !isFinished && !isScheduled;
@@ -2101,12 +2104,22 @@ const EventsSection = ({
         />
       );
     }
+    if ((addLow.includes("offtarget") || addLow.includes("saved")) && e.result === null) {
+      return (
+        <MaterialCommunityIcons
+          name="close-circle"
+          size={17}
+          color={theme.error || "#e03131"}
+          style={[evStyles.ballIcon, { width: 16 }]}
+        />
+      );
+    }
     if (addLow.includes("own goal") && e.result != null) {
       return (
         <FontAwesome6
           name="soccer-ball"
           size={14}
-          color={theme.error || "#e67700"}
+          color={theme.error || "#e03131"}
           style={evStyles.ballIcon}
         />
       );
@@ -2231,6 +2244,7 @@ const EventsSection = ({
       (addLow.includes("goal") || addLow.includes("penalty")) &&
       !!goalDetail;
     const isCardAdjusted = addLow.includes("adjusted");
+    const isPenaltyOffTarget = addLow.includes("offtarget") && event.result === null;
     const showsSecondLine = isDisallowed || showsGoalDetail;
 
     return (
@@ -2265,6 +2279,17 @@ const EventsSection = ({
             numberOfLines={1}
           >
             Goal disallowed
+          </Text>
+        ) : isPenaltyOffTarget ? (
+          <Text
+            style={[
+              evStyles.goalDetailText,
+              { color: theme.textSecondary },
+              !isHome && evStyles.goalDetailTextAway,
+            ]}
+            numberOfLines={1}
+          >
+            Penalty off target
           </Text>
         ) : isCardAdjusted ? (
           <Text
@@ -2560,6 +2585,7 @@ const CommentarySection = ({
     ) {
       return "SHOT ATTEMPT";
     }
+    if (text.includes("second yellow card")) return "RED CARD";
     if (text.includes("yellow card")) return "YELLOW CARD";
     if (text.includes("red card")) return "RED CARD";
     if (text.includes("offside")) return "OFFSIDE";

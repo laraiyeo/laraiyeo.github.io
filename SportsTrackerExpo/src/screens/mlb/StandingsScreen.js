@@ -10,11 +10,11 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
-import { useBetSlip } from "../../context/BetSlipContext";
-import { BannerAdWrapper } from "../../services/ads";
 import { useFavorites } from "../../context/FavoritesContext";
 import { convertMLBIdToESPNId } from "../../utils/TeamIdMapping";
 import { MLBService } from "../../services/MLBService";
+import { useBetSlip } from '../../context/BetSlipContext';
+import { BannerAdWrapper } from '../../services/ads';
 
 // Fallback division name map
 const DIVISION_NAMES = {
@@ -310,9 +310,9 @@ const TeamRow = ({
 const StandingsScreen = ({ route }) => {
   const navigation = useNavigation();
   const { theme, colors, getTeamLogoUrl } = useTheme();
+  const { isFavorite } = useFavorites();
   const { isPro } = useBetSlip();
   const AD_SPACE = 80;
-  const { isFavorite } = useFavorites();
   const [standings, setStandings] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -655,11 +655,6 @@ const StandingsScreen = ({ route }) => {
             </View>
           </View>
         </ScrollView>
-      {!isPro && (
-        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" }}>
-          <BannerAdWrapper />
-        </View>
-      )}
       )}
 
       {/* ── Show mode bar (sticky bottom) ── */}
@@ -667,7 +662,7 @@ const StandingsScreen = ({ route }) => {
         <View
           style={[
             styles.showBar,
-            { backgroundColor: theme.surface, borderTopColor: theme.border },
+            { backgroundColor: theme.surface, borderTopColor: theme.border, marginBottom: isPro ? 0 : AD_SPACE },
           ]}
         >
           <Text style={[styles.showLabel, { color: theme.textSecondary }]}>
@@ -712,6 +707,11 @@ const StandingsScreen = ({ route }) => {
           })}
         </View>
       )}
+        {!isPro && (
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
+            <BannerAdWrapper />
+          </View>
+        )}
     </View>
   );
 };
