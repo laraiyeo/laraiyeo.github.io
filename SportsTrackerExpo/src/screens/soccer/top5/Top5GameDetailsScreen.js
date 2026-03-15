@@ -133,6 +133,7 @@ const isLiveState = (stateCode) => {
     "CUT",
     "AWA",
     "POST",
+    "POSTPONED",
   ];
   const scheduled = ["", "NS", "TBA", "DELAYED"];
   return !finished.includes(code) && !scheduled.includes(code);
@@ -151,7 +152,8 @@ const isFinishedState = (stateCode) => {
     "WALKOVER",
     "CUT",
     "AWA",
-    "POST"
+    "POST",
+    "POSTPONED",
   ].includes(code);
 };
 
@@ -265,6 +267,7 @@ const getStatusInfo = (fixture, nowMs = Date.now(), snapshotTsMs = nowMs) => {
     "CUT",
     "AWA",
     "POST",
+    "POSTPONED",
   ].includes(code);
   const isScheduled = !code || ["NS", "TBA", "DELAYED"].includes(code);
   const isLive = !isFinished && !isScheduled;
@@ -2137,7 +2140,7 @@ const EventsSection = ({
         />
       );
     }
-    if (addLow.includes("goal") || addLow.includes("penalty")) {
+    if (addLow.includes("goal") || addLow.includes("penalty") && e.result != null) {
       return (
         <FontAwesome6
           name="soccer-ball"
@@ -2239,13 +2242,18 @@ const EventsSection = ({
     const goalDetail = getGoalDetail(event);
     const isDisallowed = addLow.includes("disallowed");
     const isOwnGoal = isOwnGoalEvent(event);
-    const showsGoalDetail =
+    const showsGoalDetailGoal =
       !isDisallowed &&
-      (addLow.includes("goal") || addLow.includes("penalty")) &&
+      (addLow.includes("goal")) &&
+      !!goalDetail;
+    const showsGoalDetailPenalty =
+      !isDisallowed &&
+      (addLow.includes("penalty")) &&
       !!goalDetail;
     const isCardAdjusted = addLow.includes("adjusted");
+    const awarded = addLow.includes("awarded");
     const isPenaltyOffTarget = addLow.includes("offtarget") && event.result === null;
-    const showsSecondLine = isDisallowed || showsGoalDetail;
+    const showsSecondLine = isDisallowed || showsGoalDetailGoal || showsGoalDetailPenalty;
 
     return (
       <View
@@ -2280,6 +2288,17 @@ const EventsSection = ({
           >
             Goal disallowed
           </Text>
+        ) : awarded ? (
+          <Text
+            style={[
+              evStyles.goalDetailText,
+              { color: theme.textSecondary },
+              !isHome && evStyles.goalDetailTextAway,
+            ]}
+            numberOfLines={1}
+          >
+            Penalty awarded
+          </Text>
         ) : isPenaltyOffTarget ? (
           <Text
             style={[
@@ -2313,7 +2332,7 @@ const EventsSection = ({
           >
             Own Goal - {goalDetail || ""}
           </Text>
-        ) : showsGoalDetail ? (
+        ) : showsGoalDetailGoal ? (
           <Text
             style={[
               evStyles.goalDetailText,
@@ -2323,6 +2342,17 @@ const EventsSection = ({
             numberOfLines={1}
           >
             {goalDetail}
+          </Text>
+        ) : showsGoalDetailPenalty ? (
+          <Text
+            style={[
+              evStyles.goalDetailText,
+              { color: theme.textSecondary },
+              !isHome && evStyles.goalDetailTextAway,
+            ]}
+            numberOfLines={1}
+          >
+            {goalDetail} - Penalty
           </Text>
         ) : null}
       </View>
