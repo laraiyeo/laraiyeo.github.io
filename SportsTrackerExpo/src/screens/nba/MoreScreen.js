@@ -4,11 +4,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import NBAStatsScreen from "./StatsScreen";
 import FinderScreen from "../FinderScreen";
-import TransactionsScreen from './TransactionsScreen';
-import InjuriesScreen from './InjuriesScreen';
-import DraftScreen from './DraftScreen';
-import { useBetSlip } from '../../context/BetSlipContext';
-import { BannerAdWrapper } from '../../services/ads';
+import TransactionsScreen from "./TransactionsScreen";
+import InjuriesScreen from "./InjuriesScreen";
+import DraftScreen from "./DraftScreen";
+import { useBetSlip } from "../../context/BetSlipContext";
+import { BannerAdWrapper } from "../../services/ads";
 
 const MoreScreen = ({ navigation, route }) => {
   const { colors, theme } = useTheme();
@@ -21,7 +21,7 @@ const MoreScreen = ({ navigation, route }) => {
   const renderMenu = () => (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <TouchableOpacity
-        style={[styles.row, {borderBottomColor: theme.border}]}
+        style={[styles.row, { borderBottomColor: theme.border }]}
         onPress={() => setSelected("stats")}
         activeOpacity={0.7}
       >
@@ -45,7 +45,7 @@ const MoreScreen = ({ navigation, route }) => {
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.row, {borderBottomColor: theme.border}]}
+        style={[styles.row, { borderBottomColor: theme.border }]}
         onPress={() => setSelected("transactions")}
         activeOpacity={0.7}
       >
@@ -69,7 +69,7 @@ const MoreScreen = ({ navigation, route }) => {
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.row, {borderBottomColor: theme.border}]}
+        style={[styles.row, { borderBottomColor: theme.border }]}
         onPress={() => setSelected("injuries")}
         activeOpacity={0.7}
       >
@@ -77,13 +77,23 @@ const MoreScreen = ({ navigation, route }) => {
           <Ionicons name="medkit" size={22} color={colors.primary} />
         </View>
         <View style={styles.textWrap}>
-          <Text allowFontScaling={false} style={[styles.title, { color: theme.text }]}>Injuries</Text>
-          <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textTertiary }]}>Latest injury reports</Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.title, { color: theme.text }]}
+          >
+            Injuries
+          </Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.subtitle, { color: theme.textTertiary }]}
+          >
+            Latest injury reports
+          </Text>
         </View>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.row, {borderBottomColor: theme.border}]}
+        style={[styles.row, { borderBottomColor: theme.border }]}
         onPress={() => setSelected("draft")}
         activeOpacity={0.7}
       >
@@ -91,13 +101,23 @@ const MoreScreen = ({ navigation, route }) => {
           <Ionicons name="trophy" size={22} color={colors.primary} />
         </View>
         <View style={styles.textWrap}>
-          <Text allowFontScaling={false} style={[styles.title, { color: theme.text }]}>Draft</Text>
-          <Text allowFontScaling={false} style={[styles.subtitle, { color: theme.textTertiary }]}>Draft picks and rounds</Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.title, { color: theme.text }]}
+          >
+            Draft
+          </Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.subtitle, { color: theme.textTertiary }]}
+          >
+            Draft picks and rounds
+          </Text>
         </View>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.row, {borderBottomColor: theme.border}]}
+        style={[styles.row, { borderBottomColor: theme.border }]}
         onPress={() => setSelected("finder")}
         activeOpacity={0.7}
       >
@@ -161,7 +181,7 @@ const MoreScreen = ({ navigation, route }) => {
       <TransactionsScreen />
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.secondary }]}
-        onPress={() => setSelected('menu')}
+        onPress={() => setSelected("menu")}
         activeOpacity={0.8}
       >
         <Ionicons name="chevron-back" size={20} color="#fff" />
@@ -174,7 +194,7 @@ const MoreScreen = ({ navigation, route }) => {
       <InjuriesScreen />
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.secondary }]}
-        onPress={() => setSelected('menu')}
+        onPress={() => setSelected("menu")}
         activeOpacity={0.8}
       >
         <Ionicons name="chevron-back" size={20} color="#fff" />
@@ -187,7 +207,7 @@ const MoreScreen = ({ navigation, route }) => {
       <DraftScreen />
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.secondary }]}
-        onPress={() => setSelected('menu')}
+        onPress={() => setSelected("menu")}
         activeOpacity={0.8}
       >
         <Ionicons name="chevron-back" size={20} color="#fff" />
@@ -196,19 +216,27 @@ const MoreScreen = ({ navigation, route }) => {
   );
 
   let main = null;
-  if (selected === 'menu') main = renderMenu();
-  else if (selected === 'stats') main = renderStats();
-  else if (selected === 'finder') main = renderFinder();
-  else if (selected === 'transactions') main = renderTransfers();
-  else if (selected === 'injuries') main = renderInjuries();
-  else if (selected === 'draft') main = renderDraft();
+  if (selected === "menu") main = renderMenu();
+  else if (selected === "stats") main = renderStats();
+  else if (selected === "finder") main = renderFinder();
+  else if (selected === "transactions") main = renderTransfers();
+  else if (selected === "injuries") main = renderInjuries();
+  else if (selected === "draft") main = renderDraft();
   else main = renderMenu();
 
   return (
     <View style={{ flex: 1 }}>
       {main}
       {!isPro && (
-        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: "center",
+          }}
+        >
           <BannerAdWrapper />
         </View>
       )}

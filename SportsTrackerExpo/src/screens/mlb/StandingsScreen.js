@@ -13,8 +13,8 @@ import { useTheme } from "../../context/ThemeContext";
 import { useFavorites } from "../../context/FavoritesContext";
 import { convertMLBIdToESPNId } from "../../utils/TeamIdMapping";
 import { MLBService } from "../../services/MLBService";
-import { useBetSlip } from '../../context/BetSlipContext';
-import { BannerAdWrapper } from '../../services/ads';
+import { useBetSlip } from "../../context/BetSlipContext";
+import { BannerAdWrapper } from "../../services/ads";
 
 // Fallback division name map
 const DIVISION_NAMES = {
@@ -74,7 +74,11 @@ const SORT_OPTIONS = [
   { label: "Last Ten", type: "lastTen", source: "splitRecords" },
   { label: "Extra Innings", type: "extraInning", source: "splitRecords" },
   { label: "One Run", type: "oneRun", source: "splitRecords" },
-  { label: "Expected Record", type: "xWinLossSeason", source: "expectedRecords" },
+  {
+    label: "Expected Record",
+    type: "xWinLossSeason",
+    source: "expectedRecords",
+  },
 ];
 
 // Shorten "American League" → "AL", "National League" → "NL" in division names
@@ -609,7 +613,10 @@ const StandingsScreen = ({ route }) => {
       {hasData && (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: isPro ? 16 : 16 + AD_SPACE }]}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: isPro ? 16 : 16 + AD_SPACE },
+          ]}
           onScrollBeginDrag={() => dropdownOpen && setDropdownOpen(false)}
         >
           {sortBy
@@ -662,7 +669,11 @@ const StandingsScreen = ({ route }) => {
         <View
           style={[
             styles.showBar,
-            { backgroundColor: theme.surface, borderTopColor: theme.border, marginBottom: isPro ? 0 : AD_SPACE },
+            {
+              backgroundColor: theme.surface,
+              borderTopColor: theme.border,
+              marginBottom: isPro ? 0 : AD_SPACE,
+            },
           ]}
         >
           <Text style={[styles.showLabel, { color: theme.textSecondary }]}>
@@ -707,11 +718,19 @@ const StandingsScreen = ({ route }) => {
           })}
         </View>
       )}
-        {!isPro && (
-          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
-            <BannerAdWrapper />
-          </View>
-        )}
+      {!isPro && (
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: "center",
+          }}
+        >
+          <BannerAdWrapper />
+        </View>
+      )}
     </View>
   );
 };
