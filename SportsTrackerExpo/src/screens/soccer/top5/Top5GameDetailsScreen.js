@@ -57,6 +57,7 @@ const mStyles = StyleSheet.create({
   scoreWin: { fontWeight: "800" },
   scoreDash: { fontSize: 16 },
   finishedTime: { fontSize: 9, marginBottom: 3 },
+  // stream styles moved to main `styles` object below
 });
 import React, {
   useState,
@@ -76,8 +77,10 @@ import {
   ActivityIndicator,
   Dimensions,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { Image } from "expo-image";
+import { WebView } from "react-native-webview";
 import Svg, {
   Defs,
   LinearGradient,
@@ -93,6 +96,7 @@ import {
   Ionicons,
 } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
+import { useStreamingAccess } from "../../../utils/streamingUtils";
 import { useGamePresence } from "../../../hooks/useGamePresence";
 import { useTheme } from "../../../context/ThemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -102,6 +106,164 @@ import * as Sharing from "expo-sharing";
 const { width } = Dimensions.get("window");
 
 const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
+
+// Streaming API base (shared pattern used elsewhere)
+const STREAM_API_BASE = "https://streamed.pk/api";
+
+// Convert HTTP URLs to HTTPS to avoid mixed content issues
+const convertToHttps = (url) => {
+  if (url && url.startsWith("http://")) return url.replace("http://", "https://");
+  return url;
+};
+
+const fetchLiveMatches = async () => {
+  try {
+    const resp = await fetch(`${STREAM_API_BASE}/matches/football`);
+    if (!resp.ok) return [];
+    return await resp.json();
+  } catch (e) {
+    console.error("fetchLiveMatches error:", e);
+    return [];
+  }
+};
+
+const fetchStreamsForSource = async (source, sourceId) => {
+  try {
+    const response = await fetch(convertToHttps(`${STREAM_API_BASE}/stream/${source}/${sourceId}`));
+    if (!response.ok) throw new Error(`Stream API request failed: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    console.error(`Error fetching streams for ${source}/${sourceId}:`, error);
+    return [];
+  }
+};
+
+const normalizeTeamName = (teamName) =>
+  String(teamName || "")
+    .toLowerCase()
+    .replace(/[áéíóúüñçßëïöäåø]/g, (c) =>
+      ({
+        á: "a",
+        é: "e",
+        í: "i",
+        ó: "o",
+        ú: "u",
+        ü: "u",
+        ñ: "n",
+        ç: "c",
+        ß: "ss",
+        ë: "e",
+        ï: "i",
+        ö: "o",
+        ä: "a",
+        å: "a",
+        ø: "o",
+      }[c] || c),
+    )
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9\-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+const findMatchStreams = async (homeTeamName, awayTeamName) => {
+  try {
+    const liveMatches = await fetchLiveMatches();
+    if (!liveMatches || !Array.isArray(liveMatches) || liveMatches.length === 0) return {};
+
+    const homeNormalized = normalizeTeamName(homeTeamName).toLowerCase();
+    const awayNormalized = normalizeTeamName(awayTeamName).toLowerCase();
+    const homeFirstWord = homeNormalized.split("-")[0];
+    const awayFirstWord = awayNormalized.split("-")[0];
+    const hasSameCity = homeFirstWord === awayFirstWord;
+
+    let bestMatch = null;
+    let bestScore = 0;
+
+    const quickMatches = liveMatches
+      .slice(0, Math.min(liveMatches.length, 100))
+      .filter((match) => {
+        const title = String(match.title || "").toLowerCase();
+        if (hasSameCity) return title.includes(homeNormalized) && title.includes(awayNormalized);
+        const homeHasMatch =
+          title.includes(homeNormalized.split("-")[0]) ||
+          title.includes(homeNormalized.split("-")[1] || "") ||
+          (match.teams?.home?.name || "").toLowerCase().includes(homeNormalized.split("-")[0]);
+        const awayHasMatch =
+          title.includes(awayNormalized.split("-")[0]) ||
+          title.includes(awayNormalized.split("-")[1] || "") ||
+          (match.teams?.away?.name || "").toLowerCase().includes(awayNormalized.split("-")[0]);
+        return homeHasMatch && awayHasMatch;
+      });
+
+    const matchesToProcess = quickMatches.length > 0 ? quickMatches : liveMatches.slice(0, 100);
+
+    for (const match of matchesToProcess) {
+      if (!match.sources || match.sources.length === 0) continue;
+      const matchTitle = String(match.title || "").toLowerCase();
+      let totalScore = 0;
+      const titleWords = matchTitle.split(/[\s\-]+/);
+      const homeParts = homeNormalized.split("-").filter((w) => w.length > 2);
+      const awayParts = awayNormalized.split("-").filter((w) => w.length > 2);
+
+      homeParts.forEach((part) => {
+        if (titleWords.some((w) => w.includes(part) || part.includes(w))) totalScore += 0.4;
+      });
+      awayParts.forEach((part) => {
+        if (titleWords.some((w) => w.includes(part) || part.includes(w))) totalScore += 0.4;
+      });
+
+      if (match.teams) {
+        const homeApiName = (match.teams.home?.name || "").toLowerCase();
+        const awayApiName = (match.teams.away?.name || "").toLowerCase();
+        homeParts.forEach((part) => { if (homeApiName.includes(part)) totalScore += 0.6; });
+        awayParts.forEach((part) => { if (awayApiName.includes(part)) totalScore += 0.6; });
+      }
+
+      if (totalScore > bestScore) {
+        bestScore = totalScore;
+        bestMatch = match;
+        if (bestScore >= 1.0) break;
+      }
+    }
+
+    if (!bestMatch || bestScore < 0.3) return {};
+
+    const allStreams = {};
+    for (const source of bestMatch.sources) {
+      try {
+        const sourceStreams = await fetchStreamsForSource(source.source, source.id);
+        if (sourceStreams && sourceStreams.length > 0) {
+          const firstStream = sourceStreams[0];
+          allStreams[source.source] = {
+            url: firstStream.embedUrl || firstStream.url,
+            embedUrl: firstStream.embedUrl || firstStream.url,
+            source: source.source,
+            title: `${source.source.charAt(0).toUpperCase() + source.source.slice(1)} Stream`,
+          };
+        }
+      } catch (error) {
+        console.error(`Error fetching streams for ${source.source}:`, error);
+      }
+    }
+
+    return allStreams;
+  } catch (error) {
+    console.error("Error in findMatchStreams:", error);
+    return {};
+  }
+};
+
+const generateStreamUrl = (awayTeamName, homeTeamName, streamType = "alpha1") => {
+  const normalizedAway = normalizeTeamName(awayTeamName);
+  const normalizedHome = normalizeTeamName(homeTeamName);
+  const streamUrls = {
+    alpha1: `https://weakstreams.com/football-live-streams/${normalizedAway}-vs-${normalizedHome}-live-stream`,
+    alpha2: `https://weakstreams.com/football-live-streams/${normalizedHome}-vs-${normalizedAway}-live-stream`,
+    bravo: `https://sportsurge.club/football/${normalizedAway}-vs-${normalizedHome}`,
+    charlie: `https://sportshd.me/football/${normalizedAway}-${normalizedHome}`,
+  };
+  return streamUrls[streamType] || streamUrls.alpha1;
+};
 
 const GAME_CACHE_KEY = (id) => `@gameDetail_v1:${id}`;
 const GAME_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
@@ -2107,7 +2269,10 @@ const EventsSection = ({
         />
       );
     }
-    if ((addLow.includes("offtarget") || addLow.includes("saved")) && e.result === null) {
+    if (
+      (addLow.includes("offtarget") || addLow.includes("saved")) &&
+      e.result === null
+    ) {
       return (
         <MaterialCommunityIcons
           name="close-circle"
@@ -2140,7 +2305,10 @@ const EventsSection = ({
         />
       );
     }
-    if (addLow.includes("goal") || addLow.includes("penalty") && e.result != null) {
+    if (
+      (addLow.includes("goal") || addLow.includes("penalty")) &&
+      e.result != null
+    ) {
       return (
         <FontAwesome6
           name="soccer-ball"
@@ -2243,17 +2411,15 @@ const EventsSection = ({
     const isDisallowed = addLow.includes("disallowed");
     const isOwnGoal = isOwnGoalEvent(event);
     const showsGoalDetailGoal =
-      !isDisallowed &&
-      (addLow.includes("goal")) &&
-      !!goalDetail;
+      !isDisallowed && addLow.includes("goal") && !!goalDetail;
     const showsGoalDetailPenalty =
-      !isDisallowed &&
-      (addLow.includes("penalty")) &&
-      !!goalDetail;
+      !isDisallowed && addLow.includes("penalty") && !!goalDetail;
     const isCardAdjusted = addLow.includes("adjusted");
     const awarded = addLow.includes("awarded");
-    const isPenaltyOffTarget = addLow.includes("offtarget") && event.result === null;
-    const showsSecondLine = isDisallowed || showsGoalDetailGoal || showsGoalDetailPenalty;
+    const isPenaltyOffTarget =
+      addLow.includes("offtarget") && event.result === null;
+    const showsSecondLine =
+      isDisallowed || showsGoalDetailGoal || showsGoalDetailPenalty;
 
     return (
       <View
@@ -2297,7 +2463,7 @@ const EventsSection = ({
             ]}
             numberOfLines={1}
           >
-            Penalty awarded
+            {event.addition}
           </Text>
         ) : isPenaltyOffTarget ? (
           <Text
@@ -2667,7 +2833,8 @@ const CommentarySection = ({
           event: e,
           minute,
           extra: Number(e?.extra_minute ?? 0),
-          timeKey: minute * 100 + Number(e?.extra_minute ?? 0),
+          timeKey:
+            Number(minute) * 10000 + Number(e?.extra_minute ?? 0) * 100 + idx,
           home: parsed.home,
           away: parsed.away,
         };
@@ -2749,7 +2916,13 @@ const CommentarySection = ({
     const getCommentTimeKey = (item) => {
       const parsed = getCommentMinuteExtra(item);
       if (parsed.minute == null) return null;
-      return Number(parsed.minute) * 100 + Number(parsed.extra ?? 0);
+      // Compose a base key where minute is dominant, extra_minute is secondary,
+      // and the published comment `order` is tertiary so that comment
+      // sequencing is respected when minute/extra are equal.
+      const order = Number(item?.order ?? 0);
+      return (
+        Number(parsed.minute) * 10000 + Number(parsed.extra ?? 0) * 100 + order
+      );
     };
 
     const scoreAtOrBeforeKey = (timeKey) => {
@@ -2885,7 +3058,7 @@ const CommentarySection = ({
 
       if (commentKey != null) {
         const nearBy = eventTimelines.goalTimeline.filter(
-          (g) => Math.abs(g.timeKey - commentKey) <= 100,
+          (g) => Math.abs(g.timeKey - commentKey) <= 10000,
         );
 
         const teamFilteredNearBy = commentTeam
@@ -2971,10 +3144,34 @@ const CommentarySection = ({
       return null;
     };
 
+    // Build a map from event idx -> comment.order for goal comments that matched
+    // an event. This allows us to respect the publisher comment ordering when
+    // determining which score applies to a comment (useful for extra-time
+    // cases where minute/extra alone is ambiguous).
+    const eventOrderByIdx = new Map();
+    for (const c of comments ?? []) {
+      if (!c?.is_goal) continue;
+      const matched = findGoalEvent(c);
+      if (!matched) continue;
+      const goalEntry = eventTimelines.goalTimeline.find(
+        (g) =>
+          g?.event === matched ||
+          (g?.event?.player_name === matched?.player_name &&
+            Number(g?.event?.minute) === Number(matched?.minute) &&
+            Number(g?.event?.extra_minute ?? 0) ===
+              Number(matched?.extra_minute ?? 0)),
+      );
+      if (goalEntry?.idx != null) {
+        eventOrderByIdx.set(goalEntry.idx, Number(c?.order ?? 0));
+      }
+    }
+
     const findScoreAtComment = (item) => {
       if (!eventTimelines.scoreTimeline.length) return { home: 0, away: 0 };
 
       const parsed = getCommentMinuteExtra(item);
+      const commentOrder = Number(item?.order ?? 0);
+
       if (parsed.minute == null) {
         const text = String(item?.comment || "").toLowerCase();
         if (
@@ -2991,8 +3188,56 @@ const CommentarySection = ({
           : { home: 0, away: 0 };
       }
 
-      const key = Number(parsed.minute) * 100 + Number(parsed.extra ?? 0);
-      return scoreAtOrBeforeKey(key);
+      // baseKey uses minute and extra only — ordering will be resolved using
+      // eventOrderByIdx when available.
+      const baseKey =
+        Number(parsed.minute) * 10000 + Number(parsed.extra ?? 0) * 100;
+
+      // Build a set of goal event indices for quick lookup
+      const goalIdxSet = new Set(
+        (eventTimelines.goalTimeline ?? []).map((g) => g.idx),
+      );
+
+      // Iterate over scoreTimeline (ascending) and pick the last row that either
+      // - has timeKey <= baseKey (chronological), OR
+      // - corresponds to a goal event that was published with order <= comment.order
+      // This ensures comments posted after a goal (higher order) will see that
+      // goal's score even if minute/extra parsing alone could place them earlier.
+      let found = null;
+      for (const row of eventTimelines.scoreTimeline) {
+        const rowBase = Number(row.timeKey ?? 0);
+        const mappedOrder = eventOrderByIdx.get(row.idx);
+
+        // If this row is a goal event and we have a mapped comment order for
+        // that goal, ensure the goal was published before (<=) this comment.
+        if (
+          goalIdxSet.has(row.idx) &&
+          mappedOrder != null &&
+          mappedOrder > commentOrder
+        ) {
+          // skip this goal row because its goal-comment was published after
+          // the current comment
+          continue;
+        }
+
+        if (rowBase <= baseKey) {
+          found = row;
+          continue;
+        }
+
+        if (mappedOrder != null && mappedOrder <= commentOrder) {
+          found = row;
+          continue;
+        }
+
+        // Once we hit a row that is clearly after and has no earlier order mapping,
+        // we can break because scoreTimeline is sorted ascending.
+        break;
+      }
+
+      return found
+        ? { home: found.home, away: found.away }
+        : { home: 0, away: 0 };
     };
 
     return sorted.map((item) => {
@@ -3046,23 +3291,6 @@ const CommentarySection = ({
               : commentTeam?.id === awayTeam?.id
                 ? "away"
                 : inferredGoalSide;
-
-      if (type === "GOAL") {
-        console.log("[Top5CommentaryGoalMatch] final mapping", {
-          commentOrder: item?.order ?? null,
-          commentMinute: parsed.minute,
-          commentExtra: parsed.extra,
-          commentText: item?.comment ?? "",
-          matchedGoalEvent: summarizeEvent(goalEvent),
-          scoreAt,
-          scoreBefore,
-          inferredGoalSide,
-          scoreTeamSide,
-          resolvedTeamId: team?.id ?? null,
-          lineupPlayerId: lineup?.player_id ?? null,
-          relatedLineupPlayerId: relatedLineup?.player_id ?? null,
-        });
-      }
 
       return {
         item,
@@ -7935,6 +8163,7 @@ const SoccerPlayerDetailModal = ({
                     });
                   }
                 }}
+                style={spmStyles.headshotTouchable}
               >
                 {playerImageUri ? (
                   <Image
@@ -10034,6 +10263,17 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   const [h2hHomeOnly, setH2hHomeOnly] = useState(false);
   const [snapshotTsMs, setSnapshotTsMs] = useState(Date.now());
   const [nowMs, setNowMs] = useState(Date.now());
+  // Streaming state
+  const [availableStreams, setAvailableStreams] = useState({});
+  const [currentStreamType, setCurrentStreamType] = useState("alpha1");
+  const [streamLoading, setStreamLoading] = useState(false);
+  const [streamError, setStreamError] = useState(false);
+  const [showStreamModal, setShowStreamModal] = useState(false);
+  const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
+  const streamModalVisibleRef = useRef(false);
+  useEffect(() => {
+    streamModalVisibleRef.current = showStreamModal;
+  }, [showStreamModal]);
   const scrollY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -10119,6 +10359,11 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
         if (!silent) setLoading(true);
         setError(null);
         try {
+            // If stream modal is open, skip updating to avoid disrupting playback
+            if (streamModalVisibleRef.current) {
+              console.log("Stream modal open, skipping Top5 game update");
+              return dataRef.current;
+            }
           const gameUrl = `${FOOTBALL_BASE}/football/game/${fixtureId}/${homeTeamId}/${awayTeamId}`;
           const h2hUrl = `${FOOTBALL_BASE}/football/game/h2h/${homeTeamId}/${awayTeamId}`;
           const factsUrl = `${FOOTBALL_BASE}/football/game/facts/${fixtureId}`;
@@ -10277,6 +10522,13 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
     },
     [fixtureId, homeTeamId, awayTeamId, applyTickingSnapshot],
   );
+
+    // Fetch immediately when stream modal closes (resume updates)
+    useEffect(() => {
+      if (showStreamModal === false && dataRef.current) {
+        loadData(false, false).catch(() => {});
+      }
+    }, [showStreamModal, loadData]);
 
   // ── Polling (same pattern as Top5ScoreboardScreen) ───────────────────────
   const intervalRef = useRef(null);
@@ -10645,6 +10897,58 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
     setPlayerModalContext(null);
   }, []);
 
+  const loadStreams = useCallback(async () => {
+    if (!fixture) return;
+    setStreamLoading(true);
+    setStreamError(false);
+    try {
+      const homeTeamName = home?.name || fixture?.participants?.find((p) => p.meta?.location === "home")?.name || "";
+      const awayTeamName = away?.name || fixture?.participants?.find((p) => p.meta?.location === "away")?.name || "";
+      const streams = await findMatchStreams(homeTeamName, awayTeamName);
+      const converted = {};
+      Object.keys(streams).forEach((s) => {
+        if (streams[s] && (streams[s].embedUrl || streams[s].url)) {
+          converted[s] = streams[s].embedUrl || streams[s].url;
+        }
+      });
+      setAvailableStreams(converted);
+      const keys = Object.keys(converted);
+      if (keys.length > 0) setCurrentStreamType(keys[0]);
+    } catch (e) {
+      console.error("loadStreams error:", e);
+      setStreamError(true);
+    } finally {
+      setStreamLoading(false);
+    }
+  }, [fixture, home, away]);
+
+  const openStreamModal = useCallback(async () => {
+    const unlock = isStreamingUnlocked ? true : true;
+    if (!unlock) {
+      Alert.alert("Streaming Locked", "Please enter the streaming code in Settings to access live streams.", [{ text: "OK" }]);
+      return;
+    }
+    setShowStreamModal(true);
+    setStreamLoading(true);
+    await loadStreams();
+    setStreamLoading(false);
+  }, [isStreamingUnlocked, loadStreams]);
+
+  const switchStream = (streamType) => {
+    setCurrentStreamType(streamType);
+    setStreamLoading(true);
+    let newUrl = "";
+    if (availableStreams[streamType]) newUrl = availableStreams[streamType];
+    else newUrl = generateStreamUrl(away?.name || "", home?.name || "", streamType);
+    setTimeout(() => setStreamLoading(false), 800);
+  };
+
+  const closeStreamModal = () => {
+    setShowStreamModal(false);
+    setCurrentStreamType("alpha1");
+    setAvailableStreams({});
+  };
+
   const h2hMatches = useMemo(() => {
     const matches = data?.h2hData ?? [];
     if (!matches.length || !home?.id || !away?.id) return [];
@@ -10823,12 +11127,28 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
             />
 
             {/* Status (centre) */}
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
             <StatusBadge
               fixture={fixture}
               theme={theme}
               nowMs={nowMs}
               snapshotTsMs={snapshotTsMs}
             />
+
+            {/* Stream Button (center column) */}
+            {!isScheduledGame && !finished && (
+              <TouchableOpacity
+                style={[styles.streamBtn, { borderColor: colors.primary }]}
+                onPress={openStreamModal}
+                activeOpacity={0.8}
+              >
+                <View style={styles.streamBtnInner}>
+                  <View style={[styles.streamBtnDot, { backgroundColor: colors.primary }]} />
+                  <Text style={[styles.streamBtnText, { color: colors.primary }]}>Stream</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            </View>
 
             {/* Away (right) */}
             <TeamSide
@@ -11346,6 +11666,138 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
 
         <View style={{ height: 32 }} />
       </Animated.ScrollView>
+
+      {/* Stream Modal */}
+      {isStreamingUnlocked && (
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={showStreamModal}
+          onRequestClose={() => setShowStreamModal(false)}
+        >
+          <View style={styles.streamModalOverlay}>
+            <View style={[styles.streamModalContainer, { backgroundColor: theme.surface }]}>
+              <View style={[styles.streamModalHeader, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]}> 
+                <Text style={[styles.streamModalTitle, { color: colors.primary }]}>Live Stream</Text>
+                <TouchableOpacity style={[styles.streamCloseButton, { backgroundColor: theme.error, borderColor: theme.text }]} onPress={() => setShowStreamModal(false)}>
+                  <Text style={[styles.streamCloseText, { color: theme.text }]}>×</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.streamButtonsContainer, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]} contentContainerStyle={styles.streamButtonsContent}>
+                {Object.keys(availableStreams).slice(0,5).map((source) => (
+                  <TouchableOpacity key={source} style={[styles.streamSourceButton, { backgroundColor: currentStreamType === source ? colors.primary : theme.surfaceSecondary, borderColor: theme.border }]} onPress={() => switchStream(source)}>
+                    <Text style={[styles.streamSourceButtonText, { color: currentStreamType === source ? '#fff' : colors.primary }]}>{source.charAt(0).toUpperCase() + source.slice(1)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <View style={styles.webViewContainer}>
+                {streamLoading && (
+                  <View style={styles.streamLoadingOverlay}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={[styles.streamLoadingText, { color: '#fff' }]}>Loading stream...</Text>
+                  </View>
+                )}
+                {currentStreamType && availableStreams[currentStreamType] && (
+                  <WebView
+                    source={{ uri: availableStreams[currentStreamType] }}
+                    style={styles.streamWebView}
+                    javaScriptEnabled={true}
+                    domStorageEnabled={true}
+                    allowsInlineMediaPlayback={true}
+                    mediaPlaybackRequiresUserAction={false}
+                    onLoadStart={() => setStreamLoading(true)}
+                    onLoadEnd={() => setStreamLoading(false)}
+                    onError={() => setStreamLoading(false)}
+                    userAgent={
+                      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                    }
+                    injectedJavaScript={`(function(){
+                      function post(obj){ try{ window.ReactNativeWebView.postMessage(JSON.stringify(obj)); }catch(e){} }
+                      post({type:'instrumentation', event:'init'});
+                      window.addEventListener('load', function(){ post({type:'lifecycle', event:'load', href:location.href}); });
+                      document.addEventListener('DOMContentLoaded', function(){ post({type:'lifecycle', event:'domcontent', href:location.href}); });
+                      try{ const origOpen = window.open; window.open = function(url,target,features){ post({type:'nav', method:'window.open', url:url, target:target}); return origOpen.call(this,url,target,features); }; }catch(e){}
+                      try{ const observer = new MutationObserver(function(muts){ muts.forEach(m=>{ m.addedNodes && m.addedNodes.forEach(n=>{ if(n.nodeType===1){ const tag=n.tagName.toLowerCase(); if(tag==='video'||tag==='iframe'||(n.querySelector&&(n.querySelector('video')||n.querySelector('iframe')))){ post({type:'dom', action:'added', tag:tag, html:n.outerHTML?(n.outerHTML.substring(0,200)):null, href:location.href}); } } }); m.removedNodes && m.removedNodes.forEach(n=>{ if(n.nodeType===1){ const tag=n.tagName.toLowerCase(); if(tag==='video'||tag==='iframe'||(n.querySelector&&(n.querySelector('video')||n.querySelector('iframe')))){ post({type:'dom', action:'removed', tag:tag, href:location.href}); } } }); }); }); observer.observe(document.documentElement||document.body,{ childList:true, subtree:true }); post({type:'instrumentation', event:'observer_started'}); }catch(e){ post({type:'instrumentation', event:'observer_error', error:String(e)}); }
+                      function instrumentExistingVideos(){ const videos=document.querySelectorAll('video'); videos.forEach(v=>{ if(!v.__instrumented){ v.__instrumented=true; v.addEventListener('play',()=>post({type:'video', event:'play', src:v.currentSrc||v.src, href:location.href})); v.addEventListener('pause',()=>post({type:'video', event:'pause', src:v.currentSrc||v.src, href:location.href})); v.addEventListener('ended',()=>post({type:'video', event:'ended', src:v.currentSrc||v.src, href:location.href})); } }); }
+                      setInterval(instrumentExistingVideos,1000);
+                      true; })();`}
+                    onMessage={(event) => {
+                      try {
+                        const data = JSON.parse(event.nativeEvent.data);
+                        console.log("WebView instrumentation:", data);
+                      } catch (e) {
+                        console.log(
+                          "WebView message (raw):",
+                          event.nativeEvent.data,
+                        );
+                      }
+                    }}
+                    onNavigationStateChange={(navState) => {
+                      console.log("WebView navigation state change:", {
+                        url: navState.url,
+                        title: navState.title,
+                        loading: navState.loading,
+                      });
+                    }}
+                    onShouldStartLoadWithRequest={(request) => {
+                      console.log("Top5 WebView navigation request:", request.url);
+
+                      if (request.url === availableStreams[currentStreamType]) {
+                        return true;
+                      }
+
+                      const popupKeywords = ["popup", "ad", "ads", "click", "redirect", "promo"];
+                      const urlLower = request.url.toLowerCase();
+                      const hasPopupKeywords = popupKeywords.some((keyword) => urlLower.includes(keyword));
+
+                      const currentDomain = new URL(availableStreams[currentStreamType]).hostname;
+                      let requestDomain = "";
+                      try {
+                        requestDomain = new URL(request.url).hostname;
+                      } catch (e) {
+                        if (urlLower.startsWith("about:blank") || urlLower.startsWith("data:")) {
+                          return true;
+                        }
+                        console.log("Invalid URL:", request.url);
+                        return false;
+                      }
+
+                      const sameRootDomain = requestDomain === currentDomain || requestDomain.endsWith(`.${currentDomain}`) || currentDomain.endsWith(`.${requestDomain}`);
+
+                      const allowPatterns = ["/embed/", "/embed-noads/", "/player/", ".html", ".m3u8", ".mpd", "about:blank", "data:"];
+                      const allowIfEmbed = allowPatterns.some((p) => urlLower.includes(p));
+
+                      if (hasPopupKeywords && !allowIfEmbed) {
+                        console.log("Blocked Top5 popup/cross-domain navigation:", request.url);
+                        return false;
+                      }
+
+                      if (sameRootDomain || allowIfEmbed) {
+                        return true;
+                      }
+
+                      console.log("Blocked Top5 popup/cross-domain navigation:", request.url);
+                      return false;
+                    }}
+                    onOpenWindow={(syntheticEvent) => {
+                      const { nativeEvent } = syntheticEvent;
+                      console.log("Blocked Top5 popup window:", nativeEvent.targetUrl);
+                      return false;
+                    }}
+                  />
+                )}
+                {!currentStreamType && !Object.keys(availableStreams).length && (
+                  <View style={{ padding: 12 }}>
+                    <Text style={{ color: theme.textSecondary }}>No streams available.</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -11384,6 +11836,58 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     letterSpacing: 0.2,
   },
+  // Stream / modal styles (moved from mStyles and aligned with England/MLB)
+  streamBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: "center",
+    borderWidth: 1,
+    marginHorizontal: 5,
+  },
+  streamBtnInner: { flexDirection: "row", alignItems: "center", gap: 8 },
+  streamBtnDot: { width: 8, height: 8, borderRadius: 4 },
+  streamBtnText: { fontWeight: "700", fontSize: 12 },
+  streamModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  streamModalContainer: {
+    width: "95%",
+    maxWidth: 800,
+    height: "85%",
+    maxHeight: 600,
+    borderRadius: 12,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  streamModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  streamModalTitle: { fontSize: 18, fontWeight: "bold", flex: 1, textAlign: "center" },
+  streamCloseButton: { width: 32, height: 32, borderRadius: 16, justifyContent: "center", alignItems: "center", borderWidth: 1 },
+  streamCloseText: { fontSize: 20, fontWeight: "bold", marginTop: -3 },
+  streamButtonsContainer: { paddingVertical: 12, borderBottomWidth: 1, maxHeight: 60 },
+  streamButtonsContent: { paddingHorizontal: 10, gap: 10, alignItems: "center" },
+  streamSourceButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, minWidth: 80, alignItems: "center", marginHorizontal: 5 },
+  streamSourceButtonText: { fontSize: 12, fontWeight: "600", textTransform: "capitalize" },
+  webViewContainer: { flex: 1, position: "relative" },
+  streamWebView: { flex: 1 },
+  streamLoadingOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0, 0, 0, 0.8)", zIndex: 1 },
+  streamLoadingText: { marginTop: 10, fontSize: 16, fontWeight: "600" },
   teamsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -14880,7 +15384,15 @@ const spmStyles = StyleSheet.create({
     borderRadius: 37,
     borderWidth: 2,
     alignSelf: "center",
-    marginTop: 2,
+    marginTop: 0,
+  },
+  headshotTouchable: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    alignSelf: "center",
+    marginTop: 5,
+    overflow: "hidden",
   },
   headshotInitial: {
     fontSize: 26,

@@ -261,7 +261,7 @@ const toDateStr = (date) => {
   return `${y}${m}${d}`;
 };
 
-const todayDateStr = toDateStr(new Date());
+const getTodayDateStr = () => toDateStr(new Date());
 
 const DATE_OPTIONS = (() => {
   const today = new Date();
@@ -291,7 +291,7 @@ const MONTH_NAMES = [
 
 const getDateLabel = (date) => {
   const ds = toDateStr(date);
-  if (ds === todayDateStr) return "Today";
+  if (ds === getTodayDateStr()) return "Today";
   const base = new Date();
   base.setHours(0, 0, 0, 0);
   const d = new Date(date);
@@ -846,9 +846,9 @@ const Top5GridSection = ({
             soccerGridStyles.groupBubble,
             { backgroundColor: theme.surfaceSecondary },
           ]}
-          activeOpacity={activeFilter > todayDateStr ? 0.7 : 1}
+          activeOpacity={activeFilter > getTodayDateStr() ? 0.7 : 1}
           onPress={() =>
-            activeFilter > todayDateStr && toggleCollapse(group.leagueKey)
+            activeFilter > getTodayDateStr() && toggleCollapse(group.leagueKey)
           }
         >
           {group.imagePath ? (
@@ -884,7 +884,7 @@ const Top5GridSection = ({
             {" "}
             {group.matches.length}
           </Text>
-          {activeFilter > todayDateStr && (
+          {activeFilter > getTodayDateStr() && (
             <Text
               style={{ color: theme.textTertiary, marginLeft: 4, fontSize: 12 }}
             >
@@ -895,7 +895,8 @@ const Top5GridSection = ({
         {/* 2-column card grid */}
         {(() => {
           const isCollapsed =
-            activeFilter > todayDateStr && !!collapsedGroups[group.leagueKey];
+            activeFilter > getTodayDateStr() &&
+            !!collapsedGroups[group.leagueKey];
           const displayed = isCollapsed
             ? group.matches.slice(0, 2)
             : group.matches;
@@ -948,9 +949,9 @@ const Top5ScoreboardSection = ({
         {/* League header */}
         <TouchableOpacity
           style={styles.eventHeaderContainer}
-          activeOpacity={activeFilter > todayDateStr ? 0.7 : 1}
+          activeOpacity={activeFilter > getTodayDateStr() ? 0.7 : 1}
           onPress={() =>
-            activeFilter > todayDateStr && toggleCollapse(group.leagueKey)
+            activeFilter > getTodayDateStr() && toggleCollapse(group.leagueKey)
           }
         >
           <View style={styles.eventLogoContainer}>
@@ -1010,7 +1011,7 @@ const Top5ScoreboardSection = ({
               {" "}
               {group.matches.length}{" "}
             </Text>
-            {activeFilter > todayDateStr && (
+            {activeFilter > getTodayDateStr() && (
               <Text style={[styles.eventArrow, { color: theme.textTertiary }]}>
                 {" "}
                 {collapsedGroups[group.leagueKey] ? "▶" : "▼"}{" "}
@@ -1023,7 +1024,8 @@ const Top5ScoreboardSection = ({
         <View style={styles.matchesList}>
           {(() => {
             const isCollapsed =
-              activeFilter > todayDateStr && !!collapsedGroups[group.leagueKey];
+              activeFilter > getTodayDateStr() &&
+              !!collapsedGroups[group.leagueKey];
             const displayed = isCollapsed
               ? group.matches.slice(0, 1)
               : group.matches;
@@ -1344,7 +1346,7 @@ const Top5ScoreboardScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeFilter, setActiveFilter] = useState(todayDateStr);
+  const [activeFilter, setActiveFilter] = useState(getTodayDateStr());
   const [isGridView, setIsGridView] = useState(false);
   const [snapshotTsMs, setSnapshotTsMs] = useState(Date.now());
   const [nowMs, setNowMs] = useState(Date.now());
@@ -1493,7 +1495,7 @@ const Top5ScoreboardScreen = ({ navigation }) => {
             ts,
           };
 
-          if (filter > todayDateStr) {
+          if (filter > getTodayDateStr()) {
             setCollapsedGroups((prev) => {
               const map = { ...prev };
               nextGroups.forEach((g) => {
@@ -1533,7 +1535,7 @@ const Top5ScoreboardScreen = ({ navigation }) => {
     (filter, latestGroups) => {
       if (!isFocusedRef.current) return;
 
-      if (filter !== todayDateStr) {
+      if (filter !== getTodayDateStr()) {
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
@@ -1584,6 +1586,22 @@ const Top5ScoreboardScreen = ({ navigation }) => {
       };
     }, [activeFilter, loadData, schedulePolling, groups]),
   );
+
+  const lastSeenDayRef = useRef(getTodayDateStr());
+  useEffect(() => {
+    const currentDay = toDateStr(new Date(nowMs));
+    if (currentDay !== lastSeenDayRef.current) {
+      const prevDay = lastSeenDayRef.current;
+      lastSeenDayRef.current = currentDay;
+      // If the user is currently viewing the previous 'today' tab, advance them to the new day
+      if (activeFilter === prevDay) {
+        setActiveFilter(currentDay);
+        loadData(currentDay, true).then((fresh) =>
+          schedulePolling(currentDay, fresh),
+        );
+      }
+    }
+  }, [nowMs, activeFilter, loadData, schedulePolling]);
 
   const onRefresh = async () => {
     setRefreshing(true);
