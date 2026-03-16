@@ -267,8 +267,10 @@ function fixtureDateTtlInfo(fixtures) {
     // If the nearest start time is in the past (kick-off passed) but the
     // fixture list hasn't yet been marked live by the upstream API, treat
     // this as a post-start pending window and poll quickly so updates arrive.
-    if (diff <= 0) return { ttl: TTL_20S, fast: true, mode: "post_start_pending" };
-    if (diff <= TTL_1H) return { ttl: TTL_5M, fast: false, mode: "scheduled_soon" };
+    if (diff <= 0)
+      return { ttl: TTL_20S, fast: true, mode: "post_start_pending" };
+    if (diff <= TTL_1H)
+      return { ttl: TTL_5M, fast: false, mode: "scheduled_soon" };
     return { ttl: TTL_2H, fast: false, mode: "scheduled_far" };
   }
 

@@ -112,7 +112,8 @@ const STREAM_API_BASE = "https://streamed.pk/api";
 
 // Convert HTTP URLs to HTTPS to avoid mixed content issues
 const convertToHttps = (url) => {
-  if (url && url.startsWith("http://")) return url.replace("http://", "https://");
+  if (url && url.startsWith("http://"))
+    return url.replace("http://", "https://");
   return url;
 };
 
@@ -129,8 +130,11 @@ const fetchLiveMatches = async () => {
 
 const fetchStreamsForSource = async (source, sourceId) => {
   try {
-    const response = await fetch(convertToHttps(`${STREAM_API_BASE}/stream/${source}/${sourceId}`));
-    if (!response.ok) throw new Error(`Stream API request failed: ${response.status}`);
+    const response = await fetch(
+      convertToHttps(`${STREAM_API_BASE}/stream/${source}/${sourceId}`),
+    );
+    if (!response.ok)
+      throw new Error(`Stream API request failed: ${response.status}`);
     return await response.json();
   } catch (error) {
     console.error(`Error fetching streams for ${source}/${sourceId}:`, error);
@@ -141,24 +145,26 @@ const fetchStreamsForSource = async (source, sourceId) => {
 const normalizeTeamName = (teamName) =>
   String(teamName || "")
     .toLowerCase()
-    .replace(/[áéíóúüñçßëïöäåø]/g, (c) =>
-      ({
-        á: "a",
-        é: "e",
-        í: "i",
-        ó: "o",
-        ú: "u",
-        ü: "u",
-        ñ: "n",
-        ç: "c",
-        ß: "ss",
-        ë: "e",
-        ï: "i",
-        ö: "o",
-        ä: "a",
-        å: "a",
-        ø: "o",
-      }[c] || c),
+    .replace(
+      /[áéíóúüñçßëïöäåø]/g,
+      (c) =>
+        ({
+          á: "a",
+          é: "e",
+          í: "i",
+          ó: "o",
+          ú: "u",
+          ü: "u",
+          ñ: "n",
+          ç: "c",
+          ß: "ss",
+          ë: "e",
+          ï: "i",
+          ö: "o",
+          ä: "a",
+          å: "a",
+          ø: "o",
+        })[c] || c,
     )
     .replace(/\s+/g, "-")
     .replace(/[^a-z0-9\-]/g, "")
@@ -168,7 +174,8 @@ const normalizeTeamName = (teamName) =>
 const findMatchStreams = async (homeTeamName, awayTeamName) => {
   try {
     const liveMatches = await fetchLiveMatches();
-    if (!liveMatches || !Array.isArray(liveMatches) || liveMatches.length === 0) return {};
+    if (!liveMatches || !Array.isArray(liveMatches) || liveMatches.length === 0)
+      return {};
 
     const homeNormalized = normalizeTeamName(homeTeamName).toLowerCase();
     const awayNormalized = normalizeTeamName(awayTeamName).toLowerCase();
@@ -183,19 +190,27 @@ const findMatchStreams = async (homeTeamName, awayTeamName) => {
       .slice(0, Math.min(liveMatches.length, 100))
       .filter((match) => {
         const title = String(match.title || "").toLowerCase();
-        if (hasSameCity) return title.includes(homeNormalized) && title.includes(awayNormalized);
+        if (hasSameCity)
+          return (
+            title.includes(homeNormalized) && title.includes(awayNormalized)
+          );
         const homeHasMatch =
           title.includes(homeNormalized.split("-")[0]) ||
           title.includes(homeNormalized.split("-")[1] || "") ||
-          (match.teams?.home?.name || "").toLowerCase().includes(homeNormalized.split("-")[0]);
+          (match.teams?.home?.name || "")
+            .toLowerCase()
+            .includes(homeNormalized.split("-")[0]);
         const awayHasMatch =
           title.includes(awayNormalized.split("-")[0]) ||
           title.includes(awayNormalized.split("-")[1] || "") ||
-          (match.teams?.away?.name || "").toLowerCase().includes(awayNormalized.split("-")[0]);
+          (match.teams?.away?.name || "")
+            .toLowerCase()
+            .includes(awayNormalized.split("-")[0]);
         return homeHasMatch && awayHasMatch;
       });
 
-    const matchesToProcess = quickMatches.length > 0 ? quickMatches : liveMatches.slice(0, 100);
+    const matchesToProcess =
+      quickMatches.length > 0 ? quickMatches : liveMatches.slice(0, 100);
 
     for (const match of matchesToProcess) {
       if (!match.sources || match.sources.length === 0) continue;
@@ -206,17 +221,23 @@ const findMatchStreams = async (homeTeamName, awayTeamName) => {
       const awayParts = awayNormalized.split("-").filter((w) => w.length > 2);
 
       homeParts.forEach((part) => {
-        if (titleWords.some((w) => w.includes(part) || part.includes(w))) totalScore += 0.4;
+        if (titleWords.some((w) => w.includes(part) || part.includes(w)))
+          totalScore += 0.4;
       });
       awayParts.forEach((part) => {
-        if (titleWords.some((w) => w.includes(part) || part.includes(w))) totalScore += 0.4;
+        if (titleWords.some((w) => w.includes(part) || part.includes(w)))
+          totalScore += 0.4;
       });
 
       if (match.teams) {
         const homeApiName = (match.teams.home?.name || "").toLowerCase();
         const awayApiName = (match.teams.away?.name || "").toLowerCase();
-        homeParts.forEach((part) => { if (homeApiName.includes(part)) totalScore += 0.6; });
-        awayParts.forEach((part) => { if (awayApiName.includes(part)) totalScore += 0.6; });
+        homeParts.forEach((part) => {
+          if (homeApiName.includes(part)) totalScore += 0.6;
+        });
+        awayParts.forEach((part) => {
+          if (awayApiName.includes(part)) totalScore += 0.6;
+        });
       }
 
       if (totalScore > bestScore) {
@@ -231,7 +252,10 @@ const findMatchStreams = async (homeTeamName, awayTeamName) => {
     const allStreams = {};
     for (const source of bestMatch.sources) {
       try {
-        const sourceStreams = await fetchStreamsForSource(source.source, source.id);
+        const sourceStreams = await fetchStreamsForSource(
+          source.source,
+          source.id,
+        );
         if (sourceStreams && sourceStreams.length > 0) {
           const firstStream = sourceStreams[0];
           allStreams[source.source] = {
@@ -253,7 +277,11 @@ const findMatchStreams = async (homeTeamName, awayTeamName) => {
   }
 };
 
-const generateStreamUrl = (awayTeamName, homeTeamName, streamType = "alpha1") => {
+const generateStreamUrl = (
+  awayTeamName,
+  homeTeamName,
+  streamType = "alpha1",
+) => {
   const normalizedAway = normalizeTeamName(awayTeamName);
   const normalizedHome = normalizeTeamName(homeTeamName);
   const streamUrls = {
@@ -10359,11 +10387,11 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
         if (!silent) setLoading(true);
         setError(null);
         try {
-            // If stream modal is open, skip updating to avoid disrupting playback
-            if (streamModalVisibleRef.current) {
-              console.log("Stream modal open, skipping Top5 game update");
-              return dataRef.current;
-            }
+          // If stream modal is open, skip updating to avoid disrupting playback
+          if (streamModalVisibleRef.current) {
+            console.log("Stream modal open, skipping Top5 game update");
+            return dataRef.current;
+          }
           const gameUrl = `${FOOTBALL_BASE}/football/game/${fixtureId}/${homeTeamId}/${awayTeamId}`;
           const h2hUrl = `${FOOTBALL_BASE}/football/game/h2h/${homeTeamId}/${awayTeamId}`;
           const factsUrl = `${FOOTBALL_BASE}/football/game/facts/${fixtureId}`;
@@ -10523,12 +10551,12 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
     [fixtureId, homeTeamId, awayTeamId, applyTickingSnapshot],
   );
 
-    // Fetch immediately when stream modal closes (resume updates)
-    useEffect(() => {
-      if (showStreamModal === false && dataRef.current) {
-        loadData(false, false).catch(() => {});
-      }
-    }, [showStreamModal, loadData]);
+  // Fetch immediately when stream modal closes (resume updates)
+  useEffect(() => {
+    if (showStreamModal === false && dataRef.current) {
+      loadData(false, false).catch(() => {});
+    }
+  }, [showStreamModal, loadData]);
 
   // ── Polling (same pattern as Top5ScoreboardScreen) ───────────────────────
   const intervalRef = useRef(null);
@@ -10902,8 +10930,14 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
     setStreamLoading(true);
     setStreamError(false);
     try {
-      const homeTeamName = home?.name || fixture?.participants?.find((p) => p.meta?.location === "home")?.name || "";
-      const awayTeamName = away?.name || fixture?.participants?.find((p) => p.meta?.location === "away")?.name || "";
+      const homeTeamName =
+        home?.name ||
+        fixture?.participants?.find((p) => p.meta?.location === "home")?.name ||
+        "";
+      const awayTeamName =
+        away?.name ||
+        fixture?.participants?.find((p) => p.meta?.location === "away")?.name ||
+        "";
       const streams = await findMatchStreams(homeTeamName, awayTeamName);
       const converted = {};
       Object.keys(streams).forEach((s) => {
@@ -10925,7 +10959,11 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   const openStreamModal = useCallback(async () => {
     const unlock = isStreamingUnlocked ? true : true;
     if (!unlock) {
-      Alert.alert("Streaming Locked", "Please enter the streaming code in Settings to access live streams.", [{ text: "OK" }]);
+      Alert.alert(
+        "Streaming Locked",
+        "Please enter the streaming code in Settings to access live streams.",
+        [{ text: "OK" }],
+      );
       return;
     }
     setShowStreamModal(true);
@@ -10939,7 +10977,12 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
     setStreamLoading(true);
     let newUrl = "";
     if (availableStreams[streamType]) newUrl = availableStreams[streamType];
-    else newUrl = generateStreamUrl(away?.name || "", home?.name || "", streamType);
+    else
+      newUrl = generateStreamUrl(
+        away?.name || "",
+        home?.name || "",
+        streamType,
+      );
     setTimeout(() => setStreamLoading(false), 800);
   };
 
@@ -11127,27 +11170,43 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
             />
 
             {/* Status (centre) */}
-            <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
-            <StatusBadge
-              fixture={fixture}
-              theme={theme}
-              nowMs={nowMs}
-              snapshotTsMs={snapshotTsMs}
-            />
+            <View
+              style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+              }}
+            >
+              <StatusBadge
+                fixture={fixture}
+                theme={theme}
+                nowMs={nowMs}
+                snapshotTsMs={snapshotTsMs}
+              />
 
-            {/* Stream Button (center column) */}
-            {!isScheduledGame && !finished && (
-              <TouchableOpacity
-                style={[styles.streamBtn, { borderColor: colors.primary }]}
-                onPress={openStreamModal}
-                activeOpacity={0.8}
-              >
-                <View style={styles.streamBtnInner}>
-                  <View style={[styles.streamBtnDot, { backgroundColor: colors.primary }]} />
-                  <Text style={[styles.streamBtnText, { color: colors.primary }]}>Stream</Text>
-                </View>
-              </TouchableOpacity>
-            )}
+              {/* Stream Button (center column) */}
+              {!isScheduledGame && !finished && (
+                <TouchableOpacity
+                  style={[styles.streamBtn, { borderColor: colors.primary }]}
+                  onPress={openStreamModal}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.streamBtnInner}>
+                    <View
+                      style={[
+                        styles.streamBtnDot,
+                        { backgroundColor: colors.primary },
+                      ]}
+                    />
+                    <Text
+                      style={[styles.streamBtnText, { color: colors.primary }]}
+                    >
+                      Stream
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Away (right) */}
@@ -11676,27 +11735,92 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
           onRequestClose={() => setShowStreamModal(false)}
         >
           <View style={styles.streamModalOverlay}>
-            <View style={[styles.streamModalContainer, { backgroundColor: theme.surface }]}>
-              <View style={[styles.streamModalHeader, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]}> 
-                <Text style={[styles.streamModalTitle, { color: colors.primary }]}>Live Stream</Text>
-                <TouchableOpacity style={[styles.streamCloseButton, { backgroundColor: theme.error, borderColor: theme.text }]} onPress={() => setShowStreamModal(false)}>
-                  <Text style={[styles.streamCloseText, { color: theme.text }]}>×</Text>
+            <View
+              style={[
+                styles.streamModalContainer,
+                { backgroundColor: theme.surface },
+              ]}
+            >
+              <View
+                style={[
+                  styles.streamModalHeader,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    borderBottomColor: theme.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[styles.streamModalTitle, { color: colors.primary }]}
+                >
+                  Live Stream
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.streamCloseButton,
+                    { backgroundColor: theme.error, borderColor: theme.text },
+                  ]}
+                  onPress={() => setShowStreamModal(false)}
+                >
+                  <Text style={[styles.streamCloseText, { color: theme.text }]}>
+                    ×
+                  </Text>
                 </TouchableOpacity>
               </View>
 
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.streamButtonsContainer, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]} contentContainerStyle={styles.streamButtonsContent}>
-                {Object.keys(availableStreams).slice(0,5).map((source) => (
-                  <TouchableOpacity key={source} style={[styles.streamSourceButton, { backgroundColor: currentStreamType === source ? colors.primary : theme.surfaceSecondary, borderColor: theme.border }]} onPress={() => switchStream(source)}>
-                    <Text style={[styles.streamSourceButtonText, { color: currentStreamType === source ? '#fff' : colors.primary }]}>{source.charAt(0).toUpperCase() + source.slice(1)}</Text>
-                  </TouchableOpacity>
-                ))}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={[
+                  styles.streamButtonsContainer,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    borderBottomColor: theme.border,
+                  },
+                ]}
+                contentContainerStyle={styles.streamButtonsContent}
+              >
+                {Object.keys(availableStreams)
+                  .slice(0, 5)
+                  .map((source) => (
+                    <TouchableOpacity
+                      key={source}
+                      style={[
+                        styles.streamSourceButton,
+                        {
+                          backgroundColor:
+                            currentStreamType === source
+                              ? colors.primary
+                              : theme.surfaceSecondary,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                      onPress={() => switchStream(source)}
+                    >
+                      <Text
+                        style={[
+                          styles.streamSourceButtonText,
+                          {
+                            color:
+                              currentStreamType === source
+                                ? "#fff"
+                                : colors.primary,
+                          },
+                        ]}
+                      >
+                        {source.charAt(0).toUpperCase() + source.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
               </ScrollView>
 
               <View style={styles.webViewContainer}>
                 {streamLoading && (
                   <View style={styles.streamLoadingOverlay}>
                     <ActivityIndicator size="large" color={colors.primary} />
-                    <Text style={[styles.streamLoadingText, { color: '#fff' }]}>Loading stream...</Text>
+                    <Text style={[styles.streamLoadingText, { color: "#fff" }]}>
+                      Loading stream...
+                    </Text>
                   </View>
                 )}
                 {currentStreamType && availableStreams[currentStreamType] && (
@@ -11742,35 +11866,69 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                       });
                     }}
                     onShouldStartLoadWithRequest={(request) => {
-                      console.log("Top5 WebView navigation request:", request.url);
+                      console.log(
+                        "Top5 WebView navigation request:",
+                        request.url,
+                      );
 
                       if (request.url === availableStreams[currentStreamType]) {
                         return true;
                       }
 
-                      const popupKeywords = ["popup", "ad", "ads", "click", "redirect", "promo"];
+                      const popupKeywords = [
+                        "popup",
+                        "ad",
+                        "ads",
+                        "click",
+                        "redirect",
+                        "promo",
+                      ];
                       const urlLower = request.url.toLowerCase();
-                      const hasPopupKeywords = popupKeywords.some((keyword) => urlLower.includes(keyword));
+                      const hasPopupKeywords = popupKeywords.some((keyword) =>
+                        urlLower.includes(keyword),
+                      );
 
-                      const currentDomain = new URL(availableStreams[currentStreamType]).hostname;
+                      const currentDomain = new URL(
+                        availableStreams[currentStreamType],
+                      ).hostname;
                       let requestDomain = "";
                       try {
                         requestDomain = new URL(request.url).hostname;
                       } catch (e) {
-                        if (urlLower.startsWith("about:blank") || urlLower.startsWith("data:")) {
+                        if (
+                          urlLower.startsWith("about:blank") ||
+                          urlLower.startsWith("data:")
+                        ) {
                           return true;
                         }
                         console.log("Invalid URL:", request.url);
                         return false;
                       }
 
-                      const sameRootDomain = requestDomain === currentDomain || requestDomain.endsWith(`.${currentDomain}`) || currentDomain.endsWith(`.${requestDomain}`);
+                      const sameRootDomain =
+                        requestDomain === currentDomain ||
+                        requestDomain.endsWith(`.${currentDomain}`) ||
+                        currentDomain.endsWith(`.${requestDomain}`);
 
-                      const allowPatterns = ["/embed/", "/embed-noads/", "/player/", ".html", ".m3u8", ".mpd", "about:blank", "data:"];
-                      const allowIfEmbed = allowPatterns.some((p) => urlLower.includes(p));
+                      const allowPatterns = [
+                        "/embed/",
+                        "/embed-noads/",
+                        "/player/",
+                        ".html",
+                        ".m3u8",
+                        ".mpd",
+                        "about:blank",
+                        "data:",
+                      ];
+                      const allowIfEmbed = allowPatterns.some((p) =>
+                        urlLower.includes(p),
+                      );
 
                       if (hasPopupKeywords && !allowIfEmbed) {
-                        console.log("Blocked Top5 popup/cross-domain navigation:", request.url);
+                        console.log(
+                          "Blocked Top5 popup/cross-domain navigation:",
+                          request.url,
+                        );
                         return false;
                       }
 
@@ -11778,21 +11936,30 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                         return true;
                       }
 
-                      console.log("Blocked Top5 popup/cross-domain navigation:", request.url);
+                      console.log(
+                        "Blocked Top5 popup/cross-domain navigation:",
+                        request.url,
+                      );
                       return false;
                     }}
                     onOpenWindow={(syntheticEvent) => {
                       const { nativeEvent } = syntheticEvent;
-                      console.log("Blocked Top5 popup window:", nativeEvent.targetUrl);
+                      console.log(
+                        "Blocked Top5 popup window:",
+                        nativeEvent.targetUrl,
+                      );
                       return false;
                     }}
                   />
                 )}
-                {!currentStreamType && !Object.keys(availableStreams).length && (
-                  <View style={{ padding: 12 }}>
-                    <Text style={{ color: theme.textSecondary }}>No streams available.</Text>
-                  </View>
-                )}
+                {!currentStreamType &&
+                  !Object.keys(availableStreams).length && (
+                    <View style={{ padding: 12 }}>
+                      <Text style={{ color: theme.textSecondary }}>
+                        No streams available.
+                      </Text>
+                    </View>
+                  )}
               </View>
             </View>
           </View>
@@ -11877,16 +12044,58 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
-  streamModalTitle: { fontSize: 18, fontWeight: "bold", flex: 1, textAlign: "center" },
-  streamCloseButton: { width: 32, height: 32, borderRadius: 16, justifyContent: "center", alignItems: "center", borderWidth: 1 },
+  streamModalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    flex: 1,
+    textAlign: "center",
+  },
+  streamCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+  },
   streamCloseText: { fontSize: 20, fontWeight: "bold", marginTop: -3 },
-  streamButtonsContainer: { paddingVertical: 12, borderBottomWidth: 1, maxHeight: 60 },
-  streamButtonsContent: { paddingHorizontal: 10, gap: 10, alignItems: "center" },
-  streamSourceButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, minWidth: 80, alignItems: "center", marginHorizontal: 5 },
-  streamSourceButtonText: { fontSize: 12, fontWeight: "600", textTransform: "capitalize" },
+  streamButtonsContainer: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    maxHeight: 60,
+  },
+  streamButtonsContent: {
+    paddingHorizontal: 10,
+    gap: 10,
+    alignItems: "center",
+  },
+  streamSourceButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    minWidth: 80,
+    alignItems: "center",
+    marginHorizontal: 5,
+  },
+  streamSourceButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    textTransform: "capitalize",
+  },
   webViewContainer: { flex: 1, position: "relative" },
   streamWebView: { flex: 1 },
-  streamLoadingOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0, 0, 0, 0.8)", zIndex: 1 },
+  streamLoadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    zIndex: 1,
+  },
   streamLoadingText: { marginTop: 10, fontSize: 16, fontWeight: "600" },
   teamsRow: {
     flexDirection: "row",
