@@ -687,7 +687,8 @@ export default function Top5TeamsScreen({ navigation }) {
   );
 
   const showNoRankings =
-    sortMode === "RANK" && (error || !(Array.isArray(rankTeams) && rankTeams.length));
+    sortMode === "RANK" &&
+    (error || !(Array.isArray(rankTeams) && rankTeams.length));
 
   if (loading) {
     return (
@@ -699,7 +700,7 @@ export default function Top5TeamsScreen({ navigation }) {
   if (error && sortMode !== "RANK") {
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <Text style={[styles.errorText, { color: theme.text }]}> 
+        <Text style={[styles.errorText, { color: theme.text }]}>
           Error: {error}
         </Text>
         <TouchableOpacity
@@ -776,8 +777,15 @@ export default function Top5TeamsScreen({ navigation }) {
       </View>
 
       {showNoRankings ? (
-        <View style={[styles.center, { flex: 1, backgroundColor: theme.background }]}>
-          <Text style={{ color: theme.textSecondary }}>No Team Rankings available</Text>
+        <View
+          style={[
+            styles.center,
+            { flex: 1, backgroundColor: theme.background },
+          ]}
+        >
+          <Text style={{ color: theme.textSecondary }}>
+            No Team Rankings available
+          </Text>
         </View>
       ) : (
         <FlatList
