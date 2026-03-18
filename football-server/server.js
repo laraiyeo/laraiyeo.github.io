@@ -1352,7 +1352,11 @@ function transformPlayerResponse(raw) {
                   image_path: t.league.image_path ?? null,
                 }
               : null,
-            team: slimTeam(t.team, ["id", "name", "image_path", "country.name"]),
+            team: slimTeam(t.team, ["id", "name", "image_path"]),
+            teamCountry: t.team?.country
+              ? {
+                  name: t.team.country.name ?? null,
+              } : null,
           }))
       : [],
     statistics: Array.isArray(p.statistics)

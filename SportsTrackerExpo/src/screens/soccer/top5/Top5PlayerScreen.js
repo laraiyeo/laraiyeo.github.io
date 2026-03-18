@@ -2341,6 +2341,34 @@ export default function Top5PlayerScreen({ route, navigation }) {
                   {initials || "?"}
                 </Text>
               )}
+              {currentTeam ? (
+                <View style={styles.headerTeamBadge}>
+                  {currentTeam.team?.image_path && !isPlaceholder(currentTeam.team.image_path) ? (
+                    <Image
+                      source={{ uri: currentTeam.team.image_path }}
+                      style={styles.headerTeamBadgeImg}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.headerTeamBadgeFallback,
+                        { backgroundColor: currentTeam.team?.colorPrimary ?? accentColor },
+                      ]}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.headerTeamBadgeInitial,
+                          { color: getTextOnColor(currentTeam.team?.colorPrimary ?? accentColor) },
+                        ]}
+                      >
+                        {(currentTeam.team?.name ?? "")[0] ?? "?"}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ) : null}
             </View>
             <View style={styles.headerTextBlock}>
               <Text
@@ -2572,10 +2600,29 @@ const styles = StyleSheet.create({
     marginRight: 14,
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
     flexShrink: 0,
   },
   headerHeadshot: { width: 72, height: 72, borderRadius: 36 },
+  headerTeamBadge: {
+    position: "absolute",
+    right: -6,
+    bottom: -6,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTeamBadgeImg: { width: 24, height: 24 },
+  headerTeamBadgeFallback: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTeamBadgeInitial: { fontSize: 12, fontWeight: "800" },
   headerInitials: { fontSize: 26, fontWeight: "800" },
   headerTextBlock: { flex: 1 },
   headerName: { fontSize: 22, fontWeight: "800", marginBottom: 3 },
@@ -2602,15 +2649,15 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   stickyMiniHeadshotWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
     flexShrink: 0,
   },
-  stickyMiniHeadshot: { width: 36, height: 36, borderRadius: 18 },
+  stickyMiniHeadshot: { width: 50, height: 50, borderRadius: 25 },
   stickyMiniInitials: { fontSize: 13, fontWeight: "800" },
   stickyMiniName: { fontSize: 15, fontWeight: "700" },
   stickyMiniPos: { fontSize: 11, fontWeight: "500", marginTop: 1 },
