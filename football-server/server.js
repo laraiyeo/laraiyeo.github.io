@@ -355,7 +355,11 @@ function ensureFixtureDatePolling(cacheKey, url, latestData) {
       const freshData = await fetchUrl(url);
       cacheSet(cacheKey, freshData);
 
-      const { fast: stillFast, ttl: newTtl, mode } = fixtureDateTtlInfo(freshData?.data);
+      const {
+        fast: stillFast,
+        ttl: newTtl,
+        mode,
+      } = fixtureDateTtlInfo(freshData?.data);
       if (!stillFast) {
         clearInterval(act.intervalId);
         act.intervalId = null;
@@ -378,7 +382,9 @@ function ensureFixtureDatePolling(cacheKey, url, latestData) {
     }
   }, initialTtl);
 
-  console.log(`[fixture-poll] ${cacheKey}: started polling every ${initialTtl} ms`);
+  console.log(
+    `[fixture-poll] ${cacheKey}: started polling every ${initialTtl} ms`,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -418,7 +424,11 @@ function ensureGamePolling(cacheKey, fixtureUrl, fixture) {
       const fixtureData = await fetchUrl(fixtureUrl);
       cacheSet(cacheKey, fixtureData);
 
-      const { fast: stillFast, ttl: newTtl, mode } = gameTtlInfo(fixtureData?.data);
+      const {
+        fast: stillFast,
+        ttl: newTtl,
+        mode,
+      } = gameTtlInfo(fixtureData?.data);
       if (!stillFast) {
         clearInterval(act.intervalId);
         act.intervalId = null;
@@ -440,7 +450,9 @@ function ensureGamePolling(cacheKey, fixtureUrl, fixture) {
     }
   }, initialTtl);
 
-  console.log(`[game-poll] ${cacheKey}: started polling every ${initialTtl} ms`);
+  console.log(
+    `[game-poll] ${cacheKey}: started polling every ${initialTtl} ms`,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1399,7 +1411,8 @@ function transformPlayerResponse(raw) {
             teamCountry: t.team?.country
               ? {
                   name: t.team.country.name ?? null,
-              } : null,
+                }
+              : null,
           }))
       : [],
     statistics: Array.isArray(p.statistics)
@@ -2654,7 +2667,11 @@ function transformCacheTeam(item) {
     activeseasons: Array.isArray(item.activeseasons)
       ? item.activeseasons.map((s) => ({
           league: s.league
-            ? { id: s.league.id, name: s.league.name ?? null, sub_type: s.league.sub_type ?? null }
+            ? {
+                id: s.league.id,
+                name: s.league.name ?? null,
+                sub_type: s.league.sub_type ?? null,
+              }
             : null,
         }))
       : [],

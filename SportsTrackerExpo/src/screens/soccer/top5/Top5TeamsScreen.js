@@ -699,10 +699,14 @@ export default function Top5TeamsScreen({ navigation }) {
   }
   // Show a full-screen error only when there are no teams to display.
   // If teams exist, keep the top banner visible and show inline fallbacks.
-  if (error && sortMode !== "RANK" && (!Array.isArray(teams) || teams.length === 0)) {
+  if (
+    error &&
+    sortMode !== "RANK" &&
+    (!Array.isArray(teams) || teams.length === 0)
+  ) {
     return (
-      <View style={[styles.center, { backgroundColor: theme.background }]}> 
-        <Text style={[styles.errorText, { color: theme.text }]}> 
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <Text style={[styles.errorText, { color: theme.text }]}>
           Error: {error}
         </Text>
         <TouchableOpacity
