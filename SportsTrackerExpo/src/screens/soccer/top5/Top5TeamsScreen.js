@@ -18,7 +18,7 @@ import { useBetSlip } from "../../../context/BetSlipContext";
 import { BannerAdWrapper } from "../../../services/ads";
 
 const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
-const CACHE_KEY = "top5:teams:v2";
+const CACHE_KEY = "top5:teams:v1";
 const CACHE_TTL = 12 * 60 * 60 * 1000;
 const RANK_CACHE_KEY = "top5:rank:v1";
 const RANK_CACHE_TTL = 30 * 60 * 1000;
@@ -686,6 +686,9 @@ export default function Top5TeamsScreen({ navigation }) {
     [sortMode, theme, colors, collapsedLeagues, toggleLeague, navigation],
   );
 
+  const showNoRankings =
+    sortMode === "RANK" && (error || !(Array.isArray(rankTeams) && rankTeams.length));
+
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
@@ -693,11 +696,10 @@ export default function Top5TeamsScreen({ navigation }) {
       </View>
     );
   }
-
-  if (error) {
+  if (error && sortMode !== "RANK") {
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <Text style={[styles.errorText, { color: theme.text }]}>
+        <Text style={[styles.errorText, { color: theme.text }]}> 
           Error: {error}
         </Text>
         <TouchableOpacity
@@ -773,23 +775,29 @@ export default function Top5TeamsScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          ...styles.listContent,
-          paddingBottom: isPro ? 32 : 32 + AD_SPACE,
-        }}
-        data={flatListData}
-        keyExtractor={(item) => item.key}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        }
-        renderItem={renderItem}
-      />
+      {showNoRankings ? (
+        <View style={[styles.center, { flex: 1, backgroundColor: theme.background }]}>
+          <Text style={{ color: theme.textSecondary }}>No Team Rankings available</Text>
+        </View>
+      ) : (
+        <FlatList
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            ...styles.listContent,
+            paddingBottom: isPro ? 32 : 32 + AD_SPACE,
+          }}
+          data={flatListData}
+          keyExtractor={(item) => item.key}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+          renderItem={renderItem}
+        />
+      )}
 
       {!isPro && (
         <View
