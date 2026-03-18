@@ -333,33 +333,42 @@ function ensureFixtureDatePolling(cacheKey, url, latestData) {
   const info = fixtureDateTtlInfo(latestData?.data);
   if (!info.fast) return;
   const initialTtl = info.ttl;
-
+  // Store interval id so we don't create duplicate pollers. Unlike game
+  // polling, fixture-date polling should run regardless of external request
+  // activity while `info.fast` indicates we should poll.
   let act = fixtureActivity.get(cacheKey);
   if (!act) {
-    act = { intervalId: null, lastRequest: Date.now() };
+    act = { intervalId: null };
     fixtureActivity.set(cacheKey, act);
   }
-  act.lastRequest = Date.now();
 
   if (act.intervalId != null) return;
 
-  act.intervalId = setInterval(async () => {
-    if (Date.now() - act.lastRequest > 60_000) {
-      clearInterval(act.intervalId);
-      act.intervalId = null;
-      console.log(`[fixture-poll] ${cacheKey}: stopped (inactivity)`);
-      return;
-    }
+  // Log games' start times and the polling rule being used
+  try {
+    const games = Array.isArray(latestData?.data) ? latestData.data : [];
+    const starts = games
+      .map((f) => {
+        const ts = startTimeMsOf(f);
+        return `${f.id ?? "?"}:${ts != null ? new Date(ts).toISOString() : "null"}`;
+      })
+      .join(", ");
+    console.log(`[fixture-poll] ${cacheKey}: games start times: ${starts}`);
+    console.log(
+      `[fixture-poll] ${cacheKey}: polling rule: mode=${info.mode} ttl=${info.ttl} fast=${info.fast}`,
+    );
+  } catch (e) {
+    console.error(`[fixture-poll] ${cacheKey}: failed to log starts:`, e.message);
+  }
 
+  act.intervalId = setInterval(async () => {
     try {
       const freshData = await fetchUrl(url);
       cacheSet(cacheKey, freshData);
 
-      const {
-        fast: stillFast,
-        ttl: newTtl,
-        mode,
-      } = fixtureDateTtlInfo(freshData?.data);
+      const { fast: stillFast, ttl: newTtl, mode } = fixtureDateTtlInfo(
+        freshData?.data,
+      );
       if (!stillFast) {
         clearInterval(act.intervalId);
         act.intervalId = null;
@@ -382,9 +391,7 @@ function ensureFixtureDatePolling(cacheKey, url, latestData) {
     }
   }, initialTtl);
 
-  console.log(
-    `[fixture-poll] ${cacheKey}: started polling every ${initialTtl} ms`,
-  );
+  console.log(`[fixture-poll] ${cacheKey}: started polling every ${initialTtl} ms`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

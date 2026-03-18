@@ -340,7 +340,7 @@ const parseAggregate = (fixture) => {
 };
 
 const GAME_CACHE_KEY = (id) => `@gameDetail_v1:${id}`;
-const GAME_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+const GAME_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 const GAME_AUX_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 const GAME_H2H_CACHE_KEY = (homeId, awayId) =>
   `@gameDetail_h2h_v1:${homeId}:${awayId}`;
@@ -350,7 +350,7 @@ const GAME_FACTS_CACHE_KEY = (fixtureId) => `@gameDetail_facts_v1:${fixtureId}`;
 const INTERVAL_SLOW = 30 * 60 * 1000; // 30 minutes
 const INTERVAL_FAST = 10 * 1000; // 10 seconds
 const INTERVAL_SOON = 60 * 1000; // 1 minute
-const INTERVAL_FINISHED = 6 * 60 * 60 * 1000; // 6 hours
+const INTERVAL_FINISHED = 12 * 60 * 60 * 1000; // 12 hours
 const LIVE_SHORT_NAMES = new Set(["1ST", "2ND", "HT"]);
 
 const TIME_BUCKETS = ["0-15", "15-30", "30-45", "45-60", "60-75", "75-90"];
@@ -648,7 +648,7 @@ const formatGoalMinute = (minute, extraMinute) => {
 const buildGoalShareStats = (lineup, isOwnGoal) => {
   const rating = getLineupRating(lineup);
   const stats = {
-    rtg: rating != null ? Number(rating.toFixed(1)) : null,
+    rtg: rating != null ? rating.toFixed(1) : null,
     gls: getLineupDetailStat(lineup, "goals", "goal"),
     ast: getLineupDetailStat(lineup, "assists", "assist"),
     sot: getLineupDetailStat(lineup, "shots on target", "shot on target"),
@@ -7901,6 +7901,7 @@ const SoccerPlayerDetailModal = ({
           "assists",
           "assist",
           "minutes played",
+          "captain"
         ].includes(row.key),
     );
 
@@ -10515,6 +10516,13 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 if (Date.now() - ts < GAME_CACHE_TTL_MS) {
                   setData(cachedData);
                   setSnapshotTsMs(Number(ts) || Date.now());
+                  // Populate the in-memory fetch cache so subsequent calls
+                  // in this session use the cached value and avoid network fetch.
+                  fetchCacheRef.current = { data: cachedData, ts: Number(ts) || Date.now() };
+                  console.log(
+                    `Top5: using AsyncStorage cache for ${fixtureId}, age=${Date.now() - Number(ts)}ms`,
+                  );
+                  return cachedData;
                 }
               }
             } catch (_) {}
