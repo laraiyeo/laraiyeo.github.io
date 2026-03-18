@@ -858,7 +858,12 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
               <Text
                 style={[mStyles.finishedTime, { color: theme.textTertiary }]}
               >
-                {toEST(match.starting_at)}{roundName ? ` ∙ Round ${roundName}` : agg ? ` ∙ AGG: ${agg.homeAgg} - ${agg.awayAgg}` : ""}
+                {toEST(match.starting_at)}
+                {roundName
+                  ? ` ∙ Round ${roundName}`
+                  : agg
+                    ? ` ∙ AGG: ${agg.homeAgg} - ${agg.awayAgg}`
+                    : ""}
               </Text>
               <View style={mStyles.scoreRow}>
                 <Text
@@ -892,22 +897,27 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
               return (
                 <View style={mStyles.timeBlock}>
                   {agg ? (
-                    <Text style={[mStyles.finishedTime, { color: theme.textTertiary, fontWeight: "700" }]}>{`AGG: ${agg.homeAgg} - ${agg.awayAgg}`}</Text>
+                    <Text
+                      style={[
+                        mStyles.finishedTime,
+                        { color: theme.textTertiary, fontWeight: "700" },
+                      ]}
+                    >{`AGG: ${agg.homeAgg} - ${agg.awayAgg}`}</Text>
                   ) : null}
                   {roundName && (
-                  <Text
-                    style={[
-                      mStyles.finishedTime,
-                      { color: theme.textTertiary },
-                    ]}
-                  >
-                    Round {roundName}
-                  </Text>
+                    <Text
+                      style={[
+                        mStyles.finishedTime,
+                        { color: theme.textTertiary },
+                      ]}
+                    >
+                      Round {roundName}
+                    </Text>
                   )}
-                  <Text style={[mStyles.timeText, { color: theme.text }]}> 
+                  <Text style={[mStyles.timeText, { color: theme.text }]}>
                     {timePart}
                   </Text>
-                  <Text style={[mStyles.timePeriod, { color: theme.text }]}> 
+                  <Text style={[mStyles.timePeriod, { color: theme.text }]}>
                     {period}
                   </Text>
                 </View>

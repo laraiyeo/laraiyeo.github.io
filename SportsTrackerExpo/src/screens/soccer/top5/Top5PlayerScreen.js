@@ -532,7 +532,8 @@ function TrophiesSection({ trophies, theme, accentColor, isDarkMode }) {
   const teamMap = new Map();
   for (const t of trophies) {
     const tid = t.team?.id ?? "unknown";
-    if (!teamMap.has(tid)) teamMap.set(tid, { team: t.team, country: t.teamCountry, entries: [] });
+    if (!teamMap.has(tid))
+      teamMap.set(tid, { team: t.team, country: t.teamCountry, entries: [] });
     teamMap.get(tid).entries.push(t);
   }
 
@@ -554,7 +555,8 @@ function TrophiesSection({ trophies, theme, accentColor, isDarkMode }) {
           const trophyName = t.trophy?.name ?? "Other";
           const lid = t.league?.id ?? t.league?.name ?? "unknown";
           const key = `${trophyName}::${lid}`;
-          if (!sub[key]) sub[key] = { trophyName, league: t.league, seasons: [] };
+          if (!sub[key])
+            sub[key] = { trophyName, league: t.league, seasons: [] };
           if (t.season?.name) sub[key].seasons.push(t.season.name);
         }
 
@@ -569,34 +571,113 @@ function TrophiesSection({ trophies, theme, accentColor, isDarkMode }) {
         });
 
         return (
-          <View key={team.id ?? Math.random()} style={[iStyles.trLeagueCard, { backgroundColor: theme.background, borderColor: theme.border }]}>
+          <View
+            key={team.id ?? Math.random()}
+            style={[
+              iStyles.trLeagueCard,
+              { backgroundColor: theme.background, borderColor: theme.border },
+            ]}
+          >
             <View style={iStyles.trLeagueHeader}>
               {team.image_path && !isPlaceholder(team.image_path) ? (
-                <Image source={{ uri: team.image_path }} style={iStyles.trLeagueLogo} resizeMode="contain" />
+                <Image
+                  source={{ uri: team.image_path }}
+                  style={iStyles.trLeagueLogo}
+                  resizeMode="contain"
+                />
               ) : null}
               <View style={{ flex: 1 }}>
-                <Text style={[iStyles.trLeagueName, { color: theme.text }]} numberOfLines={1}>{team.name ?? "Unknown Team"}</Text>
-                {country ? <Text style={{ color: theme.textSecondary }}>{country}</Text> : null}
+                <Text
+                  style={[iStyles.trLeagueName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {team.name ?? "Unknown Team"}
+                </Text>
+                {country ? (
+                  <Text style={{ color: theme.textSecondary }}>{country}</Text>
+                ) : null}
               </View>
             </View>
 
             {subArr.map((entry) => {
-              const seasons = [...new Set(entry.seasons)].sort((a, b) => b.localeCompare(a)).join(" \u00B7 ");
+              const seasons = [...new Set(entry.seasons)]
+                .sort((a, b) => b.localeCompare(a))
+                .join(" \u00B7 ");
               const seasonText = seasons ? `(${seasons})` : "";
-              const seasonColor = (entry.trophyName || "").toLowerCase() === "winner" ? theme.textSecondary : theme.textTertiary ?? theme.textSecondary;
+              const seasonColor =
+                (entry.trophyName || "").toLowerCase() === "winner"
+                  ? theme.textSecondary
+                  : (theme.textTertiary ?? theme.textSecondary);
               return (
-                <View key={`${entry.trophyName}::${entry.league?.id ?? entry.league?.name}`} style={[iStyles.trTrophyRow, { borderTopColor: theme.border }]}>
-                  <View style={[iStyles.trTrophyCount, { backgroundColor: (accentColor ?? "#888") + "22" }]}>
-                    <Text style={[iStyles.trTrophyCountText, { color: theme.text }]}>{entry.seasons.length}</Text>
+                <View
+                  key={`${entry.trophyName}::${entry.league?.id ?? entry.league?.name}`}
+                  style={[
+                    iStyles.trTrophyRow,
+                    { borderTopColor: theme.border },
+                  ]}
+                >
+                  <View
+                    style={[
+                      iStyles.trTrophyCount,
+                      { backgroundColor: (accentColor ?? "#888") + "22" },
+                    ]}
+                  >
+                    <Text
+                      style={[iStyles.trTrophyCountText, { color: theme.text }]}
+                    >
+                      {entry.seasons.length}
+                    </Text>
                   </View>
-                  <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+                  <View
+                    style={{
+                      flex: 1,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        flex: 1,
+                      }}
+                    >
                       {entry.league?.image_path ? (
-                        <Image source={{ uri: entry.league.image_path }} style={{ width: 30, height: 30, marginRight: 10, tintColor: (entry.league.id === 8 || entry.league.id === 2) && isDarkMode ? theme.text : undefined }} resizeMode="contain" />
+                        <Image
+                          source={{ uri: entry.league.image_path }}
+                          style={{
+                            width: 30,
+                            height: 30,
+                            marginRight: 10,
+                            tintColor:
+                              (entry.league.id === 8 ||
+                                entry.league.id === 2) &&
+                              isDarkMode
+                                ? theme.text
+                                : undefined,
+                          }}
+                          resizeMode="contain"
+                        />
                       ) : null}
                       <View style={{ flex: 1 }}>
-                        <Text style={[iStyles.trTrophyName, { color: theme.text }]} numberOfLines={1}>{entry.league?.name ?? entry.trophyName}</Text>
-                        <Text style={[iStyles.trTrophySeasons, { color: seasonColor }]} numberOfLines={1}>{entry.league?.name ? `${seasonText}`.replace(/\s\(/, " (") : seasonText}</Text>
+                        <Text
+                          style={[iStyles.trTrophyName, { color: theme.text }]}
+                          numberOfLines={1}
+                        >
+                          {entry.league?.name ?? entry.trophyName}
+                        </Text>
+                        <Text
+                          style={[
+                            iStyles.trTrophySeasons,
+                            { color: seasonColor },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {entry.league?.name
+                            ? `${seasonText}`.replace(/\s\(/, " (")
+                            : seasonText}
+                        </Text>
                       </View>
                     </View>
                   </View>

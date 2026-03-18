@@ -7213,7 +7213,11 @@ const HomeTeamPitchSection = ({
                         { right: 0 - idx * 8 },
                       ]}
                     >
-                      <FontAwesome6 name="soccer-ball" size={12} color="#000000" />
+                      <FontAwesome6
+                        name="soccer-ball"
+                        size={12}
+                        color="#000000"
+                      />
                     </View>,
                   );
                 }
@@ -7225,10 +7229,16 @@ const HomeTeamPitchSection = ({
                       style={[
                         styles.homePitchIconBubble,
                         styles.homePitchIconBottomRight,
-                        { right: 0 - maxIcons * 8, alignItems: "center", justifyContent: "center" },
+                        {
+                          right: 0 - maxIcons * 8,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        },
                       ]}
                     >
-                      <Text style={{ fontSize: 10, fontWeight: "700" }}>{`+${remaining}`}</Text>
+                      <Text
+                        style={{ fontSize: 10, fontWeight: "700" }}
+                      >{`+${remaining}`}</Text>
                     </View>,
                   );
                 }
@@ -7284,10 +7294,16 @@ const HomeTeamPitchSection = ({
                       style={[
                         styles.homePitchIconBubble,
                         styles.homePitchIconBottomLeft,
-                        { left: 0 - maxIcons * 8, alignItems: "center", justifyContent: "center" },
+                        {
+                          left: 0 - maxIcons * 8,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        },
                       ]}
                     >
-                      <Text style={{ fontSize: 10, fontWeight: "700" }}>{`+${remaining}`}</Text>
+                      <Text
+                        style={{ fontSize: 10, fontWeight: "700" }}
+                      >{`+${remaining}`}</Text>
                     </View>,
                   );
                 }
@@ -11286,23 +11302,31 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 gap: 10,
               }}
             >
-                {(() => {
-                  const agg = parseAggregate(fixture);
-                  if (agg) {
-                    return (
-                      <Text style={[{ fontSize: 12, fontWeight: "700", color: theme.textSecondary }]}>
-                        {`AGG: ${agg.homeAgg} - ${agg.awayAgg}`}
-                      </Text>
-                    );
-                  }
-                  return null;
-                })()}
-                <StatusBadge
-                  fixture={fixture}
-                  theme={theme}
-                  nowMs={nowMs}
-                  snapshotTsMs={snapshotTsMs}
-                />
+              {(() => {
+                const agg = parseAggregate(fixture);
+                if (agg) {
+                  return (
+                    <Text
+                      style={[
+                        {
+                          fontSize: 12,
+                          fontWeight: "700",
+                          color: theme.textSecondary,
+                        },
+                      ]}
+                    >
+                      {`AGG: ${agg.homeAgg} - ${agg.awayAgg}`}
+                    </Text>
+                  );
+                }
+                return null;
+              })()}
+              <StatusBadge
+                fixture={fixture}
+                theme={theme}
+                nowMs={nowMs}
+                snapshotTsMs={snapshotTsMs}
+              />
 
               {/* Stream Button (center column) */}
               {!isScheduledGame && !finished && (
