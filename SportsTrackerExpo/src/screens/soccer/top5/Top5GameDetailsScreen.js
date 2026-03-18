@@ -7901,7 +7901,7 @@ const SoccerPlayerDetailModal = ({
           "assists",
           "assist",
           "minutes played",
-          "captain"
+          "captain",
         ].includes(row.key),
     );
 
@@ -10518,7 +10518,10 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                   setSnapshotTsMs(Number(ts) || Date.now());
                   // Populate the in-memory fetch cache so subsequent calls
                   // in this session use the cached value and avoid network fetch.
-                  fetchCacheRef.current = { data: cachedData, ts: Number(ts) || Date.now() };
+                  fetchCacheRef.current = {
+                    data: cachedData,
+                    ts: Number(ts) || Date.now(),
+                  };
                   console.log(
                     `Top5: using AsyncStorage cache for ${fixtureId}, age=${Date.now() - Number(ts)}ms`,
                   );

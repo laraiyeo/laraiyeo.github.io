@@ -358,7 +358,10 @@ function ensureFixtureDatePolling(cacheKey, url, latestData) {
       `[fixture-poll] ${cacheKey}: polling rule: mode=${info.mode} ttl=${info.ttl} fast=${info.fast}`,
     );
   } catch (e) {
-    console.error(`[fixture-poll] ${cacheKey}: failed to log starts:`, e.message);
+    console.error(
+      `[fixture-poll] ${cacheKey}: failed to log starts:`,
+      e.message,
+    );
   }
 
   act.intervalId = setInterval(async () => {
@@ -366,9 +369,11 @@ function ensureFixtureDatePolling(cacheKey, url, latestData) {
       const freshData = await fetchUrl(url);
       cacheSet(cacheKey, freshData);
 
-      const { fast: stillFast, ttl: newTtl, mode } = fixtureDateTtlInfo(
-        freshData?.data,
-      );
+      const {
+        fast: stillFast,
+        ttl: newTtl,
+        mode,
+      } = fixtureDateTtlInfo(freshData?.data);
       if (!stillFast) {
         clearInterval(act.intervalId);
         act.intervalId = null;
@@ -391,7 +396,9 @@ function ensureFixtureDatePolling(cacheKey, url, latestData) {
     }
   }, initialTtl);
 
-  console.log(`[fixture-poll] ${cacheKey}: started polling every ${initialTtl} ms`);
+  console.log(
+    `[fixture-poll] ${cacheKey}: started polling every ${initialTtl} ms`,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
