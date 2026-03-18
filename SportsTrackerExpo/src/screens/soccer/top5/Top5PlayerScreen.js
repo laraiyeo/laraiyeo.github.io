@@ -2527,6 +2527,34 @@ export default function Top5PlayerScreen({ route, navigation }) {
                   </Text>
                 ) : null}
               </View>
+              <View style={{ width: 44, alignItems: "flex-end" }}>
+                {currentTeam ? (
+                  currentTeam.team?.image_path && !isPlaceholder(currentTeam.team.image_path) ? (
+                    <Image
+                      source={{ uri: currentTeam.team.image_path }}
+                      style={styles.stickyTeamBadgeImg}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.stickyTeamBadgeFallback,
+                        { backgroundColor: currentTeam.team?.colorPrimary ?? accentColor },
+                      ]}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.stickyTeamBadgeInitial,
+                          { color: getTextOnColor(currentTeam.team?.colorPrimary ?? accentColor) },
+                        ]}
+                      >
+                        {(currentTeam.team?.name ?? "")[0] ?? "?"}
+                      </Text>
+                    </View>
+                  )
+                ) : null}
+              </View>
             </View>
           </Animated.View>
 
@@ -2683,6 +2711,15 @@ const styles = StyleSheet.create({
   stickyMiniInitials: { fontSize: 13, fontWeight: "800" },
   stickyMiniName: { fontSize: 15, fontWeight: "700" },
   stickyMiniPos: { fontSize: 11, fontWeight: "500", marginTop: 1 },
+  stickyTeamBadgeImg: { width: 36, height: 36, borderRadius: 18 },
+  stickyTeamBadgeFallback: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stickyTeamBadgeInitial: { fontSize: 12, fontWeight: "800" },
 
   // Tab bar
   tabBar: { borderBottomWidth: StyleSheet.hairlineWidth },
