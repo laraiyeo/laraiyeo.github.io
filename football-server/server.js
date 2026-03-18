@@ -579,7 +579,12 @@ function transformLeagueResponse(combined) {
               id: f.id ?? null,
               starting_at: f.starting_at ?? null,
               round: f.round ? { name: f.round.name ?? null } : null,
-              aggregate: f.aggregate ? { name: f.aggregate.name ?? null, result: f.aggregate.result ?? null } : null,
+              aggregate: f.aggregate
+                ? {
+                    name: f.aggregate.name ?? null,
+                    result: f.aggregate.result ?? null,
+                  }
+                : null,
               scores: Array.isArray(f.scores)
                 ? f.scores
                     .filter((s) => s.description === "CURRENT")
@@ -984,7 +989,7 @@ function transformTeamResponse(combined) {
                 : [],
             }))
           : [],
-            }))
+      }))
     : [];
 
   // ── b.txt: squad ──────────────────────────────────────────────────────────
@@ -1829,7 +1834,7 @@ function transformFixtureDateResponse(raw) {
       stage_id: f.stage_id,
       starting_at: f.starting_at ?? null,
       leg: f.leg ?? null,
-      aggregate: f.aggregate 
+      aggregate: f.aggregate
         ? {
             name: f.aggregate.name ?? null,
             result: f.aggregate.result ?? null,
@@ -2146,7 +2151,9 @@ function transformFixtureGameResponse(raw) {
           short_name: f.state.short_name ?? null,
         }
       : null,
-    aggregate: f.aggregate ? { name: f.aggregate.name ?? null, result: f.aggregate.result ?? null } : null,
+    aggregate: f.aggregate
+      ? { name: f.aggregate.name ?? null, result: f.aggregate.result ?? null }
+      : null,
     round: f.round ? { name: f.round.name ?? null } : null,
     participants,
     periods,
@@ -2709,7 +2716,7 @@ async function warmCacheTeams() {
     }
     // Filter out gender-neutral placeholder teams (e.g. TBC) before caching
     const filtered = all.filter(
-      (item) => ((item.gender ?? "").toString().toLowerCase() !== "neutral"),
+      (item) => (item.gender ?? "").toString().toLowerCase() !== "neutral",
     );
     const transformed = filtered.map(transformCacheTeam);
     cacheSet("cache:teams", transformed);

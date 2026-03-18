@@ -920,7 +920,8 @@ const Top5GridSection = ({
                 soccerGridStyles.groupBubbleLogo,
                 {
                   tintColor:
-                    (group.leagueKey === "8" || group.leagueKey === "2") && isDarkMode
+                    (group.leagueKey === "8" || group.leagueKey === "2") &&
+                    isDarkMode
                       ? theme.text
                       : undefined,
                 },
@@ -1024,7 +1025,8 @@ const Top5ScoreboardSection = ({
                   styles.eventLogoImage,
                   {
                     tintColor:
-                      (group.leagueKey === "8" || group.leagueKey === "2") && isDarkMode
+                      (group.leagueKey === "8" || group.leagueKey === "2") &&
+                      isDarkMode
                         ? theme.text
                         : undefined,
                   },
@@ -1360,20 +1362,20 @@ const Top5ScoreboardSection = ({
                     ]}
                   >
                     <View style={styles.gameFooterLeft}>
-                        {agg && agg.homeAgg != null && agg.awayAgg != null ? (
-                          <Text
-                            style={[styles.venue, { color: theme.textSecondary }]}
-                          >
-                            {`AGGREGATE ${agg.homeAgg} - ${agg.awayAgg}`}
-                          </Text>
-                        ) : null}
-                        {match.venue?.name ? (
-                          <Text
-                            style={[styles.venue, { color: theme.textSecondary }]}
-                          >
-                            {match.venue.name}
-                          </Text>
-                        ) : null}
+                      {agg && agg.homeAgg != null && agg.awayAgg != null ? (
+                        <Text
+                          style={[styles.venue, { color: theme.textSecondary }]}
+                        >
+                          {`AGGREGATE ${agg.homeAgg} - ${agg.awayAgg}`}
+                        </Text>
+                      ) : null}
+                      {match.venue?.name ? (
+                        <Text
+                          style={[styles.venue, { color: theme.textSecondary }]}
+                        >
+                          {match.venue.name}
+                        </Text>
+                      ) : null}
                     </View>
                     <View style={styles.gameFooterRight}>
                       <LiveViewerBadge
