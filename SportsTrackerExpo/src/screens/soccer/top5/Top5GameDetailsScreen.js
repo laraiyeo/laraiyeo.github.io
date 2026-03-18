@@ -10554,7 +10554,17 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   // Fetch immediately when stream modal closes (resume updates)
   useEffect(() => {
     if (showStreamModal === false && dataRef.current) {
-      loadData(false, false).catch(() => {});
+      // Do a silent fetch so we don't show the full-screen loading UI
+      // when the modal closes; just refresh the data in-place.
+      loadData(true, false).then((fresh) => {
+        // After refreshing, ensure polling interval reflects latest state
+        try {
+          // schedulePolling may be defined later; call if available
+          if (typeof schedulePolling === "function") {
+            schedulePolling(fresh?.fixtureData ?? dataRef.current?.fixtureData ?? null);
+          }
+        } catch (_) {}
+      }).catch(() => {});
     }
   }, [showStreamModal, loadData]);
 
@@ -12027,7 +12037,7 @@ const styles = StyleSheet.create({
     width: "95%",
     maxWidth: 800,
     height: "85%",
-    maxHeight: 600,
+    maxHeight: 325,
     borderRadius: 12,
     overflow: "hidden",
     shadowColor: "#000",

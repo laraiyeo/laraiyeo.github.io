@@ -808,7 +808,7 @@ function BestMatch({
                   bmStyles.leagueLogo,
                   {
                     tintColor:
-                      best.league_id === 8 && isDarkMode
+                      (best.league_id === 8 || best.league_id === 2) && isDarkMode
                         ? theme.text
                         : undefined,
                   },
@@ -1711,7 +1711,7 @@ function CurrentSeasonsSection({ teamInfo, theme, isDarkMode, navigation }) {
                 infoStyles.logo,
                 {
                   tintColor:
-                    season.league_id === 8 && isDarkMode
+                    (season.league_id === 8 || season.league_id === 2) && isDarkMode
                       ? theme.text
                       : undefined,
                 },
@@ -4388,11 +4388,17 @@ function TrophiesSection({ teamInfo, theme, teamColor, isDarkMode }) {
           if (bi !== -1) return 1;
           return a.localeCompare(b);
         });
-        const capFirst = (s) =>
-          s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
-        const leagueSubType = lg.league?.sub_type
-          ? capFirst(lg.league.sub_type)
-          : null;
+        const capWords = (s) =>
+            s
+              ? s
+                  .split('_')
+                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(' ')
+              : s;
+
+          const leagueSubType = lg.league?.sub_type
+            ? capWords(lg.league.sub_type)
+            : null;
 
         return (
           <View
@@ -4407,7 +4413,7 @@ function TrophiesSection({ teamInfo, theme, teamColor, isDarkMode }) {
               {lg.league?.image_path && !isPlaceholder(lg.league.image_path) ? (
                 <Image
                   source={{ uri: lg.league.image_path }}
-                  style={[inStyles.leagueLogo, { tintColor: lg.league.name === "Premier League" && isDarkMode ? theme.text : undefined }]}
+                  style={[inStyles.leagueLogo, { tintColor: (lg.league.name === "Premier League" || lg.league.name === "Champions League") && isDarkMode ? theme.text : undefined }]}
                   resizeMode="contain"
                 />
               ) : null}

@@ -8495,7 +8495,7 @@ const RaceDetailsScreen = ({ route }) => {
       width: "95%",
       maxWidth: 800,
       height: "85%",
-      maxHeight: 600,
+      maxHeight: 325,
       overflow: "hidden",
       shadowColor: "#000",
       shadowOffset: {

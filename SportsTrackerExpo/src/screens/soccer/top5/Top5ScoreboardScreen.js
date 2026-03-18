@@ -1569,7 +1569,10 @@ const Top5ScoreboardScreen = ({ navigation }) => {
   useFocusEffect(
     useCallback(() => {
       isFocusedRef.current = true;
-      if (groups.length === 0 || lastLoadedFilterRef.current !== activeFilter) {
+      // Only auto-load when we have no data AND the last-loaded filter differs
+      // from the active filter. This avoids double-fetch when the user manually
+      // selects a date which also updates `activeFilter`.
+      if (groups.length === 0 && lastLoadedFilterRef.current !== activeFilter) {
         loadData(activeFilter, false).then((fresh) =>
           schedulePolling(activeFilter, fresh),
         );
@@ -1605,6 +1608,11 @@ const Top5ScoreboardScreen = ({ navigation }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    // Explicit user refresh should bypass any short-term cache so the
+    // latest data is fetched. Remove cached entry for this filter.
+    if (fetchCacheRef.current && fetchCacheRef.current[activeFilter]) {
+      delete fetchCacheRef.current[activeFilter];
+    }
     const fresh = await loadData(activeFilter, true);
     schedulePolling(activeFilter, fresh);
     setRefreshing(false);
@@ -1612,6 +1620,9 @@ const Top5ScoreboardScreen = ({ navigation }) => {
 
   const handleDateSelect = (dateStr) => {
     setActiveFilter(dateStr);
+    // Mark this filter as last-loaded immediately to prevent useFocusEffect
+    // from triggering a duplicate fetch while this request runs.
+    lastLoadedFilterRef.current = dateStr;
     loadData(dateStr, true).then((fresh) => schedulePolling(dateStr, fresh));
   };
 

@@ -1743,6 +1743,12 @@ function transformFixtureDateResponse(raw) {
       stage_id: f.stage_id,
       starting_at: f.starting_at ?? null,
       leg: f.leg ?? null,
+      aggregate: f.aggregate 
+        ? {
+            name: f.aggregate.name ?? null,
+            result: f.aggregate.result ?? null,
+          }
+        : null,
       state: f.state
         ? {
             state: f.state.state ?? null,
@@ -1778,7 +1784,7 @@ app.get("/football/fixture/:date", async (req, res) => {
   const cacheKey = `fixture:date:${raw}`;
   const url =
     `${SM_BASE}/fixtures/date/${isoDate}?api_token=${SM_TOKEN}` +
-    `&per_page=50&include=state;periods;participants;scores;venue;league.country`;
+    `&per_page=50&include=aggregate;state;periods;participants;scores;venue;league.country`;
 
   // Serve from cache if still valid under the dynamic TTL
   const entry = cache.get(cacheKey);
