@@ -252,6 +252,54 @@ const getGoals = (match, side) =>
 const getAbbr = (p) =>
   p?.short_code || (p?.name ? p.name.substring(0, 3).toUpperCase() : "???");
 
+// Parse aggregate score from match.aggregate — returns home/away aggregate numbers
+const parseAggregate = (match) => {
+  const agg = match?.aggregate;
+  if (!agg?.result || !agg?.name) return null;
+  const res = String(agg.result || "").trim();
+  const m = res.match(/^(\d+)\s*-\s*(\d+)$/);
+  if (!m) return null;
+  const leftScore = parseInt(m[1], 10);
+  const rightScore = parseInt(m[2], 10);
+  const nameParts = String(agg.name || "").split(/\s+vs\.?\s+|\s+v\s+/i);
+  if (!nameParts || nameParts.length < 2) return null;
+  const leftName = nameParts[0].trim().toLowerCase();
+  const rightName = nameParts[1].trim().toLowerCase();
+
+  const participants = match?.participants ?? [];
+  const findByName = (needle) =>
+    participants.find((p) => {
+      if (!p?.name) return false;
+      const n = p.name.toLowerCase();
+      return n === needle || n.includes(needle) || needle.includes(n);
+    });
+
+  const leftP = findByName(leftName);
+  const rightP = findByName(rightName);
+
+  let homeAgg = null;
+  let awayAgg = null;
+  if (leftP && leftP.meta?.location === "home") {
+    homeAgg = leftScore;
+    awayAgg = rightScore;
+  } else if (leftP && leftP.meta?.location === "away") {
+    awayAgg = leftScore;
+    homeAgg = rightScore;
+  } else if (rightP && rightP.meta?.location === "home") {
+    homeAgg = rightScore;
+    awayAgg = leftScore;
+  } else if (rightP && rightP.meta?.location === "away") {
+    awayAgg = rightScore;
+    homeAgg = leftScore;
+  } else {
+    // Fallback: assume left => home, right => away
+    homeAgg = leftScore;
+    awayAgg = rightScore;
+  }
+
+  return { homeAgg, awayAgg };
+};
+
 // ─── Date utilities ───────────────────────────────────────────────────────────
 
 const toDateStr = (date) => {
@@ -595,6 +643,7 @@ const Top5GridCard = React.memo(
       match.scores?.find((s) => s.participant === "home")?.goals ?? null;
     const awayScore =
       match.scores?.find((s) => s.participant === "away")?.goals ?? null;
+    const agg = parseAggregate(match);
     const { homeColor, awayColor } = resolveMatchColors({
       homePrimary: home?.colorPrimary,
       homeSecondary: home?.colorSecondary,
@@ -671,6 +720,19 @@ const Top5GridCard = React.memo(
             >
               {si.line1}{" "}
               <Text style={{ color: theme.textTertiary }}>{si.line2}</Text>
+            </Text>
+          )}
+          {agg && agg.homeAgg != null && agg.awayAgg != null && (
+            <Text
+              style={{
+                marginTop: 2.5,
+                fontSize: 10,
+                color: theme.textTertiary,
+                fontWeight: "600",
+              }}
+              numberOfLines={1}
+            >
+              {`AGG: ${agg.homeAgg} - ${agg.awayAgg}`}
             </Text>
           )}
           <LiveViewerBadge
@@ -858,7 +920,7 @@ const Top5GridSection = ({
                 soccerGridStyles.groupBubbleLogo,
                 {
                   tintColor:
-                    group.leagueKey === "8" && isDarkMode
+                    (group.leagueKey === "8" || group.leagueKey === "2") && isDarkMode
                       ? theme.text
                       : undefined,
                 },
@@ -962,7 +1024,7 @@ const Top5ScoreboardSection = ({
                   styles.eventLogoImage,
                   {
                     tintColor:
-                      group.leagueKey === "8" && isDarkMode
+                      (group.leagueKey === "8" || group.leagueKey === "2") && isDarkMode
                         ? theme.text
                         : undefined,
                   },
@@ -1036,6 +1098,7 @@ const Top5ScoreboardSection = ({
               const homeScore = getGoals(match, "home");
               const awayScore = getGoals(match, "away");
               const si = getStatusInfo(match, nowMs, snapshotTsMs);
+              const agg = parseAggregate(match);
               const { homeColor, awayColor } = resolveMatchColors({
                 homePrimary: home?.colorPrimary,
                 homeSecondary: home?.colorSecondary,
@@ -1297,13 +1360,20 @@ const Top5ScoreboardSection = ({
                     ]}
                   >
                     <View style={styles.gameFooterLeft}>
-                      {match.venue?.name ? (
-                        <Text
-                          style={[styles.venue, { color: theme.textSecondary }]}
-                        >
-                          {match.venue.name}
-                        </Text>
-                      ) : null}
+                        {agg && agg.homeAgg != null && agg.awayAgg != null ? (
+                          <Text
+                            style={[styles.venue, { color: theme.textSecondary }]}
+                          >
+                            {`AGGREGATE ${agg.homeAgg} - ${agg.awayAgg}`}
+                          </Text>
+                        ) : null}
+                        {match.venue?.name ? (
+                          <Text
+                            style={[styles.venue, { color: theme.textSecondary }]}
+                          >
+                            {match.venue.name}
+                          </Text>
+                        ) : null}
                     </View>
                     <View style={styles.gameFooterRight}>
                       <LiveViewerBadge

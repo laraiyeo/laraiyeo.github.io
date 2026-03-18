@@ -579,6 +579,7 @@ function transformLeagueResponse(combined) {
               id: f.id ?? null,
               starting_at: f.starting_at ?? null,
               round: f.round ? { name: f.round.name ?? null } : null,
+              aggregate: f.aggregate ? { name: f.aggregate.name ?? null, result: f.aggregate.result ?? null } : null,
               scores: Array.isArray(f.scores)
                 ? f.scores
                     .filter((s) => s.description === "CURRENT")
@@ -810,7 +811,7 @@ app.get("/football/league/:leagueId", async (req, res) => {
         ),
         fetchUrl(
           `${SM_BASE}/leagues/${leagueId}?api_token=${SM_TOKEN}` +
-            `&include=currentSeason;country;latest.round;latest.scores;latest.participants;latest.venue;upcoming.round;upcoming.participants;upcoming.venue`,
+            `&include=currentSeason;country;latest.round;latest.aggregate;latest.scores;latest.participants;latest.venue;upcoming.round;upcoming.participants;upcoming.venue`,
         ),
         stageId
           ? fetchUrl(
@@ -899,7 +900,91 @@ function transformTeamResponse(combined) {
                 : [],
             }))
           : [],
-      }))
+        aggregates: Array.isArray(stage.aggregates)
+          ? stage.aggregates.map((aggregate) => ({
+              id: aggregate.id ?? null,
+              name: aggregate.name ?? null,
+              fixtures: Array.isArray(aggregate.fixtures)
+                ? aggregate.fixtures.map((f) => ({
+                    id: f.id ?? null,
+                    starting_at: f.starting_at ?? null,
+                    leg: f.leg ?? null,
+                    participants: Array.isArray(f.participants)
+                      ? f.participants.map((p) => {
+                          const colors = findSapColors(p.name, colorMap);
+                          return {
+                            id: p.id ?? null,
+                            name: p.name ?? null,
+                            short_code: p.short_code ?? null,
+                            image_path: p.image_path ?? null,
+                            colorPrimary: colors.colorPrimary,
+                            colorSecondary: colors.colorSecondary,
+                            meta: p.meta
+                              ? {
+                                  location: p.meta.location ?? null,
+                                  winner: p.meta.winner ?? null,
+                                  position: p.meta.position ?? null,
+                                }
+                              : null,
+                          };
+                        })
+                      : [],
+                    scores: Array.isArray(f.scores)
+                      ? f.scores
+                          .filter((s) => s.description === "CURRENT")
+                          .map((s) => ({
+                            score: s.score
+                              ? {
+                                  goals: s.score.goals ?? null,
+                                  participant: s.score.participant ?? null,
+                                }
+                              : null,
+                          }))
+                      : [],
+                  }))
+                : [],
+            }))
+          : [],
+        fixtures: Array.isArray(stage.fixtures)
+          ? stage.fixtures.map((f) => ({
+              id: f.id ?? null,
+              starting_at: f.starting_at ?? null,
+              leg: f.leg ?? null,
+              participants: Array.isArray(f.participants)
+                ? f.participants.map((p) => {
+                    const colors = findSapColors(p.name, colorMap);
+                    return {
+                      id: p.id ?? null,
+                      name: p.name ?? null,
+                      short_code: p.short_code ?? null,
+                      image_path: p.image_path ?? null,
+                      colorPrimary: colors.colorPrimary,
+                      colorSecondary: colors.colorSecondary,
+                      meta: p.meta
+                        ? {
+                            location: p.meta.location ?? null,
+                            winner: p.meta.winner ?? null,
+                            position: p.meta.position ?? null,
+                          }
+                        : null,
+                    };
+                  })
+                : [],
+              scores: Array.isArray(f.scores)
+                ? f.scores
+                    .filter((s) => s.description === "CURRENT")
+                    .map((s) => ({
+                      score: s.score
+                        ? {
+                            goals: s.score.goals ?? null,
+                            participant: s.score.participant ?? null,
+                          }
+                        : null,
+                    }))
+                : [],
+            }))
+          : [],
+            }))
     : [];
 
   // ── b.txt: squad ──────────────────────────────────────────────────────────
@@ -1041,6 +1126,7 @@ function transformTeamResponse(combined) {
                 ? {
                     name: as.league.name ?? null,
                     image_path: as.league.image_path ?? null,
+                    sub_type: as.league.sub_type ?? null,
                   }
                 : null,
             }))
@@ -2060,6 +2146,7 @@ function transformFixtureGameResponse(raw) {
           short_name: f.state.short_name ?? null,
         }
       : null,
+    aggregate: f.aggregate ? { name: f.aggregate.name ?? null, result: f.aggregate.result ?? null } : null,
     round: f.round ? { name: f.round.name ?? null } : null,
     participants,
     periods,
@@ -2364,7 +2451,7 @@ app.get("/football/game/:fixtureId/:team1/:team2", async (req, res) => {
 
   const fixtureUrl =
     `${SM_BASE}/fixtures/${fixtureId}?api_token=${SM_TOKEN}` +
-    `&include=state;round;periods;participants;scores;league.country;comments;formations;venue;weatherReport;events;statistics.type;formations;sidelined.player;sidelined.type;sidelined.sideline;lineups.player;lineups.type;lineups.position;lineups.detailedPosition;coaches;referees.referee;lineups.details.type;ballCoordinates`;
+    `&include=state;aggregate;round;periods;participants;scores;league.country;comments;formations;venue;weatherReport;events;statistics.type;formations;sidelined.player;sidelined.type;sidelined.sideline;lineups.player;lineups.type;lineups.position;lineups.detailedPosition;coaches;referees.referee;lineups.details.type;ballCoordinates`;
 
   // Update activity timestamp
   const act = gameActivity.get(fixtureCacheKey);
@@ -2613,15 +2700,22 @@ async function warmCacheTeams() {
       const url =
         `${SM_BASE}/teams?api_token=${SM_TOKEN}` +
         `&include=activeSeasons.league;sidelined.player;players.player` +
-        `&per_page=50&filters=teamCountries:462,17,251,32,11,75285&page=${page}`;
+        `&per_page=50&page=${page}`;
       const resp = await fetchUrl(url);
       if (!resp?.data || !Array.isArray(resp.data)) break;
       all = all.concat(resp.data);
       if (!resp.pagination?.has_more) break;
       page++;
     }
-    cacheSet("cache:teams", all.map(transformCacheTeam));
-    console.log(`[startup] Cache teams ready — ${all.length} entries`);
+    // Filter out gender-neutral placeholder teams (e.g. TBC) before caching
+    const filtered = all.filter(
+      (item) => ((item.gender ?? "").toString().toLowerCase() !== "neutral"),
+    );
+    const transformed = filtered.map(transformCacheTeam);
+    cacheSet("cache:teams", transformed);
+    console.log(
+      `[startup] Cache teams ready — ${transformed.length} entries (raw ${all.length})`,
+    );
   } catch (err) {
     console.warn("[startup] Cache teams failed:", err.message);
   }

@@ -17,7 +17,7 @@ import { useBetSlip } from "../../../context/BetSlipContext";
 import { BannerAdWrapper } from "../../../services/ads";
 
 const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
-const CACHE_KEY = "top5:leagues:v1";
+const CACHE_KEY = "top5:leagues:v2";
 const CACHE_TTL = 12 * 60 * 60 * 1000; // 12 hours
 
 const { width } = Dimensions.get("window");
@@ -35,9 +35,9 @@ async function fetchLeagues() {
 function titleCaseHyphen(str) {
   if (!str) return "";
   return str
-    .split("-")
+    .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join("-");
+    .join(" ");
 }
 
 export default function Top5LeaguesScreen({ navigation }) {
@@ -163,7 +163,7 @@ export default function Top5LeaguesScreen({ navigation }) {
                         styles.logo,
                         {
                           tintColor:
-                            item.id === 8 && isDarkMode
+                            (item.id === 8 || item.id === 2) && isDarkMode
                               ? theme.text
                               : undefined,
                         },
