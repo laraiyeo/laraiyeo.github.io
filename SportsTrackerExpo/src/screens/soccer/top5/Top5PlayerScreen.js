@@ -528,113 +528,77 @@ function CurrentSeasonCard({ stat, theme, isDarkMode, accentColor }) {
 
 function TrophiesSection({ trophies, theme, accentColor, isDarkMode }) {
   if (!trophies?.length) return null;
-
-  const leagueMap = new Map();
+  // Group trophies by team
+  const teamMap = new Map();
   for (const t of trophies) {
-    const lid = t.league?.id ?? "unknown";
-    if (!leagueMap.has(lid)) {
-      leagueMap.set(lid, { league: t.league, entries: [] });
-    }
-    leagueMap.get(lid).entries.push(t);
+    const tid = t.team?.id ?? "unknown";
+    if (!teamMap.has(tid)) teamMap.set(tid, { team: t.team, country: t.teamCountry, entries: [] });
+    teamMap.get(tid).entries.push(t);
   }
+
+  const capWords = (s) =>
+    (s || "")
+      .split("_")
+      .filter(Boolean)
+      .map((w) => w[0]?.toUpperCase() + w.slice(1))
+      .join(" ");
 
   return (
     <InfoCard title="Trophies" theme={theme}>
-      {[...leagueMap.values()].map((lg) => {
-        const subMap = new Map();
-        for (const t of lg.entries) {
-          const tname = t.trophy?.name ?? "Other";
-          if (!subMap.has(tname)) subMap.set(tname, []);
-          subMap.get(tname).push(t);
+      {[...teamMap.values()].map((tg) => {
+        const team = tg.team ?? {};
+        const country = tg.country?.name ?? null;
+        // group entries by trophy name + league id
+        const sub = {};
+        for (const t of tg.entries) {
+          const trophyName = t.trophy?.name ?? "Other";
+          const lid = t.league?.id ?? t.league?.name ?? "unknown";
+          const key = `${trophyName}::${lid}`;
+          if (!sub[key]) sub[key] = { trophyName, league: t.league, seasons: [] };
+          if (t.season?.name) sub[key].seasons.push(t.season.name);
         }
-        const ORDER = ["Winner", "Runner Up"];
-        const subKeys = [...subMap.keys()].sort((a, b) => {
-          const ai = ORDER.indexOf(a);
-          const bi = ORDER.indexOf(b);
+
+        const subArr = Object.values(sub).sort((a, b) => {
+          const ORDER = ["Winner", "Runner Up"];
+          const ai = ORDER.indexOf(a.trophyName);
+          const bi = ORDER.indexOf(b.trophyName);
           if (ai !== -1 && bi !== -1) return ai - bi;
           if (ai !== -1) return -1;
           if (bi !== -1) return 1;
-          return a.localeCompare(b);
+          return a.trophyName.localeCompare(b.trophyName);
         });
+
         return (
-          <View
-            key={lg.league?.id ?? "unknown"}
-            style={[
-              iStyles.trLeagueCard,
-              { backgroundColor: theme.background, borderColor: theme.border },
-            ]}
-          >
+          <View key={team.id ?? Math.random()} style={[iStyles.trLeagueCard, { backgroundColor: theme.background, borderColor: theme.border }]}>
             <View style={iStyles.trLeagueHeader}>
-              {lg.league?.image_path && !isPlaceholder(lg.league.image_path) ? (
-                <Image
-                  source={{ uri: lg.league.image_path }}
-                  style={[
-                    iStyles.trLeagueLogo,
-                    {
-                      tintColor:
-                        (lg.league.name === "Premier League" ||
-                          lg.league.name === "Champions League") &&
-                        isDarkMode
-                          ? theme.text
-                          : undefined,
-                    },
-                  ]}
-                  resizeMode="contain"
-                />
+              {team.image_path && !isPlaceholder(team.image_path) ? (
+                <Image source={{ uri: team.image_path }} style={iStyles.trLeagueLogo} resizeMode="contain" />
               ) : null}
               <View style={{ flex: 1 }}>
-                <Text
-                  style={[iStyles.trLeagueName, { color: theme.text }]}
-                  numberOfLines={1}
-                >
-                  {lg.league?.name ?? "Unknown League"}
-                </Text>
+                <Text style={[iStyles.trLeagueName, { color: theme.text }]} numberOfLines={1}>{team.name ?? "Unknown Team"}</Text>
+                {country ? <Text style={{ color: theme.textSecondary }}>{country}</Text> : null}
               </View>
             </View>
-            {subKeys.map((tname) => {
-              const group = subMap.get(tname);
-              const sortedGroup = [...group].sort((a, b) => {
-                const ay = parseInt((a.season?.name ?? "0").split("/")[0], 10);
-                const by = parseInt((b.season?.name ?? "0").split("/")[0], 10);
-                return by - ay;
-              });
-              const seasons = sortedGroup
-                .map((t) => t.season?.name)
-                .filter(Boolean)
-                .join(" · ");
+
+            {subArr.map((entry) => {
+              const seasons = [...new Set(entry.seasons)].sort((a, b) => b.localeCompare(a)).join(" \u00B7 ");
+              const seasonText = seasons ? `(${seasons})` : "";
+              const seasonColor = (entry.trophyName || "").toLowerCase() === "winner" ? theme.textSecondary : theme.textTertiary ?? theme.textSecondary;
               return (
-                <View
-                  key={tname}
-                  style={[
-                    iStyles.trTrophyRow,
-                    { borderTopColor: theme.border },
-                  ]}
-                >
-                  <View
-                    style={[
-                      iStyles.trTrophyCount,
-                      { backgroundColor: (accentColor ?? "#888") + "22" },
-                    ]}
-                  >
-                    <Text
-                      style={[iStyles.trTrophyCountText, { color: theme.text }]}
-                    >
-                      {group.length}
-                    </Text>
+                <View key={`${entry.trophyName}::${entry.league?.id ?? entry.league?.name}`} style={[iStyles.trTrophyRow, { borderTopColor: theme.border }]}>
+                  <View style={[iStyles.trTrophyCount, { backgroundColor: (accentColor ?? "#888") + "22" }]}>
+                    <Text style={[iStyles.trTrophyCountText, { color: theme.text }]}>{entry.seasons.length}</Text>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[iStyles.trTrophyName, { color: theme.text }]}>
-                      {tname}
-                    </Text>
-                    <Text
-                      style={[
-                        iStyles.trTrophySeasons,
-                        { color: theme.textSecondary },
-                      ]}
-                      numberOfLines={3}
-                    >
-                      {seasons}
-                    </Text>
+                  <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+                      {entry.league?.image_path ? (
+                        <Image source={{ uri: entry.league.image_path }} style={{ width: 30, height: 30, marginRight: 10, tintColor: (entry.league.id === 8 || entry.league.id === 2) && isDarkMode ? theme.text : undefined }} resizeMode="contain" />
+                      ) : null}
+                      <View style={{ flex: 1 }}>
+                        <Text style={[iStyles.trTrophyName, { color: theme.text }]} numberOfLines={1}>{entry.league?.name ?? entry.trophyName}</Text>
+                        <Text style={[iStyles.trTrophySeasons, { color: seasonColor }]} numberOfLines={1}>{entry.league?.name ? `${seasonText}`.replace(/\s\(/, " (") : seasonText}</Text>
+                      </View>
+                    </View>
                   </View>
                 </View>
               );
@@ -687,6 +651,19 @@ function getSeasonStat(details, ...names) {
   return null;
 }
 
+function hasMeaningfulDetails(details) {
+  if (!Array.isArray(details) || details.length === 0) return false;
+  for (const d of details) {
+    if (!d) continue;
+    if (d.value != null) {
+      if (d.value.total != null) return true;
+      if (d.value.average != null) return true;
+    }
+    if (d.data != null && typeof d.data.value === "number") return true;
+  }
+  return false;
+}
+
 function PlayerCareerStatsBubble({ statistics, isGK, theme, accentColor }) {
   const totals = useMemo(() => {
     let apps = 0,
@@ -736,7 +713,7 @@ function PlayerCareerStatsBubble({ statistics, isGK, theme, accentColor }) {
     };
   }, [statistics]);
 
-  const rtgStr = totals.avgRating != null ? totals.avgRating.toFixed(1) : "—";
+  const rtgStr = totals.avgRating != null ? totals.avgRating.toFixed(1) : "0.0";
   const rtgColor =
     totals.avgRating != null ? getRatingColor(totals.avgRating) : null;
   const glsStr =
@@ -788,7 +765,7 @@ function PlayerCareerStatsBubble({ statistics, isGK, theme, accentColor }) {
   );
 }
 
-function SeasonStatRow({ stat, isGK, last, theme }) {
+function SeasonStatRow({ stat, isGK, last, theme, overrideBorderColor }) {
   const team = stat.team ?? {};
   const teamColor = team.colorPrimary ?? null;
   const logoUri = team.image_path;
@@ -798,7 +775,6 @@ function SeasonStatRow({ stat, isGK, last, theme }) {
 
   const rating = get("Rating", "rating");
   const app = get("Appearances", "appearances", "Season Appearances");
-  const mp = get("Minutes Played", "minutes played");
   const goals = get("Goals", "goals");
   const gDetail = d.find((x) => (x.type?.name ?? "").toLowerCase() === "goals");
   const penGoals = gDetail?.value?.penalties ?? null;
@@ -806,32 +782,85 @@ function SeasonStatRow({ stat, isGK, last, theme }) {
   const gc = get("Goals Conceded", "goals conceded", "Goalsconceded");
   const cs = get("Clean Sheets", "clean sheets", "Cleansheets");
 
-  const fmt = (v) => (v != null ? String(v) : "—");
-  const fmtRtg = (v) => (v != null ? Number(v).toFixed(1) : "—");
+  const fmt = (v) => (v != null ? String(v) : "0");
+  const fmtRtg = (v) => (v != null ? Number(v).toFixed(1) : "0.0");
   const glsStr =
     goals != null && penGoals ? `${goals} (${penGoals})` : fmt(goals);
   const col1 = isGK ? fmt(gc) : glsStr;
   const col2 = isGK ? fmt(cs) : fmt(assists);
 
   const jersey = stat.jersey_number != null ? `#${stat.jersey_number}` : null;
+
+  const isDarkMode = theme.text === "#ffffff";
+  // Determine competition/league display values for expanded entries
+  const competition =
+    stat.competition ??
+    stat.season?.competition ??
+    stat.season?.league ??
+    stat.league ??
+    null;
+  const compLogo = competition?.image_path ?? null;
+  const compId = competition?.id ?? null;
+  const compName = competition?.name ?? stat.season?.name ?? null;
+  const rawSubType =
+    stat.season?.league?.sub_type ??
+    competition?.league?.sub_type ??
+    competition?.sub_type ??
+    null;
+  const capWords = (s) =>
+    (s || "")
+      .split("_")
+      .filter(Boolean)
+      .map((w) => w[0]?.toUpperCase() + w.slice(1))
+      .join(" ");
+  const subTypeText = rawSubType ? capWords(rawSubType) : null;
   const teamLabel = [team.name, jersey].filter(Boolean).join(" · ");
+
+  const borderStyle =
+    overrideBorderColor !== undefined
+      ? overrideBorderColor
+        ? { borderLeftWidth: 0, borderLeftColor: overrideBorderColor }
+        : null
+      : teamColor
+        ? { borderLeftWidth: 3, borderLeftColor: teamColor }
+        : null;
 
   return (
     <View
       style={[
         seStyles.row,
         { borderBottomColor: last ? "transparent" : theme.border },
-        teamColor ? { borderLeftWidth: 3, borderLeftColor: teamColor } : null,
+        borderStyle,
       ]}
     >
       <View style={seStyles.rowLeft}>
         <View
           style={[
             seStyles.rowLogo,
-            { backgroundColor: (teamColor ?? "#888") + "22" },
+            {
+              backgroundColor: compLogo
+                ? theme.surface
+                : (teamColor ?? "#888") + "22",
+            },
           ]}
         >
-          {showLogo ? (
+          {compLogo ? (
+            <Image
+              source={{ uri: compLogo }}
+              style={[
+                seStyles.rowLogoImg,
+                {
+                  width: 25,
+                  height: 25,
+                  tintColor:
+                    (compId === 8 || compId === 2) && isDarkMode
+                      ? "#FFF"
+                      : null,
+                },
+              ]}
+              resizeMode="contain"
+            />
+          ) : showLogo ? (
             <Image
               source={{ uri: logoUri }}
               style={seStyles.rowLogoImg}
@@ -851,14 +880,16 @@ function SeasonStatRow({ stat, isGK, last, theme }) {
             style={[seStyles.rowSeasonName, { color: theme.text }]}
             numberOfLines={1}
           >
-            {stat.season?.name ?? "—"}
+            {compName ?? stat.season?.name ?? "—"}
           </Text>
           <Text
             allowFontScaling={false}
             style={[seStyles.rowTeamName, { color: theme.textSecondary }]}
             numberOfLines={1}
           >
-            {teamLabel}
+            {subTypeText
+              ? `${subTypeText}${jersey ? ` · ${jersey}` : ""}`
+              : teamLabel}
           </Text>
         </View>
       </View>
@@ -866,13 +897,11 @@ function SeasonStatRow({ stat, isGK, last, theme }) {
         {[
           {
             v: fmtRtg(rating),
-            color:
-              rating != null ? getRatingColor(rating) : theme.textSecondary,
+            color: rating != null ? getRatingColor(rating) : theme.text,
           },
           { v: col1 },
           { v: col2 },
           { v: fmt(app) },
-          { v: fmt(mp) },
         ].map(({ v, color }, i) => (
           <Text
             key={i}
@@ -892,12 +921,91 @@ function SeasonStatRow({ stat, isGK, last, theme }) {
 
 function PlayerSeasonsBubble({ statistics, isGK, theme, accentColor }) {
   if (!statistics?.length) return null;
-  const sorted = [...statistics].sort((a, b) =>
-    (b.season?.name ?? "").localeCompare(a.season?.name ?? ""),
-  );
+
+  // Group stats by team.id + season.name
+  const grouped = useMemo(() => {
+    const map = {};
+    for (const s of statistics) {
+      // skip seasons with no meaningful stat details
+      if (!hasMeaningfulDetails(s.details ?? [])) continue;
+      const team = s.team ?? {};
+      const seasonName = s.season?.name ?? "";
+      const key = `${team.id ?? "-"}::${seasonName}`;
+
+      // helpers to pull numeric stats
+      const goals = getSeasonStat(s.details ?? [], "Goals", "goals");
+      const assists = getSeasonStat(s.details ?? [], "Assists", "assists");
+      const apps = getSeasonStat(
+        s.details ?? [],
+        "Appearances",
+        "appearances",
+        "Season Appearances",
+      );
+      const gc = getSeasonStat(
+        s.details ?? [],
+        "Goals Conceded",
+        "goals conceded",
+        "Goalsconceded",
+      );
+      const cs = getSeasonStat(
+        s.details ?? [],
+        "Clean Sheets",
+        "clean sheets",
+        "Cleansheets",
+      );
+      const rating = getSeasonStat(s.details ?? [], "Rating", "rating");
+
+      if (!map[key]) {
+        map[key] = {
+          key,
+          team: team,
+          seasonName,
+          goals: 0,
+          penGoals: 0,
+          assists: 0,
+          apps: 0,
+          gc: 0,
+          cs: 0,
+          ratingSum: 0,
+          ratingCount: 0,
+          entries: [],
+        };
+      }
+      const g = map[key];
+      if (typeof goals === "number") g.goals += goals;
+      // accumulate penalty goals if present on the goals detail
+      const gDetail = (s.details ?? []).find(
+        (x) => (x.type?.name ?? "").toLowerCase() === "goals",
+      );
+      if (gDetail?.value?.penalties != null)
+        g.penGoals += gDetail.value.penalties;
+      if (typeof assists === "number") g.assists += assists;
+      if (typeof apps === "number") g.apps += apps;
+      if (typeof gc === "number") g.gc += gc;
+      if (typeof cs === "number") g.cs += cs;
+      if (typeof rating === "number") {
+        g.ratingSum += rating;
+        g.ratingCount += 1;
+      }
+      g.entries.push(s);
+    }
+    // convert to array and sort by season desc then team name
+    const arr = Object.values(map).sort((a, b) => {
+      const sn = (b.seasonName ?? "").localeCompare(a.seasonName ?? "");
+      if (sn !== 0) return sn;
+      const ta = (a.team?.name ?? "").localeCompare(b.team?.name ?? "");
+      return ta;
+    });
+    return arr;
+  }, [statistics]);
+
+  const [expanded, setExpanded] = useState({});
+  const toggle = (k) => setExpanded((prev) => ({ ...prev, [k]: !prev[k] }));
+
   const headers = isGK
-    ? ["RTG", "GC", "CS", "APP", "MP"]
-    : ["RTG", "GLS", "AST", "APP", "MP"];
+    ? ["RTG", "GC", "CS", "APP"]
+    : ["RTG", "GLS", "AST", "APP"];
+
   return (
     <PlayerSectionBubble
       title="Season Stats"
@@ -921,15 +1029,162 @@ function PlayerSeasonsBubble({ statistics, isGK, theme, accentColor }) {
           </Text>
         ))}
       </View>
-      {sorted.map((s, i) => (
-        <SeasonStatRow
-          key={s.season_id ?? i}
-          stat={s}
-          isGK={isGK}
-          last={i === sorted.length - 1}
-          theme={theme}
-        />
-      ))}
+
+      {grouped.map((g, gi) => {
+        const avgRating = g.ratingCount ? g.ratingSum / g.ratingCount : null;
+        const isLast = gi === grouped.length - 1;
+        return (
+          <View key={g.key}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => toggle(g.key)}
+              style={[
+                seStyles.row,
+                { borderBottomColor: isLast ? "transparent" : theme.border },
+                g.team?.colorPrimary
+                  ? { borderLeftWidth: 3, borderLeftColor: g.team.colorPrimary }
+                  : null,
+              ]}
+            >
+              <View style={seStyles.rowLeft}>
+                <View
+                  style={[
+                    seStyles.rowLogo,
+                    {
+                      backgroundColor: (g.team?.colorPrimary ?? "#888") + "22",
+                    },
+                  ]}
+                >
+                  {g.team?.image_path && !isPlaceholder(g.team.image_path) ? (
+                    <Image
+                      source={{ uri: g.team.image_path }}
+                      style={seStyles.rowLogoImg}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <Text
+                      style={[
+                        seStyles.rowLogoInitial,
+                        { color: g.team?.colorPrimary ?? "#888" },
+                      ]}
+                    >
+                      {(g.team?.name ?? "?")[0]}
+                    </Text>
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[seStyles.rowSeasonName, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {g.seasonName}
+                  </Text>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      seStyles.rowTeamName,
+                      { color: theme.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {g.team?.name ?? ""}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={seStyles.rowStats}>
+                {(() => {
+                  const glsStr =
+                    g.penGoals > 0
+                      ? `${g.goals} (${g.penGoals})`
+                      : g.goals
+                        ? String(g.goals)
+                        : "—";
+                  return (
+                    <>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          seStyles.rowStat,
+                          {
+                            color:
+                              avgRating != null
+                                ? getRatingColor(avgRating)
+                                : theme.text,
+                            width: SE_COL_W,
+                          },
+                        ]}
+                      >
+                        {avgRating != null ? Number(avgRating).toFixed(1) : "—"}
+                      </Text>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          seStyles.rowStat,
+                          { color: theme.text, width: SE_COL_W },
+                        ]}
+                      >
+                        {glsStr}
+                      </Text>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          seStyles.rowStat,
+                          { color: theme.text, width: SE_COL_W },
+                        ]}
+                      >
+                        {g.assists ? String(g.assists) : "—"}
+                      </Text>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          seStyles.rowStat,
+                          { color: theme.text, width: SE_COL_W },
+                        ]}
+                      >
+                        {g.apps ? String(g.apps) : "—"}
+                      </Text>
+                    </>
+                  );
+                })()}
+              </View>
+            </TouchableOpacity>
+
+            {expanded[g.key]
+              ? (() => {
+                  const entriesSorted = [...g.entries].sort((a, b) => {
+                    const aApps =
+                      getSeasonStat(
+                        a.details ?? [],
+                        "Appearances",
+                        "appearances",
+                        "Season Appearances",
+                      ) || 0;
+                    const bApps =
+                      getSeasonStat(
+                        b.details ?? [],
+                        "Appearances",
+                        "appearances",
+                        "Season Appearances",
+                      ) || 0;
+                    return bApps - aApps; // descending by APP
+                  });
+                  return entriesSorted.map((entry, ei) => (
+                    <SeasonStatRow
+                      key={entry.season_id ?? ei}
+                      stat={entry}
+                      isGK={isGK}
+                      last={ei === entriesSorted.length - 1}
+                      theme={theme}
+                      overrideBorderColor={theme.surface}
+                    />
+                  ));
+                })()
+              : null}
+          </View>
+        );
+      })}
     </PlayerSectionBubble>
   );
 }
@@ -1856,10 +2111,26 @@ export default function Top5PlayerScreen({ route, navigation }) {
     null;
 
   const currentYearStr = new Date().getFullYear().toString();
-  const currentSeason =
-    (player.statistics ?? []).find((s) =>
-      (s.season?.name ?? "").includes(currentYearStr),
-    ) ?? null;
+  const currentSeason = (() => {
+    const stats = player.statistics ?? [];
+    // Prefer a domestic league season for the current year
+    const domesticCurrent = stats.find(
+      (s) =>
+        String(s.season?.league?.sub_type || "").toLowerCase() === "domestic" &&
+        (s.season?.name ?? "").includes(currentYearStr),
+    );
+    if (domesticCurrent) return domesticCurrent;
+    // Otherwise prefer any domestic season
+    const domesticAny = stats.find(
+      (s) =>
+        String(s.season?.league?.sub_type || "").toLowerCase() === "domestic",
+    );
+    if (domesticAny) return domesticAny;
+    // Fallback: pick a season containing the current year
+    return (
+      stats.find((s) => (s.season?.name ?? "").includes(currentYearStr)) ?? null
+    );
+  })();
 
   const ratingPoints = useMemo(() => {
     const pts = [];
@@ -2529,7 +2800,8 @@ export default function Top5PlayerScreen({ route, navigation }) {
               </View>
               <View style={{ width: 44, alignItems: "flex-end" }}>
                 {currentTeam ? (
-                  currentTeam.team?.image_path && !isPlaceholder(currentTeam.team.image_path) ? (
+                  currentTeam.team?.image_path &&
+                  !isPlaceholder(currentTeam.team.image_path) ? (
                     <Image
                       source={{ uri: currentTeam.team.image_path }}
                       style={styles.stickyTeamBadgeImg}
@@ -2539,14 +2811,21 @@ export default function Top5PlayerScreen({ route, navigation }) {
                     <View
                       style={[
                         styles.stickyTeamBadgeFallback,
-                        { backgroundColor: currentTeam.team?.colorPrimary ?? accentColor },
+                        {
+                          backgroundColor:
+                            currentTeam.team?.colorPrimary ?? accentColor,
+                        },
                       ]}
                     >
                       <Text
                         allowFontScaling={false}
                         style={[
                           styles.stickyTeamBadgeInitial,
-                          { color: getTextOnColor(currentTeam.team?.colorPrimary ?? accentColor) },
+                          {
+                            color: getTextOnColor(
+                              currentTeam.team?.colorPrimary ?? accentColor,
+                            ),
+                          },
                         ]}
                       >
                         {(currentTeam.team?.name ?? "")[0] ?? "?"}
@@ -3024,7 +3303,7 @@ const seStyles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   careerCell: { flex: 1, alignItems: "center" },
-  careerValue: { fontSize: 20, fontWeight: "800" },
+  careerValue: { fontSize: 20, fontWeight: "800", textAlign: "center" },
   careerLabel: { fontSize: 11, fontWeight: "600", marginTop: 3 },
   headerRow: {
     flexDirection: "row",

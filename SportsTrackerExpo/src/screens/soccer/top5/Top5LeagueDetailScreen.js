@@ -98,6 +98,54 @@ function resolveMatchColors({
   };
 }
 
+// Parse aggregate score from match.aggregate — returns home/away aggregate numbers
+const parseAggregate = (match) => {
+  const agg = match?.aggregate;
+  if (!agg?.result || !agg?.name) return null;
+  const res = String(agg.result || "").trim();
+  const m = res.match(/^(\d+)\s*-\s*(\d+)$/);
+  if (!m) return null;
+  const leftScore = parseInt(m[1], 10);
+  const rightScore = parseInt(m[2], 10);
+  const nameParts = String(agg.name || "").split(/\s+vs\.?\s+|\s+v\s+/i);
+  if (!nameParts || nameParts.length < 2) return null;
+  const leftName = nameParts[0].trim().toLowerCase();
+  const rightName = nameParts[1].trim().toLowerCase();
+
+  const participants = match?.participants ?? [];
+  const findByName = (needle) =>
+    participants.find((p) => {
+      if (!p?.name) return false;
+      const n = p.name.toLowerCase();
+      return n === needle || n.includes(needle) || needle.includes(n);
+    });
+
+  const leftP = findByName(leftName);
+  const rightP = findByName(rightName);
+
+  let homeAgg = null;
+  let awayAgg = null;
+  if (leftP && leftP.meta?.location === "home") {
+    homeAgg = leftScore;
+    awayAgg = rightScore;
+  } else if (leftP && leftP.meta?.location === "away") {
+    awayAgg = leftScore;
+    homeAgg = rightScore;
+  } else if (rightP && rightP.meta?.location === "home") {
+    homeAgg = rightScore;
+    awayAgg = leftScore;
+  } else if (rightP && rightP.meta?.location === "away") {
+    awayAgg = rightScore;
+    homeAgg = leftScore;
+  } else {
+    // Fallback: assume left => home, right => away
+    homeAgg = leftScore;
+    awayAgg = rightScore;
+  }
+
+  return { homeAgg, awayAgg };
+};
+
 async function fetchLeague(leagueId) {
   const res = await fetch(`${FOOTBALL_BASE}/football/league/${leagueId}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -120,10 +168,12 @@ const FORM_COLORS = { W: "#22c55e", D: "#f59e0b", L: "#ef4444" };
 const RULE_COLORS_MAP = {
   // European competitions
   "uefa champions league": "#008000",
+  "8th finals": "#008000",
   "uefa champions league qualifiers": "#81D6AC",
   "champions league qualifiers play_off": "#81D6AC",
   "champions league qualifiers play-off": "#81D6AC",
   "uefa europa league": "#469dfa",
+  "play-off": "#469dfa",
   "uefa europa league play-off": "#469dfa",
   "uefa europa league play_off": "#469dfa",
   "uefa europa league qualifiers": "#469dfa",
@@ -744,6 +794,7 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
     ?.score?.goals;
   const awayScore = match.scores?.find((s) => s.score?.participant === "away")
     ?.score?.goals;
+  const agg = parseAggregate(match);
   const hasScore = homeScore != null && awayScore != null;
 
   const homeWon = home.meta?.winner === true;
@@ -807,7 +858,7 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
               <Text
                 style={[mStyles.finishedTime, { color: theme.textTertiary }]}
               >
-                {toEST(match.starting_at)} ∙ Round {roundName}
+                {toEST(match.starting_at)}{roundName ? ` ∙ Round ${roundName}` : agg ? ` ∙ AGG: ${agg.homeAgg} - ${agg.awayAgg}` : ""}
               </Text>
               <View style={mStyles.scoreRow}>
                 <Text
@@ -840,6 +891,10 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
               const [timePart, period] = toEST(match.starting_at).split(/\s+/);
               return (
                 <View style={mStyles.timeBlock}>
+                  {agg ? (
+                    <Text style={[mStyles.finishedTime, { color: theme.textTertiary, fontWeight: "700" }]}>{`AGG: ${agg.homeAgg} - ${agg.awayAgg}`}</Text>
+                  ) : null}
+                  {roundName && (
                   <Text
                     style={[
                       mStyles.finishedTime,
@@ -848,10 +903,11 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
                   >
                     Round {roundName}
                   </Text>
-                  <Text style={[mStyles.timeText, { color: theme.text }]}>
+                  )}
+                  <Text style={[mStyles.timeText, { color: theme.text }]}> 
                     {timePart}
                   </Text>
-                  <Text style={[mStyles.timePeriod, { color: theme.text }]}>
+                  <Text style={[mStyles.timePeriod, { color: theme.text }]}> 
                     {period}
                   </Text>
                 </View>

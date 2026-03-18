@@ -17,7 +17,7 @@ const SM_TOKEN =
   "5fYsJzDLF5YWGegHcnqsh3kmA89yH3KaPsglvqExtoBvwS0UbcQzUjk5jez1";
 const SM_BASE = "https://api.sportmonks.com/v3/football";
 const SAP_BASE = "https://v1.football.sportsapipro.com";
-const SAP_KEY = process.env.SAP_KEY || "0150000b-b709-4b1f-8c87-5fdad60acbbe";
+const SAP_KEY = process.env.SAP_KEY || "6ae28853-d4a1-432c-b4d8-c912421794fa";
 
 // ─── TTL constants ────────────────────────────────────────────────────────────
 const TTL_20S = 20 * 1000;
@@ -45,7 +45,7 @@ const gameActivity = new Map();
 let leagueMeta = null;
 
 // ─── SportsApiPro competition IDs to warm on startup ─────────────────────────
-const SAP_COMPETITION_IDS = [7, 11, 25, 17, 35];
+const SAP_COMPETITION_IDS = [7, 11, 25, 17, 35, 104];
 
 // Optional aliases: SportsApiPro team name -> SportMonks team name.
 // Keys and values are compared through normalizeName(), so accents/casing/punctuation
@@ -624,6 +624,12 @@ function transformLeagueResponse(combined) {
               id: f.id ?? null,
               starting_at: f.starting_at ?? null,
               round: f.round ? { name: f.round.name ?? null } : null,
+              aggregate: f.aggregate
+                ? {
+                    name: f.aggregate.name ?? null,
+                    result: f.aggregate.result ?? null,
+                  }
+                : null,
               participants: Array.isArray(f.participants)
                 ? f.participants.map((p) => {
                     const colors = findSapColors(p.name, colorMap);
@@ -816,7 +822,7 @@ app.get("/football/league/:leagueId", async (req, res) => {
         ),
         fetchUrl(
           `${SM_BASE}/leagues/${leagueId}?api_token=${SM_TOKEN}` +
-            `&include=currentSeason;country;latest.round;latest.aggregate;latest.scores;latest.participants;latest.venue;upcoming.round;upcoming.participants;upcoming.venue`,
+            `&include=currentSeason;country;latest.round;latest.aggregate;latest.scores;latest.participants;latest.venue;upcoming.round;upcoming.aggregate;upcoming.participants;upcoming.venue`,
         ),
         stageId
           ? fetchUrl(
@@ -1797,6 +1803,7 @@ function transformFixtureDateResponse(raw) {
           ended: p.ended ?? null,
           ticking: p.ticking ?? null,
           description: p.description ?? null,
+          time_added: p.time_added ?? null,
           minutes: p.minutes ?? null,
           seconds: p.seconds ?? null,
         }))
@@ -1944,6 +1951,7 @@ function transformFixtureGameResponse(raw) {
         ended: p.ended ?? null,
         ticking: p.ticking ?? null,
         description: p.description ?? null,
+        time_added: p.time_added ?? null,
         minutes: p.minutes ?? null,
         seconds: p.seconds ?? null,
       }))

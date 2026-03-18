@@ -292,6 +292,52 @@ const generateStreamUrl = (
   };
   return streamUrls[streamType] || streamUrls.alpha1;
 };
+// Parse aggregate score from fixture.aggregate — returns home/away aggregate numbers
+const parseAggregate = (fixture) => {
+  const agg = fixture?.aggregate;
+  if (!agg?.result || !agg?.name) return null;
+  const res = String(agg.result || "").trim();
+  const m = res.match(/^(\d+)\s*-\s*(\d+)$/);
+  if (!m) return null;
+  const leftScore = parseInt(m[1], 10);
+  const rightScore = parseInt(m[2], 10);
+  const nameParts = String(agg.name || "").split(/\s+vs\.?\s+|\s+v\s+/i);
+  if (!nameParts || nameParts.length < 2) return null;
+  const leftName = nameParts[0].trim().toLowerCase();
+  const rightName = nameParts[1].trim().toLowerCase();
+
+  const participants = fixture?.participants ?? [];
+  const findByName = (needle) =>
+    participants.find((p) => {
+      if (!p?.name) return false;
+      const n = p.name.toLowerCase();
+      return n === needle || n.includes(needle) || needle.includes(n);
+    });
+
+  const leftP = findByName(leftName);
+  const rightP = findByName(rightName);
+
+  let homeAgg = null;
+  let awayAgg = null;
+  if (leftP && leftP.meta?.location === "home") {
+    homeAgg = leftScore;
+    awayAgg = rightScore;
+  } else if (leftP && leftP.meta?.location === "away") {
+    awayAgg = leftScore;
+    homeAgg = rightScore;
+  } else if (rightP && rightP.meta?.location === "home") {
+    homeAgg = rightScore;
+    awayAgg = leftScore;
+  } else if (rightP && rightP.meta?.location === "away") {
+    awayAgg = rightScore;
+    homeAgg = leftScore;
+  } else {
+    homeAgg = leftScore;
+    awayAgg = rightScore;
+  }
+
+  return { homeAgg, awayAgg };
+};
 
 const GAME_CACHE_KEY = (id) => `@gameDetail_v1:${id}`;
 const GAME_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
@@ -7152,18 +7198,42 @@ const HomeTeamPitchSection = ({
           ) : null}
 
           {player.goals > 0
-            ? Array.from({ length: player.goals }).map((_, idx) => (
-                <View
-                  key={`goal-${player.id}-${idx}`}
-                  style={[
-                    styles.homePitchIconBubble,
-                    styles.homePitchIconBottomRight,
-                    { right: 0 - idx * 8 },
-                  ]}
-                >
-                  <FontAwesome6 name="soccer-ball" size={12} color="#000" />
-                </View>
-              ))
+            ? (() => {
+                const maxIcons = 2;
+                const count = Number(player.goals) || 0;
+                const iconsToShow = Math.min(count, maxIcons);
+                const elems = [];
+                for (let idx = 0; idx < iconsToShow; idx++) {
+                  elems.push(
+                    <View
+                      key={`goal-${player.id}-${idx}`}
+                      style={[
+                        styles.homePitchIconBubble,
+                        styles.homePitchIconBottomRight,
+                        { right: 0 - idx * 8 },
+                      ]}
+                    >
+                      <FontAwesome6 name="soccer-ball" size={12} color="#000000" />
+                    </View>,
+                  );
+                }
+                if (count > maxIcons) {
+                  const remaining = count - maxIcons;
+                  elems.push(
+                    <View
+                      key={`goal-plus-${player.id}`}
+                      style={[
+                        styles.homePitchIconBubble,
+                        styles.homePitchIconBottomRight,
+                        { right: 0 - maxIcons * 8, alignItems: "center", justifyContent: "center" },
+                      ]}
+                    >
+                      <Text style={{ fontSize: 10, fontWeight: "700" }}>{`+${remaining}`}</Text>
+                    </View>,
+                  );
+                }
+                return elems;
+              })()
             : null}
 
           {player.ownGoals > 0
@@ -7182,23 +7252,47 @@ const HomeTeamPitchSection = ({
             : null}
 
           {player.assists > 0
-            ? Array.from({ length: player.assists }).map((_, idx) => (
-                <View
-                  key={`assist-${player.id}-${idx}`}
-                  style={[
-                    styles.homePitchIconBubble,
-                    styles.homePitchIconBottomLeft,
-                    { left: 0 - idx * 8 },
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name="shoe-cleat"
-                    size={14}
-                    color="#000"
-                    style={{ transform: [{ rotate: "-30deg" }] }}
-                  />
-                </View>
-              ))
+            ? (() => {
+                const maxIcons = 2;
+                const count = Number(player.assists) || 0;
+                const iconsToShow = Math.min(count, maxIcons);
+                const elems = [];
+                for (let idx = 0; idx < iconsToShow; idx++) {
+                  elems.push(
+                    <View
+                      key={`assist-${player.id}-${idx}`}
+                      style={[
+                        styles.homePitchIconBubble,
+                        styles.homePitchIconBottomLeft,
+                        { left: 0 - idx * 8 },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name="shoe-cleat"
+                        size={14}
+                        color="#000"
+                        style={{ transform: [{ rotate: "-30deg" }] }}
+                      />
+                    </View>,
+                  );
+                }
+                if (count > maxIcons) {
+                  const remaining = count - maxIcons;
+                  elems.push(
+                    <View
+                      key={`assist-plus-${player.id}`}
+                      style={[
+                        styles.homePitchIconBubble,
+                        styles.homePitchIconBottomLeft,
+                        { left: 0 - maxIcons * 8, alignItems: "center", justifyContent: "center" },
+                      ]}
+                    >
+                      <Text style={{ fontSize: 10, fontWeight: "700" }}>{`+${remaining}`}</Text>
+                    </View>,
+                  );
+                }
+                return elems;
+              })()
             : null}
 
           {player.yellowCards > 0
@@ -11192,12 +11286,23 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 gap: 10,
               }}
             >
-              <StatusBadge
-                fixture={fixture}
-                theme={theme}
-                nowMs={nowMs}
-                snapshotTsMs={snapshotTsMs}
-              />
+                {(() => {
+                  const agg = parseAggregate(fixture);
+                  if (agg) {
+                    return (
+                      <Text style={[{ fontSize: 12, fontWeight: "700", color: theme.textSecondary }]}>
+                        {`AGG: ${agg.homeAgg} - ${agg.awayAgg}`}
+                      </Text>
+                    );
+                  }
+                  return null;
+                })()}
+                <StatusBadge
+                  fixture={fixture}
+                  theme={theme}
+                  nowMs={nowMs}
+                  snapshotTsMs={snapshotTsMs}
+                />
 
               {/* Stream Button (center column) */}
               {!isScheduledGame && !finished && (
