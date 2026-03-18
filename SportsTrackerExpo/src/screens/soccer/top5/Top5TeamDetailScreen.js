@@ -310,7 +310,15 @@ const TABS = ["Team", "Matches", "Stats", "Roster", "Transfers", "Info"];
 
 // ─── Match Card ───────────────────────────────────────────────────────────────
 
-const MatchCard = ({ match, idx, leagueName, theme, colors, teamColor, domesticLeagueId }) => {
+const MatchCard = ({
+  match,
+  idx,
+  leagueName,
+  theme,
+  colors,
+  teamColor,
+  domesticLeagueId,
+}) => {
   const navigation = useNavigation();
   const participants = match.participants ?? [];
   const home =
@@ -359,7 +367,8 @@ const MatchCard = ({ match, idx, leagueName, theme, colors, teamColor, domesticL
   const gradId = `tmg_${idx}`;
 
   const showLeagueBadge = Boolean(
-    leagueName && (domesticLeagueId == null || match.league_id !== domesticLeagueId),
+    leagueName &&
+    (domesticLeagueId == null || match.league_id !== domesticLeagueId),
   );
 
   return (
