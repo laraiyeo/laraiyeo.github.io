@@ -23,6 +23,8 @@ const SAP_KEY = process.env.SAP_KEY || "6ae28853-d4a1-432c-b4d8-c912421794fa";
 const TTL_20S = 20 * 1000;
 const TTL_30S = 30 * 1000;
 const TTL_5M = 5 * 60 * 1000;
+const TTL_1M = 1 * 60 * 1000;
+const TTL_15M = 15 * 60 * 1000;
 const TTL_1H = 60 * 60 * 1000;
 const TTL_12H = 12 * TTL_1H;
 const TTL_2H = 2 * TTL_1H;
@@ -269,8 +271,10 @@ function fixtureDateTtlInfo(fixtures) {
     // this as a post-start pending window and poll quickly so updates arrive.
     if (diff <= 0)
       return { ttl: TTL_20S, fast: true, mode: "post_start_pending" };
+    if (diff <= TTL_15M)
+      return { ttl: TTL_1M, fast: true, mode: "scheduled_very_soon" };
     if (diff <= TTL_1H)
-      return { ttl: TTL_5M, fast: false, mode: "scheduled_soon" };
+      return { ttl: TTL_5M, fast: true, mode: "scheduled_soon" };
     return { ttl: TTL_2H, fast: false, mode: "scheduled_far" };
   }
 
@@ -294,16 +298,24 @@ function gameTtlInfo(fixture) {
     const now = Date.now();
     const diff = tStart - now;
 
-    // Future game: 2h cache; tighten to 5m in the final hour.
+    // Future game: far away -> 2h cache
     if (diff > TTL_1H) {
       return { ttl: TTL_2H, fast: false, mode: "scheduled_far" };
     }
+
+    // Within one hour: start active polling at intervals depending on proximity
+    if (diff > TTL_15M) {
+      // Between 15m and 1h -> poll every 5 minutes
+      return { ttl: TTL_5M, fast: true, mode: "scheduled_soon" };
+    }
+
     if (diff > 0) {
-      return { ttl: TTL_5M, fast: false, mode: "scheduled_soon" };
+      // Between 0 and 15m -> poll every 1 minute
+      return { ttl: TTL_1M, fast: true, mode: "scheduled_very_soon" };
     }
 
     // Kick-off time passed but state is not yet in live/finished buckets.
-    return { ttl: TTL_5M, fast: false, mode: "post_start_pending" };
+    return { ttl: TTL_20S, fast: true, mode: "post_start_pending" };
   }
 
   return { ttl: TTL_2H, fast: false, mode: "scheduled" };
@@ -318,8 +330,9 @@ function gameTtlInfo(fixture) {
  * AND requests have been seen within the last 60 s.
  */
 function ensureFixtureDatePolling(cacheKey, url, latestData) {
-  const { fast } = fixtureDateTtlInfo(latestData?.data);
-  if (!fast) return;
+  const info = fixtureDateTtlInfo(latestData?.data);
+  if (!info.fast) return;
+  const initialTtl = info.ttl;
 
   let act = fixtureActivity.get(cacheKey);
   if (!act) {
@@ -342,18 +355,30 @@ function ensureFixtureDatePolling(cacheKey, url, latestData) {
       const freshData = await fetchUrl(url);
       cacheSet(cacheKey, freshData);
 
-      const { fast: stillFast, mode } = fixtureDateTtlInfo(freshData?.data);
+      const { fast: stillFast, ttl: newTtl, mode } = fixtureDateTtlInfo(freshData?.data);
       if (!stillFast) {
         clearInterval(act.intervalId);
         act.intervalId = null;
         console.log(`[fixture-poll] ${cacheKey}: stopped (mode: ${mode})`);
+        return;
+      }
+
+      if (newTtl !== initialTtl) {
+        // Restart polling with the new interval
+        clearInterval(act.intervalId);
+        act.intervalId = null;
+        console.log(
+          `[fixture-poll] ${cacheKey}: interval change (${initialTtl} -> ${newTtl}), restarting`,
+        );
+        ensureFixtureDatePolling(cacheKey, url, freshData);
+        return;
       }
     } catch (e) {
       console.error(`[fixture-poll] ${cacheKey}:`, e.message);
     }
-  }, TTL_20S);
+  }, initialTtl);
 
-  console.log(`[fixture-poll] ${cacheKey}: started 20s polling`);
+  console.log(`[fixture-poll] ${cacheKey}: started polling every ${initialTtl} ms`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -366,8 +391,9 @@ function ensureFixtureDatePolling(cacheKey, url, latestData) {
  * inactivity, game-end, or leaving the fast-poll window.
  */
 function ensureGamePolling(cacheKey, fixtureUrl, fixture) {
-  const { fast } = gameTtlInfo(fixture);
-  if (!fast) return; // game is finished or scheduled far away — no polling needed
+  const info = gameTtlInfo(fixture);
+  if (!info.fast) return; // game is finished or scheduled far away — no polling needed
+  const initialTtl = info.ttl;
 
   // Record this request as activity
   let act = gameActivity.get(cacheKey);
@@ -392,18 +418,29 @@ function ensureGamePolling(cacheKey, fixtureUrl, fixture) {
       const fixtureData = await fetchUrl(fixtureUrl);
       cacheSet(cacheKey, fixtureData);
 
-      const { fast: stillFast, mode } = gameTtlInfo(fixtureData?.data);
+      const { fast: stillFast, ttl: newTtl, mode } = gameTtlInfo(fixtureData?.data);
       if (!stillFast) {
         clearInterval(act.intervalId);
         act.intervalId = null;
         console.log(`[game-poll] ${cacheKey}: stopped (mode: ${mode})`);
+        return;
+      }
+
+      if (newTtl !== initialTtl) {
+        clearInterval(act.intervalId);
+        act.intervalId = null;
+        console.log(
+          `[game-poll] ${cacheKey}: interval change (${initialTtl} -> ${newTtl}), restarting`,
+        );
+        ensureGamePolling(cacheKey, fixtureUrl, fixtureData?.data);
+        return;
       }
     } catch (e) {
       console.error(`[game-poll] ${cacheKey}:`, e.message);
     }
-  }, TTL_20S);
+  }, initialTtl);
 
-  console.log(`[game-poll] ${cacheKey}: started 20s polling`);
+  console.log(`[game-poll] ${cacheKey}: started polling every ${initialTtl} ms`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
