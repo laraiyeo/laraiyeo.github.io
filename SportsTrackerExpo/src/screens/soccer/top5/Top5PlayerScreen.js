@@ -458,7 +458,9 @@ function CurrentSeasonCard({ stat, theme, isDarkMode, accentColor }) {
                 iStyles.csLeagueLogo,
                 {
                   tintColor:
-                    (league.id === 8 || league.id === 2) && isDarkMode ? theme.text : undefined,
+                    (league.id === 8 || league.id === 2) && isDarkMode
+                      ? theme.text
+                      : undefined,
                 },
               ]}
               resizeMode="contain"
@@ -566,7 +568,17 @@ function TrophiesSection({ trophies, theme, accentColor, isDarkMode }) {
               {lg.league?.image_path && !isPlaceholder(lg.league.image_path) ? (
                 <Image
                   source={{ uri: lg.league.image_path }}
-                  style={[iStyles.trLeagueLogo, { tintColor: (lg.league.name === "Premier League" || lg.league.name === "Champions League" ) && isDarkMode ? theme.text : undefined }]}
+                  style={[
+                    iStyles.trLeagueLogo,
+                    {
+                      tintColor:
+                        (lg.league.name === "Premier League" ||
+                          lg.league.name === "Champions League") &&
+                        isDarkMode
+                          ? theme.text
+                          : undefined,
+                    },
+                  ]}
                   resizeMode="contain"
                 />
               ) : null}
@@ -1095,8 +1107,10 @@ function MatchCard({
         const awayP =
           participants.find((p) => p.meta?.location === "away") ??
           participants[1];
-        const homeShort = homeP.short_code ?? homeP.name.slice(0, 3).toUpperCase();
-        const awayShort = awayP.short_code ?? awayP.name.slice(0, 3).toUpperCase();
+        const homeShort =
+          homeP.short_code ?? homeP.name.slice(0, 3).toUpperCase();
+        const awayShort =
+          awayP.short_code ?? awayP.name.slice(0, 3).toUpperCase();
         const fId = fixture.id;
         const hId = homeP?.id;
         const aId = awayP?.id;
@@ -1185,41 +1199,41 @@ function MatchCard({
           {/* Middle: stat chips */}
           <View style={mcStyles.middle}>
             <View style={mcStyles.statsRow}>
-            {stats?.length ? (
+              {stats?.length ? (
                 stats.map((s, i) => (
-                <View key={i} style={mcStyles.statChip}>
+                  <View key={i} style={mcStyles.statChip}>
                     <Text
-                    allowFontScaling={false}
-                    style={[
+                      allowFontScaling={false}
+                      style={[
                         mcStyles.chipValue,
                         { color: s.color ?? theme.text },
-                    ]}
+                      ]}
                     >
-                    {s.value != null
+                      {s.value != null
                         ? s.format
-                        ? s.format(s.value)
-                        : String(s.value)
+                          ? s.format(s.value)
+                          : String(s.value)
                         : "--"}
                     </Text>
                     <Text
-                    allowFontScaling={false}
-                    style={[
+                      allowFontScaling={false}
+                      style={[
                         mcStyles.chipLabel,
                         { color: s.color ?? theme.textSecondary },
-                    ]}
+                      ]}
                     >
-                    {s.label}
+                      {s.label}
                     </Text>
-                </View>
+                  </View>
                 ))
-            ) : (
+              ) : (
                 <Text
-                allowFontScaling={false}
-                style={{ color: theme.text, fontWeight: "700", fontSize: 25 }}
+                  allowFontScaling={false}
+                  style={{ color: theme.text, fontWeight: "700", fontSize: 25 }}
                 >
-                On Bench
+                  On Bench
                 </Text>
-            )}
+              )}
             </View>
           </View>
 
@@ -2343,7 +2357,8 @@ export default function Top5PlayerScreen({ route, navigation }) {
               )}
               {currentTeam ? (
                 <View style={styles.headerTeamBadge}>
-                  {currentTeam.team?.image_path && !isPlaceholder(currentTeam.team.image_path) ? (
+                  {currentTeam.team?.image_path &&
+                  !isPlaceholder(currentTeam.team.image_path) ? (
                     <Image
                       source={{ uri: currentTeam.team.image_path }}
                       style={styles.headerTeamBadgeImg}
@@ -2353,14 +2368,21 @@ export default function Top5PlayerScreen({ route, navigation }) {
                     <View
                       style={[
                         styles.headerTeamBadgeFallback,
-                        { backgroundColor: currentTeam.team?.colorPrimary ?? accentColor },
+                        {
+                          backgroundColor:
+                            currentTeam.team?.colorPrimary ?? accentColor,
+                        },
                       ]}
                     >
                       <Text
                         allowFontScaling={false}
                         style={[
                           styles.headerTeamBadgeInitial,
-                          { color: getTextOnColor(currentTeam.team?.colorPrimary ?? accentColor) },
+                          {
+                            color: getTextOnColor(
+                              currentTeam.team?.colorPrimary ?? accentColor,
+                            ),
+                          },
                         ]}
                       >
                         {(currentTeam.team?.name ?? "")[0] ?? "?"}
