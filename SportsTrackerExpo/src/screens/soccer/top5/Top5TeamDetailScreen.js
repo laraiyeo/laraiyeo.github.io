@@ -140,7 +140,7 @@ function formatMatchDate(startingAt) {
   return d.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
-    timeZone: "UTC",
+    timeZone: "EDT",
   });
 }
 
@@ -151,7 +151,7 @@ function formatMatchTime(startingAt) {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-    timeZone: "UTC",
+    timeZone: "EDT",
   });
 }
 
@@ -310,7 +310,7 @@ const TABS = ["Team", "Matches", "Stats", "Roster", "Transfers", "Info"];
 
 // ─── Match Card ───────────────────────────────────────────────────────────────
 
-const MatchCard = ({ match, idx, leagueName, theme, colors, teamColor }) => {
+const MatchCard = ({ match, idx, leagueName, theme, colors, teamColor, domesticLeagueId }) => {
   const navigation = useNavigation();
   const participants = match.participants ?? [];
   const home =
@@ -358,6 +358,10 @@ const MatchCard = ({ match, idx, leagueName, theme, colors, teamColor }) => {
 
   const gradId = `tmg_${idx}`;
 
+  const showLeagueBadge = Boolean(
+    leagueName && (domesticLeagueId == null || match.league_id !== domesticLeagueId),
+  );
+
   return (
     <TouchableOpacity
       activeOpacity={0.85}
@@ -375,7 +379,7 @@ const MatchCard = ({ match, idx, leagueName, theme, colors, teamColor }) => {
         });
       }}
     >
-      {leagueName ? (
+      {showLeagueBadge ? (
         <View
           style={[
             styles.matchLeagueBadge,
@@ -421,6 +425,12 @@ const MatchCard = ({ match, idx, leagueName, theme, colors, teamColor }) => {
         <View style={styles.matchCardInner}>
           {/* Date / status column */}
           <View style={styles.matchStatusCol}>
+            {/* Aggregate leg badge (if this match was part of an aggregate tie) */}
+            {match._fromAggregate && match._aggregateLeg != null ? (
+              <Text style={[styles.matchLegText, { color: colors.primary }]}>
+                {`Leg ${match._aggregateLeg}`}
+              </Text>
+            ) : null}
             <Text
               allowFontScaling={false}
               style={[styles.matchDateText, { color: theme.textSecondary }]}
@@ -603,6 +613,7 @@ const MatchesSection = ({
   theme,
   colors,
   teamColor,
+  domesticLeagueId,
 }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
   if (matches.length === 0) return null;
@@ -659,6 +670,7 @@ const MatchesSection = ({
           theme={theme}
           colors={colors}
           teamColor={teamColor}
+          domesticLeagueId={domesticLeagueId}
         />
       ))}
     </View>
@@ -808,7 +820,8 @@ function BestMatch({
                   bmStyles.leagueLogo,
                   {
                     tintColor:
-                      (best.league_id === 8 || best.league_id === 2) && isDarkMode
+                      (best.league_id === 8 || best.league_id === 2) &&
+                      isDarkMode
                         ? theme.text
                         : undefined,
                   },
@@ -1059,11 +1072,14 @@ function StandingsTracker({
   colors,
   teamColor,
   leagueNameMap,
+  domesticLeagueId,
 }) {
   const roundPoints = useMemo(() => {
     const points = [];
     const today = new Date();
     for (const sched of teamData?.schedule ?? []) {
+      // If a domestic league is specified, only consider that league's rounds
+      if (domesticLeagueId && sched.league_id !== domesticLeagueId) continue;
       for (const round of sched.rounds ?? []) {
         const played = (round.fixtures ?? []).filter((f) => {
           const d = parseUtcDate(f.starting_at);
@@ -1151,7 +1167,7 @@ function StandingsTracker({
         month: "short",
         day: "numeric",
         year: "2-digit",
-        timeZone: "UTC",
+        timeZone: "EDT",
       }) +
       (selected.lastDate &&
       selected.lastDate.toDateString() !== selected.firstDate.toDateString()
@@ -1160,7 +1176,7 @@ function StandingsTracker({
             month: "short",
             day: "numeric",
             year: "2-digit",
-            timeZone: "UTC",
+            timeZone: "EDT",
           })
         : "")
     : "";
@@ -1186,9 +1202,11 @@ function StandingsTracker({
           numberOfLines={1}
         >
           {"Standings Tracker" +
-            (Object.values(leagueNameMap)[0]
-              ? " · " + Object.values(leagueNameMap)[0].name.toUpperCase()
-              : "")}
+            (domesticLeagueId && leagueNameMap?.[domesticLeagueId]
+              ? " · " + leagueNameMap[domesticLeagueId].name.toUpperCase()
+              : Object.values(leagueNameMap)[0]
+                ? " · " + Object.values(leagueNameMap)[0].name.toUpperCase()
+                : "")}
         </Text>
       </View>
 
@@ -1423,6 +1441,7 @@ function StandingsTracker({
           theme={theme}
           colors={colors}
           teamColor={teamColor}
+          domesticLeagueId={domesticLeagueId}
         />
       ))}
       <View style={{ height: 14 }} />
@@ -1711,7 +1730,8 @@ function CurrentSeasonsSection({ teamInfo, theme, isDarkMode, navigation }) {
                 infoStyles.logo,
                 {
                   tintColor:
-                    (season.league_id === 8 || season.league_id === 2) && isDarkMode
+                    (season.league_id === 8 || season.league_id === 2) &&
+                    isDarkMode
                       ? theme.text
                       : undefined,
                 },
@@ -4389,16 +4409,16 @@ function TrophiesSection({ teamInfo, theme, teamColor, isDarkMode }) {
           return a.localeCompare(b);
         });
         const capWords = (s) =>
-            s
-              ? s
-                  .split('_')
-                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                  .join(' ')
-              : s;
+          s
+            ? s
+                .split("_")
+                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(" ")
+            : s;
 
-          const leagueSubType = lg.league?.sub_type
-            ? capWords(lg.league.sub_type)
-            : null;
+        const leagueSubType = lg.league?.sub_type
+          ? capWords(lg.league.sub_type)
+          : null;
 
         return (
           <View
@@ -4413,7 +4433,17 @@ function TrophiesSection({ teamInfo, theme, teamColor, isDarkMode }) {
               {lg.league?.image_path && !isPlaceholder(lg.league.image_path) ? (
                 <Image
                   source={{ uri: lg.league.image_path }}
-                  style={[inStyles.leagueLogo, { tintColor: (lg.league.name === "Premier League" || lg.league.name === "Champions League") && isDarkMode ? theme.text : undefined }]}
+                  style={[
+                    inStyles.leagueLogo,
+                    {
+                      tintColor:
+                        (lg.league.name === "Premier League" ||
+                          lg.league.name === "Champions League") &&
+                        isDarkMode
+                          ? theme.text
+                          : undefined,
+                    },
+                  ]}
                   resizeMode="contain"
                 />
               ) : null}
@@ -4624,13 +4654,51 @@ export default function Top5TeamDetailScreen({ route, navigation }) {
     return map;
   }, [teamInfo, teamData]);
 
+  // Prefer the activeseason with sub_type 'domestic' as the team's primary league
+  const domesticLeagueId = useMemo(() => {
+    const as = teamInfo?.activeseasons ?? [];
+    const found = as.find((s) => {
+      const sub = String(
+        (s.sub_type ?? s.league?.sub_type) || "",
+      ).toLowerCase();
+      return sub === "domestic" && (s.league_id ?? s.league?.id);
+    });
+    const leagueId = found?.league_id ?? found?.league?.id ?? null;
+    return leagueId;
+  }, [teamInfo]);
+
   // Flatten all matches, preserving league_id
   const allMatches = useMemo(() => {
     const matches = [];
     for (const sched of teamData?.schedule ?? []) {
+      // Round fixtures (standard)
       for (const round of sched.rounds ?? []) {
         for (const fixture of round.fixtures ?? []) {
           matches.push({ ...fixture, league_id: sched.league_id });
+        }
+      }
+      // Top-level fixtures on the schedule entry
+      for (const fixture of sched.fixtures ?? []) {
+        matches.push({ ...fixture, league_id: sched.league_id });
+      }
+      // Aggregates may contain fixtures (two-leg ties etc.) — mark them
+      for (const aggregate of sched.aggregates ?? []) {
+        for (const fixture of aggregate.fixtures ?? []) {
+          // derive leg number from fixture.leg or aggregate.leg if present
+          let legRaw = fixture.leg ?? aggregate.leg ?? fixture.name ?? null;
+          let legNum = null;
+          if (legRaw && typeof legRaw === "string") {
+            const part = String(legRaw).split("/")[0].trim();
+            // extract first number-like token
+            const m = part.match(/(\d+)/);
+            if (m) legNum = m[1];
+          }
+          matches.push({
+            ...fixture,
+            league_id: sched.league_id,
+            _fromAggregate: true,
+            _aggregateLeg: legNum,
+          });
         }
       }
     }
@@ -4689,7 +4757,10 @@ export default function Top5TeamDetailScreen({ route, navigation }) {
   });
 
   const displayName = teamInfo?.name ?? teamName ?? "Team";
-  const leagueName = Object.values(leagueNameMap)[0]?.name ?? null;
+  const leagueName =
+    (domesticLeagueId && leagueNameMap?.[domesticLeagueId]?.name) ||
+    Object.values(leagueNameMap)[0]?.name ||
+    null;
 
   if (loading) {
     return (
@@ -4968,6 +5039,7 @@ export default function Top5TeamDetailScreen({ route, navigation }) {
                 colors={colors}
                 teamColor={resolvedColor}
                 leagueNameMap={leagueNameMap}
+                domesticLeagueId={domesticLeagueId}
               />
               <UEFARanking teamInfo={teamInfo} theme={theme} colors={colors} />
               <RivalsSection
@@ -5003,6 +5075,7 @@ export default function Top5TeamDetailScreen({ route, navigation }) {
                   theme={theme}
                   colors={colors}
                   teamColor={resolvedColor}
+                  domesticLeagueId={domesticLeagueId}
                 />
                 <MatchesSection
                   title="Last Matches"
@@ -5013,6 +5086,7 @@ export default function Top5TeamDetailScreen({ route, navigation }) {
                   theme={theme}
                   colors={colors}
                   teamColor={resolvedColor}
+                  domesticLeagueId={domesticLeagueId}
                 />
                 <MatchesSection
                   title="Upcoming"
@@ -5023,6 +5097,7 @@ export default function Top5TeamDetailScreen({ route, navigation }) {
                   theme={theme}
                   colors={colors}
                   teamColor={resolvedColor}
+                  domesticLeagueId={domesticLeagueId}
                 />
               </View>
             ))}
@@ -5178,6 +5253,13 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   matchLeagueText: { fontSize: 10, fontWeight: "600" },
+  matchLegBadge: {
+    position: "absolute",
+    top: 6,
+    right: 68,
+    zIndex: 3,
+  },
+  matchLegText: { fontSize: 12, fontWeight: "700", marginBottom: 5 },
   matchCard: {
     borderRadius: 12,
     overflow: "hidden",

@@ -458,7 +458,7 @@ function CurrentSeasonCard({ stat, theme, isDarkMode, accentColor }) {
                 iStyles.csLeagueLogo,
                 {
                   tintColor:
-                    league.id === 8 && isDarkMode ? theme.text : undefined,
+                    (league.id === 8 || league.id === 2) && isDarkMode ? theme.text : undefined,
                 },
               ]}
               resizeMode="contain"
@@ -566,7 +566,7 @@ function TrophiesSection({ trophies, theme, accentColor, isDarkMode }) {
               {lg.league?.image_path && !isPlaceholder(lg.league.image_path) ? (
                 <Image
                   source={{ uri: lg.league.image_path }}
-                  style={[iStyles.trLeagueLogo, { tintColor: lg.league.name === "Premier League" && isDarkMode ? theme.text : undefined }]}
+                  style={[iStyles.trLeagueLogo, { tintColor: (lg.league.name === "Premier League" || lg.league.name === "Champions League" ) && isDarkMode ? theme.text : undefined }]}
                   resizeMode="contain"
                 />
               ) : null}

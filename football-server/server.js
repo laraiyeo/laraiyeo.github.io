@@ -1352,7 +1352,7 @@ function transformPlayerResponse(raw) {
                   image_path: t.league.image_path ?? null,
                 }
               : null,
-            team: slimTeam(t.team, ["id", "name", "image_path"]),
+            team: slimTeam(t.team, ["id", "name", "image_path", "country.name"]),
           }))
       : [],
     statistics: Array.isArray(p.statistics)
@@ -1374,6 +1374,7 @@ function transformPlayerResponse(raw) {
                   ? {
                       id: s.season.league.id ?? null,
                       name: s.season.league.name ?? null,
+                      sub_type: s.season.league.sub_type ?? null,
                       image_path: s.season.league.image_path ?? null,
                     }
                   : null,
@@ -2604,7 +2605,7 @@ function transformCacheTeam(item) {
     activeseasons: Array.isArray(item.activeseasons)
       ? item.activeseasons.map((s) => ({
           league: s.league
-            ? { id: s.league.id, name: s.league.name ?? null }
+            ? { id: s.league.id, name: s.league.name ?? null, sub_type: s.league.sub_type ?? null }
             : null,
         }))
       : [],
