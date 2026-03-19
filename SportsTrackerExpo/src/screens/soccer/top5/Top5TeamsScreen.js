@@ -53,6 +53,18 @@ function getUefaRanking(team) {
   return uefa ?? team.rankings[0] ?? null;
 }
 
+// Return the primary league for a team: prefer a league with sub_type 'domestic',
+// otherwise fall back to the first league in activeseasons, or null.
+function getPrimaryLeague(team) {
+  if (!team?.activeseasons || !Array.isArray(team.activeseasons)) return null;
+  for (const s of team.activeseasons) {
+    const lg = s?.league;
+    if (!lg) continue;
+    if (String(lg.sub_type ?? "").toLowerCase() === "domestic") return lg;
+  }
+  return team.activeseasons[0]?.league ?? null;
+}
+
 function getTextOnColor(hex) {
   if (!hex) return "#FFFFFF";
   const c = hex.replace("#", "");
@@ -88,25 +100,39 @@ export default function Top5TeamsScreen({ navigation }) {
     return map;
   }, [teams]);
 
-  const hasAnyRanking = useMemo(
-    () =>
-      teams.some((t) => Array.isArray(t?.rankings) && t.rankings.length > 0),
+  const hasTeamRankings = useMemo(
+    () => teams.some((t) => Array.isArray(t?.rankings) && t.rankings.length > 0),
     [teams],
   );
 
-  const sortModes = useMemo(
-    () =>
-      hasAnyRanking
-        ? ["UEFA", "RANK", "NAME", "LEAGUE"]
-        : ["RANK", "NAME", "LEAGUE"],
-    [hasAnyRanking],
-  );
+  const hasRankData = useMemo(() => Array.isArray(ranks) && ranks.length > 0, [ranks]);
 
+  const sortModes = useMemo(() => {
+    const modes = [];
+    if (hasRankData) modes.push("RANK");
+    if (hasTeamRankings) modes.push("UEFA");
+    modes.push("NAME", "LEAGUE");
+    return modes;
+  }, [hasRankData, hasTeamRankings]);
+
+  // Ensure current sortMode stays valid; prefer RANK -> UEFA -> NAME
+  // Only auto-select when the user hasn't chosen a tab (sortMode === null)
+  // and when data has loaded (teams or ranks present).
   useEffect(() => {
-    if (!hasAnyRanking && sortMode === "UEFA") {
+    if (sortMode !== null) return; // respect user choice once set
+    const dataLoaded = (teams.length > 0) || (ranks.length > 0);
+    if (!dataLoaded) return;
+
+    if (sortModes.includes("RANK")) {
       setSortMode("RANK");
+      return;
     }
-  }, [hasAnyRanking, sortMode]);
+    if (sortModes.includes("UEFA")) {
+      setSortMode("UEFA");
+      return;
+    }
+    setSortMode("NAME");
+  }, [sortModes, sortMode, teams.length, ranks.length]);
 
   const load = useCallback(async (force = false) => {
     try {
@@ -253,7 +279,7 @@ export default function Top5TeamsScreen({ navigation }) {
     if (sortMode !== "LEAGUE") return [];
     const map = new Map();
     for (const t of teams) {
-      const key = t.activeseasons?.[0]?.league?.name ?? "Other";
+      const key = getPrimaryLeague(t)?.name ?? "Other";
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(t);
     }
@@ -519,6 +545,17 @@ export default function Top5TeamsScreen({ navigation }) {
                         </Text>
                       </View>
                     ) : t.short_code ? (
+                        <Text
+                          style={[
+                            styles.cardLeague,
+                            { color: theme.textSecondary },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {t.short_code}
+                        </Text>
+                      ) : null
+                    ) : getPrimaryLeague(t)?.name ? (
                       <Text
                         style={[
                           styles.cardLeague,
@@ -526,20 +563,9 @@ export default function Top5TeamsScreen({ navigation }) {
                         ]}
                         numberOfLines={1}
                       >
-                        {t.short_code}
+                        {getPrimaryLeague(t).name}
                       </Text>
-                    ) : null
-                  ) : t.activeseasons?.[0]?.league?.name ? (
-                    <Text
-                      style={[
-                        styles.cardLeague,
-                        { color: theme.textSecondary },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {t.activeseasons[0].league.name}
-                    </Text>
-                  ) : null}
+                    ) : null}
                 </TouchableOpacity>
               );
             })}
@@ -550,7 +576,7 @@ export default function Top5TeamsScreen({ navigation }) {
 
       // ── List bubble ───────────────────────────────────────────────────────
       const rank = sortMode === "UEFA" ? (item._rank ?? null) : null;
-      const activeLeague = item.activeseasons?.[0]?.league;
+      const activeLeague = getPrimaryLeague(item);
       const isRankMode = sortMode === "RANK";
       const borderColor = item.colorPrimary ?? theme.border;
       return (

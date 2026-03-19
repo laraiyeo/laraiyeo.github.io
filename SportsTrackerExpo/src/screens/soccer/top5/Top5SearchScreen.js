@@ -111,6 +111,17 @@ function getTextOnColor(hex) {
   return lum > 0.5 ? "#000000" : "#FFFFFF";
 }
 
+// Choose the primary league for a team: prefer sub_type 'domestic', else first
+function getPrimaryLeague(team) {
+  if (!team?.activeseasons || !Array.isArray(team.activeseasons)) return null;
+  for (const s of team.activeseasons) {
+    const lg = s?.league;
+    if (!lg) continue;
+    if (String(lg.sub_type ?? "").toLowerCase() === "domestic") return lg;
+  }
+  return team.activeseasons[0]?.league ?? null;
+}
+
 function parseHexColor(hex) {
   if (!hex || typeof hex !== "string") return null;
   const raw = hex.trim().replace("#", "");
@@ -426,11 +437,11 @@ export default function Top5SearchScreen() {
               >
                 {item.name}
               </Text>
-              {item.activeseasons?.[0]?.league?.name ? (
+              {getPrimaryLeague(item)?.name ? (
                 <Text
                   style={[styles.secondaryText, { color: theme.textSecondary }]}
                 >
-                  {item.activeseasons[0].league.name}
+                  {getPrimaryLeague(item).name}
                 </Text>
               ) : null}
             </View>

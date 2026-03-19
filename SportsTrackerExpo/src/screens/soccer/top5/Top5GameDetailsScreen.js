@@ -952,7 +952,26 @@ const TeamSide = ({
       >
         {side === "away" && redCards > 0 ? (
           <View style={styles.teamCardsRow}>
-            {Array.from({ length: redCards }).map((_, idx) => (
+            {redCards > 2 ? (
+              <View
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  backgroundColor: theme.surface || "#fff",
+                  borderColor: theme.error || "#e03131",
+                  borderWidth: 1,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 1,
+                }}
+              >
+                <Text style={{ color: theme.error || "#e03131", fontSize: 8, fontWeight: "700" }}>
+                  {`+${redCards - 2}`}
+                </Text>
+              </View>
+            ) : null}
+            {Array.from({ length: Math.min(2, redCards) }).map((_, idx) => (
               <MaterialCommunityIcons
                 key={`${team?.id ?? "team"}:red:${idx}`}
                 name="card"
@@ -972,7 +991,7 @@ const TeamSide = ({
         </Text>
         {side === "home" && redCards > 0 ? (
           <View style={styles.teamCardsRow}>
-            {Array.from({ length: redCards }).map((_, idx) => (
+            {Array.from({ length: Math.min(2, redCards) }).map((_, idx) => (
               <MaterialCommunityIcons
                 key={`${team?.id ?? "team"}:red:${idx}`}
                 name="card"
@@ -981,6 +1000,25 @@ const TeamSide = ({
                 style={styles.redCardIcon}
               />
             ))}
+            {redCards > 2 ? (
+              <View
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  backgroundColor: theme.surface || "#fff",
+                  borderColor: theme.error || "#e03131",
+                  borderWidth: 1,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginLeft: 1,
+                }}
+              >
+                <Text style={{ color: theme.error || "#e03131", fontSize: 8, fontWeight: "700" }}>
+                  {`+${redCards - 2}`}
+                </Text>
+              </View>
+            ) : null}
           </View>
         ) : null}
       </View>
@@ -2181,13 +2219,11 @@ const EventsSection = ({
 
   const totalBlocks = displayPeriodBlocks.length;
 
-  const renderPeriodDivider = (label, key) => {
-    const firstHalfHome = scoreByDescription("1ST_HALF", "home");
-    const firstHalfAway = scoreByDescription("1ST_HALF", "away");
-    const currentHome = scoreByDescription("CURRENT", "home");
-    const currentAway = scoreByDescription("CURRENT", "away");
-    const secondOnlyHome = scoreByDescription("2ND_HALF_ONLY", "home");
-    const secondOnlyAway = scoreByDescription("2ND_HALF_ONLY", "away");
+  const renderPeriodDivider = (label, key, mainDesc = "CURRENT", bracketDesc = null) => {
+    const mainHome = scoreByDescription(mainDesc === "1ST_HALF" ? "1ST_HALF" : mainDesc, "home");
+    const mainAway = scoreByDescription(mainDesc === "1ST_HALF" ? "1ST_HALF" : mainDesc, "away");
+    const bracketHome = bracketDesc ? scoreByDescription(bracketDesc, "home") : null;
+    const bracketAway = bracketDesc ? scoreByDescription(bracketDesc, "away") : null;
 
     return (
       <View key={key} style={evStyles.periodDividerRow}>
@@ -2214,12 +2250,12 @@ const EventsSection = ({
           >
             {label}
           </Text>
-          {label === "HT" ? (
-            renderScorePair(firstHalfHome, firstHalfAway)
+          {label === "HT" && mainDesc === "1ST_HALF" ? (
+            renderScorePair(mainHome, mainAway)
           ) : (
             <View style={evStyles.periodDividerFtScores}>
-              {renderScorePair(currentHome, currentAway)}
-              {(secondOnlyHome != null || secondOnlyAway != null) && (
+              {renderScorePair(mainHome, mainAway)}
+              {bracketDesc && (bracketHome != null || bracketAway != null) && (
                 <Text
                   style={[
                     evStyles.periodDividerBracket,
@@ -2228,15 +2264,15 @@ const EventsSection = ({
                 >
                   {" ("}
                   <Text
-                    style={getScoreTextStyle(secondOnlyHome, secondOnlyAway)}
+                    style={getScoreTextStyle(bracketHome, bracketAway)}
                   >
-                    {secondOnlyHome == null ? "-" : String(secondOnlyHome)}
+                    {bracketHome == null ? "-" : String(bracketHome)}
                   </Text>
                   {" - "}
                   <Text
-                    style={getScoreTextStyle(secondOnlyAway, secondOnlyHome)}
+                    style={getScoreTextStyle(bracketAway, bracketHome)}
                   >
-                    {secondOnlyAway == null ? "-" : String(secondOnlyAway)}
+                    {bracketAway == null ? "-" : String(bracketAway)}
                   </Text>
                   {")"}
                 </Text>
@@ -2268,7 +2304,7 @@ const EventsSection = ({
 
   const renderLabel = (e, isHome) => {
     const playerName = e.player_name || "Unknown";
-    if (!e.result) return playerName;
+    if (!e.result || e.addition === "OffTarget") return playerName;
 
     const parts = e.result.split("-");
     if (parts.length !== 2) return `${playerName} (${e.result})`;
@@ -2313,7 +2349,7 @@ const EventsSection = ({
 
   const renderEventIcon = (e) => {
     const addLow = (e.addition || "").toLowerCase();
-    if (addLow.includes("red")) {
+    if (addLow.includes("redcard")) {
       return (
         <MaterialCommunityIcons
           name="card"
@@ -2344,8 +2380,7 @@ const EventsSection = ({
       );
     }
     if (
-      (addLow.includes("offtarget") || addLow.includes("saved")) &&
-      e.result === null
+      (addLow.includes("offtarget") || addLow.includes("saved") || addLow.includes("goalkeepersave"))
     ) {
       return (
         <MaterialCommunityIcons
@@ -2380,7 +2415,7 @@ const EventsSection = ({
       );
     }
     if (
-      (addLow.includes("goal") || addLow.includes("penalty")) &&
+      (addLow.includes("goal") || addLow.includes("penalty") || addLow.includes("scored")) &&
       e.result != null
     ) {
       return (
@@ -2452,6 +2487,8 @@ const EventsSection = ({
 
   const renderEventContent = (event, isHome) => {
     const addLow = (event.addition || "").toLowerCase();
+    const periodObj = (periods || []).find((p) => p && p.id === event.period_id);
+    const isPenaltiesPeriod = !!periodObj && String(periodObj.description || "").toLowerCase() === "penalties";
     const iconFirst = isHome;
 
     if (isSubstitutionEvent(event)) {
@@ -2493,7 +2530,7 @@ const EventsSection = ({
     const isPenaltyOffTarget =
       addLow.includes("offtarget") && event.result === null;
     const showsSecondLine =
-      isDisallowed || showsGoalDetailGoal || showsGoalDetailPenalty;
+      isDisallowed || showsGoalDetailGoal || showsGoalDetailPenalty || isPenaltiesPeriod;
 
     return (
       <View
@@ -2517,7 +2554,24 @@ const EventsSection = ({
           </Text>
           {!iconFirst ? renderEventIcon(event) : null}
         </View>
-        {isDisallowed ? (
+        {isPenaltiesPeriod ? (
+          <Text
+            style={[
+              evStyles.goalDetailText,
+              { color: theme.textSecondary },
+              !isHome && evStyles.goalDetailTextAway,
+            ]}
+            numberOfLines={1}
+          >
+            {(() => {
+              const raw = String(event.addition || "");
+              const spaced = raw
+                .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+                .replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
+              return `${spaced} Penalty`;
+            })()}
+          </Text>
+        ) : isDisallowed ? (
           <Text
             style={[
               evStyles.goalDetailText,
@@ -2610,40 +2664,142 @@ const EventsSection = ({
       <View style={evStyles.body}>
         {displayPeriodBlocks.map((block, blockIdx) => (
           <View key={`${block.key}:${blockIdx}`}>
-            {block.events.map((event, idx) => {
-              const isHome = event.participant_id === homeId;
-              return (
-                <TouchableOpacity
-                  key={`${event.participant_id}:${event.player_id ?? idx}:${event.minute}:${event.extra_minute ?? 0}:${idx}`}
-                  style={evStyles.row}
-                  activeOpacity={0.75}
-                  onPress={() => setSelectedEvent(event)}
-                >
-                  <View
-                    style={[
-                      evStyles.eventLane,
-                      isHome ? evStyles.eventLaneHome : evStyles.eventLaneAway,
-                    ]}
-                  >
-                    {isHome ? (
-                      <View style={evStyles.inlineRowHome}>
-                        {renderMinute(event)}
-                        {renderEventContent(event, true)}
-                      </View>
-                    ) : (
-                      <View style={evStyles.inlineRowAway}>
-                        {renderEventContent(event, false)}
-                        {renderMinute(event)}
-                      </View>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+            {(() => {
+              const periodId = block.key;
+              const periodObj = (periods || []).find((p) => p && p.id === periodId);
+              const periodTimeAdded = periodObj?.time_added;
 
-            {blockIdx < totalBlocks - 1
-              ? renderPeriodDivider("HT", `ht:${block.key}`)
-              : isFinished && renderPeriodDivider("FT", `ft:${block.key}`)}
+              // find events that have extra_minute
+              const eventsWithExtra = block.events
+                .map((e, i) => ({ e, i }))
+                .filter(({ e }) => e && e.extra_minute != null);
+
+              // determine insertion index for finished matches
+              let insertBeforeIndex = -1; // if >=0, insert before this index
+              if (eventsWithExtra.length > 0) {
+                const minExtra = Math.min(...eventsWithExtra.map(({ e }) => Number(e.extra_minute)));
+                const firstIdx = block.events.findIndex((e) => e.extra_minute != null && Number(e.extra_minute) === minExtra);
+                insertBeforeIndex = firstIdx;
+              }
+
+              return block.events.map((event, idx) => {
+                const isHome = event.participant_id === homeId;
+                const pieces = [];
+
+                // Live: show added-minutes marker as soon as there's a value (before first event of the block)
+                if (liveMatch && idx === 0 && periodTimeAdded > 0) {
+                  pieces.push(
+                    <View
+                      key={`added:${periodId}:before`}
+                      style={{ alignItems: "center", width: "100%", marginVertical: 4 }}
+                    >
+                      <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: "700" }}>
+                        {`+${periodTimeAdded} minute${periodTimeAdded === 1 ? "" : "s"} added`}
+                      </Text>
+                    </View>,
+                  );
+                }
+
+                // For finished: if we need to insert before a particular event (lowest extra_minute), do it here
+                if (!liveMatch && insertBeforeIndex >= 0 && idx === insertBeforeIndex) {
+                  const added = periodTimeAdded != null ? periodTimeAdded : event.extra_minute;
+                  if (added != null) {
+                    pieces.push(
+                      <View
+                        key={`added:${periodId}:beforeExtra:${idx}`}
+                        style={{ alignItems: "center", width: "100%", marginVertical: 4 }}
+                      >
+                        <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: "700" }}>
+                          {`+${added} minute${added === 1 ? "" : "s"} added`}
+                        </Text>
+                      </View>,
+                    );
+                  }
+                }
+
+                pieces.push(
+                  <TouchableOpacity
+                    key={`${event.participant_id}:${event.player_id ?? idx}:${event.minute}:${event.extra_minute ?? 0}:${idx}`}
+                    style={evStyles.row}
+                    activeOpacity={0.75}
+                    onPress={() => setSelectedEvent(event)}
+                  >
+                    <View
+                      style={[
+                        evStyles.eventLane,
+                        isHome ? evStyles.eventLaneHome : evStyles.eventLaneAway,
+                      ]}
+                    >
+                      {isHome ? (
+                        <View style={evStyles.inlineRowHome}>
+                          {renderMinute(event)}
+                          {renderEventContent(event, true)}
+                        </View>
+                      ) : (
+                        <View style={evStyles.inlineRowAway}>
+                          {renderEventContent(event, false)}
+                          {renderMinute(event)}
+                        </View>
+                      )}
+                    </View>
+                  </TouchableOpacity>,
+                );
+
+                // For finished: if there are no extra_minute events, place the marker after the last event
+                if (!liveMatch && insertBeforeIndex === -1 && idx === block.events.length - 1 && (periodTimeAdded != null)) {
+                  const added = periodTimeAdded;
+                  pieces.push(
+                    <View
+                      key={`added:${periodId}:afterLast:${idx}`}
+                      style={{ alignItems: "center", width: "100%", marginVertical: 4 }}
+                    >
+                      <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: "700" }}>
+                        {`+${added} minute${added === 1 ? "" : "s"} added`}
+                      </Text>
+                    </View>,
+                  );
+                }
+
+                return pieces;
+              }).flat();
+            })()}
+
+            {(() => {
+              // Render a divider for this block if it's not the last original
+              // period, or if the match is finished render the final divider.
+              const originalTotal = orderedPeriodIds.length;
+              const isLastOriginal = block.index === originalTotal - 1;
+              const shouldRenderDivider = !isLastOriginal || (isFinished && isLastOriginal);
+              if (!shouldRenderDivider) return null;
+
+              // Map original period index to divider label and bracket description
+              const idx = block.index;
+              let label = "HT";
+              let mainDesc = "1ST_HALF";
+              let bracketDesc = null;
+              if (idx === 0) {
+                label = "HT";
+                mainDesc = "1ST_HALF";
+              } else if (idx === 1) {
+                label = "FT";
+                mainDesc = "CURRENT";
+                bracketDesc = "2ND_HALF_ONLY";
+              } else if (idx === 2) {
+                label = "AET";
+                mainDesc = "CURRENT";
+                bracketDesc = "ET_2ND_HALF";
+              } else if (idx === 3) {
+                label = "FTP";
+                mainDesc = "CURRENT";
+                bracketDesc = "PENALTY_SHOOTOUT";
+              } else {
+                // Fallback: use HT/FT pattern based on position
+                label = isLastOriginal ? "FT" : "HT";
+                mainDesc = "CURRENT";
+              }
+
+              return renderPeriodDivider(label, `pd:${block.key}`, mainDesc, bracketDesc);
+            })()}
           </View>
         ))}
       </View>
@@ -7609,7 +7765,7 @@ const HomeSidelinedSection = ({
           style={styles.redCardIcon}
         />
       );
-    } else if (typeLow.includes("red")) {
+    } else if (typeLow.includes("redcard")) {
       statusIcon = (
         <MaterialCommunityIcons
           name="card"
@@ -10862,7 +11018,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
     const counts = { home: 0, away: 0 };
     for (const event of fixture?.events ?? []) {
       const addLow = (event?.addition || "").toLowerCase();
-      if (!addLow.includes("red")) continue;
+      if (!addLow.includes("redcard")) continue;
       if (event?.player_id == null) continue;
       if (event?.rescinded === true) continue;
       if (event.participant_id === home?.id) counts.home += 1;
@@ -10956,7 +11112,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
 
   // ── Man of the Match ─────────────────────────────────────────────────────
   const manOfTheMatch = useMemo(() => {
-    if (stateCode !== "FT") return null;
+    if (!["FT", "AET", "FT_PEN"].includes(stateCode)) return null;
     const lineups = fixture?.lineups ?? [];
     if (lineups.length === 0) return null;
 
@@ -11338,6 +11494,37 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 nowMs={nowMs}
                 snapshotTsMs={snapshotTsMs}
               />
+              {(() => {
+                // Show penalty shootout (PEN) scores under status when match finished
+                if (!finished) return null;
+                const scores = fixture?.scores ?? [];
+                let penHome = null;
+                let penAway = null;
+                for (const s of scores) {
+                  if (!s || !s.description) continue;
+                  if (String(s.description || "").toUpperCase() !== "PENALTY_SHOOTOUT") continue;
+                  const participant = (s.score?.participant || "").toLowerCase();
+                  const goals = typeof s.score?.goals === "number" ? s.score.goals : parseInt(s.score?.goals, 10) || 0;
+                  if (participant === "home") penHome = goals;
+                  if (participant === "away") penAway = goals;
+                }
+                if (penHome == null && penAway == null) return null;
+
+                // If one side is null, treat as 0 for display
+                const ph = penHome == null ? 0 : penHome;
+                const pa = penAway == null ? 0 : penAway;
+
+                return (
+                  <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+                    <Text style={[{ fontSize: 12, color: theme.textSecondary, fontWeight: "700" }]}>PEN:</Text>
+                    <Text style={[{ fontSize: 12, color: theme.textSecondary }]} numberOfLines={1}>
+                      <Text style={{ fontWeight: ph > pa ? "800" : "400" }}>{String(ph)}</Text>
+                      {` - `}
+                      <Text style={{ fontWeight: pa > ph ? "800" : "400" }}>{String(pa)}</Text>
+                    </Text>
+                  </View>
+                );
+              })()}
 
               {/* Stream Button (center column) */}
               {!isScheduledGame && !finished && (

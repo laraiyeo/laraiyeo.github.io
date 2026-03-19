@@ -256,12 +256,34 @@ function fixtureDateTtlInfo(fixtures) {
 
   const now = Date.now();
   let nearestStart = null;
+  const considered = [];
+  let excludedFinished = 0;
   for (const f of fixtures) {
     if (isFinishedByShortName(f)) continue;
     const t = startTimeMsOf(f);
     if (t != null && t > now) {
+      considered.push({ id: f.id ?? "?", ts: t });
       if (nearestStart == null || t < nearestStart) nearestStart = t;
     }
+  }
+
+  // Diagnostic: log what fixtures were considered and how nearestStart was chosen
+  try {
+    const consideredSummary = considered
+      .map((c) => `${c.id}:${new Date(c.ts).toISOString()}`)
+      .join(", ");
+    console.log(`[fixture-poll.debug] considered future fixtures: ${consideredSummary}`);
+    // count finished entries explicitly
+    excludedFinished = fixtures.filter((f) => isFinishedByShortName(f)).length;
+    console.log(`[fixture-poll.debug] excluded finished fixtures: ${excludedFinished}`);
+    if (nearestStart != null) {
+      const diff = nearestStart - now;
+      console.log(`[fixture-poll.debug] nearestStart=${new Date(nearestStart).toISOString()} diffMs=${diff} diffMin=${Math.round(diff/60000)}`);
+    } else {
+      console.log(`[fixture-poll.debug] no future nearestStart found (nearestStart=null)`);
+    }
+  } catch (e) {
+    console.error('[fixture-poll.debug] failed to summarize fixtures', e && e.message);
   }
 
   if (nearestStart != null) {
