@@ -14,6 +14,8 @@ import { useTheme } from "../context/ThemeContext";
 import analyticsService from "../services/AnalyticsService";
 import UpdateService from "../services/UpdateService";
 
+const show = false; // Placeholder for future "show more" functionality
+
 // Base home tile definitions without runtime theme colors (used by prefetch)
 const HOME_SPORTS_BASE = [
   {
@@ -22,12 +24,15 @@ const HOME_SPORTS_BASE = [
     description: "View all live MLB games happening right now.",
     icon: require("../../assets/mlb.png"),
   },
+  ...show
+    ? [
   {
     id: "wbc",
     title: "WBC",
     description: "World Baseball Classic — scores, teams, and details.",
     icon: require("../../assets/wbc_logo.png"),
   },
+] : [],
   {
     id: "nhl",
     title: "NHL",

@@ -351,7 +351,7 @@ const INTERVAL_SLOW = 30 * 60 * 1000; // 30 minutes
 const INTERVAL_FAST = 10 * 1000; // 10 seconds
 const INTERVAL_SOON = 60 * 1000; // 1 minute
 const INTERVAL_FINISHED = 12 * 60 * 60 * 1000; // 12 hours
-const LIVE_SHORT_NAMES = new Set(["1ST", "2ND", "HT"]);
+const LIVE_SHORT_NAMES = new Set(["1ST", "2ND", "HT", "BRK", "BREAK", "INPLAY_ET", "INPLAY_PEN", "ET", "PEN"]);
 
 const TIME_BUCKETS = ["0-15", "15-30", "30-45", "45-60", "60-75", "75-90"];
 
@@ -1935,21 +1935,11 @@ const EventsSection = ({
           .join("")
           .toUpperCase() ||
         "?";
-
-      const commentText = findGoalCommentForEvent(event);
-      const isOwnGoal = isOwnGoalEvent(event, commentText);
-      const isPenalty = isPenaltyGoalEvent(event);
+        
       const scoreAfter = parseEventScore(event?.result) || {
         home: null,
         away: null,
       };
-
-      const scoringSide =
-        event?.participant_id === homeTeam?.id
-          ? "home"
-          : event?.participant_id === awayTeam?.id
-            ? "away"
-            : null;
 
       const scoringTeam =
         scoringSide === "home"
@@ -1957,6 +1947,29 @@ const EventsSection = ({
           : scoringSide === "away"
             ? awayTeam
             : (playerMeta?.team ?? null);
+
+      let commentText = findGoalCommentForEvent(event);
+      // If no matching comment was found, synthesize a fallback goal text
+      if (!commentText) {
+        const homeName = homeTeam?.name || "Home";
+        const awayName = awayTeam?.name || "Away";
+        const homeScoreText = scoreAfter?.home != null ? String(scoreAfter.home) : "-";
+        const awayScoreText = scoreAfter?.away != null ? String(scoreAfter.away) : "-";
+        const infoText = (String(event?.info || event?.addition || "")).trim();
+        const scoringTeamName = scoringTeam?.name || (scoringSide === "home" ? homeName : scoringSide === "away" ? awayName : "");
+
+        commentText = `Goal! ${homeName} ${homeScoreText}, ${awayName} ${awayScoreText}. ${playerName} scores for ${scoringTeamName}${infoText ? ` with a ${infoText}` : ""}.`;
+        if (assistName) commentText += ` Assisted by ${assistName}.`;
+      }
+      const isOwnGoal = isOwnGoalEvent(event, commentText);
+      const isPenalty = isPenaltyGoalEvent(event);
+
+      const scoringSide =
+        event?.participant_id === homeTeam?.id
+          ? "home"
+          : event?.participant_id === awayTeam?.id
+            ? "away"
+            : null;
 
       const ownGoalerTeam =
         isOwnGoal && scoringSide
@@ -2237,14 +2250,29 @@ const EventsSection = ({
     mainDesc = "CURRENT",
     bracketDesc = null,
   ) => {
-    const mainHome = scoreByDescription(
-      mainDesc === "1ST_HALF" ? "1ST_HALF" : mainDesc,
-      "home",
-    );
-    const mainAway = scoreByDescription(
-      mainDesc === "1ST_HALF" ? "1ST_HALF" : mainDesc,
-      "away",
-    );
+    let mainHome;
+    let mainAway;
+    if (mainDesc === "FT_SUM") {
+      const h1 = Number(scoreByDescription("1ST_HALF", "home") || 0);
+      const h2 = Number(scoreByDescription("2ND_HALF_ONLY", "home") || 0);
+      const a1 = Number(scoreByDescription("1ST_HALF", "away") || 0);
+      const a2 = Number(scoreByDescription("2ND_HALF_ONLY", "away") || 0);
+      mainHome = h1 + h2;
+      mainAway = a1 + a2;
+    } else if (mainDesc === "AET_SUM") {
+      const h1 = Number(scoreByDescription("1ST_HALF", "home") || 0);
+      const h2 = Number(scoreByDescription("2ND_HALF_ONLY", "home") || 0);
+      const he = Number(scoreByDescription("ET_2ND_HALF", "home") || 0);
+      const a1 = Number(scoreByDescription("1ST_HALF", "away") || 0);
+      const a2 = Number(scoreByDescription("2ND_HALF_ONLY", "away") || 0);
+      const ae = Number(scoreByDescription("ET_2ND_HALF", "away") || 0);
+      mainHome = h1 + h2 + he;
+      mainAway = a1 + a2 + ae;
+    } else {
+      const descKey = mainDesc === "1ST_HALF" ? "1ST_HALF" : mainDesc;
+      mainHome = scoreByDescription(descKey, "home");
+      mainAway = scoreByDescription(descKey, "away");
+    }
     const bracketHome = bracketDesc
       ? scoreByDescription(bracketDesc, "home")
       : null;
@@ -2724,68 +2752,88 @@ const EventsSection = ({
                 insertBeforeIndex = firstIdx;
               }
 
-              return block.events
-                .map((event, idx) => {
-                  const isHome = event.participant_id === homeId;
-                  const pieces = [];
+              // Build pieces for this block. For live matches with a time_added
+              // value, prepend the added-minutes marker so it always appears
+              // before any events in the block (prevents it appearing after
+              // events with extra_minute).
+              const blockPieces = [];
+              if (liveMatch && periodTimeAdded > 0) {
+                blockPieces.push(
+                  <View
+                    key={`added:${periodId}:before`}
+                    style={{
+                      alignItems: "center",
+                      width: "100%",
+                      marginVertical: 4,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: theme.textSecondary,
+                        fontSize: 12,
+                        fontWeight: "700",
+                      }}
+                    >
+                      {`+${periodTimeAdded} minute${periodTimeAdded === 1 ? "" : "s"} added`}
+                    </Text>
+                  </View>,
+                );
+              }
 
-                  // Live: show added-minutes marker as soon as there's a value (before first event of the block)
-                  if (liveMatch && idx === 0 && periodTimeAdded > 0) {
-                    pieces.push(
-                      <View
-                        key={`added:${periodId}:before`}
-                        style={{
-                          alignItems: "center",
-                          width: "100%",
-                          marginVertical: 4,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            color: theme.textSecondary,
-                            fontSize: 12,
-                            fontWeight: "700",
-                          }}
-                        >
-                          {`+${periodTimeAdded} minute${periodTimeAdded === 1 ? "" : "s"} added`}
-                        </Text>
-                      </View>,
-                    );
-                  }
+              // Diagnostic: if live and time_added exists and there are events
+              // with extra_minute, log the event ordering to help debug
+              // placement issues where the added-minutes marker appears after
+              // an extra_minute event.
+              try {
+                if (liveMatch && periodTimeAdded > 0) {
+                  const evOrder = (block.events || [])
+                    .map((e, i) => `${i}:${e.minute || "?"}${e.extra_minute != null ? `+${e.extra_minute}` : ""}`)
+                    .join(", ");
+                }
+              } catch (e) {
+                /* ignore logging errors */
+              }
 
-                  // For finished: if we need to insert before a particular event (lowest extra_minute), do it here
-                  if (
-                    !liveMatch &&
-                    insertBeforeIndex >= 0 &&
-                    idx === insertBeforeIndex
-                  ) {
-                    const added =
-                      periodTimeAdded != null
-                        ? periodTimeAdded
-                        : event.extra_minute;
-                    if (added != null) {
-                      pieces.push(
-                        <View
-                          key={`added:${periodId}:beforeExtra:${idx}`}
-                          style={{
-                            alignItems: "center",
-                            width: "100%",
-                            marginVertical: 4,
-                          }}
-                        >
-                          <Text
+              return [
+                ...blockPieces,
+                ...block.events
+                  .map((event, idx) => {
+                    const isHome = event.participant_id === homeId;
+                    const pieces = [];
+
+                    // For finished: if we need to insert before a particular event (lowest extra_minute), do it here
+                    if (
+                      !liveMatch &&
+                      insertBeforeIndex >= 0 &&
+                      idx === insertBeforeIndex
+                    ) {
+                      const added =
+                        periodTimeAdded != null
+                          ? periodTimeAdded
+                          : event.extra_minute;
+                      if (added != null) {
+                        pieces.push(
+                          <View
+                            key={`added:${periodId}:beforeExtra:${idx}`}
                             style={{
-                              color: theme.textSecondary,
-                              fontSize: 12,
-                              fontWeight: "700",
+                              alignItems: "center",
+                              width: "100%",
+                              marginVertical: 4,
                             }}
                           >
-                            {`+${added} minute${added === 1 ? "" : "s"} added`}
-                          </Text>
-                        </View>,
-                      );
+                            <Text
+                              style={{
+                                color: theme.textSecondary,
+                                fontSize: 12,
+                                fontWeight: "700",
+                              }}
+                            >
+                              {`+${added} minute${added === 1 ? "" : "s"} added`}
+                            </Text>
+                          </View>,
+                        );
+                      }
                     }
-                  }
 
                   pieces.push(
                     <TouchableOpacity
@@ -2817,39 +2865,40 @@ const EventsSection = ({
                     </TouchableOpacity>,
                   );
 
-                  // For finished: if there are no extra_minute events, place the marker after the last event
-                  if (
-                    !liveMatch &&
-                    insertBeforeIndex === -1 &&
-                    idx === block.events.length - 1 &&
-                    periodTimeAdded != null
-                  ) {
-                    const added = periodTimeAdded;
-                    pieces.push(
-                      <View
-                        key={`added:${periodId}:afterLast:${idx}`}
-                        style={{
-                          alignItems: "center",
-                          width: "100%",
-                          marginVertical: 4,
-                        }}
-                      >
-                        <Text
+                    // For finished: if there are no extra_minute events, place the marker after the last event
+                    if (
+                      !liveMatch &&
+                      insertBeforeIndex === -1 &&
+                      idx === block.events.length - 1 &&
+                      periodTimeAdded != null
+                    ) {
+                      const added = periodTimeAdded;
+                      pieces.push(
+                        <View
+                          key={`added:${periodId}:afterLast:${idx}`}
                           style={{
-                            color: theme.textSecondary,
-                            fontSize: 12,
-                            fontWeight: "700",
+                            alignItems: "center",
+                            width: "100%",
+                            marginVertical: 4,
                           }}
                         >
-                          {`+${added} minute${added === 1 ? "" : "s"} added`}
-                        </Text>
-                      </View>,
-                    );
-                  }
+                          <Text
+                            style={{
+                              color: theme.textSecondary,
+                              fontSize: 12,
+                              fontWeight: "700",
+                            }}
+                          >
+                            {`+${added} minute${added === 1 ? "" : "s"} added`}
+                          </Text>
+                        </View>,
+                      );
+                    }
 
-                  return pieces;
-                })
-                .flat();
+                    return pieces;
+                  })
+                  .flat(),
+              ];
             })()}
 
             {(() => {
@@ -2857,42 +2906,56 @@ const EventsSection = ({
               // period, or if the match is finished render the final divider.
               const originalTotal = orderedPeriodIds.length;
               const isLastOriginal = block.index === originalTotal - 1;
+              const isLastDisplayed = blockIdx === displayPeriodBlocks.length - 1;
+              // Render divider between displayed blocks. Also ensure the final
+              // original divider is shown for finished matches.
               const shouldRenderDivider =
-                !isLastOriginal || (isFinished && isLastOriginal);
+                !isLastDisplayed || (isFinished && isLastOriginal);
               if (!shouldRenderDivider) return null;
 
-              // Map original period index to divider label and bracket description
-              const idx = block.index;
+              // Determine divider label by the earlier of this block and
+              // the following block (chronological earlier period). This
+              // ensures when display order is reversed (live) the divider
+              // represents the boundary after the earlier period (e.g. HT
+              // between 1st and 2nd).
+              const thisIdx = block.index;
+              const nextIdx = displayPeriodBlocks[blockIdx + 1]?.index;
+              const earlierIdx = Number.isFinite(nextIdx)
+                ? Math.min(thisIdx, nextIdx)
+                : thisIdx;
+
               let label = "HT";
               let mainDesc = "1ST_HALF";
               let bracketDesc = null;
-              if (idx === 0) {
+
+              if (earlierIdx === 0) {
                 label = "HT";
                 mainDesc = "1ST_HALF";
-              } else if (idx === 1) {
+              } else if (earlierIdx === 1) {
                 label = "FT";
-                mainDesc = "CURRENT";
+                mainDesc = "FT_SUM";
                 bracketDesc = "2ND_HALF_ONLY";
-              } else if (idx === 2) {
+              } else if (earlierIdx === 2) {
                 label = "AET";
-                mainDesc = "CURRENT";
+                mainDesc = "AET_SUM";
                 bracketDesc = "ET_2ND_HALF";
-              } else if (idx === 3) {
+              } else if (earlierIdx === 3) {
                 label = "FTP";
                 mainDesc = "CURRENT";
                 bracketDesc = "PENALTY_SHOOTOUT";
               } else {
-                // Fallback: use HT/FT pattern based on position
                 label = isLastOriginal ? "FT" : "HT";
                 mainDesc = "CURRENT";
               }
 
-              return renderPeriodDivider(
-                label,
-                `pd:${block.key}`,
-                mainDesc,
-                bracketDesc,
-              );
+              // While live, don't surface aggregated FT/AET sums — keep HT
+              // intact (so boundary between 1st and 2nd shows HT).
+              if (liveMatch && (mainDesc === "FT_SUM" || mainDesc === "AET_SUM")) {
+                mainDesc = "CURRENT";
+                bracketDesc = null;
+              }
+
+              return renderPeriodDivider(label, `pd:${block.key}`, mainDesc, bracketDesc);
             })()}
           </View>
         ))}
@@ -5818,6 +5881,7 @@ const StatsSection = ({
 
           {/* outer values raised above inner */}
           <View style={stStyles.boxOuterValuesRow} pointerEvents="none">
+            {outRow.homeText > 0 ? (
             <Text
               style={[
                 stStyles.boxOuterValueText,
@@ -5830,7 +5894,9 @@ const StatsSection = ({
             >
               {outRow.homeText}
             </Text>
+            ) : null}
             <Text style={stStyles.boxOuterValueSpacer} />
+            {outRow.awayText > 0 ? (
             <Text
               style={[
                 stStyles.boxOuterValueText,
@@ -5843,6 +5909,7 @@ const StatsSection = ({
             >
               {outRow.awayText}
             </Text>
+            ) : null}
           </View>
 
           {/* inner box (inside box) */}

@@ -225,7 +225,7 @@ function shortNameOf(fixture) {
   return String(fixture?.state?.short_name || "").toUpperCase();
 }
 
-const LIVE_SHORT_NAMES = new Set(["1ST", "HT", "2ND"]);
+const LIVE_SHORT_NAMES = new Set(["1ST", "HT", "2ND", "BRK", "BREAK", "INPLAY_ET", "INPLAY_PEN", "ET", "PEN"]);
 
 function isLiveByShortName(fixture) {
   return LIVE_SHORT_NAMES.has(shortNameOf(fixture));
@@ -261,7 +261,11 @@ function fixtureDateTtlInfo(fixtures) {
   for (const f of fixtures) {
     if (isFinishedByShortName(f)) continue;
     const t = startTimeMsOf(f);
-    if (t != null && t > now) {
+    // Include any non-finished fixtures with a start time (even if that
+    // start time is already in the past). This allows the code below to
+    // detect a nearestStart that has just passed but which upstream hasn't
+    // yet marked as live, enabling the `post_start_pending` fast-poll mode.
+    if (t != null) {
       considered.push({ id: f.id ?? "?", ts: t });
       if (nearestStart == null || t < nearestStart) nearestStart = t;
     }
