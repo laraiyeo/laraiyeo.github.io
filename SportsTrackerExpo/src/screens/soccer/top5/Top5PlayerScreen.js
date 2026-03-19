@@ -738,27 +738,90 @@ const trStyles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 14,
   },
-  modalMeta: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
+  modalMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
   modalType: { fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
   modalDate: { fontSize: 12, fontWeight: "500" },
-  modalSectionLabel: { fontSize: 11, fontWeight: "800", letterSpacing: 0.6, marginBottom: 6, marginTop: 4 },
-  modalPlayerCard: { flexDirection: "row", alignItems: "center", borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 12, gap: 12, marginBottom: 14 },
-  modalHeadshotWrap: { width: 52, height: 52, borderRadius: 26, overflow: "hidden", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  modalSectionLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    marginBottom: 6,
+    marginTop: 4,
+  },
+  modalPlayerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 12,
+    gap: 12,
+    marginBottom: 14,
+  },
+  modalHeadshotWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
   modalHeadshot: { width: 52, height: 52, borderRadius: 26 },
   modalInitials: { fontSize: 18, fontWeight: "800" },
   modalPlayerName: { fontSize: 15, fontWeight: "700" },
   modalPlayerPos: { fontSize: 12, marginTop: 2 },
-  modalPosBadge: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  modalPosBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
   modalPosBadgeText: { fontSize: 11, fontWeight: "800" },
-  modalTeamBubble: { flexDirection: "column", borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 12, marginBottom: 10 },
-  modalTeamLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 },
+  modalTeamBubble: {
+    flexDirection: "column",
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 12,
+    marginBottom: 10,
+  },
+  modalTeamLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
   modalTeamRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  modalTeamLogo: { width: 44, height: 44, overflow: "hidden", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  modalTeamLogo: {
+    width: 44,
+    height: 44,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
   modalTeamLogoInitial: { fontSize: 18, fontWeight: "800" },
   modalTeamName: { fontSize: 15, fontWeight: "700", flex: 1 },
   modalTeamArrow: { fontSize: 22, fontWeight: "300", paddingLeft: 4 },
-  modalAmount: { fontSize: 12, fontWeight: "600", textAlign: "center", marginTop: 4, marginBottom: 8 },
-  modalCloseBtn: { marginTop: 10, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
+  modalAmount: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  modalCloseBtn: {
+    marginTop: 10,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
   modalCloseBtnText: { fontSize: 14, fontWeight: "700" },
 });
 
@@ -767,23 +830,73 @@ function TransferTeamBubbleLocal({ team, label, theme, navigation, onClose }) {
   const logo = team.image_path;
   const showLogo = logo && !isPlaceholder(logo);
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={() => { onClose?.(); navigation.navigate('Top5TeamDetail', { teamId: team.id, teamName: team.name }); }}>
-    <View style={[trStyles.modalTeamBubble, { backgroundColor: theme.surface, borderColor: team.colorPrimary ?? theme.border }] }>
-      <Text style={[trStyles.modalTeamLabel, { color: theme.textSecondary }]}>{label}</Text>
-      <View style={trStyles.modalTeamRow}>
-        <View style={trStyles.modalTeamLogo}>
-          {showLogo ? (
-            <Image source={{ uri: logo }} style={{ width: 44, height: 44 }} resizeMode="contain" />
-          ) : (
-            <View style={[{ width: 44, height: 44, borderRadius: 22, backgroundColor: theme.surfaceSecondary, alignItems: 'center', justifyContent: 'center' },]}>
-              <Text style={[trStyles.modalTeamLogoInitial, { color: theme.textSecondary }]}>{(team.name ?? '?')[0]}</Text>
-            </View>
-          )}
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={() => {
+        onClose?.();
+        navigation.navigate("Top5TeamDetail", {
+          teamId: team.id,
+          teamName: team.name,
+        });
+      }}
+    >
+      <View
+        style={[
+          trStyles.modalTeamBubble,
+          {
+            backgroundColor: theme.surface,
+            borderColor: team.colorPrimary ?? theme.border,
+          },
+        ]}
+      >
+        <Text style={[trStyles.modalTeamLabel, { color: theme.textSecondary }]}>
+          {label}
+        </Text>
+        <View style={trStyles.modalTeamRow}>
+          <View style={trStyles.modalTeamLogo}>
+            {showLogo ? (
+              <Image
+                source={{ uri: logo }}
+                style={{ width: 44, height: 44 }}
+                resizeMode="contain"
+              />
+            ) : (
+              <View
+                style={[
+                  {
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    backgroundColor: theme.surfaceSecondary,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    trStyles.modalTeamLogoInitial,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {(team.name ?? "?")[0]}
+                </Text>
+              </View>
+            )}
+          </View>
+          <Text
+            style={[trStyles.modalTeamName, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {team.name ?? "Team"}
+          </Text>
+          <Text
+            style={[trStyles.modalTeamArrow, { color: theme.textSecondary }]}
+          >
+            ›
+          </Text>
         </View>
-        <Text style={[trStyles.modalTeamName, { color: theme.text }]} numberOfLines={1}>{team.name ?? 'Team'}</Text>
-            <Text style={[trStyles.modalTeamArrow, { color: theme.textSecondary }]}>›</Text>
       </View>
-    </View>
     </TouchableOpacity>
   );
 }
@@ -1072,38 +1185,102 @@ function PlayerTransfersBubble({ transfers, theme, accentColor, navigation }) {
       })}
       <View style={{ height: 8 }} />
 
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
-        <Pressable style={trStyles.modalOverlay} onPress={() => setModalVisible(false)}>
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <Pressable
+          style={trStyles.modalOverlay}
+          onPress={() => setModalVisible(false)}
+        >
           <Pressable
-            style={[trStyles.modalSheet, { backgroundColor: theme.background ?? theme.surface }]}
+            style={[
+              trStyles.modalSheet,
+              { backgroundColor: theme.background ?? theme.surface },
+            ]}
             onPress={(e) => e.stopPropagation()}
           >
-            <View style={[trStyles.modalHandle, { backgroundColor: theme.background }]} />
+            <View
+              style={[
+                trStyles.modalHandle,
+                { backgroundColor: theme.background },
+              ]}
+            />
 
-            <View style={[trStyles.modalMeta, { justifyContent: activeTransfer?.type?.name ? "space-between" : "center" }]}>
-              {activeTransfer?.type?.name ? (
-            <Text
-              style={[trStyles.modalType, { color: theme.textSecondary }]}
-              numberOfLines={1}
+            <View
+              style={[
+                trStyles.modalMeta,
+                {
+                  justifyContent: activeTransfer?.type?.name
+                    ? "space-between"
+                    : "center",
+                },
+              ]}
             >
-              {activeTransfer?.type?.name ?? null}
-            </Text>
+              {activeTransfer?.type?.name ? (
+                <Text
+                  style={[trStyles.modalType, { color: theme.textSecondary }]}
+                  numberOfLines={1}
+                >
+                  {activeTransfer?.type?.name ?? null}
+                </Text>
               ) : null}
-              <Text style={[trStyles.modalDate, { color: theme.textSecondary, alignItems: "center" }]}>
-                {activeTransfer?.date ? formatLongDate(activeTransfer.date) : ""}
+              <Text
+                style={[
+                  trStyles.modalDate,
+                  { color: theme.textSecondary, alignItems: "center" },
+                ]}
+              >
+                {activeTransfer?.date
+                  ? formatLongDate(activeTransfer.date)
+                  : ""}
               </Text>
             </View>
 
-            <Text style={[trStyles.modalSectionLabel, { color: theme.textSecondary }]}>CLUBS</Text>
-            <TransferTeamBubbleLocal team={activeTransfer?.fromteam} label="From" theme={theme} navigation={navigation} onClose={() => setModalVisible(false)} />
-            <TransferTeamBubbleLocal team={activeTransfer?.toteam} label="To" theme={theme} navigation={navigation} onClose={() => setModalVisible(false)} />
+            <Text
+              style={[
+                trStyles.modalSectionLabel,
+                { color: theme.textSecondary },
+              ]}
+            >
+              CLUBS
+            </Text>
+            <TransferTeamBubbleLocal
+              team={activeTransfer?.fromteam}
+              label="From"
+              theme={theme}
+              navigation={navigation}
+              onClose={() => setModalVisible(false)}
+            />
+            <TransferTeamBubbleLocal
+              team={activeTransfer?.toteam}
+              label="To"
+              theme={theme}
+              navigation={navigation}
+              onClose={() => setModalVisible(false)}
+            />
 
             {fmtAmount(activeTransfer?.amount) ? (
-              <Text style={[trStyles.modalAmount, { color: theme.textSecondary }]}>Fee: {fmtAmount(activeTransfer.amount)}</Text>
+              <Text
+                style={[trStyles.modalAmount, { color: theme.textSecondary }]}
+              >
+                Fee: {fmtAmount(activeTransfer.amount)}
+              </Text>
             ) : null}
 
-            <TouchableOpacity style={[trStyles.modalCloseBtn, { backgroundColor: theme.border }]} onPress={() => setModalVisible(false)} activeOpacity={0.75}>
-              <Text style={[trStyles.modalCloseBtnText, { color: theme.text }]}>Close</Text>
+            <TouchableOpacity
+              style={[
+                trStyles.modalCloseBtn,
+                { backgroundColor: theme.border },
+              ]}
+              onPress={() => setModalVisible(false)}
+              activeOpacity={0.75}
+            >
+              <Text style={[trStyles.modalCloseBtnText, { color: theme.text }]}>
+                Close
+              </Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>
