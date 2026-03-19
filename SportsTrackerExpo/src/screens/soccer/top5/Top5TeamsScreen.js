@@ -101,11 +101,15 @@ export default function Top5TeamsScreen({ navigation }) {
   }, [teams]);
 
   const hasTeamRankings = useMemo(
-    () => teams.some((t) => Array.isArray(t?.rankings) && t.rankings.length > 0),
+    () =>
+      teams.some((t) => Array.isArray(t?.rankings) && t.rankings.length > 0),
     [teams],
   );
 
-  const hasRankData = useMemo(() => Array.isArray(ranks) && ranks.length > 0, [ranks]);
+  const hasRankData = useMemo(
+    () => Array.isArray(ranks) && ranks.length > 0,
+    [ranks],
+  );
 
   const sortModes = useMemo(() => {
     const modes = [];
@@ -120,7 +124,7 @@ export default function Top5TeamsScreen({ navigation }) {
   // and when data has loaded (teams or ranks present).
   useEffect(() => {
     if (sortMode !== null) return; // respect user choice once set
-    const dataLoaded = (teams.length > 0) || (ranks.length > 0);
+    const dataLoaded = teams.length > 0 || ranks.length > 0;
     if (!dataLoaded) return;
 
     if (sortModes.includes("RANK")) {
@@ -545,17 +549,6 @@ export default function Top5TeamsScreen({ navigation }) {
                         </Text>
                       </View>
                     ) : t.short_code ? (
-                        <Text
-                          style={[
-                            styles.cardLeague,
-                            { color: theme.textSecondary },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {t.short_code}
-                        </Text>
-                      ) : null
-                    ) : getPrimaryLeague(t)?.name ? (
                       <Text
                         style={[
                           styles.cardLeague,
@@ -563,9 +556,20 @@ export default function Top5TeamsScreen({ navigation }) {
                         ]}
                         numberOfLines={1}
                       >
-                        {getPrimaryLeague(t).name}
+                        {t.short_code}
                       </Text>
-                    ) : null}
+                    ) : null
+                  ) : getPrimaryLeague(t)?.name ? (
+                    <Text
+                      style={[
+                        styles.cardLeague,
+                        { color: theme.textSecondary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {getPrimaryLeague(t).name}
+                    </Text>
+                  ) : null}
                 </TouchableOpacity>
               );
             })}

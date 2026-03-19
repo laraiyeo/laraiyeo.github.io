@@ -272,18 +272,29 @@ function fixtureDateTtlInfo(fixtures) {
     const consideredSummary = considered
       .map((c) => `${c.id}:${new Date(c.ts).toISOString()}`)
       .join(", ");
-    console.log(`[fixture-poll.debug] considered future fixtures: ${consideredSummary}`);
+    console.log(
+      `[fixture-poll.debug] considered future fixtures: ${consideredSummary}`,
+    );
     // count finished entries explicitly
     excludedFinished = fixtures.filter((f) => isFinishedByShortName(f)).length;
-    console.log(`[fixture-poll.debug] excluded finished fixtures: ${excludedFinished}`);
+    console.log(
+      `[fixture-poll.debug] excluded finished fixtures: ${excludedFinished}`,
+    );
     if (nearestStart != null) {
       const diff = nearestStart - now;
-      console.log(`[fixture-poll.debug] nearestStart=${new Date(nearestStart).toISOString()} diffMs=${diff} diffMin=${Math.round(diff/60000)}`);
+      console.log(
+        `[fixture-poll.debug] nearestStart=${new Date(nearestStart).toISOString()} diffMs=${diff} diffMin=${Math.round(diff / 60000)}`,
+      );
     } else {
-      console.log(`[fixture-poll.debug] no future nearestStart found (nearestStart=null)`);
+      console.log(
+        `[fixture-poll.debug] no future nearestStart found (nearestStart=null)`,
+      );
     }
   } catch (e) {
-    console.error('[fixture-poll.debug] failed to summarize fixtures', e && e.message);
+    console.error(
+      "[fixture-poll.debug] failed to summarize fixtures",
+      e && e.message,
+    );
   }
 
   if (nearestStart != null) {

@@ -966,7 +966,13 @@ const TeamSide = ({
                   marginRight: 1,
                 }}
               >
-                <Text style={{ color: theme.error || "#e03131", fontSize: 8, fontWeight: "700" }}>
+                <Text
+                  style={{
+                    color: theme.error || "#e03131",
+                    fontSize: 8,
+                    fontWeight: "700",
+                  }}
+                >
                   {`+${redCards - 2}`}
                 </Text>
               </View>
@@ -1014,7 +1020,13 @@ const TeamSide = ({
                   marginLeft: 1,
                 }}
               >
-                <Text style={{ color: theme.error || "#e03131", fontSize: 8, fontWeight: "700" }}>
+                <Text
+                  style={{
+                    color: theme.error || "#e03131",
+                    fontSize: 8,
+                    fontWeight: "700",
+                  }}
+                >
                   {`+${redCards - 2}`}
                 </Text>
               </View>
@@ -2219,11 +2231,26 @@ const EventsSection = ({
 
   const totalBlocks = displayPeriodBlocks.length;
 
-  const renderPeriodDivider = (label, key, mainDesc = "CURRENT", bracketDesc = null) => {
-    const mainHome = scoreByDescription(mainDesc === "1ST_HALF" ? "1ST_HALF" : mainDesc, "home");
-    const mainAway = scoreByDescription(mainDesc === "1ST_HALF" ? "1ST_HALF" : mainDesc, "away");
-    const bracketHome = bracketDesc ? scoreByDescription(bracketDesc, "home") : null;
-    const bracketAway = bracketDesc ? scoreByDescription(bracketDesc, "away") : null;
+  const renderPeriodDivider = (
+    label,
+    key,
+    mainDesc = "CURRENT",
+    bracketDesc = null,
+  ) => {
+    const mainHome = scoreByDescription(
+      mainDesc === "1ST_HALF" ? "1ST_HALF" : mainDesc,
+      "home",
+    );
+    const mainAway = scoreByDescription(
+      mainDesc === "1ST_HALF" ? "1ST_HALF" : mainDesc,
+      "away",
+    );
+    const bracketHome = bracketDesc
+      ? scoreByDescription(bracketDesc, "home")
+      : null;
+    const bracketAway = bracketDesc
+      ? scoreByDescription(bracketDesc, "away")
+      : null;
 
     return (
       <View key={key} style={evStyles.periodDividerRow}>
@@ -2263,15 +2290,11 @@ const EventsSection = ({
                   ]}
                 >
                   {" ("}
-                  <Text
-                    style={getScoreTextStyle(bracketHome, bracketAway)}
-                  >
+                  <Text style={getScoreTextStyle(bracketHome, bracketAway)}>
                     {bracketHome == null ? "-" : String(bracketHome)}
                   </Text>
                   {" - "}
-                  <Text
-                    style={getScoreTextStyle(bracketAway, bracketHome)}
-                  >
+                  <Text style={getScoreTextStyle(bracketAway, bracketHome)}>
                     {bracketAway == null ? "-" : String(bracketAway)}
                   </Text>
                   {")"}
@@ -2380,7 +2403,9 @@ const EventsSection = ({
       );
     }
     if (
-      (addLow.includes("offtarget") || addLow.includes("saved") || addLow.includes("goalkeepersave"))
+      addLow.includes("offtarget") ||
+      addLow.includes("saved") ||
+      addLow.includes("goalkeepersave")
     ) {
       return (
         <MaterialCommunityIcons
@@ -2415,7 +2440,9 @@ const EventsSection = ({
       );
     }
     if (
-      (addLow.includes("goal") || addLow.includes("penalty") || addLow.includes("scored")) &&
+      (addLow.includes("goal") ||
+        addLow.includes("penalty") ||
+        addLow.includes("scored")) &&
       e.result != null
     ) {
       return (
@@ -2487,8 +2514,12 @@ const EventsSection = ({
 
   const renderEventContent = (event, isHome) => {
     const addLow = (event.addition || "").toLowerCase();
-    const periodObj = (periods || []).find((p) => p && p.id === event.period_id);
-    const isPenaltiesPeriod = !!periodObj && String(periodObj.description || "").toLowerCase() === "penalties";
+    const periodObj = (periods || []).find(
+      (p) => p && p.id === event.period_id,
+    );
+    const isPenaltiesPeriod =
+      !!periodObj &&
+      String(periodObj.description || "").toLowerCase() === "penalties";
     const iconFirst = isHome;
 
     if (isSubstitutionEvent(event)) {
@@ -2530,7 +2561,10 @@ const EventsSection = ({
     const isPenaltyOffTarget =
       addLow.includes("offtarget") && event.result === null;
     const showsSecondLine =
-      isDisallowed || showsGoalDetailGoal || showsGoalDetailPenalty || isPenaltiesPeriod;
+      isDisallowed ||
+      showsGoalDetailGoal ||
+      showsGoalDetailPenalty ||
+      isPenaltiesPeriod;
 
     return (
       <View
@@ -2666,7 +2700,9 @@ const EventsSection = ({
           <View key={`${block.key}:${blockIdx}`}>
             {(() => {
               const periodId = block.key;
-              const periodObj = (periods || []).find((p) => p && p.id === periodId);
+              const periodObj = (periods || []).find(
+                (p) => p && p.id === periodId,
+              );
               const periodTimeAdded = periodObj?.time_added;
 
               // find events that have extra_minute
@@ -2677,91 +2713,143 @@ const EventsSection = ({
               // determine insertion index for finished matches
               let insertBeforeIndex = -1; // if >=0, insert before this index
               if (eventsWithExtra.length > 0) {
-                const minExtra = Math.min(...eventsWithExtra.map(({ e }) => Number(e.extra_minute)));
-                const firstIdx = block.events.findIndex((e) => e.extra_minute != null && Number(e.extra_minute) === minExtra);
+                const minExtra = Math.min(
+                  ...eventsWithExtra.map(({ e }) => Number(e.extra_minute)),
+                );
+                const firstIdx = block.events.findIndex(
+                  (e) =>
+                    e.extra_minute != null &&
+                    Number(e.extra_minute) === minExtra,
+                );
                 insertBeforeIndex = firstIdx;
               }
 
-              return block.events.map((event, idx) => {
-                const isHome = event.participant_id === homeId;
-                const pieces = [];
+              return block.events
+                .map((event, idx) => {
+                  const isHome = event.participant_id === homeId;
+                  const pieces = [];
 
-                // Live: show added-minutes marker as soon as there's a value (before first event of the block)
-                if (liveMatch && idx === 0 && periodTimeAdded > 0) {
-                  pieces.push(
-                    <View
-                      key={`added:${periodId}:before`}
-                      style={{ alignItems: "center", width: "100%", marginVertical: 4 }}
-                    >
-                      <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: "700" }}>
-                        {`+${periodTimeAdded} minute${periodTimeAdded === 1 ? "" : "s"} added`}
-                      </Text>
-                    </View>,
-                  );
-                }
-
-                // For finished: if we need to insert before a particular event (lowest extra_minute), do it here
-                if (!liveMatch && insertBeforeIndex >= 0 && idx === insertBeforeIndex) {
-                  const added = periodTimeAdded != null ? periodTimeAdded : event.extra_minute;
-                  if (added != null) {
+                  // Live: show added-minutes marker as soon as there's a value (before first event of the block)
+                  if (liveMatch && idx === 0 && periodTimeAdded > 0) {
                     pieces.push(
                       <View
-                        key={`added:${periodId}:beforeExtra:${idx}`}
-                        style={{ alignItems: "center", width: "100%", marginVertical: 4 }}
+                        key={`added:${periodId}:before`}
+                        style={{
+                          alignItems: "center",
+                          width: "100%",
+                          marginVertical: 4,
+                        }}
                       >
-                        <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: "700" }}>
+                        <Text
+                          style={{
+                            color: theme.textSecondary,
+                            fontSize: 12,
+                            fontWeight: "700",
+                          }}
+                        >
+                          {`+${periodTimeAdded} minute${periodTimeAdded === 1 ? "" : "s"} added`}
+                        </Text>
+                      </View>,
+                    );
+                  }
+
+                  // For finished: if we need to insert before a particular event (lowest extra_minute), do it here
+                  if (
+                    !liveMatch &&
+                    insertBeforeIndex >= 0 &&
+                    idx === insertBeforeIndex
+                  ) {
+                    const added =
+                      periodTimeAdded != null
+                        ? periodTimeAdded
+                        : event.extra_minute;
+                    if (added != null) {
+                      pieces.push(
+                        <View
+                          key={`added:${periodId}:beforeExtra:${idx}`}
+                          style={{
+                            alignItems: "center",
+                            width: "100%",
+                            marginVertical: 4,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: theme.textSecondary,
+                              fontSize: 12,
+                              fontWeight: "700",
+                            }}
+                          >
+                            {`+${added} minute${added === 1 ? "" : "s"} added`}
+                          </Text>
+                        </View>,
+                      );
+                    }
+                  }
+
+                  pieces.push(
+                    <TouchableOpacity
+                      key={`${event.participant_id}:${event.player_id ?? idx}:${event.minute}:${event.extra_minute ?? 0}:${idx}`}
+                      style={evStyles.row}
+                      activeOpacity={0.75}
+                      onPress={() => setSelectedEvent(event)}
+                    >
+                      <View
+                        style={[
+                          evStyles.eventLane,
+                          isHome
+                            ? evStyles.eventLaneHome
+                            : evStyles.eventLaneAway,
+                        ]}
+                      >
+                        {isHome ? (
+                          <View style={evStyles.inlineRowHome}>
+                            {renderMinute(event)}
+                            {renderEventContent(event, true)}
+                          </View>
+                        ) : (
+                          <View style={evStyles.inlineRowAway}>
+                            {renderEventContent(event, false)}
+                            {renderMinute(event)}
+                          </View>
+                        )}
+                      </View>
+                    </TouchableOpacity>,
+                  );
+
+                  // For finished: if there are no extra_minute events, place the marker after the last event
+                  if (
+                    !liveMatch &&
+                    insertBeforeIndex === -1 &&
+                    idx === block.events.length - 1 &&
+                    periodTimeAdded != null
+                  ) {
+                    const added = periodTimeAdded;
+                    pieces.push(
+                      <View
+                        key={`added:${periodId}:afterLast:${idx}`}
+                        style={{
+                          alignItems: "center",
+                          width: "100%",
+                          marginVertical: 4,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: theme.textSecondary,
+                            fontSize: 12,
+                            fontWeight: "700",
+                          }}
+                        >
                           {`+${added} minute${added === 1 ? "" : "s"} added`}
                         </Text>
                       </View>,
                     );
                   }
-                }
 
-                pieces.push(
-                  <TouchableOpacity
-                    key={`${event.participant_id}:${event.player_id ?? idx}:${event.minute}:${event.extra_minute ?? 0}:${idx}`}
-                    style={evStyles.row}
-                    activeOpacity={0.75}
-                    onPress={() => setSelectedEvent(event)}
-                  >
-                    <View
-                      style={[
-                        evStyles.eventLane,
-                        isHome ? evStyles.eventLaneHome : evStyles.eventLaneAway,
-                      ]}
-                    >
-                      {isHome ? (
-                        <View style={evStyles.inlineRowHome}>
-                          {renderMinute(event)}
-                          {renderEventContent(event, true)}
-                        </View>
-                      ) : (
-                        <View style={evStyles.inlineRowAway}>
-                          {renderEventContent(event, false)}
-                          {renderMinute(event)}
-                        </View>
-                      )}
-                    </View>
-                  </TouchableOpacity>,
-                );
-
-                // For finished: if there are no extra_minute events, place the marker after the last event
-                if (!liveMatch && insertBeforeIndex === -1 && idx === block.events.length - 1 && (periodTimeAdded != null)) {
-                  const added = periodTimeAdded;
-                  pieces.push(
-                    <View
-                      key={`added:${periodId}:afterLast:${idx}`}
-                      style={{ alignItems: "center", width: "100%", marginVertical: 4 }}
-                    >
-                      <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: "700" }}>
-                        {`+${added} minute${added === 1 ? "" : "s"} added`}
-                      </Text>
-                    </View>,
-                  );
-                }
-
-                return pieces;
-              }).flat();
+                  return pieces;
+                })
+                .flat();
             })()}
 
             {(() => {
@@ -2769,7 +2857,8 @@ const EventsSection = ({
               // period, or if the match is finished render the final divider.
               const originalTotal = orderedPeriodIds.length;
               const isLastOriginal = block.index === originalTotal - 1;
-              const shouldRenderDivider = !isLastOriginal || (isFinished && isLastOriginal);
+              const shouldRenderDivider =
+                !isLastOriginal || (isFinished && isLastOriginal);
               if (!shouldRenderDivider) return null;
 
               // Map original period index to divider label and bracket description
@@ -2798,7 +2887,12 @@ const EventsSection = ({
                 mainDesc = "CURRENT";
               }
 
-              return renderPeriodDivider(label, `pd:${block.key}`, mainDesc, bracketDesc);
+              return renderPeriodDivider(
+                label,
+                `pd:${block.key}`,
+                mainDesc,
+                bracketDesc,
+              );
             })()}
           </View>
         ))}
@@ -11502,9 +11596,18 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 let penAway = null;
                 for (const s of scores) {
                   if (!s || !s.description) continue;
-                  if (String(s.description || "").toUpperCase() !== "PENALTY_SHOOTOUT") continue;
-                  const participant = (s.score?.participant || "").toLowerCase();
-                  const goals = typeof s.score?.goals === "number" ? s.score.goals : parseInt(s.score?.goals, 10) || 0;
+                  if (
+                    String(s.description || "").toUpperCase() !==
+                    "PENALTY_SHOOTOUT"
+                  )
+                    continue;
+                  const participant = (
+                    s.score?.participant || ""
+                  ).toLowerCase();
+                  const goals =
+                    typeof s.score?.goals === "number"
+                      ? s.score.goals
+                      : parseInt(s.score?.goals, 10) || 0;
                   if (participant === "home") penHome = goals;
                   if (participant === "away") penAway = goals;
                 }
@@ -11515,12 +11618,35 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 const pa = penAway == null ? 0 : penAway;
 
                 return (
-                  <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
-                    <Text style={[{ fontSize: 12, color: theme.textSecondary, fontWeight: "700" }]}>PEN:</Text>
-                    <Text style={[{ fontSize: 12, color: theme.textSecondary }]} numberOfLines={1}>
-                      <Text style={{ fontWeight: ph > pa ? "800" : "400" }}>{String(ph)}</Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      gap: 6,
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text
+                      style={[
+                        {
+                          fontSize: 12,
+                          color: theme.textSecondary,
+                          fontWeight: "700",
+                        },
+                      ]}
+                    >
+                      PEN:
+                    </Text>
+                    <Text
+                      style={[{ fontSize: 12, color: theme.textSecondary }]}
+                      numberOfLines={1}
+                    >
+                      <Text style={{ fontWeight: ph > pa ? "800" : "400" }}>
+                        {String(ph)}
+                      </Text>
                       {` - `}
-                      <Text style={{ fontWeight: pa > ph ? "800" : "400" }}>{String(pa)}</Text>
+                      <Text style={{ fontWeight: pa > ph ? "800" : "400" }}>
+                        {String(pa)}
+                      </Text>
                     </Text>
                   </View>
                 );
