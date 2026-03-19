@@ -225,7 +225,17 @@ function shortNameOf(fixture) {
   return String(fixture?.state?.short_name || "").toUpperCase();
 }
 
-const LIVE_SHORT_NAMES = new Set(["1ST", "HT", "2ND", "BRK", "BREAK", "INPLAY_ET", "INPLAY_PEN", "ET", "PEN"]);
+const LIVE_SHORT_NAMES = new Set([
+  "1ST",
+  "HT",
+  "2ND",
+  "BRK",
+  "BREAK",
+  "INPLAY_ET",
+  "INPLAY_PEN",
+  "ET",
+  "PEN",
+]);
 
 function isLiveByShortName(fixture) {
   return LIVE_SHORT_NAMES.has(shortNameOf(fixture));

@@ -351,7 +351,17 @@ const INTERVAL_SLOW = 30 * 60 * 1000; // 30 minutes
 const INTERVAL_FAST = 10 * 1000; // 10 seconds
 const INTERVAL_SOON = 60 * 1000; // 1 minute
 const INTERVAL_FINISHED = 12 * 60 * 60 * 1000; // 12 hours
-const LIVE_SHORT_NAMES = new Set(["1ST", "2ND", "HT", "BRK", "BREAK", "INPLAY_ET", "INPLAY_PEN", "ET", "PEN"]);
+const LIVE_SHORT_NAMES = new Set([
+  "1ST",
+  "2ND",
+  "HT",
+  "BRK",
+  "BREAK",
+  "INPLAY_ET",
+  "INPLAY_PEN",
+  "ET",
+  "PEN",
+]);
 
 const TIME_BUCKETS = ["0-15", "15-30", "30-45", "45-60", "60-75", "75-90"];
 
@@ -1935,7 +1945,7 @@ const EventsSection = ({
           .join("")
           .toUpperCase() ||
         "?";
-        
+
       const scoreAfter = parseEventScore(event?.result) || {
         home: null,
         away: null,
@@ -1953,10 +1963,18 @@ const EventsSection = ({
       if (!commentText) {
         const homeName = homeTeam?.name || "Home";
         const awayName = awayTeam?.name || "Away";
-        const homeScoreText = scoreAfter?.home != null ? String(scoreAfter.home) : "-";
-        const awayScoreText = scoreAfter?.away != null ? String(scoreAfter.away) : "-";
-        const infoText = (String(event?.info || event?.addition || "")).trim();
-        const scoringTeamName = scoringTeam?.name || (scoringSide === "home" ? homeName : scoringSide === "away" ? awayName : "");
+        const homeScoreText =
+          scoreAfter?.home != null ? String(scoreAfter.home) : "-";
+        const awayScoreText =
+          scoreAfter?.away != null ? String(scoreAfter.away) : "-";
+        const infoText = String(event?.info || event?.addition || "").trim();
+        const scoringTeamName =
+          scoringTeam?.name ||
+          (scoringSide === "home"
+            ? homeName
+            : scoringSide === "away"
+              ? awayName
+              : "");
 
         commentText = `Goal! ${homeName} ${homeScoreText}, ${awayName} ${awayScoreText}. ${playerName} scores for ${scoringTeamName}${infoText ? ` with a ${infoText}` : ""}.`;
         if (assistName) commentText += ` Assisted by ${assistName}.`;
@@ -2787,7 +2805,10 @@ const EventsSection = ({
               try {
                 if (liveMatch && periodTimeAdded > 0) {
                   const evOrder = (block.events || [])
-                    .map((e, i) => `${i}:${e.minute || "?"}${e.extra_minute != null ? `+${e.extra_minute}` : ""}`)
+                    .map(
+                      (e, i) =>
+                        `${i}:${e.minute || "?"}${e.extra_minute != null ? `+${e.extra_minute}` : ""}`,
+                    )
                     .join(", ");
                 }
               } catch (e) {
@@ -2835,35 +2856,35 @@ const EventsSection = ({
                       }
                     }
 
-                  pieces.push(
-                    <TouchableOpacity
-                      key={`${event.participant_id}:${event.player_id ?? idx}:${event.minute}:${event.extra_minute ?? 0}:${idx}`}
-                      style={evStyles.row}
-                      activeOpacity={0.75}
-                      onPress={() => setSelectedEvent(event)}
-                    >
-                      <View
-                        style={[
-                          evStyles.eventLane,
-                          isHome
-                            ? evStyles.eventLaneHome
-                            : evStyles.eventLaneAway,
-                        ]}
+                    pieces.push(
+                      <TouchableOpacity
+                        key={`${event.participant_id}:${event.player_id ?? idx}:${event.minute}:${event.extra_minute ?? 0}:${idx}`}
+                        style={evStyles.row}
+                        activeOpacity={0.75}
+                        onPress={() => setSelectedEvent(event)}
                       >
-                        {isHome ? (
-                          <View style={evStyles.inlineRowHome}>
-                            {renderMinute(event)}
-                            {renderEventContent(event, true)}
-                          </View>
-                        ) : (
-                          <View style={evStyles.inlineRowAway}>
-                            {renderEventContent(event, false)}
-                            {renderMinute(event)}
-                          </View>
-                        )}
-                      </View>
-                    </TouchableOpacity>,
-                  );
+                        <View
+                          style={[
+                            evStyles.eventLane,
+                            isHome
+                              ? evStyles.eventLaneHome
+                              : evStyles.eventLaneAway,
+                          ]}
+                        >
+                          {isHome ? (
+                            <View style={evStyles.inlineRowHome}>
+                              {renderMinute(event)}
+                              {renderEventContent(event, true)}
+                            </View>
+                          ) : (
+                            <View style={evStyles.inlineRowAway}>
+                              {renderEventContent(event, false)}
+                              {renderMinute(event)}
+                            </View>
+                          )}
+                        </View>
+                      </TouchableOpacity>,
+                    );
 
                     // For finished: if there are no extra_minute events, place the marker after the last event
                     if (
@@ -2906,7 +2927,8 @@ const EventsSection = ({
               // period, or if the match is finished render the final divider.
               const originalTotal = orderedPeriodIds.length;
               const isLastOriginal = block.index === originalTotal - 1;
-              const isLastDisplayed = blockIdx === displayPeriodBlocks.length - 1;
+              const isLastDisplayed =
+                blockIdx === displayPeriodBlocks.length - 1;
               // Render divider between displayed blocks. Also ensure the final
               // original divider is shown for finished matches.
               const shouldRenderDivider =
@@ -2950,12 +2972,20 @@ const EventsSection = ({
 
               // While live, don't surface aggregated FT/AET sums — keep HT
               // intact (so boundary between 1st and 2nd shows HT).
-              if (liveMatch && (mainDesc === "FT_SUM" || mainDesc === "AET_SUM")) {
+              if (
+                liveMatch &&
+                (mainDesc === "FT_SUM" || mainDesc === "AET_SUM")
+              ) {
                 mainDesc = "CURRENT";
                 bracketDesc = null;
               }
 
-              return renderPeriodDivider(label, `pd:${block.key}`, mainDesc, bracketDesc);
+              return renderPeriodDivider(
+                label,
+                `pd:${block.key}`,
+                mainDesc,
+                bracketDesc,
+              );
             })()}
           </View>
         ))}
@@ -5882,33 +5912,33 @@ const StatsSection = ({
           {/* outer values raised above inner */}
           <View style={stStyles.boxOuterValuesRow} pointerEvents="none">
             {outRow.homeText > 0 ? (
-            <Text
-              style={[
-                stStyles.boxOuterValueText,
-                stStyles.boxOuterValueLeft,
-                {
-                  color: getTextOnColor(homeColor),
-                  opacity: showHomeOut ? 1 : 0.35,
-                },
-              ]}
-            >
-              {outRow.homeText}
-            </Text>
+              <Text
+                style={[
+                  stStyles.boxOuterValueText,
+                  stStyles.boxOuterValueLeft,
+                  {
+                    color: getTextOnColor(homeColor),
+                    opacity: showHomeOut ? 1 : 0.35,
+                  },
+                ]}
+              >
+                {outRow.homeText}
+              </Text>
             ) : null}
             <Text style={stStyles.boxOuterValueSpacer} />
             {outRow.awayText > 0 ? (
-            <Text
-              style={[
-                stStyles.boxOuterValueText,
-                stStyles.boxOuterValueRight,
-                {
-                  color: getTextOnColor(awayColor),
-                  opacity: showAwayOut ? 1 : 0.35,
-                },
-              ]}
-            >
-              {outRow.awayText}
-            </Text>
+              <Text
+                style={[
+                  stStyles.boxOuterValueText,
+                  stStyles.boxOuterValueRight,
+                  {
+                    color: getTextOnColor(awayColor),
+                    opacity: showAwayOut ? 1 : 0.35,
+                  },
+                ]}
+              >
+                {outRow.awayText}
+              </Text>
             ) : null}
           </View>
 
