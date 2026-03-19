@@ -63,7 +63,7 @@ const SAP_TO_SM_TEAM_NAME_MAP = Object.freeze({
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function fetchUrl(url, headers = {}) {
-  const response = await axios.get(url, { timeout: 15000, headers });
+  const response = await axios.get(url, { timeout: 30000, headers });
   return response.data;
 }
 
