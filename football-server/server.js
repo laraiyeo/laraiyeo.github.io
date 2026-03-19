@@ -1326,7 +1326,7 @@ app.get("/football/team/:teamId", async (req, res) => {
     const [teamInfo, squadData, transfersData] = await Promise.all([
       fetchUrl(
         `${SM_BASE}/teams/${teamId}?api_token=${SM_TOKEN}` +
-          `&include=country;coaches.coach;trophies.trophy;trophies.season;trophies.league;rivals;sidelined.player.country;sidelined.type;activeSeasons.league;venue;statistics.details.type` +
+          `&include=rankings;country;coaches.coach;trophies.trophy;trophies.season;trophies.league;rivals;sidelined.player.country;sidelined.type;activeSeasons.league;venue;statistics.details.type` +
           statsFilter,
       ),
       fetchUrl(
@@ -2788,7 +2788,7 @@ async function warmCacheTeams() {
     while (true) {
       const url =
         `${SM_BASE}/teams?api_token=${SM_TOKEN}` +
-        `&include=activeSeasons.league;sidelined.player;players.player` +
+        `&include=rankings;activeSeasons.league;sidelined.player;players.player` +
         `&per_page=50&page=${page}`;
       const resp = await fetchUrl(url);
       if (!resp?.data || !Array.isArray(resp.data)) break;

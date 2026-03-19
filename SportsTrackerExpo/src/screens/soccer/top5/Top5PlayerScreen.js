@@ -956,6 +956,7 @@ function PlayerTransfersBubble({ transfers, theme, accentColor, navigation }) {
               {
                 borderBottomColor:
                   i === list.length - 1 ? "transparent" : theme.border,
+                overflow: i === list.length - 1 ? "visible" : "hidden",
               },
             ]}
           >
