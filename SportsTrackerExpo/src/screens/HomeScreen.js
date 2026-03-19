@@ -48,8 +48,8 @@ const HOME_SPORTS_BASE = [
   },
   {
     id: "soccer",
-    title: "SOCCER",
-    description: "View all live Soccer matches happening right now.",
+    title: "FOOTBALL",
+    description: "View all live Football matches happening right now.",
     icon: require("../../assets/soccer.png"),
   },
   {

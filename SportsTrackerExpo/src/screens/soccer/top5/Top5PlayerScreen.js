@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useRef,
   useMemo,
+  act,
 } from "react";
 import {
   View,
@@ -14,9 +15,11 @@ import {
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
+  Pressable,
   Animated,
   RefreshControl,
   Dimensions,
+  Modal,
 } from "react-native";
 import Svg, {
   Defs,
@@ -606,8 +609,8 @@ function TrophiesSection({ trophies, theme, accentColor, isDarkMode }) {
               const seasonText = seasons ? `(${seasons})` : "";
               const seasonColor =
                 (entry.trophyName || "").toLowerCase() === "winner"
-                  ? theme.textSecondary
-                  : (theme.textTertiary ?? theme.textSecondary);
+                  ? "#d3af37"
+                  : "#c4c4c4";
               return (
                 <View
                   key={`${entry.trophyName}::${entry.league?.id ?? entry.league?.name}`}
@@ -710,6 +713,401 @@ function PlayerTeamsBubble({ teams, theme, accentColor, navigation }) {
           navigation={navigation}
         />
       ))}
+    </PlayerSectionBubble>
+  );
+}
+
+const trStyles = StyleSheet.create({
+  // modal styles copied/adapted from Top5TeamDetailScreen
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+    paddingTop: 10,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 14,
+  },
+  modalMeta: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
+  modalType: { fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
+  modalDate: { fontSize: 12, fontWeight: "500" },
+  modalSectionLabel: { fontSize: 11, fontWeight: "800", letterSpacing: 0.6, marginBottom: 6, marginTop: 4 },
+  modalPlayerCard: { flexDirection: "row", alignItems: "center", borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 12, gap: 12, marginBottom: 14 },
+  modalHeadshotWrap: { width: 52, height: 52, borderRadius: 26, overflow: "hidden", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  modalHeadshot: { width: 52, height: 52, borderRadius: 26 },
+  modalInitials: { fontSize: 18, fontWeight: "800" },
+  modalPlayerName: { fontSize: 15, fontWeight: "700" },
+  modalPlayerPos: { fontSize: 12, marginTop: 2 },
+  modalPosBadge: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  modalPosBadgeText: { fontSize: 11, fontWeight: "800" },
+  modalTeamBubble: { flexDirection: "column", borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 12, marginBottom: 10 },
+  modalTeamLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 },
+  modalTeamRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  modalTeamLogo: { width: 44, height: 44, overflow: "hidden", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  modalTeamLogoInitial: { fontSize: 18, fontWeight: "800" },
+  modalTeamName: { fontSize: 15, fontWeight: "700", flex: 1 },
+  modalTeamArrow: { fontSize: 22, fontWeight: "300", paddingLeft: 4 },
+  modalAmount: { fontSize: 12, fontWeight: "600", textAlign: "center", marginTop: 4, marginBottom: 8 },
+  modalCloseBtn: { marginTop: 10, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
+  modalCloseBtnText: { fontSize: 14, fontWeight: "700" },
+});
+
+function TransferTeamBubbleLocal({ team, label, theme, navigation, onClose }) {
+  if (!team) return null;
+  const logo = team.image_path;
+  const showLogo = logo && !isPlaceholder(logo);
+  return (
+    <TouchableOpacity activeOpacity={0.85} onPress={() => { onClose?.(); navigation.navigate('Top5TeamDetail', { teamId: team.id, teamName: team.name }); }}>
+    <View style={[trStyles.modalTeamBubble, { backgroundColor: theme.surface, borderColor: team.colorPrimary ?? theme.border }] }>
+      <Text style={[trStyles.modalTeamLabel, { color: theme.textSecondary }]}>{label}</Text>
+      <View style={trStyles.modalTeamRow}>
+        <View style={trStyles.modalTeamLogo}>
+          {showLogo ? (
+            <Image source={{ uri: logo }} style={{ width: 44, height: 44 }} resizeMode="contain" />
+          ) : (
+            <View style={[{ width: 44, height: 44, borderRadius: 22, backgroundColor: theme.surfaceSecondary, alignItems: 'center', justifyContent: 'center' },]}>
+              <Text style={[trStyles.modalTeamLogoInitial, { color: theme.textSecondary }]}>{(team.name ?? '?')[0]}</Text>
+            </View>
+          )}
+        </View>
+        <Text style={[trStyles.modalTeamName, { color: theme.text }]} numberOfLines={1}>{team.name ?? 'Team'}</Text>
+            <Text style={[trStyles.modalTeamArrow, { color: theme.textSecondary }]}>›</Text>
+      </View>
+    </View>
+    </TouchableOpacity>
+  );
+}
+
+function PlayerTransfersBubble({ transfers, theme, accentColor, navigation }) {
+  if (!transfers?.length) return null;
+
+  const list = [...transfers]
+    .filter((t) => t)
+    .map((t) => ({
+      ...t,
+      _date: t.date ? new Date(t.date + "T12:00:00") : null,
+    }))
+    .sort((a, b) => {
+      const ad = a._date ? a._date.getTime() : 0;
+      const bd = b._date ? b._date.getTime() : 0;
+      return bd - ad;
+    });
+
+  const fmtAmount = (amt) => {
+    if (amt == null) return null;
+    const n = Number(amt);
+    if (!Number.isFinite(n)) return null;
+    return `£${n.toLocaleString()}`;
+  };
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [activeTransfer, setActiveTransfer] = useState(null);
+
+  return (
+    <PlayerSectionBubble
+      title="Transfers"
+      theme={theme}
+      accentColor={accentColor}
+    >
+      {list.map((t, i) => {
+        const from = t.fromteam ?? t.from_team ?? {};
+        const to = t.toteam ?? t.to_team ?? {};
+        const date = t._date;
+        const year = date ? String(date.getFullYear()) : null;
+        const dayMonth = date
+          ? date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+          : null;
+        const amount = fmtAmount(t.amount);
+        const type = t.type?.name ?? null;
+
+        return (
+          <TouchableOpacity
+            key={t.player_id ?? t.date ?? i}
+            activeOpacity={0.85}
+            onPress={() => {
+              setActiveTransfer(t);
+              setModalVisible(true);
+            }}
+            style={[
+              iStyles.pTeamRow,
+              {
+                borderBottomColor:
+                  i === list.length - 1 ? "transparent" : theme.border,
+              },
+            ]}
+          >
+            {/* Gradient fill similar to MatchCard: left=from, right=to */}
+            {(() => {
+              const { homeColor, awayColor } = resolveMatchColors({
+                homePrimary: from.colorPrimary,
+                homeSecondary: from.colorSecondary,
+                awayPrimary: to.colorPrimary,
+                awaySecondary: to.colorSecondary,
+                homeFallback: accentColor,
+                awayFallback: accentColor,
+              });
+              const gradId = `tr_grad_${i}_${t.date?.replace?.(/[^0-9]/g, "") ?? i}`;
+              return (
+                <Svg
+                  style={StyleSheet.absoluteFill}
+                  width="107.5%"
+                  height={i === list.length - 1 ? "200%" : "150%"}
+                  pointerEvents="none"
+                >
+                  <Defs>
+                    <SvgLinearGradient
+                      id={gradId}
+                      x1="0%"
+                      y1="0%"
+                      x2="100%"
+                      y2="0%"
+                    >
+                      <Stop
+                        offset="0%"
+                        stopColor={homeColor}
+                        stopOpacity="0.12"
+                      />
+                      <Stop
+                        offset="40%"
+                        stopColor={theme.surface}
+                        stopOpacity="0"
+                      />
+                      <Stop
+                        offset="60%"
+                        stopColor={theme.surface}
+                        stopOpacity="0"
+                      />
+                      <Stop
+                        offset="100%"
+                        stopColor={awayColor}
+                        stopOpacity="0.12"
+                      />
+                    </SvgLinearGradient>
+                  </Defs>
+                  <Rect width="100%" height="100%" fill={`url(#${gradId})`} />
+                </Svg>
+              );
+            })()}
+
+            {/* From / To content */}
+            <View
+              style={{
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 10,
+                  flex: 1,
+                }}
+              >
+                <View
+                  style={[
+                    iStyles.teamLogoBox,
+                    {
+                      backgroundColor:
+                        from.image_path && !isPlaceholder(from.image_path)
+                          ? "transparent"
+                          : theme.surfaceSecondary,
+                    },
+                  ]}
+                >
+                  {from.image_path && !isPlaceholder(from.image_path) ? (
+                    <Image
+                      source={{ uri: from.image_path }}
+                      style={iStyles.teamLogo}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <Text
+                      style={[
+                        iStyles.teamLogoInitial,
+                        { color: from.colorPrimary ?? theme.textSecondary },
+                      ]}
+                    >
+                      {" "}
+                      {(from.name ?? "?")[0]}{" "}
+                    </Text>
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      iStyles.teamName,
+                      { color: theme.text, fontWeight: "500" },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {from.name ?? "Unknown"}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      color: theme.error,
+                      marginTop: 2,
+                      fontWeight: "600",
+                    }}
+                    numberOfLines={1}
+                  >
+                    From Team
+                  </Text>
+                </View>
+              </View>
+
+              {/* Amount column (like MatchCard's date block) */}
+              <View
+                style={{ width: 85, alignItems: "center", paddingRight: 8 }}
+              >
+                {amount ? (
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontWeight: "800",
+                      color: theme.text,
+                      marginBottom: 2,
+                    }}
+                  >
+                    {amount}
+                  </Text>
+                ) : null}
+                {year ? (
+                  <Text style={{ fontSize: 12, color: theme.textSecondary }}>
+                    {year}
+                  </Text>
+                ) : null}
+                {dayMonth ? (
+                  <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                    {dayMonth}
+                  </Text>
+                ) : null}
+                {type ? (
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontWeight: "500",
+                      color: theme.text,
+                      marginTop: 2,
+                    }}
+                  >
+                    {type}
+                  </Text>
+                ) : null}
+              </View>
+
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 10,
+                  flex: 1,
+                  justifyContent: "flex-end",
+                }}
+              >
+                <View style={{ flex: 1, alignItems: "flex-end" }}>
+                  <Text
+                    style={[
+                      iStyles.teamName,
+                      {
+                        color: theme.text,
+                        textAlign: "right",
+                        fontWeight: "500",
+                      },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {to.name ?? "Unknown"}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      color: theme.success,
+                      marginTop: 2,
+                      textAlign: "right",
+                      fontWeight: "600",
+                    }}
+                    numberOfLines={1}
+                  >
+                    To Team
+                  </Text>
+                </View>
+                <View style={iStyles.teamLogoBox}>
+                  {to.image_path && !isPlaceholder(to.image_path) ? (
+                    <Image
+                      source={{ uri: to.image_path }}
+                      style={iStyles.teamLogo}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <Text
+                      style={[
+                        iStyles.teamLogoInitial,
+                        { color: to.colorPrimary ?? theme.textSecondary },
+                      ]}
+                    >
+                      {" "}
+                      {(to.name ?? "?")[0]}{" "}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            </View>
+          </TouchableOpacity>
+        );
+      })}
+      <View style={{ height: 8 }} />
+
+      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
+        <Pressable style={trStyles.modalOverlay} onPress={() => setModalVisible(false)}>
+          <Pressable
+            style={[trStyles.modalSheet, { backgroundColor: theme.background ?? theme.surface }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={[trStyles.modalHandle, { backgroundColor: theme.background }]} />
+
+            <View style={[trStyles.modalMeta, { justifyContent: activeTransfer?.type?.name ? "space-between" : "center" }]}>
+              {activeTransfer?.type?.name ? (
+            <Text
+              style={[trStyles.modalType, { color: theme.textSecondary }]}
+              numberOfLines={1}
+            >
+              {activeTransfer?.type?.name ?? null}
+            </Text>
+              ) : null}
+              <Text style={[trStyles.modalDate, { color: theme.textSecondary, alignItems: "center" }]}>
+                {activeTransfer?.date ? formatLongDate(activeTransfer.date) : ""}
+              </Text>
+            </View>
+
+            <Text style={[trStyles.modalSectionLabel, { color: theme.textSecondary }]}>CLUBS</Text>
+            <TransferTeamBubbleLocal team={activeTransfer?.fromteam} label="From" theme={theme} navigation={navigation} onClose={() => setModalVisible(false)} />
+            <TransferTeamBubbleLocal team={activeTransfer?.toteam} label="To" theme={theme} navigation={navigation} onClose={() => setModalVisible(false)} />
+
+            {fmtAmount(activeTransfer?.amount) ? (
+              <Text style={[trStyles.modalAmount, { color: theme.textSecondary }]}>Fee: {fmtAmount(activeTransfer.amount)}</Text>
+            ) : null}
+
+            <TouchableOpacity style={[trStyles.modalCloseBtn, { backgroundColor: theme.border }]} onPress={() => setModalVisible(false)} activeOpacity={0.75}>
+              <Text style={[trStyles.modalCloseBtnText, { color: theme.text }]}>Close</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </PlayerSectionBubble>
   );
 }
@@ -2163,13 +2561,42 @@ export default function Top5PlayerScreen({ route, navigation }) {
   const teams = player.teams ?? [];
   const today = getTodayStr();
 
-  // Current domestic team (end is null/future)
+  // Current domestic team (end is null/future). If none active, fall back to
+  // the most recent stint (latest end date, then latest start date).
+  const activeDomestic = teams.find(
+    (s) => s.team?.type === "domestic" && (!s.end || s.end >= today),
+  );
+  const activeAny = teams.find((s) => !s.end || s.end >= today);
+
+  const pickMostRecent = (arr) => {
+    if (!arr || arr.length === 0) return null;
+    const parseD = (d) => {
+      if (!d) return null;
+      try {
+        return new Date(d.includes("T") ? d : d + "T12:00:00");
+      } catch (e) {
+        return null;
+      }
+    };
+    const list = arr
+      .map((s) => ({
+        stint: s,
+        endD: parseD(s.end),
+        startD: parseD(s.start),
+      }))
+      .sort((a, b) => {
+        const ae = a.endD ? a.endD.getTime() : -Infinity;
+        const be = b.endD ? b.endD.getTime() : -Infinity;
+        if (be !== ae) return be - ae;
+        const as = a.startD ? a.startD.getTime() : -Infinity;
+        const bs = b.startD ? b.startD.getTime() : -Infinity;
+        return bs - as;
+      });
+    return list[0]?.stint ?? null;
+  };
+
   const currentTeam =
-    teams.find(
-      (s) => s.team?.type === "domestic" && (!s.end || s.end >= today),
-    ) ??
-    teams.find((s) => !s.end || s.end >= today) ??
-    null;
+    activeDomestic ?? activeAny ?? pickMostRecent(teams) ?? null;
 
   const accentColor = currentTeam?.team?.colorPrimary || colors.primary;
 
@@ -2357,6 +2784,14 @@ export default function Top5PlayerScreen({ route, navigation }) {
             theme={theme}
             navigation={navigation}
             accentColor={accentColor}
+          />
+        ) : null}
+        {player.transfers?.length ? (
+          <PlayerTransfersBubble
+            transfers={player.transfers}
+            theme={theme}
+            accentColor={accentColor}
+            navigation={navigation}
           />
         ) : null}
       </View>

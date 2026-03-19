@@ -188,6 +188,7 @@ const RULE_COLORS_MAP = {
   "championship round relegation round": "#8b5cf6",
   // Promotion
   promotion: "#10b981",
+  "final series": "#10b981",
   "promotion group": "#6ee7b7",
   "promotion play-off": "#6ee7b7",
   "promotion play_off": "#6ee7b7",
@@ -195,6 +196,7 @@ const RULE_COLORS_MAP = {
   "possible promotion play-off": "#6ee7b7",
   // Middle / lower rounds
   "relegation round": "#fb923c",
+  "final series play-offs": "#fb923c",
   "lower table round": "#fb923c",
   "middle play_off": "#fb923c",
   "middle play-off": "#fb923c",

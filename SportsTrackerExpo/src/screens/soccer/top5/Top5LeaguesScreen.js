@@ -17,7 +17,7 @@ import { useBetSlip } from "../../../context/BetSlipContext";
 import { BannerAdWrapper } from "../../../services/ads";
 
 const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
-const CACHE_KEY = "top5:leagues:v2";
+const CACHE_KEY = "top5:leagues:v1";
 const CACHE_TTL = 12 * 60 * 60 * 1000; // 12 hours
 
 const { width } = Dimensions.get("window");

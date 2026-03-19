@@ -1089,50 +1089,118 @@ function StandingsTracker({
     for (const sched of teamData?.schedule ?? []) {
       // If a domestic league is specified, only consider that league's rounds
       if (domesticLeagueId && sched.league_id !== domesticLeagueId) continue;
-      for (const round of sched.rounds ?? []) {
-        const played = (round.fixtures ?? []).filter((f) => {
-          const d = parseUtcDate(f.starting_at);
-          return (
-            d &&
-            d <= today &&
-            f.participants?.some(
-              (p) => p.id === teamId && p.meta?.position != null,
-            )
-          );
-        });
-        if (played.length === 0) continue;
-        let position = null;
-        const fixtures = [];
-        for (const f of played) {
-          const p = f.participants?.find((p) => p.id === teamId);
-          if (p?.meta?.position != null) {
-            if (position === null) position = p.meta.position;
-            fixtures.push({ ...f, league_id: sched.league_id });
+
+      // Prefer explicit rounds if available
+      if ((sched.rounds ?? []).length > 0) {
+        for (const round of sched.rounds ?? []) {
+          const played = (round.fixtures ?? []).filter((f) => {
+            const d = parseUtcDate(f.starting_at);
+            return (
+              d &&
+              d <= today &&
+              f.participants?.some(
+                (p) => p.id === teamId && p.meta?.position != null,
+              )
+            );
+          });
+          if (played.length === 0) continue;
+          let position = null;
+          const fixtures = [];
+          for (const f of played) {
+            const p = f.participants?.find((p) => p.id === teamId);
+            if (p?.meta?.position != null) {
+              if (position === null) position = p.meta.position;
+              fixtures.push({ ...f, league_id: sched.league_id });
+            }
           }
+          if (position === null) continue;
+          const dates = fixtures
+            .map((f) => parseUtcDate(f.starting_at))
+            .filter(Boolean)
+            .sort((a, b) => a - b);
+          points.push({
+            roundName: round.name,
+            position,
+            fixtures,
+            firstDate: dates[0] ?? null,
+            lastDate: dates[dates.length - 1] ?? null,
+          });
         }
-        if (position === null) continue;
-        const dates = fixtures
-          .map((f) => parseUtcDate(f.starting_at))
-          .filter(Boolean)
-          .sort((a, b) => a - b);
-        points.push({
-          roundName: round.name,
-          position,
-          fixtures,
-          firstDate: dates[0] ?? null,
-          lastDate: dates[dates.length - 1] ?? null,
-        });
+      } else {
+        // Fallback: build points from fixtures when rounds are not provided
+        const fixtures = (sched.fixtures ?? [])
+          .map((f) => ({ ...f, _parsedDate: parseUtcDate(f.starting_at) }))
+          .filter((f) => f._parsedDate && f._parsedDate <= today)
+          .sort((a, b) => a._parsedDate - b._parsedDate);
+
+        let idx = 0;
+        for (const f of fixtures) {
+          const p = f.participants?.find((pp) => pp.id === teamId);
+          if (!p || p.meta?.position == null) continue;
+          idx += 1;
+          points.push({
+            roundName: f.round?.name ?? f.round_name ?? `Match ${idx}`,
+            position: p.meta.position,
+            fixtures: [{ ...f, league_id: sched.league_id }],
+            firstDate: f._parsedDate ?? null,
+            lastDate: f._parsedDate ?? null,
+          });
+        }
       }
     }
     points.sort((a, b) => (a.firstDate ?? 0) - (b.firstDate ?? 0));
     return points;
-  }, [teamData, teamId]);
+  }, [teamData, teamId, domesticLeagueId]);
 
   const n = roundPoints.length;
   const [selectedIdx, setSelectedIdx] = useState(0);
   useEffect(() => {
     if (n > 0) setSelectedIdx(n - 1);
   }, [n]);
+
+  // Debug logging to help diagnose missing standings tracker
+  useEffect(() => {
+    try {
+      console.log("[StandingsTracker] teamId:", teamId);
+      console.log(
+        "[StandingsTracker] domesticLeagueId:",
+        domesticLeagueId,
+        "teamData.schedule.length:",
+        (teamData?.schedule ?? []).length,
+      );
+      console.log(
+        "[StandingsTracker] roundPoints.length:",
+        roundPoints.length,
+        "roundPoints:",
+        roundPoints?.map?.((r) => ({
+          roundName: r.roundName,
+          position: r.position,
+          fixtures: (r.fixtures ?? []).length,
+          firstDate: r.firstDate?.toISOString?.(),
+          lastDate: r.lastDate?.toISOString?.(),
+        })),
+      );
+      console.log(
+        "[StandingsTracker] n, selectedIdx:",
+        n,
+        selectedIdx,
+        "selected:",
+        selected
+          ? { roundName: selected.roundName, position: selected.position }
+          : null,
+      );
+    } catch (e) {
+      console.warn("[StandingsTracker] debug logging failed:", e);
+    }
+  }, [
+    teamId,
+    domesticLeagueId,
+    teamData,
+    roundPoints,
+    n,
+    selectedIdx,
+    selected,
+  ]);
 
   const selected = roundPoints[selectedIdx] ?? null;
   const [chartW, setChartW] = useState(300);
@@ -1194,7 +1262,17 @@ function StandingsTracker({
   const selCy = selected ? yFor(selected.position) : 0;
   const badgeCy = Math.max(selCy - 15, 14);
 
-  if (n === 0) return null;
+  if (n === 0) {
+    console.warn(
+      "[StandingsTracker] no rounds to display for team",
+      teamId,
+      "domesticLeagueId:",
+      domesticLeagueId,
+      "scheduleLen:",
+      (teamData?.schedule ?? []).length,
+    );
+    return null;
+  }
 
   return (
     <View

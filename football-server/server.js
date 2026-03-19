@@ -1511,6 +1511,7 @@ function transformPlayerResponse(raw) {
             "short_code",
             "image_path",
           ]),
+          type: t.type ? { name: t.type.name ?? null } : null,
         }))
       : [],
   };
@@ -1532,7 +1533,7 @@ app.get("/football/player/:playerId", async (req, res) => {
   try {
     const data = await fetchUrl(
       `${SM_BASE}/players/${playerId}?api_token=${SM_TOKEN}` +
-        `&include=country;teams.team;detailedPosition;metadata.type;trophies.trophy;trophies.season;trophies.league;trophies.team.country;statistics.details.type;statistics.team;statistics.season.league;latest.fixture.participants;latest.fixture.league;latest.details.type;transfers.fromTeam;transfers.toTeam`,
+        `&include=country;teams.team;detailedPosition;metadata.type;trophies.trophy;trophies.season;trophies.league;trophies.team.country;statistics.details.type;statistics.team;statistics.season.league;latest.fixture.participants;latest.fixture.league;latest.details.type;transfers.type;transfers.fromTeam;transfers.toTeam`,
     );
 
     cacheSet(cacheKey, data);

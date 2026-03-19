@@ -82,7 +82,7 @@ const SoccerHomeScreen = () => {
 const soccerLeagues = [
   {
     id: "top5",
-    name: "Top 5 Leagues",
+    name: "Football",
     flag: null,
     type: "competition",
     mainLeague: { name: "TOP 5", logo: "23" },
@@ -289,13 +289,13 @@ const soccerLeagues = [
           allowFontScaling={false}
           style={[styles.title, { color: theme.text }]}
         >
-          Soccer
+          Football Competitions
         </Text>
         <Text
           allowFontScaling={false}
           style={[styles.subtitle, { color: theme.textSecondary }]}
         >
-          Select a Country or Competition
+          Select a Competition
         </Text>
       </View>
 

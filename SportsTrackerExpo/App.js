@@ -2003,7 +2003,7 @@ const MainStackNavigator = () => {
         name="top5"
         component={Top5TabNavigator}
         options={{
-          title: "Top 5 Leagues",
+          title: "Football",
           headerStyle: {
             backgroundColor: colors.primary,
           },
