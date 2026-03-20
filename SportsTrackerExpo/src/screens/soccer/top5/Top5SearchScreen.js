@@ -49,21 +49,67 @@ const TAB_LABELS = {
 
 function formatMatchDateTime(starting_at) {
   if (!starting_at) return { date: "TBD", time: "" };
+  // If the API returns a simple "YYYY-MM-DD HH:MM:SS" string (no TZ),
+  // format it verbatim to avoid platform-dependent Date parsing and
+  // unintended timezone shifts.
+  const isoLike = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?$/.test(
+    String(starting_at),
+  );
+  if (isoLike) {
+    const parts = String(starting_at).split(" ");
+    const datePart = parts[0];
+    const timePart = (parts[1] || "").split(":");
+    const y = parseInt(datePart.substring(0, 4), 10);
+    const m = parseInt(datePart.substring(5, 7), 10);
+    const d = parseInt(datePart.substring(8, 10), 10);
+    const hh = parseInt(timePart[0] || "0", 10);
+    const mi = parseInt(timePart[1] || "0", 10);
+    const ss = parseInt(timePart[2] || "0", 10);
+
+    // Construct UTC timestamp from components, subtract 5 hours, then
+    // format using UTC getters so there's no further locale/Z changes.
+    const ts = Date.UTC(y, m - 1, d, hh, mi, ss) - 5 * 60 * 60 * 1000;
+    const dt = new Date(ts);
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const month = monthNames[dt.getUTCMonth()] || "";
+    const date = `${dt.getUTCDate()} ${month} ${dt.getUTCFullYear()}`;
+
+    const H = dt.getUTCHours();
+    const M = String(dt.getUTCMinutes()).padStart(2, "0");
+    const ampm = H >= 12 ? "PM" : "AM";
+    const h = H % 12 || 12;
+    const time = `${h}:${M} ${ampm}`;
+    return { date, time };
+  }
+
+  // Fallback: safe Date parse and locale formatting
   const d = new Date(starting_at);
   if (isNaN(d.getTime())) return { date: "TBD", time: "" };
-  // API times are UTC-1; shift to EST (UTC-5) by subtracting 4 hours
-  const est = new Date(d.getTime() - 4 * 60 * 60 * 1000);
-  const date = est.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-  const time = est.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-  return { date, time };
+  return {
+    date: d.toLocaleDateString("en-US", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }),
+    time: d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }),
+  };
 }
 
 function normalize(str) {

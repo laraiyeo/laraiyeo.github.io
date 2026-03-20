@@ -121,7 +121,7 @@ function resolveMatchColors({
 function parseUtcDate(dateStr) {
   if (!dateStr) return null;
   // "2025-10-19 11:00:00" → treat as UTC
-  return new Date(dateStr.replace(" ", "T") + "Z");
+  return new Date(dateStr.replace(" ", "T"));
 }
 
 function getTodayStr() {
@@ -140,7 +140,6 @@ function formatMatchDate(startingAt) {
   return d.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
-    timeZone: "EDT",
   });
 }
 
@@ -151,7 +150,6 @@ function formatMatchTime(startingAt) {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-    timeZone: "EDT",
   });
 }
 
@@ -1244,7 +1242,6 @@ function StandingsTracker({
         month: "short",
         day: "numeric",
         year: "2-digit",
-        timeZone: "EDT",
       }) +
       (selected.lastDate &&
       selected.lastDate.toDateString() !== selected.firstDate.toDateString()
@@ -1253,7 +1250,6 @@ function StandingsTracker({
             month: "short",
             day: "numeric",
             year: "2-digit",
-            timeZone: "EDT",
           })
         : "")
     : "";

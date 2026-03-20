@@ -2640,6 +2640,78 @@ app.get("/football/game/:fixtureId/:team1/:team2", async (req, res) => {
   }
 });
 
+// GET /football/game/:fixtureId/live-activity
+// Returns a minimal payload intended for Live Activity initialization on iOS.
+app.get("/football/game/:fixtureId/live-activity", async (req, res) => {
+  const { fixtureId } = req.params;
+  const fixtureCacheKey = `game:${fixtureId}:live-activity`;
+
+  const fixtureUrl =
+    `${SM_BASE}/fixtures/${fixtureId}?api_token=${SM_TOKEN}` +
+    `&include=state;participants;scores;league;venue&timezone=America/Toronto`;
+
+  try {
+    const fresh = await fetchUrl(fixtureUrl);
+    if (!fresh?.data) return res.status(404).json({ error: "Fixture not found" });
+
+    // Keep a small cache entry so repeated UI starters don't hammer the origin.
+    cacheSet(fixtureCacheKey, fresh);
+
+    const transformed = transformFixtureGameResponse(fresh);
+    const { ttl } = gameTtlInfo(fresh?.data);
+    setCacheControl(res, ttl);
+
+    // Pick participants by meta.position (home / away) if available
+    const participants = transformed?.participants || [];
+    const home = participants.find((p) => p.meta?.position === "home") ||
+      participants[0] || { id: null, name: null };
+    const away = participants.find((p) => p.meta?.position === "away") ||
+      participants[1] || { id: null, name: null };
+
+    // Extract current scores (description === 'CURRENT')
+    let homeScore = 0;
+    let awayScore = 0;
+    for (const s of transformed?.scores || []) {
+      if (!s || !s.description) continue;
+      if (String(s.description).toUpperCase() !== "CURRENT") continue;
+      const participant = String(s.score?.participant || "").toLowerCase();
+      const goals = typeof s.score?.goals === "number" ? s.score.goals : parseInt(s.score?.goals, 10) || 0;
+      if (participant === "home") homeScore = goals;
+      if (participant === "away") awayScore = goals;
+    }
+
+    const payload = {
+      fixtureId: transformed?.id ?? fixtureId,
+      starting_at: transformed?.starting_at ?? null,
+      league: transformed?.league ?? null,
+      status: transformed?.state ?? null,
+      home: {
+        id: home.id ?? null,
+        name: home.name ?? null,
+        image_path: home.image_path ?? null,
+        colorPrimary: home.colorPrimary ?? null,
+        colorSecondary: home.colorSecondary ?? null,
+        score: homeScore,
+      },
+      away: {
+        id: away.id ?? null,
+        name: away.name ?? null,
+        image_path: away.image_path ?? null,
+        colorPrimary: away.colorPrimary ?? null,
+        colorSecondary: away.colorSecondary ?? null,
+        score: awayScore,
+      },
+      fetchedAt: Date.now(),
+    };
+
+    res.json({ source: "origin", data: { activity: payload } });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch live-activity payload", details: err.message });
+  }
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /football/cache-sap
 // Returns a combined, deduplicated list of teams from all cached SAP standings,

@@ -124,7 +124,6 @@ function formatDate(dateStr) {
     day: "2-digit",
     month: "short",
     year: "numeric",
-    timeZone: "UTC",
   });
 }
 
@@ -1912,7 +1911,6 @@ function MatchCard({
     ? date.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
-        timeZone: "UTC",
       })
     : "--";
   const dateLine2 = date ? String(date.getUTCFullYear()) : "";
@@ -2337,7 +2335,6 @@ function RatingsTracker({
     const year = date.getUTCFullYear();
     const month = date.toLocaleDateString("en-US", {
       month: "short",
-      timeZone: "UTC",
     });
     const day = date.getUTCDate();
     return `${year} ${month} ${day}`;
@@ -2585,7 +2582,6 @@ function RatingsTracker({
                 ? pt.date.toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
-                    timeZone: "UTC",
                   })
                 : "";
               return (
@@ -2756,7 +2752,12 @@ export default function Top5PlayerScreen({ route, navigation }) {
         return null;
       }
     };
-    const list = arr
+    // Prefer domestic-team stints when picking the most recent team.
+    const candidates = (arr || []).filter(Boolean);
+    const domestic = candidates.filter((s) => s.team?.type === "domestic");
+    const pool = domestic.length > 0 ? domestic : candidates;
+
+    const list = pool
       .map((s) => ({
         stint: s,
         endD: parseD(s.end),
@@ -2773,8 +2774,18 @@ export default function Top5PlayerScreen({ route, navigation }) {
     return list[0]?.stint ?? null;
   };
 
+  // Prefer an active domestic stint, otherwise prefer the most-recent domestic
+  // stint (even if ended), then fall back to any active stint, then most
+  // recent stint of any type.
+  const domesticMostRecent = pickMostRecent(
+    (teams || []).filter((s) => s.team?.type === "domestic"),
+  );
   const currentTeam =
-    activeDomestic ?? activeAny ?? pickMostRecent(teams) ?? null;
+    activeDomestic ??
+    domesticMostRecent ??
+    activeAny ??
+    pickMostRecent(teams) ??
+    null;
 
   const accentColor = currentTeam?.team?.colorPrimary || colors.primary;
 

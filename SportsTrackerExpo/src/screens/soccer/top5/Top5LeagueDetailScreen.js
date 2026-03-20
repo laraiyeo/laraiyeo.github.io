@@ -709,12 +709,10 @@ const stStyles = StyleSheet.create({
 // ─── Matches Tab ────────────────────────────────────────────────────────────
 
 const TODAY = new Date();
-// Use local device timezone to build YYYY-MM-DD keys (avoid UTC shift from toISOString)
 function dateKeyFromDate(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${dd}`;
+  // Use the raw ISO date (UTC) string so we don't force a different
+  // timezone than what's present in the fetched JSON.
+  return d.toISOString().slice(0, 10);
 }
 const todayStr = dateKeyFromDate(TODAY);
 const yesterdayStr = dateKeyFromDate(
@@ -738,13 +736,14 @@ function formatDateLabel(dateKey) {
   });
 }
 
-function toEST(utcStr) {
-  const d = new Date(utcStr.replace(" ", "T") + "Z");
+// Format UTC timestamp using the device locale without forcing a timezone
+// override so we respect the fetched JSON time semantics.
+function formatTimeFromUtc(utcStr) {
+  const d = new Date(String(utcStr).replace(" ", "T"));
   return d.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-    timeZone: "America/New_York",
   });
 }
 
@@ -863,7 +862,7 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
               <Text
                 style={[mStyles.finishedTime, { color: theme.textTertiary }]}
               >
-                {toEST(match.starting_at)}
+                {formatTimeFromUtc(match.starting_at)}
                 {roundName
                   ? ` ∙ Round ${roundName}`
                   : agg
@@ -898,7 +897,8 @@ function MatchCard({ match, idx, theme, colors, navigation }) {
             </>
           ) : (
             (() => {
-              const [timePart, period] = toEST(match.starting_at).split(/\s+/);
+              const t = formatTimeFromUtc(match.starting_at);
+              const [timePart, period] = String(t).split(/\s+/);
               return (
                 <View style={mStyles.timeBlock}>
                   {agg ? (

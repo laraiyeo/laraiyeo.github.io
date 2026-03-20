@@ -79,6 +79,7 @@ import {
   RefreshControl,
   Alert,
 } from "react-native";
+import { Platform } from "react-native";
 import { Image } from "expo-image";
 import { WebView } from "react-native-webview";
 import Svg, {
@@ -408,7 +409,7 @@ const shortNameOf = (fixture) =>
 
 const startMsOf = (fixture) => {
   try {
-    return new Date(fixture.starting_at.replace(" ", "T") + "Z").getTime();
+    return new Date(fixture.starting_at.replace(" ", "T")).getTime();
   } catch (_) {
     return null;
   }
@@ -464,7 +465,7 @@ const getFixturePolicy = (fixture) => {
 
 const formatFixtureTime = (fixture) => {
   try {
-    const date = new Date(fixture.starting_at.replace(" ", "T") + "Z");
+    const date = new Date(fixture.starting_at.replace(" ", "T"));
     const hours = date.getHours();
     const minutes = String(date.getMinutes()).padStart(2, "0");
     const ampm = hours >= 12 ? "PM" : "AM";
@@ -6299,7 +6300,7 @@ const GameInfoSection = ({
   let dateBottom = null;
   try {
     if (startingAt) {
-      const d = new Date(startingAt.replace(" ", "T") + "Z");
+      const d = new Date(startingAt.replace(" ", "T"));
       if (!Number.isNaN(d.getTime())) {
         const days = [
           "Sunday",
@@ -6324,8 +6325,8 @@ const GameInfoSection = ({
           "November",
           "December",
         ];
-        dateTop = `${days[d.getUTCDay()]}, ${d.getUTCDate()}`;
-        dateBottom = `${months[d.getUTCMonth()]}, ${d.getUTCFullYear()}`;
+        dateTop = `${days[d.getDay()]}, ${d.getDate()}`;
+        dateBottom = `${months[d.getMonth()]}, ${d.getFullYear()}`;
       }
     }
   } catch (_) {}
@@ -6865,7 +6866,7 @@ const H2HMatchCard = ({ match, theme, navigation }) => {
 
   let topDate = "";
   try {
-    const d = new Date((match?.starting_at || "").replace(" ", "T") + "Z");
+    const d = new Date((match?.starting_at || "").replace(" ", "T"));
     const months = [
       "Jan",
       "Feb",
@@ -6880,7 +6881,7 @@ const H2HMatchCard = ({ match, theme, navigation }) => {
       "Nov",
       "Dec",
     ];
-    topDate = `${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+    topDate = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
   } catch (_) {
     topDate = "";
   }
@@ -7903,9 +7904,9 @@ const HomeSidelinedSection = ({
 
   const formatSidelineEndDate = (value) => {
     if (!value) return null;
-    const d = new Date(`${value}T00:00:00Z`);
+    const d = new Date(`${value}T00:00:00`);
     if (Number.isNaN(d.getTime())) return null;
-    const day = String(d.getUTCDate()).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
     const months = [
       "Jan",
       "Feb",
@@ -7920,8 +7921,8 @@ const HomeSidelinedSection = ({
       "Nov",
       "Dec",
     ];
-    const mon = months[d.getUTCMonth()] || "";
-    const year = d.getUTCFullYear();
+    const mon = months[d.getMonth()] || "";
+    const year = d.getFullYear();
     return `${day} ${mon} ${year}`;
   };
 
@@ -8544,7 +8545,7 @@ const SoccerPlayerDetailModal = ({
   const gameDateParts = (() => {
     if (!startingAt) return null;
     try {
-      const d = new Date(startingAt.replace(" ", "T") + "Z");
+      const d = new Date(startingAt.replace(" ", "T"));
       const monthDate = d.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
@@ -10749,6 +10750,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   const [h2hHomeOnly, setH2hHomeOnly] = useState(false);
   const [snapshotTsMs, setSnapshotTsMs] = useState(Date.now());
   const [nowMs, setNowMs] = useState(Date.now());
+  const [liveActivityActive, setLiveActivityActive] = useState(false);
   // Streaming state
   const [availableStreams, setAvailableStreams] = useState({});
   const [currentStreamType, setCurrentStreamType] = useState("alpha1");
@@ -10766,6 +10768,63 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
     const id = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  // Live activity helpers (iOS only)
+  let FootballLiveActivityFactory = null;
+  try {
+    // Require/import at runtime so Android doesn't attempt to resolve native module
+    // The created module is a Live Activity factory exported by our component file.
+    FootballLiveActivityFactory = require("../../../components/FootballLiveActivity").default;
+  } catch (e) {
+    FootballLiveActivityFactory = null;
+  }
+
+  const startLiveActivity = async () => {
+    if (Platform.OS !== "ios") {
+      Alert.alert("Live Activities", "Live Activities are currently supported only on iOS.");
+      return;
+    }
+    if (!FootballLiveActivityFactory) {
+      Alert.alert("Live Activities", "Live Activity component not available.");
+      return;
+    }
+    try {
+      const resp = await fetch(`${FOOTBALL_BASE}/football/game/${fixtureId}/live-activity`);
+      if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
+      const body = await resp.json();
+      const payload = body?.data?.activity;
+      if (!payload) throw new Error("No activity payload returned");
+
+      // optional deep link back into app
+      const url = `app://football/fixture/${fixtureId}`;
+
+      await FootballLiveActivityFactory.start(payload, url);
+      setLiveActivityActive(true);
+      Alert.alert("Live Activity", "Started");
+    } catch (err) {
+      console.error("startLiveActivity error:", err);
+      Alert.alert("Live Activity", `Failed to start: ${err.message}`);
+    }
+  };
+
+  const stopLiveActivity = async () => {
+    if (!FootballLiveActivityFactory) return;
+    try {
+      const instances = await FootballLiveActivityFactory.getInstances?.() || [];
+      for (const inst of instances) {
+        try {
+          await inst.end?.();
+        } catch (e) {
+          console.warn("Failed to end instance", e?.message || e);
+        }
+      }
+      setLiveActivityActive(false);
+      Alert.alert("Live Activity", "Stopped");
+    } catch (err) {
+      console.error("stopLiveActivity error:", err);
+      Alert.alert("Live Activity", `Failed to stop: ${err.message}`);
+    }
+  };
 
   const dataRef = useRef(null);
   useEffect(() => {
@@ -10988,7 +11047,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
           if (fx) {
             const code = fx.state?.state || "";
             const startMs = fx.starting_at
-              ? new Date(fx.starting_at.replace(" ", "T") + "Z").getTime()
+              ? new Date(fx.starting_at.replace(" ", "T")).getTime()
               : null;
             const isOld =
               startMs != null && Date.now() - startMs > 24 * 60 * 60 * 1000;
@@ -11685,6 +11744,23 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 nowMs={nowMs}
                 snapshotTsMs={snapshotTsMs}
               />
+              {Platform.OS === "ios" ? (
+                <View style={{ marginTop: 8, flexDirection: "row", gap: 8 }}>
+                  <TouchableOpacity
+                    onPress={() => (liveActivityActive ? stopLiveActivity() : startLiveActivity())}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      borderRadius: 8,
+                      backgroundColor: liveActivityActive ? "#d9534f" : colors.primary,
+                    }}
+                  >
+                    <Text style={{ color: "#fff", fontWeight: "700" }}>
+                      {liveActivityActive ? "Stop Live Activity" : "Start Live Activity"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
               {(() => {
                 // Show penalty shootout (PEN) scores under status when match finishedb
                 const scores = fixture?.scores ?? [];

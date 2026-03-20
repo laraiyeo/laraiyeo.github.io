@@ -51,7 +51,8 @@ const shortNameOf = (match) =>
 
 const startMsOf = (match) => {
   try {
-    return new Date(match.starting_at.replace(" ", "T") + "Z").getTime();
+    // Do not force-append Z; preserve the fetched timestamp semantics
+    return new Date(match.starting_at.replace(" ", "T")).getTime();
   } catch (_) {
     return null;
   }
@@ -119,7 +120,8 @@ const getPollingInterval = (groups) => {
 
 const formatMatchTime = (match) => {
   try {
-    const date = new Date(match.starting_at.replace(" ", "T") + "Z");
+    // Parse using the raw fetched timestamp (no forced UTC marker)
+    const date = new Date(match.starting_at.replace(" ", "T"));
     const hours = date.getHours();
     const minutes = String(date.getMinutes()).padStart(2, "0");
     const ampm = hours >= 12 ? "PM" : "AM";
