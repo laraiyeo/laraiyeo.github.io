@@ -56,6 +56,8 @@ const SAP_TO_SM_TEAM_NAME_MAP = Object.freeze({
   "athletic bilbao": "athletic club",
   "celta vigo": "celta de vigo",
   "olympique de marseille": "olympique marseille",
+  "los angeles galaxy": "la galaxy",
+  "san jose earthquakes": "sj earthquakes",
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -932,7 +934,7 @@ app.get("/football/league/:leagueId", async (req, res) => {
         ),
         fetchUrl(
           `${SM_BASE}/leagues/${leagueId}?api_token=${SM_TOKEN}` +
-            `&include=currentSeason;country;latest.round;latest.aggregate;latest.scores;latest.participants;latest.venue;upcoming.round;upcoming.aggregate;upcoming.participants;upcoming.venue`,
+            `&include=currentSeason;country;latest.round;latest.aggregate;latest.scores;latest.participants;latest.venue;upcoming.round;upcoming.aggregate;upcoming.participants;upcoming.venue&timezone=America/Toronto`,
         ),
         stageId
           ? fetchUrl(
@@ -1358,7 +1360,7 @@ app.get("/football/team/:teamId", async (req, res) => {
   try {
     // Phase 1: schedule — season_id embedded in each stage
     const scheduleData = await fetchUrl(
-      `${SM_BASE}/schedules/teams/${teamId}?api_token=${SM_TOKEN}`,
+      `${SM_BASE}/schedules/teams/${teamId}?api_token=${SM_TOKEN}&timezone=America/Toronto`,
     );
 
     const activeSeasonId = scheduleData?.data?.[0]?.season_id ?? null;
@@ -1580,7 +1582,7 @@ app.get("/football/player/:playerId", async (req, res) => {
   try {
     const data = await fetchUrl(
       `${SM_BASE}/players/${playerId}?api_token=${SM_TOKEN}` +
-        `&include=country;teams.team;detailedPosition;metadata.type;trophies.trophy;trophies.season;trophies.league;trophies.team.country;statistics.details.type;statistics.team;statistics.season.league;latest.fixture.participants;latest.fixture.league;latest.details.type;transfers.type;transfers.fromTeam;transfers.toTeam`,
+        `&include=country;teams.team;detailedPosition;metadata.type;trophies.trophy;trophies.season;trophies.league;trophies.team.country;statistics.details.type;statistics.team;statistics.season.league;latest.fixture.participants;latest.fixture.league;latest.details.type;transfers.type;transfers.fromTeam;transfers.toTeam&timezone=America/Toronto`,
     );
 
     cacheSet(cacheKey, data);
@@ -1999,7 +2001,7 @@ app.get("/football/fixture/:date", async (req, res) => {
   const cacheKey = `fixture:date:${raw}`;
   const url =
     `${SM_BASE}/fixtures/date/${isoDate}?api_token=${SM_TOKEN}` +
-    `&per_page=50&include=aggregate;state;periods;participants;scores;venue;league.country`;
+    `&per_page=50&include=aggregate;state;periods;participants;scores;venue;league.country&timezone=America/Toronto`;
 
   // Serve from cache if still valid under the dynamic TTL
   const entry = cache.get(cacheKey);
@@ -2583,7 +2585,7 @@ app.get("/football/game/:fixtureId/:team1/:team2", async (req, res) => {
 
   const fixtureUrl =
     `${SM_BASE}/fixtures/${fixtureId}?api_token=${SM_TOKEN}` +
-    `&include=state;aggregate;round;periods;participants;scores;league.country;comments;formations;venue;weatherReport;events;statistics.type;formations;sidelined.player;sidelined.type;sidelined.sideline;lineups.player;lineups.type;lineups.position;lineups.detailedPosition;coaches;referees.referee;lineups.details.type;ballCoordinates`;
+    `&include=state;aggregate;round;periods;participants;scores;league.country;comments;formations;venue;weatherReport;events;statistics.type;formations;sidelined.player;sidelined.type;sidelined.sideline;lineups.player;lineups.type;lineups.position;lineups.detailedPosition;coaches;referees.referee;lineups.details.type;ballCoordinates&timezone=America/Toronto`;
 
   // Update activity timestamp
   const act = gameActivity.get(fixtureCacheKey);
@@ -2863,7 +2865,7 @@ async function warmCacheFixturesFetch() {
     let page = 1;
     let all = [];
     while (true) {
-      const url = `${SM_BASE}/fixtures/between/${start}/${end}?api_token=${SM_TOKEN}&filters=populate&page=${page}`;
+      const url = `${SM_BASE}/fixtures/between/${start}/${end}?api_token=${SM_TOKEN}&filters=populate&page=${page}&timezone=America/Toronto`;
       const resp = await fetchUrl(url);
       if (!resp?.data || !Array.isArray(resp.data)) break;
       all = all.concat(resp.data);

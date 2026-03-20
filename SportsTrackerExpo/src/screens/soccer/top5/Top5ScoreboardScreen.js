@@ -31,7 +31,17 @@ const INTERVAL_SLOW = 30 * 60 * 1000; // 30 minutes
 const INTERVAL_FAST = 5 * 1000; // 5 seconds
 const INTERVAL_SOON = 60 * 1000; // 1 minute
 const INTERVAL_FINISHED = 6 * 60 * 60 * 1000; // 6 hours
-const LIVE_SHORT_NAMES = new Set(["1ST", "2ND", "HT", "BRK", "BREAK", "INPLAY_ET", "INPLAY_PEN", "ET", "PEN"]);
+const LIVE_SHORT_NAMES = new Set([
+  "1ST",
+  "2ND",
+  "HT",
+  "BRK",
+  "BREAK",
+  "INPLAY_ET",
+  "INPLAY_PEN",
+  "ET",
+  "PEN",
+]);
 
 // Force ordering for leagues on scoreboard (those keys appear first, in this order)
 const FORCE_LEAGUE_ORDER = ["8", "564", "82", "384", "301"];

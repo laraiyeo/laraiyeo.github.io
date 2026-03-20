@@ -709,17 +709,16 @@ const stStyles = StyleSheet.create({
 // ─── Matches Tab ────────────────────────────────────────────────────────────
 
 const TODAY = new Date();
-const todayStr = TODAY.toISOString().slice(0, 10);
-const yesterdayStr = (() => {
-  const d = new Date(TODAY);
-  d.setDate(d.getDate() - 1);
-  return d.toISOString().slice(0, 10);
-})();
-const tomorrowStr = (() => {
-  const d = new Date(TODAY);
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
-})();
+// Use local device timezone to build YYYY-MM-DD keys (avoid UTC shift from toISOString)
+function dateKeyFromDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+const todayStr = dateKeyFromDate(TODAY);
+const yesterdayStr = dateKeyFromDate(new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() - 1));
+const tomorrowStr = dateKeyFromDate(new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() + 1));
 
 function formatDateLabel(dateKey) {
   if (dateKey === todayStr) return "Today";

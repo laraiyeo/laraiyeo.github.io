@@ -5,16 +5,18 @@
 const FOOTBALL_BASE = "https://laraiyeogithubio-production-08da.up.railway.app";
 
 const FINISHED_STATES = new Set([
-  "FT",
-  "AET",
-  "FT_PEN",
-  "POSTP",
-  "CANC",
-  "ABAN",
-  "WO",
-  "WALKOVER",
-  "CUT",
-  "AWA",
+    "FT",
+    "AET",
+    "FT_PEN",
+    "POSTP",
+    "CANC",
+    "ABAN",
+    "WO",
+    "WALKOVER",
+    "CUT",
+    "AWA",
+    "POST",
+    "POSTPONED",
 ]);
 const SCHEDULED_STATES = new Set(["NS", "TBA", "DELAYED"]);
 

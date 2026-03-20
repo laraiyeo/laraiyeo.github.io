@@ -11686,8 +11686,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 snapshotTsMs={snapshotTsMs}
               />
               {(() => {
-                // Show penalty shootout (PEN) scores under status when match finished
-                if (!finished) return null;
+                // Show penalty shootout (PEN) scores under status when match finishedb
                 const scores = fixture?.scores ?? [];
                 let penHome = null;
                 let penAway = null;
