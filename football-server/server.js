@@ -2652,7 +2652,8 @@ app.get("/football/game/:fixtureId/live-activity", async (req, res) => {
 
   try {
     const fresh = await fetchUrl(fixtureUrl);
-    if (!fresh?.data) return res.status(404).json({ error: "Fixture not found" });
+    if (!fresh?.data)
+      return res.status(404).json({ error: "Fixture not found" });
 
     // Keep a small cache entry so repeated UI starters don't hammer the origin.
     cacheSet(fixtureCacheKey, fresh);
@@ -2675,7 +2676,10 @@ app.get("/football/game/:fixtureId/live-activity", async (req, res) => {
       if (!s || !s.description) continue;
       if (String(s.description).toUpperCase() !== "CURRENT") continue;
       const participant = String(s.score?.participant || "").toLowerCase();
-      const goals = typeof s.score?.goals === "number" ? s.score.goals : parseInt(s.score?.goals, 10) || 0;
+      const goals =
+        typeof s.score?.goals === "number"
+          ? s.score.goals
+          : parseInt(s.score?.goals, 10) || 0;
       if (participant === "home") homeScore = goals;
       if (participant === "away") awayScore = goals;
     }
@@ -2708,7 +2712,10 @@ app.get("/football/game/:fixtureId/live-activity", async (req, res) => {
   } catch (err) {
     res
       .status(502)
-      .json({ error: "Failed to fetch live-activity payload", details: err.message });
+      .json({
+        error: "Failed to fetch live-activity payload",
+        details: err.message,
+      });
   }
 });
 

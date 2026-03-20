@@ -10774,14 +10774,18 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   try {
     // Require/import at runtime so Android doesn't attempt to resolve native module
     // The created module is a Live Activity factory exported by our component file.
-    FootballLiveActivityFactory = require("../../../components/FootballLiveActivity").default;
+    FootballLiveActivityFactory =
+      require("../../../components/FootballLiveActivity").default;
   } catch (e) {
     FootballLiveActivityFactory = null;
   }
 
   const startLiveActivity = async () => {
     if (Platform.OS !== "ios") {
-      Alert.alert("Live Activities", "Live Activities are currently supported only on iOS.");
+      Alert.alert(
+        "Live Activities",
+        "Live Activities are currently supported only on iOS.",
+      );
       return;
     }
     if (!FootballLiveActivityFactory) {
@@ -10789,7 +10793,9 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
       return;
     }
     try {
-      const resp = await fetch(`${FOOTBALL_BASE}/football/game/${fixtureId}/live-activity`);
+      const resp = await fetch(
+        `${FOOTBALL_BASE}/football/game/${fixtureId}/live-activity`,
+      );
       if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
       const body = await resp.json();
       const payload = body?.data?.activity;
@@ -10810,7 +10816,8 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   const stopLiveActivity = async () => {
     if (!FootballLiveActivityFactory) return;
     try {
-      const instances = await FootballLiveActivityFactory.getInstances?.() || [];
+      const instances =
+        (await FootballLiveActivityFactory.getInstances?.()) || [];
       for (const inst of instances) {
         try {
           await inst.end?.();
@@ -11747,16 +11754,24 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               {Platform.OS === "ios" ? (
                 <View style={{ marginTop: 8, flexDirection: "row", gap: 8 }}>
                   <TouchableOpacity
-                    onPress={() => (liveActivityActive ? stopLiveActivity() : startLiveActivity())}
+                    onPress={() =>
+                      liveActivityActive
+                        ? stopLiveActivity()
+                        : startLiveActivity()
+                    }
                     style={{
                       paddingHorizontal: 12,
                       paddingVertical: 8,
                       borderRadius: 8,
-                      backgroundColor: liveActivityActive ? "#d9534f" : colors.primary,
+                      backgroundColor: liveActivityActive
+                        ? "#d9534f"
+                        : colors.primary,
                     }}
                   >
                     <Text style={{ color: "#fff", fontWeight: "700" }}>
-                      {liveActivityActive ? "Stop Live Activity" : "Start Live Activity"}
+                      {liveActivityActive
+                        ? "Stop Live Activity"
+                        : "Start Live Activity"}
                     </Text>
                   </TouchableOpacity>
                 </View>
