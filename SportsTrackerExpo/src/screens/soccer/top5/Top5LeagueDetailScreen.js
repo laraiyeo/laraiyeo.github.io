@@ -717,8 +717,12 @@ function dateKeyFromDate(d) {
   return `${y}-${m}-${dd}`;
 }
 const todayStr = dateKeyFromDate(TODAY);
-const yesterdayStr = dateKeyFromDate(new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() - 1));
-const tomorrowStr = dateKeyFromDate(new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() + 1));
+const yesterdayStr = dateKeyFromDate(
+  new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() - 1),
+);
+const tomorrowStr = dateKeyFromDate(
+  new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() + 1),
+);
 
 function formatDateLabel(dateKey) {
   if (dateKey === todayStr) return "Today";
