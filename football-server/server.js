@@ -619,6 +619,7 @@ function transformLeagueResponse(combined) {
                   firstname: sl.player.firstname ?? null,
                   lastname: sl.player.lastname ?? null,
                   name: sl.player.name ?? null,
+                  display_name: sl.player.display_name ?? null,
                   image_path: sl.player.image_path ?? null,
                 }
               : null,
@@ -651,6 +652,7 @@ function transformLeagueResponse(combined) {
                   firstname: pl.player.firstname ?? null,
                   lastname: pl.player.lastname ?? null,
                   name: pl.player.name ?? null,
+                  display_name: pl.player.display_name ?? null,
                   image_path: pl.player.image_path ?? null,
                 }
               : null,
@@ -795,6 +797,7 @@ function transformTeamOfTheWeekResponse(raw) {
           firstname: item.player.firstname ?? null,
           lastname: item.player.lastname ?? null,
           name: item.player.name ?? null,
+          display_name: item.player.display_name ?? null,
           image_path: item.player.image_path ?? null,
           country: item.player.country
             ? {
@@ -1123,6 +1126,7 @@ function transformTeamResponse(combined) {
               firstname: sq.player.firstname ?? null,
               lastname: sq.player.lastname ?? null,
               name: sq.player.name ?? null,
+              display_name: sq.player.display_name ?? null,
               image_path: sq.player.image_path ?? null,
               date_of_birth: sq.player.date_of_birth ?? null,
               detailedposition: sq.player.detailedposition?.name ?? null,
@@ -1180,6 +1184,7 @@ function transformTeamResponse(combined) {
                     firstname: c.coach.firstname ?? null,
                     lastname: c.coach.lastname ?? null,
                     name: c.coach.name ?? null,
+                    display_name: c.coach.display_name ?? null,
                     image_path: c.coach.image_path ?? null,
                     date_of_birth: c.coach.date_of_birth ?? null,
                   }
@@ -1328,6 +1333,7 @@ function transformTeamResponse(combined) {
                 firstname: tr.player.firstname ?? null,
                 lastname: tr.player.lastname ?? null,
                 name: tr.player.name ?? null,
+                display_name: tr.player.display_name ?? null,
                 image_path: tr.player.image_path ?? null,
               }
             : null,
@@ -1423,6 +1429,7 @@ function transformPlayerResponse(raw) {
     firstname: p.firstname ?? null,
     lastname: p.lastname ?? null,
     name: p.name ?? null,
+    display_name: p.display_name ?? null,
     image_path: p.image_path ?? null,
     height: p.height ?? null,
     weight: p.weight ?? null,
@@ -1606,6 +1613,7 @@ function transformCoachResponse(raw) {
     firstname: d.firstname ?? null,
     lastname: d.lastname ?? null,
     name: d.name ?? null,
+    display_name: d.display_name ?? null,
     image_path: d.image_path ?? null,
     date_of_birth: d.date_of_birth ?? null,
     country: d.country
@@ -1722,6 +1730,7 @@ function transformRefereeResponse(raw) {
     firstname: d.firstname ?? null,
     lastname: d.lastname ?? null,
     name: d.name ?? null,
+    display_name: d.display_name ?? null,
     image_path: d.image_path ?? null,
     country: d.country
       ? {
@@ -2184,6 +2193,7 @@ function transformFixtureGameResponse(raw) {
               firstname: sl.player.firstname ?? null,
               lastname: sl.player.lastname ?? null,
               name: sl.player.name ?? null,
+              display_name: sl.player.display_name ?? null,
               image_path: sl.player.image_path ?? null,
             }
           : null,
@@ -2203,6 +2213,7 @@ function transformFixtureGameResponse(raw) {
               firstname: l.player.firstname ?? null,
               lastname: l.player.lastname ?? null,
               name: l.player.name ?? null,
+              display_name: l.player.display_name ?? null,
               image_path: l.player.image_path ?? null,
               height: l.player.height ?? null,
               weight: l.player.weight ?? null,
@@ -2234,6 +2245,7 @@ function transformFixtureGameResponse(raw) {
         firstname: c.firstname ?? null,
         lastname: c.lastname ?? null,
         name: c.name ?? null,
+        display_name: c.display_name ?? null,
         image_path: c.image_path ?? null,
         meta: c.meta
           ? {
@@ -2251,6 +2263,7 @@ function transformFixtureGameResponse(raw) {
               firstname: r.referee.firstname ?? null,
               lastname: r.referee.lastname ?? null,
               name: r.referee.name ?? null,
+              display_name: r.referee.display_name ?? null,
               image_path: r.referee.image_path ?? null,
             }
           : null,

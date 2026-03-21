@@ -13,7 +13,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.sportsheart.app",
@@ -31,9 +33,11 @@
       },
       "package": "com.sportsheart.app",
       "versionCode": 15,
-      "edgeToEdgeEnabled": true,
       "googleServicesFile": "./google-services.json",
-      "permissions": ["INTERNET", "VIBRATE"],
+      "permissions": [
+        "INTERNET",
+        "VIBRATE"
+      ],
       "blockedPermissions": [
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO"
@@ -51,62 +55,98 @@
           "dark_blue": {
             "image": "./assets/dark/blue.png",
             "prerendered": true,
-            "platforms": ["ios", "android"]
+            "platforms": [
+              "ios",
+              "android"
+            ]
           },
           "dark_red": {
             "image": "./assets/dark/red.png",
             "prerendered": true,
-            "platforms": ["ios", "android"]
+            "platforms": [
+              "ios",
+              "android"
+            ]
           },
           "dark_green": {
             "image": "./assets/dark/green.png",
             "prerendered": true,
-            "platforms": ["ios", "android"]
+            "platforms": [
+              "ios",
+              "android"
+            ]
           },
           "dark_purple": {
             "image": "./assets/dark/purple.png",
             "prerendered": true,
-            "platforms": ["ios", "android"]
+            "platforms": [
+              "ios",
+              "android"
+            ]
           },
           "dark_gold": {
             "image": "./assets/dark/gold.png",
             "prerendered": true,
-            "platforms": ["ios", "android"]
+            "platforms": [
+              "ios",
+              "android"
+            ]
           },
           "dark_custom": {
             "image": "./assets/dark/custom.png",
             "prerendered": true,
-            "platforms": ["ios", "android"]
+            "platforms": [
+              "ios",
+              "android"
+            ]
           },
           "light_blue": {
             "image": "./assets/light/blue.png",
             "prerendered": true,
-            "platforms": ["ios", "android"]
+            "platforms": [
+              "ios",
+              "android"
+            ]
           },
           "light_red": {
             "image": "./assets/light/red.png",
             "prerendered": true,
-            "platforms": ["ios", "android"]
+            "platforms": [
+              "ios",
+              "android"
+            ]
           },
           "light_green": {
             "image": "./assets/light/green.png",
             "prerendered": true,
-            "platforms": ["ios", "android"]
+            "platforms": [
+              "ios",
+              "android"
+            ]
           },
           "light_purple": {
             "image": "./assets/light/purple.png",
             "prerendered": true,
-            "platforms": ["ios", "android"]
+            "platforms": [
+              "ios",
+              "android"
+            ]
           },
           "light_gold": {
             "image": "./assets/light/gold.png",
             "prerendered": true,
-            "platforms": ["ios", "android"]
+            "platforms": [
+              "ios",
+              "android"
+            ]
           },
           "light_custom": {
             "image": "./assets/light/custom.png",
             "prerendered": true,
-            "platforms": ["ios", "android"]
+            "platforms": [
+              "ios",
+              "android"
+            ]
           }
         }
       ],
@@ -130,12 +170,45 @@
           }
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "com.sportsheart.app.ExpoWidgetsTarget",
+          "groupIdentifier": "group.com.sportsheart.app",
+          "enablePushNotifications": true,
+          "widgets": [
+            {
+              "name": "FootballLiveActivity",
+              "displayName": "Football Live",
+              "description": "Live football match activity",
+              "supportedFamilies": [
+                "accessoryRectangular",
+                "accessoryInline",
+                "systemMedium",
+                "systemLarge"
+              ]
+            }
+          ]
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static",
+            "buildReactNativeFromSource": true
+          }
+        }
+      ],
+      "expo-image",
+      "expo-sharing"
     ],
     "extra": {
       "eas": {
         "projectId": "fb066229-1442-4efb-b65c-4588b95b115c"
-      }
+      },
+      "enableAnalyticsInDev": true
     },
     "updates": {
       "url": "https://u.expo.dev/fb066229-1442-4efb-b65c-4588b95b115c",

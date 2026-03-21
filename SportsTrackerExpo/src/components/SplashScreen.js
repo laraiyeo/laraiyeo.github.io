@@ -1,15 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { View, Image, StyleSheet, Dimensions, Animated } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Video } from "expo-av";
 import { useTheme } from "../context/ThemeContext";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 const SplashScreen = ({ onFinish }) => {
   const [isFinished, setIsFinished] = useState(false);
-  const [videoReady, setVideoReady] = useState(false);
-  const [showVideo, setShowVideo] = useState(true);
   const videoRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(0)).current; // for fade-in
 
@@ -92,55 +89,44 @@ const SplashScreen = ({ onFinish }) => {
     videoHeight > screenHeight ? screenHeight * aspectRatio : videoWidth;
   const finalHeight = videoHeight > screenHeight ? screenHeight : videoHeight;
 
-  const handleVideoLoad = async () => {
-    setVideoReady(true);
+  // When video was removed, we keep a short fade + timeout so we don't
+  // steal audio focus from background music by creating any audio/video
+  // player. This avoids instantiating expo-video or similar players.
+  useEffect(() => {
+    let timer;
 
-    // Fade in the video instantly (or over 100ms for smoothness)
+    // Fade in quickly
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 150,
       useNativeDriver: true,
     }).start();
 
-    // Start video playback immediately
-    try {
-      await videoRef.current?.playAsync();
-    } catch (error) {
-      console.log("Error playing video:", error);
-      handleVideoEnd();
-    }
-  };
+    // Short splash delay before finishing
+    timer = setTimeout(() => {
+      if (!isFinished) {
+        setIsFinished(true);
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }).start(() => onFinish());
+      }
+    }, 800);
 
-  const handleVideoEnd = () => {
-    if (!isFinished) {
-      setIsFinished(true);
-
-      // Add a small delay to prevent flash, then fade out smoothly
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 250,
-        useNativeDriver: true,
-      }).start(() => {
-        // Call onFinish after fade out completes
-        onFinish();
-      });
-    }
-  };
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     // Load the user's preference for showing the splash video
     (async () => {
       try {
         const stored = await AsyncStorage.getItem("@showSplashVideo");
+        // If the user previously disabled the video, respect that preference
+        // but we no longer create a video player so nothing needs to change
+        // at runtime here.
         if (stored === "false") {
-          setShowVideo(false);
-          // If user disabled video, finish splash shortly so app can continue
-          setTimeout(() => {
-            if (!isFinished) {
-              setIsFinished(true);
-              onFinish();
-            }
-          }, 350);
+          // no-op: preference respected, splash behavior unchanged
         }
       } catch (error) {
         console.error("Error reading splash preference:", error);
@@ -155,44 +141,11 @@ const SplashScreen = ({ onFinish }) => {
         { backgroundColor: isDarkMode ? "#000000" : "#ffffff" },
       ]}
     >
-      {/* Static splash image stays visible underneath (only when video disabled) */}
-      {!showVideo && (
         <Image
           source={splashAssets.image}
           style={{ width: finalWidth, height: finalHeight }}
           resizeMode="contain"
         />
-      )}
-
-      {/* Fade-in video over the image (only when enabled) */}
-      {showVideo && (
-        <Animated.View
-          style={{
-            opacity: fadeAnim,
-            width: finalWidth,
-            height: finalHeight,
-            position: "absolute",
-          }}
-        >
-          <Video
-            ref={videoRef}
-            source={splashAssets.video}
-            style={{ width: "100%", height: "100%" }}
-            resizeMode="contain"
-            shouldPlay={false} // we'll call playAsync() manually
-            isLooping={false}
-            isMuted={false}
-            onLoad={handleVideoLoad}
-            onPlaybackStatusUpdate={(status) => {
-              if (status.didJustFinish) handleVideoEnd();
-            }}
-            onError={(error) => {
-              console.log("Video error:", error);
-              handleVideoEnd();
-            }}
-          />
-        </Animated.View>
-      )}
     </View>
   );
 };

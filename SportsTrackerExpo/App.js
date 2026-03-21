@@ -311,6 +311,7 @@ import Top5CoachScreen from "./src/screens/soccer/top5/Top5CoachScreen";
 import Top5RefereeScreen from "./src/screens/soccer/top5/Top5RefereeScreen";
 import Top5PlayerScreen from "./src/screens/soccer/top5/Top5PlayerScreen";
 import Top5GameDetailsScreen from "./src/screens/soccer/top5/Top5GameDetailsScreen";
+import FootballLiveActivityController from "./components/FootballLiveActivityController";
 
 // FIFA World Cup screens
 import FIFAWorldScoreboardScreen from "./src/screens/soccer/fifa.world/FIFAWorldScoreboardScreen";
@@ -1116,6 +1117,8 @@ const MainStackNavigator = () => {
             sport?.toLowerCase() === "dota2" ||
             sport?.toLowerCase() === "lol"
               ? "ESPORTS"
+            : sport?.toLowerCase() === "soccer"
+              ? "FOOTBALL"
               : sport.toUpperCase();
           return {
             headerShown: true, // Always show header for sports
@@ -2066,6 +2069,16 @@ const MainStackNavigator = () => {
         component={Top5GameDetailsScreen}
         options={({ route }) => ({
           title: route.params?.matchTitle ?? "Match",
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: "#fff",
+          headerTitle: (props) => <HeaderTitle {...props} />,
+        })}
+      />
+      <Stack.Screen
+        name="FootballLiveActivity"
+        component={FootballLiveActivityController}
+        options={({ route }) => ({
+          title: "Live Activity",
           headerStyle: { backgroundColor: colors.primary },
           headerTintColor: "#fff",
           headerTitle: (props) => <HeaderTitle {...props} />,

@@ -709,10 +709,29 @@ const stStyles = StyleSheet.create({
 // ─── Matches Tab ────────────────────────────────────────────────────────────
 
 const TODAY = new Date();
+
+// DEBUG: log current times and computed date keys to diagnose timezone issues
+try {
+  const utc = TODAY.toISOString();
+  const local = TODAY.toString();
+  let ny = null;
+  try {
+    ny = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+  } catch (e) {
+    ny = "(toLocaleString timeZone unsupported)";
+  }
+} catch (err) {
+  console.log("[Top5 Debug] error logging dates:", err);
+}
 function dateKeyFromDate(d) {
-  // Use the raw ISO date (UTC) string so we don't force a different
-  // timezone than what's present in the fetched JSON.
-  return d.toISOString().slice(0, 10);
+  // Use local date components (YYYY-MM-DD) so "Today/Yesterday/Tomorrow"
+  // reflect the device/local timezone rather than UTC. This avoids mixing
+  // UTC (toISOString) with local-midnight computations which produced
+  // inconsistent keys across boundaries.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 const todayStr = dateKeyFromDate(TODAY);
 const yesterdayStr = dateKeyFromDate(

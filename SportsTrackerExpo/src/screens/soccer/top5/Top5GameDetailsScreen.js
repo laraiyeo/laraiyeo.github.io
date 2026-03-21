@@ -80,6 +80,7 @@ import {
   Alert,
 } from "react-native";
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 import { Image } from "expo-image";
 import { WebView } from "react-native-webview";
 import Svg, {
@@ -666,6 +667,10 @@ const buildGoalShareStats = (lineup, isOwnGoal) => {
     sht: getLineupDetailStat(lineup, "shots total", "shots", "shots on"),
     yc: getLineupDetailStat(lineup, "yellowcards", "yellowcard"),
     og: getLineupDetailStat(lineup, "owngoals", "owngoal"),
+    // Expected stats
+    xg: getLineupDetailStat(lineup, "Expected Goals (xG)", "xg", "expected goals"),
+    xgot: getLineupDetailStat(lineup, "Expected Goals on Target (xGoT)", "xgot", "expected goals on target"),
+    sp: getLineupDetailStat(lineup, "Shooting Performance (SP)", "sp", "shooting performance"),
   };
 
   if (isOwnGoal) {
@@ -676,6 +681,9 @@ const buildGoalShareStats = (lineup, isOwnGoal) => {
       { label: "AST", value: stats.ast },
       { label: "SOT", value: stats.sot },
       { label: "SHT", value: stats.sht },
+      { label: "xG", value: stats.xg },
+      { label: "xGoT", value: stats.xgot },
+      { label: "SP", value: stats.sp },
     ];
   }
 
@@ -686,6 +694,9 @@ const buildGoalShareStats = (lineup, isOwnGoal) => {
     { label: "SOT", value: stats.sot },
     { label: "SHT", value: stats.sht },
     { label: "YC", value: stats.yc },
+    { label: "xG", value: stats.xg },
+    { label: "xGoT", value: stats.xgot },
+    { label: "SP", value: stats.sp },
   ];
 };
 
@@ -3825,7 +3836,7 @@ const CommentarySection = ({
       const lineup = playerMeta?.lineup ?? null;
       const player = lineup?.player ?? null;
       const playerName =
-        player?.name ||
+        player?.display_name || player?.name ||
         `${player?.firstname ?? ""} ${player?.lastname ?? ""}`.trim() ||
         goalEvent?.player_name ||
         "Unknown Player";
@@ -3884,6 +3895,7 @@ const CommentarySection = ({
 
       const relatedPlayer = relatedMeta?.lineup?.player ?? null;
       const assistName =
+        relatedPlayer?.display_name ||
         relatedPlayer?.name ||
         `${relatedPlayer?.firstname ?? ""} ${relatedPlayer?.lastname ?? ""}`.trim() ||
         relatedMeta?.fallbackName ||
@@ -5003,7 +5015,7 @@ const GoalShareCardModal = ({ visible, onClose, payload, theme, colors }) => {
     }
   }, [sharing]);
 
-  const teamColor = payload?.teamColor || colors.primary;
+  const teamColor = payload?.teamColor || colors.primary || "#2563eb";
   const textOnTeam = getTextOnColor(teamColor);
   const homeScore = payload?.scoreAfter?.home ?? "-";
   const awayScore = payload?.scoreAfter?.away ?? "-";
@@ -5035,6 +5047,18 @@ const GoalShareCardModal = ({ visible, onClose, payload, theme, colors }) => {
   const FIELD_SCALE = (FIELD_LEFT_PANEL_W - 12) / 120;
 
   const showField = false; // can toggle this on if we want to show the field diagram on the card
+
+  // Expected stats extraction (used to render left pane when available)
+  const findStat = (key) =>
+    (payload?.statsItems ?? []).find(
+      (s) => String(s.label || "").toLowerCase() === String(key).toLowerCase(),
+    );
+  const expected_xg = parseFloat(findStat("xG")?.value);
+  const expected_gls = parseFloat(findStat("GLS")?.value);
+  const expected_xgot = parseFloat(findStat("xGoT")?.value);
+  const expected_sot = parseFloat(findStat("SOT")?.value);
+  const expected_sp = parseFloat(findStat("SP")?.value);
+  const hasXG = Number.isFinite(expected_xg) || Number.isFinite(expected_xgot) || Number.isFinite(expected_sp);
 
   return (
     <Modal
@@ -5173,6 +5197,101 @@ const GoalShareCardModal = ({ visible, onClose, payload, theme, colors }) => {
                   </View>
                 )}
 
+                {hasXG && (
+                  <View
+                    style={[
+                      gscStyles.goalCardFieldPane,
+                      { width: 150 * FIELD_SCALE, borderRightColor: theme.border, paddingVertical: 6 },
+                    ]}
+                  >
+                    <View style={{ paddingHorizontal: 8, paddingVertical: 6 }}>
+                      <View style={gscStyles.expectedBlock}>
+                        <Text style={[gscStyles.expectedTitle, { color: theme.text }]}>Expected Stats</Text>
+
+                        {(() => {
+                          const formatByLabel = (label, val) => {
+                            if (!Number.isFinite(val)) return "-";
+                            const k = String(label || "").toLowerCase();
+                            if (k === "xg" || k === "xgot") return Number(val).toFixed(2);
+                            if (k === "sp") return Number(val).toFixed(4);
+                            return Number.isInteger(val) ? String(val) : Number(val).toFixed(1);
+                          };
+
+                          const renderPairBar = (leftVal, leftLabel, leftColor, rightVal, rightLabel, rightColor) => {
+                            const a = Number.isFinite(leftVal) ? leftVal : 0;
+                            const b = Number.isFinite(rightVal) ? rightVal : 0;
+                            const max = Math.max(a, b, 1);
+                            const pctA = (a / max) * 100;
+                            const pctB = (b / max) * 100;
+
+                            const SHOW_INSIDE_PCT = 20; // percent height required to render value inside bar
+
+                            const leftDisplay = formatByLabel(leftLabel, a);
+                            const rightDisplay = formatByLabel(rightLabel, b);
+
+                            const leftInsideColor = (String(leftLabel || "").toLowerCase() === "g" || String(leftLabel || "").toLowerCase() === "sot") ? textOnTeam : theme.text;
+                            const rightInsideColor = (String(rightLabel || "").toLowerCase() === "g" || String(rightLabel || "").toLowerCase() === "sot") ? textOnTeam : theme.text;
+
+                            const chartHeight = 80; // px
+
+                            return (
+                              <View style={gscStyles.expRow} key={`${leftLabel}-${rightLabel}`}>
+                                <View style={[gscStyles.expLabelsRow, { width: "100%" }]}> 
+                                  <Text style={[gscStyles.expLabel, { color: theme.textSecondary }]}>{leftLabel}</Text>
+                                  <Text style={[gscStyles.expLabel, { color: theme.textTertiary }]}> vs </Text>
+                                  <Text style={[gscStyles.expLabel, { color: theme.textSecondary }]}>{rightLabel}</Text>
+                                </View>
+
+                                <View style={[gscStyles.expChart, { height: chartHeight }] }>
+                                  <View style={gscStyles.expBarColumn}>
+                                    <View style={[gscStyles.expBarVerticalTrack, { backgroundColor: theme.border + "20" }]}>
+                                    {pctA < SHOW_INSIDE_PCT ? (
+                                      <Text style={[gscStyles.expBarValueAbove, { color: theme.text }]}>{leftDisplay}</Text>
+                                    ) : null}
+                                      <View style={[gscStyles.expBarVerticalFill, { height: `${pctA}%`, backgroundColor: leftColor }]}>
+                                        {pctA >= SHOW_INSIDE_PCT ? (
+                                          <Text numberOfLines={1} style={[gscStyles.expBarValueInside, { color: leftInsideColor }]}>{leftDisplay}</Text>
+                                        ) : null}
+                                      </View>
+                                    </View>
+                                    <Text style={[gscStyles.expBarLabel, { color: theme.textSecondary }]}>{leftLabel}</Text>
+                                  </View>
+
+                                  <View style={gscStyles.expBarColumn}>
+                                    <View style={[gscStyles.expBarVerticalTrack, { backgroundColor: theme.border + "20" }]}>
+                                    {pctB < SHOW_INSIDE_PCT ? (
+                                      <Text style={[gscStyles.expBarValueAbove, { color: theme.text }]}>{rightDisplay}</Text>
+                                    ) : null}
+                                      <View style={[gscStyles.expBarVerticalFill, { height: `${pctB}%`, backgroundColor: rightColor }]}>
+                                        {pctB >= SHOW_INSIDE_PCT ? (
+                                          <Text numberOfLines={1} style={[gscStyles.expBarValueInside, { color: rightInsideColor }]}>{rightDisplay}</Text>
+                                        ) : null}
+                                      </View>
+                                    </View>
+                                    <Text style={[gscStyles.expBarLabel, { color: theme.textSecondary }]}>{rightLabel}</Text>
+                                  </View>
+                                </View>
+                              </View>
+                            );
+                          };
+
+                          return (
+                            <>
+                              {renderPairBar(expected_xg, "xG", theme.border, expected_gls, "G", teamColor)}
+                              {renderPairBar(expected_xgot, "xGOT", theme.border, expected_sot, "SOT", teamColor)}
+
+                              <View style={[gscStyles.spRow, { alignItems: "center", marginTop: 6 }]}> 
+                                <Text style={[gscStyles.spValue, { color: theme.text }]}>{Number.isFinite(expected_sp) ? Number(expected_sp).toFixed(4) : "-"}</Text>
+                                <Text style={[gscStyles.spLabel, { color: theme.textSecondary }]}>{"Shooting Performance"}</Text>
+                              </View>
+                            </>
+                          );
+                        })()}
+                      </View>
+                    </View>
+                  </View>
+                )}
+
                 <View style={gscStyles.infoPanel}>
                   {playerImageUri ? (
                     <Image
@@ -5253,24 +5372,26 @@ const GoalShareCardModal = ({ visible, onClose, payload, theme, colors }) => {
                   )}
 
                   <View style={gscStyles.statsGrid}>
-                    {(payload?.statsItems ?? []).map((item) => (
-                      <View key={item.label} style={gscStyles.statCell}>
-                        <Text
-                          style={[gscStyles.statValue, { color: theme.text }]}
-                        >
-                          {item.value != null ? String(item.value) : "0"}
-                        </Text>
-                        <Text
-                          style={[
-                            gscStyles.statLabel,
-                            { color: theme.textSecondary },
-                          ]}
-                        >
-                          {item.label}
-                        </Text>
-                      </View>
-                    ))}
+                    {(payload?.statsItems ?? [])
+                      .filter((item) => {
+                        const k = String(item.label || "").toLowerCase();
+                        return k !== "xg" && k !== "xgot" && k !== "sp";
+                      })
+                      .map((item) => (
+                        <View key={item.label} style={gscStyles.statCell}>
+                          <Text style={[gscStyles.statValue, { color: theme.text }]}>
+                            {item.value != null ? String(item.value) : "0"}
+                          </Text>
+                          <Text
+                            style={[gscStyles.statLabel, { color: theme.textSecondary }]}
+                          >
+                            {item.label}
+                          </Text>
+                        </View>
+                      ))}
                   </View>
+
+                  {/* (moved) Expected Stats pane now renders as left sibling to player info */}
                 </View>
               </View>
 
@@ -10758,6 +10879,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   const [streamError, setStreamError] = useState(false);
   const [showStreamModal, setShowStreamModal] = useState(false);
   const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
+  const [activityInstance, setActivityInstance] = useState(null);
   const streamModalVisibleRef = useRef(false);
   useEffect(() => {
     streamModalVisibleRef.current = showStreamModal;
@@ -10768,70 +10890,6 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
     const id = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
-
-  // Live activity helpers (iOS only)
-  let FootballLiveActivityFactory = null;
-  try {
-    // Require/import at runtime so Android doesn't attempt to resolve native module
-    // The created module is a Live Activity factory exported by our component file.
-    FootballLiveActivityFactory =
-      require("../../../components/FootballLiveActivity").default;
-  } catch (e) {
-    FootballLiveActivityFactory = null;
-  }
-
-  const startLiveActivity = async () => {
-    if (Platform.OS !== "ios") {
-      Alert.alert(
-        "Live Activities",
-        "Live Activities are currently supported only on iOS.",
-      );
-      return;
-    }
-    if (!FootballLiveActivityFactory) {
-      Alert.alert("Live Activities", "Live Activity component not available.");
-      return;
-    }
-    try {
-      const resp = await fetch(
-        `${FOOTBALL_BASE}/football/game/${fixtureId}/live-activity`,
-      );
-      if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
-      const body = await resp.json();
-      const payload = body?.data?.activity;
-      if (!payload) throw new Error("No activity payload returned");
-
-      // optional deep link back into app
-      const url = `app://football/fixture/${fixtureId}`;
-
-      await FootballLiveActivityFactory.start(payload, url);
-      setLiveActivityActive(true);
-      Alert.alert("Live Activity", "Started");
-    } catch (err) {
-      console.error("startLiveActivity error:", err);
-      Alert.alert("Live Activity", `Failed to start: ${err.message}`);
-    }
-  };
-
-  const stopLiveActivity = async () => {
-    if (!FootballLiveActivityFactory) return;
-    try {
-      const instances =
-        (await FootballLiveActivityFactory.getInstances?.()) || [];
-      for (const inst of instances) {
-        try {
-          await inst.end?.();
-        } catch (e) {
-          console.warn("Failed to end instance", e?.message || e);
-        }
-      }
-      setLiveActivityActive(false);
-      Alert.alert("Live Activity", "Stopped");
-    } catch (err) {
-      console.error("stopLiveActivity error:", err);
-      Alert.alert("Live Activity", `Failed to stop: ${err.message}`);
-    }
-  };
 
   const dataRef = useRef(null);
   useEffect(() => {
@@ -11751,31 +11809,6 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 nowMs={nowMs}
                 snapshotTsMs={snapshotTsMs}
               />
-              {Platform.OS === "ios" ? (
-                <View style={{ marginTop: 8, flexDirection: "row", gap: 8 }}>
-                  <TouchableOpacity
-                    onPress={() =>
-                      liveActivityActive
-                        ? stopLiveActivity()
-                        : startLiveActivity()
-                    }
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 8,
-                      borderRadius: 8,
-                      backgroundColor: liveActivityActive
-                        ? "#d9534f"
-                        : colors.primary,
-                    }}
-                  >
-                    <Text style={{ color: "#fff", fontWeight: "700" }}>
-                      {liveActivityActive
-                        ? "Stop Live Activity"
-                        : "Start Live Activity"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ) : null}
               {(() => {
                 // Show penalty shootout (PEN) scores under status when match finishedb
                 const scores = fixture?.scores ?? [];
@@ -11840,7 +11873,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               })()}
 
               {/* Stream Button (center column) */}
-              {!isScheduledGame && !finished && (
+              {!isScheduledGame && !finished && isStreamingUnlocked && (
                 <TouchableOpacity
                   style={[styles.streamBtn, { borderColor: colors.primary }]}
                   onPress={openStreamModal}
@@ -16178,6 +16211,106 @@ const gscStyles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: "#fff",
+  },
+  /* Expected stats styles */
+  expectedBlock: {
+    width: "100%",
+    marginTop: -8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 2,
+  },
+  expectedTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    marginBottom: 10,
+    textTransform: "uppercase",
+  },
+  expRow: {
+    width: "100%",
+    marginBottom: 10,
+  },
+  expLabelsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    textAlign: "center",
+    marginBottom: 2,
+  },
+  expLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  expBarRow: {
+    flexDirection: "row",
+    height: 12,
+    borderRadius: 6,
+    overflow: "hidden",
+    marginBottom: 4,
+  },
+  expBar: {
+    height: "100%",
+    borderRadius: 6,
+  },
+  expValuesRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  expValue: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  expChart: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    paddingHorizontal: 8,
+  },
+  expBarColumn: {
+    width: "48%",
+    alignItems: "center",
+  },
+  expBarVerticalTrack: {
+    width: "48%",
+    height: "70%",
+    borderRadius: 6,
+    overflow: "hidden",
+    justifyContent: "flex-end",
+  },
+  expBarVerticalFill: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    paddingBottom: 6,
+  },
+  expBarValueInside: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  expBarValueAbove: {
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  expBarLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 6,
+  },
+  spRow: {
+    marginTop: 4,
+    alignItems: "center",
+    width: "100%",
+  },
+  spLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  spValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    marginTop: 2,
   },
 });
 

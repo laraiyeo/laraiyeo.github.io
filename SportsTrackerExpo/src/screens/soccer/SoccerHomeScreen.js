@@ -80,17 +80,20 @@ const SoccerHomeScreen = () => {
   const show = false; // Placeholder for future "show more" functionality
 
 const soccerLeagues = [
+  ...(!show)
+  ? [
   {
     id: "top5",
     name: "Football",
     flag: null,
     type: "competition",
-    mainLeague: { name: "TOP 5", logo: "23" },
+    mainLeague: { name: "Football", logo: "23" },
     competitions: [
       { name: "La Liga", logo: "15", position: "left" },
       { name: "Bundesliga", logo: "10", position: "right" },
     ],
   },
+] : [],
 
   ...(show
     ? [

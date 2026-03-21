@@ -135,8 +135,6 @@ const SettingsScreen = ({ navigation }) => {
   // Cache management state
   const [cacheStats, setCacheStats] = useState(null);
   const [isClearingCache, setIsClearingCache] = useState(false);
-  // Splash video preference
-  const [showSplashVideo, setShowSplashVideo] = useState(true);
 
   // Manual update check function
   const handleCheckForUpdates = async () => {
@@ -261,32 +259,7 @@ const SettingsScreen = ({ navigation }) => {
     checkStreamingUnlockStatus();
     checkUsernameChangeRestriction();
     loadCacheStats();
-    loadSplashPreference();
   }, []);
-
-  const loadSplashPreference = async () => {
-    try {
-      const stored = await AsyncStorage.getItem("@showSplashVideo");
-      if (stored === "false") setShowSplashVideo(false);
-      else setShowSplashVideo(true);
-    } catch (error) {
-      console.error("Error loading splash preference:", error);
-    }
-  };
-
-  const toggleShowSplashVideo = async (value) => {
-    try {
-      setShowSplashVideo(value);
-      await AsyncStorage.setItem("@showSplashVideo", value ? "true" : "false");
-      showBannerMessage(
-        value ? "Splash video enabled" : "Splash video disabled",
-        value ? "success" : "error"
-      );
-    } catch (error) {
-      console.error("Error saving splash preference:", error);
-      showBannerMessage("Error saving preference", "error");
-    }
-  };
 
   const checkStreamingUnlockStatus = async () => {
     try {
@@ -612,60 +585,6 @@ const SettingsScreen = ({ navigation }) => {
                   style={styles.appIconImage}
                   resizeMode="contain"
                 />
-              </View>
-            </View>
-
-            <View
-              style={[
-                styles.settingRow,
-                { borderTopWidth: 1, borderTopColor: theme.borderSecondary },
-              ]}
-            >
-              <View style={styles.settingInfo}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.settingLabel, { color: theme.text }]}
-                >
-                  Splash Video
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.settingDescription,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  Play animated splash video on startup
-                </Text>
-              </View>
-              <View style={{ justifyContent: "center" }}>
-                <TouchableOpacity
-                  onPress={() => toggleShowSplashVideo(!showSplashVideo)}
-                  activeOpacity={0.8}
-                >
-                  <View
-                    style={[
-                      styles.toggleButton,
-                      {
-                        backgroundColor: showSplashVideo
-                          ? colors.primary
-                          : theme.border,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.toggleThumb,
-                        {
-                          backgroundColor: showSplashVideo
-                            ? colors.accent
-                            : "#f4f3f4",
-                          transform: [{ translateX: showSplashVideo ? 22 : 2 }],
-                        },
-                      ]}
-                    />
-                  </View>
-                </TouchableOpacity>
               </View>
             </View>
           </View>

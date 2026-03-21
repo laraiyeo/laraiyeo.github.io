@@ -41,7 +41,7 @@ echo "🔬 Large Dependencies Analysis:"
 echo "Checking package.json for potentially large dependencies..."
 
 # Check for common large dependencies
-large_deps=("@react-native-firebase" "react-native-svg" "react-native-reanimated" "react-native-gesture-handler" "expo-av" "expo-camera" "react-native-video")
+large_deps=("@react-native-firebase" "react-native-svg" "react-native-reanimated" "react-native-gesture-handler" "expo-camera" "react-native-video")
 
 for dep in "${large_deps[@]}"; do
     if npm list "$dep" >/dev/null 2>&1; then

@@ -615,7 +615,7 @@ const StandingsScreen = ({ route }) => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: isPro ? 16 : 16 + AD_SPACE },
+            { paddingBottom: 16 },
           ]}
           onScrollBeginDrag={() => dropdownOpen && setDropdownOpen(false)}
         >
@@ -672,7 +672,7 @@ const StandingsScreen = ({ route }) => {
             {
               backgroundColor: theme.surface,
               borderTopColor: theme.border,
-              marginBottom: isPro ? 0 : AD_SPACE,
+              marginBottom: isPro ? 0 : AD_SPACE - 13,
             },
           ]}
         >

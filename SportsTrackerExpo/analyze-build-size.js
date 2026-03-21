@@ -112,7 +112,6 @@ try {
     "react-native-svg",
     "react-native-reanimated",
     "react-native-gesture-handler",
-    "expo-av",
     "expo-camera",
     "react-native-video",
     "react-native-maps",
