@@ -9,13 +9,16 @@ class AnalyticsService {
     // Detect Expo Go / managed client
     this.isExpoGo = Constants.appOwnership === "expo";
     // Allow opting into analytics during development via config or env var
-    const extra = (Constants.manifest && Constants.manifest.extra) ||
-      (Constants.expoConfig && Constants.expoConfig.extra) || {};
-    this.allowAnalyticsInDev =
-      !!(
-        extra.enableAnalyticsInDev ||
-        (typeof process !== "undefined" && process.env && process.env.EXPO_ENABLE_ANALYTICS_IN_DEV === "1")
-      );
+    const extra =
+      (Constants.manifest && Constants.manifest.extra) ||
+      (Constants.expoConfig && Constants.expoConfig.extra) ||
+      {};
+    this.allowAnalyticsInDev = !!(
+      extra.enableAnalyticsInDev ||
+      (typeof process !== "undefined" &&
+        process.env &&
+        process.env.EXPO_ENABLE_ANALYTICS_IN_DEV === "1")
+    );
     this._analyticsModule = null; // will hold dynamic import of native analytics
     this._analytics = null; // will hold analytics instance and function refs
   }
@@ -25,17 +28,23 @@ class AnalyticsService {
       // Determine whether native analytics should be initialized.
       // Follow UpdateService logic: prefer native only for standalone/bare non-dev builds,
       // but allow forcing analytics in dev via `enableAnalyticsInDev`.
-      const isNativeEnv = Platform.OS !== 'web' && (Constants.executionEnvironment === 'standalone' || Constants.executionEnvironment === 'bare');
-      const shouldInitNative = (!__DEV__ && isNativeEnv) || this.allowAnalyticsInDev;
+      const isNativeEnv =
+        Platform.OS !== "web" &&
+        (Constants.executionEnvironment === "standalone" ||
+          Constants.executionEnvironment === "bare");
+      const shouldInitNative =
+        (!__DEV__ && isNativeEnv) || this.allowAnalyticsInDev;
       if (!shouldInitNative) {
-        console.log('Firebase Analytics: Skipping native initialization (not standalone/bare or not enabled in dev)');
+        console.log(
+          "Firebase Analytics: Skipping native initialization (not standalone/bare or not enabled in dev)",
+        );
         return;
       }
 
       // Check if Firebase app is available (web SDK)
       if (!app) {
         console.warn(
-          "Firebase app not available, skipping analytics initialization"
+          "Firebase app not available, skipping analytics initialization",
         );
         return;
       }
@@ -43,19 +52,32 @@ class AnalyticsService {
       // Dynamically import the native analytics module to avoid errors in Expo Go
       try {
         // Dynamically import analytics and app modules
-        const analyticsModule = await import("@react-native-firebase/analytics");
+        const analyticsModule =
+          await import("@react-native-firebase/analytics");
         const appModule = await import("@react-native-firebase/app");
 
         // Resolve helpers for both modular (v22+) and namespaced APIs
-        const getApp = appModule.getApp || (appModule.default && appModule.default.getApp);
-        const getAnalytics = analyticsModule.getAnalytics || (analyticsModule.default && analyticsModule.default.getAnalytics);
+        const getApp =
+          appModule.getApp || (appModule.default && appModule.default.getApp);
+        const getAnalytics =
+          analyticsModule.getAnalytics ||
+          (analyticsModule.default && analyticsModule.default.getAnalytics);
         const setAnalyticsCollectionEnabledFn =
           analyticsModule.setAnalyticsCollectionEnabled ||
-          (analyticsModule.default && analyticsModule.default.setAnalyticsCollectionEnabled);
-        const logEventFn = analyticsModule.logEvent || (analyticsModule.default && analyticsModule.default.logEvent);
-        const setUserIdFn = analyticsModule.setUserId || (analyticsModule.default && analyticsModule.default.setUserId);
-        const setUserPropertyFn = analyticsModule.setUserProperty || (analyticsModule.default && analyticsModule.default.setUserProperty);
-        const logScreenViewFn = analyticsModule.logScreenView || (analyticsModule.default && analyticsModule.default.logScreenView);
+          (analyticsModule.default &&
+            analyticsModule.default.setAnalyticsCollectionEnabled);
+        const logEventFn =
+          analyticsModule.logEvent ||
+          (analyticsModule.default && analyticsModule.default.logEvent);
+        const setUserIdFn =
+          analyticsModule.setUserId ||
+          (analyticsModule.default && analyticsModule.default.setUserId);
+        const setUserPropertyFn =
+          analyticsModule.setUserProperty ||
+          (analyticsModule.default && analyticsModule.default.setUserProperty);
+        const logScreenViewFn =
+          analyticsModule.logScreenView ||
+          (analyticsModule.default && analyticsModule.default.logScreenView);
 
         // Create analytics instance (prefer modular getAnalytics(getApp()))
         let analyticsInstance = null;
@@ -65,34 +87,60 @@ class AnalyticsService {
           } else if (typeof analyticsModule === "function") {
             // older namespaced default export (analytics())
             analyticsInstance = analyticsModule();
-          } else if (analyticsModule && analyticsModule.default && typeof analyticsModule.default === "function") {
+          } else if (
+            analyticsModule &&
+            analyticsModule.default &&
+            typeof analyticsModule.default === "function"
+          ) {
             analyticsInstance = analyticsModule.default();
           }
         } catch (e) {
           console.warn("Failed to obtain analytics instance:", e.message || e);
         }
 
-        const analyticsEnabled = !this.isDevelopment || this.allowAnalyticsInDev;
+        const analyticsEnabled =
+          !this.isDevelopment || this.allowAnalyticsInDev;
 
         // Call the appropriate setAnalyticsCollectionEnabled variant
         try {
           if (setAnalyticsCollectionEnabledFn) {
             // modular: setAnalyticsCollectionEnabled(analyticsInstance, enabled)
-            if (analyticsInstance && setAnalyticsCollectionEnabledFn.length >= 2) {
-              await setAnalyticsCollectionEnabledFn(analyticsInstance, analyticsEnabled);
+            if (
+              analyticsInstance &&
+              setAnalyticsCollectionEnabledFn.length >= 2
+            ) {
+              await setAnalyticsCollectionEnabledFn(
+                analyticsInstance,
+                analyticsEnabled,
+              );
             } else {
               // namespaced: analyticsInstance.setAnalyticsCollectionEnabled(enabled) or setAnalyticsCollectionEnabled(enabled)
-              if (analyticsInstance && typeof analyticsInstance.setAnalyticsCollectionEnabled === "function") {
-                await analyticsInstance.setAnalyticsCollectionEnabled(analyticsEnabled);
+              if (
+                analyticsInstance &&
+                typeof analyticsInstance.setAnalyticsCollectionEnabled ===
+                  "function"
+              ) {
+                await analyticsInstance.setAnalyticsCollectionEnabled(
+                  analyticsEnabled,
+                );
               } else {
                 await setAnalyticsCollectionEnabledFn(analyticsEnabled);
               }
             }
-          } else if (analyticsInstance && typeof analyticsInstance.setAnalyticsCollectionEnabled === "function") {
-            await analyticsInstance.setAnalyticsCollectionEnabled(analyticsEnabled);
+          } else if (
+            analyticsInstance &&
+            typeof analyticsInstance.setAnalyticsCollectionEnabled ===
+              "function"
+          ) {
+            await analyticsInstance.setAnalyticsCollectionEnabled(
+              analyticsEnabled,
+            );
           }
         } catch (e) {
-          console.warn("Failed to set analytics collection flag:", e.message || e);
+          console.warn(
+            "Failed to set analytics collection flag:",
+            e.message || e,
+          );
         }
 
         // Save resolved refs for later use
@@ -108,7 +156,10 @@ class AnalyticsService {
         };
 
         this.initialized = true;
-        console.log("Firebase Analytics initialized successfully; analyticsEnabled=", analyticsEnabled);
+        console.log(
+          "Firebase Analytics initialized successfully; analyticsEnabled=",
+          analyticsEnabled,
+        );
 
         // Log app open event
         this.logEvent("app_open", {
@@ -119,7 +170,7 @@ class AnalyticsService {
         // If native module not available, skip gracefully
         console.warn(
           "Native Firebase Analytics not available:",
-          err.message || err
+          err.message || err,
         );
         return;
       }
@@ -134,7 +185,7 @@ class AnalyticsService {
         console.log(
           `Analytics Event (${this.isExpoGo ? "Expo Go" : "Not Initialized"}):`,
           eventName,
-          parameters
+          parameters,
         );
         return;
       }
@@ -196,7 +247,8 @@ class AnalyticsService {
 
       const { instance, fn } = this._analytics;
       if (fn && typeof fn.setUserProperty === "function") {
-        if (fn.setUserProperty.length >= 2) await fn.setUserProperty(instance, name, value);
+        if (fn.setUserProperty.length >= 2)
+          await fn.setUserProperty(instance, name, value);
         else await fn.setUserProperty(name, value);
         console.log("Analytics User Property set:", name, value);
         return;
@@ -216,15 +268,19 @@ class AnalyticsService {
       if (!this.initialized || this.isExpoGo || !this._analytics) {
         console.log(
           `Screen View (${this.isExpoGo ? "Expo Go" : "Not Initialized"}):`,
-          screenName
+          screenName,
         );
         return;
       }
 
       const { instance, fn } = this._analytics;
-      const payload = { screen_name: screenName, screen_class: screenClass || screenName };
+      const payload = {
+        screen_name: screenName,
+        screen_class: screenClass || screenName,
+      };
       if (fn && typeof fn.logScreenView === "function") {
-        if (fn.logScreenView.length >= 2) await fn.logScreenView(instance, payload);
+        if (fn.logScreenView.length >= 2)
+          await fn.logScreenView(instance, payload);
         else await fn.logScreenView(payload);
         console.log("Screen View Logged:", screenName);
         return;

@@ -668,9 +668,24 @@ const buildGoalShareStats = (lineup, isOwnGoal) => {
     yc: getLineupDetailStat(lineup, "yellowcards", "yellowcard"),
     og: getLineupDetailStat(lineup, "owngoals", "owngoal"),
     // Expected stats
-    xg: getLineupDetailStat(lineup, "Expected Goals (xG)", "xg", "expected goals"),
-    xgot: getLineupDetailStat(lineup, "Expected Goals on Target (xGoT)", "xgot", "expected goals on target"),
-    sp: getLineupDetailStat(lineup, "Shooting Performance (SP)", "sp", "shooting performance"),
+    xg: getLineupDetailStat(
+      lineup,
+      "Expected Goals (xG)",
+      "xg",
+      "expected goals",
+    ),
+    xgot: getLineupDetailStat(
+      lineup,
+      "Expected Goals on Target (xGoT)",
+      "xgot",
+      "expected goals on target",
+    ),
+    sp: getLineupDetailStat(
+      lineup,
+      "Shooting Performance (SP)",
+      "sp",
+      "shooting performance",
+    ),
   };
 
   if (isOwnGoal) {
@@ -3836,7 +3851,8 @@ const CommentarySection = ({
       const lineup = playerMeta?.lineup ?? null;
       const player = lineup?.player ?? null;
       const playerName =
-        player?.display_name || player?.name ||
+        player?.display_name ||
+        player?.name ||
         `${player?.firstname ?? ""} ${player?.lastname ?? ""}`.trim() ||
         goalEvent?.player_name ||
         "Unknown Player";
@@ -5058,7 +5074,10 @@ const GoalShareCardModal = ({ visible, onClose, payload, theme, colors }) => {
   const expected_xgot = parseFloat(findStat("xGoT")?.value);
   const expected_sot = parseFloat(findStat("SOT")?.value);
   const expected_sp = parseFloat(findStat("SP")?.value);
-  const hasXG = Number.isFinite(expected_xg) || Number.isFinite(expected_xgot) || Number.isFinite(expected_sp);
+  const hasXG =
+    Number.isFinite(expected_xg) ||
+    Number.isFinite(expected_xgot) ||
+    Number.isFinite(expected_sp);
 
   return (
     <Modal
@@ -5201,23 +5220,44 @@ const GoalShareCardModal = ({ visible, onClose, payload, theme, colors }) => {
                   <View
                     style={[
                       gscStyles.goalCardFieldPane,
-                      { width: 150 * FIELD_SCALE, borderRightColor: theme.border, paddingVertical: 6 },
+                      {
+                        width: 150 * FIELD_SCALE,
+                        borderRightColor: theme.border,
+                        paddingVertical: 6,
+                      },
                     ]}
                   >
                     <View style={{ paddingHorizontal: 8, paddingVertical: 6 }}>
                       <View style={gscStyles.expectedBlock}>
-                        <Text style={[gscStyles.expectedTitle, { color: theme.text }]}>Expected Stats</Text>
+                        <Text
+                          style={[
+                            gscStyles.expectedTitle,
+                            { color: theme.text },
+                          ]}
+                        >
+                          Expected Stats
+                        </Text>
 
                         {(() => {
                           const formatByLabel = (label, val) => {
                             if (!Number.isFinite(val)) return "-";
                             const k = String(label || "").toLowerCase();
-                            if (k === "xg" || k === "xgot") return Number(val).toFixed(2);
+                            if (k === "xg" || k === "xgot")
+                              return Number(val).toFixed(2);
                             if (k === "sp") return Number(val).toFixed(4);
-                            return Number.isInteger(val) ? String(val) : Number(val).toFixed(1);
+                            return Number.isInteger(val)
+                              ? String(val)
+                              : Number(val).toFixed(1);
                           };
 
-                          const renderPairBar = (leftVal, leftLabel, leftColor, rightVal, rightLabel, rightColor) => {
+                          const renderPairBar = (
+                            leftVal,
+                            leftLabel,
+                            leftColor,
+                            rightVal,
+                            rightLabel,
+                            rightColor,
+                          ) => {
                             const a = Number.isFinite(leftVal) ? leftVal : 0;
                             const b = Number.isFinite(rightVal) ? rightVal : 0;
                             const max = Math.max(a, b, 1);
@@ -5229,46 +5269,163 @@ const GoalShareCardModal = ({ visible, onClose, payload, theme, colors }) => {
                             const leftDisplay = formatByLabel(leftLabel, a);
                             const rightDisplay = formatByLabel(rightLabel, b);
 
-                            const leftInsideColor = (String(leftLabel || "").toLowerCase() === "g" || String(leftLabel || "").toLowerCase() === "sot") ? textOnTeam : theme.text;
-                            const rightInsideColor = (String(rightLabel || "").toLowerCase() === "g" || String(rightLabel || "").toLowerCase() === "sot") ? textOnTeam : theme.text;
+                            const leftInsideColor =
+                              String(leftLabel || "").toLowerCase() === "g" ||
+                              String(leftLabel || "").toLowerCase() === "sot"
+                                ? textOnTeam
+                                : theme.text;
+                            const rightInsideColor =
+                              String(rightLabel || "").toLowerCase() === "g" ||
+                              String(rightLabel || "").toLowerCase() === "sot"
+                                ? textOnTeam
+                                : theme.text;
 
                             const chartHeight = 80; // px
 
                             return (
-                              <View style={gscStyles.expRow} key={`${leftLabel}-${rightLabel}`}>
-                                <View style={[gscStyles.expLabelsRow, { width: "100%" }]}> 
-                                  <Text style={[gscStyles.expLabel, { color: theme.textSecondary }]}>{leftLabel}</Text>
-                                  <Text style={[gscStyles.expLabel, { color: theme.textTertiary }]}> vs </Text>
-                                  <Text style={[gscStyles.expLabel, { color: theme.textSecondary }]}>{rightLabel}</Text>
+                              <View
+                                style={gscStyles.expRow}
+                                key={`${leftLabel}-${rightLabel}`}
+                              >
+                                <View
+                                  style={[
+                                    gscStyles.expLabelsRow,
+                                    { width: "100%" },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      gscStyles.expLabel,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    {leftLabel}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      gscStyles.expLabel,
+                                      { color: theme.textTertiary },
+                                    ]}
+                                  >
+                                    {" "}
+                                    vs{" "}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      gscStyles.expLabel,
+                                      { color: theme.textSecondary },
+                                    ]}
+                                  >
+                                    {rightLabel}
+                                  </Text>
                                 </View>
 
-                                <View style={[gscStyles.expChart, { height: chartHeight }] }>
+                                <View
+                                  style={[
+                                    gscStyles.expChart,
+                                    { height: chartHeight },
+                                  ]}
+                                >
                                   <View style={gscStyles.expBarColumn}>
-                                    <View style={[gscStyles.expBarVerticalTrack, { backgroundColor: theme.border + "20" }]}>
-                                    {pctA < SHOW_INSIDE_PCT ? (
-                                      <Text style={[gscStyles.expBarValueAbove, { color: theme.text }]}>{leftDisplay}</Text>
-                                    ) : null}
-                                      <View style={[gscStyles.expBarVerticalFill, { height: `${pctA}%`, backgroundColor: leftColor }]}>
+                                    <View
+                                      style={[
+                                        gscStyles.expBarVerticalTrack,
+                                        {
+                                          backgroundColor: theme.border + "20",
+                                        },
+                                      ]}
+                                    >
+                                      {pctA < SHOW_INSIDE_PCT ? (
+                                        <Text
+                                          style={[
+                                            gscStyles.expBarValueAbove,
+                                            { color: theme.text },
+                                          ]}
+                                        >
+                                          {leftDisplay}
+                                        </Text>
+                                      ) : null}
+                                      <View
+                                        style={[
+                                          gscStyles.expBarVerticalFill,
+                                          {
+                                            height: `${pctA}%`,
+                                            backgroundColor: leftColor,
+                                          },
+                                        ]}
+                                      >
                                         {pctA >= SHOW_INSIDE_PCT ? (
-                                          <Text numberOfLines={1} style={[gscStyles.expBarValueInside, { color: leftInsideColor }]}>{leftDisplay}</Text>
+                                          <Text
+                                            numberOfLines={1}
+                                            style={[
+                                              gscStyles.expBarValueInside,
+                                              { color: leftInsideColor },
+                                            ]}
+                                          >
+                                            {leftDisplay}
+                                          </Text>
                                         ) : null}
                                       </View>
                                     </View>
-                                    <Text style={[gscStyles.expBarLabel, { color: theme.textSecondary }]}>{leftLabel}</Text>
+                                    <Text
+                                      style={[
+                                        gscStyles.expBarLabel,
+                                        { color: theme.textSecondary },
+                                      ]}
+                                    >
+                                      {leftLabel}
+                                    </Text>
                                   </View>
 
                                   <View style={gscStyles.expBarColumn}>
-                                    <View style={[gscStyles.expBarVerticalTrack, { backgroundColor: theme.border + "20" }]}>
-                                    {pctB < SHOW_INSIDE_PCT ? (
-                                      <Text style={[gscStyles.expBarValueAbove, { color: theme.text }]}>{rightDisplay}</Text>
-                                    ) : null}
-                                      <View style={[gscStyles.expBarVerticalFill, { height: `${pctB}%`, backgroundColor: rightColor }]}>
+                                    <View
+                                      style={[
+                                        gscStyles.expBarVerticalTrack,
+                                        {
+                                          backgroundColor: theme.border + "20",
+                                        },
+                                      ]}
+                                    >
+                                      {pctB < SHOW_INSIDE_PCT ? (
+                                        <Text
+                                          style={[
+                                            gscStyles.expBarValueAbove,
+                                            { color: theme.text },
+                                          ]}
+                                        >
+                                          {rightDisplay}
+                                        </Text>
+                                      ) : null}
+                                      <View
+                                        style={[
+                                          gscStyles.expBarVerticalFill,
+                                          {
+                                            height: `${pctB}%`,
+                                            backgroundColor: rightColor,
+                                          },
+                                        ]}
+                                      >
                                         {pctB >= SHOW_INSIDE_PCT ? (
-                                          <Text numberOfLines={1} style={[gscStyles.expBarValueInside, { color: rightInsideColor }]}>{rightDisplay}</Text>
+                                          <Text
+                                            numberOfLines={1}
+                                            style={[
+                                              gscStyles.expBarValueInside,
+                                              { color: rightInsideColor },
+                                            ]}
+                                          >
+                                            {rightDisplay}
+                                          </Text>
                                         ) : null}
                                       </View>
                                     </View>
-                                    <Text style={[gscStyles.expBarLabel, { color: theme.textSecondary }]}>{rightLabel}</Text>
+                                    <Text
+                                      style={[
+                                        gscStyles.expBarLabel,
+                                        { color: theme.textSecondary },
+                                      ]}
+                                    >
+                                      {rightLabel}
+                                    </Text>
                                   </View>
                                 </View>
                               </View>
@@ -5277,12 +5434,47 @@ const GoalShareCardModal = ({ visible, onClose, payload, theme, colors }) => {
 
                           return (
                             <>
-                              {renderPairBar(expected_xg, "xG", theme.border, expected_gls, "G", teamColor)}
-                              {renderPairBar(expected_xgot, "xGOT", theme.border, expected_sot, "SOT", teamColor)}
+                              {renderPairBar(
+                                expected_xg,
+                                "xG",
+                                theme.border,
+                                expected_gls,
+                                "G",
+                                teamColor,
+                              )}
+                              {renderPairBar(
+                                expected_xgot,
+                                "xGOT",
+                                theme.border,
+                                expected_sot,
+                                "SOT",
+                                teamColor,
+                              )}
 
-                              <View style={[gscStyles.spRow, { alignItems: "center", marginTop: 6 }]}> 
-                                <Text style={[gscStyles.spValue, { color: theme.text }]}>{Number.isFinite(expected_sp) ? Number(expected_sp).toFixed(4) : "-"}</Text>
-                                <Text style={[gscStyles.spLabel, { color: theme.textSecondary }]}>{"Shooting Performance"}</Text>
+                              <View
+                                style={[
+                                  gscStyles.spRow,
+                                  { alignItems: "center", marginTop: 6 },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    gscStyles.spValue,
+                                    { color: theme.text },
+                                  ]}
+                                >
+                                  {Number.isFinite(expected_sp)
+                                    ? Number(expected_sp).toFixed(4)
+                                    : "-"}
+                                </Text>
+                                <Text
+                                  style={[
+                                    gscStyles.spLabel,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  {"Shooting Performance"}
+                                </Text>
                               </View>
                             </>
                           );
@@ -5379,11 +5571,16 @@ const GoalShareCardModal = ({ visible, onClose, payload, theme, colors }) => {
                       })
                       .map((item) => (
                         <View key={item.label} style={gscStyles.statCell}>
-                          <Text style={[gscStyles.statValue, { color: theme.text }]}>
+                          <Text
+                            style={[gscStyles.statValue, { color: theme.text }]}
+                          >
                             {item.value != null ? String(item.value) : "0"}
                           </Text>
                           <Text
-                            style={[gscStyles.statLabel, { color: theme.textSecondary }]}
+                            style={[
+                              gscStyles.statLabel,
+                              { color: theme.textSecondary },
+                            ]}
                           >
                             {item.label}
                           </Text>

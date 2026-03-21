@@ -141,11 +141,11 @@ const SplashScreen = ({ onFinish }) => {
         { backgroundColor: isDarkMode ? "#000000" : "#ffffff" },
       ]}
     >
-        <Image
-          source={splashAssets.image}
-          style={{ width: finalWidth, height: finalHeight }}
-          resizeMode="contain"
-        />
+      <Image
+        source={splashAssets.image}
+        style={{ width: finalWidth, height: finalHeight }}
+        resizeMode="contain"
+      />
     </View>
   );
 };

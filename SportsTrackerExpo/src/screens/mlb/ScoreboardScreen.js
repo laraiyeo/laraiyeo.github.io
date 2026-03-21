@@ -111,52 +111,149 @@ const DatePickerBar = ({
   }, [selectedDateStr, selectedIdx, scrollToIdx, scrollW]);
 
   return (
-    <View style={[dateBarStyles.outerWrapper, { backgroundColor: theme.background }]}>
+    <View
+      style={[
+        dateBarStyles.outerWrapper,
+        { backgroundColor: theme.background },
+      ]}
+    >
       <View style={dateBarStyles.wrapper}>
-        <View style={dateBarStyles.scrollArea} onLayout={(e) => setScrollW(e.nativeEvent.layout.width)}>
-          <ScrollView ref={scrollRef} horizontal showsHorizontalScrollIndicator={false} scrollEventThrottle={16}>
+        <View
+          style={dateBarStyles.scrollArea}
+          onLayout={(e) => setScrollW(e.nativeEvent.layout.width)}
+        >
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+          >
             {dates.map((date, idx) => {
               const ds = toDateStr(date);
               const isSelected = ds === selectedDateStr;
               const dist = Math.abs(idx - selectedIdx);
-              const opacity = dist === 0 ? 1 : dist === 1 ? 0.6 : dist === 2 ? 0.35 : 0.18;
+              const opacity =
+                dist === 0 ? 1 : dist === 1 ? 0.6 : dist === 2 ? 0.35 : 0.18;
               return (
-                <TouchableOpacity key={ds} style={dateBarStyles.item} onPress={() => onSelect(ds)} activeOpacity={0.7}>
-                  <Text style={[dateBarStyles.itemText, { color: isSelected ? colors.primary : theme.text, fontWeight: isSelected ? '700' : '500', opacity }]} numberOfLines={1}>
+                <TouchableOpacity
+                  key={ds}
+                  style={dateBarStyles.item}
+                  onPress={() => onSelect(ds)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      dateBarStyles.itemText,
+                      {
+                        color: isSelected ? colors.primary : theme.text,
+                        fontWeight: isSelected ? "700" : "500",
+                        opacity,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
                     {getDateLabel(date)}
                   </Text>
-                  <View style={[dateBarStyles.itemIndicator, { backgroundColor: isSelected ? colors.primary : 'transparent' }]} />
+                  <View
+                    style={[
+                      dateBarStyles.itemIndicator,
+                      {
+                        backgroundColor: isSelected
+                          ? colors.primary
+                          : "transparent",
+                      },
+                    ]}
+                  />
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
 
-          <Svg style={{ position: 'absolute', top: 0, left: 0, width: DATE_FADE_W, height: DATE_BAR_H }} width={DATE_FADE_W} height={DATE_BAR_H} pointerEvents="none">
+          <Svg
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: DATE_FADE_W,
+              height: DATE_BAR_H,
+            }}
+            width={DATE_FADE_W}
+            height={DATE_BAR_H}
+            pointerEvents="none"
+          >
             <Defs>
               <LinearGradient id="dfL_mlb" x1="0%" y1="0%" x2="100%" y2="0%">
-                <Stop offset="0%" stopColor={theme.background} stopOpacity="1" />
-                <Stop offset="100%" stopColor={theme.background} stopOpacity="0" />
+                <Stop
+                  offset="0%"
+                  stopColor={theme.background}
+                  stopOpacity="1"
+                />
+                <Stop
+                  offset="100%"
+                  stopColor={theme.background}
+                  stopOpacity="0"
+                />
               </LinearGradient>
             </Defs>
-            <Rect x={0} y={0} width={DATE_FADE_W} height={DATE_BAR_H} fill="url(#dfL_mlb)" />
+            <Rect
+              x={0}
+              y={0}
+              width={DATE_FADE_W}
+              height={DATE_BAR_H}
+              fill="url(#dfL_mlb)"
+            />
           </Svg>
 
-          <Svg style={{ position: 'absolute', top: 0, right: 0, width: DATE_FADE_W, height: DATE_BAR_H }} width={DATE_FADE_W} height={DATE_BAR_H} pointerEvents="none">
+          <Svg
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              width: DATE_FADE_W,
+              height: DATE_BAR_H,
+            }}
+            width={DATE_FADE_W}
+            height={DATE_BAR_H}
+            pointerEvents="none"
+          >
             <Defs>
               <LinearGradient id="dfR_mlb" x1="100%" y1="0%" x2="0%" y2="0%">
-                <Stop offset="0%" stopColor={theme.background} stopOpacity="1" />
-                <Stop offset="100%" stopColor={theme.background} stopOpacity="0" />
+                <Stop
+                  offset="0%"
+                  stopColor={theme.background}
+                  stopOpacity="1"
+                />
+                <Stop
+                  offset="100%"
+                  stopColor={theme.background}
+                  stopOpacity="0"
+                />
               </LinearGradient>
             </Defs>
-            <Rect x={0} y={0} width={DATE_FADE_W} height={DATE_BAR_H} fill="url(#dfR_mlb)" />
+            <Rect
+              x={0}
+              y={0}
+              width={DATE_FADE_W}
+              height={DATE_BAR_H}
+              fill="url(#dfR_mlb)"
+            />
           </Svg>
         </View>
 
-        <TouchableOpacity onPress={toggleViewMode} style={dateBarStyles.toggleBtn}>
-          <Ionicons name={isGridView ? 'list-outline' : 'grid-outline'} size={22} color={theme.text} />
+        <TouchableOpacity
+          onPress={toggleViewMode}
+          style={dateBarStyles.toggleBtn}
+        >
+          <Ionicons
+            name={isGridView ? "list-outline" : "grid-outline"}
+            size={22}
+            color={theme.text}
+          />
         </TouchableOpacity>
       </View>
-      <View style={[dateBarStyles.separator, { backgroundColor: theme.border }]} />
+      <View
+        style={[dateBarStyles.separator, { backgroundColor: theme.border }]}
+      />
     </View>
   );
 };
@@ -1277,21 +1374,21 @@ const MLBScoreboardScreen = ({ navigation }) => {
         if (!silent) setLoading(true);
         else if (!background) setFetching(true);
         try {
-            let startDate, endDate;
-            // support date-string filter from DatePickerBar (YYYYMMDD)
-            if (/^\d{8}$/.test(String(filter))) {
-              const y = Number(String(filter).slice(0, 4));
-              const m = Number(String(filter).slice(4, 6)) - 1;
-              const d = Number(String(filter).slice(6, 8));
-              const dt = new Date(y, m, d);
-              startDate = formatDate(dt);
-              endDate = formatDate(dt);
-            } else {
-              const tmp = getDatesForFilter(filter);
-              startDate = tmp.startDate;
-              endDate = tmp.endDate;
-            }
-            const data = await MLBService.getScoreboard(startDate, endDate);
+          let startDate, endDate;
+          // support date-string filter from DatePickerBar (YYYYMMDD)
+          if (/^\d{8}$/.test(String(filter))) {
+            const y = Number(String(filter).slice(0, 4));
+            const m = Number(String(filter).slice(4, 6)) - 1;
+            const d = Number(String(filter).slice(6, 8));
+            const dt = new Date(y, m, d);
+            startDate = formatDate(dt);
+            endDate = formatDate(dt);
+          } else {
+            const tmp = getDatesForFilter(filter);
+            startDate = tmp.startDate;
+            endDate = tmp.endDate;
+          }
+          const data = await MLBService.getScoreboard(startDate, endDate);
 
           let events = data?.events || [];
 
@@ -1326,7 +1423,10 @@ const MLBScoreboardScreen = ({ navigation }) => {
 
           // For upcoming filter, default groups to collapsed (unless user toggled before)
           if (
-            filter === "upcoming" || (typeof filter === 'string' && /^\d{8}$/.test(filter) && filter > getTodayDateStr())
+            filter === "upcoming" ||
+            (typeof filter === "string" &&
+              /^\d{8}$/.test(filter) &&
+              filter > getTodayDateStr())
           ) {
             setCollapsedGroups((prev) => {
               const map = { ...prev };
@@ -1518,9 +1618,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
           )}
         </View>
 
-        <View
-          style={[styles.bottomPadding, { height: 40 }]}
-        />
+        <View style={[styles.bottomPadding, { height: 40 }]} />
       </ScrollView>
       {!isPro && (
         <View
