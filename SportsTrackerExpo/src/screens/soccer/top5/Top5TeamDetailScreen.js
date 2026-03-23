@@ -1571,7 +1571,7 @@ const sdStyles = StyleSheet.create({
 
 // ─── UEFA Ranking ─────────────────────────────────────────────────────────────
 
-const UEFA_LOGO = require("../../../../assets/UEFA_full_logo (1).png");
+const UEFA_LOGO = require("../../../../assets/UEFA_1.png");
 
 function UEFARanking({ teamInfo, theme, colors }) {
   const uefaRanking = teamInfo?.rankings?.find((r) => r.type === "UEFA");

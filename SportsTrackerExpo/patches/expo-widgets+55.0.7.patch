@@ -1,0 +1,91 @@
+diff --git a/node_modules/expo-widgets/ios/ExpoWidgets.podspec b/node_modules/expo-widgets/ios/ExpoWidgets.podspec
+index 93e4038..a426fd3 100644
+--- a/node_modules/expo-widgets/ios/ExpoWidgets.podspec
++++ b/node_modules/expo-widgets/ios/ExpoWidgets.podspec
+@@ -47,8 +47,9 @@ Pod::Spec.new do |s|
+     :script => %Q{
+       echo "Preparing ExpoWidgets.bundle..."
+       source="#{__dir__}/../bundle/build/ExpoWidgets.bundle"
+-      dest="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoWidgets.bundle"
++      dest="${BUILT_PRODUCTS_DIR}/ExpoWidgets.bundle"
+       echo "Copying ${source} to ${dest}"
++      mkdir -p "$(dirname "${dest}")"
+       cp "${source}" "${dest}"
+     },
+     :execution_position => :before_compile,
+diff --git a/node_modules/expo-widgets/ios/Widgets/EntryView.swift b/node_modules/expo-widgets/ios/Widgets/EntryView.swift
+index 947fc2e..47b3bd3 100644
+--- a/node_modules/expo-widgets/ios/Widgets/EntryView.swift
++++ b/node_modules/expo-widgets/ios/Widgets/EntryView.swift
+@@ -31,7 +31,7 @@ public struct WidgetsEntryView: View {
+     if let node {
+       if #available(iOS 17.0, *) {
+         WidgetsDynamicView(name: entry.name, kind: .widget, node: node, entryIndex: entry.entryIndex, environmentString: widgetEnvironmentString)
+-          .containerBackground(.clear, for: .widget)
++          .containerBackground(Self.extractContainerBackground(from: node), for: .widget)
+       } else {
+         WidgetsDynamicView(name: entry.name, kind: .widget, node: node, entryIndex: entry.entryIndex, environmentString: widgetEnvironmentString)
+       }
+@@ -39,4 +39,41 @@ public struct WidgetsEntryView: View {
+       EmptyView()
+     }
+   }
++
++  /// Extracts the background color from the root node's modifiers to propagate
++  /// it as the containerBackground. This ensures the system-applied padding area
++  /// matches the content background, eliminating visible borders on iOS 17+.
++  ///
++  /// Node structure: node["props"]["modifiers"][N]["$type"] == "background"
++  ///                 node["props"]["modifiers"][N]["color"] == "#RRGGBB"
++  private static func extractContainerBackground(from node: [String: Any]) -> Color {
++    guard
++      let props = node["props"] as? [String: Any],
++      let modifiers = props["modifiers"] as? [[String: Any]],
++      let bgModifier = modifiers.first(where: { ($0["$type"] as? String) == "background" }),
++      let hex = bgModifier["color"] as? String
++    else {
++      return Color.black
++    }
++    return Color(hex: hex) ?? Color.black
++  }
++}
++
++// MARK: - Hex color parsing
++
++extension Color {
++  init?(hex: String) {
++    var hexString = hex.trimmingCharacters(in: .whitespacesAndNewlines)
++    if hexString.hasPrefix("#") {
++      hexString.removeFirst()
++    }
++    guard hexString.count == 6, let rgb = UInt64(hexString, radix: 16) else {
++      return nil
++    }
++    self.init(
++      red: Double((rgb >> 16) & 0xFF) / 255.0,
++      green: Double((rgb >> 8) & 0xFF) / 255.0,
++      blue: Double(rgb & 0xFF) / 255.0
++    )
++  }
+ }
+diff --git a/node_modules/expo-widgets/scripts/xcode-build-bundle.sh b/node_modules/expo-widgets/scripts/xcode-build-bundle.sh
+index 7dd91dc..f324e82 100644
+--- a/node_modules/expo-widgets/scripts/xcode-build-bundle.sh
++++ b/node_modules/expo-widgets/scripts/xcode-build-bundle.sh
+@@ -4,16 +4,6 @@ set -eo pipefail
+ 
+ EXPO_WIDGETS_PACKAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+ 
+-# For classic main project build phases integration, will be no-op to prevent duplicated bundle creation.
+-#
+-# `$PROJECT_DIR` is passed by Xcode as the directory to the xcodeproj file.
+-# in classic main project setup it is something like /path/to/app/ios
+-# in new style pod project setup it is something like /path/to/app/ios/Pods
+-PROJECT_DIR_BASENAME=$(basename $PROJECT_DIR)
+-if [ "x$PROJECT_DIR_BASENAME" != "xPods" ]; then
+-  exit 0
+-fi
+-
+ # If PROJECT_ROOT is not specified, fallback to use Xcode PROJECT_DIR
+ PROJECT_ROOT=${PROJECT_ROOT:-"$PROJECT_DIR/../.."}
+ PROJECT_ROOT=${PROJECT_ROOT:-"$EXPO_WIDGETS_PACKAGE_DIR/../.."}

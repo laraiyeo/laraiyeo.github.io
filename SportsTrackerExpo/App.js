@@ -384,6 +384,8 @@ const HomeTabNavigator = () => {
   const { isUnlocked, checkStatus } = useStreamingAccess();
   const { isPro } = useBetSlip();
 
+  const showTab = false; //Show Tab for Picks
+
   // Refresh streaming status when this navigator comes into focus
   useFocusEffect(
     React.useCallback(() => {
@@ -445,6 +447,7 @@ const HomeTabNavigator = () => {
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
+      {showTab && (
       <Tab.Screen
         name="Picks"
         component={BetLoginScreen}
@@ -458,6 +461,7 @@ const HomeTabNavigator = () => {
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
+      )}
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}

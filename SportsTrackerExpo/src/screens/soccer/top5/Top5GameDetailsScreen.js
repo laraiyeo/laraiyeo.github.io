@@ -104,6 +104,7 @@ import { useTheme } from "../../../context/ThemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
+import FootballLiveActivityController from "../../../../components/FootballLiveActivityController";
 
 const { width } = Dimensions.get("window");
 
@@ -1948,12 +1949,12 @@ const EventsSection = ({
       const lineup = playerMeta?.lineup ?? null;
       const player = lineup?.player ?? null;
       const relatedPlayer = relatedMeta?.lineup?.player ?? null;
-      const playerName =
+      const playerName = player?.display_name ||
         player?.name ||
         `${player?.firstname ?? ""} ${player?.lastname ?? ""}`.trim() ||
         event?.player_name ||
         "Unknown Player";
-      const assistName =
+      const assistName = relatedPlayer?.display_name ||
         relatedPlayer?.name ||
         `${relatedPlayer?.firstname ?? ""} ${relatedPlayer?.lastname ?? ""}`.trim() ||
         relatedMeta?.fallbackName ||
@@ -4969,7 +4970,7 @@ const BallSection = ({
                     { color: theme.textSecondary },
                   ]}
                 >
-                  {home?.short_code || home?.name || "Home"}
+                  {home?.short_code || home?.name.toUpperCase().slice(0,3) || "Home"}
                 </Text>
               </View>
               <View style={ballStyles.legendItem}>
@@ -4995,7 +4996,7 @@ const BallSection = ({
                     { color: theme.textSecondary },
                   ]}
                 >
-                  {away?.short_code || away?.name || "Away"}
+                  {away?.short_code || away?.name.toUpperCase().slice(0,3) || "Away"}
                 </Text>
               </View>
             </View>
@@ -5264,7 +5265,7 @@ const GoalShareCardModal = ({ visible, onClose, payload, theme, colors }) => {
                             const pctA = (a / max) * 100;
                             const pctB = (b / max) * 100;
 
-                            const SHOW_INSIDE_PCT = 20; // percent height required to render value inside bar
+                            const SHOW_INSIDE_PCT = 50; // percent height required to render value inside bar
 
                             const leftDisplay = formatByLabel(leftLabel, a);
                             const rightDisplay = formatByLabel(rightLabel, b);
@@ -7709,6 +7710,11 @@ const HomeTeamPitchSection = ({
       l?.player?.lastname ||
       l?.player?.name?.split(" ").slice(-1).join(" ") ||
       "",
+    display_name:
+      l?.player?.display_name ?? l?.player?.displayName ?? l?.player?.name ??
+      (l?.player?.firstname && l?.player?.lastname
+        ? `${l.player.firstname} ${l.player.lastname}`
+        : undefined),
     imagePath: l?.player?.image_path,
     positionName: l?.detailedposition?.name || l?.position?.name || "-",
     rating: getLineupRating(l),
@@ -7790,6 +7796,13 @@ const HomeTeamPitchSection = ({
         : null;
     const initial = (player?.lastname || "?")[0]?.toUpperCase?.() || "?";
     const subInLeft = player?.subOutEvent ? -3 : -3;
+
+    const playerName =
+      (player?.display_name
+        ? player.display_name.includes(" ")
+          ? player.display_name.split(" ").pop()
+          : player.display_name
+        : player?.lastname || "?");
 
     return (
       <TouchableOpacity
@@ -8121,7 +8134,7 @@ const HomeTeamPitchSection = ({
             style={[styles.homePitchPlayerLastName, { color: theme.text }]}
             numberOfLines={1}
           >
-            {player.lastname}
+            {playerName}
           </Text>
         </View>
 
@@ -11075,6 +11088,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
   const [streamLoading, setStreamLoading] = useState(false);
   const [streamError, setStreamError] = useState(false);
   const [showStreamModal, setShowStreamModal] = useState(false);
+  const [showLiveController, setShowLiveController] = useState(false);
   const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
   const [activityInstance, setActivityInstance] = useState(null);
   const streamModalVisibleRef = useRef(false);
@@ -11596,10 +11610,14 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
         const key = e.player_id ?? `name_${e.player_name}`;
         if (!map.has(key)) {
           const player = e.player_id ? playerMap.get(e.player_id) : null;
+          const displayNameRaw = player?.display_name || "?";
+          const displayName = displayNameRaw.includes(" ")
+            ? displayNameRaw.split(" ").pop()
+            : displayNameRaw;
           const lastName =
             player?.lastname ||
             (e.player_name ? e.player_name.split(" ").pop() : "?");
-          map.set(key, { lastName, goals: [] });
+          map.set(key, { lastName, displayName, goals: [] });
         }
         map.get(key).goals.push(e);
       }
@@ -12131,7 +12149,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                     ]}
                     numberOfLines={2}
                   >
-                    {scorer.lastName}
+                    {scorer.displayName || scorer.lastName}
                     {"\u00a0"}
                     {scorer.goals.map(formatGoalTime).join(", ")}
                   </Text>
@@ -12153,7 +12171,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                     style={[styles.scorerText, { color: theme.textSecondary }]}
                     numberOfLines={2}
                   >
-                    {scorer.lastName}
+                    {scorer.displayName || scorer.lastName}
                     {" "}
                     {scorer.goals.map(formatGoalTime).join(", ")}
                   </Text>
@@ -12609,6 +12627,51 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
 
         <View style={{ height: 32 }} />
       </Animated.ScrollView>
+
+      {/* Floating button to open Football Live Activity Controller */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => setShowLiveController(true)}
+        style={{
+          position: "absolute",
+          left: 16,
+          right: 16,
+          bottom: Platform.OS === "ios" ? 28 : 16,
+          backgroundColor: colors.primary,
+          paddingVertical: 12,
+          borderRadius: 12,
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 60,
+          elevation: 6,
+        }}
+      >
+        <Text style={{ color: "#fff", fontWeight: "800" }}>
+          Open Live Activity Controller
+        </Text>
+      </TouchableOpacity>
+
+      {/* Modal that renders the controller */}
+      <Modal
+        animationType="slide"
+        visible={showLiveController}
+        onRequestClose={() => setShowLiveController(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: theme.background }}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "flex-end",
+              padding: 12,
+            }}
+          >
+            <TouchableOpacity onPress={() => setShowLiveController(false)}>
+              <Text style={{ fontSize: 22, color: theme.text }}>×</Text>
+            </TouchableOpacity>
+          </View>
+          <FootballLiveActivityController />
+        </View>
+      </Modal>
 
       {/* Stream Modal */}
       {isStreamingUnlocked && (

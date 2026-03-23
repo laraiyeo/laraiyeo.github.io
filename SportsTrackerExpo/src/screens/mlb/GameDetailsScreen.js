@@ -6970,7 +6970,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
               />
 
               {/* Live Stream Button — sits below the status badge in the centre column */}
-              {!isScheduled && !isGameFinished && (
+              {isScheduled && !isGameFinished && (
                 <TouchableOpacity
                   style={[styles.streamBtn, { borderColor: colors.primary }]}
                   onPress={openStreamModal}

@@ -2130,6 +2130,31 @@ app.post("/api/invite", async (req, res) => {
   }
 });
 
+// GET /api/invite -> return persisted invites as JSON map { email: timestamp }
+app.get("/api/invite", async (req, res) => {
+  try {
+    const fs = require("fs");
+    const path = require("path");
+    const inFile = path.join(__dirname, "invites.ndjson");
+    if (!fs.existsSync(inFile)) return res.json({});
+    const content = fs.readFileSync(inFile, "utf8");
+    const lines = content.split(/\r?\n/).filter(Boolean);
+    const out = {};
+    for (const line of lines) {
+      try {
+        const rec = JSON.parse(line);
+        if (rec && rec.email) out[String(rec.email).toLowerCase()] = rec.ts || null;
+      } catch (e) {
+        // ignore malformed lines
+      }
+    }
+    return res.json(out);
+  } catch (e) {
+    console.error("GET /api/invite error", e);
+    return res.status(500).json({ error: "internal error" });
+  }
+});
+
 // Daily reward endpoints (state, claim, dismiss)
 // GET state: returns { day, claimed, claimedAt, nextAvailableAt }
 app.get("/api/daily/state", authMiddlewareInline, async (req, res) => {

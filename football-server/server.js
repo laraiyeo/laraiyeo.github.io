@@ -12,12 +12,10 @@ app.use(compression());
 const PORT = process.env.PORT || 3000;
 
 // ─── API credentials (prefer env vars so tokens aren't baked in) ──────────────
-const SM_TOKEN =
-  process.env.SM_TOKEN ||
-  "5fYsJzDLF5YWGegHcnqsh3kmA89yH3KaPsglvqExtoBvwS0UbcQzUjk5jez1";
+const SM_TOKEN = process.env.SM_TOKEN;
 const SM_BASE = "https://api.sportmonks.com/v3/football";
 const SAP_BASE = "https://v1.football.sportsapipro.com";
-const SAP_KEY = process.env.SAP_KEY || "6ae28853-d4a1-432c-b4d8-c912421794fa";
+const SAP_KEY = process.env.SAP_KEY;
 
 // ─── TTL constants ────────────────────────────────────────────────────────────
 const TTL_20S = 20 * 1000;
