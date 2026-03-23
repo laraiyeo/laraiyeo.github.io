@@ -2143,7 +2143,8 @@ app.get("/api/invite", async (req, res) => {
     for (const line of lines) {
       try {
         const rec = JSON.parse(line);
-        if (rec && rec.email) out[String(rec.email).toLowerCase()] = rec.ts || null;
+        if (rec && rec.email)
+          out[String(rec.email).toLowerCase()] = rec.ts || null;
       } catch (e) {
         // ignore malformed lines
       }

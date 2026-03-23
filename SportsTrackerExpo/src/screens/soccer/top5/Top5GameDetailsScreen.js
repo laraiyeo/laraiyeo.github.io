@@ -1949,12 +1949,14 @@ const EventsSection = ({
       const lineup = playerMeta?.lineup ?? null;
       const player = lineup?.player ?? null;
       const relatedPlayer = relatedMeta?.lineup?.player ?? null;
-      const playerName = player?.display_name ||
+      const playerName =
+        player?.display_name ||
         player?.name ||
         `${player?.firstname ?? ""} ${player?.lastname ?? ""}`.trim() ||
         event?.player_name ||
         "Unknown Player";
-      const assistName = relatedPlayer?.display_name ||
+      const assistName =
+        relatedPlayer?.display_name ||
         relatedPlayer?.name ||
         `${relatedPlayer?.firstname ?? ""} ${relatedPlayer?.lastname ?? ""}`.trim() ||
         relatedMeta?.fallbackName ||
@@ -4970,7 +4972,9 @@ const BallSection = ({
                     { color: theme.textSecondary },
                   ]}
                 >
-                  {home?.short_code || home?.name.toUpperCase().slice(0,3) || "Home"}
+                  {home?.short_code ||
+                    home?.name.toUpperCase().slice(0, 3) ||
+                    "Home"}
                 </Text>
               </View>
               <View style={ballStyles.legendItem}>
@@ -4996,7 +5000,9 @@ const BallSection = ({
                     { color: theme.textSecondary },
                   ]}
                 >
-                  {away?.short_code || away?.name.toUpperCase().slice(0,3) || "Away"}
+                  {away?.short_code ||
+                    away?.name.toUpperCase().slice(0, 3) ||
+                    "Away"}
                 </Text>
               </View>
             </View>
@@ -7711,7 +7717,9 @@ const HomeTeamPitchSection = ({
       l?.player?.name?.split(" ").slice(-1).join(" ") ||
       "",
     display_name:
-      l?.player?.display_name ?? l?.player?.displayName ?? l?.player?.name ??
+      l?.player?.display_name ??
+      l?.player?.displayName ??
+      l?.player?.name ??
       (l?.player?.firstname && l?.player?.lastname
         ? `${l.player.firstname} ${l.player.lastname}`
         : undefined),
@@ -7797,12 +7805,11 @@ const HomeTeamPitchSection = ({
     const initial = (player?.lastname || "?")[0]?.toUpperCase?.() || "?";
     const subInLeft = player?.subOutEvent ? -3 : -3;
 
-    const playerName =
-      (player?.display_name
-        ? player.display_name.includes(" ")
-          ? player.display_name.split(" ").pop()
-          : player.display_name
-        : player?.lastname || "?");
+    const playerName = player?.display_name
+      ? player.display_name.includes(" ")
+        ? player.display_name.split(" ").pop()
+        : player.display_name
+      : player?.lastname || "?";
 
     return (
       <TouchableOpacity
