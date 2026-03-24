@@ -103,7 +103,9 @@
           const code = (codeIn.value || "").trim();
           if (!code) return alert("Enter admin code");
           try {
-            const resp = await fetch("/error_admin/" + encodeURIComponent(code));
+            const resp = await fetch(
+              "/error_admin/" + encodeURIComponent(code),
+            );
             const text = await resp.text();
             if (text === "Access Granted") {
               adminCodeLocal = code;
