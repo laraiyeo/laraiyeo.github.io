@@ -4,7 +4,10 @@ import { View, Button, Alert, Text } from "react-native";
 import { useRoute } from "@react-navigation/native";
 import FootballLiveActivity from "../widgets/FootballLiveActivity"; // direct import
 
-console.log("[FootballLiveActivityController] Controller imported, FootballLiveActivity:", FootballLiveActivity);
+console.log(
+  "[FootballLiveActivityController] Controller imported, FootballLiveActivity:",
+  FootballLiveActivity,
+);
 
 export default function FootballLiveActivityController() {
   const route = useRoute();
@@ -16,7 +19,8 @@ export default function FootballLiveActivityController() {
   const startLiveActivity = async () => {
     try {
       console.log("[Controller] startLiveActivity called");
-      if (!FootballLiveActivity) throw new Error("LiveActivity factory unavailable");
+      if (!FootballLiveActivity)
+        throw new Error("LiveActivity factory unavailable");
 
       const payload = {
         home: { name: "Team A", score: 1 },
@@ -35,7 +39,10 @@ export default function FootballLiveActivityController() {
 
       // Optional: Immediately update to verify update path works
       try {
-        await instance.update?.({ home: { name: "Team A", score: 3 }, away: { name: "Team B", score: 2 } });
+        await instance.update?.({
+          home: { name: "Team A", score: 3 },
+          away: { name: "Team B", score: 2 },
+        });
         console.log("[Controller] Live Activity update called successfully");
       } catch (updateErr) {
         console.warn("[Controller] Live Activity update failed:", updateErr);
@@ -90,16 +97,23 @@ export default function FootballLiveActivityController() {
           await startLiveActivity();
         }
       } catch (err) {
-        console.error('[Controller] Error toggling live activity from route param:', err);
+        console.error(
+          "[Controller] Error toggling live activity from route param:",
+          err,
+        );
       }
     })();
   }, [route.params]);
 
   return (
     <View style={{ padding: 16 }}>
-      <Text style={{ marginBottom: 12, fontWeight: "700" }}>Live Activity Controller</Text>
+      <Text style={{ marginBottom: 12, fontWeight: "700" }}>
+        Live Activity Controller
+      </Text>
       <Button
-        title={liveActivityActive ? "Stop Live Activity" : "Start Live Activity"}
+        title={
+          liveActivityActive ? "Stop Live Activity" : "Start Live Activity"
+        }
         onPress={liveActivityActive ? stopLiveActivity : startLiveActivity}
       />
     </View>

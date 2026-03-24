@@ -12589,7 +12589,9 @@ app.delete(
 app.get("/api/error", async (req, res) => {
   try {
     // return newest first
-    const list = (adminErrors || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    const list = (adminErrors || [])
+      .slice()
+      .sort((a, b) => (b.ts || 0) - (a.ts || 0));
     res.json({ errors: list });
   } catch (e) {
     console.error("/api/error GET failed", e);
@@ -12600,7 +12602,8 @@ app.get("/api/error", async (req, res) => {
 app.post("/api/error", async (req, res) => {
   try {
     const { code, header, message, status, ts } = req.body || {};
-    if (!header || !message) return res.status(400).json({ message: "header and message required" });
+    if (!header || !message)
+      return res.status(400).json({ message: "header and message required" });
     const entry = {
       id: String(adminErrorNextId++),
       code: code || null,
@@ -12654,7 +12657,8 @@ app.get("/error_admin", (req, res) => {
     // Read admin code from code.txt or environment
     let adminCode = null;
     try {
-      if (process.env.ADMIN_CODE) adminCode = String(process.env.ADMIN_CODE).trim();
+      if (process.env.ADMIN_CODE)
+        adminCode = String(process.env.ADMIN_CODE).trim();
       else {
         const codePath = path.join(__dirname, "..", "code.txt");
         if (fs.existsSync(codePath)) {

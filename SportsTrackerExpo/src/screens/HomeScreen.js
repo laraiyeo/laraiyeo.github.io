@@ -24,15 +24,16 @@ const HOME_SPORTS_BASE = [
     description: "View all live MLB games happening right now.",
     icon: require("../../assets/mlb.png"),
   },
-  ...show
+  ...(show
     ? [
-  {
-    id: "wbc",
-    title: "WBC",
-    description: "World Baseball Classic — scores, teams, and details.",
-    icon: require("../../assets/wbc_logo.png"),
-  },
-] : [],
+        {
+          id: "wbc",
+          title: "WBC",
+          description: "World Baseball Classic — scores, teams, and details.",
+          icon: require("../../assets/wbc_logo.png"),
+        },
+      ]
+    : []),
   {
     id: "nhl",
     title: "NHL",
@@ -216,7 +217,14 @@ const HomeScreen = () => {
         <TouchableOpacity
           style={[
             styles.errorBanner,
-            { backgroundColor: errors[0].status === "green" ? "#e6ffed" : errors[0].status === "red" ? "#ffecec" : "#fff7e6" },
+            {
+              backgroundColor:
+                errors[0].status === "green"
+                  ? "#e6ffed"
+                  : errors[0].status === "red"
+                    ? "#ffecec"
+                    : "#fff7e6",
+            },
           ]}
           onPress={() => {
             // open admin panel in browser (if available)
@@ -224,8 +232,12 @@ const HomeScreen = () => {
             // window.open('/error_admin');
           }}
         >
-          <Text style={[styles.errorHeader, { color: "#222" }]}>{errors[0].header}</Text>
-          <Text style={[styles.errorMsg, { color: "#222" }]}>{errors[0].message}</Text>
+          <Text style={[styles.errorHeader, { color: "#222" }]}>
+            {errors[0].header}
+          </Text>
+          <Text style={[styles.errorMsg, { color: "#222" }]}>
+            {errors[0].message}
+          </Text>
         </TouchableOpacity>
       ) : null}
 

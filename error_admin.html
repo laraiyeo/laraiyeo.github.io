@@ -1,135 +1,221 @@
 <!doctype html>
 <html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Error Admin</title>
-  <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 20px; }
-    .hidden { display:none }
-    .error-row { border:1px solid #ddd; padding:10px; margin-bottom:8px; border-radius:6px }
-    .controls { margin-top:8px }
-    .status-green { background: #e6ffed }
-    .status-yellow { background: #fff7e6 }
-    .status-red { background: #ffecec }
-    label { display:block; margin-top:8px }
-    input, textarea, select { width:100%; padding:8px; box-sizing:border-box }
-  </style>
-</head>
-<body>
-  <h2>Error Admin</h2>
-  <div id="access">
-    <p>Enter admin code to unlock controls:</p>
-    <input id="codeIn" placeholder="admin code" />
-    <button id="unlockBtn">Unlock</button>
-    <p style="font-size:12px;color:#666">(This is a simple client-side gate)</p>
-  </div>
-
-  <div id="panel" class="hidden">
-    <h3>Create / Post Error</h3>
-    <label>Header</label>
-    <input id="hdr" />
-    <label>Message</label>
-    <textarea id="msg" rows="3"></textarea>
-    <label>Status</label>
-    <select id="statusSel"><option value="green">green</option><option value="yellow">yellow</option><option value="red">red</option></select>
-    <div class="controls">
-      <button id="postBtn">Post</button>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Error Admin</title>
+    <style>
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+        padding: 20px;
+      }
+      .hidden {
+        display: none;
+      }
+      .error-row {
+        border: 1px solid #ddd;
+        padding: 10px;
+        margin-bottom: 8px;
+        border-radius: 6px;
+      }
+      .controls {
+        margin-top: 8px;
+      }
+      .status-green {
+        background: #e6ffed;
+      }
+      .status-yellow {
+        background: #fff7e6;
+      }
+      .status-red {
+        background: #ffecec;
+      }
+      label {
+        display: block;
+        margin-top: 8px;
+      }
+      input,
+      textarea,
+      select {
+        width: 100%;
+        padding: 8px;
+        box-sizing: border-box;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Error Admin</h2>
+    <div id="access">
+      <p>Enter admin code to unlock controls:</p>
+      <input id="codeIn" placeholder="admin code" />
+      <button id="unlockBtn">Unlock</button>
+      <p style="font-size: 12px; color: #666">
+        (This is a simple client-side gate)
+      </p>
     </div>
 
-    <h3>Current Errors</h3>
-    <div id="list"></div>
-  </div>
+    <div id="panel" class="hidden">
+      <h3>Create / Post Error</h3>
+      <label>Header</label>
+      <input id="hdr" />
+      <label>Message</label>
+      <textarea id="msg" rows="3"></textarea>
+      <label>Status</label>
+      <select id="statusSel">
+        <option value="green">green</option>
+        <option value="yellow">yellow</option>
+        <option value="red">red</option>
+      </select>
+      <div class="controls">
+        <button id="postBtn">Post</button>
+      </div>
 
-<script>
-(function(){
-  <!--ADMIN_CODE_PLACEHOLDER-->
-  const base = '/api/error';
-  const access = document.getElementById('access');
-  const panel = document.getElementById('panel');
-  const unlockBtn = document.getElementById('unlockBtn');
-  const codeIn = document.getElementById('codeIn');
-  const list = document.getElementById('list');
-  const hdr = document.getElementById('hdr');
-  const msg = document.getElementById('msg');
-  const statusSel = document.getElementById('statusSel');
-  const postBtn = document.getElementById('postBtn');
+      <h3>Current Errors</h3>
+      <div id="list"></div>
+    </div>
 
-  function showPanel() { access.classList.add('hidden'); panel.classList.remove('hidden'); fetchAndRender(); }
+    <script>
+      (function () {
+        <!--ADMIN_CODE_PLACEHOLDER-->
+        const base = "/api/error";
+        const access = document.getElementById("access");
+        const panel = document.getElementById("panel");
+        const unlockBtn = document.getElementById("unlockBtn");
+        const codeIn = document.getElementById("codeIn");
+        const list = document.getElementById("list");
+        const hdr = document.getElementById("hdr");
+        const msg = document.getElementById("msg");
+        const statusSel = document.getElementById("statusSel");
+        const postBtn = document.getElementById("postBtn");
 
-  unlockBtn.addEventListener('click', ()=>{
-    if (typeof adminCode === 'undefined' || !adminCode) {
-      return alert('Admin code not configured on server. Cannot unlock.');
-    }
-    if (codeIn.value === adminCode) showPanel(); else alert('Invalid code');
-  });
+        function showPanel() {
+          access.classList.add("hidden");
+          panel.classList.remove("hidden");
+          fetchAndRender();
+        }
 
-  async function fetchAndRender(){
-    try{
-      const r = await fetch(base);
-      const j = await r.json();
-      const errors = j.errors || [];
-      list.innerHTML = '';
-      errors.forEach(e => {
-        const row = document.createElement('div');
-        row.className = 'error-row status-' + (e.status || 'yellow');
-        row.innerHTML = `<strong>${escapeHtml(e.header)}</strong> <small style="float:right">${new Date(e.ts||0).toLocaleString()}</small>
+        unlockBtn.addEventListener("click", () => {
+          if (typeof adminCode === "undefined" || !adminCode) {
+            return alert("Admin code not configured on server. Cannot unlock.");
+          }
+          if (codeIn.value === adminCode) showPanel();
+          else alert("Invalid code");
+        });
+
+        async function fetchAndRender() {
+          try {
+            const r = await fetch(base);
+            const j = await r.json();
+            const errors = j.errors || [];
+            list.innerHTML = "";
+            errors.forEach((e) => {
+              const row = document.createElement("div");
+              row.className = "error-row status-" + (e.status || "yellow");
+              row.innerHTML = `<strong>${escapeHtml(e.header)}</strong> <small style="float:right">${new Date(e.ts || 0).toLocaleString()}</small>
           <div style="margin-top:6px">${escapeHtml(e.message)}</div>
           <div class="controls">
             <button data-id="${e.id}" class="edit">Edit</button>
             <button data-id="${e.id}" class="del">Delete</button>
           </div>`;
-        list.appendChild(row);
-      });
-      attachRowHandlers();
-    }catch(err){ console.error(err); list.innerHTML = '<div style="color:red">Failed to fetch</div>'; }
-  }
+              list.appendChild(row);
+            });
+            attachRowHandlers();
+          } catch (err) {
+            console.error(err);
+            list.innerHTML = '<div style="color:red">Failed to fetch</div>';
+          }
+        }
 
-  function attachRowHandlers(){
-    Array.from(document.querySelectorAll('button.edit')).forEach(btn=>{
-      btn.onclick = async (ev)=>{
-        const id = btn.getAttribute('data-id');
-        const newHdr = prompt('Header:');
-        if (newHdr == null) return;
-        const newMsg = prompt('Message:');
-        if (newMsg == null) return;
-        const newStatus = prompt('Status (green/yellow/red):','yellow') || 'yellow';
-          try{
-          await fetch(base + '/' + id, { method: 'PUT', headers: {'content-type':'application/json'}, body: JSON.stringify({ header: newHdr, message: newMsg, status: newStatus, code: (typeof adminCode !== 'undefined' ? adminCode : null) }) });
-          fetchAndRender();
-          }catch(e){ alert('Update failed'); }
-      };
-    });
-    Array.from(document.querySelectorAll('button.del')).forEach(btn=>{
-      btn.onclick = async ()=>{
-        const id = btn.getAttribute('data-id');
-        if (!confirm('Delete this error?')) return;
-        try{
-          const headers = {};
-          if (typeof adminCode !== 'undefined' && adminCode) headers['x-admin-code'] = adminCode;
-          await fetch(base + '/' + id, { method: 'DELETE', headers });
-          fetchAndRender();
-        }catch(e){ alert('Delete failed'); }
-      };
-    });
-  }
+        function attachRowHandlers() {
+          Array.from(document.querySelectorAll("button.edit")).forEach(
+            (btn) => {
+              btn.onclick = async (ev) => {
+                const id = btn.getAttribute("data-id");
+                const newHdr = prompt("Header:");
+                if (newHdr == null) return;
+                const newMsg = prompt("Message:");
+                if (newMsg == null) return;
+                const newStatus =
+                  prompt("Status (green/yellow/red):", "yellow") || "yellow";
+                try {
+                  await fetch(base + "/" + id, {
+                    method: "PUT",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({
+                      header: newHdr,
+                      message: newMsg,
+                      status: newStatus,
+                      code: typeof adminCode !== "undefined" ? adminCode : null,
+                    }),
+                  });
+                  fetchAndRender();
+                } catch (e) {
+                  alert("Update failed");
+                }
+              };
+            },
+          );
+          Array.from(document.querySelectorAll("button.del")).forEach((btn) => {
+            btn.onclick = async () => {
+              const id = btn.getAttribute("data-id");
+              if (!confirm("Delete this error?")) return;
+              try {
+                const headers = {};
+                if (typeof adminCode !== "undefined" && adminCode)
+                  headers["x-admin-code"] = adminCode;
+                await fetch(base + "/" + id, { method: "DELETE", headers });
+                fetchAndRender();
+              } catch (e) {
+                alert("Delete failed");
+              }
+            };
+          });
+        }
 
-  postBtn.addEventListener('click', async ()=>{
-    const header = hdr.value.trim();
-    const message = msg.value.trim();
-    const status = statusSel.value;
-    if (!header || !message) return alert('Please enter header and message');
-    try{
-      await fetch(base, { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ header, message, status, ts: Date.now(), code: (typeof adminCode !== 'undefined' ? adminCode : null) }) });
-      hdr.value=''; msg.value=''; statusSel.value='yellow'; fetchAndRender();
-    }catch(e){ alert('Post failed'); }
-  });
+        postBtn.addEventListener("click", async () => {
+          const header = hdr.value.trim();
+          const message = msg.value.trim();
+          const status = statusSel.value;
+          if (!header || !message)
+            return alert("Please enter header and message");
+          try {
+            await fetch(base, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                header,
+                message,
+                status,
+                ts: Date.now(),
+                code: typeof adminCode !== "undefined" ? adminCode : null,
+              }),
+            });
+            hdr.value = "";
+            msg.value = "";
+            statusSel.value = "yellow";
+            fetchAndRender();
+          } catch (e) {
+            alert("Post failed");
+          }
+        });
 
-  function escapeHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+        function escapeHtml(s) {
+          return String(s || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+        }
 
-  // auto-refresh
-  setInterval(()=>{ if (!panel.classList.contains('hidden')) fetchAndRender(); }, 5000);
-})();
-</script>
-</body>
+        // auto-refresh
+        setInterval(() => {
+          if (!panel.classList.contains("hidden")) fetchAndRender();
+        }, 5000);
+      })();
+    </script>
+  </body>
 </html>
