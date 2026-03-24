@@ -21,9 +21,88 @@ import { LiveViewerBadge } from "../../../components/ViewerCounter";
 import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { DeviceEventEmitter } from "react-native";
 import { count } from "firebase/firestore";
 
 const { width } = Dimensions.get("window");
+
+// Small helper used in list view to show star + venue name and reflect favorite state
+const FavoriteVenue = ({ match, theme, colors }) => {
+  const [isFav, setIsFav] = useState(false);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const id = match?.id;
+        if (!id) return;
+        const v = await AsyncStorage.getItem(`@fav_fixture:${id}`);
+        if (mounted) setIsFav(!!v);
+      } catch (e) {
+        // ignore
+      }
+    })();
+
+    const sub = DeviceEventEmitter.addListener("favoritesChanged", (ev) => {
+      if (!mounted) return;
+      if (ev?.id === match?.id) setIsFav(!!ev?.fav);
+    });
+
+    return () => {
+      mounted = false;
+      sub.remove();
+    };
+  }, [match?.id]);
+
+  // Only show the star icon when favorited; otherwise just show venue text
+  if (!isFav)
+    return (
+      <Text style={[styles.venue, { color: theme.textSecondary }]}>
+        {match.venue?.name}
+      </Text>
+    );
+
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center" }}>
+      <Ionicons
+        name="star"
+        size={14}
+        color={colors.primary}
+        style={{ marginRight: 6 }}
+      />
+      <Text style={[styles.venue, { color: theme.textSecondary }]}>
+        {match.venue?.name}
+      </Text>
+    </View>
+  );
+};
+
+// Hook: subscribe to favorite state for a fixture id
+const useIsFavorited = (fixtureId) => {
+  const [isFav, setIsFav] = useState(false);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        if (!fixtureId) return;
+        const v = await AsyncStorage.getItem(`@fav_fixture:${fixtureId}`);
+        if (mounted) setIsFav(!!v);
+      } catch (e) {
+        // ignore
+      }
+    })();
+
+    const sub = DeviceEventEmitter.addListener("favoritesChanged", (ev) => {
+      if (!mounted) return;
+      if (ev?.id === fixtureId) setIsFav(!!ev?.fav);
+    });
+
+    return () => {
+      mounted = false;
+      sub.remove();
+    };
+  }, [fixtureId]);
+  return isFav;
+};
 
 // ─── Polling helpers ──────────────────────────────────────────────────────────
 
@@ -68,7 +147,22 @@ const getScoreboardPolicy = (groups) => {
     return { mode: "live", intervalMs: INTERVAL_FAST, cacheMs: INTERVAL_FAST };
   }
 
-  const allFinished = allMatches.every((m) => shortNameOf(m) === "FT");
+  const allFinished = allMatches.every(
+    (m) =>
+      shortNameOf(m) === "FT" ||
+      shortNameOf(m) === "AET" ||
+      shortNameOf(m) === "FT_PEN" ||
+      shortNameOf(m) === "POSTP" ||
+      shortNameOf(m) === "CANC" ||
+      shortNameOf(m) === "ABAN" ||
+      shortNameOf(m) === "WO" ||
+      shortNameOf(m) === "WALKOVER" ||
+      shortNameOf(m) === "CUT" ||
+      shortNameOf(m) === "AWA" ||
+      shortNameOf(m) === "POST" ||
+      shortNameOf(m) === "POSTPONED" ||
+      shortNameOf(m) === "CANCELLED",
+  );
   if (allFinished) {
     return {
       mode: "finished",
@@ -171,6 +265,7 @@ const getStatusInfo = (match, nowMs = Date.now(), snapshotTsMs = nowMs) => {
     "AWA",
     "POST",
     "POSTPONED",
+    "CANCELLED",
   ].includes(code);
   const isScheduled = !code || ["NS", "TBA", "DELAYED"].includes(code);
   const isLive = !isFinished && !isScheduled;
@@ -263,6 +358,16 @@ const getGoals = (match, side) =>
   match.scores?.find((s) => s.participant === side)?.goals ?? null;
 const getAbbr = (p) =>
   p?.short_code || (p?.name ? p.name.substring(0, 3).toUpperCase() : "???");
+
+// Convert a position number to an ordinal string (e.g. 1 -> "1st")
+const ordinal = (n) => {
+  if (n == null || Number.isNaN(Number(n))) return "";
+  const num = Number(n);
+  const s = ["th", "st", "nd", "rd"];
+  const v = num % 100;
+  const suf = s[(v - 20) % 10] || s[v] || s[0];
+  return `${num}${suf}`;
+};
 
 // Parse aggregate score from match.aggregate — returns home/away aggregate numbers
 const parseAggregate = (match) => {
@@ -667,6 +772,31 @@ const Top5GridCard = React.memo(
     const si = getStatusInfo(match, nowMs, snapshotTsMs);
     const gradId = `gc_${gIdx}_${mIdx}`;
 
+    const [isFav, setIsFav] = useState(false);
+    useEffect(() => {
+      let mounted = true;
+      (async () => {
+        try {
+          const id = match?.id;
+          if (!id) return;
+          const v = await AsyncStorage.getItem(`@fav_fixture:${id}`);
+          if (mounted) setIsFav(!!v);
+        } catch (e) {
+          // ignore
+        }
+      })();
+
+      const sub = DeviceEventEmitter.addListener("favoritesChanged", (ev) => {
+        if (!mounted) return;
+        if (ev?.id === match?.id) setIsFav(!!ev?.fav);
+      });
+
+      return () => {
+        mounted = false;
+        sub.remove();
+      };
+    }, [match?.id]);
+
     const homeWins = home.meta.winner;
     const awayWins = away.meta.winner;
     const awayAbbr = getAbbr(away);
@@ -687,7 +817,12 @@ const Top5GridCard = React.memo(
       <TouchableOpacity
         style={[
           soccerGridStyles.card,
-          { backgroundColor: theme.surfaceSecondary, width: SOCCER_CARD_WIDTH },
+          {
+            backgroundColor: theme.surfaceSecondary,
+            width: SOCCER_CARD_WIDTH,
+            borderColor: isFav ? colors.primary : undefined,
+            borderWidth: isFav ? 1 : StyleSheet.hairlineWidth,
+          },
         ]}
         activeOpacity={0.8}
         onPress={() => {
@@ -706,6 +841,27 @@ const Top5GridCard = React.memo(
           homeColor={homeColor}
           fallbackColor={colors.primary}
         />
+
+        {isFav ? (
+          <View
+            style={{
+              position: "absolute",
+              top: 6,
+              left: 6,
+              width: 18,
+              height: 18,
+              borderRadius: 9,
+              backgroundColor: colors.primary + "40",
+              borderWidth: 0.5,
+              borderColor: colors.primary,
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 5,
+            }}
+          >
+            <Ionicons name="star" size={12} color={colors.primary} />
+          </View>
+        ) : null}
 
         {/* Status / Time */}
         <View style={soccerGridStyles.cardTop}>
@@ -804,14 +960,16 @@ const Top5GridCard = React.memo(
             <Text style={[soccerGridStyles.teamAbbr, { color: theme.text }]}>
               {homeAbbr}
             </Text>
-            <Text
-              style={[
-                soccerGridStyles.teamPosition,
-                { color: theme.textSecondary, fontSize: 10 },
-              ]}
-            >
-              {homePos} Place
-            </Text>
+            {homePos != "nullth" && (
+              <Text
+                style={[
+                  soccerGridStyles.teamPosition,
+                  { color: theme.textSecondary, fontSize: 10 },
+                ]}
+              >
+                {homePos} Place
+              </Text>
+            )}
           </View>
 
           <View
@@ -868,14 +1026,16 @@ const Top5GridCard = React.memo(
             <Text style={[soccerGridStyles.teamAbbr, { color: theme.text }]}>
               {awayAbbr}
             </Text>
-            <Text
-              style={[
-                soccerGridStyles.teamPosition,
-                { color: theme.textSecondary, fontSize: 10 },
-              ]}
-            >
-              {awayPos} Place
-            </Text>
+            {awayPos != "nullth" && (
+              <Text
+                style={[
+                  soccerGridStyles.teamPosition,
+                  { color: theme.textSecondary, fontSize: 10 },
+                ]}
+              >
+                {awayPos} Place
+              </Text>
+            )}
           </View>
         </View>
 
@@ -897,6 +1057,293 @@ const Top5GridCard = React.memo(
     );
   },
 );
+
+// List-row component reusing favorite logic from grid card
+const Top5ListRow = ({
+  match,
+  idx,
+  gIdx,
+  theme,
+  colors,
+  navigation,
+  nowMs,
+  snapshotTsMs,
+  displayedLength,
+}) => {
+  const home = getHome(match);
+  const away = getAway(match);
+  if (!home || !away) return null;
+
+  const isFav = useIsFavorited(match?.id);
+  const si = getStatusInfo(match, nowMs, snapshotTsMs);
+  const agg = parseAggregate(match);
+  const { homeColor, awayColor } = resolveMatchColors({
+    homePrimary: home?.colorPrimary,
+    homeSecondary: home?.colorSecondary,
+    awayPrimary: away?.colorPrimary,
+    awaySecondary: away?.colorSecondary,
+    homeFallback: null,
+    awayFallback: null,
+  });
+
+  return (
+    <TouchableOpacity
+      key={match.id || idx}
+      style={[
+        styles.gameRow,
+        {
+          backgroundColor: theme.surfaceSecondary,
+          borderWidth: isFav ? 1 : 0,
+          borderColor: isFav ? colors.primary : theme.border,
+        },
+      ]}
+      activeOpacity={0.75}
+      onPress={() => {
+        navigation.navigate("Top5GameDetail", {
+          fixtureId: match.id,
+          homeTeamId: home.id,
+          awayTeamId: away.id,
+          matchTitle: `${home.short_code || home.name} vs ${away.short_code || away.name}`,
+        });
+      }}
+    >
+      <CardGradient
+        gradId={`${gIdx}_${idx}`}
+        awayColor={awayColor}
+        homeColor={homeColor}
+        fallbackColor={colors.primary}
+        theme={theme}
+      />
+
+      <View style={styles.matchRow}>
+        {/* Status column */}
+        <View style={styles.statusContainer}>
+          {si.isLive ? (
+            <View style={{ alignItems: "center" }}>
+              <Text
+                style={[
+                  styles.statusLine1,
+                  { color: theme.error || "#e03131", fontWeight: "700" },
+                ]}
+              >
+                {si.line1}
+              </Text>
+              {si.line2 && (
+                <Text
+                  style={[styles.statusLine2, { color: theme.textTertiary }]}
+                  numberOfLines={2}
+                >
+                  {si.line2}
+                </Text>
+              )}
+            </View>
+          ) : (
+            <>
+              <Text
+                style={[
+                  styles.statusLine1,
+                  {
+                    color: si.isFinished ? theme.textSecondary : theme.text,
+                    fontWeight: "500",
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {si.line1}
+              </Text>
+              {!!si.line2 && (
+                <Text
+                  style={[styles.statusLine2, { color: theme.textTertiary }]}
+                  numberOfLines={1}
+                >
+                  {si.line2}
+                </Text>
+              )}
+            </>
+          )}
+        </View>
+
+        {/* Teams (condensed) */}
+        <View style={styles.stackedTeams}>
+          <View style={styles.teamWithLogo}>
+            <View style={styles.teamLogoSmall}>
+              {home?.image_path ? (
+                <Image
+                  source={{ uri: home.image_path }}
+                  style={[
+                    styles.teamLogoSmallImg,
+                    !home.meta.winner && si.isFinished
+                      ? { opacity: 0.55 }
+                      : null,
+                  ]}
+                  contentFit="contain"
+                  cachePolicy="memory-disk"
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.teamLogoSmallImg,
+                    {
+                      backgroundColor: homeColor || colors.primary,
+                      justifyContent: "center",
+                      alignItems: "center",
+                    },
+                  ]}
+                >
+                  <Text style={styles.teamLogoFallback}>
+                    {getAbbr(home).substring(0, 1)}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.teamName,
+                  {
+                    color: theme.text,
+                    fontWeight: home.meta.winner ? "700" : "400",
+                    marginTop: home.meta.position ? 0 : 9,
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {home?.name || "Home"}
+              </Text>
+              {home.meta.position && (
+                <Text
+                  style={[
+                    styles.teamName,
+                    { color: theme.textSecondary, fontSize: 11 },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {ordinal(home.meta.position)} Place
+                </Text>
+              )}
+            </View>
+            {(si.isLive || si.isFinished) &&
+              getGoals(match, "home") != null && (
+                <Text
+                  style={[
+                    styles.scoreText,
+                    {
+                      color: home.meta.winner ? colors.primary : theme.text,
+                      fontWeight: home.meta.winner ? "700" : "400",
+                      opacity: !home.meta.winner && si.isFinished ? 0.55 : 1,
+                    },
+                  ]}
+                >
+                  {getGoals(match, "home")}
+                </Text>
+              )}
+          </View>
+
+          <View style={styles.teamWithLogo}>
+            <View style={styles.teamLogoSmall}>
+              {away?.image_path ? (
+                <Image
+                  source={{ uri: away.image_path }}
+                  style={[
+                    styles.teamLogoSmallImg,
+                    !away.meta.winner && si.isFinished
+                      ? { opacity: 0.55 }
+                      : null,
+                  ]}
+                  contentFit="contain"
+                  cachePolicy="memory-disk"
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.teamLogoSmallImg,
+                    {
+                      backgroundColor: awayColor || colors.primary,
+                      justifyContent: "center",
+                      alignItems: "center",
+                    },
+                  ]}
+                >
+                  <Text style={styles.teamLogoFallback}>
+                    {getAbbr(away).substring(0, 1)}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.teamName,
+                  {
+                    color: theme.text,
+                    fontWeight: away.meta.winner ? "700" : "400",
+                    marginTop: away.meta.position ? 0 : 9,
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {away?.name || "Away"}
+              </Text>
+              {away.meta.position && (
+                <Text
+                  style={[
+                    styles.teamName,
+                    { color: theme.textSecondary, fontSize: 11 },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {ordinal(away.meta.position)} Place
+                </Text>
+              )}
+            </View>
+            {(si.isLive || si.isFinished) &&
+              getGoals(match, "away") != null && (
+                <Text
+                  style={[
+                    styles.scoreText,
+                    {
+                      color: away.meta.winner ? colors.primary : theme.text,
+                      fontWeight: away.meta.winner ? "700" : "400",
+                      opacity: !away.meta.winner && si.isFinished ? 0.55 : 1,
+                    },
+                  ]}
+                >
+                  {getGoals(match, "away")}
+                </Text>
+              )}
+          </View>
+        </View>
+      </View>
+
+      {/* Footer */}
+      <View style={[styles.gameFooter, { borderTopColor: theme.border }]}>
+        <View style={styles.gameFooterLeft}>
+          {agg && agg.homeAgg != null && agg.awayAgg != null ? (
+            <Text
+              style={[styles.venue, { color: theme.textSecondary }]}
+            >{`AGGREGATE ${agg.homeAgg} - ${agg.awayAgg}`}</Text>
+          ) : null}
+          {match.venue?.name ? (
+            <FavoriteVenue match={match} theme={theme} colors={colors} />
+          ) : null}
+        </View>
+        <View style={styles.gameFooterRight}>
+          <LiveViewerBadge
+            gameId={String(match.id)}
+            status={si.isLive ? "live" : si.isFinished ? "final" : "pre"}
+            style={styles.viewerBadge}
+          />
+        </View>
+      </View>
+
+      {idx < displayedLength - 1 && (
+        <View
+          style={[styles.matchSeparator, { backgroundColor: theme.border }]}
+        />
+      )}
+    </TouchableOpacity>
+  );
+};
 
 // ─── Soccer Grid section (floating bubble headers + 2-col cards) ──────────────
 const Top5GridSection = ({
@@ -1016,14 +1463,14 @@ const Top5ScoreboardSection = ({
     {groups.map((group, gIdx) => (
       <View
         key={group.leagueKey}
-        style={[
-          styles.eventContainer,
-          { backgroundColor: theme.surfaceSecondary },
-        ]}
+        style={[styles.eventContainer, { backgroundColor: theme.background }]}
       >
         {/* League header */}
         <TouchableOpacity
-          style={styles.eventHeaderContainer}
+          style={[
+            styles.eventHeaderContainer,
+            { backgroundColor: theme.surfaceSecondary },
+          ]}
           activeOpacity={activeFilter > getTodayDateStr() ? 0.7 : 1}
           onPress={() =>
             activeFilter > getTodayDateStr() && toggleCollapse(group.leagueKey)
@@ -1133,282 +1580,18 @@ const Top5ScoreboardSection = ({
               const awayPos = ordinal(away.meta.position);
 
               return (
-                <TouchableOpacity
+                <Top5ListRow
                   key={match.id || idx}
-                  style={styles.gameRow}
-                  activeOpacity={0.75}
-                  onPress={() => {
-                    if (!home || !away) return;
-                    navigation.navigate("Top5GameDetail", {
-                      fixtureId: match.id,
-                      homeTeamId: home.id,
-                      awayTeamId: away.id,
-                      matchTitle: `${home.short_code || home.name} vs ${away.short_code || away.name}`,
-                    });
-                  }}
-                >
-                  <CardGradient
-                    gradId={`${gIdx}_${idx}`}
-                    awayColor={awayColor}
-                    homeColor={homeColor}
-                    fallbackColor={colors.primary}
-                    theme={theme}
-                  />
-
-                  <View style={styles.matchRow}>
-                    {/* Status column */}
-                    <View style={styles.statusContainer}>
-                      {si.isLive ? (
-                        <View style={{ alignItems: "center" }}>
-                          <Text
-                            style={[
-                              styles.statusLine1,
-                              {
-                                color: theme.error || "#e03131",
-                                fontWeight: "700",
-                              },
-                            ]}
-                          >
-                            {si.line1}
-                          </Text>
-                          {si.line2 && (
-                            <Text
-                              style={[
-                                styles.statusLine2,
-                                { color: theme.textTertiary },
-                              ]}
-                              numberOfLines={2}
-                            >
-                              {si.line2}
-                            </Text>
-                          )}
-                        </View>
-                      ) : (
-                        <>
-                          <Text
-                            style={[
-                              styles.statusLine1,
-                              {
-                                color: si.isFinished
-                                  ? theme.textSecondary
-                                  : theme.text,
-                                fontWeight: "500",
-                              },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {si.line1}
-                          </Text>
-                          {!!si.line2 && (
-                            <Text
-                              style={[
-                                styles.statusLine2,
-                                { color: theme.textTertiary },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {si.line2}
-                            </Text>
-                          )}
-                        </>
-                      )}
-                    </View>
-
-                    {/* Stacked teams */}
-                    <View style={styles.stackedTeams}>
-                      {/* Home */}
-                      <View style={styles.teamWithLogo}>
-                        <View style={styles.teamLogoSmall}>
-                          {home?.image_path ? (
-                            <Image
-                              source={{ uri: home.image_path }}
-                              style={[
-                                styles.teamLogoSmallImg,
-                                !homeWins && si.isFinished
-                                  ? { opacity: 0.55 }
-                                  : null,
-                              ]}
-                              contentFit="contain"
-                              cachePolicy="memory-disk"
-                            />
-                          ) : (
-                            <View
-                              style={[
-                                styles.teamLogoSmallImg,
-                                {
-                                  backgroundColor: homeColor || colors.primary,
-                                  justifyContent: "center",
-                                  alignItems: "center",
-                                },
-                              ]}
-                            >
-                              <Text style={styles.teamLogoFallback}>
-                                {getAbbr(home).substring(0, 1)}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={[
-                              styles.teamName,
-                              {
-                                color: theme.text,
-                                fontWeight: homeWins ? "700" : "400",
-                              },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {home?.name || "Home"}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.teamName,
-                              {
-                                color: theme.textSecondary,
-                                fontSize: 11,
-                              },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {homePos} Place
-                          </Text>
-                        </View>
-                        {(si.isLive || si.isFinished) && homeScore != null && (
-                          <Text
-                            style={[
-                              styles.scoreText,
-                              {
-                                color: homeWins ? colors.primary : theme.text,
-                                fontWeight: homeWins ? "700" : "400",
-                                opacity: !homeWins && si.isFinished ? 0.55 : 1,
-                              },
-                            ]}
-                          >
-                            {homeScore}
-                          </Text>
-                        )}
-                      </View>
-
-                      {/* Away */}
-                      <View style={styles.teamWithLogo}>
-                        <View style={styles.teamLogoSmall}>
-                          {away?.image_path ? (
-                            <Image
-                              source={{ uri: away.image_path }}
-                              style={[
-                                styles.teamLogoSmallImg,
-                                !awayWins && si.isFinished
-                                  ? { opacity: 0.55 }
-                                  : null,
-                              ]}
-                              contentFit="contain"
-                              cachePolicy="memory-disk"
-                            />
-                          ) : (
-                            <View
-                              style={[
-                                styles.teamLogoSmallImg,
-                                {
-                                  backgroundColor: awayColor || colors.primary,
-                                  justifyContent: "center",
-                                  alignItems: "center",
-                                },
-                              ]}
-                            >
-                              <Text style={styles.teamLogoFallback}>
-                                {getAbbr(away).substring(0, 1)}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={[
-                              styles.teamName,
-                              {
-                                color: theme.text,
-                                fontWeight: awayWins ? "700" : "400",
-                              },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {away?.name || "Away"}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.teamName,
-                              {
-                                color: theme.textSecondary,
-                                fontSize: 11,
-                              },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {awayPos} Place
-                          </Text>
-                        </View>
-                        {(si.isLive || si.isFinished) && awayScore != null && (
-                          <Text
-                            style={[
-                              styles.scoreText,
-                              {
-                                color: awayWins ? colors.primary : theme.text,
-                                fontWeight: awayWins ? "700" : "400",
-                                opacity: !awayWins && si.isFinished ? 0.55 : 1,
-                              },
-                            ]}
-                          >
-                            {awayScore}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Footer: venue + viewer badge */}
-                  <View
-                    style={[
-                      styles.gameFooter,
-                      { borderTopColor: theme.border },
-                    ]}
-                  >
-                    <View style={styles.gameFooterLeft}>
-                      {agg && agg.homeAgg != null && agg.awayAgg != null ? (
-                        <Text
-                          style={[styles.venue, { color: theme.textSecondary }]}
-                        >
-                          {`AGGREGATE ${agg.homeAgg} - ${agg.awayAgg}`}
-                        </Text>
-                      ) : null}
-                      {match.venue?.name ? (
-                        <Text
-                          style={[styles.venue, { color: theme.textSecondary }]}
-                        >
-                          {match.venue.name}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <View style={styles.gameFooterRight}>
-                      <LiveViewerBadge
-                        gameId={String(match.id)}
-                        status={
-                          si.isLive ? "live" : si.isFinished ? "final" : "pre"
-                        }
-                        style={styles.viewerBadge}
-                      />
-                    </View>
-                  </View>
-
-                  {idx < displayed.length - 1 && (
-                    <View
-                      style={[
-                        styles.matchSeparator,
-                        { backgroundColor: theme.border },
-                      ]}
-                    />
-                  )}
-                </TouchableOpacity>
+                  match={match}
+                  idx={idx}
+                  gIdx={gIdx}
+                  theme={theme}
+                  colors={colors}
+                  navigation={navigation}
+                  nowMs={nowMs}
+                  snapshotTsMs={snapshotTsMs}
+                  displayedLength={displayed.length}
+                />
               );
             });
           })()}
@@ -1568,14 +1751,41 @@ const Top5ScoreboardScreen = ({ navigation }) => {
             // setGroups will be called with orderedGroups below
           }
           const ts = Date.now();
-          setGroups(
-            typeof orderedGroups !== "undefined" ? orderedGroups : nextGroups,
-          );
+
+          // Ensure matches within each group are ordered by status: Live -> Scheduled -> Finished
+          // then by starting time to keep scheduled items in chronological order.
+          const sortMatchesWithinGroup = (groupsArr) => {
+            const statusWeight = (m) => {
+              const code = String(m?.state?.state || "").toUpperCase();
+              const short = String(m?.state?.short_name || "").toUpperCase();
+              if (LIVE_SHORT_NAMES.has(short)) return 0; // live
+              if (!code || ["NS", "TBA", "DELAYED", "SCHEDULED"].includes(code))
+                return 1; // scheduled
+              return 2; // finished/other
+            };
+
+            return groupsArr.map((g) => ({
+              ...g,
+              matches: (g.matches ?? []).slice().sort((a, b) => {
+                const wa = statusWeight(a);
+                const wb = statusWeight(b);
+                if (wa !== wb) return wa - wb;
+                const sa = startMsOf(a) || 0;
+                const sb = startMsOf(b) || 0;
+                return sa - sb || 0;
+              }),
+            }));
+          };
+
+          const baseGroups =
+            typeof orderedGroups !== "undefined" ? orderedGroups : nextGroups;
+          const sortedGroups = sortMatchesWithinGroup(baseGroups);
+
+          setGroups(sortedGroups);
           setSnapshotTsMs(ts);
           lastLoadedFilterRef.current = filter;
           fetchCacheRef.current[filter] = {
-            groups:
-              typeof orderedGroups !== "undefined" ? orderedGroups : nextGroups,
+            groups: sortedGroups,
             ts,
           };
 
@@ -1899,8 +2109,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.1)",
+    marginBottom: 5,
+    borderRadius: 12,
   },
   eventLogoContainer: {
     marginRight: 12,
@@ -1943,10 +2153,11 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
   },
-  matchesList: {},
+  matchesList: { gap: 5 },
   gameRow: {
     position: "relative",
     overflow: "hidden",
+    borderRadius: 12,
   },
   matchRow: {
     flexDirection: "row",
@@ -1955,7 +2166,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   statusContainer: {
-    width: 50,
+    width: 55,
     marginRight: 14,
     alignItems: "center",
   },

@@ -1,5 +1,5 @@
 // components/FootballLiveActivityController.js
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, Button, Alert, Text } from "react-native";
 import { useRoute } from "@react-navigation/native";
 import FootballLiveActivity from "../widgets/FootballLiveActivity"; // direct import
@@ -65,6 +65,35 @@ export default function FootballLiveActivityController() {
       Alert.alert("Live Activity", `Failed to stop: ${err.message}`);
     }
   };
+
+  // Listen for a route param toggle so an external floating button
+  // can request start/stop. Supports either a numeric `liveActivityToggleId`
+  // that increments on each press, or a boolean `toggleLiveActivity`.
+  const togglePrevRef = useRef(undefined);
+  useEffect(() => {
+    const params = route.params || {};
+    const signal = params.liveActivityToggleId ?? params.toggleLiveActivity;
+
+    // Ignore undefined signals
+    if (typeof signal === "undefined") return;
+
+    // If signal hasn't changed, do nothing
+    if (togglePrevRef.current === signal) return;
+    togglePrevRef.current = signal;
+
+    // Toggle activity: if active, stop — otherwise start
+    (async () => {
+      try {
+        if (liveActivityActive) {
+          await stopLiveActivity();
+        } else {
+          await startLiveActivity();
+        }
+      } catch (err) {
+        console.error('[Controller] Error toggling live activity from route param:', err);
+      }
+    })();
+  }, [route.params]);
 
   return (
     <View style={{ padding: 16 }}>

@@ -102,9 +102,11 @@ import { useStreamingAccess } from "../../../utils/streamingUtils";
 import { useGamePresence } from "../../../hooks/useGamePresence";
 import { useTheme } from "../../../context/ThemeContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { DeviceEventEmitter } from "react-native";
 import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import FootballLiveActivityController from "../../../../components/FootballLiveActivityController";
+import FootballLiveActivity from "../../../../widgets/FootballLiveActivity";
 
 const { width } = Dimensions.get("window");
 
@@ -383,6 +385,7 @@ const isLiveState = (stateCode) => {
     "AWA",
     "POST",
     "POSTPONED",
+    "CANCELLED",
   ];
   const scheduled = ["", "NS", "TBA", "DELAYED"];
   return !finished.includes(code) && !scheduled.includes(code);
@@ -403,6 +406,7 @@ const isFinishedState = (stateCode) => {
     "AWA",
     "POST",
     "POSTPONED",
+    "CANCELLED",
   ].includes(code);
 };
 
@@ -517,6 +521,7 @@ const getStatusInfo = (fixture, nowMs = Date.now(), snapshotTsMs = nowMs) => {
     "AWA",
     "POST",
     "POSTPONED",
+    "CANCELLED",
   ].includes(code);
   const isScheduled = !code || ["NS", "TBA", "DELAYED"].includes(code);
   const isLive = !isFinished && !isScheduled;
@@ -11468,6 +11473,145 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
     [data],
   );
 
+  // Favorite (star) state for this fixture
+  const [isFavorited, setIsFavorited] = useState(false);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const id = fixture?.id;
+        if (!id) return;
+        const v = await AsyncStorage.getItem(`@fav_fixture:${id}`);
+        if (mounted) setIsFavorited(!!v);
+      } catch (e) {
+        console.warn("[Top5GameDetails] load favorite failed", e);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [fixture?.id]);
+
+  const toggleFavorite = async () => {
+    try {
+      const id = fixture?.id;
+      if (!id) return;
+      const key = `@fav_fixture:${id}`;
+      if (isFavorited) {
+        await AsyncStorage.removeItem(key);
+        setIsFavorited(false);
+        DeviceEventEmitter.emit("favoritesChanged", { id, fav: false });
+        try {
+          // signal LiveActivityController (if mounted) to toggle
+          navigation.setParams({
+            liveActivityToggleId: (route.params?.liveActivityToggleId ?? 0) + 1,
+            fixtureId: id,
+          });
+        } catch (e) {
+          // ignore
+        }
+      } else {
+        await AsyncStorage.setItem(key, JSON.stringify({ id, ts: Date.now() }));
+        setIsFavorited(true);
+        DeviceEventEmitter.emit("favoritesChanged", { id, fav: true });
+        try {
+          // Start Live Activity immediately when newly favorited
+          if (FootballLiveActivity) {
+            const blendHexColors = (a, b) => {
+              try {
+                if (!a || !b) return a || b || null;
+                const norm = (h) => h.replace(/^#/, "");
+                const pa = norm(String(a));
+                const pb = norm(String(b));
+                const parse = (p) => {
+                  if (p.length === 3) {
+                    return p.split("").map((c) => parseInt(c + c, 16));
+                  }
+                  return [
+                    parseInt(p.slice(0, 2), 16),
+                    parseInt(p.slice(2, 4), 16),
+                    parseInt(p.slice(4, 6), 16),
+                  ];
+                };
+                const ra = parse(pa);
+                const rb = parse(pb);
+                const rc = [
+                  Math.round((ra[0] + rb[0]) / 2),
+                  Math.round((ra[1] + rb[1]) / 2),
+                  Math.round((ra[2] + rb[2]) / 2),
+                ];
+                const toHex = (n) => n.toString(16).padStart(2, "0");
+                return `#${toHex(rc[0])}${toHex(rc[1])}${toHex(rc[2])}`;
+              } catch (e) {
+                return a || b || null;
+              }
+            };
+
+            const blendedColor = blendHexColors(homeColor, awayColor);
+
+            const payload = {
+              home: {
+                name: home?.name ?? "",
+                shortName:
+                  home?.short_code ??
+                  home?.name.toUpperCase().slice(0, 3) ??
+                  "",
+                score: homeScore ?? 0,
+                winner: home.meta.winner,
+              },
+              away: {
+                name: away?.name ?? "",
+                shortName:
+                  away?.short_code ??
+                  away?.name.toUpperCase().slice(0, 3) ??
+                  "",
+                score: awayScore ?? 0,
+                winner: away.meta.winner,
+              },
+              status: fixture?.state
+                ? { short_name: fixture.state.short_name }
+                : { short_name: "SCHEDULED" },
+              startingAt: formatFixtureTime(fixture),
+              league: fixture?.league ?? null,
+              venue: fixture?.venue ?? null,
+              colors: {
+                home: homeColor ?? null,
+                away: awayColor ?? null,
+                blended: blendedColor,
+              },
+            };
+            const url = `app://football/fixture/${id}`;
+            try {
+              const instance = await FootballLiveActivity.start(payload, url);
+              setActivityInstance(instance);
+              setLiveActivityActive(true);
+            } catch (startErr) {
+              console.warn(
+                "[Top5GameDetails] LiveActivity.start failed",
+                startErr,
+              );
+            }
+          }
+        } catch (e) {
+          console.warn(
+            "[Top5GameDetails] start live activity attempt failed",
+            e,
+          );
+        }
+        try {
+          navigation.setParams({
+            liveActivityToggleId: (route.params?.liveActivityToggleId ?? 0) + 1,
+            fixtureId: id,
+          });
+        } catch (e) {
+          // ignore
+        }
+      }
+    } catch (e) {
+      console.warn("[Top5GameDetails] toggle favorite failed", e);
+    }
+  };
+
   const availableTabs = useMemo(
     () =>
       TABS.filter((tab) => {
@@ -11946,29 +12090,70 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
 
           {/* Venue · League row */}
           {(venueName || fixture.league) && (
-            <View style={styles.leagueRow}>
-              {fixture.league?.image_path ? (
-                <Image
-                  source={{ uri: fixture.league.image_path }}
-                  style={[
-                    styles.leagueLogo,
-                    {
-                      tintColor:
-                        fixture.league?.id === 8 && isDarkMode
-                          ? theme.text
-                          : undefined,
-                    },
-                  ]}
-                  contentFit="contain"
-                  cachePolicy="memory-disk"
-                />
-              ) : null}
-              <Text
-                style={[styles.leagueName, { color: theme.textTertiary }]}
-                numberOfLines={1}
+            <View style={[styles.leagueRow, { position: "relative" }]}>
+              {/* Centered content */}
+              <View
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  alignItems: "center",
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
               >
-                {[venueName, fixture.league?.name].filter(Boolean).join(" · ")}
-              </Text>
+                {fixture.league?.image_path ? (
+                  <Image
+                    source={{ uri: fixture.league.image_path }}
+                    style={[
+                      styles.leagueLogo,
+                      {
+                        tintColor:
+                          fixture.league?.id === 8 && isDarkMode
+                            ? theme.text
+                            : undefined,
+                      },
+                    ]}
+                    contentFit="contain"
+                    cachePolicy="memory-disk"
+                  />
+                ) : null}
+                <Text
+                  style={[styles.leagueName, { color: theme.textTertiary }]}
+                  numberOfLines={1}
+                >
+                  {[venueName, fixture.league?.name]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </Text>
+              </View>
+
+              {/* Star on the right */}
+              <TouchableOpacity
+                onPress={toggleFavorite}
+                activeOpacity={0.85}
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: -10,
+                  bottom: 0,
+                  width: 24,
+                  height: 24,
+                  borderRadius: 12,
+                  backgroundColor: colors.primary + "40",
+                  borderWidth: 0.5,
+                  borderColor: colors.primary,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons
+                  name={isFavorited ? "star" : "star-outline"}
+                  size={16}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
             </View>
           )}
 
@@ -12635,50 +12820,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
         <View style={{ height: 32 }} />
       </Animated.ScrollView>
 
-      {/* Floating button to open Football Live Activity Controller */}
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => setShowLiveController(true)}
-        style={{
-          position: "absolute",
-          left: 16,
-          right: 16,
-          bottom: Platform.OS === "ios" ? 28 : 16,
-          backgroundColor: colors.primary,
-          paddingVertical: 12,
-          borderRadius: 12,
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 60,
-          elevation: 6,
-        }}
-      >
-        <Text style={{ color: "#fff", fontWeight: "800" }}>
-          Open Live Activity Controller
-        </Text>
-      </TouchableOpacity>
-
-      {/* Modal that renders the controller */}
-      <Modal
-        animationType="slide"
-        visible={showLiveController}
-        onRequestClose={() => setShowLiveController(false)}
-      >
-        <View style={{ flex: 1, backgroundColor: theme.background }}>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "flex-end",
-              padding: 12,
-            }}
-          >
-            <TouchableOpacity onPress={() => setShowLiveController(false)}>
-              <Text style={{ fontSize: 22, color: theme.text }}>×</Text>
-            </TouchableOpacity>
-          </View>
-          <FootballLiveActivityController />
-        </View>
-      </Modal>
+      {/* Floating control moved into header — controller remains available elsewhere. */}
 
       {/* Stream Modal */}
       {isStreamingUnlocked && (

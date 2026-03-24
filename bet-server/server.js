@@ -11,6 +11,8 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { body, validationResult } = require("express-validator");
 const { Expo } = require("expo-server-sdk");
+const path = require("path");
+const fs = require("fs");
 
 // Create Supabase admin client from env
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -2432,6 +2434,9 @@ let scoreboardDataBySport = {};
 let scoreboardData = null;
 let summaryDataCache = {}; // { eventId: data }
 let rosterGamelogCache = {}; // { teamId: { roster, gamelogs } }
+// Simple in-memory admin error store (CRUD via /api/error)
+let adminErrors = [];
+let adminErrorNextId = 1;
 
 // Configuration
 const ESPN_BASE_URL =
@@ -12577,6 +12582,103 @@ app.delete(
     }
   },
 );
+
+// --------------------------
+// Simple admin error CRUD endpoints
+// --------------------------
+app.get("/api/error", async (req, res) => {
+  try {
+    // return newest first
+    const list = (adminErrors || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    res.json({ errors: list });
+  } catch (e) {
+    console.error("/api/error GET failed", e);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.post("/api/error", async (req, res) => {
+  try {
+    const { code, header, message, status, ts } = req.body || {};
+    if (!header || !message) return res.status(400).json({ message: "header and message required" });
+    const entry = {
+      id: String(adminErrorNextId++),
+      code: code || null,
+      header,
+      message,
+      status: status || "yellow",
+      ts: Number(ts) || Date.now(),
+    };
+    adminErrors.push(entry);
+    res.json(entry);
+  } catch (e) {
+    console.error("/api/error POST failed", e);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.put("/api/error/:id", async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const idx = adminErrors.findIndex((e) => String(e.id) === id);
+    if (idx === -1) return res.status(404).json({ message: "not found" });
+    const { header, message, status } = req.body || {};
+    if (header != null) adminErrors[idx].header = header;
+    if (message != null) adminErrors[idx].message = message;
+    if (status != null) adminErrors[idx].status = status;
+    adminErrors[idx].ts = Date.now();
+    res.json(adminErrors[idx]);
+  } catch (e) {
+    console.error("/api/error PUT failed", e);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.delete("/api/error/:id", async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const before = adminErrors.length;
+    adminErrors = adminErrors.filter((e) => String(e.id) !== id);
+    res.json({ deleted: before - adminErrors.length });
+  } catch (e) {
+    console.error("/api/error DELETE failed", e);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Serve the admin HTML (placed in repo root)
+app.get("/error_admin", (req, res) => {
+  try {
+    const p = path.join(__dirname, "..", "error_admin.html");
+    let html = fs.readFileSync(p, "utf8");
+    // Read admin code from code.txt or environment
+    let adminCode = null;
+    try {
+      if (process.env.ADMIN_CODE) adminCode = String(process.env.ADMIN_CODE).trim();
+      else {
+        const codePath = path.join(__dirname, "..", "code.txt");
+        if (fs.existsSync(codePath)) {
+          adminCode = String(fs.readFileSync(codePath, "utf8") || "").trim();
+        }
+      }
+    } catch (e) {
+      adminCode = null;
+    }
+
+    if (adminCode) {
+      const inject = `<script>const adminCode = ${JSON.stringify(adminCode)};</script>`;
+      html = html.replace("<!--ADMIN_CODE_PLACEHOLDER-->", inject);
+    } else {
+      html = html.replace("<!--ADMIN_CODE_PLACEHOLDER-->", "");
+    }
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(html);
+  } catch (e) {
+    console.error("/error_admin serve failed", e);
+    res.status(500).send("Unable to serve file");
+  }
+});
 
 // Start server
 app.listen(PORT, () => {

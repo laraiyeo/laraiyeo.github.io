@@ -944,12 +944,12 @@ const ScoreboardSection = ({
         key={group.dateKey}
         style={[
           styles.eventContainer,
-          { backgroundColor: theme.surfaceSecondary },
+          { backgroundColor: theme.background },
         ]}
       >
         {/* Date header (tappable to collapse/expand when upcoming) */}
         <TouchableOpacity
-          style={styles.eventHeaderContainer}
+          style={[styles.eventHeaderContainer, { backgroundColor: theme.surfaceSecondary }]}
           activeOpacity={0.8}
           onPress={() =>
             activeFilter === "upcoming" && toggleCollapse(group.dateKey)
@@ -1057,7 +1057,7 @@ const ScoreboardSection = ({
               return (
                 <TouchableOpacity
                   key={game.id || idx}
-                  style={styles.gameRow}
+                  style={[styles.gameRow, { backgroundColor: theme.surfaceSecondary }]}
                   onPress={() =>
                     navigation.navigate("GameDetails", {
                       gamePk: game.id,
@@ -1724,8 +1724,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.1)",
+    marginBottom: 5,
+    borderRadius: 12
   },
   eventLogoContainer: {
     marginRight: 12,
@@ -1759,10 +1759,11 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     textTransform: "uppercase",
   },
-  matchesList: {},
+  matchesList: {gap: 5},
   gameRow: {
     position: "relative",
     overflow: "hidden",
+    borderRadius: 12,
   },
   matchRow: {
     flexDirection: "row",

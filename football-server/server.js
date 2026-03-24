@@ -198,6 +198,7 @@ const FINISHED_STATES = new Set([
   "AWA",
   "POST",
   "POSTPONED",
+  "CANCELLED",
 ]);
 const FUTURE_STATES = new Set(["NS", "TBA", "DELAYED"]);
 

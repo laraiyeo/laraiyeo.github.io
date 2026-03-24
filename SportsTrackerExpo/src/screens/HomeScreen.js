@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   Image,
   Modal,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { FontAwesome6, FontAwesome } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
 import analyticsService from "../services/AnalyticsService";
@@ -82,6 +82,29 @@ const HOME_SPORTS_BASE = [
 const HomeScreen = () => {
   const navigation = useNavigation();
   const { theme, colors } = useTheme();
+
+  const [errors, setErrors] = useState([]);
+
+  const fetchErrors = useCallback(async () => {
+    try {
+      const res = await fetch(
+        "https://laraiyeogithubio-production-f5af.up.railway.app/api/error",
+      );
+      if (!res.ok) return;
+      const j = await res.json();
+      setErrors(j.errors || []);
+    } catch (e) {
+      console.warn("fetch errors failed", e);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchErrors();
+      const id = setInterval(fetchErrors, 15000);
+      return () => clearInterval(id);
+    }, [fetchErrors]),
+  );
 
   // Update popup state
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -187,6 +210,24 @@ const HomeScreen = () => {
           Choose your sport to get started
         </Text>
       </View>
+
+      {/* Error banner (shows when server reports errors) */}
+      {errors && errors.length > 0 ? (
+        <TouchableOpacity
+          style={[
+            styles.errorBanner,
+            { backgroundColor: errors[0].status === "green" ? "#e6ffed" : errors[0].status === "red" ? "#ffecec" : "#fff7e6" },
+          ]}
+          onPress={() => {
+            // open admin panel in browser (if available)
+            // On device this might not open; keep noop
+            // window.open('/error_admin');
+          }}
+        >
+          <Text style={[styles.errorHeader, { color: "#222" }]}>{errors[0].header}</Text>
+          <Text style={[styles.errorMsg, { color: "#222" }]}>{errors[0].message}</Text>
+        </TouchableOpacity>
+      ) : null}
 
       {/* Layout editing removed; no animated banner required */}
       <ScrollView
@@ -550,6 +591,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+  errorBanner: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  errorHeader: { fontSize: 16, fontWeight: "700", marginBottom: 4 },
+  errorMsg: { fontSize: 13 },
   updateDescription: {
     fontSize: 14,
     textAlign: "center",
