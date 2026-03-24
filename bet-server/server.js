@@ -12649,38 +12649,18 @@ app.delete("/api/error/:id", async (req, res) => {
   }
 });
 
-// Serve the admin HTML (placed in repo root)
-app.get("/error_admin", (req, res) => {
+// Admin code verification endpoint. Returns "Access Granted" when code matches, otherwise empty body.
+app.get("/error_admin/:code", (req, res) => {
   try {
-    const p = path.join(__dirname, "..", "error_admin.html");
-    let html = fs.readFileSync(p, "utf8");
-    // Read admin code from code.txt or environment
-    let adminCode = null;
-    try {
-      if (process.env.ADMIN_CODE)
-        adminCode = String(process.env.ADMIN_CODE).trim();
-      else {
-        const codePath = path.join(__dirname, "..", "code.txt");
-        if (fs.existsSync(codePath)) {
-          adminCode = String(fs.readFileSync(codePath, "utf8") || "").trim();
-        }
-      }
-    } catch (e) {
-      adminCode = null;
+    const provided = String(req.params.code || "");
+    const expected = process.env.ADMIN_CODE || null;
+    if (expected && provided === String(expected)) {
+      return res.status(200).send("Access Granted");
     }
-
-    if (adminCode) {
-      const inject = `<script>const adminCode = ${JSON.stringify(adminCode)};</script>`;
-      html = html.replace("<!--ADMIN_CODE_PLACEHOLDER-->", inject);
-    } else {
-      html = html.replace("<!--ADMIN_CODE_PLACEHOLDER-->", "");
-    }
-
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.send(html);
+    return res.status(200).send("");
   } catch (e) {
-    console.error("/error_admin serve failed", e);
-    res.status(500).send("Unable to serve file");
+    console.error("/error_admin/:code failed", e);
+    return res.status(500).send("");
   }
 });
 

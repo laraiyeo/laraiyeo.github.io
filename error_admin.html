@@ -81,8 +81,8 @@
 
     <script>
       (function () {
-        <!--ADMIN_CODE_PLACEHOLDER-->
         const base = "/api/error";
+        let adminCodeLocal = null;
         const access = document.getElementById("access");
         const panel = document.getElementById("panel");
         const unlockBtn = document.getElementById("unlockBtn");
@@ -99,12 +99,22 @@
           fetchAndRender();
         }
 
-        unlockBtn.addEventListener("click", () => {
-          if (typeof adminCode === "undefined" || !adminCode) {
-            return alert("Admin code not configured on server. Cannot unlock.");
+        unlockBtn.addEventListener("click", async () => {
+          const code = (codeIn.value || "").trim();
+          if (!code) return alert("Enter admin code");
+          try {
+            const resp = await fetch("/error_admin/" + encodeURIComponent(code));
+            const text = await resp.text();
+            if (text === "Access Granted") {
+              adminCodeLocal = code;
+              showPanel();
+            } else {
+              alert("Invalid code");
+            }
+          } catch (e) {
+            console.error(e);
+            alert("Verification failed");
           }
-          if (codeIn.value === adminCode) showPanel();
-          else alert("Invalid code");
         });
 
         async function fetchAndRender() {
@@ -150,7 +160,7 @@
                       header: newHdr,
                       message: newMsg,
                       status: newStatus,
-                      code: typeof adminCode !== "undefined" ? adminCode : null,
+                      code: adminCodeLocal,
                     }),
                   });
                   fetchAndRender();
@@ -166,8 +176,7 @@
               if (!confirm("Delete this error?")) return;
               try {
                 const headers = {};
-                if (typeof adminCode !== "undefined" && adminCode)
-                  headers["x-admin-code"] = adminCode;
+                if (adminCodeLocal) headers["x-admin-code"] = adminCodeLocal;
                 await fetch(base + "/" + id, { method: "DELETE", headers });
                 fetchAndRender();
               } catch (e) {
@@ -192,7 +201,7 @@
                 message,
                 status,
                 ts: Date.now(),
-                code: typeof adminCode !== "undefined" ? adminCode : null,
+                code: adminCodeLocal,
               }),
             });
             hdr.value = "";
