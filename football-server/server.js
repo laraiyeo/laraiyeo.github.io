@@ -148,25 +148,28 @@ async function addActivityToken(fixtureId, token) {
   if (!fixtureId || !token) return false;
   if (supabase) {
     try {
-      // store as type='activity' to distinguish from bundle/fixture tokens
-      const resp = await supabase.from("live_activity_tokens").upsert(
-        {
-          type: "activity",
-          bundle_id: null,
-          token,
-          fixture_id: String(fixtureId),
-        },
-        { onConflict: ["type", "fixture_id", "token"] },
-      );
-      if (resp?.error) {
-        console.warn(
-          "[live-activity] supabase upsert activity token error:",
-          resp.error?.message || resp.error,
-        );
+      // Robust fallback for environments without the expected unique constraint:
+      // 1) remove any existing rows that reference this token (avoid duplicates)
+      // 2) insert a fresh activity-type row for this fixture
+      try {
+        await supabase.from("live_activity_tokens").delete().eq("token", token);
+      } catch (e) {
+        // non-fatal
+      }
+      const { error } = await supabase
+        .from("live_activity_tokens")
+        .insert([
+          {
+            type: "activity",
+            bundle_id: null,
+            token,
+            fixture_id: String(fixtureId),
+          },
+        ]);
+      if (error) {
+        console.warn("[live-activity] supabase insert activity token error:", error?.message || error);
       } else {
-        console.log("[live-activity] supabase upsert activity token ok", {
-          fixtureId: String(fixtureId),
-        });
+        console.log("[live-activity] supabase insert activity token ok", { fixtureId: String(fixtureId) });
       }
       return true;
     } catch (e) {
@@ -244,22 +247,19 @@ async function addPushToStartToken(bundleId, token) {
   if (!bundleId || !token) return false;
   if (supabase) {
     try {
-      // upsert bundle-level token (type='bundle', fixture_id = null)
-      const resp = await supabase
+      // Robust approach: remove any existing rows with this token, then insert bundle row
+      try {
+        await supabase.from("live_activity_tokens").delete().eq("token", token);
+      } catch (e) {}
+      const { error } = await supabase
         .from("live_activity_tokens")
-        .upsert(
+        .insert([
           { type: "bundle", bundle_id: bundleId, token, fixture_id: null },
-          { onConflict: ["type", "bundle_id", "token"] },
-        );
-      if (resp?.error) {
-        console.warn(
-          "[live-activity] supabase upsert bundle token error:",
-          resp.error?.message || resp.error,
-        );
+        ]);
+      if (error) {
+        console.warn("[live-activity] supabase insert bundle token error:", error?.message || error);
       } else {
-        console.log("[live-activity] supabase upsert bundle token ok", {
-          bundleId,
-        });
+        console.log("[live-activity] supabase insert bundle token ok", { bundleId });
       }
       return true;
     } catch (e) {
@@ -3339,6 +3339,7 @@ async function forwardToProvider(tokenOrTokens, payload) {
     // Direct APNs send
     try {
       const apnsResp = await sendToAPNs(token, payload, { maxAttempts: 3 });
+      console.log("[live-activity] forwardToProvider direct apns response", { token, apnsResp });
       results.push({ token, forwarded: false, apns: apnsResp });
     } catch (err) {
       console.error(
@@ -3349,7 +3350,9 @@ async function forwardToProvider(tokenOrTokens, payload) {
     }
   }
 
-  return results.length === 1 ? results[0] : results;
+  const out = results.length === 1 ? results[0] : results;
+  console.log("[live-activity] forwardToProvider results", out);
+  return out;
 }
 
 async function fetchLiveActivityForFixture(fixtureId) {
@@ -3357,6 +3360,13 @@ async function fetchLiveActivityForFixture(fixtureId) {
     const url = `http://127.0.0.1:${PORT}/football/game/${fixtureId}/live-activity`;
     const resp = await axios.get(url, { timeout: 10000 });
     // expect { source, data: { activity } }
+    try {
+      console.log("[live-activity] fetchLiveActivityForFixture response", {
+        fixtureId,
+        status: resp.status,
+        data: resp.data,
+      });
+    } catch (e) {}
     return resp.data?.data?.activity ?? null;
   } catch (e) {
     return null;
@@ -3377,6 +3387,9 @@ async function sendStartNoAlert(tokenOrTokens, name, props) {
       timestamp: Math.floor(Date.now() / 1000),
     },
   };
+  try {
+    console.log("[live-activity] sendStartNoAlert payload", { name, props });
+  } catch (e) {}
   return forwardToProvider(tokenOrTokens, payload);
 }
 
@@ -3403,6 +3416,9 @@ async function sendUpdateWithAlert(token, name, props, title, body) {
       "interruption-level": "time-sensitive",
     },
   };
+  try {
+    console.log("[live-activity] sendUpdateWithAlert payload", { token, name, title, body, props });
+  } catch (e) {}
   return forwardToProvider(token, payload);
 }
 
@@ -3419,6 +3435,9 @@ async function sendEnd(token, name, props) {
       attributes: {},
     },
   };
+  try {
+    console.log("[live-activity] sendEnd payload", { token, name, props });
+  } catch (e) {}
   return forwardToProvider(token, payload);
 }
 
@@ -3525,6 +3544,17 @@ function startLiveActivityMonitor(opts) {
           blended: "#FFD23F",
         },
       };
+      try {
+        console.log("[live-activity] built props", {
+          fixtureId: opts.fixtureId,
+          state,
+          home: { name: props.home.name, score: props.home.score },
+          away: { name: props.away.name, score: props.away.score },
+          minute: props.status?.minute ?? null,
+          seconds: props.status?.seconds ?? null,
+          ticking: props.status?.ticking ?? null,
+        });
+      } catch (e) {}
 
       // simple payload hash dedupe to avoid unnecessary APNs calls
       try {
