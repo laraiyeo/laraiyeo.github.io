@@ -3692,24 +3692,24 @@ function startLiveActivityMonitor(opts) {
         if (activityTokens && activityTokens.length > 0) {
           monitor.started = true;
           try {
-              if (
-                !monitor.lastPushAt ||
-                Date.now() - monitor.lastPushAt >= 5000
-              ) {
-                const deltaStart = {
-                  status: props.status,
-                  homeScore: props.home?.score ?? null,
-                  awayScore: props.away?.score ?? null,
-                };
-                await sendStartWithAlert(
-                  activityTokens,
-                  opts.name,
-                  deltaStart,
-                  "Match started",
-                  `${activity.participants?.[0]?.name || "Home"} vs ${activity.participants?.[1]?.name || "Away"} kicked off`,
-                );
-                monitor.lastPushAt = Date.now();
-              }
+            if (
+              !monitor.lastPushAt ||
+              Date.now() - monitor.lastPushAt >= 5000
+            ) {
+              const deltaStart = {
+                status: props.status,
+                homeScore: props.home?.score ?? null,
+                awayScore: props.away?.score ?? null,
+              };
+              await sendStartWithAlert(
+                activityTokens,
+                opts.name,
+                deltaStart,
+                "Match started",
+                `${activity.participants?.[0]?.name || "Home"} vs ${activity.participants?.[1]?.name || "Away"} kicked off`,
+              );
+              monitor.lastPushAt = Date.now();
+            }
           } catch (e) {}
         }
       }
@@ -4186,7 +4186,11 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                   homeScore: props.home?.score ?? 0,
                   awayScore: props.away?.score ?? 0,
                 };
-                await sendUpdateNoAlert(tokens, "FootballLiveActivity", deltaNow);
+                await sendUpdateNoAlert(
+                  tokens,
+                  "FootballLiveActivity",
+                  deltaNow,
+                );
               } catch (e) {}
             }
           } catch (e) {}

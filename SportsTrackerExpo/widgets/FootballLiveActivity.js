@@ -61,10 +61,11 @@ const FootballLiveActivity = (props) => {
     name: props?.league?.name ?? initial?.league?.name ?? "League",
     logo: props?.league?.logo ?? initial?.league?.logo ?? null,
   };
-  const colors =
-    props?.colors ?? initial?.colors ?? { home: "#FF6B35", away: "#F7931E", blended: "#FFD23F" };
+  const colors = props?.colors ??
+    initial?.colors ?? { home: "#FF6B35", away: "#F7931E", blended: "#FFD23F" };
   const status = {
-    short_name: props?.status?.short_name ?? initial?.status?.short_name ?? "NS",
+    short_name:
+      props?.status?.short_name ?? initial?.status?.short_name ?? "NS",
     text: props?.status?.text ?? initial?.status?.text ?? "",
     minute: props?.status?.minute ?? initial?.status?.minute ?? null,
     seconds: props?.status?.seconds ?? initial?.status?.seconds ?? null,
@@ -259,7 +260,14 @@ const FootballLiveActivity = (props) => {
               <HStack alignment="center">
                 <Text
                   modifiers={[
-                    font({ weight: home.winner ? "bold" : !statusInfo.isFinished ? "bold" : "light", size: 30 }),
+                    font({
+                      weight: home.winner
+                        ? "bold"
+                        : !statusInfo.isFinished
+                          ? "bold"
+                          : "light",
+                      size: 30,
+                    }),
                     frame({ maxWidth: 85, alignment: "center" }),
                   ]}
                 >
@@ -275,7 +283,14 @@ const FootballLiveActivity = (props) => {
                 </Text>
                 <Text
                   modifiers={[
-                    font({ weight: away.winner ? "bold" : !statusInfo.isFinished ? "bold" : "light", size: 30 }),
+                    font({
+                      weight: away.winner
+                        ? "bold"
+                        : !statusInfo.isFinished
+                          ? "bold"
+                          : "light",
+                      size: 30,
+                    }),
                     frame({ maxWidth: 85, alignment: "center" }),
                   ]}
                 >
