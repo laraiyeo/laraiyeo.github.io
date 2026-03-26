@@ -271,8 +271,8 @@ const FootballLiveActivity = (props) => {
                       weight: home.winner
                         ? "bold"
                         : !statusInfo.isFinished
-                        ? "bold"
-                        : "light",
+                          ? "bold"
+                          : "light",
                       size: 30,
                     }),
                     frame({ maxWidth: 85, alignment: "center" }),
@@ -296,8 +296,8 @@ const FootballLiveActivity = (props) => {
                       weight: away.winner
                         ? "bold"
                         : !statusInfo.isFinished
-                        ? "bold"
-                        : "light",
+                          ? "bold"
+                          : "light",
                       size: 30,
                     }),
                     frame({ maxWidth: 85, alignment: "center" }),
@@ -350,8 +350,8 @@ const FootballLiveActivity = (props) => {
                   weight: home.winner
                     ? "bold"
                     : !statusInfo.isFinished
-                    ? "bold"
-                    : "light",
+                      ? "bold"
+                      : "light",
                   size: 12,
                 }),
                 frame({ maxWidth: 100, alignment: "center" }),
@@ -400,8 +400,8 @@ const FootballLiveActivity = (props) => {
                   weight: away.winner
                     ? "bold"
                     : !statusInfo.isFinished
-                    ? "bold"
-                    : "light",
+                      ? "bold"
+                      : "light",
                   size: 12,
                 }),
                 frame({ maxWidth: 100, alignment: "center" }),
@@ -422,7 +422,7 @@ const FootballLiveActivity = (props) => {
 
 const factory = createLiveActivity(
   "FootballLiveActivity",
-  FootballLiveActivity
+  FootballLiveActivity,
 );
 
 export default factory;

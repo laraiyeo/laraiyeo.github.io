@@ -11655,7 +11655,11 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 : { short_name: "SCHEDULED" },
               startingAt: formatFixtureTime(fixture),
               league: fixture?.league
-                ? { ...fixture.league, logo: leagueLogoUri, logoName: `league_${id}.png` }
+                ? {
+                    ...fixture.league,
+                    logo: leagueLogoUri,
+                    logoName: `league_${id}.png`,
+                  }
                 : null,
               venue: fixture?.venue ?? null,
               colors: {
