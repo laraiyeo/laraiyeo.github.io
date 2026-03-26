@@ -149,7 +149,7 @@ async function addActivityToken(fixtureId, token) {
   if (supabase) {
     try {
       // store as type='activity' to distinguish from bundle/fixture tokens
-      await supabase.from("live_activity_tokens").upsert(
+      const resp = await supabase.from("live_activity_tokens").upsert(
         {
           type: "activity",
           bundle_id: null,
@@ -158,6 +158,11 @@ async function addActivityToken(fixtureId, token) {
         },
         { onConflict: ["type", "fixture_id", "token"] },
       );
+      if (resp?.error) {
+        console.warn("[live-activity] supabase upsert activity token error:", resp.error?.message || resp.error);
+      } else {
+        console.log("[live-activity] supabase upsert activity token ok", { fixtureId: String(fixtureId) });
+      }
       return true;
     } catch (e) {
       console.warn("supabase upsert activity token failed", e?.message || e);
@@ -180,10 +185,14 @@ async function getActivityTokensForFixture(fixtureId) {
       // only return activity-type tokens for updates/ends
       const { data, error } = await supabase
         .from("live_activity_tokens")
-        .select("token")
+        .select("token, type, fixture_id, bundle_id")
         .eq("fixture_id", String(fixtureId))
         .eq("type", "activity");
-      if (error) throw error;
+      if (error) {
+        console.warn("[live-activity] supabase select activity tokens error:", error?.message || error);
+        throw error;
+      }
+      console.log("[live-activity] supabase selected activity tokens", { fixtureId: String(fixtureId), count: (data || []).length });
       return (data || []).map((r) => r.token).filter(Boolean);
     } catch (e) {
       console.warn("supabase select activity tokens failed", e?.message || e);
@@ -225,12 +234,17 @@ async function addPushToStartToken(bundleId, token) {
   if (supabase) {
     try {
       // upsert bundle-level token (type='bundle', fixture_id = null)
-      await supabase
+      const resp = await supabase
         .from("live_activity_tokens")
         .upsert(
           { type: "bundle", bundle_id: bundleId, token, fixture_id: null },
           { onConflict: ["type", "bundle_id", "token"] },
         );
+      if (resp?.error) {
+        console.warn("[live-activity] supabase upsert bundle token error:", resp.error?.message || resp.error);
+      } else {
+        console.log("[live-activity] supabase upsert bundle token ok", { bundleId });
+      }
       return true;
     } catch (e) {
       console.warn("supabase upsert bundle token failed:", e?.message || e);
