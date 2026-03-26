@@ -23,24 +23,57 @@ import { createLiveActivity } from "expo-widgets";
 const FootballLiveActivity = (props) => {
   "widget"; // required for Expo Widgets
 
-  const home =
-    props && props.home && props.home.name ? props.home : { name: "Home" };
-  const away =
-    props && props.away && props.away.name ? props.away : { name: "Away" };
-  const league =
-    props && props.league && props.league.name
-      ? props.league
-      : { name: "League" };
+  // persist initial full props so partial server updates won't lose local assets
+  let initial = global.__INITIAL_LIVE_ACTIVITY_PROPS__ || null;
+  if (!initial && props?.home && props?.away) {
+    try {
+      global.__INITIAL_LIVE_ACTIVITY_PROPS__ = props;
+      initial = props;
+    } catch (e) {}
+  }
+
+  const home = {
+    name: props?.home?.name ?? initial?.home?.name ?? "Home",
+    shortName:
+      props?.home?.shortName ||
+      props?.home?.short_code ||
+      props?.home?.abbr ||
+      initial?.home?.shortName ||
+      "",
+    logo: props?.home?.logo ?? initial?.home?.logo ?? null,
+    winner: props?.home?.winner ?? initial?.home?.winner ?? null,
+    score: props?.homeScore ?? props?.home?.score ?? initial?.home?.score ?? 0,
+  };
+
+  const away = {
+    name: props?.away?.name ?? initial?.away?.name ?? "Away",
+    shortName:
+      props?.away?.shortName ||
+      props?.away?.short_code ||
+      props?.away?.abbr ||
+      initial?.away?.shortName ||
+      "",
+    logo: props?.away?.logo ?? initial?.away?.logo ?? null,
+    winner: props?.away?.winner ?? initial?.away?.winner ?? null,
+    score: props?.awayScore ?? props?.away?.score ?? initial?.away?.score ?? 0,
+  };
+  const league = {
+    name: props?.league?.name ?? initial?.league?.name ?? "League",
+    logo: props?.league?.logo ?? initial?.league?.logo ?? null,
+  };
   const colors =
-    props && props.colors
-      ? props.colors
-      : { home: "#FF6B35", away: "#F7931E", blended: "#FFD23F" };
-  const status =
-    props && props.status && props.status.short_name
-      ? props.status
-      : { short_name: "Status" };
-  const venue =
-    props && props.venue && props.venue.name ? props.venue : { name: "Venue" };
+    props?.colors ?? initial?.colors ?? { home: "#FF6B35", away: "#F7931E", blended: "#FFD23F" };
+  const status = {
+    short_name: props?.status?.short_name ?? initial?.status?.short_name ?? "NS",
+    text: props?.status?.text ?? initial?.status?.text ?? "",
+    minute: props?.status?.minute ?? initial?.status?.minute ?? null,
+    seconds: props?.status?.seconds ?? initial?.status?.seconds ?? null,
+    ticking: props?.status?.ticking ?? initial?.status?.ticking ?? false,
+  };
+
+  const venue = {
+    name: props?.venue?.name ?? initial?.venue?.name ?? "Venue",
+  };
 
   const getTextOnColor = (hex) => {
     if (!hex) return "#FFFFFF";

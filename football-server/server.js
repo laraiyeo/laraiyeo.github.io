@@ -3667,11 +3667,15 @@ function startLiveActivityMonitor(opts) {
               Date.now() - monitor.lastTickPush >= TICK_INTERVAL_MS
             ) {
               try {
-                // use silent update to avoid user alerts for ticking
-                await sendUpdateNoAlert(activityTokens, opts.name, props);
+                // use silent, delta-only update to avoid overwriting client-owned
+                // assets (logos/colors) and to avoid user alerts for ticking
+                const delta = {
+                  status: props.status,
+                  homeScore: props.home?.score ?? null,
+                  awayScore: props.away?.score ?? null,
+                };
+                await sendUpdateNoAlert(activityTokens, opts.name, delta);
                 monitor.lastTickPush = Date.now();
-                // also mark as a push for rate limiting other events
-                monitor.lastPushAt = monitor.lastPushAt || Date.now();
               } catch (e) {}
             }
           }
@@ -3679,7 +3683,7 @@ function startLiveActivityMonitor(opts) {
       } catch (e) {}
 
       // detect first-half (1ST) -> send start-with-alert if not yet alerted
-      if (!monitor.alertedStart && /1ST|FIRST/i.test(state)) {
+      if (!monitor.alertedStart && /1ST|FIRST/i.test(stateShort)) {
         monitor.alertedStart = true;
         // only send to activity instance tokens (do not fallback)
         const activityTokens = opts.fixtureId
@@ -3688,25 +3692,30 @@ function startLiveActivityMonitor(opts) {
         if (activityTokens && activityTokens.length > 0) {
           monitor.started = true;
           try {
-            if (
-              !monitor.lastPushAt ||
-              Date.now() - monitor.lastPushAt >= 5000
-            ) {
-              await sendStartWithAlert(
-                activityTokens,
-                opts.name,
-                props,
-                "Match started",
-                `${activity.participants?.[0]?.name || "Home"} vs ${activity.participants?.[1]?.name || "Away"} kicked off`,
-              );
-              monitor.lastPushAt = Date.now();
-            }
+              if (
+                !monitor.lastPushAt ||
+                Date.now() - monitor.lastPushAt >= 5000
+              ) {
+                const deltaStart = {
+                  status: props.status,
+                  homeScore: props.home?.score ?? null,
+                  awayScore: props.away?.score ?? null,
+                };
+                await sendStartWithAlert(
+                  activityTokens,
+                  opts.name,
+                  deltaStart,
+                  "Match started",
+                  `${activity.participants?.[0]?.name || "Home"} vs ${activity.participants?.[1]?.name || "Away"} kicked off`,
+                );
+                monitor.lastPushAt = Date.now();
+              }
           } catch (e) {}
         }
       }
 
       // detect HT — use activity instance tokens (instance.getPushToken()) for updates
-      if (/HT|HALF/i.test(state) && monitor.lastState !== state) {
+      if (/HT|HALF/i.test(stateShort) && monitor.lastState !== stateShort) {
         // only send to activity instance tokens (do not fallback)
         const activityTokens = opts.fixtureId
           ? await getActivityTokensForFixture(opts.fixtureId)
@@ -3717,10 +3726,15 @@ function startLiveActivityMonitor(opts) {
               !monitor.lastPushAt ||
               Date.now() - monitor.lastPushAt >= 5000
             ) {
+              const deltaHT = {
+                status: props.status,
+                homeScore: props.home?.score ?? null,
+                awayScore: props.away?.score ?? null,
+              };
               await sendUpdateWithAlert(
                 activityTokens,
                 opts.name,
-                props,
+                deltaHT,
                 "Half Time",
                 "Match is at half time",
               );
@@ -3752,10 +3766,15 @@ function startLiveActivityMonitor(opts) {
                   !monitor.lastPushAt ||
                   Date.now() - monitor.lastPushAt >= 5000
                 ) {
+                  const deltaGoal = {
+                    status: props.status,
+                    homeScore: props.home?.score ?? null,
+                    awayScore: props.away?.score ?? null,
+                  };
                   await sendUpdateWithAlert(
                     activityTokens,
                     opts.name,
-                    props,
+                    deltaGoal,
                     "GOAL ⚽",
                     `Score changed: ${curr}`,
                   );
@@ -3771,7 +3790,7 @@ function startLiveActivityMonitor(opts) {
       // detect end — send end to activity instance tokens (preferred)
       if (
         /FT|AET|FT_PEN|POSTP|CANC|ABAN|WALKOVER|POSTPONED|CANCELLED|CANCELL?ED/i.test(
-          state,
+          stateShort,
         )
       ) {
         const activityTokens = opts.fixtureId
@@ -3792,9 +3811,7 @@ function startLiveActivityMonitor(opts) {
         stop();
       }
       // update lastState after processing
-      monitor.lastState = state;
-      // rate limit marker for monitor pushes
-      monitor.lastPushAt = Date.now();
+      monitor.lastState = stateShort;
     } catch (e) {
       // ignore poll errors
     }
@@ -4158,13 +4175,18 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                 venue: { name: activity?.venue?.name || null },
               };
               try {
-                await sendUpdateWithAlert(
-                  tokens,
-                  "FootballLiveActivity",
-                  props,
-                  "Live",
-                  "Now tracking",
-                );
+                const deltaNow = {
+                  status: {
+                    short_name: shortName,
+                    text: stateText,
+                    minute: minuteNow,
+                    seconds: secondsNow,
+                    ticking: tickingNow,
+                  },
+                  homeScore: props.home?.score ?? 0,
+                  awayScore: props.away?.score ?? 0,
+                };
+                await sendUpdateNoAlert(tokens, "FootballLiveActivity", deltaNow);
               } catch (e) {}
             }
           } catch (e) {}
