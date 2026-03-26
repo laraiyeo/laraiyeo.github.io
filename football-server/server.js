@@ -156,20 +156,23 @@ async function addActivityToken(fixtureId, token) {
       } catch (e) {
         // non-fatal
       }
-      const { error } = await supabase
-        .from("live_activity_tokens")
-        .insert([
-          {
-            type: "activity",
-            bundle_id: null,
-            token,
-            fixture_id: String(fixtureId),
-          },
-        ]);
+      const { error } = await supabase.from("live_activity_tokens").insert([
+        {
+          type: "activity",
+          bundle_id: null,
+          token,
+          fixture_id: String(fixtureId),
+        },
+      ]);
       if (error) {
-        console.warn("[live-activity] supabase insert activity token error:", error?.message || error);
+        console.warn(
+          "[live-activity] supabase insert activity token error:",
+          error?.message || error,
+        );
       } else {
-        console.log("[live-activity] supabase insert activity token ok", { fixtureId: String(fixtureId) });
+        console.log("[live-activity] supabase insert activity token ok", {
+          fixtureId: String(fixtureId),
+        });
       }
       return true;
     } catch (e) {
@@ -257,9 +260,14 @@ async function addPushToStartToken(bundleId, token) {
           { type: "bundle", bundle_id: bundleId, token, fixture_id: null },
         ]);
       if (error) {
-        console.warn("[live-activity] supabase insert bundle token error:", error?.message || error);
+        console.warn(
+          "[live-activity] supabase insert bundle token error:",
+          error?.message || error,
+        );
       } else {
-        console.log("[live-activity] supabase insert bundle token ok", { bundleId });
+        console.log("[live-activity] supabase insert bundle token ok", {
+          bundleId,
+        });
       }
       return true;
     } catch (e) {
@@ -3339,7 +3347,10 @@ async function forwardToProvider(tokenOrTokens, payload) {
     // Direct APNs send
     try {
       const apnsResp = await sendToAPNs(token, payload, { maxAttempts: 3 });
-      console.log("[live-activity] forwardToProvider direct apns response", { token, apnsResp });
+      console.log("[live-activity] forwardToProvider direct apns response", {
+        token,
+        apnsResp,
+      });
       results.push({ token, forwarded: false, apns: apnsResp });
     } catch (err) {
       console.error(
@@ -3417,7 +3428,13 @@ async function sendUpdateWithAlert(token, name, props, title, body) {
     },
   };
   try {
-    console.log("[live-activity] sendUpdateWithAlert payload", { token, name, title, body, props });
+    console.log("[live-activity] sendUpdateWithAlert payload", {
+      token,
+      name,
+      title,
+      body,
+      props,
+    });
   } catch (e) {}
   return forwardToProvider(token, payload);
 }
