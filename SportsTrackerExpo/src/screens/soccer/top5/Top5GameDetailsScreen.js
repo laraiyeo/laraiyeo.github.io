@@ -11635,6 +11635,8 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 score: homeScore ?? 0,
                 winner: home?.meta?.winner,
                 logo: homeLogoUri,
+                // local filename stored in App Group so server updates can reference it
+                logoName: `home_${id}.png`,
               },
               away: {
                 name: away?.name ?? "",
@@ -11645,13 +11647,15 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 score: awayScore ?? 0,
                 winner: away?.meta?.winner,
                 logo: awayLogoUri,
+                // local filename stored in App Group so server updates can reference it
+                logoName: `away_${id}.png`,
               },
               status: fixture?.state
                 ? { short_name: fixture.state.short_name }
                 : { short_name: "SCHEDULED" },
               startingAt: formatFixtureTime(fixture),
               league: fixture?.league
-                ? { ...fixture.league, logo: leagueLogoUri }
+                ? { ...fixture.league, logo: leagueLogoUri, logoName: `league_${id}.png` }
                 : null,
               venue: fixture?.venue ?? null,
               colors: {

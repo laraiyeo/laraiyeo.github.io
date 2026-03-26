@@ -21,59 +21,57 @@ import {
 import { createLiveActivity } from "expo-widgets";
 
 const FootballLiveActivity = (props) => {
-  "widget"; // required for Expo Widgets
+  "widget";
 
-  // persist initial full props so partial server updates won't lose local assets
-  let initial = global.__INITIAL_LIVE_ACTIVITY_PROPS__ || null;
-  if (!initial && props?.home && props?.away) {
-    try {
-      global.__INITIAL_LIVE_ACTIVITY_PROPS__ = props;
-      initial = props;
-    } catch (e) {}
-  }
+  // safe helper (prevents undefined/null crashes)
+  const safe = (val, fallback) =>
+    val !== undefined && val !== null ? val : fallback;
 
   const home = {
-    name: props?.home?.name ?? initial?.home?.name ?? "Home",
+    name: safe(props?.home?.name, "Home"),
     shortName:
       props?.home?.shortName ||
       props?.home?.short_code ||
       props?.home?.abbr ||
-      initial?.home?.shortName ||
       "",
-    logo: props?.home?.logo ?? initial?.home?.logo ?? null,
-    winner: props?.home?.winner ?? initial?.home?.winner ?? null,
-    score: props?.homeScore ?? props?.home?.score ?? initial?.home?.score ?? 0,
+    logo: props?.home?.logo ?? null,
+    winner: props?.home?.winner ?? null,
+    score: props?.homeScore ?? props?.home?.score ?? 0,
   };
 
   const away = {
-    name: props?.away?.name ?? initial?.away?.name ?? "Away",
+    name: safe(props?.away?.name, "Away"),
     shortName:
       props?.away?.shortName ||
       props?.away?.short_code ||
       props?.away?.abbr ||
-      initial?.away?.shortName ||
       "",
-    logo: props?.away?.logo ?? initial?.away?.logo ?? null,
-    winner: props?.away?.winner ?? initial?.away?.winner ?? null,
-    score: props?.awayScore ?? props?.away?.score ?? initial?.away?.score ?? 0,
+    logo: props?.away?.logo ?? null,
+    winner: props?.away?.winner ?? null,
+    score: props?.awayScore ?? props?.away?.score ?? 0,
   };
+
   const league = {
-    name: props?.league?.name ?? initial?.league?.name ?? "League",
-    logo: props?.league?.logo ?? initial?.league?.logo ?? null,
+    name: safe(props?.league?.name, "League"),
+    logo: props?.league?.logo ?? null,
   };
-  const colors = props?.colors ??
-    initial?.colors ?? { home: "#FF6B35", away: "#F7931E", blended: "#FFD23F" };
+
+  const colors = props?.colors ?? {
+    home: "#FF6B35",
+    away: "#F7931E",
+    blended: "#FFD23F",
+  };
+
   const status = {
-    short_name:
-      props?.status?.short_name ?? initial?.status?.short_name ?? "NS",
-    text: props?.status?.text ?? initial?.status?.text ?? "",
-    minute: props?.status?.minute ?? initial?.status?.minute ?? null,
-    seconds: props?.status?.seconds ?? initial?.status?.seconds ?? null,
-    ticking: props?.status?.ticking ?? initial?.status?.ticking ?? false,
+    short_name: safe(props?.status?.short_name, "NS"),
+    text: props?.status?.text ?? "",
+    minute: props?.status?.minute ?? null,
+    seconds: props?.status?.seconds ?? null,
+    ticking: props?.status?.ticking ?? false,
   };
 
   const venue = {
-    name: props?.venue?.name ?? initial?.venue?.name ?? "Venue",
+    name: safe(props?.venue?.name, "Venue"),
   };
 
   const getTextOnColor = (hex) => {
@@ -110,8 +108,10 @@ const FootballLiveActivity = (props) => {
       "POSTPONED",
       "CANCELLED",
     ].includes(code);
+
     const isScheduled =
       !code || ["NS", "TBA", "DELAYED", "SCHEDULED"].includes(code);
+
     const isLive = !isFinished && !isScheduled;
 
     if (isLive) {
@@ -127,6 +127,7 @@ const FootballLiveActivity = (props) => {
           ticking,
         };
       }
+
       return {
         line1: code || "LIVE",
         line2: long || "",
@@ -149,6 +150,7 @@ const FootballLiveActivity = (props) => {
 
     const time = startingAtProp?.time ?? "--:--";
     const ampm = startingAtProp?.ampm ?? "";
+
     return {
       line1: time,
       line2: ampm,
@@ -159,10 +161,13 @@ const FootballLiveActivity = (props) => {
   };
 
   const widgetLink =
-    (props && (props.url || props.widgetUrl || props.widgetURL)) ||
-    (props && (props.id || props.fixtureId)
+    props?.url ||
+    props?.widgetUrl ||
+    props?.widgetURL ||
+    (props?.id || props?.fixtureId
       ? `sportsheart://football/fixture/${props.id || props.fixtureId}`
       : null);
+
   const zModifiers = widgetLink ? [widgetURL(widgetLink)] : [];
 
   const statusInfo = getStatusInfo(status, props.startingAt);
@@ -218,6 +223,7 @@ const FootballLiveActivity = (props) => {
                   ]}
                 />
               ) : null}
+
               {home.logo ? (
                 <Image
                   uiImage={home.logo}
@@ -235,6 +241,7 @@ const FootballLiveActivity = (props) => {
                 </Text>
               )}
             </ZStack>
+
             {statusInfo.isScheduled ? (
               <HStack alignment="center" spacing={2.5}>
                 <VStack style={{ alignItems: "center" }}>
@@ -264,8 +271,8 @@ const FootballLiveActivity = (props) => {
                       weight: home.winner
                         ? "bold"
                         : !statusInfo.isFinished
-                          ? "bold"
-                          : "light",
+                        ? "bold"
+                        : "light",
                       size: 30,
                     }),
                     frame({ maxWidth: 85, alignment: "center" }),
@@ -273,6 +280,7 @@ const FootballLiveActivity = (props) => {
                 >
                   {home.score}
                 </Text>
+
                 <Text
                   modifiers={[
                     font({ weight: "bold", size: 30 }),
@@ -281,14 +289,15 @@ const FootballLiveActivity = (props) => {
                 >
                   -
                 </Text>
+
                 <Text
                   modifiers={[
                     font({
                       weight: away.winner
                         ? "bold"
                         : !statusInfo.isFinished
-                          ? "bold"
-                          : "light",
+                        ? "bold"
+                        : "light",
                       size: 30,
                     }),
                     frame({ maxWidth: 85, alignment: "center" }),
@@ -298,6 +307,7 @@ const FootballLiveActivity = (props) => {
                 </Text>
               </HStack>
             )}
+
             <ZStack alignment="center">
               {!away.logo ? (
                 <Circle
@@ -307,6 +317,7 @@ const FootballLiveActivity = (props) => {
                   ]}
                 />
               ) : null}
+
               {away.logo ? (
                 <Image
                   uiImage={away.logo}
@@ -339,8 +350,8 @@ const FootballLiveActivity = (props) => {
                   weight: home.winner
                     ? "bold"
                     : !statusInfo.isFinished
-                      ? "bold"
-                      : "light",
+                    ? "bold"
+                    : "light",
                   size: 12,
                 }),
                 frame({ maxWidth: 100, alignment: "center" }),
@@ -348,6 +359,7 @@ const FootballLiveActivity = (props) => {
             >
               {home.name}
             </Text>
+
             {statusInfo.isScheduled ? (
               <VStack style={{ alignItems: "center" }}>
                 <Text
@@ -379,6 +391,7 @@ const FootballLiveActivity = (props) => {
                 </Text>
               </VStack>
             )}
+
             <Text
               modifiers={[
                 lineLimit(2),
@@ -387,8 +400,8 @@ const FootballLiveActivity = (props) => {
                   weight: away.winner
                     ? "bold"
                     : !statusInfo.isFinished
-                      ? "bold"
-                      : "light",
+                    ? "bold"
+                    : "light",
                   size: 12,
                 }),
                 frame({ maxWidth: 100, alignment: "center" }),
@@ -409,7 +422,7 @@ const FootballLiveActivity = (props) => {
 
 const factory = createLiveActivity(
   "FootballLiveActivity",
-  FootballLiveActivity,
+  FootballLiveActivity
 );
 
 export default factory;

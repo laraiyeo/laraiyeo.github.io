@@ -3136,6 +3136,56 @@ app.get("/football/game/:fixtureId/live-activity", async (req, res) => {
         },
       }));
 
+    // derive team colors (home / away) and a blended color for the activity
+    try {
+      const colorMap = buildSapColorMap();
+      const homeParticipant = participants.find((p) => p.meta?.location === "home") || participants[0] || null;
+      const awayParticipant = participants.find((p) => p.meta?.location === "away") || participants[1] || participants[0] || null;
+
+      const homeTeamColors = homeParticipant ? findSapColors(homeParticipant.name, colorMap) : { colorPrimary: null, colorSecondary: null };
+      const awayTeamColors = awayParticipant ? findSapColors(awayParticipant.name, colorMap) : { colorPrimary: null, colorSecondary: null };
+
+      const normHex = (h) => {
+        if (!h) return null;
+        const s = String(h).replace(/^#/, "").trim();
+        if (s.length === 3) return s.split("").map((c) => c + c).join("");
+        if (s.length === 6) return s;
+        return null;
+      };
+
+      const blendHex = (ha, hb) => {
+        const a = normHex(ha);
+        const b = normHex(hb);
+        if (!a && !b) return null;
+        if (!a) return `#${b}`;
+        if (!b) return `#${a}`;
+        const r = Math.round((parseInt(a.slice(0, 2), 16) + parseInt(b.slice(0, 2), 16)) / 2)
+          .toString(16)
+          .padStart(2, "0");
+        const g = Math.round((parseInt(a.slice(2, 4), 16) + parseInt(b.slice(2, 4), 16)) / 2)
+          .toString(16)
+          .padStart(2, "0");
+        const bl = Math.round((parseInt(a.slice(4, 6), 16) + parseInt(b.slice(4, 6), 16)) / 2)
+          .toString(16)
+          .padStart(2, "0");
+        return `#${r}${g}${bl}`;
+      };
+
+      const FALLBACK_COLOR = "#888888";
+
+      const colorsObj = {
+        home: homeTeamColors.colorPrimary || homeTeamColors.colorSecondary || FALLBACK_COLOR,
+        away: awayTeamColors.colorPrimary || awayTeamColors.colorSecondary || FALLBACK_COLOR,
+        blended: blendHex(homeTeamColors.colorPrimary || homeTeamColors.colorSecondary, awayTeamColors.colorPrimary || awayTeamColors.colorSecondary) || FALLBACK_COLOR,
+      };
+
+      // attach colors to payload below
+      var payloadColors = colorsObj;
+    } catch (e) {
+      console.warn("[live-activity] failed to derive colors:", e?.message || e);
+      var payloadColors = { home: "#888888", away: "#888888", blended: "#888888" };
+    }
+
     const payload = {
       id: transformed?.id ?? fixtureId,
       starting_at: transformed?.starting_at ?? null,
@@ -3150,6 +3200,7 @@ app.get("/football/game/:fixtureId/live-activity", async (req, res) => {
       scores,
       venue: { name: transformed?.venue?.name ?? null },
       league: transformed?.league || null,
+      colors: payloadColors,
       fetchedAt: Date.now(),
     };
 
@@ -3535,15 +3586,18 @@ function startLiveActivityMonitor(opts) {
       const participants = Array.isArray(activity.participants)
         ? activity.participants
         : [];
-      // build score map keyed by 'home'/'away' (lowercase)
+      // build score map keyed by 'home'/'away' (lowercase) and any numeric ids
       const scoreMap = {};
       for (const s of activity.scores || []) {
-        const key = String(s?.score?.participant || "").toLowerCase();
-        if (!key) continue;
-        scoreMap[key] = s.score?.goals ?? null;
+        const participantLabel = String(s?.score?.participant || "").toLowerCase();
+        if (participantLabel) scoreMap[participantLabel] = s.score?.goals ?? null;
+        if (s?.score?.participant_id)
+          scoreMap[String(s.score.participant_id)] = s.score?.goals ?? null;
+        if (s?.score?.participant_team_id)
+          scoreMap[String(s.score.participant_team_id)] = s.score?.goals ?? null;
       }
 
-      // pick home/away by meta.location when present, fallback to index
+      // pick home/away by meta.location when present, sensible fallbacks
       const home =
         participants.find((p) => p?.meta?.location === "home") ||
         participants[0] ||
@@ -3551,13 +3605,19 @@ function startLiveActivityMonitor(opts) {
       const away =
         participants.find((p) => p?.meta?.location === "away") ||
         participants[1] ||
+        participants[0] ||
         {};
 
-      // pick current period if present (contains minutes/seconds/ticking)
-      const currentPeriod =
-        Array.isArray(activity.periods) && activity.periods.length > 0
-          ? activity.periods[0]
-          : null;
+      // pick current period if present (prefer the ticking period, else
+      // use the first non-ended period, else fall back to the last period)
+      let currentPeriod = null;
+      if (Array.isArray(activity.periods) && activity.periods.length > 0) {
+        currentPeriod =
+          activity.periods.find((p) => p?.ticking === true) ||
+          activity.periods.find((p) => p?.ended !== true) ||
+          activity.periods[activity.periods.length - 1] ||
+          null;
+      }
       const minuteVal =
         currentPeriod?.minutes ?? activity.minute ?? activity.elapsed ?? null;
       const secondsVal = currentPeriod?.seconds ?? null;
@@ -3584,16 +3644,68 @@ function startLiveActivityMonitor(opts) {
             }
           : null;
 
+      // derive colors for home/away and blended (so updates always include colors)
+      let propsColors = { home: "#888888", away: "#888888", blended: "#888888" };
+      try {
+        const colorMap = buildSapColorMap();
+        const homeName = (home && (home.name || home.short_code)) || null;
+        const awayName = (away && (away.name || away.short_code)) || null;
+        const homeTeamColors = homeName ? findSapColors(homeName, colorMap) : {};
+        const awayTeamColors = awayName ? findSapColors(awayName, colorMap) : {};
+        const normHex = (h) => (h ? String(h).replace(/^#/, "") : null);
+        const blendHex = (a, b) => {
+          try {
+            if (!a && !b) return null;
+            if (!a) return `#${b}`;
+            if (!b) return `#${a}`;
+            const r = Math.round((parseInt(a.slice(0, 2), 16) + parseInt(b.slice(0, 2), 16)) / 2)
+              .toString(16)
+              .padStart(2, "0");
+            const g = Math.round((parseInt(a.slice(2, 4), 16) + parseInt(b.slice(2, 4), 16)) / 2)
+              .toString(16)
+              .padStart(2, "0");
+            const bl = Math.round((parseInt(a.slice(4, 6), 16) + parseInt(b.slice(4, 6), 16)) / 2)
+              .toString(16)
+              .padStart(2, "0");
+            return `#${r}${g}${bl}`;
+          } catch (e) {
+            return null;
+          }
+        };
+        const hp = homeTeamColors.colorPrimary || homeTeamColors.colorSecondary || null;
+        const ap = awayTeamColors.colorPrimary || awayTeamColors.colorSecondary || null;
+        propsColors = {
+          home: hp || "#888888",
+          away: ap || "#888888",
+          blended: blendHex(normHex(hp), normHex(ap)) || "#888888",
+        };
+      } catch (e) {}
+
       const props = {
         home: {
           name: home.name || null,
           shortName: home.short_code || home.shortName || home.abbr || null,
-          score: scoreMap["home"] ?? scoreMap["Home"] ?? home.score ?? 0,
+          score:
+            scoreMap["home"] ??
+            scoreMap[String(home.id)] ??
+            scoreMap[String(home.id_text)] ??
+            scoreMap["Home"] ??
+            home.score ??
+            0,
+          // include optional filename the app stored in App Group so widget can load local images
+          logoName: (opts.props && opts.props.home && opts.props.home.logoName) || null,
         },
         away: {
           name: away.name || null,
           shortName: away.short_code || away.shortName || away.abbr || null,
-          score: scoreMap["away"] ?? scoreMap["Away"] ?? away.score ?? 0,
+          score:
+            scoreMap["away"] ??
+            scoreMap[String(away.id)] ??
+            scoreMap[String(away.id_text)] ??
+            scoreMap["Away"] ??
+            away.score ??
+            0,
+          logoName: (opts.props && opts.props.away && opts.props.away.logoName) || null,
         },
         league: leagueObj,
         status: {
@@ -3622,7 +3734,11 @@ function startLiveActivityMonitor(opts) {
             return { time: null, ampm: null };
           }
         })(),
-        // colors and logos intentionally omitted to preserve client-side assets
+        // include derived colors so widget receives consistent color info
+        colors: propsColors,
+        // include any initial logo filenames provided by the app so updates preserve images
+        // if the app didn't provide them, widget should fallback to stored URIs
+        // (server should never send full file:// URIs)
       };
       try {
         logJson("[live-activity] built props", {
@@ -3656,7 +3772,7 @@ function startLiveActivityMonitor(opts) {
       // periodic ticking updates: when the period is ticking send lightweight updates (rate-limited)
       try {
         const isTicking = props.status?.ticking === true;
-        const TICK_INTERVAL_MS = 15 * 1000; // send every ~15s for smoother ticking
+        const TICK_INTERVAL_MS = 10 * 1000; // send every ~10s (safer rate)
         if (isTicking) {
           const activityTokens = opts.fixtureId
             ? await getActivityTokensForFixture(opts.fixtureId)
@@ -3669,12 +3785,8 @@ function startLiveActivityMonitor(opts) {
               try {
                 // use silent, delta-only update to avoid overwriting client-owned
                 // assets (logos/colors) and to avoid user alerts for ticking
-                const delta = {
-                  status: props.status,
-                  homeScore: props.home?.score ?? null,
-                  awayScore: props.away?.score ?? null,
-                };
-                await sendUpdateNoAlert(activityTokens, opts.name, delta);
+                // send full props so Live Activity state is complete (Live Activity REPLACES state)
+                await sendUpdateNoAlert(activityTokens, opts.name, props);
                 monitor.lastTickPush = Date.now();
               } catch (e) {}
             }
@@ -3696,15 +3808,11 @@ function startLiveActivityMonitor(opts) {
               !monitor.lastPushAt ||
               Date.now() - monitor.lastPushAt >= 5000
             ) {
-              const deltaStart = {
-                status: props.status,
-                homeScore: props.home?.score ?? null,
-                awayScore: props.away?.score ?? null,
-              };
+              // send full props for start alert
               await sendStartWithAlert(
                 activityTokens,
                 opts.name,
-                deltaStart,
+                props,
                 "Match started",
                 `${activity.participants?.[0]?.name || "Home"} vs ${activity.participants?.[1]?.name || "Away"} kicked off`,
               );
@@ -3726,15 +3834,11 @@ function startLiveActivityMonitor(opts) {
               !monitor.lastPushAt ||
               Date.now() - monitor.lastPushAt >= 5000
             ) {
-              const deltaHT = {
-                status: props.status,
-                homeScore: props.home?.score ?? null,
-                awayScore: props.away?.score ?? null,
-              };
+              // send full props for HT alert
               await sendUpdateWithAlert(
                 activityTokens,
                 opts.name,
-                deltaHT,
+                props,
                 "Half Time",
                 "Match is at half time",
               );
@@ -3766,15 +3870,11 @@ function startLiveActivityMonitor(opts) {
                   !monitor.lastPushAt ||
                   Date.now() - monitor.lastPushAt >= 5000
                 ) {
-                  const deltaGoal = {
-                    status: props.status,
-                    homeScore: props.home?.score ?? null,
-                    awayScore: props.away?.score ?? null,
-                  };
+                  // send full props for goal alert (includes colors/logoName)
                   await sendUpdateWithAlert(
                     activityTokens,
                     opts.name,
-                    deltaGoal,
+                    props,
                     "GOAL ⚽",
                     `Score changed: ${curr}`,
                   );
@@ -4054,9 +4154,7 @@ app.post("/live-activity/register-activity-token", (req, res) => {
     addActivityToken(fixtureId, token)
       .then(() => {
         // start monitoring this fixture so server-driven updates will run
-        try {
-          startLiveActivityMonitor({ fixtureId, name: "FootballLiveActivity" });
-        } catch (e) {}
+        // defer starting the monitor until we have initial props below
         // send an immediate full update to the newly-registered activity token so the UI appears promptly
         (async () => {
           try {
@@ -4174,23 +4272,13 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                 },
                 venue: { name: activity?.venue?.name || null },
               };
+              // start monitoring this fixture now that we have initial props
               try {
-                const deltaNow = {
-                  status: {
-                    short_name: shortName,
-                    text: stateText,
-                    minute: minuteNow,
-                    seconds: secondsNow,
-                    ticking: tickingNow,
-                  },
-                  homeScore: props.home?.score ?? 0,
-                  awayScore: props.away?.score ?? 0,
-                };
-                await sendUpdateNoAlert(
-                  tokens,
-                  "FootballLiveActivity",
-                  deltaNow,
-                );
+                startLiveActivityMonitor({ fixtureId, name: "FootballLiveActivity", props });
+              } catch (e) {}
+              try {
+                // send a full props update (Live Activities replace state)
+                await sendUpdateNoAlert(tokens, "FootballLiveActivity", props);
               } catch (e) {}
             }
           } catch (e) {}
