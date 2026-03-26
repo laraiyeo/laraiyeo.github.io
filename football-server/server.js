@@ -3195,7 +3195,9 @@ function loadApplePrivateKey() {
       const pk = fs.readFileSync(APPLE_PRIVATE_KEY_PATH, "utf8");
       console.log(
         "[init] loadApplePrivateKey: loaded from path, beginsWithBEGIN=",
-        String(pk || "").trim().startsWith("-----BEGIN"),
+        String(pk || "")
+          .trim()
+          .startsWith("-----BEGIN"),
       );
       return pk;
     } catch (e) {
@@ -3211,7 +3213,9 @@ function loadApplePrivateKey() {
     const pk = APPLE_PRIVATE_KEY.replace(/\\n/g, "\n");
     console.log(
       "[init] loadApplePrivateKey: loaded from env, beginsWithBEGIN=",
-      String(pk || "").trim().startsWith("-----BEGIN"),
+      String(pk || "")
+        .trim()
+        .startsWith("-----BEGIN"),
     );
     return pk;
   }
@@ -3520,9 +3524,13 @@ function startLiveActivityMonitor(opts) {
 
       // pick home/away by meta.location when present, fallback to index
       const home =
-        participants.find((p) => p?.meta?.location === "home") || participants[0] || {};
+        participants.find((p) => p?.meta?.location === "home") ||
+        participants[0] ||
+        {};
       const away =
-        participants.find((p) => p?.meta?.location === "away") || participants[1] || {};
+        participants.find((p) => p?.meta?.location === "away") ||
+        participants[1] ||
+        {};
 
       // pick current period if present (contains minutes/seconds/ticking)
       const currentPeriod =
@@ -3800,12 +3808,23 @@ function startLiveActivityMonitor(opts) {
             );
             if (activityTokens && activityTokens.length > 0) {
               monitor.started = true;
-              const activityNow = await fetchLiveActivityForFixture(opts.fixtureId);
-              const activityStateObj = activityNow && typeof activityNow.state === 'object' ? activityNow.state : null;
+              const activityNow = await fetchLiveActivityForFixture(
+                opts.fixtureId,
+              );
+              const activityStateObj =
+                activityNow && typeof activityNow.state === "object"
+                  ? activityNow.state
+                  : null;
               const startProps = activityNow
                 ? {
                     startingAt: activityNow.starting_at,
-                    status: { short_name: activityStateObj?.short_name || activityStateObj?.state || activityNow.state || null },
+                    status: {
+                      short_name:
+                        activityStateObj?.short_name ||
+                        activityStateObj?.state ||
+                        activityNow.state ||
+                        null,
+                    },
                   }
                 : opts.props || {};
               await sendStartNoAlert(activityTokens, opts.name, startProps);
@@ -3820,12 +3839,23 @@ function startLiveActivityMonitor(opts) {
             );
             if (activityTokens && activityTokens.length > 0) {
               monitor.started = true;
-              const activityNow = await fetchLiveActivityForFixture(opts.fixtureId);
-              const activityStateObj = activityNow && typeof activityNow.state === 'object' ? activityNow.state : null;
+              const activityNow = await fetchLiveActivityForFixture(
+                opts.fixtureId,
+              );
+              const activityStateObj =
+                activityNow && typeof activityNow.state === "object"
+                  ? activityNow.state
+                  : null;
               const startProps = activityNow
                 ? {
                     startingAt: activityNow.starting_at,
-                    status: { short_name: activityStateObj?.short_name || activityStateObj?.state || activityNow.state || null },
+                    status: {
+                      short_name:
+                        activityStateObj?.short_name ||
+                        activityStateObj?.state ||
+                        activityNow.state ||
+                        null,
+                    },
                   }
                 : opts.props || {};
               await sendStartNoAlert(activityTokens, opts.name, startProps);
@@ -3841,20 +3871,45 @@ function startLiveActivityMonitor(opts) {
       const endTimer = setTimeout(async () => {
         // check state and either end or reschedule 30m later
         const activity = await fetchLiveActivityForFixture(opts.fixtureId);
-        const stateObj = activity && typeof activity.state === "object" ? activity.state : null;
+        const stateObj =
+          activity && typeof activity.state === "object"
+            ? activity.state
+            : null;
         const state = (
-          stateObj?.short_name || stateObj?.state || activity?.state || ""
-        ).toString().toUpperCase();
-        if (/FT|AET|FT_PEN|POSTP|CANC|ABAN|WALKOVER|POSTPONED|CANCELLED|CANCELL?ED/i.test(state)) {
+          stateObj?.short_name ||
+          stateObj?.state ||
+          activity?.state ||
+          ""
+        )
+          .toString()
+          .toUpperCase();
+        if (
+          /FT|AET|FT_PEN|POSTP|CANC|ABAN|WALKOVER|POSTPONED|CANCELLED|CANCELL?ED/i.test(
+            state,
+          )
+        ) {
           try {
             const activityTokens = await getActivityTokensForFixture(
               opts.fixtureId,
             );
             if (activityTokens && activityTokens.length > 0) {
-              const activityNow = await fetchLiveActivityForFixture(opts.fixtureId);
-              const activityStateObj = activityNow && typeof activityNow.state === 'object' ? activityNow.state : null;
+              const activityNow = await fetchLiveActivityForFixture(
+                opts.fixtureId,
+              );
+              const activityStateObj =
+                activityNow && typeof activityNow.state === "object"
+                  ? activityNow.state
+                  : null;
               const endProps = activityNow
-                ? { status: { short_name: activityStateObj?.short_name || activityStateObj?.state || activityNow.state || null } }
+                ? {
+                    status: {
+                      short_name:
+                        activityStateObj?.short_name ||
+                        activityStateObj?.state ||
+                        activityNow.state ||
+                        null,
+                    },
+                  }
                 : opts.props || {};
               await sendEnd(activityTokens, opts.name, endProps).catch(
                 () => {},
