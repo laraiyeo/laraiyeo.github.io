@@ -2285,7 +2285,10 @@ const AppContent = () => {
                   txt,
                 );
               } catch (e) {
-                console.warn("Failed to register push-to-start token", e?.message || e);
+                console.warn(
+                  "Failed to register push-to-start token",
+                  e?.message || e,
+                );
               }
             } catch (e) {
               console.warn(

@@ -11703,7 +11703,9 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                   );
                 }
               } else {
-                console.warn("[Top5] No activity push token available to register");
+                console.warn(
+                  "[Top5] No activity push token available to register",
+                );
               }
 
               try {

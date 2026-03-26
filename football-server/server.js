@@ -149,17 +149,15 @@ async function addActivityToken(fixtureId, token) {
   if (supabase) {
     try {
       // store as type='activity' to distinguish from bundle/fixture tokens
-      await supabase
-        .from("live_activity_tokens")
-        .upsert(
-          {
-            type: "activity",
-            bundle_id: null,
-            token,
-            fixture_id: String(fixtureId),
-          },
-          { onConflict: ["type", "fixture_id", "token"] },
-        );
+      await supabase.from("live_activity_tokens").upsert(
+        {
+          type: "activity",
+          bundle_id: null,
+          token,
+          fixture_id: String(fixtureId),
+        },
+        { onConflict: ["type", "fixture_id", "token"] },
+      );
       return true;
     } catch (e) {
       console.warn("supabase upsert activity token failed", e?.message || e);
@@ -279,17 +277,15 @@ async function addFixturePushToken(fixtureId, token) {
   if (supabase) {
     try {
       // upsert fixture-level token (type='fixture')
-      await supabase
-        .from("live_activity_tokens")
-        .upsert(
-          {
-            type: "fixture",
-            bundle_id: null,
-            token,
-            fixture_id: String(fixtureId),
-          },
-          { onConflict: ["type", "fixture_id", "token"] },
-        );
+      await supabase.from("live_activity_tokens").upsert(
+        {
+          type: "fixture",
+          bundle_id: null,
+          token,
+          fixture_id: String(fixtureId),
+        },
+        { onConflict: ["type", "fixture_id", "token"] },
+      );
       return true;
     } catch (e) {
       console.warn("supabase upsert fixture token failed:", e?.message || e);
@@ -3892,11 +3888,18 @@ app.post("/live-activity/register-activity-token", (req, res) => {
               // build safer props for immediate update (include seconds/ticking when available)
               const scoreMapNow = {};
               for (const s of activity?.scores || []) {
-                const participantLabel = String(s.score?.participant || "").toLowerCase();
-                if (participantLabel) scoreMapNow[participantLabel] = s.score?.goals ?? null;
+                const participantLabel = String(
+                  s.score?.participant || "",
+                ).toLowerCase();
+                if (participantLabel)
+                  scoreMapNow[participantLabel] = s.score?.goals ?? null;
                 // also map any numeric ids if present
-                if (s.score?.participant_id) scoreMapNow[String(s.score.participant_id)] = s.score?.goals ?? null;
-                if (s.score?.participant_team_id) scoreMapNow[String(s.score.participant_team_id)] = s.score?.goals ?? null;
+                if (s.score?.participant_id)
+                  scoreMapNow[String(s.score.participant_id)] =
+                    s.score?.goals ?? null;
+                if (s.score?.participant_team_id)
+                  scoreMapNow[String(s.score.participant_team_id)] =
+                    s.score?.goals ?? null;
               }
 
               const currentPeriodNow =
@@ -3939,13 +3942,17 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                   ? activity.state
                   : null;
               const shortName =
-                stateObj?.short_name || stateObj?.state || activity?.state || null;
+                stateObj?.short_name ||
+                stateObj?.state ||
+                activity?.state ||
+                null;
               const stateText = stateObj?.name || activity?.state_text || null;
 
               const props = {
                 home: {
                   name: home.name || null,
-                  shortName: home.short_code || home.shortName || home.abbr || null,
+                  shortName:
+                    home.short_code || home.shortName || home.abbr || null,
                   score:
                     scoreMapNow["home"] ??
                     scoreMapNow[String(home.id)] ??
@@ -3956,7 +3963,8 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                 },
                 away: {
                   name: away.name || null,
-                  shortName: away.short_code || away.shortName || away.abbr || null,
+                  shortName:
+                    away.short_code || away.shortName || away.abbr || null,
                   score:
                     scoreMapNow["away"] ??
                     scoreMapNow[String(away.id)] ??

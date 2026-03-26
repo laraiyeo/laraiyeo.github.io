@@ -79,7 +79,10 @@ export default function FootballLiveActivityController() {
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ fixtureId: fixtureId, token: pushToken }),
+                body: JSON.stringify({
+                  fixtureId: fixtureId,
+                  token: pushToken,
+                }),
               },
             );
             const text = await res.text().catch(() => "");
@@ -94,7 +97,9 @@ export default function FootballLiveActivityController() {
             );
           }
         } else {
-          console.warn("[Controller] No activity push token available to register");
+          console.warn(
+            "[Controller] No activity push token available to register",
+          );
         }
         // Subscribe to token updates for this instance and re-register if it changes
         try {
