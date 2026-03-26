@@ -27,9 +27,6 @@ const FootballLiveActivity = (props) => {
   const safe = (val, fallback) =>
     val !== undefined && val !== null ? val : fallback;
 
-  // Live Activity widgets receive stateless snapshots — rely only on `props`
-  // Do NOT persist globals or guess App Group file paths in JS.
-
   const home = {
     name: safe(props?.home?.name, "Home"),
     shortName:
@@ -37,10 +34,6 @@ const FootballLiveActivity = (props) => {
       props?.home?.short_code ||
       props?.home?.abbr ||
       "",
-    // Use only the logo value provided in props; no JS-side persistence
-    // Widget can also receive `logoName` and an `appGroupPath` so it
-    // can resolve App Group files provided by the app. Prefer explicit
-    // `logo` URI, then attempt to resolve `logoName` if a shared path is given.
     logo: props?.home?.logo ?? null,
     logoName: props?.home?.logoName ?? null,
     winner: props?.home?.winner ?? null,
@@ -66,16 +59,27 @@ const FootballLiveActivity = (props) => {
     logoName: props?.league?.logoName ?? null,
   };
 
+  // --- IMAGE HELPERS ---
   const resolveImage = (explicit, logoName) => {
-    if (explicit) return explicit;
+    // Only accept explicit file:// URIs from server/app — do not render https:// from server
+    if (explicit && typeof explicit === "string" && explicit.startsWith("file://")) return explicit;
+
+    // Derive base from explicit appGroupPath OR appGroupId (preferred), then fallbacks
     const base =
       props?.appGroupPath ||
+      (props?.appGroupId ? `/var/mobile/Containers/Shared/AppGroup/${props.appGroupId}` : null) ||
       props?.sharedAppGroupPath ||
       props?.appGroupContainer ||
       null;
-    if (logoName && base) return `${base.replace(/\/$/, "")}/${logoName}`;
+
+    if (logoName && base) {
+      const path = `${base.replace(/\/$/, "")}/${logoName}`;
+      return path.startsWith("file://") ? path : `file://${path}`;
+    }
     return null;
   };
+
+  const isValidImage = (val) => typeof val === "string" && val.startsWith("file://") && val.length > 10;
 
   const homeLogo = resolveImage(home.logo, home.logoName);
   const awayLogo = resolveImage(away.logo, away.logoName);
@@ -95,9 +99,7 @@ const FootballLiveActivity = (props) => {
     ticking: props?.status?.ticking ?? false,
   };
 
-  const venue = {
-    name: safe(props?.venue?.name, "Venue"),
-  };
+  const venue = { name: safe(props?.venue?.name, "Venue") };
 
   const getTextOnColor = (hex) => {
     if (!hex) return "#FFFFFF";
@@ -119,19 +121,8 @@ const FootballLiveActivity = (props) => {
     const ticking = statusProp?.ticking === true;
 
     const isFinished = [
-      "FT",
-      "AET",
-      "FT_PEN",
-      "POSTP",
-      "CANC",
-      "ABAN",
-      "WO",
-      "WALKOVER",
-      "CUT",
-      "AWA",
-      "POST",
-      "POSTPONED",
-      "CANCELLED",
+      "FT", "AET", "FT_PEN", "POSTP", "CANC", "ABAN", "WO", "WALKOVER",
+      "CUT", "AWA", "POST", "POSTPONED", "CANCELLED",
     ].includes(code);
 
     const isScheduled =
@@ -141,48 +132,17 @@ const FootballLiveActivity = (props) => {
 
     if (isLive) {
       if (minute != null && minute !== "") {
-        const secText =
-          seconds != null ? `:${String(seconds).padStart(2, "0")}` : "";
-        return {
-          line1: `${minute}${secText}`,
-          line2: long || code || "LIVE",
-          isLive: true,
-          isFinished: false,
-          isScheduled: false,
-          ticking,
-        };
+        const secText = seconds != null ? `:${String(seconds).padStart(2, "0")}` : "";
+        return { line1: `${minute}${secText}`, line2: long || code || "LIVE", isLive: true, isFinished: false, isScheduled: false, ticking };
       }
-
-      return {
-        line1: code || "LIVE",
-        line2: long || "",
-        isLive: true,
-        isFinished: false,
-        isScheduled: false,
-        ticking,
-      };
+      return { line1: code || "LIVE", line2: long || "", isLive: true, isFinished: false, isScheduled: false, ticking };
     }
 
-    if (isFinished) {
-      return {
-        line1: code || "FT",
-        line2: null,
-        isLive: false,
-        isFinished: true,
-        isScheduled: false,
-      };
-    }
+    if (isFinished) return { line1: code || "FT", line2: null, isLive: false, isFinished: true, isScheduled: false };
 
     const time = startingAtProp?.time ?? "--:--";
     const ampm = startingAtProp?.ampm ?? "";
-
-    return {
-      line1: time,
-      line2: ampm,
-      isLive: false,
-      isFinished: false,
-      isScheduled: true,
-    };
+    return { line1: time, line2: ampm, isLive: false, isFinished: false, isScheduled: true };
   };
 
   const widgetLink =
@@ -194,7 +154,6 @@ const FootballLiveActivity = (props) => {
       : null);
 
   const zModifiers = widgetLink ? [widgetURL(widgetLink)] : [];
-
   const statusInfo = getStatusInfo(status, props.startingAt);
 
   return {
@@ -221,11 +180,8 @@ const FootballLiveActivity = (props) => {
         <VStack spacing={5} modifiers={[padding({ top: 15 })]}>
           <VStack>
             <HStack alignment="center" spacing={6}>
-              {leagueLogo ? (
-                <Image
-                  uiImage={leagueLogo}
-                  modifiers={[resizable(), frame({ width: 14, height: 14 })]}
-                />
+              {isValidImage(leagueLogo) ? (
+                <Image uiImage={leagueLogo} modifiers={[resizable(), frame({ width: 14, height: 14 })]} />
               ) : null}
               <Text
                 modifiers={[
@@ -240,27 +196,13 @@ const FootballLiveActivity = (props) => {
 
           <HStack alignment="center">
             <ZStack alignment="center">
-              {!homeLogo ? (
-                <Circle
-                  modifiers={[
-                    frame({ width: 45, height: 45 }),
-                    foregroundStyle({ color: colors.home }),
-                  ]}
-                />
+              {!isValidImage(homeLogo) ? (
+                <Circle modifiers={[frame({ width: 45, height: 45 }), foregroundStyle({ color: colors.home })]} />
               ) : null}
-              {homeLogo ? (
-                <Image
-                  uiImage={homeLogo}
-                  modifiers={[resizable(), frame({ width: 45, height: 45 })]}
-                />
+              {isValidImage(homeLogo) ? (
+                <Image uiImage={homeLogo} modifiers={[resizable(), frame({ width: 45, height: 45 })]} />
               ) : (
-                <Text
-                  modifiers={[
-                    foregroundStyle(getTextOnColor(colors.home)),
-                    font({ weight: "bold", size: 15 }),
-                    frame({ alignment: "center" }),
-                  ]}
-                >
+                <Text modifiers={[foregroundStyle(getTextOnColor(colors.home)), font({ weight: "bold", size: 15 }), frame({ alignment: "center" })]}>
                   {home.shortName}
                 </Text>
               )}
@@ -269,167 +211,57 @@ const FootballLiveActivity = (props) => {
             {statusInfo.isScheduled ? (
               <HStack alignment="center" spacing={2.5}>
                 <VStack style={{ alignItems: "center" }}>
-                  <Text
-                    modifiers={[
-                      font({ weight: "bold" }),
-                      frame({ maxWidth: 190, alignment: "center" }),
-                    ]}
-                  >
+                  <Text modifiers={[font({ weight: "bold" }), frame({ maxWidth: 190, alignment: "center" })]}>
                     {statusInfo.line1}
                   </Text>
-                  <Text
-                    modifiers={[
-                      font({ size: 11, weight: "light" }),
-                      frame({ maxWidth: 190, alignment: "center" }),
-                    ]}
-                  >
+                  <Text modifiers={[font({ size: 11, weight: "light" }), frame({ maxWidth: 190, alignment: "center" })]}>
                     {statusInfo.line2}
                   </Text>
                 </VStack>
               </HStack>
             ) : (
               <HStack alignment="center">
-                <Text
-                  modifiers={[
-                    font({
-                      weight: home.winner
-                        ? "bold"
-                        : !statusInfo.isFinished
-                          ? "bold"
-                          : "light",
-                      size: 30,
-                    }),
-                    frame({ maxWidth: 85, alignment: "center" }),
-                  ]}
-                >
+                <Text modifiers={[font({ weight: home.winner || !statusInfo.isFinished ? "bold" : "light", size: 30 }), frame({ maxWidth: 85, alignment: "center" })]}>
                   {home.score}
                 </Text>
-
-                <Text
-                  modifiers={[
-                    font({ weight: "bold", size: 30 }),
-                    frame({ maxWidth: 20, alignment: "center" }),
-                  ]}
-                >
-                  -
-                </Text>
-
-                <Text
-                  modifiers={[
-                    font({
-                      weight: away.winner
-                        ? "bold"
-                        : !statusInfo.isFinished
-                          ? "bold"
-                          : "light",
-                      size: 30,
-                    }),
-                    frame({ maxWidth: 85, alignment: "center" }),
-                  ]}
-                >
+                <Text modifiers={[font({ weight: "bold", size: 30 }), frame({ maxWidth: 20, alignment: "center" })]}>-</Text>
+                <Text modifiers={[font({ weight: away.winner || !statusInfo.isFinished ? "bold" : "light", size: 30 }), frame({ maxWidth: 85, alignment: "center" })]}>
                   {away.score}
                 </Text>
               </HStack>
             )}
 
             <ZStack alignment="center">
-              {!awayLogo ? (
-                <Circle
-                  modifiers={[
-                    frame({ width: 45, height: 45 }),
-                    foregroundStyle({ color: colors.away }),
-                  ]}
-                />
+              {!isValidImage(awayLogo) ? (
+                <Circle modifiers={[frame({ width: 45, height: 45 }), foregroundStyle({ color: colors.away })]} />
               ) : null}
-              {awayLogo ? (
-                <Image
-                  uiImage={awayLogo}
-                  modifiers={[resizable(), frame({ width: 45, height: 45 })]}
-                />
+              {isValidImage(awayLogo) ? (
+                <Image uiImage={awayLogo} modifiers={[resizable(), frame({ width: 45, height: 45 })]} />
               ) : (
-                <Text
-                  modifiers={[
-                    foregroundStyle(getTextOnColor(colors.away)),
-                    font({ weight: "bold", size: 15 }),
-                    frame({ alignment: "center" }),
-                  ]}
-                >
+                <Text modifiers={[foregroundStyle(getTextOnColor(colors.away)), font({ weight: "bold", size: 15 }), frame({ alignment: "center" })]}>
                   {away.shortName}
                 </Text>
               )}
             </ZStack>
           </HStack>
 
-          <HStack
-            alignment="center"
-            spacing={15}
-            modifiers={[padding({ bottom: 15 })]}
-          >
-            <Text
-              modifiers={[
-                lineLimit(2),
-                multilineTextAlignment("center"),
-                font({
-                  weight: home.winner
-                    ? "bold"
-                    : !statusInfo.isFinished
-                      ? "bold"
-                      : "light",
-                  size: 12,
-                }),
-                frame({ maxWidth: 100, alignment: "center" }),
-              ]}
-            >
+          <HStack alignment="center" spacing={15} modifiers={[padding({ bottom: 15 })]}>
+            <Text modifiers={[lineLimit(2), multilineTextAlignment("center"), font({ weight: home.winner || !statusInfo.isFinished ? "bold" : "light", size: 12 }), frame({ maxWidth: 100, alignment: "center" })]}>
               {home.name}
             </Text>
 
             {statusInfo.isScheduled ? (
               <VStack style={{ alignItems: "center" }}>
-                <Text
-                  modifiers={[
-                    font({ weight: "bold" }),
-                    frame({ maxWidth: 100, alignment: "center" }),
-                  ]}
-                >
-                  UPCOMING
-                </Text>
+                <Text modifiers={[font({ weight: "bold" }), frame({ maxWidth: 100, alignment: "center" })]}>UPCOMING</Text>
               </VStack>
             ) : (
               <VStack style={{ alignItems: "center" }}>
-                <Text
-                  modifiers={[
-                    font({ weight: "bold" }),
-                    frame({ maxWidth: 100, alignment: "center" }),
-                  ]}
-                >
-                  {statusInfo.line1}
-                </Text>
-                <Text
-                  modifiers={[
-                    font({ size: 11, weight: "light" }),
-                    frame({ maxWidth: 100, alignment: "center" }),
-                  ]}
-                >
-                  {statusInfo.line2}
-                </Text>
+                <Text modifiers={[font({ weight: "bold" }), frame({ maxWidth: 100, alignment: "center" })]}>{statusInfo.line1}</Text>
+                <Text modifiers={[font({ size: 11, weight: "light" }), frame({ maxWidth: 100, alignment: "center" })]}>{statusInfo.line2}</Text>
               </VStack>
             )}
 
-            <Text
-              modifiers={[
-                lineLimit(2),
-                multilineTextAlignment("center"),
-                font({
-                  weight: away.winner
-                    ? "bold"
-                    : !statusInfo.isFinished
-                      ? "bold"
-                      : "light",
-                  size: 12,
-                }),
-                frame({ maxWidth: 100, alignment: "center" }),
-              ]}
-            >
+            <Text modifiers={[lineLimit(2), multilineTextAlignment("center"), font({ weight: away.winner || !statusInfo.isFinished ? "bold" : "light", size: 12 }), frame({ maxWidth: 100, alignment: "center" })]}>
               {away.name}
             </Text>
           </HStack>
@@ -443,9 +275,6 @@ const FootballLiveActivity = (props) => {
   };
 };
 
-const factory = createLiveActivity(
-  "FootballLiveActivity",
-  FootballLiveActivity,
-);
+const factory = createLiveActivity("FootballLiveActivity", FootballLiveActivity);
 
 export default factory;

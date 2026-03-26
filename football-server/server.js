@@ -4236,6 +4236,12 @@ app.post("/live-activity/register-activity-token", (req, res) => {
             assetsToSet.awayLogoName = startProps.away.logoName;
           if (startProps && startProps.league && startProps.league.logoName)
             assetsToSet.leagueLogoName = startProps.league.logoName;
+          if (startProps && startProps.appGroupPath)
+            assetsToSet.appGroupPath = startProps.appGroupPath;
+          if (startProps && startProps.appGroupId)
+            assetsToSet.appGroupId = startProps.appGroupId;
+          if (startProps && startProps.startingAt)
+            assetsToSet.startingAt = startProps.startingAt;
           if (Object.keys(assetsToSet).length > 0) await setFixtureAssets(fixtureId, assetsToSet);
         } catch (e) {}
         // start monitoring this fixture so server-driven updates will run
@@ -4413,8 +4419,22 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                 })(),
                 // include derived colors so widget receives consistent color info
                 colors: propsColors,
+                // include app group path/id so widget can resolve local App Group files
+                appGroupPath:
+                  (persistedAssets && persistedAssets.appGroupPath) ||
+                  (opts.props && opts.props.appGroupPath) ||
+                  null,
+                appGroupId:
+                  (persistedAssets && persistedAssets.appGroupId) ||
+                  (opts.props && opts.props.appGroupId) ||
+                  null,
               };
-              // ensure immediate update includes persisted logoName references (or the startProps if provided)
+              // prefer persisted/provided startingAt if available (override activity-based value)
+              try {
+                if (persistedAssets?.startingAt) props.startingAt = persistedAssets.startingAt;
+                else if (opts.props && opts.props.startingAt) props.startingAt = opts.props.startingAt;
+              } catch (e) {}
+              // ensure immediate update includes persisted logoName and startingAt references (or the startProps if provided)
               try {
                 const persisted = await getFixtureAssets(fixtureId);
                 if (persisted?.homeLogoName) props.home.logoName = persisted.homeLogoName;
@@ -4426,6 +4446,12 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                 if (persisted?.leagueLogoName) props.league.logoName = persisted.leagueLogoName;
                 else if (startProps && startProps.league && startProps.league.logoName)
                   props.league.logoName = startProps.league.logoName;
+                if (persisted?.startingAt) props.startingAt = persisted.startingAt;
+                else if (startProps && startProps.startingAt) props.startingAt = startProps.startingAt;
+                if (persisted?.appGroupPath) props.appGroupPath = persisted.appGroupPath;
+                else if (startProps && startProps.appGroupPath) props.appGroupPath = startProps.appGroupPath;
+                if (persisted?.appGroupId) props.appGroupId = persisted.appGroupId;
+                else if (startProps && startProps.appGroupId) props.appGroupId = startProps.appGroupId;
               } catch (e) {}
               // start monitoring this fixture now that we have initial props
               try {
