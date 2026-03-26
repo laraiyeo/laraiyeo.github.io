@@ -68,7 +68,11 @@ const FootballLiveActivity = (props) => {
 
   const resolveImage = (explicit, logoName) => {
     if (explicit) return explicit;
-    const base = props?.appGroupPath || props?.sharedAppGroupPath || props?.appGroupContainer || null;
+    const base =
+      props?.appGroupPath ||
+      props?.sharedAppGroupPath ||
+      props?.appGroupContainer ||
+      null;
     if (logoName && base) return `${base.replace(/\/$/, "")}/${logoName}`;
     return null;
   };
