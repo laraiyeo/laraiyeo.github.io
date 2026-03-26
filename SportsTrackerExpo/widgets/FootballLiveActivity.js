@@ -27,6 +27,9 @@ const FootballLiveActivity = (props) => {
   const safe = (val, fallback) =>
     val !== undefined && val !== null ? val : fallback;
 
+  // Live Activity widgets receive stateless snapshots — rely only on `props`
+  // Do NOT persist globals or guess App Group file paths in JS.
+
   const home = {
     name: safe(props?.home?.name, "Home"),
     shortName:
@@ -34,7 +37,12 @@ const FootballLiveActivity = (props) => {
       props?.home?.short_code ||
       props?.home?.abbr ||
       "",
+    // Use only the logo value provided in props; no JS-side persistence
+    // Widget can also receive `logoName` and an `appGroupPath` so it
+    // can resolve App Group files provided by the app. Prefer explicit
+    // `logo` URI, then attempt to resolve `logoName` if a shared path is given.
     logo: props?.home?.logo ?? null,
+    logoName: props?.home?.logoName ?? null,
     winner: props?.home?.winner ?? null,
     score: props?.homeScore ?? props?.home?.score ?? 0,
   };
@@ -47,6 +55,7 @@ const FootballLiveActivity = (props) => {
       props?.away?.abbr ||
       "",
     logo: props?.away?.logo ?? null,
+    logoName: props?.away?.logoName ?? null,
     winner: props?.away?.winner ?? null,
     score: props?.awayScore ?? props?.away?.score ?? 0,
   };
@@ -54,7 +63,19 @@ const FootballLiveActivity = (props) => {
   const league = {
     name: safe(props?.league?.name, "League"),
     logo: props?.league?.logo ?? null,
+    logoName: props?.league?.logoName ?? null,
   };
+
+  const resolveImage = (explicit, logoName) => {
+    if (explicit) return explicit;
+    const base = props?.appGroupPath || props?.sharedAppGroupPath || props?.appGroupContainer || null;
+    if (logoName && base) return `${base.replace(/\/$/, "")}/${logoName}`;
+    return null;
+  };
+
+  const homeLogo = resolveImage(home.logo, home.logoName);
+  const awayLogo = resolveImage(away.logo, away.logoName);
+  const leagueLogo = resolveImage(league.logo, league.logoName);
 
   const colors = props?.colors ?? {
     home: "#FF6B35",
@@ -196,9 +217,9 @@ const FootballLiveActivity = (props) => {
         <VStack spacing={5} modifiers={[padding({ top: 15 })]}>
           <VStack>
             <HStack alignment="center" spacing={6}>
-              {league.logo ? (
+              {leagueLogo ? (
                 <Image
-                  uiImage={league.logo}
+                  uiImage={leagueLogo}
                   modifiers={[resizable(), frame({ width: 14, height: 14 })]}
                 />
               ) : null}
@@ -215,7 +236,7 @@ const FootballLiveActivity = (props) => {
 
           <HStack alignment="center">
             <ZStack alignment="center">
-              {!home.logo ? (
+              {!homeLogo ? (
                 <Circle
                   modifiers={[
                     frame({ width: 45, height: 45 }),
@@ -223,10 +244,9 @@ const FootballLiveActivity = (props) => {
                   ]}
                 />
               ) : null}
-
-              {home.logo ? (
+              {homeLogo ? (
                 <Image
-                  uiImage={home.logo}
+                  uiImage={homeLogo}
                   modifiers={[resizable(), frame({ width: 45, height: 45 })]}
                 />
               ) : (
@@ -309,7 +329,7 @@ const FootballLiveActivity = (props) => {
             )}
 
             <ZStack alignment="center">
-              {!away.logo ? (
+              {!awayLogo ? (
                 <Circle
                   modifiers={[
                     frame({ width: 45, height: 45 }),
@@ -317,10 +337,9 @@ const FootballLiveActivity = (props) => {
                   ]}
                 />
               ) : null}
-
-              {away.logo ? (
+              {awayLogo ? (
                 <Image
-                  uiImage={away.logo}
+                  uiImage={awayLogo}
                   modifiers={[resizable(), frame({ width: 45, height: 45 })]}
                 />
               ) : (

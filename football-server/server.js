@@ -25,6 +25,7 @@ const path = require("path");
 const PUSH_TOKENS_FILE = path.join(__dirname, "push_to_start_tokens.json");
 const FIXTURE_TOKENS_FILE = path.join(__dirname, "fixture_push_tokens.json");
 const ACTIVITY_TOKENS_FILE = path.join(__dirname, "activity_push_tokens.json");
+const FIXTURE_ASSETS_FILE = path.join(__dirname, "fixture_assets.json");
 
 // Supabase-backed store (preferred). Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
 let supabase = null;
@@ -115,6 +116,44 @@ const activityPushTokens = new Map();
     console.warn("initActivityTokenStore failed", e?.message || e);
   }
 })();
+
+// persisted fixture assets (logoName references saved by the app on registration)
+const fixtureAssets = new Map();
+(function initFixtureAssets() {
+  try {
+    const raw = loadJsonFile(FIXTURE_ASSETS_FILE);
+    if (raw && typeof raw === "object") {
+      for (const [k, v] of Object.entries(raw)) fixtureAssets.set(String(k), v);
+    }
+  } catch (e) {}
+})();
+
+async function persistFixtureAssets() {
+  if (supabase) return; // keep file fallback only; supabase persistence could be added later
+  try {
+    const obj = {};
+    for (const [k, v] of fixtureAssets) obj[k] = v;
+    saveJsonFile(FIXTURE_ASSETS_FILE, obj);
+  } catch (e) {}
+}
+
+async function setFixtureAssets(fixtureId, assets) {
+  try {
+    const key = String(fixtureId);
+    const prev = fixtureAssets.get(key) || {};
+    const merged = Object.assign({}, prev, assets || {});
+    fixtureAssets.set(key, merged);
+    await persistFixtureAssets();
+    return merged;
+  } catch (e) {
+    return null;
+  }
+}
+
+function getFixtureAssets(fixtureId) {
+  if (!fixtureId) return null;
+  return fixtureAssets.get(String(fixtureId)) || null;
+}
 
 // Persistence helpers: prefer Supabase when configured, otherwise use file maps
 async function persistPushTokens() {
@@ -3188,7 +3227,28 @@ app.get("/football/game/:fixtureId/live-activity", async (req, res) => {
 
     const payload = {
       id: transformed?.id ?? fixtureId,
-      starting_at: transformed?.starting_at ?? null,
+      startingAt: (function () {
+        try {
+          if (!transformed?.starting_at) return { time: null, ampm: null };
+
+          const date = new Date(transformed.starting_at);
+          if (isNaN(date.getTime())) return { time: null, ampm: null };
+
+          const timeFull = date.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          });
+
+          const parts = String(timeFull).split(" ");
+          return {
+            time: parts[0] || null,
+            ampm: parts[1] || null,
+          };
+        } catch (e) {
+          return { time: null, ampm: null };
+        }
+      })(),
       state: transformed?.state ?? null,
       periods: (transformed?.periods || []).map((p) => ({
         ticking: p.ticking ?? null,
@@ -3681,6 +3741,14 @@ function startLiveActivityMonitor(opts) {
         };
       } catch (e) {}
 
+      // load any persisted fixture assets (logoName references) so updates always include them
+      let persistedAssets = null;
+      try {
+        persistedAssets = await getFixtureAssets(opts.fixtureId);
+      } catch (e) {
+        persistedAssets = null;
+      }
+
       const props = {
         home: {
           name: home.name || null,
@@ -3693,7 +3761,10 @@ function startLiveActivityMonitor(opts) {
             home.score ??
             0,
           // include optional filename the app stored in App Group so widget can load local images
-          logoName: (opts.props && opts.props.home && opts.props.home.logoName) || null,
+          logoName:
+            (persistedAssets && persistedAssets.homeLogoName) ||
+            (opts.props && opts.props.home && opts.props.home.logoName) ||
+            null,
         },
         away: {
           name: away.name || null,
@@ -3705,7 +3776,10 @@ function startLiveActivityMonitor(opts) {
             scoreMap["Away"] ??
             away.score ??
             0,
-          logoName: (opts.props && opts.props.away && opts.props.away.logoName) || null,
+          logoName:
+            (persistedAssets && persistedAssets.awayLogoName) ||
+            (opts.props && opts.props.away && opts.props.away.logoName) ||
+            null,
         },
         league: leagueObj,
         status: {
@@ -4148,11 +4222,22 @@ app.post("/live-activity/register-for-fixture", (req, res) => {
 // send updates and end signals to the correct activity instances.
 app.post("/live-activity/register-activity-token", (req, res) => {
   try {
-    const { fixtureId, token } = req.body || {};
+    const { fixtureId, token, props: startProps } = req.body || {};
     if (!fixtureId || !token)
       return res.status(400).json({ error: "fixtureId and token required" });
     addActivityToken(fixtureId, token)
-      .then(() => {
+      .then(async () => {
+        // persist any logoName references the app provided on registration
+        try {
+          const assetsToSet = {};
+          if (startProps && startProps.home && startProps.home.logoName)
+            assetsToSet.homeLogoName = startProps.home.logoName;
+          if (startProps && startProps.away && startProps.away.logoName)
+            assetsToSet.awayLogoName = startProps.away.logoName;
+          if (startProps && startProps.league && startProps.league.logoName)
+            assetsToSet.leagueLogoName = startProps.league.logoName;
+          if (Object.keys(assetsToSet).length > 0) await setFixtureAssets(fixtureId, assetsToSet);
+        } catch (e) {}
         // start monitoring this fixture so server-driven updates will run
         // defer starting the monitor until we have initial props below
         // send an immediate full update to the newly-registered activity token so the UI appears promptly
@@ -4239,6 +4324,43 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                 null;
               const stateText = stateObj?.name || activity?.state_text || null;
 
+              // derive colors for home/away and blended (so initial update includes colors)
+              let propsColors = { home: "#888888", away: "#888888", blended: "#888888" };
+              try {
+                const colorMap = buildSapColorMap();
+                const homeName = (home && (home.name || home.short_code)) || null;
+                const awayName = (away && (away.name || away.short_code)) || null;
+                const homeTeamColors = homeName ? findSapColors(homeName, colorMap) : {};
+                const awayTeamColors = awayName ? findSapColors(awayName, colorMap) : {};
+                const normHex = (h) => (h ? String(h).replace(/^#/, "") : null);
+                const blendHex = (a, b) => {
+                  try {
+                    if (!a && !b) return null;
+                    if (!a) return `#${b}`;
+                    if (!b) return `#${a}`;
+                    const r = Math.round((parseInt(a.slice(0, 2), 16) + parseInt(b.slice(0, 2), 16)) / 2)
+                      .toString(16)
+                      .padStart(2, "0");
+                    const g = Math.round((parseInt(a.slice(2, 4), 16) + parseInt(b.slice(2, 4), 16)) / 2)
+                      .toString(16)
+                      .padStart(2, "0");
+                    const bl = Math.round((parseInt(a.slice(4, 6), 16) + parseInt(b.slice(4, 6), 16)) / 2)
+                      .toString(16)
+                      .padStart(2, "0");
+                    return `#${r}${g}${bl}`;
+                  } catch (e) {
+                    return null;
+                  }
+                };
+                const hp = homeTeamColors.colorPrimary || homeTeamColors.colorSecondary || null;
+                const ap = awayTeamColors.colorPrimary || awayTeamColors.colorSecondary || null;
+                propsColors = {
+                  home: hp || "#888888",
+                  away: ap || "#888888",
+                  blended: blendHex(normHex(hp), normHex(ap)) || "#888888",
+                };
+              } catch (e) {}
+
               const props = {
                 home: {
                   name: home.name || null,
@@ -4271,7 +4393,40 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                   ticking: tickingNow,
                 },
                 venue: { name: activity?.venue?.name || null },
+                startingAt: (function () {
+                  try {
+                    if (!activity.starting_at) return { time: null, ampm: null };
+                    const date = new Date(activity.starting_at);
+                    if (isNaN(date.getTime())) return { time: null, ampm: null };
+                    const timeFull = date.toLocaleTimeString("en-US", {
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
+                    });
+                    const parts = String(timeFull).split(" ");
+                    const time = parts[0] || null;
+                    const ampm = parts[1] || (date.getHours() >= 12 ? "PM" : "AM");
+                    return { time, ampm };
+                  } catch (e) {
+                    return { time: null, ampm: null };
+                  }
+                })(),
+                // include derived colors so widget receives consistent color info
+                colors: propsColors,
               };
+              // ensure immediate update includes persisted logoName references (or the startProps if provided)
+              try {
+                const persisted = await getFixtureAssets(fixtureId);
+                if (persisted?.homeLogoName) props.home.logoName = persisted.homeLogoName;
+                else if (startProps && startProps.home && startProps.home.logoName)
+                  props.home.logoName = startProps.home.logoName;
+                if (persisted?.awayLogoName) props.away.logoName = persisted.awayLogoName;
+                else if (startProps && startProps.away && startProps.away.logoName)
+                  props.away.logoName = startProps.away.logoName;
+                if (persisted?.leagueLogoName) props.league.logoName = persisted.leagueLogoName;
+                else if (startProps && startProps.league && startProps.league.logoName)
+                  props.league.logoName = startProps.league.logoName;
+              } catch (e) {}
               // start monitoring this fixture now that we have initial props
               try {
                 startLiveActivityMonitor({ fixtureId, name: "FootballLiveActivity", props });
