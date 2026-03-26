@@ -2271,19 +2271,29 @@ const AppContent = () => {
               await fetch(`${API_URL}/live-activity/register-push-to-start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ bundleId: "com.sportsheart.app", token }),
+                body: JSON.stringify({
+                  bundleId: "com.sportsheart.app",
+                  token,
+                }),
               });
             } catch (e) {
-              console.warn("Failed to register push-to-start token", e?.message || e);
+              console.warn(
+                "Failed to register push-to-start token",
+                e?.message || e,
+              );
             }
           });
         } catch (e) {
-          console.warn("addPushToStartTokenListener not available", e?.message || e);
+          console.warn(
+            "addPushToStartTokenListener not available",
+            e?.message || e,
+          );
         }
 
         return () => {
           try {
-            if (pushToStartSub && typeof pushToStartSub.remove === "function") pushToStartSub.remove();
+            if (pushToStartSub && typeof pushToStartSub.remove === "function")
+              pushToStartSub.remove();
           } catch (e) {}
         };
       });

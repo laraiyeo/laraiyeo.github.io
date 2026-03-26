@@ -11681,31 +11681,46 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
             try {
               const pushToken = await instance.getPushToken();
               if (pushToken) {
-                await fetch(`${API_URL}/live-activity/register-activity-token`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ fixtureId: id, token: pushToken }),
-                });
+                await fetch(
+                  `${API_URL}/live-activity/register-activity-token`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ fixtureId: id, token: pushToken }),
+                  },
+                );
               }
               try {
                 const sub = instance.addPushTokenListener(async (ev) => {
                   try {
                     const newToken = ev?.pushToken;
                     if (newToken) {
-                      await fetch(`${API_URL}/live-activity/register-activity-token`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ fixtureId: id, token: newToken }),
-                      });
+                      await fetch(
+                        `${API_URL}/live-activity/register-activity-token`,
+                        {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            fixtureId: id,
+                            token: newToken,
+                          }),
+                        },
+                      );
                     }
                   } catch (e) {
-                    console.warn("Failed to re-register activity token", e?.message || e);
+                    console.warn(
+                      "Failed to re-register activity token",
+                      e?.message || e,
+                    );
                   }
                 });
                 instance._activityPushTokenSub = sub;
               } catch (e) {}
             } catch (e) {
-              console.warn("Live activity token registration failed", e?.message || e);
+              console.warn(
+                "Live activity token registration failed",
+                e?.message || e,
+              );
             }
           }
         } catch (e) {

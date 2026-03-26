@@ -56,7 +56,8 @@ const FootballLiveActivity = (props) => {
   const getStatusInfo = (statusProp, startingAtProp) => {
     const code = (statusProp?.short_name || "").toUpperCase();
     const long = statusProp?.text || "";
-    const minute = statusProp?.minute || statusProp?.elapsed || statusProp?.m || null;
+    const minute =
+      statusProp?.minute || statusProp?.elapsed || statusProp?.m || null;
     const seconds = statusProp?.seconds ?? null;
     const ticking = statusProp?.ticking === true;
 
@@ -81,7 +82,8 @@ const FootballLiveActivity = (props) => {
 
     if (isLive) {
       if (minute != null && minute !== "") {
-        const secText = seconds != null ? `:${String(seconds).padStart(2, "0")}` : "";
+        const secText =
+          seconds != null ? `:${String(seconds).padStart(2, "0")}` : "";
         return {
           line1: `${minute}${secText}`,
           line2: long || code || "LIVE",
@@ -175,12 +177,12 @@ const FootballLiveActivity = (props) => {
           <HStack alignment="center">
             <ZStack alignment="center">
               {!home.logo ? (
-              <Circle
-                modifiers={[
-                  frame({ width: 45, height: 45 }),
-                  foregroundStyle({ color: colors.home }),
-                ]}
-              />
+                <Circle
+                  modifiers={[
+                    frame({ width: 45, height: 45 }),
+                    foregroundStyle({ color: colors.home }),
+                  ]}
+                />
               ) : null}
               {home.logo ? (
                 <Image
@@ -250,12 +252,12 @@ const FootballLiveActivity = (props) => {
             )}
             <ZStack alignment="center">
               {!away.logo ? (
-              <Circle
-                modifiers={[
-                  frame({ width: 45, height: 45 }),
-                  foregroundStyle({ color: colors.away }),
-                ]}
-              />
+                <Circle
+                  modifiers={[
+                    frame({ width: 45, height: 45 }),
+                    foregroundStyle({ color: colors.away }),
+                  ]}
+                />
               ) : null}
               {away.logo ? (
                 <Image

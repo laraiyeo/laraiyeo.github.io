@@ -29,14 +29,20 @@ const ACTIVITY_TOKENS_FILE = path.join(__dirname, "activity_push_tokens.json");
 // Supabase-backed store (preferred). Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
 let supabase = null;
 const SUPABASE_URL = process.env.SUPABASE_URL || null;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || null;
+const SUPABASE_SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || null;
 if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
   try {
     const { createClient } = require("@supabase/supabase-js");
-    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false },
+    });
     console.log("[init] Supabase client configured for push token persistence");
   } catch (e) {
-    console.warn("Supabase client not available; falling back to file persistence", e?.message || e);
+    console.warn(
+      "Supabase client not available; falling back to file persistence",
+      e?.message || e,
+    );
     supabase = null;
   }
 }
@@ -65,7 +71,10 @@ function saveJsonFile(filePath, obj) {
   try {
     const raw = loadJsonFile(PUSH_TOKENS_FILE);
     for (const [bundleId, tokens] of Object.entries(raw || {})) {
-      pushToStartTokens.set(bundleId, new Set(Array.isArray(tokens) ? tokens : []));
+      pushToStartTokens.set(
+        bundleId,
+        new Set(Array.isArray(tokens) ? tokens : []),
+      );
     }
   } catch (e) {
     console.warn("initPushTokenStore failed", e?.message || e);
@@ -78,7 +87,10 @@ const fixturePushTokens = new Map();
   try {
     const raw = loadJsonFile(FIXTURE_TOKENS_FILE);
     for (const [fixtureId, tokens] of Object.entries(raw || {})) {
-      fixturePushTokens.set(fixtureId, new Set(Array.isArray(tokens) ? tokens : []));
+      fixturePushTokens.set(
+        fixtureId,
+        new Set(Array.isArray(tokens) ? tokens : []),
+      );
     }
   } catch (e) {
     console.warn("initFixtureTokenStore failed", e?.message || e);
@@ -91,9 +103,14 @@ const activityPushTokens = new Map();
   try {
     const raw = loadJsonFile(ACTIVITY_TOKENS_FILE);
     for (const [fixtureId, tokens] of Object.entries(raw || {})) {
-      activityPushTokens.set(fixtureId, new Set(Array.isArray(tokens) ? tokens : []));
+      activityPushTokens.set(
+        fixtureId,
+        new Set(Array.isArray(tokens) ? tokens : []),
+      );
     }
-    console.log("initActivityTokenStore loaded activity tokens (file fallback)");
+    console.log(
+      "initActivityTokenStore loaded activity tokens (file fallback)",
+    );
   } catch (e) {
     console.warn("initActivityTokenStore failed", e?.message || e);
   }
@@ -118,10 +135,11 @@ async function persistActivityTokens() {
   if (supabase) return;
   try {
     const obj = {};
-    for (const [k, set] of activityPushTokens.entries()) obj[k] = Array.from(set);
+    for (const [k, set] of activityPushTokens.entries())
+      obj[k] = Array.from(set);
     saveJsonFile(ACTIVITY_TOKENS_FILE, obj);
   } catch (e) {
-    console.warn('persistActivityTokens failed', e?.message || e);
+    console.warn("persistActivityTokens failed", e?.message || e);
   }
 }
 
@@ -131,10 +149,20 @@ async function addActivityToken(fixtureId, token) {
   if (supabase) {
     try {
       // store as type='activity' to distinguish from bundle/fixture tokens
-      await supabase.from('live_activity_tokens').upsert({ type: 'activity', bundle_id: null, token, fixture_id: String(fixtureId) }, { onConflict: ['type', 'fixture_id', 'token'] });
+      await supabase
+        .from("live_activity_tokens")
+        .upsert(
+          {
+            type: "activity",
+            bundle_id: null,
+            token,
+            fixture_id: String(fixtureId),
+          },
+          { onConflict: ["type", "fixture_id", "token"] },
+        );
       return true;
     } catch (e) {
-      console.warn('supabase upsert activity token failed', e?.message || e);
+      console.warn("supabase upsert activity token failed", e?.message || e);
     }
   }
   let s = activityPushTokens.get(String(fixtureId));
@@ -152,11 +180,15 @@ async function getActivityTokensForFixture(fixtureId) {
   if (supabase) {
     try {
       // only return activity-type tokens for updates/ends
-      const { data, error } = await supabase.from('live_activity_tokens').select('token').eq('fixture_id', String(fixtureId)).eq('type', 'activity');
+      const { data, error } = await supabase
+        .from("live_activity_tokens")
+        .select("token")
+        .eq("fixture_id", String(fixtureId))
+        .eq("type", "activity");
       if (error) throw error;
       return (data || []).map((r) => r.token).filter(Boolean);
     } catch (e) {
-      console.warn('supabase select activity tokens failed', e?.message || e);
+      console.warn("supabase select activity tokens failed", e?.message || e);
     }
   }
   return Array.from(activityPushTokens.get(String(fixtureId)) ?? []);
@@ -167,10 +199,14 @@ async function removeActivityToken(token) {
   if (supabase) {
     try {
       // remove only activity-type rows (avoid clobbering fixture/bundle tokens with same token string)
-      await supabase.from('live_activity_tokens').delete().eq('token', token).eq('type', 'activity');
+      await supabase
+        .from("live_activity_tokens")
+        .delete()
+        .eq("token", token)
+        .eq("type", "activity");
       return true;
     } catch (e) {
-      console.warn('supabase delete activity token failed', e?.message || e);
+      console.warn("supabase delete activity token failed", e?.message || e);
     }
   }
   let removed = false;
@@ -191,7 +227,12 @@ async function addPushToStartToken(bundleId, token) {
   if (supabase) {
     try {
       // upsert bundle-level token (type='bundle', fixture_id = null)
-      await supabase.from("live_activity_tokens").upsert({ type: 'bundle', bundle_id: bundleId, token, fixture_id: null }, { onConflict: ["type", "bundle_id", "token"] });
+      await supabase
+        .from("live_activity_tokens")
+        .upsert(
+          { type: "bundle", bundle_id: bundleId, token, fixture_id: null },
+          { onConflict: ["type", "bundle_id", "token"] },
+        );
       return true;
     } catch (e) {
       console.warn("supabase upsert bundle token failed:", e?.message || e);
@@ -212,7 +253,11 @@ async function removePushToStartToken(token) {
   if (supabase) {
     try {
       // only remove bundle-type push-to-start tokens
-      await supabase.from("live_activity_tokens").delete().eq("token", token).eq('type', 'bundle');
+      await supabase
+        .from("live_activity_tokens")
+        .delete()
+        .eq("token", token)
+        .eq("type", "bundle");
       return true;
     } catch (e) {
       console.warn("supabase delete token failed:", e?.message || e);
@@ -234,7 +279,17 @@ async function addFixturePushToken(fixtureId, token) {
   if (supabase) {
     try {
       // upsert fixture-level token (type='fixture')
-      await supabase.from("live_activity_tokens").upsert({ type: 'fixture', bundle_id: null, token, fixture_id: String(fixtureId) }, { onConflict: ["type", "fixture_id", "token"] });
+      await supabase
+        .from("live_activity_tokens")
+        .upsert(
+          {
+            type: "fixture",
+            bundle_id: null,
+            token,
+            fixture_id: String(fixtureId),
+          },
+          { onConflict: ["type", "fixture_id", "token"] },
+        );
       return true;
     } catch (e) {
       console.warn("supabase upsert fixture token failed:", e?.message || e);
@@ -254,7 +309,11 @@ async function getTokensForBundle(bundleId) {
   if (supabase) {
     try {
       // only return bundle-type tokens
-      const { data, error } = await supabase.from("live_activity_tokens").select("token").eq("bundle_id", bundleId).eq('type', 'bundle');
+      const { data, error } = await supabase
+        .from("live_activity_tokens")
+        .select("token")
+        .eq("bundle_id", bundleId)
+        .eq("type", "bundle");
       if (error) throw error;
       return (data || []).map((r) => r.token).filter(Boolean);
     } catch (e) {
@@ -268,7 +327,11 @@ async function getTokensForFixture(fixtureId) {
   if (supabase) {
     try {
       // only return fixture-type tokens (not activity tokens)
-      const { data, error } = await supabase.from("live_activity_tokens").select("token").eq("fixture_id", String(fixtureId)).eq('type', 'fixture');
+      const { data, error } = await supabase
+        .from("live_activity_tokens")
+        .select("token")
+        .eq("fixture_id", String(fixtureId))
+        .eq("type", "fixture");
       if (error) throw error;
       return (data || []).map((r) => r.token).filter(Boolean);
     } catch (e) {
@@ -287,7 +350,8 @@ const APNS_PROVIDER_AUTH = process.env.APNS_PROVIDER_AUTH || null; // optional a
 // Apple / APNs config (set these in your env or Railway variables)
 const APPLE_TEAM_ID = process.env.APPLE_TEAM_ID || null;
 const APPLE_KEY_ID = process.env.APPLE_KEY_ID || null;
-const APPLE_BUNDLE_ID = process.env.APPLE_BUNDLE_ID || process.env.APPLE_BUNDLE || null;
+const APPLE_BUNDLE_ID =
+  process.env.APPLE_BUNDLE_ID || process.env.APPLE_BUNDLE || null;
 // Either set APPLE_PRIVATE_KEY (escaped newlines) or APPLE_PRIVATE_KEY_PATH to a .p8 file
 const APPLE_PRIVATE_KEY = process.env.APPLE_PRIVATE_KEY || null;
 const APPLE_PRIVATE_KEY_PATH = process.env.APPLE_PRIVATE_KEY_PATH || null;
@@ -3074,7 +3138,9 @@ app.post("/live-activity/register-push-to-start", (req, res) => {
     if (!bundleId || !token)
       return res.status(400).json({ error: "bundleId and token required" });
     addPushToStartToken(bundleId, token).catch(() => {});
-    console.log(`[live-activity] registered push-to-start token for ${bundleId}`);
+    console.log(
+      `[live-activity] registered push-to-start token for ${bundleId}`,
+    );
 
     // Optionally register for specific fixture(s)
     if (fixtureId) addFixturePushToken(fixtureId, token).catch(() => {});
@@ -3094,14 +3160,19 @@ function loadApplePrivateKey() {
     try {
       return fs.readFileSync(APPLE_PRIVATE_KEY_PATH, "utf8");
     } catch (e) {
-      console.warn("loadApplePrivateKey: cannot read APPLE_PRIVATE_KEY_PATH", e?.message || e);
+      console.warn(
+        "loadApplePrivateKey: cannot read APPLE_PRIVATE_KEY_PATH",
+        e?.message || e,
+      );
       return null;
     }
   }
   return null;
 }
 
-let APNS_TOPIC = APPLE_BUNDLE_ID ? `${APPLE_BUNDLE_ID}.push-type.liveactivity` : null;
+let APNS_TOPIC = APPLE_BUNDLE_ID
+  ? `${APPLE_BUNDLE_ID}.push-type.liveactivity`
+  : null;
 
 function generateAPNsJWT() {
   const pk = loadApplePrivateKey();
@@ -3128,7 +3199,7 @@ async function sendToAPNs(deviceToken, payload, opts = {}) {
   while (attempt < maxAttempts) {
     attempt++;
     try {
-          const client = http2.connect("https://api.push.apple.com");
+      const client = http2.connect("https://api.push.apple.com");
       await new Promise((resolveRequest, rejectRequest) => {
         client.on("error", (err) => {
           try {
@@ -3164,8 +3235,12 @@ async function sendToAPNs(deviceToken, payload, opts = {}) {
             const sts = Number(status) || 0;
             if ([400, 403, 404, 410].includes(sts)) {
               // attempt to remove any matching token rows (activity or bundle)
-              try { removeActivityToken(deviceToken); } catch (e) {}
-              try { removePushToStartToken(deviceToken); } catch (e) {}
+              try {
+                removeActivityToken(deviceToken);
+              } catch (e) {}
+              try {
+                removePushToStartToken(deviceToken);
+              } catch (e) {}
             }
           } catch (e) {}
           resolveRequest({ status: Number(status) || 200, body: data });
@@ -3192,7 +3267,13 @@ async function sendToAPNs(deviceToken, payload, opts = {}) {
       pushMetrics.failures++;
       // determine if retryable: network errors or 5xx/429 are retryable
       const msg = String(e?.message || e || "").toLowerCase();
-      const retryable = msg.includes("socket") || msg.includes("ecx") || msg.includes("timeout") || msg.includes("429") || msg.includes("503") || msg.includes("500");
+      const retryable =
+        msg.includes("socket") ||
+        msg.includes("ecx") ||
+        msg.includes("timeout") ||
+        msg.includes("429") ||
+        msg.includes("503") ||
+        msg.includes("500");
       if (!retryable || attempt >= maxAttempts) break;
       // exponential backoff
       await new Promise((r) => setTimeout(r, 200 * Math.pow(2, attempt)));
@@ -3221,7 +3302,10 @@ async function forwardToProvider(tokenOrTokens, payload) {
         results.push({ token, forwarded: true, resp: resp.data });
         continue;
       } catch (e) {
-        console.warn("[live-activity] forwardToProvider failed", e?.message || e);
+        console.warn(
+          "[live-activity] forwardToProvider failed",
+          e?.message || e,
+        );
         // fallthrough to direct attempt
       }
     }
@@ -3231,7 +3315,10 @@ async function forwardToProvider(tokenOrTokens, payload) {
       const apnsResp = await sendToAPNs(token, payload, { maxAttempts: 3 });
       results.push({ token, forwarded: false, apns: apnsResp });
     } catch (err) {
-      console.error("[live-activity] direct APNs send failed", err?.message || err);
+      console.error(
+        "[live-activity] direct APNs send failed",
+        err?.message || err,
+      );
       results.push({ token, forwarded: false, error: String(err) });
     }
   }
@@ -3257,7 +3344,10 @@ async function sendStartNoAlert(tokenOrTokens, name, props) {
   const payload = {
     aps: {
       event: "update",
-      "content-state": { name, props: typeof props === "string" ? props : JSON.stringify(props || {}) },
+      "content-state": {
+        name,
+        props: typeof props === "string" ? props : JSON.stringify(props || {}),
+      },
       timestamp: Math.floor(Date.now() / 1000),
     },
   };
@@ -3274,9 +3364,16 @@ async function sendUpdateWithAlert(token, name, props, title, body) {
   const payload = {
     aps: {
       event: "update",
-      "content-state": { name, props: typeof props === "string" ? props : JSON.stringify(props || {}) },
+      "content-state": {
+        name,
+        props: typeof props === "string" ? props : JSON.stringify(props || {}),
+      },
       timestamp: Math.floor(Date.now() / 1000),
-      alert: { title: title || "Update", body: body || "Event happened", sound: "default" },
+      alert: {
+        title: title || "Update",
+        body: body || "Event happened",
+        sound: "default",
+      },
       "interruption-level": "time-sensitive",
     },
   };
@@ -3287,7 +3384,10 @@ async function sendEnd(token, name, props) {
   const payload = {
     aps: {
       event: "end",
-      "content-state": { name, props: typeof props === "string" ? props : JSON.stringify(props || {}) },
+      "content-state": {
+        name,
+        props: typeof props === "string" ? props : JSON.stringify(props || {}),
+      },
       timestamp: Math.floor(Date.now() / 1000),
       "attributes-type": "LiveActivityAttributes",
       attributes: {},
@@ -3318,17 +3418,23 @@ function startLiveActivityMonitor(opts) {
       const state = (activity.state || "").toString().toUpperCase();
 
       // build full props from activity so the client UI updates with fresh data
-      const participants = Array.isArray(activity.participants) ? activity.participants : [];
+      const participants = Array.isArray(activity.participants)
+        ? activity.participants
+        : [];
       const scoreMap = {};
-      for (const s of (activity.scores || [])) {
+      for (const s of activity.scores || []) {
         const pid = String(s.score?.participant || "unknown");
         scoreMap[pid] = s.score?.goals ?? null;
       }
       const home = participants[0] || {};
       const away = participants[1] || {};
       // pick current period if present (contains minutes/seconds/ticking)
-      const currentPeriod = Array.isArray(activity.periods) && activity.periods.length > 0 ? activity.periods[0] : null;
-      const minuteVal = currentPeriod?.minutes ?? activity.minute ?? activity.elapsed ?? null;
+      const currentPeriod =
+        Array.isArray(activity.periods) && activity.periods.length > 0
+          ? activity.periods[0]
+          : null;
+      const minuteVal =
+        currentPeriod?.minutes ?? activity.minute ?? activity.elapsed ?? null;
       const secondsVal = currentPeriod?.seconds ?? null;
       const tickingVal = currentPeriod?.ticking === true;
 
@@ -3345,35 +3451,33 @@ function startLiveActivityMonitor(opts) {
               : null,
           }
         : activity.competition
-        ? {
-            id: activity.competition.id ?? null,
-            name: activity.competition.name ?? null,
-            image_path: activity.competition.logo ?? null,
-            country: null,
-          }
-        : null;
+          ? {
+              id: activity.competition.id ?? null,
+              name: activity.competition.name ?? null,
+              image_path: activity.competition.logo ?? null,
+              country: null,
+            }
+          : null;
 
       const props = {
         home: {
           name: home.name || null,
           shortName: home.shortName || home.abbr || null,
-          score: (
+          score:
             scoreMap[String(home.id)] ??
             scoreMap[String(home.id_text)] ??
             home.score ??
-            0
-          ),
+            0,
           logo: home.logo || null,
         },
         away: {
           name: away.name || null,
           shortName: away.shortName || away.abbr || null,
-          score: (
+          score:
             scoreMap[String(away.id)] ??
             scoreMap[String(away.id_text)] ??
             away.score ??
-            0
-          ),
+            0,
           logo: away.logo || null,
         },
         league: leagueObj,
@@ -3385,7 +3489,10 @@ function startLiveActivityMonitor(opts) {
           ticking: tickingVal,
         },
         venue: { name: activity.venue?.name || null },
-        startingAt: { time: activity.starting_at_time || null, ampm: activity.starting_at_ampm || null },
+        startingAt: {
+          time: activity.starting_at_time || null,
+          ampm: activity.starting_at_ampm || null,
+        },
         colors: {
           home: home.color || "#FF6B35",
           away: away.color || "#F7931E",
@@ -3395,7 +3502,12 @@ function startLiveActivityMonitor(opts) {
 
       // simple payload hash dedupe to avoid unnecessary APNs calls
       try {
-        const hash = JSON.stringify({ state, minute: props.status?.minute ?? null, seconds: props.status?.seconds ?? null, scores: [props.home.score, props.away.score] });
+        const hash = JSON.stringify({
+          state,
+          minute: props.status?.minute ?? null,
+          seconds: props.status?.seconds ?? null,
+          scores: [props.home.score, props.away.score],
+        });
         if (monitor.lastHash && monitor.lastHash === hash) {
           // nothing changed
           // but continue to allow ticking-driven periodic pushes (handled below)
@@ -3409,9 +3521,14 @@ function startLiveActivityMonitor(opts) {
         const isTicking = props.status?.ticking === true;
         const TICK_INTERVAL_MS = 30 * 1000; // send every ~30s in production (recommend 15-30s; 30s safer)
         if (isTicking) {
-          const activityTokens = opts.fixtureId ? await getActivityTokensForFixture(opts.fixtureId) : [];
+          const activityTokens = opts.fixtureId
+            ? await getActivityTokensForFixture(opts.fixtureId)
+            : [];
           if (activityTokens && activityTokens.length > 0) {
-            if (!monitor.lastTickPush || Date.now() - monitor.lastTickPush >= TICK_INTERVAL_MS) {
+            if (
+              !monitor.lastTickPush ||
+              Date.now() - monitor.lastTickPush >= TICK_INTERVAL_MS
+            ) {
               try {
                 await sendToAPNs(activityTokens, {
                   aps: {
@@ -3436,12 +3553,23 @@ function startLiveActivityMonitor(opts) {
       if (!monitor.alertedStart && /1ST|FIRST/i.test(state)) {
         monitor.alertedStart = true;
         // only send to activity instance tokens (do not fallback)
-        const activityTokens = opts.fixtureId ? await getActivityTokensForFixture(opts.fixtureId) : [];
+        const activityTokens = opts.fixtureId
+          ? await getActivityTokensForFixture(opts.fixtureId)
+          : [];
         if (activityTokens && activityTokens.length > 0) {
           monitor.started = true;
           try {
-            if (!monitor.lastPushAt || Date.now() - monitor.lastPushAt >= 5000) {
-              await sendStartWithAlert(activityTokens, opts.name, props, "Match started", `${activity.participants?.[0]?.name || "Home"} vs ${activity.participants?.[1]?.name || "Away"} kicked off`);
+            if (
+              !monitor.lastPushAt ||
+              Date.now() - monitor.lastPushAt >= 5000
+            ) {
+              await sendStartWithAlert(
+                activityTokens,
+                opts.name,
+                props,
+                "Match started",
+                `${activity.participants?.[0]?.name || "Home"} vs ${activity.participants?.[1]?.name || "Away"} kicked off`,
+              );
               monitor.lastPushAt = Date.now();
             }
           } catch (e) {}
@@ -3451,11 +3579,22 @@ function startLiveActivityMonitor(opts) {
       // detect HT — use activity instance tokens (instance.getPushToken()) for updates
       if (/HT|HALF/i.test(state) && monitor.lastState !== state) {
         // only send to activity instance tokens (do not fallback)
-        const activityTokens = opts.fixtureId ? await getActivityTokensForFixture(opts.fixtureId) : [];
+        const activityTokens = opts.fixtureId
+          ? await getActivityTokensForFixture(opts.fixtureId)
+          : [];
         if (activityTokens && activityTokens.length > 0) {
           try {
-            if (!monitor.lastPushAt || Date.now() - monitor.lastPushAt >= 5000) {
-              await sendUpdateWithAlert(activityTokens, opts.name, props, "Half Time", "Match is at half time");
+            if (
+              !monitor.lastPushAt ||
+              Date.now() - monitor.lastPushAt >= 5000
+            ) {
+              await sendUpdateWithAlert(
+                activityTokens,
+                opts.name,
+                props,
+                "Half Time",
+                "Match is at half time",
+              );
               monitor.lastPushAt = Date.now();
             }
           } catch (e) {}
@@ -3464,7 +3603,7 @@ function startLiveActivityMonitor(opts) {
 
       // detect score changes (goals)
       const newScores = {};
-      for (const s of (activity.scores || [])) {
+      for (const s of activity.scores || []) {
         const g = s.score?.goals ?? null;
         const p = String(s.score?.participant || "unknown");
         newScores[p] = g;
@@ -3475,11 +3614,22 @@ function startLiveActivityMonitor(opts) {
           const curr = newScores[p];
           if (prev != null && curr != null && curr > prev) {
             // goal for participant p — send to activity instance tokens
-            const activityTokens = opts.fixtureId ? await getActivityTokensForFixture(opts.fixtureId) : [];
+            const activityTokens = opts.fixtureId
+              ? await getActivityTokensForFixture(opts.fixtureId)
+              : [];
             if (activityTokens && activityTokens.length > 0) {
               try {
-                if (!monitor.lastPushAt || Date.now() - monitor.lastPushAt >= 5000) {
-                  await sendUpdateWithAlert(activityTokens, opts.name, props, "GOAL ⚽", `Score changed: ${curr}`);
+                if (
+                  !monitor.lastPushAt ||
+                  Date.now() - monitor.lastPushAt >= 5000
+                ) {
+                  await sendUpdateWithAlert(
+                    activityTokens,
+                    opts.name,
+                    props,
+                    "GOAL ⚽",
+                    `Score changed: ${curr}`,
+                  );
                   monitor.lastPushAt = Date.now();
                 }
               } catch (e) {}
@@ -3490,11 +3640,20 @@ function startLiveActivityMonitor(opts) {
       monitor.lastScores = newScores;
 
       // detect end — send end to activity instance tokens (preferred)
-      if (/FT|AET|FT_PEN|POSTP|CANC|ABAN|WALKOVER|POSTPONED|CANCELLED|CANCELL?ED/i.test(state)) {
-        const activityTokens = opts.fixtureId ? await getActivityTokensForFixture(opts.fixtureId) : [];
+      if (
+        /FT|AET|FT_PEN|POSTP|CANC|ABAN|WALKOVER|POSTPONED|CANCELLED|CANCELL?ED/i.test(
+          state,
+        )
+      ) {
+        const activityTokens = opts.fixtureId
+          ? await getActivityTokensForFixture(opts.fixtureId)
+          : [];
         if (activityTokens && activityTokens.length > 0) {
           try {
-            if (!monitor.lastPushAt || Date.now() - monitor.lastPushAt >= 2000) {
+            if (
+              !monitor.lastPushAt ||
+              Date.now() - monitor.lastPushAt >= 2000
+            ) {
               await sendEnd(activityTokens, opts.name, props);
               monitor.lastPushAt = Date.now();
             }
@@ -3517,7 +3676,7 @@ function startLiveActivityMonitor(opts) {
 
   // schedule start-no-alert 30 minutes before starting_at if provided
   try {
-      if (opts.starting_at) {
+    if (opts.starting_at) {
       const startMs = Date.parse(opts.starting_at);
       const when = startMs - 30 * 60 * 1000; // 30 min before
       const now = Date.now();
@@ -3525,11 +3684,20 @@ function startLiveActivityMonitor(opts) {
         // start now silently — only if activity tokens exist
         (async () => {
           try {
-            const activityTokens = await getActivityTokensForFixture(opts.fixtureId);
+            const activityTokens = await getActivityTokensForFixture(
+              opts.fixtureId,
+            );
             if (activityTokens && activityTokens.length > 0) {
               monitor.started = true;
-              const activityNow = await fetchLiveActivityForFixture(opts.fixtureId);
-              const startProps = activityNow ? { startingAt: activityNow.starting_at, status: { short_name: activityNow.state } } : opts.props || {};
+              const activityNow = await fetchLiveActivityForFixture(
+                opts.fixtureId,
+              );
+              const startProps = activityNow
+                ? {
+                    startingAt: activityNow.starting_at,
+                    status: { short_name: activityNow.state },
+                  }
+                : opts.props || {};
               await sendStartNoAlert(activityTokens, opts.name, startProps);
             }
           } catch (e) {}
@@ -3537,11 +3705,20 @@ function startLiveActivityMonitor(opts) {
       } else {
         const t = setTimeout(async () => {
           try {
-            const activityTokens = await getActivityTokensForFixture(opts.fixtureId);
+            const activityTokens = await getActivityTokensForFixture(
+              opts.fixtureId,
+            );
             if (activityTokens && activityTokens.length > 0) {
               monitor.started = true;
-              const activityNow = await fetchLiveActivityForFixture(opts.fixtureId);
-              const startProps = activityNow ? { startingAt: activityNow.starting_at, status: { short_name: activityNow.state } } : opts.props || {};
+              const activityNow = await fetchLiveActivityForFixture(
+                opts.fixtureId,
+              );
+              const startProps = activityNow
+                ? {
+                    startingAt: activityNow.starting_at,
+                    status: { short_name: activityNow.state },
+                  }
+                : opts.props || {};
               await sendStartNoAlert(activityTokens, opts.name, startProps);
             }
           } catch (e) {}
@@ -3556,23 +3733,43 @@ function startLiveActivityMonitor(opts) {
         // check state and either end or reschedule 30m later
         const activity = await fetchLiveActivityForFixture(opts.fixtureId);
         const state = (activity?.state || "").toString().toUpperCase();
-          if (/FT|AET|FT_PEN|POSTP|CANC|ABAN|WALKOVER|POSTPONED|CANCELLED|CANCELL?ED/i.test(state)) {
+        if (
+          /FT|AET|FT_PEN|POSTP|CANC|ABAN|WALKOVER|POSTPONED|CANCELLED|CANCELL?ED/i.test(
+            state,
+          )
+        ) {
           try {
-            const activityTokens = await getActivityTokensForFixture(opts.fixtureId);
+            const activityTokens = await getActivityTokensForFixture(
+              opts.fixtureId,
+            );
             if (activityTokens && activityTokens.length > 0) {
-              const activityNow = await fetchLiveActivityForFixture(opts.fixtureId);
-              const endProps = activityNow ? { status: { short_name: activityNow.state } } : opts.props || {};
-              await sendEnd(activityTokens, opts.name, endProps).catch(() => {});
+              const activityNow = await fetchLiveActivityForFixture(
+                opts.fixtureId,
+              );
+              const endProps = activityNow
+                ? { status: { short_name: activityNow.state } }
+                : opts.props || {};
+              await sendEnd(activityTokens, opts.name, endProps).catch(
+                () => {},
+              );
             }
           } catch (e) {}
         } else {
           // still live -> delay 30 minutes
-          const t2 = setTimeout(async () => {
-            try {
-              const activityTokens2 = await getActivityTokensForFixture(opts.fixtureId);
-              if (activityTokens2 && activityTokens2.length > 0) await sendEnd(activityTokens2, opts.name, opts.props).catch(() => {});
-            } catch (e) {}
-          }, 30 * 60 * 1000);
+          const t2 = setTimeout(
+            async () => {
+              try {
+                const activityTokens2 = await getActivityTokensForFixture(
+                  opts.fixtureId,
+                );
+                if (activityTokens2 && activityTokens2.length > 0)
+                  await sendEnd(activityTokens2, opts.name, opts.props).catch(
+                    () => {},
+                  );
+              } catch (e) {}
+            },
+            30 * 60 * 1000,
+          );
           monitor.timers.push(t2);
         }
       }, endDelay);
@@ -3645,7 +3842,8 @@ app.post("/live-activity/update", async (req, res) => {
 app.post("/live-activity/register-for-fixture", (req, res) => {
   try {
     const { fixtureId, token } = req.body || {};
-    if (!fixtureId || !token) return res.status(400).json({ error: "fixtureId and token required" });
+    if (!fixtureId || !token)
+      return res.status(400).json({ error: "fixtureId and token required" });
     addFixturePushToken(fixtureId, token)
       .then(() => res.json({ ok: true }))
       .catch((e) => res.status(500).json({ error: e?.message || String(e) }));
@@ -3662,7 +3860,8 @@ app.post("/live-activity/register-for-fixture", (req, res) => {
 app.post("/live-activity/register-activity-token", (req, res) => {
   try {
     const { fixtureId, token } = req.body || {};
-    if (!fixtureId || !token) return res.status(400).json({ error: "fixtureId and token required" });
+    if (!fixtureId || !token)
+      return res.status(400).json({ error: "fixtureId and token required" });
     addActivityToken(fixtureId, token)
       .then(() => {
         // start monitoring this fixture so server-driven updates will run
@@ -3675,17 +3874,26 @@ app.post("/live-activity/register-activity-token", (req, res) => {
             const tokens = await getActivityTokensForFixture(fixtureId);
             if (tokens && tokens.length > 0) {
               const activity = await fetchLiveActivityForFixture(fixtureId);
-              const participants = Array.isArray(activity?.participants) ? activity.participants : [];
+              const participants = Array.isArray(activity?.participants)
+                ? activity.participants
+                : [];
               const home = participants[0] || {};
               const away = participants[1] || {};
               // build safer props for immediate update (include seconds/ticking when available)
               const scoreMapNow = {};
-              for (const s of (activity?.scores || [])) {
+              for (const s of activity?.scores || []) {
                 const pid = String(s.score?.participant || "unknown");
                 scoreMapNow[pid] = s.score?.goals ?? null;
               }
-              const currentPeriodNow = Array.isArray(activity?.periods) && activity.periods.length > 0 ? activity.periods[0] : null;
-              const minuteNow = currentPeriodNow?.minutes ?? activity?.minute ?? activity?.elapsed ?? null;
+              const currentPeriodNow =
+                Array.isArray(activity?.periods) && activity.periods.length > 0
+                  ? activity.periods[0]
+                  : null;
+              const minuteNow =
+                currentPeriodNow?.minutes ??
+                activity?.minute ??
+                activity?.elapsed ??
+                null;
               const secondsNow = currentPeriodNow?.seconds ?? null;
               const tickingNow = currentPeriodNow?.ticking === true;
               const leagueNow = activity?.league
@@ -3696,27 +3904,60 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                     country: activity.league.country
                       ? {
                           name: activity.league.country.name ?? null,
-                          image_path: activity.league.country.image_path ?? null,
+                          image_path:
+                            activity.league.country.image_path ?? null,
                         }
                       : null,
                   }
                 : activity?.competition
-                ? {
-                    id: activity.competition.id ?? null,
-                    name: activity.competition.name ?? null,
-                    image_path: activity.competition.logo ?? null,
-                    country: null,
-                  }
-                : null;
+                  ? {
+                      id: activity.competition.id ?? null,
+                      name: activity.competition.name ?? null,
+                      image_path: activity.competition.logo ?? null,
+                      country: null,
+                    }
+                  : null;
 
               const props = {
-                home: { name: home.name || null, shortName: home.shortName || home.abbr || null, score: (scoreMapNow[String(home.id)] ?? scoreMapNow[String(home.id_text)] ?? home.score ?? 0), logo: home.logo || null },
-                away: { name: away.name || null, shortName: away.shortName || away.abbr || null, score: (scoreMapNow[String(away.id)] ?? scoreMapNow[String(away.id_text)] ?? away.score ?? 0), logo: away.logo || null },
+                home: {
+                  name: home.name || null,
+                  shortName: home.shortName || home.abbr || null,
+                  score:
+                    scoreMapNow[String(home.id)] ??
+                    scoreMapNow[String(home.id_text)] ??
+                    home.score ??
+                    0,
+                  logo: home.logo || null,
+                },
+                away: {
+                  name: away.name || null,
+                  shortName: away.shortName || away.abbr || null,
+                  score:
+                    scoreMapNow[String(away.id)] ??
+                    scoreMapNow[String(away.id_text)] ??
+                    away.score ??
+                    0,
+                  logo: away.logo || null,
+                },
                 league: leagueNow,
-                status: { short_name: activity?.state || null, text: activity?.state_text || null, minute: minuteNow, seconds: secondsNow, ticking: tickingNow },
+                status: {
+                  short_name: activity?.state || null,
+                  text: activity?.state_text || null,
+                  minute: minuteNow,
+                  seconds: secondsNow,
+                  ticking: tickingNow,
+                },
                 venue: { name: activity?.venue?.name || null },
               };
-              try { await sendUpdateWithAlert(tokens, "FootballLiveActivity", props, "Live", "Now tracking"); } catch (e) {}
+              try {
+                await sendUpdateWithAlert(
+                  tokens,
+                  "FootballLiveActivity",
+                  props,
+                  "Live",
+                  "Now tracking",
+                );
+              } catch (e) {}
             }
           } catch (e) {}
         })();

@@ -84,15 +84,27 @@ export default function FootballLiveActivityController() {
             try {
               const newToken = ev?.pushToken;
               if (newToken) {
-                console.log("[Controller] instance push token updated:", newToken);
-                await fetch(`${API_URL}/live-activity/register-activity-token`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ fixtureId: fixtureId, token: newToken }),
-                });
+                console.log(
+                  "[Controller] instance push token updated:",
+                  newToken,
+                );
+                await fetch(
+                  `${API_URL}/live-activity/register-activity-token`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      fixtureId: fixtureId,
+                      token: newToken,
+                    }),
+                  },
+                );
               }
             } catch (e) {
-              console.warn("Failed to re-register activity token", e?.message || e);
+              console.warn(
+                "Failed to re-register activity token",
+                e?.message || e,
+              );
             }
           });
           // store subscription to remove later with the instance
@@ -101,7 +113,10 @@ export default function FootballLiveActivityController() {
           // addPushTokenListener may not be available on all SDKs — ignore
         }
       } catch (e) {
-        console.warn("Failed to get/register activity push token:", e?.message || e);
+        console.warn(
+          "Failed to get/register activity push token:",
+          e?.message || e,
+        );
       }
 
       console.log("[Controller] Live activity state updated: active = true");
