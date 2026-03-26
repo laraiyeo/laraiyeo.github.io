@@ -3189,18 +3189,33 @@ app.post("/live-activity/register-push-to-start", (req, res) => {
 });
 
 function loadApplePrivateKey() {
-  if (APPLE_PRIVATE_KEY) return APPLE_PRIVATE_KEY.replace(/\\n/g, "\n");
+  // Prefer a file on disk when provided (safer for platforms like Railway)
   if (APPLE_PRIVATE_KEY_PATH) {
     try {
-      return fs.readFileSync(APPLE_PRIVATE_KEY_PATH, "utf8");
+      const pk = fs.readFileSync(APPLE_PRIVATE_KEY_PATH, "utf8");
+      console.log(
+        "[init] loadApplePrivateKey: loaded from path, beginsWithBEGIN=",
+        String(pk || "").trim().startsWith("-----BEGIN"),
+      );
+      return pk;
     } catch (e) {
       console.warn(
         "loadApplePrivateKey: cannot read APPLE_PRIVATE_KEY_PATH",
         e?.message || e,
       );
-      return null;
+      // fallthrough to env var
     }
   }
+
+  if (APPLE_PRIVATE_KEY) {
+    const pk = APPLE_PRIVATE_KEY.replace(/\\n/g, "\n");
+    console.log(
+      "[init] loadApplePrivateKey: loaded from env, beginsWithBEGIN=",
+      String(pk || "").trim().startsWith("-----BEGIN"),
+    );
+    return pk;
+  }
+
   return null;
 }
 
@@ -3211,12 +3226,17 @@ let APNS_TOPIC = APPLE_BUNDLE_ID
 function generateAPNsJWT() {
   const pk = loadApplePrivateKey();
   if (!pk || !APPLE_TEAM_ID || !APPLE_KEY_ID) return null;
-  return jwt.sign({}, pk, {
-    algorithm: "ES256",
-    expiresIn: "1h",
-    issuer: APPLE_TEAM_ID,
-    header: { alg: "ES256", kid: APPLE_KEY_ID },
-  });
+  try {
+    return jwt.sign({}, pk, {
+      algorithm: "ES256",
+      expiresIn: "1h",
+      issuer: APPLE_TEAM_ID,
+      header: { alg: "ES256", kid: APPLE_KEY_ID },
+    });
+  } catch (e) {
+    console.error("[live-activity] generateAPNsJWT failed:", e?.message || e);
+    return null;
+  }
 }
 
 async function sendToAPNs(deviceToken, payload, opts = {}) {
@@ -3477,19 +3497,33 @@ function startLiveActivityMonitor(opts) {
     try {
       const activity = await fetchLiveActivityForFixture(opts.fixtureId);
       if (!activity) return;
-      const state = (activity.state || "").toString().toUpperCase();
+
+      // normalize state: activity.state may be an object or a string
+      const stateObj =
+        activity && typeof activity.state === "object" ? activity.state : null;
+      const stateShort =
+        (stateObj && (stateObj.short_name || stateObj.state)) ||
+        (typeof activity.state === "string" ? activity.state : null) ||
+        null;
 
       // build full props from activity so the client UI updates with fresh data
       const participants = Array.isArray(activity.participants)
         ? activity.participants
         : [];
+      // build score map keyed by 'home'/'away' (lowercase)
       const scoreMap = {};
       for (const s of activity.scores || []) {
-        const pid = String(s.score?.participant || "unknown");
-        scoreMap[pid] = s.score?.goals ?? null;
+        const key = String(s?.score?.participant || "").toLowerCase();
+        if (!key) continue;
+        scoreMap[key] = s.score?.goals ?? null;
       }
-      const home = participants[0] || {};
-      const away = participants[1] || {};
+
+      // pick home/away by meta.location when present, fallback to index
+      const home =
+        participants.find((p) => p?.meta?.location === "home") || participants[0] || {};
+      const away =
+        participants.find((p) => p?.meta?.location === "away") || participants[1] || {};
+
       // pick current period if present (contains minutes/seconds/ticking)
       const currentPeriod =
         Array.isArray(activity.periods) && activity.periods.length > 0
@@ -3524,37 +3558,40 @@ function startLiveActivityMonitor(opts) {
       const props = {
         home: {
           name: home.name || null,
-          shortName: home.shortName || home.abbr || null,
-          score:
-            scoreMap[String(home.id)] ??
-            scoreMap[String(home.id_text)] ??
-            home.score ??
-            0,
-          logo: home.logo || null,
+          shortName: home.short_code || home.shortName || home.abbr || null,
+          score: scoreMap["home"] ?? scoreMap["Home"] ?? home.score ?? 0,
+          logo: home.image_path || home.logo || null,
         },
         away: {
           name: away.name || null,
-          shortName: away.shortName || away.abbr || null,
-          score:
-            scoreMap[String(away.id)] ??
-            scoreMap[String(away.id_text)] ??
-            away.score ??
-            0,
-          logo: away.logo || null,
+          shortName: away.short_code || away.shortName || away.abbr || null,
+          score: scoreMap["away"] ?? scoreMap["Away"] ?? away.score ?? 0,
+          logo: away.image_path || away.logo || null,
         },
         league: leagueObj,
         status: {
-          short_name: activity.state || null,
-          text: activity.state_text || null,
+          short_name: stateShort || null,
+          text: stateObj?.name || activity.state_text || null,
           minute: minuteVal,
           seconds: secondsVal,
           ticking: tickingVal,
         },
         venue: { name: activity.venue?.name || null },
-        startingAt: {
-          time: activity.starting_at_time || null,
-          ampm: activity.starting_at_ampm || null,
-        },
+        startingAt: (function () {
+          try {
+            if (!activity.starting_at) return { time: null, ampm: null };
+            const date = new Date(activity.starting_at);
+            if (isNaN(date.getTime())) return { time: null, ampm: null };
+            const time = date.toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+            });
+            const ampm = date.getHours() >= 12 ? "PM" : "AM";
+            return { time, ampm };
+          } catch (e) {
+            return { time: null, ampm: null };
+          }
+        })(),
         colors: {
           home: home.color || "#FF6B35",
           away: away.color || "#F7931E",
@@ -3562,21 +3599,22 @@ function startLiveActivityMonitor(opts) {
         },
       };
       try {
-        console.log("[live-activity] built props", {
+        logJson("[live-activity] built props", {
           fixtureId: opts.fixtureId,
-          state,
+          state: stateShort,
           home: { name: props.home.name, score: props.home.score },
           away: { name: props.away.name, score: props.away.score },
           minute: props.status?.minute ?? null,
           seconds: props.status?.seconds ?? null,
           ticking: props.status?.ticking ?? null,
+          rawProps: props,
         });
       } catch (e) {}
 
       // simple payload hash dedupe to avoid unnecessary APNs calls
       try {
         const hash = JSON.stringify({
-          state,
+          state: stateShort,
           minute: props.status?.minute ?? null,
           seconds: props.status?.seconds ?? null,
           scores: [props.home.score, props.away.score],
@@ -3762,13 +3800,12 @@ function startLiveActivityMonitor(opts) {
             );
             if (activityTokens && activityTokens.length > 0) {
               monitor.started = true;
-              const activityNow = await fetchLiveActivityForFixture(
-                opts.fixtureId,
-              );
+              const activityNow = await fetchLiveActivityForFixture(opts.fixtureId);
+              const activityStateObj = activityNow && typeof activityNow.state === 'object' ? activityNow.state : null;
               const startProps = activityNow
                 ? {
                     startingAt: activityNow.starting_at,
-                    status: { short_name: activityNow.state },
+                    status: { short_name: activityStateObj?.short_name || activityStateObj?.state || activityNow.state || null },
                   }
                 : opts.props || {};
               await sendStartNoAlert(activityTokens, opts.name, startProps);
@@ -3783,13 +3820,12 @@ function startLiveActivityMonitor(opts) {
             );
             if (activityTokens && activityTokens.length > 0) {
               monitor.started = true;
-              const activityNow = await fetchLiveActivityForFixture(
-                opts.fixtureId,
-              );
+              const activityNow = await fetchLiveActivityForFixture(opts.fixtureId);
+              const activityStateObj = activityNow && typeof activityNow.state === 'object' ? activityNow.state : null;
               const startProps = activityNow
                 ? {
                     startingAt: activityNow.starting_at,
-                    status: { short_name: activityNow.state },
+                    status: { short_name: activityStateObj?.short_name || activityStateObj?.state || activityNow.state || null },
                   }
                 : opts.props || {};
               await sendStartNoAlert(activityTokens, opts.name, startProps);
@@ -3805,22 +3841,20 @@ function startLiveActivityMonitor(opts) {
       const endTimer = setTimeout(async () => {
         // check state and either end or reschedule 30m later
         const activity = await fetchLiveActivityForFixture(opts.fixtureId);
-        const state = (activity?.state || "").toString().toUpperCase();
-        if (
-          /FT|AET|FT_PEN|POSTP|CANC|ABAN|WALKOVER|POSTPONED|CANCELLED|CANCELL?ED/i.test(
-            state,
-          )
-        ) {
+        const stateObj = activity && typeof activity.state === "object" ? activity.state : null;
+        const state = (
+          stateObj?.short_name || stateObj?.state || activity?.state || ""
+        ).toString().toUpperCase();
+        if (/FT|AET|FT_PEN|POSTP|CANC|ABAN|WALKOVER|POSTPONED|CANCELLED|CANCELL?ED/i.test(state)) {
           try {
             const activityTokens = await getActivityTokensForFixture(
               opts.fixtureId,
             );
             if (activityTokens && activityTokens.length > 0) {
-              const activityNow = await fetchLiveActivityForFixture(
-                opts.fixtureId,
-              );
+              const activityNow = await fetchLiveActivityForFixture(opts.fixtureId);
+              const activityStateObj = activityNow && typeof activityNow.state === 'object' ? activityNow.state : null;
               const endProps = activityNow
-                ? { status: { short_name: activityNow.state } }
+                ? { status: { short_name: activityStateObj?.short_name || activityStateObj?.state || activityNow.state || null } }
                 : opts.props || {};
               await sendEnd(activityTokens, opts.name, endProps).catch(
                 () => {},
