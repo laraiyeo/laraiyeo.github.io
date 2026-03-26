@@ -226,7 +226,7 @@ const FootballLiveActivity = (props) => {
               <HStack alignment="center">
                 <Text
                   modifiers={[
-                    font({ weight: home.winner ? "bold" : "light", size: 30 }),
+                    font({ weight: home.winner ? "bold" : !statusInfo.isFinished ? "bold" : "light", size: 30 }),
                     frame({ maxWidth: 85, alignment: "center" }),
                   ]}
                 >
@@ -242,7 +242,7 @@ const FootballLiveActivity = (props) => {
                 </Text>
                 <Text
                   modifiers={[
-                    font({ weight: away.winner ? "bold" : "light", size: 30 }),
+                    font({ weight: away.winner ? "bold" : !statusInfo.isFinished ? "bold" : "light", size: 30 }),
                     frame({ maxWidth: 85, alignment: "center" }),
                   ]}
                 >

@@ -3463,6 +3463,23 @@ async function sendUpdateWithAlert(token, name, props, title, body) {
   return forwardToProvider(token, payload);
 }
 
+async function sendUpdateNoAlert(tokenOrTokens, name, props) {
+  const payload = {
+    aps: {
+      event: "update",
+      "content-state": {
+        name,
+        props: typeof props === "string" ? props : JSON.stringify(props || {}),
+      },
+      timestamp: Math.floor(Date.now() / 1000),
+    },
+  };
+  try {
+    logJson("[live-activity] sendUpdateNoAlert payload", { token: tokenOrTokens, name, props });
+  } catch (e) {}
+  return forwardToProvider(tokenOrTokens, payload);
+}
+
 async function sendEnd(token, name, props) {
   const payload = {
     aps: {
@@ -3568,13 +3585,11 @@ function startLiveActivityMonitor(opts) {
           name: home.name || null,
           shortName: home.short_code || home.shortName || home.abbr || null,
           score: scoreMap["home"] ?? scoreMap["Home"] ?? home.score ?? 0,
-          logo: home.image_path || home.logo || null,
         },
         away: {
           name: away.name || null,
           shortName: away.short_code || away.shortName || away.abbr || null,
           score: scoreMap["away"] ?? scoreMap["Away"] ?? away.score ?? 0,
-          logo: away.image_path || away.logo || null,
         },
         league: leagueObj,
         status: {
@@ -3590,21 +3605,20 @@ function startLiveActivityMonitor(opts) {
             if (!activity.starting_at) return { time: null, ampm: null };
             const date = new Date(activity.starting_at);
             if (isNaN(date.getTime())) return { time: null, ampm: null };
-            const time = date.toLocaleTimeString("en-US", {
+            const timeFull = date.toLocaleTimeString("en-US", {
               hour: "numeric",
               minute: "2-digit",
+              hour12: true,
             });
-            const ampm = date.getHours() >= 12 ? "PM" : "AM";
+            const parts = String(timeFull).split(" ");
+            const time = parts[0] || null;
+            const ampm = parts[1] || (date.getHours() >= 12 ? "PM" : "AM");
             return { time, ampm };
           } catch (e) {
             return { time: null, ampm: null };
           }
         })(),
-        colors: {
-          home: home.color || "#FF6B35",
-          away: away.color || "#F7931E",
-          blended: "#FFD23F",
-        },
+        // colors and logos intentionally omitted to preserve client-side assets
       };
       try {
         logJson("[live-activity] built props", {
@@ -3637,33 +3651,22 @@ function startLiveActivityMonitor(opts) {
 
       // periodic ticking updates: when the period is ticking send lightweight updates (rate-limited)
       try {
-        const isTicking = props.status?.ticking === true;
-        const TICK_INTERVAL_MS = 30 * 1000; // send every ~30s in production (recommend 15-30s; 30s safer)
+          const isTicking = props.status?.ticking === true;
+          const TICK_INTERVAL_MS = 15 * 1000; // send every ~15s for smoother ticking
         if (isTicking) {
           const activityTokens = opts.fixtureId
             ? await getActivityTokensForFixture(opts.fixtureId)
             : [];
           if (activityTokens && activityTokens.length > 0) {
-            if (
-              !monitor.lastTickPush ||
-              Date.now() - monitor.lastTickPush >= TICK_INTERVAL_MS
-            ) {
-              try {
-                await sendToAPNs(activityTokens, {
-                  aps: {
-                    event: "update",
-                    "content-state": {
-                      name: opts.name,
-                      props: JSON.stringify(props),
-                    },
-                    timestamp: Math.floor(Date.now() / 1000),
-                  },
-                });
-                monitor.lastTickPush = Date.now();
-                // also mark as a push for rate limiting other events
-                monitor.lastPushAt = monitor.lastPushAt || Date.now();
-              } catch (e) {}
-            }
+              if (!monitor.lastTickPush || Date.now() - monitor.lastTickPush >= TICK_INTERVAL_MS) {
+                try {
+                  // use silent update to avoid user alerts for ticking
+                  await sendUpdateNoAlert(activityTokens, opts.name, props);
+                  monitor.lastTickPush = Date.now();
+                  // also mark as a push for rate limiting other events
+                  monitor.lastPushAt = monitor.lastPushAt || Date.now();
+                } catch (e) {}
+              }
           }
         }
       } catch (e) {}
@@ -4125,7 +4128,6 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                     scoreMapNow[String(home.id_text)] ??
                     home.score ??
                     0,
-                  logo: home.image_path || home.logo || null,
                 },
                 away: {
                   name: away.name || null,
@@ -4137,7 +4139,7 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                     scoreMapNow[String(away.id_text)] ??
                     away.score ??
                     0,
-                  logo: away.image_path || away.logo || null,
+                  
                 },
                 league: leagueNow,
                 status: {
