@@ -61,29 +61,38 @@ const FootballLiveActivity = (props) => {
 
   // --- IMAGE HELPERS ---
   const resolveImage = (explicit, logoName) => {
-    // Only accept explicit file:// URIs from server/app — do not render https:// from server
     if (
       explicit &&
       typeof explicit === "string" &&
       explicit.startsWith("file://")
-    )
+    ) {
       return explicit;
+    }
 
-    // Derive base from explicit appGroupPath OR appGroupId (preferred), then fallbacks
     const base =
       props?.appGroupPath ||
       (props?.appGroupId
         ? `/var/mobile/Containers/Shared/AppGroup/${props.appGroupId}`
-        : null) ||
-      props?.sharedAppGroupPath ||
-      props?.appGroupContainer ||
-      null;
+        : null);
 
-    if (logoName && base) {
-      const path = `${base.replace(/\/$/, "")}/${logoName}`;
-      return path.startsWith("file://") ? path : `file://${path}`;
+    if (!base) {
+      console.log("❌ Missing app group base path");
+      return null;
     }
-    return null;
+
+    if (!logoName) {
+      console.log("❌ Missing logoName");
+      return null;
+    }
+
+    const fullPath = `${base.replace(/\/$/, "")}/${logoName}`;
+    const finalPath = fullPath.startsWith("file://")
+      ? fullPath
+      : `file://${fullPath}`;
+
+    console.log("✅ Resolved image:", finalPath);
+
+    return finalPath;
   };
 
   const isValidImage = (val) =>

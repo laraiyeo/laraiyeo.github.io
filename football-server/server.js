@@ -38,10 +38,8 @@ if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
     supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
     });
-    console.log("[init] Supabase client configured for push token persistence");
   } catch (e) {
     console.warn(
-      "Supabase client not available; falling back to file persistence",
       e?.message || e,
     );
     supabase = null;
@@ -109,9 +107,6 @@ const activityPushTokens = new Map();
         new Set(Array.isArray(tokens) ? tokens : []),
       );
     }
-    console.log(
-      "initActivityTokenStore loaded activity tokens (file fallback)",
-    );
   } catch (e) {
     console.warn("initActivityTokenStore failed", e?.message || e);
   }
@@ -209,9 +204,6 @@ async function addActivityToken(fixtureId, token) {
           error?.message || error,
         );
       } else {
-        console.log("[live-activity] supabase insert activity token ok", {
-          fixtureId: String(fixtureId),
-        });
       }
       return true;
     } catch (e) {
@@ -245,10 +237,6 @@ async function getActivityTokensForFixture(fixtureId) {
         );
         throw error;
       }
-      console.log("[live-activity] supabase selected activity tokens", {
-        fixtureId: String(fixtureId),
-        count: (data || []).length,
-      });
       return (data || []).map((r) => r.token).filter(Boolean);
     } catch (e) {
       console.warn("supabase select activity tokens failed", e?.message || e);
@@ -304,9 +292,6 @@ async function addPushToStartToken(bundleId, token) {
           error?.message || error,
         );
       } else {
-        console.log("[live-activity] supabase insert bundle token ok", {
-          bundleId,
-        });
       }
       return true;
     } catch (e) {
@@ -510,7 +495,6 @@ function cacheValid(key, ttlMs) {
 async function fetchAndCache(key, url, headers = {}) {
   const data = await fetchUrl(url, headers);
   cacheSet(key, data);
-  console.log(`[cache] SET ${key}`);
   return data;
 }
 
@@ -573,10 +557,6 @@ async function warmLeagueMeta() {
       }
     }, TTL_24H);
     refreshIntervals.set("sm:leagues:all", id);
-
-    console.log(
-      `[startup] League meta ready — ${leagueMeta?.size ?? 0} entries`,
-    );
   } catch (err) {
     console.warn("[startup] League meta failed:", err.message);
   }
@@ -718,23 +698,11 @@ function fixtureDateTtlInfo(fixtures) {
     const consideredSummary = considered
       .map((c) => `${c.id}:${new Date(c.ts).toISOString()}`)
       .join(", ");
-    console.log(
-      `[fixture-poll.debug] considered future fixtures: ${consideredSummary}`,
-    );
     // count finished entries explicitly
     excludedFinished = fixtures.filter((f) => isFinishedByShortName(f)).length;
-    console.log(
-      `[fixture-poll.debug] excluded finished fixtures: ${excludedFinished}`,
-    );
     if (nearestStart != null) {
       const diff = nearestStart - now;
-      console.log(
-        `[fixture-poll.debug] nearestStart=${new Date(nearestStart).toISOString()} diffMs=${diff} diffMin=${Math.round(diff / 60000)}`,
-      );
     } else {
-      console.log(
-        `[fixture-poll.debug] no future nearestStart found (nearestStart=null)`,
-      );
     }
   } catch (e) {
     console.error(
@@ -832,10 +800,6 @@ function ensureFixtureDatePolling(cacheKey, url, latestData) {
         return `${f.id ?? "?"}:${ts != null ? new Date(ts).toISOString() : "null"}`;
       })
       .join(", ");
-    console.log(`[fixture-poll] ${cacheKey}: games start times: ${starts}`);
-    console.log(
-      `[fixture-poll] ${cacheKey}: polling rule: mode=${info.mode} ttl=${info.ttl} fast=${info.fast}`,
-    );
   } catch (e) {
     console.error(
       `[fixture-poll] ${cacheKey}: failed to log starts:`,
@@ -856,7 +820,6 @@ function ensureFixtureDatePolling(cacheKey, url, latestData) {
       if (!stillFast) {
         clearInterval(act.intervalId);
         act.intervalId = null;
-        console.log(`[fixture-poll] ${cacheKey}: stopped (mode: ${mode})`);
         return;
       }
 
@@ -864,9 +827,6 @@ function ensureFixtureDatePolling(cacheKey, url, latestData) {
         // Restart polling with the new interval
         clearInterval(act.intervalId);
         act.intervalId = null;
-        console.log(
-          `[fixture-poll] ${cacheKey}: interval change (${initialTtl} -> ${newTtl}), restarting`,
-        );
         ensureFixtureDatePolling(cacheKey, url, freshData);
         return;
       }
@@ -874,10 +834,6 @@ function ensureFixtureDatePolling(cacheKey, url, latestData) {
       console.error(`[fixture-poll] ${cacheKey}:`, e.message);
     }
   }, initialTtl);
-
-  console.log(
-    `[fixture-poll] ${cacheKey}: started polling every ${initialTtl} ms`,
-  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -909,7 +865,6 @@ function ensureGamePolling(cacheKey, fixtureUrl, fixture) {
     if (Date.now() - act.lastRequest > 60_000) {
       clearInterval(act.intervalId);
       act.intervalId = null;
-      console.log(`[game-poll] ${cacheKey}: stopped (inactivity)`);
       return;
     }
 
@@ -925,16 +880,12 @@ function ensureGamePolling(cacheKey, fixtureUrl, fixture) {
       if (!stillFast) {
         clearInterval(act.intervalId);
         act.intervalId = null;
-        console.log(`[game-poll] ${cacheKey}: stopped (mode: ${mode})`);
         return;
       }
 
       if (newTtl !== initialTtl) {
         clearInterval(act.intervalId);
         act.intervalId = null;
-        console.log(
-          `[game-poll] ${cacheKey}: interval change (${initialTtl} -> ${newTtl}), restarting`,
-        );
         ensureGamePolling(cacheKey, fixtureUrl, fixtureData?.data);
         return;
       }
@@ -942,10 +893,6 @@ function ensureGamePolling(cacheKey, fixtureUrl, fixture) {
       console.error(`[game-poll] ${cacheKey}:`, e.message);
     }
   }, initialTtl);
-
-  console.log(
-    `[game-poll] ${cacheKey}: started polling every ${initialTtl} ms`,
-  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3165,6 +3112,12 @@ app.get("/football/game/:fixtureId/live-activity", async (req, res) => {
         ? { location: p.meta.location ?? null, winner: p.meta.winner ?? null }
         : null,
     }));
+    try {
+      console.log("[LiveActivity][Server] participants image paths:");
+      (transformed?.participants || []).forEach((p) => {
+        console.log(" -", p.name, "=>", p.image_path);
+      });
+    } catch (e) {}
 
     const scores = (transformed?.scores || [])
       .filter((s) => String(s?.description || "").toUpperCase() === "CURRENT")
@@ -3283,9 +3236,6 @@ app.post("/live-activity/register-push-to-start", (req, res) => {
     if (!bundleId || !token)
       return res.status(400).json({ error: "bundleId and token required" });
     addPushToStartToken(bundleId, token).catch(() => {});
-    console.log(
-      `[live-activity] registered push-to-start token for ${bundleId}`,
-    );
 
     // Optionally register for specific fixture(s)
     if (fixtureId) addFixturePushToken(fixtureId, token).catch(() => {});
@@ -3304,12 +3254,6 @@ function loadApplePrivateKey() {
   if (APPLE_PRIVATE_KEY_PATH) {
     try {
       const pk = fs.readFileSync(APPLE_PRIVATE_KEY_PATH, "utf8");
-      console.log(
-        "[init] loadApplePrivateKey: loaded from path, beginsWithBEGIN=",
-        String(pk || "")
-          .trim()
-          .startsWith("-----BEGIN"),
-      );
       return pk;
     } catch (e) {
       console.warn(
@@ -3322,12 +3266,6 @@ function loadApplePrivateKey() {
 
   if (APPLE_PRIVATE_KEY) {
     const pk = APPLE_PRIVATE_KEY.replace(/\\n/g, "\n");
-    console.log(
-      "[init] loadApplePrivateKey: loaded from env, beginsWithBEGIN=",
-      String(pk || "")
-        .trim()
-        .startsWith("-----BEGIN"),
-    );
     return pk;
   }
 
@@ -3482,10 +3420,6 @@ async function forwardToProvider(tokenOrTokens, payload) {
     // Direct APNs send
     try {
       const apnsResp = await sendToAPNs(token, payload, { maxAttempts: 3 });
-      console.log("[live-activity] forwardToProvider direct apns response", {
-        token,
-        apnsResp,
-      });
       results.push({ token, forwarded: false, apns: apnsResp });
     } catch (err) {
       console.error(
@@ -3497,7 +3431,6 @@ async function forwardToProvider(tokenOrTokens, payload) {
   }
 
   const out = results.length === 1 ? results[0] : results;
-  console.log("[live-activity] forwardToProvider results", out);
   return out;
 }
 
@@ -3507,11 +3440,6 @@ async function fetchLiveActivityForFixture(fixtureId) {
     const resp = await axios.get(url, { timeout: 10000 });
     // expect { source, data: { activity } }
     try {
-      console.log("[live-activity] fetchLiveActivityForFixture response", {
-        fixtureId,
-        status: resp.status,
-        data: resp.data,
-      });
     } catch (e) {}
     return resp.data?.data?.activity ?? null;
   } catch (e) {
@@ -3534,7 +3462,6 @@ async function sendStartNoAlert(tokenOrTokens, name, props) {
     },
   };
   try {
-    console.log("[live-activity] sendStartNoAlert payload", { name, props });
   } catch (e) {}
   return forwardToProvider(tokenOrTokens, payload);
 }
@@ -3563,13 +3490,6 @@ async function sendUpdateWithAlert(token, name, props, title, body) {
     },
   };
   try {
-    console.log("[live-activity] sendUpdateWithAlert payload", {
-      token,
-      name,
-      title,
-      body,
-      props,
-    });
   } catch (e) {}
   return forwardToProvider(token, payload);
 }
@@ -3609,7 +3529,6 @@ async function sendEnd(token, name, props) {
     },
   };
   try {
-    console.log("[live-activity] sendEnd payload", { token, name, props });
   } catch (e) {}
   return forwardToProvider(token, payload);
 }
@@ -3617,7 +3536,10 @@ async function sendEnd(token, name, props) {
 function startLiveActivityMonitor(opts) {
   // opts: { bundleId, deviceTokens (array), fixtureId, starting_at, name, props }
   const key = String(opts.fixtureId || `${opts.bundleId}:${Date.now()}`);
-  if (liveActivityMonitors.has(key)) return liveActivityMonitors.get(key);
+  if (liveActivityMonitors.has(key)) {
+    console.log('[live-activity] monitor already exists', key);
+    return liveActivityMonitors.get(key);
+  }
 
   const monitor = {
     key,
@@ -3632,7 +3554,10 @@ function startLiveActivityMonitor(opts) {
   async function pollOnce() {
     try {
       const activity = await fetchLiveActivityForFixture(opts.fixtureId);
-      if (!activity) return;
+      if (!activity) {
+        console.log('[live-activity] no activity for fixture', opts && opts.fixtureId);
+        return;
+      }
 
       // normalize state: activity.state may be an object or a string
       const stateObj =
@@ -3823,9 +3748,27 @@ function startLiveActivityMonitor(opts) {
           minute: props.status?.minute ?? null,
           seconds: props.status?.seconds ?? null,
           ticking: props.status?.ticking ?? null,
+          homeLogoName: props.home.logoName,
+          awayLogoName: props.away.logoName,
+          leagueLogoName: props.league || null,
+          startingAt: props.startingAt,
           rawProps: props,
         });
-      } catch (e) {}
+      } catch (e) {
+        console.error('[live-activity] logJson failed', e);
+        try {
+          console.log('[live-activity] built props fallback', {
+            fixtureId: opts && opts.fixtureId,
+            state: stateShort,
+            home: { name: props.home.name, score: props.home.score },
+            away: { name: props.away.name, score: props.away.score },
+            minute: props.status?.minute ?? null,
+            startingAt: props.startingAt,
+          });
+        } catch (ee) {
+          console.error('[live-activity] fallback log failed', ee);
+        }
+      }
 
       // simple payload hash dedupe to avoid unnecessary APNs calls
       try {
@@ -3862,7 +3805,9 @@ function startLiveActivityMonitor(opts) {
                 // send full props so Live Activity state is complete (Live Activity REPLACES state)
                 await sendUpdateNoAlert(activityTokens, opts.name, props);
                 monitor.lastTickPush = Date.now();
-              } catch (e) {}
+              } catch (e) {
+                console.error('[live-activity] sendUpdateNoAlert failed', e);
+              }
             }
           }
         }
@@ -3987,12 +3932,13 @@ function startLiveActivityMonitor(opts) {
       // update lastState after processing
       monitor.lastState = stateShort;
     } catch (e) {
-      // ignore poll errors
+      console.error('[live-activity] pollOnce error', e);
     }
   }
 
   // schedule polling (30s to reduce APNs pressure)
   monitor.intervalId = setInterval(pollOnce, 30 * 1000);
+  console.log('[live-activity] monitor scheduled', key, 'intervalId', monitor.intervalId);
 
   // schedule start-no-alert 30 minutes before starting_at if provided
   try {
@@ -4149,7 +4095,7 @@ function startLiveActivityMonitor(opts) {
   monitor.stop = stop;
   liveActivityMonitors.set(key, monitor);
   // run an immediate poll to initialize lastScores
-  pollOnce().catch(() => {});
+  pollOnce().catch((e) => console.error('[live-activity] initial pollOnce failed', e));
   return monitor;
 }
 
@@ -4661,7 +4607,6 @@ async function warmCacheLeagues() {
       page++;
     }
     cacheSet("cache:leagues", all.map(transformCacheLeague));
-    console.log(`[startup] Cache leagues ready — ${all.length} entries`);
   } catch (err) {
     console.warn("[startup] Cache leagues failed:", err.message);
   }
@@ -4688,9 +4633,6 @@ async function warmCacheTeams() {
     );
     const transformed = filtered.map(transformCacheTeam);
     cacheSet("cache:teams", transformed);
-    console.log(
-      `[startup] Cache teams ready — ${transformed.length} entries (raw ${all.length})`,
-    );
   } catch (err) {
     console.warn("[startup] Cache teams failed:", err.message);
   }
@@ -4710,9 +4652,6 @@ async function warmCacheFixturesFetch() {
       page++;
     }
     cacheSet("cache:fixtures:raw", all);
-    console.log(
-      `[startup] Cache fixtures raw — ${all.length} entries (${start}→${end})`,
-    );
   } catch (err) {
     console.warn("[startup] Cache fixtures fetch failed:", err.message);
   }
@@ -4727,7 +4666,6 @@ function enrichCacheFixtures() {
     transformCacheFixture(f, teamsNameMap, colorMap),
   );
   cacheSet("cache:fixtures", enriched);
-  console.log(`[startup] Cache fixtures enriched — ${enriched.length} entries`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4855,7 +4793,6 @@ app.get("/", (_req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function init() {
-  console.log("[init] Warming caches…");
   // All independent fetches in parallel — SAP standings, league meta, and the
   // three bulk cache endpoints (1-3.txt) run simultaneously.
   await Promise.allSettled([
@@ -4867,7 +4804,6 @@ async function init() {
   ]);
   // Enrich fixtures with team data + colors (requires phase above to complete).
   enrichCacheFixtures();
-  console.log("[init] Warm-up complete");
 
   // Auto-refresh bulk cache every 24 h.
   const id = setInterval(async () => {
@@ -4886,6 +4822,5 @@ async function init() {
 }
 
 app.listen(PORT, () => {
-  console.log(`Football server listening on port ${PORT}`);
   init().catch((err) => console.error("[init] Fatal error:", err));
 });

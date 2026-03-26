@@ -11613,17 +11613,19 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               home?.image_path,
               `home_${id}.png`,
             );
+            console.log("[LiveActivity][Client] homeLogoUri:", homeLogoUri);
 
             const awayLogoUri = await downloadImageToShared(
               away?.image_path,
               `away_${id}.png`,
             );
+            console.log("[LiveActivity][Client] awayLogoUri:", awayLogoUri);
 
-            // league logo (if present)
             const leagueLogoUri = await downloadImageToShared(
               fixture?.league?.image_path || fixture?.league?.logo || null,
               `league_${id}.png`,
             );
+            console.log("[LiveActivity][Client] leagueLogoUri:", leagueLogoUri);
 
             const payload = {
               home: {
