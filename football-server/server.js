@@ -39,9 +39,7 @@ if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       auth: { persistSession: false },
     });
   } catch (e) {
-    console.warn(
-      e?.message || e,
-    );
+    console.warn(e?.message || e);
     supabase = null;
   }
 }
@@ -3131,16 +3129,31 @@ app.get("/football/game/:fixtureId/live-activity", async (req, res) => {
     // derive team colors (home / away) and a blended color for the activity
     try {
       const colorMap = buildSapColorMap();
-      const homeParticipant = participants.find((p) => p.meta?.location === "home") || participants[0] || null;
-      const awayParticipant = participants.find((p) => p.meta?.location === "away") || participants[1] || participants[0] || null;
+      const homeParticipant =
+        participants.find((p) => p.meta?.location === "home") ||
+        participants[0] ||
+        null;
+      const awayParticipant =
+        participants.find((p) => p.meta?.location === "away") ||
+        participants[1] ||
+        participants[0] ||
+        null;
 
-      const homeTeamColors = homeParticipant ? findSapColors(homeParticipant.name, colorMap) : { colorPrimary: null, colorSecondary: null };
-      const awayTeamColors = awayParticipant ? findSapColors(awayParticipant.name, colorMap) : { colorPrimary: null, colorSecondary: null };
+      const homeTeamColors = homeParticipant
+        ? findSapColors(homeParticipant.name, colorMap)
+        : { colorPrimary: null, colorSecondary: null };
+      const awayTeamColors = awayParticipant
+        ? findSapColors(awayParticipant.name, colorMap)
+        : { colorPrimary: null, colorSecondary: null };
 
       const normHex = (h) => {
         if (!h) return null;
         const s = String(h).replace(/^#/, "").trim();
-        if (s.length === 3) return s.split("").map((c) => c + c).join("");
+        if (s.length === 3)
+          return s
+            .split("")
+            .map((c) => c + c)
+            .join("");
         if (s.length === 6) return s;
         return null;
       };
@@ -3151,13 +3164,19 @@ app.get("/football/game/:fixtureId/live-activity", async (req, res) => {
         if (!a && !b) return null;
         if (!a) return `#${b}`;
         if (!b) return `#${a}`;
-        const r = Math.round((parseInt(a.slice(0, 2), 16) + parseInt(b.slice(0, 2), 16)) / 2)
+        const r = Math.round(
+          (parseInt(a.slice(0, 2), 16) + parseInt(b.slice(0, 2), 16)) / 2,
+        )
           .toString(16)
           .padStart(2, "0");
-        const g = Math.round((parseInt(a.slice(2, 4), 16) + parseInt(b.slice(2, 4), 16)) / 2)
+        const g = Math.round(
+          (parseInt(a.slice(2, 4), 16) + parseInt(b.slice(2, 4), 16)) / 2,
+        )
           .toString(16)
           .padStart(2, "0");
-        const bl = Math.round((parseInt(a.slice(4, 6), 16) + parseInt(b.slice(4, 6), 16)) / 2)
+        const bl = Math.round(
+          (parseInt(a.slice(4, 6), 16) + parseInt(b.slice(4, 6), 16)) / 2,
+        )
           .toString(16)
           .padStart(2, "0");
         return `#${r}${g}${bl}`;
@@ -3166,16 +3185,30 @@ app.get("/football/game/:fixtureId/live-activity", async (req, res) => {
       const FALLBACK_COLOR = "#888888";
 
       const colorsObj = {
-        home: homeTeamColors.colorPrimary || homeTeamColors.colorSecondary || FALLBACK_COLOR,
-        away: awayTeamColors.colorPrimary || awayTeamColors.colorSecondary || FALLBACK_COLOR,
-        blended: blendHex(homeTeamColors.colorPrimary || homeTeamColors.colorSecondary, awayTeamColors.colorPrimary || awayTeamColors.colorSecondary) || FALLBACK_COLOR,
+        home:
+          homeTeamColors.colorPrimary ||
+          homeTeamColors.colorSecondary ||
+          FALLBACK_COLOR,
+        away:
+          awayTeamColors.colorPrimary ||
+          awayTeamColors.colorSecondary ||
+          FALLBACK_COLOR,
+        blended:
+          blendHex(
+            homeTeamColors.colorPrimary || homeTeamColors.colorSecondary,
+            awayTeamColors.colorPrimary || awayTeamColors.colorSecondary,
+          ) || FALLBACK_COLOR,
       };
 
       // attach colors to payload below
       var payloadColors = colorsObj;
     } catch (e) {
       console.warn("[live-activity] failed to derive colors:", e?.message || e);
-      var payloadColors = { home: "#888888", away: "#888888", blended: "#888888" };
+      var payloadColors = {
+        home: "#888888",
+        away: "#888888",
+        blended: "#888888",
+      };
     }
 
     const payload = {
@@ -3537,7 +3570,7 @@ function startLiveActivityMonitor(opts) {
   // opts: { bundleId, deviceTokens (array), fixtureId, starting_at, name, props }
   const key = String(opts.fixtureId || `${opts.bundleId}:${Date.now()}`);
   if (liveActivityMonitors.has(key)) {
-    console.log('[live-activity] monitor already exists', key);
+    console.log("[live-activity] monitor already exists", key);
     return liveActivityMonitors.get(key);
   }
 
@@ -3555,7 +3588,10 @@ function startLiveActivityMonitor(opts) {
     try {
       const activity = await fetchLiveActivityForFixture(opts.fixtureId);
       if (!activity) {
-        console.log('[live-activity] no activity for fixture', opts && opts.fixtureId);
+        console.log(
+          "[live-activity] no activity for fixture",
+          opts && opts.fixtureId,
+        );
         return;
       }
 
@@ -3574,12 +3610,16 @@ function startLiveActivityMonitor(opts) {
       // build score map keyed by 'home'/'away' (lowercase) and any numeric ids
       const scoreMap = {};
       for (const s of activity.scores || []) {
-        const participantLabel = String(s?.score?.participant || "").toLowerCase();
-        if (participantLabel) scoreMap[participantLabel] = s.score?.goals ?? null;
+        const participantLabel = String(
+          s?.score?.participant || "",
+        ).toLowerCase();
+        if (participantLabel)
+          scoreMap[participantLabel] = s.score?.goals ?? null;
         if (s?.score?.participant_id)
           scoreMap[String(s.score.participant_id)] = s.score?.goals ?? null;
         if (s?.score?.participant_team_id)
-          scoreMap[String(s.score.participant_team_id)] = s.score?.goals ?? null;
+          scoreMap[String(s.score.participant_team_id)] =
+            s.score?.goals ?? null;
       }
 
       // pick home/away by meta.location when present, sensible fallbacks
@@ -3630,26 +3670,40 @@ function startLiveActivityMonitor(opts) {
           : null;
 
       // derive colors for home/away and blended (so updates always include colors)
-      let propsColors = { home: "#888888", away: "#888888", blended: "#888888" };
+      let propsColors = {
+        home: "#888888",
+        away: "#888888",
+        blended: "#888888",
+      };
       try {
         const colorMap = buildSapColorMap();
         const homeName = (home && (home.name || home.short_code)) || null;
         const awayName = (away && (away.name || away.short_code)) || null;
-        const homeTeamColors = homeName ? findSapColors(homeName, colorMap) : {};
-        const awayTeamColors = awayName ? findSapColors(awayName, colorMap) : {};
+        const homeTeamColors = homeName
+          ? findSapColors(homeName, colorMap)
+          : {};
+        const awayTeamColors = awayName
+          ? findSapColors(awayName, colorMap)
+          : {};
         const normHex = (h) => (h ? String(h).replace(/^#/, "") : null);
         const blendHex = (a, b) => {
           try {
             if (!a && !b) return null;
             if (!a) return `#${b}`;
             if (!b) return `#${a}`;
-            const r = Math.round((parseInt(a.slice(0, 2), 16) + parseInt(b.slice(0, 2), 16)) / 2)
+            const r = Math.round(
+              (parseInt(a.slice(0, 2), 16) + parseInt(b.slice(0, 2), 16)) / 2,
+            )
               .toString(16)
               .padStart(2, "0");
-            const g = Math.round((parseInt(a.slice(2, 4), 16) + parseInt(b.slice(2, 4), 16)) / 2)
+            const g = Math.round(
+              (parseInt(a.slice(2, 4), 16) + parseInt(b.slice(2, 4), 16)) / 2,
+            )
               .toString(16)
               .padStart(2, "0");
-            const bl = Math.round((parseInt(a.slice(4, 6), 16) + parseInt(b.slice(4, 6), 16)) / 2)
+            const bl = Math.round(
+              (parseInt(a.slice(4, 6), 16) + parseInt(b.slice(4, 6), 16)) / 2,
+            )
               .toString(16)
               .padStart(2, "0");
             return `#${r}${g}${bl}`;
@@ -3657,8 +3711,10 @@ function startLiveActivityMonitor(opts) {
             return null;
           }
         };
-        const hp = homeTeamColors.colorPrimary || homeTeamColors.colorSecondary || null;
-        const ap = awayTeamColors.colorPrimary || awayTeamColors.colorSecondary || null;
+        const hp =
+          homeTeamColors.colorPrimary || homeTeamColors.colorSecondary || null;
+        const ap =
+          awayTeamColors.colorPrimary || awayTeamColors.colorSecondary || null;
         propsColors = {
           home: hp || "#888888",
           away: ap || "#888888",
@@ -3755,9 +3811,9 @@ function startLiveActivityMonitor(opts) {
           rawProps: props,
         });
       } catch (e) {
-        console.error('[live-activity] logJson failed', e);
+        console.error("[live-activity] logJson failed", e);
         try {
-          console.log('[live-activity] built props fallback', {
+          console.log("[live-activity] built props fallback", {
             fixtureId: opts && opts.fixtureId,
             state: stateShort,
             home: { name: props.home.name, score: props.home.score },
@@ -3766,7 +3822,7 @@ function startLiveActivityMonitor(opts) {
             startingAt: props.startingAt,
           });
         } catch (ee) {
-          console.error('[live-activity] fallback log failed', ee);
+          console.error("[live-activity] fallback log failed", ee);
         }
       }
 
@@ -3806,7 +3862,7 @@ function startLiveActivityMonitor(opts) {
                 await sendUpdateNoAlert(activityTokens, opts.name, props);
                 monitor.lastTickPush = Date.now();
               } catch (e) {
-                console.error('[live-activity] sendUpdateNoAlert failed', e);
+                console.error("[live-activity] sendUpdateNoAlert failed", e);
               }
             }
           }
@@ -3932,13 +3988,18 @@ function startLiveActivityMonitor(opts) {
       // update lastState after processing
       monitor.lastState = stateShort;
     } catch (e) {
-      console.error('[live-activity] pollOnce error', e);
+      console.error("[live-activity] pollOnce error", e);
     }
   }
 
   // schedule polling (30s to reduce APNs pressure)
   monitor.intervalId = setInterval(pollOnce, 30 * 1000);
-  console.log('[live-activity] monitor scheduled', key, 'intervalId', monitor.intervalId);
+  console.log(
+    "[live-activity] monitor scheduled",
+    key,
+    "intervalId",
+    monitor.intervalId,
+  );
 
   // schedule start-no-alert 30 minutes before starting_at if provided
   try {
@@ -4095,7 +4156,9 @@ function startLiveActivityMonitor(opts) {
   monitor.stop = stop;
   liveActivityMonitors.set(key, monitor);
   // run an immediate poll to initialize lastScores
-  pollOnce().catch((e) => console.error('[live-activity] initial pollOnce failed', e));
+  pollOnce().catch((e) =>
+    console.error("[live-activity] initial pollOnce failed", e),
+  );
   return monitor;
 }
 
@@ -4188,7 +4251,8 @@ app.post("/live-activity/register-activity-token", (req, res) => {
             assetsToSet.appGroupId = startProps.appGroupId;
           if (startProps && startProps.startingAt)
             assetsToSet.startingAt = startProps.startingAt;
-          if (Object.keys(assetsToSet).length > 0) await setFixtureAssets(fixtureId, assetsToSet);
+          if (Object.keys(assetsToSet).length > 0)
+            await setFixtureAssets(fixtureId, assetsToSet);
         } catch (e) {}
         // start monitoring this fixture so server-driven updates will run
         // defer starting the monitor until we have initial props below
@@ -4277,26 +4341,48 @@ app.post("/live-activity/register-activity-token", (req, res) => {
               const stateText = stateObj?.name || activity?.state_text || null;
 
               // derive colors for home/away and blended (so initial update includes colors)
-              let propsColors = { home: "#888888", away: "#888888", blended: "#888888" };
+              let propsColors = {
+                home: "#888888",
+                away: "#888888",
+                blended: "#888888",
+              };
               try {
                 const colorMap = buildSapColorMap();
-                const homeName = (home && (home.name || home.short_code)) || null;
-                const awayName = (away && (away.name || away.short_code)) || null;
-                const homeTeamColors = homeName ? findSapColors(homeName, colorMap) : {};
-                const awayTeamColors = awayName ? findSapColors(awayName, colorMap) : {};
+                const homeName =
+                  (home && (home.name || home.short_code)) || null;
+                const awayName =
+                  (away && (away.name || away.short_code)) || null;
+                const homeTeamColors = homeName
+                  ? findSapColors(homeName, colorMap)
+                  : {};
+                const awayTeamColors = awayName
+                  ? findSapColors(awayName, colorMap)
+                  : {};
                 const normHex = (h) => (h ? String(h).replace(/^#/, "") : null);
                 const blendHex = (a, b) => {
                   try {
                     if (!a && !b) return null;
                     if (!a) return `#${b}`;
                     if (!b) return `#${a}`;
-                    const r = Math.round((parseInt(a.slice(0, 2), 16) + parseInt(b.slice(0, 2), 16)) / 2)
+                    const r = Math.round(
+                      (parseInt(a.slice(0, 2), 16) +
+                        parseInt(b.slice(0, 2), 16)) /
+                        2,
+                    )
                       .toString(16)
                       .padStart(2, "0");
-                    const g = Math.round((parseInt(a.slice(2, 4), 16) + parseInt(b.slice(2, 4), 16)) / 2)
+                    const g = Math.round(
+                      (parseInt(a.slice(2, 4), 16) +
+                        parseInt(b.slice(2, 4), 16)) /
+                        2,
+                    )
                       .toString(16)
                       .padStart(2, "0");
-                    const bl = Math.round((parseInt(a.slice(4, 6), 16) + parseInt(b.slice(4, 6), 16)) / 2)
+                    const bl = Math.round(
+                      (parseInt(a.slice(4, 6), 16) +
+                        parseInt(b.slice(4, 6), 16)) /
+                        2,
+                    )
                       .toString(16)
                       .padStart(2, "0");
                     return `#${r}${g}${bl}`;
@@ -4304,8 +4390,14 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                     return null;
                   }
                 };
-                const hp = homeTeamColors.colorPrimary || homeTeamColors.colorSecondary || null;
-                const ap = awayTeamColors.colorPrimary || awayTeamColors.colorSecondary || null;
+                const hp =
+                  homeTeamColors.colorPrimary ||
+                  homeTeamColors.colorSecondary ||
+                  null;
+                const ap =
+                  awayTeamColors.colorPrimary ||
+                  awayTeamColors.colorSecondary ||
+                  null;
                 propsColors = {
                   home: hp || "#888888",
                   away: ap || "#888888",
@@ -4347,9 +4439,11 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                 venue: { name: activity?.venue?.name || null },
                 startingAt: (function () {
                   try {
-                    if (!activity.starting_at) return { time: null, ampm: null };
+                    if (!activity.starting_at)
+                      return { time: null, ampm: null };
                     const date = new Date(activity.starting_at);
-                    if (isNaN(date.getTime())) return { time: null, ampm: null };
+                    if (isNaN(date.getTime()))
+                      return { time: null, ampm: null };
                     const timeFull = date.toLocaleTimeString("en-US", {
                       hour: "numeric",
                       minute: "2-digit",
@@ -4357,7 +4451,8 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                     });
                     const parts = String(timeFull).split(" ");
                     const time = parts[0] || null;
-                    const ampm = parts[1] || (date.getHours() >= 12 ? "PM" : "AM");
+                    const ampm =
+                      parts[1] || (date.getHours() >= 12 ? "PM" : "AM");
                     return { time, ampm };
                   } catch (e) {
                     return { time: null, ampm: null };
@@ -4377,31 +4472,58 @@ app.post("/live-activity/register-activity-token", (req, res) => {
               };
               // prefer persisted/provided startingAt if available (override activity-based value)
               try {
-                if (persistedAssets?.startingAt) props.startingAt = persistedAssets.startingAt;
-                else if (opts.props && opts.props.startingAt) props.startingAt = opts.props.startingAt;
+                if (persistedAssets?.startingAt)
+                  props.startingAt = persistedAssets.startingAt;
+                else if (opts.props && opts.props.startingAt)
+                  props.startingAt = opts.props.startingAt;
               } catch (e) {}
               // ensure immediate update includes persisted logoName and startingAt references (or the startProps if provided)
               try {
                 const persisted = await getFixtureAssets(fixtureId);
-                if (persisted?.homeLogoName) props.home.logoName = persisted.homeLogoName;
-                else if (startProps && startProps.home && startProps.home.logoName)
+                if (persisted?.homeLogoName)
+                  props.home.logoName = persisted.homeLogoName;
+                else if (
+                  startProps &&
+                  startProps.home &&
+                  startProps.home.logoName
+                )
                   props.home.logoName = startProps.home.logoName;
-                if (persisted?.awayLogoName) props.away.logoName = persisted.awayLogoName;
-                else if (startProps && startProps.away && startProps.away.logoName)
+                if (persisted?.awayLogoName)
+                  props.away.logoName = persisted.awayLogoName;
+                else if (
+                  startProps &&
+                  startProps.away &&
+                  startProps.away.logoName
+                )
                   props.away.logoName = startProps.away.logoName;
-                if (persisted?.leagueLogoName) props.league.logoName = persisted.leagueLogoName;
-                else if (startProps && startProps.league && startProps.league.logoName)
+                if (persisted?.leagueLogoName)
+                  props.league.logoName = persisted.leagueLogoName;
+                else if (
+                  startProps &&
+                  startProps.league &&
+                  startProps.league.logoName
+                )
                   props.league.logoName = startProps.league.logoName;
-                if (persisted?.startingAt) props.startingAt = persisted.startingAt;
-                else if (startProps && startProps.startingAt) props.startingAt = startProps.startingAt;
-                if (persisted?.appGroupPath) props.appGroupPath = persisted.appGroupPath;
-                else if (startProps && startProps.appGroupPath) props.appGroupPath = startProps.appGroupPath;
-                if (persisted?.appGroupId) props.appGroupId = persisted.appGroupId;
-                else if (startProps && startProps.appGroupId) props.appGroupId = startProps.appGroupId;
+                if (persisted?.startingAt)
+                  props.startingAt = persisted.startingAt;
+                else if (startProps && startProps.startingAt)
+                  props.startingAt = startProps.startingAt;
+                if (persisted?.appGroupPath)
+                  props.appGroupPath = persisted.appGroupPath;
+                else if (startProps && startProps.appGroupPath)
+                  props.appGroupPath = startProps.appGroupPath;
+                if (persisted?.appGroupId)
+                  props.appGroupId = persisted.appGroupId;
+                else if (startProps && startProps.appGroupId)
+                  props.appGroupId = startProps.appGroupId;
               } catch (e) {}
               // start monitoring this fixture now that we have initial props
               try {
-                startLiveActivityMonitor({ fixtureId, name: "FootballLiveActivity", props });
+                startLiveActivityMonitor({
+                  fixtureId,
+                  name: "FootballLiveActivity",
+                  props,
+                });
               } catch (e) {}
               try {
                 // send a full props update (Live Activities replace state)
