@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { View, Button, Alert, Text } from "react-native";
 import { useRoute } from "@react-navigation/native";
 import FootballLiveActivity from "../widgets/FootballLiveActivity"; // direct import
+import { API_URL } from "../src/services/notificationService";
 
 console.log(
   "[FootballLiveActivityController] Controller imported, FootballLiveActivity:",
@@ -72,11 +73,28 @@ export default function FootballLiveActivityController() {
         const pushToken = await instance.getPushToken();
         console.log("[Controller] activity push token:", pushToken);
         if (pushToken) {
-          await fetch(`${API_URL}/live-activity/register-activity-token`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ fixtureId: fixtureId, token: pushToken }),
-          });
+          try {
+            const res = await fetch(
+              `${API_URL}/live-activity/register-activity-token`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ fixtureId: fixtureId, token: pushToken }),
+              },
+            );
+            const text = await res.text().catch(() => "");
+            console.log(
+              `[Controller] register-activity-token response: ${res.status}`,
+              text,
+            );
+          } catch (e) {
+            console.warn(
+              "[Controller] Failed to POST register-activity-token",
+              e?.message || e,
+            );
+          }
+        } else {
+          console.warn("[Controller] No activity push token available to register");
         }
         // Subscribe to token updates for this instance and re-register if it changes
         try {
@@ -88,17 +106,29 @@ export default function FootballLiveActivityController() {
                   "[Controller] instance push token updated:",
                   newToken,
                 );
-                await fetch(
-                  `${API_URL}/live-activity/register-activity-token`,
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      fixtureId: fixtureId,
-                      token: newToken,
-                    }),
-                  },
-                );
+                try {
+                  const r = await fetch(
+                    `${API_URL}/live-activity/register-activity-token`,
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        fixtureId: fixtureId,
+                        token: newToken,
+                      }),
+                    },
+                  );
+                  const body = await r.text().catch(() => "");
+                  console.log(
+                    `[Controller] re-register response: ${r.status}`,
+                    body,
+                  );
+                } catch (e) {
+                  console.warn(
+                    "Failed to re-register activity token",
+                    e?.message || e,
+                  );
+                }
               }
             } catch (e) {
               console.warn(

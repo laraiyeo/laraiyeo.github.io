@@ -31,7 +31,6 @@ import { OddsDisplayProvider } from "./src/context/OddsDisplayContext";
 
 import * as Notifications from "expo-notifications";
 import { addPushToStartTokenListener } from "expo-widgets";
-import { API_URL } from "./src/services/notificationService";
 
 // Import Analytics Service
 import analyticsService from "./src/services/AnalyticsService";
@@ -2268,14 +2267,26 @@ const AppContent = () => {
               const token = event?.activityPushToStartToken;
               if (!token) return;
               console.log("Received push-to-start token:", token);
-              await fetch(`${API_URL}/live-activity/register-push-to-start`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  bundleId: "com.sportsheart.app",
-                  token,
-                }),
-              });
+              try {
+                const resp = await fetch(
+                  `https://laraiyeogithubio-production-08da.up.railway.app/live-activity/register-push-to-start`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      bundleId: "com.sportsheart.app",
+                      token,
+                    }),
+                  },
+                );
+                const txt = await resp.text().catch(() => "");
+                console.log(
+                  `[App] register-push-to-start response: ${resp.status}`,
+                  txt,
+                );
+              } catch (e) {
+                console.warn("Failed to register push-to-start token", e?.message || e);
+              }
             } catch (e) {
               console.warn(
                 "Failed to register push-to-start token",

@@ -3877,17 +3877,31 @@ app.post("/live-activity/register-activity-token", (req, res) => {
               const participants = Array.isArray(activity?.participants)
                 ? activity.participants
                 : [];
-              const home = participants[0] || {};
-              const away = participants[1] || {};
+              // Find home/away by meta.location when available, fallback to order
+              const home =
+                participants.find((p) => p?.meta?.location === "home") ||
+                participants[1] ||
+                participants[0] ||
+                {};
+              const away =
+                participants.find((p) => p?.meta?.location === "away") ||
+                participants[0] ||
+                participants[1] ||
+                {};
+
               // build safer props for immediate update (include seconds/ticking when available)
               const scoreMapNow = {};
               for (const s of activity?.scores || []) {
-                const pid = String(s.score?.participant || "unknown");
-                scoreMapNow[pid] = s.score?.goals ?? null;
+                const participantLabel = String(s.score?.participant || "").toLowerCase();
+                if (participantLabel) scoreMapNow[participantLabel] = s.score?.goals ?? null;
+                // also map any numeric ids if present
+                if (s.score?.participant_id) scoreMapNow[String(s.score.participant_id)] = s.score?.goals ?? null;
+                if (s.score?.participant_team_id) scoreMapNow[String(s.score.participant_team_id)] = s.score?.goals ?? null;
               }
+
               const currentPeriodNow =
                 Array.isArray(activity?.periods) && activity.periods.length > 0
-                  ? activity.periods[0]
+                  ? activity.periods[activity.periods.length - 1]
                   : null;
               const minuteNow =
                 currentPeriodNow?.minutes ??
@@ -3896,6 +3910,7 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                 null;
               const secondsNow = currentPeriodNow?.seconds ?? null;
               const tickingNow = currentPeriodNow?.ticking === true;
+
               const leagueNow = activity?.league
                 ? {
                     id: activity.league.id ?? null,
@@ -3918,31 +3933,42 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                     }
                   : null;
 
+              // Normalize state extraction: activity.state may be an object
+              const stateObj =
+                activity && typeof activity.state === "object"
+                  ? activity.state
+                  : null;
+              const shortName =
+                stateObj?.short_name || stateObj?.state || activity?.state || null;
+              const stateText = stateObj?.name || activity?.state_text || null;
+
               const props = {
                 home: {
                   name: home.name || null,
-                  shortName: home.shortName || home.abbr || null,
+                  shortName: home.short_code || home.shortName || home.abbr || null,
                   score:
+                    scoreMapNow["home"] ??
                     scoreMapNow[String(home.id)] ??
                     scoreMapNow[String(home.id_text)] ??
                     home.score ??
                     0,
-                  logo: home.logo || null,
+                  logo: home.image_path || home.logo || null,
                 },
                 away: {
                   name: away.name || null,
-                  shortName: away.shortName || away.abbr || null,
+                  shortName: away.short_code || away.shortName || away.abbr || null,
                   score:
+                    scoreMapNow["away"] ??
                     scoreMapNow[String(away.id)] ??
                     scoreMapNow[String(away.id_text)] ??
                     away.score ??
                     0,
-                  logo: away.logo || null,
+                  logo: away.image_path || away.logo || null,
                 },
                 league: leagueNow,
                 status: {
-                  short_name: activity?.state || null,
-                  text: activity?.state_text || null,
+                  short_name: shortName,
+                  text: stateText,
                   minute: minuteNow,
                   seconds: secondsNow,
                   ticking: tickingNow,

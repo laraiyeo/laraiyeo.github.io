@@ -106,8 +106,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { DeviceEventEmitter } from "react-native";
 import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
-import FootballLiveActivityController from "../../../../components/FootballLiveActivityController";
 import FootballLiveActivity from "../../../../widgets/FootballLiveActivity";
+import { API_URL } from "../../../services/notificationService";
 
 const { width } = Dimensions.get("window");
 
@@ -11680,32 +11680,64 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
             // Register the per-activity push token with backend so server can send updates/end
             try {
               const pushToken = await instance.getPushToken();
+              console.log("[Top5] activity push token:", pushToken);
               if (pushToken) {
-                await fetch(
-                  `${API_URL}/live-activity/register-activity-token`,
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ fixtureId: id, token: pushToken }),
-                  },
-                );
+                try {
+                  const res = await fetch(
+                    `https://laraiyeogithubio-production-08da.up.railway.app/live-activity/register-activity-token`,
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ fixtureId: id, token: pushToken }),
+                    },
+                  );
+                  const text = await res.text().catch(() => "");
+                  console.log(
+                    `[Top5] register-activity-token response: ${res.status}`,
+                    text,
+                  );
+                } catch (e) {
+                  console.warn(
+                    "[Top5] Failed to POST register-activity-token",
+                    e?.message || e,
+                  );
+                }
+              } else {
+                console.warn("[Top5] No activity push token available to register");
               }
+
               try {
                 const sub = instance.addPushTokenListener(async (ev) => {
                   try {
                     const newToken = ev?.pushToken;
                     if (newToken) {
-                      await fetch(
-                        `${API_URL}/live-activity/register-activity-token`,
-                        {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            fixtureId: id,
-                            token: newToken,
-                          }),
-                        },
+                      console.log(
+                        "[Top5] instance push token updated:",
+                        newToken,
                       );
+                      try {
+                        const r = await fetch(
+                          `https://laraiyeogithubio-production-08da.up.railway.app/live-activity/register-activity-token`,
+                          {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              fixtureId: id,
+                              token: newToken,
+                            }),
+                          },
+                        );
+                        const body = await r.text().catch(() => "");
+                        console.log(
+                          `[Top5] re-register response: ${r.status}`,
+                          body,
+                        );
+                      } catch (e) {
+                        console.warn(
+                          "[Top5] Failed to re-register activity token",
+                          e?.message || e,
+                        );
+                      }
                     }
                   } catch (e) {
                     console.warn(
