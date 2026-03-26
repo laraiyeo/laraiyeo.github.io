@@ -3475,7 +3475,11 @@ async function sendUpdateNoAlert(tokenOrTokens, name, props) {
     },
   };
   try {
-    logJson("[live-activity] sendUpdateNoAlert payload", { token: tokenOrTokens, name, props });
+    logJson("[live-activity] sendUpdateNoAlert payload", {
+      token: tokenOrTokens,
+      name,
+      props,
+    });
   } catch (e) {}
   return forwardToProvider(tokenOrTokens, payload);
 }
@@ -3651,22 +3655,25 @@ function startLiveActivityMonitor(opts) {
 
       // periodic ticking updates: when the period is ticking send lightweight updates (rate-limited)
       try {
-          const isTicking = props.status?.ticking === true;
-          const TICK_INTERVAL_MS = 15 * 1000; // send every ~15s for smoother ticking
+        const isTicking = props.status?.ticking === true;
+        const TICK_INTERVAL_MS = 15 * 1000; // send every ~15s for smoother ticking
         if (isTicking) {
           const activityTokens = opts.fixtureId
             ? await getActivityTokensForFixture(opts.fixtureId)
             : [];
           if (activityTokens && activityTokens.length > 0) {
-              if (!monitor.lastTickPush || Date.now() - monitor.lastTickPush >= TICK_INTERVAL_MS) {
-                try {
-                  // use silent update to avoid user alerts for ticking
-                  await sendUpdateNoAlert(activityTokens, opts.name, props);
-                  monitor.lastTickPush = Date.now();
-                  // also mark as a push for rate limiting other events
-                  monitor.lastPushAt = monitor.lastPushAt || Date.now();
-                } catch (e) {}
-              }
+            if (
+              !monitor.lastTickPush ||
+              Date.now() - monitor.lastTickPush >= TICK_INTERVAL_MS
+            ) {
+              try {
+                // use silent update to avoid user alerts for ticking
+                await sendUpdateNoAlert(activityTokens, opts.name, props);
+                monitor.lastTickPush = Date.now();
+                // also mark as a push for rate limiting other events
+                monitor.lastPushAt = monitor.lastPushAt || Date.now();
+              } catch (e) {}
+            }
           }
         }
       } catch (e) {}
@@ -4139,7 +4146,6 @@ app.post("/live-activity/register-activity-token", (req, res) => {
                     scoreMapNow[String(away.id_text)] ??
                     away.score ??
                     0,
-                  
                 },
                 league: leagueNow,
                 status: {
