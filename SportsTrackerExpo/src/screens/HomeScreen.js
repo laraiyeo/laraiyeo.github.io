@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   Modal,
+  Dimensions,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { FontAwesome6, FontAwesome } from "@expo/vector-icons";
@@ -85,6 +86,8 @@ const HomeScreen = () => {
   const { theme, colors } = useTheme();
 
   const [errors, setErrors] = useState([]);
+  const [currentErrorIndex, setCurrentErrorIndex] = useState(0);
+  const scrollRef = useRef(null);
 
   const fetchErrors = useCallback(async () => {
     try {
@@ -99,6 +102,22 @@ const HomeScreen = () => {
     }
   }, []);
 
+  function formatTs(ts) {
+    try {
+      const d = new Date(Number(ts));
+      const weekday = d.toLocaleDateString(undefined, { weekday: "short" });
+      const day = d.getDate();
+      const month = d.toLocaleDateString(undefined, { month: "long" });
+      const time = d.toLocaleTimeString(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+      });
+      return `${weekday} ${day} ${month} - ${time}`;
+    } catch (e) {
+      return "";
+    }
+  }
+
   useFocusEffect(
     useCallback(() => {
       fetchErrors();
@@ -106,6 +125,34 @@ const HomeScreen = () => {
       return () => clearInterval(id);
     }, [fetchErrors]),
   );
+
+  // Keep index in-range and sync scroll position when errors or index change
+  useEffect(() => {
+    const width = Dimensions.get("window").width;
+    if (!errors || errors.length === 0) {
+      setCurrentErrorIndex(0);
+      if (scrollRef.current && scrollRef.current.scrollTo) {
+        scrollRef.current.scrollTo({ x: 0, animated: false });
+      }
+      return;
+    }
+
+    if (currentErrorIndex >= errors.length) {
+      setCurrentErrorIndex(0);
+      if (scrollRef.current && scrollRef.current.scrollTo) {
+        scrollRef.current.scrollTo({ x: 0, animated: false });
+      }
+      return;
+    }
+
+    // ensure visual scroll matches current index
+    if (scrollRef.current && scrollRef.current.scrollTo) {
+      scrollRef.current.scrollTo({
+        x: currentErrorIndex * width,
+        animated: false,
+      });
+    }
+  }, [errors, currentErrorIndex]);
 
   // Update popup state
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -190,56 +237,158 @@ const HomeScreen = () => {
           },
         ]}
       >
-        <View style={styles.titleContainer}>
-          <Text
-            allowFontScaling={false}
-            style={[styles.title, { color: theme.text }]}
+        {errors && errors.length > 0 ? (
+          <View
+            style={{
+              marginTop: 0,
+              marginHorizontal: 0,
+              borderRadius: 12,
+              paddingVertical: 0,
+              paddingHorizontal: 0,
+              height: 105,
+            }}
           >
-            SportsHeart
-          </Text>
-          <FontAwesome
-            name="heart"
-            size={24}
-            color={colors.primary}
-            style={styles.heartIcon}
-          />
-        </View>
-        <Text
-          allowFontScaling={false}
-          style={[styles.subtitle, { color: theme.textSecondary }]}
-        >
-          Choose your sport to get started
-        </Text>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(e) => {
+                const width =
+                  e.nativeEvent.layoutMeasurement.width ||
+                  Dimensions.get("window").width;
+                const index = Math.round(e.nativeEvent.contentOffset.x / width);
+                setCurrentErrorIndex(index);
+              }}
+            >
+              {errors.map((err, idx) => (
+                <View
+                  key={err.id || idx}
+                  activeOpacity={0.9}
+                  onPress={() => {}}
+                  style={[
+                    styles.errorBanner,
+                    {
+                      backgroundColor:
+                        err.status === "green"
+                          ? theme.success
+                          : err.status === "red"
+                            ? theme.error
+                            : theme.warning,
+                      marginTop: 0,
+                      marginHorizontal: 0,
+                      borderRadius: 12,
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      width: Dimensions.get("window").width - 40,
+                      overflow: "hidden",
+                    },
+                  ]}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.errorHeader,
+                        {
+                          color: ["green", "red"].includes(err.status)
+                            ? "#fff"
+                            : "#000",
+                          flex: 1,
+                          marginBottom: 0,
+                          flexShrink: 1,
+                          flexWrap: "wrap",
+                        },
+                      ]}
+                      allowFontScaling={false}
+                    >
+                      {err.header}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.errorTs,
+                        {
+                          color: ["green", "red"].includes(err.status)
+                            ? "#fff"
+                            : "#000",
+                          marginLeft: 12,
+                          alignSelf: "flex-start",
+                          marginTop: 2,
+                        },
+                      ]}
+                      allowFontScaling={false}
+                    >
+                      {formatTs(err.ts)}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.errorMsg,
+                      {
+                        color: ["green", "red"].includes(err.status)
+                          ? "#fff"
+                          : "#000",
+                        marginTop: 6,
+                        flexShrink: 1,
+                      },
+                    ]}
+                  >
+                    {err.message}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
+
+            {errors.length > 1 && (
+              <View
+                style={{
+                  alignItems: "center",
+                  marginTop: 6,
+                  marginBottom: -12,
+                }}
+              >
+                <Text
+                  style={[
+                    styles.errorIndicator,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  {currentErrorIndex + 1} / {errors.length}
+                </Text>
+              </View>
+            )}
+          </View>
+        ) : (
+          <>
+            <View style={styles.titleContainer}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.title, { color: theme.text }]}
+              >
+                SportsHeart
+              </Text>
+              <FontAwesome
+                name="heart"
+                size={24}
+                color={colors.primary}
+                style={styles.heartIcon}
+              />
+            </View>
+            <Text
+              allowFontScaling={false}
+              style={[styles.subtitle, { color: theme.textSecondary }]}
+            >
+              Choose your sport to get started
+            </Text>
+          </>
+        )}
       </View>
 
-      {/* Error banner (shows when server reports errors) */}
-      {errors && errors.length > 0 ? (
-        <TouchableOpacity
-          style={[
-            styles.errorBanner,
-            {
-              backgroundColor:
-                errors[0].status === "green"
-                  ? "#e6ffed"
-                  : errors[0].status === "red"
-                    ? "#ffecec"
-                    : "#fff7e6",
-            },
-          ]}
-          onPress={() => {
-            // open admin panel in browser (if available)
-            // On device this might not open; keep noop
-            // window.open('/error_admin');
-          }}
-        >
-          <Text style={[styles.errorHeader, { color: "#222" }]}>
-            {errors[0].header}
-          </Text>
-          <Text style={[styles.errorMsg, { color: "#222" }]}>
-            {errors[0].message}
-          </Text>
-        </TouchableOpacity>
-      ) : null}
+      {/* error banner moved into header */}
 
       {/* Layout editing removed; no animated banner required */}
       <ScrollView
@@ -608,11 +757,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
   },
   errorHeader: { fontSize: 16, fontWeight: "700", marginBottom: 4 },
   errorMsg: { fontSize: 13 },
+  errorTs: { fontSize: 12, color: "#444" },
+  errorIndicator: { fontSize: 12, color: "#444" },
   updateDescription: {
     fontSize: 14,
     textAlign: "center",

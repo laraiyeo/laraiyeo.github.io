@@ -31,6 +31,49 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users (id) ON DELETE CASCADE
 );
 
+-- Live Activity push-to-start tokens: maps app bundle and/or fixture to a push-to-start token
+CREATE TABLE IF NOT EXISTS public.live_activity_tokens (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  bundle_id text NULL,
+  token text NOT NULL,
+  fixture_id text NULL,
+  -- type distinguishes token kinds to avoid NULL/NULL uniqueness issues
+  type text NOT NULL DEFAULT 'activity',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT live_activity_tokens_pkey PRIMARY KEY (id),
+  CONSTRAINT live_activity_tokens_type_check CHECK (type IN ('bundle','fixture','activity'))
+);
+
+-- Unique constraint to avoid duplicate rows for the same (bundle, token, fixture)
+-- Ensure `type` column, check constraint, unique constraint and indexes exist.
+DO $$
+BEGIN
+  -- add `type` column if missing (safe for existing deployments)
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'live_activity_tokens' AND column_name = 'type'
+  ) THEN
+    ALTER TABLE public.live_activity_tokens ADD COLUMN type text NOT NULL DEFAULT 'activity';
+  END IF;
+
+  -- add check constraint for type values if missing
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'live_activity_tokens_type_check'
+  ) THEN
+    ALTER TABLE public.live_activity_tokens ADD CONSTRAINT live_activity_tokens_type_check CHECK (type IN ('bundle','fixture','activity'));
+  END IF;
+
+  -- add unique constraint across (type, bundle_id, token, fixture_id) if missing
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'uniq_live_activity_type_bundle_token_fixture'
+  ) THEN
+    ALTER TABLE public.live_activity_tokens ADD CONSTRAINT uniq_live_activity_type_bundle_token_fixture UNIQUE (type, bundle_id, token, fixture_id);
+  END IF;
+END$$;
+
+CREATE INDEX IF NOT EXISTS idx_live_activity_tokens_bundle ON public.live_activity_tokens USING btree (type, bundle_id);
+CREATE INDEX IF NOT EXISTS idx_live_activity_tokens_fixture ON public.live_activity_tokens USING btree (type, fixture_id);
+
 -- Ensure legacy deployments that already added `password` manually are safe
 DO $$
 BEGIN

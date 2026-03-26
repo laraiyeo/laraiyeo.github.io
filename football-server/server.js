@@ -1,21 +1,315 @@
 "use strict";
 
+// Load `.env` when present so process.env contains local variables during dev
+try {
+  require("dotenv").config();
+} catch (e) {}
+
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
 const compression = require("compression");
+const http2 = require("http2");
+const jwt = require("jsonwebtoken");
+const fs = require("fs");
 
 const app = express();
 app.use(cors());
 app.use(compression());
+app.use(express.json());
+
+// In-memory store for push-to-start tokens (app bundle id -> Set(token))
+const pushToStartTokens = new Map();
+// Optional persisted mapping files (for simple persistence; replace with Redis/DB in production)
+const path = require("path");
+const PUSH_TOKENS_FILE = path.join(__dirname, "push_to_start_tokens.json");
+const FIXTURE_TOKENS_FILE = path.join(__dirname, "fixture_push_tokens.json");
+const ACTIVITY_TOKENS_FILE = path.join(__dirname, "activity_push_tokens.json");
+
+// Supabase-backed store (preferred). Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
+let supabase = null;
+const SUPABASE_URL = process.env.SUPABASE_URL || null;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || null;
+if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+  try {
+    const { createClient } = require("@supabase/supabase-js");
+    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+    console.log("[init] Supabase client configured for push token persistence");
+  } catch (e) {
+    console.warn("Supabase client not available; falling back to file persistence", e?.message || e);
+    supabase = null;
+  }
+}
+
+function loadJsonFile(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return {};
+    const raw = fs.readFileSync(filePath, "utf8");
+    return JSON.parse(raw || "{}");
+  } catch (e) {
+    console.warn(`loadJsonFile(${filePath}) failed:`, e?.message || e);
+    return {};
+  }
+}
+
+function saveJsonFile(filePath, obj) {
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(obj, null, 2), "utf8");
+  } catch (e) {
+    console.warn(`saveJsonFile(${filePath}) failed:`, e?.message || e);
+  }
+}
+
+// load persisted push tokens into memory on startup (file fallback only)
+(function initPushTokenStore() {
+  try {
+    const raw = loadJsonFile(PUSH_TOKENS_FILE);
+    for (const [bundleId, tokens] of Object.entries(raw || {})) {
+      pushToStartTokens.set(bundleId, new Set(Array.isArray(tokens) ? tokens : []));
+    }
+  } catch (e) {
+    console.warn("initPushTokenStore failed", e?.message || e);
+  }
+})();
+
+// fixture -> Set(tokens) mapping persisted separately (file fallback only)
+const fixturePushTokens = new Map();
+(function initFixtureTokenStore() {
+  try {
+    const raw = loadJsonFile(FIXTURE_TOKENS_FILE);
+    for (const [fixtureId, tokens] of Object.entries(raw || {})) {
+      fixturePushTokens.set(fixtureId, new Set(Array.isArray(tokens) ? tokens : []));
+    }
+  } catch (e) {
+    console.warn("initFixtureTokenStore failed", e?.message || e);
+  }
+})();
+
+// activity instance tokens (device tokens returned by LiveActivity.instance.getPushToken())
+const activityPushTokens = new Map();
+(function initActivityTokenStore() {
+  try {
+    const raw = loadJsonFile(ACTIVITY_TOKENS_FILE);
+    for (const [fixtureId, tokens] of Object.entries(raw || {})) {
+      activityPushTokens.set(fixtureId, new Set(Array.isArray(tokens) ? tokens : []));
+    }
+    console.log("initActivityTokenStore loaded activity tokens (file fallback)");
+  } catch (e) {
+    console.warn("initActivityTokenStore failed", e?.message || e);
+  }
+})();
+
+// Persistence helpers: prefer Supabase when configured, otherwise use file maps
+async function persistPushTokens() {
+  if (supabase) return; // Supabase persists directly
+  const obj = {};
+  for (const [k, set] of pushToStartTokens.entries()) obj[k] = Array.from(set);
+  saveJsonFile(PUSH_TOKENS_FILE, obj);
+}
+
+async function persistFixtureTokens() {
+  if (supabase) return;
+  const obj = {};
+  for (const [k, set] of fixturePushTokens.entries()) obj[k] = Array.from(set);
+  saveJsonFile(FIXTURE_TOKENS_FILE, obj);
+}
+
+async function persistActivityTokens() {
+  if (supabase) return;
+  try {
+    const obj = {};
+    for (const [k, set] of activityPushTokens.entries()) obj[k] = Array.from(set);
+    saveJsonFile(ACTIVITY_TOKENS_FILE, obj);
+  } catch (e) {
+    console.warn('persistActivityTokens failed', e?.message || e);
+  }
+}
+
+// Activity token helpers (tokens returned by LiveActivity.instance.getPushToken())
+async function addActivityToken(fixtureId, token) {
+  if (!fixtureId || !token) return false;
+  if (supabase) {
+    try {
+      // store as type='activity' to distinguish from bundle/fixture tokens
+      await supabase.from('live_activity_tokens').upsert({ type: 'activity', bundle_id: null, token, fixture_id: String(fixtureId) }, { onConflict: ['type', 'fixture_id', 'token'] });
+      return true;
+    } catch (e) {
+      console.warn('supabase upsert activity token failed', e?.message || e);
+    }
+  }
+  let s = activityPushTokens.get(String(fixtureId));
+  if (!s) {
+    s = new Set();
+    activityPushTokens.set(String(fixtureId), s);
+  }
+  s.add(token);
+  await persistActivityTokens();
+  return true;
+}
+
+async function getActivityTokensForFixture(fixtureId) {
+  if (!fixtureId) return [];
+  if (supabase) {
+    try {
+      // only return activity-type tokens for updates/ends
+      const { data, error } = await supabase.from('live_activity_tokens').select('token').eq('fixture_id', String(fixtureId)).eq('type', 'activity');
+      if (error) throw error;
+      return (data || []).map((r) => r.token).filter(Boolean);
+    } catch (e) {
+      console.warn('supabase select activity tokens failed', e?.message || e);
+    }
+  }
+  return Array.from(activityPushTokens.get(String(fixtureId)) ?? []);
+}
+
+async function removeActivityToken(token) {
+  if (!token) return false;
+  if (supabase) {
+    try {
+      // remove only activity-type rows (avoid clobbering fixture/bundle tokens with same token string)
+      await supabase.from('live_activity_tokens').delete().eq('token', token).eq('type', 'activity');
+      return true;
+    } catch (e) {
+      console.warn('supabase delete activity token failed', e?.message || e);
+    }
+  }
+  let removed = false;
+  for (const [fixtureId, set] of activityPushTokens.entries()) {
+    if (set.has(token)) {
+      set.delete(token);
+      removed = true;
+      if (set.size === 0) activityPushTokens.delete(fixtureId);
+    }
+  }
+  if (removed) await persistActivityTokens();
+  return removed;
+}
+
+// Supabase-backed token helpers
+async function addPushToStartToken(bundleId, token) {
+  if (!bundleId || !token) return false;
+  if (supabase) {
+    try {
+      // upsert bundle-level token (type='bundle', fixture_id = null)
+      await supabase.from("live_activity_tokens").upsert({ type: 'bundle', bundle_id: bundleId, token, fixture_id: null }, { onConflict: ["type", "bundle_id", "token"] });
+      return true;
+    } catch (e) {
+      console.warn("supabase upsert bundle token failed:", e?.message || e);
+    }
+  }
+  let s = pushToStartTokens.get(bundleId);
+  if (!s) {
+    s = new Set();
+    pushToStartTokens.set(bundleId, s);
+  }
+  s.add(token);
+  await persistPushTokens();
+  return true;
+}
+
+async function removePushToStartToken(token) {
+  let removed = false;
+  if (supabase) {
+    try {
+      // only remove bundle-type push-to-start tokens
+      await supabase.from("live_activity_tokens").delete().eq("token", token).eq('type', 'bundle');
+      return true;
+    } catch (e) {
+      console.warn("supabase delete token failed:", e?.message || e);
+    }
+  }
+  for (const [bundleId, set] of pushToStartTokens.entries()) {
+    if (set.has(token)) {
+      set.delete(token);
+      removed = true;
+      if (set.size === 0) pushToStartTokens.delete(bundleId);
+    }
+  }
+  if (removed) await persistPushTokens();
+  return removed;
+}
+
+async function addFixturePushToken(fixtureId, token) {
+  if (!fixtureId || !token) return false;
+  if (supabase) {
+    try {
+      // upsert fixture-level token (type='fixture')
+      await supabase.from("live_activity_tokens").upsert({ type: 'fixture', bundle_id: null, token, fixture_id: String(fixtureId) }, { onConflict: ["type", "fixture_id", "token"] });
+      return true;
+    } catch (e) {
+      console.warn("supabase upsert fixture token failed:", e?.message || e);
+    }
+  }
+  let s = fixturePushTokens.get(String(fixtureId));
+  if (!s) {
+    s = new Set();
+    fixturePushTokens.set(String(fixtureId), s);
+  }
+  s.add(token);
+  await persistFixtureTokens();
+  return true;
+}
+
+async function getTokensForBundle(bundleId) {
+  if (supabase) {
+    try {
+      // only return bundle-type tokens
+      const { data, error } = await supabase.from("live_activity_tokens").select("token").eq("bundle_id", bundleId).eq('type', 'bundle');
+      if (error) throw error;
+      return (data || []).map((r) => r.token).filter(Boolean);
+    } catch (e) {
+      console.warn("supabase select bundle tokens failed:", e?.message || e);
+    }
+  }
+  return Array.from(pushToStartTokens.get(bundleId) ?? []);
+}
+
+async function getTokensForFixture(fixtureId) {
+  if (supabase) {
+    try {
+      // only return fixture-type tokens (not activity tokens)
+      const { data, error } = await supabase.from("live_activity_tokens").select("token").eq("fixture_id", String(fixtureId)).eq('type', 'fixture');
+      if (error) throw error;
+      return (data || []).map((r) => r.token).filter(Boolean);
+    } catch (e) {
+      console.warn("supabase select fixture tokens failed:", e?.message || e);
+    }
+  }
+  return Array.from(fixturePushTokens.get(String(fixtureId)) ?? []);
+}
+
+// Optional: URL of an APNs relay or provider that accepts POST { token, payload }
+// If provided, server will forward APNs payloads to that URL. Otherwise the
+// prepared APNs payload will be returned in the response for manual sending.
+const APNS_PROVIDER_URL = process.env.APNS_PROVIDER_URL || null;
+const APNS_PROVIDER_AUTH = process.env.APNS_PROVIDER_AUTH || null; // optional auth header value
+
+// Apple / APNs config (set these in your env or Railway variables)
+const APPLE_TEAM_ID = process.env.APPLE_TEAM_ID || null;
+const APPLE_KEY_ID = process.env.APPLE_KEY_ID || null;
+const APPLE_BUNDLE_ID = process.env.APPLE_BUNDLE_ID || process.env.APPLE_BUNDLE || null;
+// Either set APPLE_PRIVATE_KEY (escaped newlines) or APPLE_PRIVATE_KEY_PATH to a .p8 file
+const APPLE_PRIVATE_KEY = process.env.APPLE_PRIVATE_KEY || null;
+const APPLE_PRIVATE_KEY_PATH = process.env.APPLE_PRIVATE_KEY_PATH || null;
+
+// monitors for live activities keyed by fixtureId (or instance id)
+const liveActivityMonitors = new Map();
 
 const PORT = process.env.PORT || 3000;
 
+// Simple in-memory metrics for push activity (exportable via an endpoint)
+const pushMetrics = {
+  attempts: 0,
+  successes: 0,
+  failures: 0,
+  retries: 0,
+};
+
 // ─── API credentials (prefer env vars so tokens aren't baked in) ──────────────
-const SM_TOKEN = process.env.SM_TOKEN;
+const SM_TOKEN = process.env.SM_TOKEN || null;
 const SM_BASE = "https://api.sportmonks.com/v3/football";
 const SAP_BASE = "https://v1.football.sportsapipro.com";
-const SAP_KEY = process.env.SAP_KEY;
+const SAP_KEY = process.env.SAP_KEY || null;
 
 // ─── TTL constants ────────────────────────────────────────────────────────────
 const TTL_20S = 20 * 1000;
@@ -2656,79 +2950,787 @@ app.get("/football/game/:fixtureId/:team1/:team2", async (req, res) => {
 // Returns a minimal payload intended for Live Activity initialization on iOS.
 app.get("/football/game/:fixtureId/live-activity", async (req, res) => {
   const { fixtureId } = req.params;
-  const fixtureCacheKey = `game:${fixtureId}:live-activity`;
-
-  const fixtureUrl =
-    `${SM_BASE}/fixtures/${fixtureId}?api_token=${SM_TOKEN}` +
-    `&include=state;participants;scores;league;venue&timezone=America/Toronto`;
 
   try {
-    const fresh = await fetchUrl(fixtureUrl);
-    if (!fresh?.data)
-      return res.status(404).json({ error: "Fixture not found" });
+    let raw = null;
+    let fixtureDateCacheKey = null;
+    let fixtureDateEntry = null;
 
-    // Keep a small cache entry so repeated UI starters don't hammer the origin.
-    cacheSet(fixtureCacheKey, fresh);
-
-    const transformed = transformFixtureGameResponse(fresh);
-    const { ttl } = gameTtlInfo(fresh?.data);
-    setCacheControl(res, ttl);
-
-    // Pick participants by meta.position (home / away) if available
-    const participants = transformed?.participants || [];
-    const home = participants.find((p) => p.meta?.position === "home") ||
-      participants[0] || { id: null, name: null };
-    const away = participants.find((p) => p.meta?.position === "away") ||
-      participants[1] || { id: null, name: null };
-
-    // Extract current scores (description === 'CURRENT')
-    let homeScore = 0;
-    let awayScore = 0;
-    for (const s of transformed?.scores || []) {
-      if (!s || !s.description) continue;
-      if (String(s.description).toUpperCase() !== "CURRENT") continue;
-      const participant = String(s.score?.participant || "").toLowerCase();
-      const goals =
-        typeof s.score?.goals === "number"
-          ? s.score.goals
-          : parseInt(s.score?.goals, 10) || 0;
-      if (participant === "home") homeScore = goals;
-      if (participant === "away") awayScore = goals;
+    // First, prefer the daily fixture caches (fixture:date:YYYYMMDD)
+    for (const [k, v] of cache.entries()) {
+      if (!k.startsWith("fixture:date:")) continue;
+      try {
+        const dayData = v?.data?.data;
+        if (!dayData) continue;
+        const fixtures = dayData?.fixtures || dayData?.data || [];
+        const candidateList = Array.isArray(fixtures)
+          ? fixtures
+          : fixtures?.data || [];
+        for (const f of candidateList) {
+          if (String(f?.id) === String(fixtureId)) {
+            raw = { data: f };
+            fixtureDateCacheKey = k;
+            fixtureDateEntry = v;
+            break;
+          }
+        }
+        if (raw) break;
+      } catch (e) {
+        continue;
+      }
     }
 
+    // If not found in fixture-date caches, try direct per-game cache as fallback
+    if (!raw) {
+      const fixtureCacheKey = `game:${fixtureId}`;
+      const cachedEntry = cache.get(fixtureCacheKey);
+      if (cachedEntry && cachedEntry.data) {
+        raw = cachedEntry.data; // matches shape expected by transformFixtureGameResponse
+      }
+    }
+
+    // If still not found, fetch from origin
+    let fixtureUrl =
+      `${SM_BASE}/fixtures/${fixtureId}?api_token=${SM_TOKEN}` +
+      `&include=state;periods;participants;scores;league;venue&timezone=America/Toronto`;
+
+    if (!raw) {
+      const fresh = await fetchUrl(fixtureUrl);
+      if (!fresh?.data)
+        return res.status(404).json({ error: "Fixture not found" });
+      raw = fresh;
+      cacheSet(`game:${fixtureId}`, fresh);
+    }
+
+    const transformed = transformFixtureGameResponse(raw);
+
+    // If we found this fixture inside a daily cache, ensure the fixture-date polling is active
+    if (fixtureDateCacheKey && fixtureDateEntry) {
+      // derive date part from cache key
+      const parts = fixtureDateCacheKey.split(":");
+      const datePart = parts[2];
+      const isoDate = `${datePart.slice(0, 4)}-${datePart.slice(4, 6)}-${datePart.slice(6, 8)}`;
+      const url =
+        `${SM_BASE}/fixtures/date/${isoDate}?api_token=${SM_TOKEN}` +
+        `&per_page=50&include=aggregate;state;periods;participants;scores;venue;league.country&timezone=America/Toronto`;
+      ensureFixtureDatePolling(fixtureDateCacheKey, url, fixtureDateEntry.data);
+    } else {
+      // fallback: ensure game polling for individually fetched fixtures
+      ensureGamePolling(`game:${fixtureId}`, fixtureUrl, raw?.data || raw);
+    }
+
+    // Build minimal payload per 1.txt spec
+    const participants = (transformed?.participants || []).map((p) => ({
+      name: p.name ?? null,
+      short_code: p.short_code ?? null,
+      image_path: p.image_path ?? null,
+      meta: p.meta
+        ? { location: p.meta.location ?? null, winner: p.meta.winner ?? null }
+        : null,
+    }));
+
+    const scores = (transformed?.scores || [])
+      .filter((s) => String(s?.description || "").toUpperCase() === "CURRENT")
+      .map((s) => ({
+        score: {
+          goals: s.score?.goals ?? null,
+          participant: s.score?.participant ?? null,
+        },
+      }));
+
     const payload = {
-      fixtureId: transformed?.id ?? fixtureId,
+      id: transformed?.id ?? fixtureId,
       starting_at: transformed?.starting_at ?? null,
-      league: transformed?.league ?? null,
-      status: transformed?.state ?? null,
-      home: {
-        id: home.id ?? null,
-        name: home.name ?? null,
-        image_path: home.image_path ?? null,
-        colorPrimary: home.colorPrimary ?? null,
-        colorSecondary: home.colorSecondary ?? null,
-        score: homeScore,
-      },
-      away: {
-        id: away.id ?? null,
-        name: away.name ?? null,
-        image_path: away.image_path ?? null,
-        colorPrimary: away.colorPrimary ?? null,
-        colorSecondary: away.colorSecondary ?? null,
-        score: awayScore,
-      },
+      state: transformed?.state ?? null,
+      periods: (transformed?.periods || []).map((p) => ({
+        ticking: p.ticking ?? null,
+        description: p.description ?? null,
+        minutes: p.minutes ?? null,
+        seconds: p.seconds ?? null,
+      })),
+      participants,
+      scores,
+      venue: { name: transformed?.venue?.name ?? null },
+      league: transformed?.league || null,
       fetchedAt: Date.now(),
     };
 
-    res.json({ source: "origin", data: { activity: payload } });
+    const source = fixtureDateCacheKey ? "fixture-date-cache" : "cache";
+    return res.json({ source, data: { activity: payload } });
   } catch (err) {
-    res
-      .status(502)
-      .json({
-        error: "Failed to fetch live-activity payload",
-        details: err.message,
-      });
+    res.status(502).json({
+      error: "Failed to build live-activity payload",
+      details: err.message,
+    });
   }
+});
+
+// POST /live-activity/register-push-to-start
+// Body: { bundleId, token }
+// Stores the app-wide push-to-start token (returned by addPushToStartTokenListener in the app)
+app.post("/live-activity/register-push-to-start", (req, res) => {
+  try {
+    const { bundleId, token, fixtureId, fixtures } = req.body || {};
+    if (!bundleId || !token)
+      return res.status(400).json({ error: "bundleId and token required" });
+    addPushToStartToken(bundleId, token).catch(() => {});
+    console.log(`[live-activity] registered push-to-start token for ${bundleId}`);
+
+    // Optionally register for specific fixture(s)
+    if (fixtureId) addFixturePushToken(fixtureId, token).catch(() => {});
+    if (Array.isArray(fixtures)) {
+      for (const f of fixtures) addFixturePushToken(f, token).catch(() => {});
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+function loadApplePrivateKey() {
+  if (APPLE_PRIVATE_KEY) return APPLE_PRIVATE_KEY.replace(/\\n/g, "\n");
+  if (APPLE_PRIVATE_KEY_PATH) {
+    try {
+      return fs.readFileSync(APPLE_PRIVATE_KEY_PATH, "utf8");
+    } catch (e) {
+      console.warn("loadApplePrivateKey: cannot read APPLE_PRIVATE_KEY_PATH", e?.message || e);
+      return null;
+    }
+  }
+  return null;
+}
+
+let APNS_TOPIC = APPLE_BUNDLE_ID ? `${APPLE_BUNDLE_ID}.push-type.liveactivity` : null;
+
+function generateAPNsJWT() {
+  const pk = loadApplePrivateKey();
+  if (!pk || !APPLE_TEAM_ID || !APPLE_KEY_ID) return null;
+  return jwt.sign({}, pk, {
+    algorithm: "ES256",
+    expiresIn: "1h",
+    issuer: APPLE_TEAM_ID,
+    header: { alg: "ES256", kid: APPLE_KEY_ID },
+  });
+}
+
+async function sendToAPNs(deviceToken, payload, opts = {}) {
+  const jwtToken = generateAPNsJWT();
+  if (!jwtToken)
+    throw new Error(
+      "APNs credentials not configured (APPLE_PRIVATE_KEY/KEY_ID/TEAM_ID missing)",
+    );
+
+  const maxAttempts = opts.maxAttempts ?? 3;
+  let attempt = 0;
+  let lastErr = null;
+
+  while (attempt < maxAttempts) {
+    attempt++;
+    try {
+          const client = http2.connect("https://api.push.apple.com");
+      await new Promise((resolveRequest, rejectRequest) => {
+        client.on("error", (err) => {
+          try {
+            client.close();
+          } catch (e) {}
+          rejectRequest(err);
+        });
+
+        const pathReq = `/3/device/${deviceToken}`;
+        const req = client.request({
+          ":method": "POST",
+          ":path": pathReq,
+          authorization: `bearer ${jwtToken}`,
+          "apns-topic": APNS_TOPIC,
+          "apns-push-type": "liveactivity",
+          "content-type": "application/json",
+        });
+
+        let data = "";
+        let status = null;
+
+        req.on("response", (headers) => {
+          status = headers[":status"];
+        });
+        req.setEncoding("utf8");
+        req.on("data", (chunk) => (data += chunk));
+        req.on("end", () => {
+          try {
+            client.close();
+          } catch (e) {}
+          // If status indicates invalid/unregistered token, remove it from local store
+          try {
+            const sts = Number(status) || 0;
+            if ([400, 403, 404, 410].includes(sts)) {
+              // attempt to remove any matching token rows (activity or bundle)
+              try { removeActivityToken(deviceToken); } catch (e) {}
+              try { removePushToStartToken(deviceToken); } catch (e) {}
+            }
+          } catch (e) {}
+          resolveRequest({ status: Number(status) || 200, body: data });
+        });
+        req.on("error", (err) => {
+          try {
+            client.close();
+          } catch (e) {}
+          rejectRequest(err);
+        });
+
+        req.write(JSON.stringify(payload));
+        req.end();
+      });
+
+      // success—return last successful response
+      pushMetrics.attempts++;
+      pushMetrics.successes++;
+      if (attempt > 1) pushMetrics.retries += attempt - 1;
+      return { status: 200 };
+    } catch (e) {
+      lastErr = e;
+      pushMetrics.attempts++;
+      pushMetrics.failures++;
+      // determine if retryable: network errors or 5xx/429 are retryable
+      const msg = String(e?.message || e || "").toLowerCase();
+      const retryable = msg.includes("socket") || msg.includes("ecx") || msg.includes("timeout") || msg.includes("429") || msg.includes("503") || msg.includes("500");
+      if (!retryable || attempt >= maxAttempts) break;
+      // exponential backoff
+      await new Promise((r) => setTimeout(r, 200 * Math.pow(2, attempt)));
+    }
+  }
+
+  throw lastErr || new Error("sendToAPNs failed");
+}
+
+// Enhanced forwardToProvider: prefer configured APNS_PROVIDER_URL, else send directly to APNs when possible
+async function forwardToProvider(tokenOrTokens, payload) {
+  const tokens = Array.isArray(tokenOrTokens) ? tokenOrTokens : [tokenOrTokens];
+  const results = [];
+
+  for (const token of tokens) {
+    // First try configured provider (if any)
+    if (APNS_PROVIDER_URL) {
+      try {
+        const headers = { "Content-Type": "application/json" };
+        if (APNS_PROVIDER_AUTH) headers.Authorization = APNS_PROVIDER_AUTH;
+        const resp = await axios.post(
+          APNS_PROVIDER_URL,
+          { token, payload },
+          { headers, timeout: 15000 },
+        );
+        results.push({ token, forwarded: true, resp: resp.data });
+        continue;
+      } catch (e) {
+        console.warn("[live-activity] forwardToProvider failed", e?.message || e);
+        // fallthrough to direct attempt
+      }
+    }
+
+    // Direct APNs send
+    try {
+      const apnsResp = await sendToAPNs(token, payload, { maxAttempts: 3 });
+      results.push({ token, forwarded: false, apns: apnsResp });
+    } catch (err) {
+      console.error("[live-activity] direct APNs send failed", err?.message || err);
+      results.push({ token, forwarded: false, error: String(err) });
+    }
+  }
+
+  return results.length === 1 ? results[0] : results;
+}
+
+async function fetchLiveActivityForFixture(fixtureId) {
+  try {
+    const url = `http://127.0.0.1:${PORT}/football/game/${fixtureId}/live-activity`;
+    const resp = await axios.get(url, { timeout: 10000 });
+    // expect { source, data: { activity } }
+    return resp.data?.data?.activity ?? null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function sendStartNoAlert(tokenOrTokens, name, props) {
+  // NOTE: Deprecated start semantics — send a silent "update" instead so
+  // the client-local Live Activity (started hidden) can transition to visible
+  // without the server issuing a duplicate start event.
+  const payload = {
+    aps: {
+      event: "update",
+      "content-state": { name, props: typeof props === "string" ? props : JSON.stringify(props || {}) },
+      timestamp: Math.floor(Date.now() / 1000),
+    },
+  };
+  return forwardToProvider(tokenOrTokens, payload);
+}
+
+async function sendStartWithAlert(token, name, props, title, body) {
+  // Replace start-with-alert with an update containing an alert so we don't
+  // issue a remote start when the activity was created locally.
+  return sendUpdateWithAlert(token, name, props, title, body);
+}
+
+async function sendUpdateWithAlert(token, name, props, title, body) {
+  const payload = {
+    aps: {
+      event: "update",
+      "content-state": { name, props: typeof props === "string" ? props : JSON.stringify(props || {}) },
+      timestamp: Math.floor(Date.now() / 1000),
+      alert: { title: title || "Update", body: body || "Event happened", sound: "default" },
+      "interruption-level": "time-sensitive",
+    },
+  };
+  return forwardToProvider(token, payload);
+}
+
+async function sendEnd(token, name, props) {
+  const payload = {
+    aps: {
+      event: "end",
+      "content-state": { name, props: typeof props === "string" ? props : JSON.stringify(props || {}) },
+      timestamp: Math.floor(Date.now() / 1000),
+      "attributes-type": "LiveActivityAttributes",
+      attributes: {},
+    },
+  };
+  return forwardToProvider(token, payload);
+}
+
+function startLiveActivityMonitor(opts) {
+  // opts: { bundleId, deviceTokens (array), fixtureId, starting_at, name, props }
+  const key = String(opts.fixtureId || `${opts.bundleId}:${Date.now()}`);
+  if (liveActivityMonitors.has(key)) return liveActivityMonitors.get(key);
+
+  const monitor = {
+    key,
+    opts,
+    intervalId: null,
+    timers: [],
+    lastScores: null,
+    alertedStart: false,
+    started: false,
+  };
+
+  async function pollOnce() {
+    try {
+      const activity = await fetchLiveActivityForFixture(opts.fixtureId);
+      if (!activity) return;
+      const state = (activity.state || "").toString().toUpperCase();
+
+      // build full props from activity so the client UI updates with fresh data
+      const participants = Array.isArray(activity.participants) ? activity.participants : [];
+      const scoreMap = {};
+      for (const s of (activity.scores || [])) {
+        const pid = String(s.score?.participant || "unknown");
+        scoreMap[pid] = s.score?.goals ?? null;
+      }
+      const home = participants[0] || {};
+      const away = participants[1] || {};
+      // pick current period if present (contains minutes/seconds/ticking)
+      const currentPeriod = Array.isArray(activity.periods) && activity.periods.length > 0 ? activity.periods[0] : null;
+      const minuteVal = currentPeriod?.minutes ?? activity.minute ?? activity.elapsed ?? null;
+      const secondsVal = currentPeriod?.seconds ?? null;
+      const tickingVal = currentPeriod?.ticking === true;
+
+      const leagueObj = activity.league
+        ? {
+            id: activity.league.id ?? null,
+            name: activity.league.name ?? null,
+            image_path: activity.league.image_path ?? null,
+            country: activity.league.country
+              ? {
+                  name: activity.league.country.name ?? null,
+                  image_path: activity.league.country.image_path ?? null,
+                }
+              : null,
+          }
+        : activity.competition
+        ? {
+            id: activity.competition.id ?? null,
+            name: activity.competition.name ?? null,
+            image_path: activity.competition.logo ?? null,
+            country: null,
+          }
+        : null;
+
+      const props = {
+        home: {
+          name: home.name || null,
+          shortName: home.shortName || home.abbr || null,
+          score: (
+            scoreMap[String(home.id)] ??
+            scoreMap[String(home.id_text)] ??
+            home.score ??
+            0
+          ),
+          logo: home.logo || null,
+        },
+        away: {
+          name: away.name || null,
+          shortName: away.shortName || away.abbr || null,
+          score: (
+            scoreMap[String(away.id)] ??
+            scoreMap[String(away.id_text)] ??
+            away.score ??
+            0
+          ),
+          logo: away.logo || null,
+        },
+        league: leagueObj,
+        status: {
+          short_name: activity.state || null,
+          text: activity.state_text || null,
+          minute: minuteVal,
+          seconds: secondsVal,
+          ticking: tickingVal,
+        },
+        venue: { name: activity.venue?.name || null },
+        startingAt: { time: activity.starting_at_time || null, ampm: activity.starting_at_ampm || null },
+        colors: {
+          home: home.color || "#FF6B35",
+          away: away.color || "#F7931E",
+          blended: "#FFD23F",
+        },
+      };
+
+      // simple payload hash dedupe to avoid unnecessary APNs calls
+      try {
+        const hash = JSON.stringify({ state, minute: props.status?.minute ?? null, seconds: props.status?.seconds ?? null, scores: [props.home.score, props.away.score] });
+        if (monitor.lastHash && monitor.lastHash === hash) {
+          // nothing changed
+          // but continue to allow ticking-driven periodic pushes (handled below)
+        } else {
+          monitor.lastHash = hash;
+        }
+      } catch (e) {}
+
+      // periodic ticking updates: when the period is ticking send lightweight updates (rate-limited)
+      try {
+        const isTicking = props.status?.ticking === true;
+        const TICK_INTERVAL_MS = 30 * 1000; // send every ~30s in production (recommend 15-30s; 30s safer)
+        if (isTicking) {
+          const activityTokens = opts.fixtureId ? await getActivityTokensForFixture(opts.fixtureId) : [];
+          if (activityTokens && activityTokens.length > 0) {
+            if (!monitor.lastTickPush || Date.now() - monitor.lastTickPush >= TICK_INTERVAL_MS) {
+              try {
+                await sendToAPNs(activityTokens, {
+                  aps: {
+                    event: "update",
+                    "content-state": {
+                      name: opts.name,
+                      props: JSON.stringify(props),
+                    },
+                    timestamp: Math.floor(Date.now() / 1000),
+                  },
+                });
+                monitor.lastTickPush = Date.now();
+                // also mark as a push for rate limiting other events
+                monitor.lastPushAt = monitor.lastPushAt || Date.now();
+              } catch (e) {}
+            }
+          }
+        }
+      } catch (e) {}
+
+      // detect first-half (1ST) -> send start-with-alert if not yet alerted
+      if (!monitor.alertedStart && /1ST|FIRST/i.test(state)) {
+        monitor.alertedStart = true;
+        // only send to activity instance tokens (do not fallback)
+        const activityTokens = opts.fixtureId ? await getActivityTokensForFixture(opts.fixtureId) : [];
+        if (activityTokens && activityTokens.length > 0) {
+          monitor.started = true;
+          try {
+            if (!monitor.lastPushAt || Date.now() - monitor.lastPushAt >= 5000) {
+              await sendStartWithAlert(activityTokens, opts.name, props, "Match started", `${activity.participants?.[0]?.name || "Home"} vs ${activity.participants?.[1]?.name || "Away"} kicked off`);
+              monitor.lastPushAt = Date.now();
+            }
+          } catch (e) {}
+        }
+      }
+
+      // detect HT — use activity instance tokens (instance.getPushToken()) for updates
+      if (/HT|HALF/i.test(state) && monitor.lastState !== state) {
+        // only send to activity instance tokens (do not fallback)
+        const activityTokens = opts.fixtureId ? await getActivityTokensForFixture(opts.fixtureId) : [];
+        if (activityTokens && activityTokens.length > 0) {
+          try {
+            if (!monitor.lastPushAt || Date.now() - monitor.lastPushAt >= 5000) {
+              await sendUpdateWithAlert(activityTokens, opts.name, props, "Half Time", "Match is at half time");
+              monitor.lastPushAt = Date.now();
+            }
+          } catch (e) {}
+        }
+      }
+
+      // detect score changes (goals)
+      const newScores = {};
+      for (const s of (activity.scores || [])) {
+        const g = s.score?.goals ?? null;
+        const p = String(s.score?.participant || "unknown");
+        newScores[p] = g;
+      }
+      if (monitor.lastScores) {
+        for (const p of Object.keys(newScores)) {
+          const prev = monitor.lastScores[p] ?? null;
+          const curr = newScores[p];
+          if (prev != null && curr != null && curr > prev) {
+            // goal for participant p — send to activity instance tokens
+            const activityTokens = opts.fixtureId ? await getActivityTokensForFixture(opts.fixtureId) : [];
+            if (activityTokens && activityTokens.length > 0) {
+              try {
+                if (!monitor.lastPushAt || Date.now() - monitor.lastPushAt >= 5000) {
+                  await sendUpdateWithAlert(activityTokens, opts.name, props, "GOAL ⚽", `Score changed: ${curr}`);
+                  monitor.lastPushAt = Date.now();
+                }
+              } catch (e) {}
+            }
+          }
+        }
+      }
+      monitor.lastScores = newScores;
+
+      // detect end — send end to activity instance tokens (preferred)
+      if (/FT|AET|FT_PEN|POSTP|CANC|ABAN|WALKOVER|POSTPONED|CANCELLED|CANCELL?ED/i.test(state)) {
+        const activityTokens = opts.fixtureId ? await getActivityTokensForFixture(opts.fixtureId) : [];
+        if (activityTokens && activityTokens.length > 0) {
+          try {
+            if (!monitor.lastPushAt || Date.now() - monitor.lastPushAt >= 2000) {
+              await sendEnd(activityTokens, opts.name, props);
+              monitor.lastPushAt = Date.now();
+            }
+          } catch (e) {}
+        }
+        // stop monitor
+        stop();
+      }
+      // update lastState after processing
+      monitor.lastState = state;
+      // rate limit marker for monitor pushes
+      monitor.lastPushAt = Date.now();
+    } catch (e) {
+      // ignore poll errors
+    }
+  }
+
+  // schedule polling (30s to reduce APNs pressure)
+  monitor.intervalId = setInterval(pollOnce, 30 * 1000);
+
+  // schedule start-no-alert 30 minutes before starting_at if provided
+  try {
+      if (opts.starting_at) {
+      const startMs = Date.parse(opts.starting_at);
+      const when = startMs - 30 * 60 * 1000; // 30 min before
+      const now = Date.now();
+      if (when <= now) {
+        // start now silently — only if activity tokens exist
+        (async () => {
+          try {
+            const activityTokens = await getActivityTokensForFixture(opts.fixtureId);
+            if (activityTokens && activityTokens.length > 0) {
+              monitor.started = true;
+              const activityNow = await fetchLiveActivityForFixture(opts.fixtureId);
+              const startProps = activityNow ? { startingAt: activityNow.starting_at, status: { short_name: activityNow.state } } : opts.props || {};
+              await sendStartNoAlert(activityTokens, opts.name, startProps);
+            }
+          } catch (e) {}
+        })();
+      } else {
+        const t = setTimeout(async () => {
+          try {
+            const activityTokens = await getActivityTokensForFixture(opts.fixtureId);
+            if (activityTokens && activityTokens.length > 0) {
+              monitor.started = true;
+              const activityNow = await fetchLiveActivityForFixture(opts.fixtureId);
+              const startProps = activityNow ? { startingAt: activityNow.starting_at, status: { short_name: activityNow.state } } : opts.props || {};
+              await sendStartNoAlert(activityTokens, opts.name, startProps);
+            }
+          } catch (e) {}
+        }, when - now);
+        monitor.timers.push(t);
+      }
+
+      // schedule end at start + 2.5 hours; if still live then delay for 30 minutes
+      const endAt = startMs + Math.floor(2.5 * 60 * 60 * 1000);
+      const endDelay = Math.max(0, endAt - Date.now());
+      const endTimer = setTimeout(async () => {
+        // check state and either end or reschedule 30m later
+        const activity = await fetchLiveActivityForFixture(opts.fixtureId);
+        const state = (activity?.state || "").toString().toUpperCase();
+          if (/FT|AET|FT_PEN|POSTP|CANC|ABAN|WALKOVER|POSTPONED|CANCELLED|CANCELL?ED/i.test(state)) {
+          try {
+            const activityTokens = await getActivityTokensForFixture(opts.fixtureId);
+            if (activityTokens && activityTokens.length > 0) {
+              const activityNow = await fetchLiveActivityForFixture(opts.fixtureId);
+              const endProps = activityNow ? { status: { short_name: activityNow.state } } : opts.props || {};
+              await sendEnd(activityTokens, opts.name, endProps).catch(() => {});
+            }
+          } catch (e) {}
+        } else {
+          // still live -> delay 30 minutes
+          const t2 = setTimeout(async () => {
+            try {
+              const activityTokens2 = await getActivityTokensForFixture(opts.fixtureId);
+              if (activityTokens2 && activityTokens2.length > 0) await sendEnd(activityTokens2, opts.name, opts.props).catch(() => {});
+            } catch (e) {}
+          }, 30 * 60 * 1000);
+          monitor.timers.push(t2);
+        }
+      }, endDelay);
+      monitor.timers.push(endTimer);
+    }
+  } catch (e) {}
+
+  function stop() {
+    if (monitor.intervalId) clearInterval(monitor.intervalId);
+    for (const t of monitor.timers) clearTimeout(t);
+    liveActivityMonitors.delete(key);
+  }
+
+  monitor.stop = stop;
+  liveActivityMonitors.set(key, monitor);
+  // run an immediate poll to initialize lastScores
+  pollOnce().catch(() => {});
+  return monitor;
+}
+
+// POST /live-activity/start
+// Body: { bundleId, name, props, alert? }
+// Uses stored push-to-start token for the app (bundleId) and builds the APNs start payload.
+app.post("/live-activity/start", async (req, res) => {
+  // Deprecated: starting Live Activities remotely conflicts with local-start image access
+  // and can produce duplicate activities. Prefer the local-start + register-activity-token
+  // flow where the app starts the activity (hidden) and the server sends updates/end.
+  return res.status(410).json({
+    ok: false,
+    error:
+      "/live-activity/start is deprecated. Start locally and register the activity token via /live-activity/register-activity-token",
+  });
+});
+
+// POST /live-activity/update
+// Body: { deviceToken, name, props, timestamp? }
+// Sends an update event to a live activity instance (use instance push token returned by instance.getPushToken())
+app.post("/live-activity/update", async (req, res) => {
+  try {
+    const { deviceToken, name, props, timestamp } = req.body || {};
+    if (!deviceToken || !name)
+      return res.status(400).json({ error: "deviceToken and name required" });
+
+    const payload = {
+      aps: {
+        event: "update",
+        "content-state": {
+          name,
+          props:
+            typeof props === "string" ? props : JSON.stringify(props || {}),
+        },
+        timestamp: timestamp
+          ? Math.floor(Number(timestamp))
+          : Math.floor(Date.now() / 1000),
+      },
+    };
+
+    const forwarded = await forwardToProvider(deviceToken, payload);
+    if (forwarded)
+      return res.json({ ok: true, forwarded: true, response: forwarded });
+    return res.json({ ok: true, forwarded: false, deviceToken, payload });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /live-activity/register-for-fixture
+// Body: { fixtureId, token }
+// Allows apps to register a device's push-to-start token specifically for a fixture.
+app.post("/live-activity/register-for-fixture", (req, res) => {
+  try {
+    const { fixtureId, token } = req.body || {};
+    if (!fixtureId || !token) return res.status(400).json({ error: "fixtureId and token required" });
+    addFixturePushToken(fixtureId, token)
+      .then(() => res.json({ ok: true }))
+      .catch((e) => res.status(500).json({ error: e?.message || String(e) }));
+  } catch (e) {
+    res.status(500).json({ error: e?.message || String(e) });
+  }
+});
+
+// POST /live-activity/register-activity-token
+// Body: { fixtureId, token }
+// Apps should call this after starting a Live Activity locally and obtaining
+// the instance push token via `instance.getPushToken()` so the server can
+// send updates and end signals to the correct activity instances.
+app.post("/live-activity/register-activity-token", (req, res) => {
+  try {
+    const { fixtureId, token } = req.body || {};
+    if (!fixtureId || !token) return res.status(400).json({ error: "fixtureId and token required" });
+    addActivityToken(fixtureId, token)
+      .then(() => {
+        // start monitoring this fixture so server-driven updates will run
+        try {
+          startLiveActivityMonitor({ fixtureId, name: "FootballLiveActivity" });
+        } catch (e) {}
+        // send an immediate full update to the newly-registered activity token so the UI appears promptly
+        (async () => {
+          try {
+            const tokens = await getActivityTokensForFixture(fixtureId);
+            if (tokens && tokens.length > 0) {
+              const activity = await fetchLiveActivityForFixture(fixtureId);
+              const participants = Array.isArray(activity?.participants) ? activity.participants : [];
+              const home = participants[0] || {};
+              const away = participants[1] || {};
+              // build safer props for immediate update (include seconds/ticking when available)
+              const scoreMapNow = {};
+              for (const s of (activity?.scores || [])) {
+                const pid = String(s.score?.participant || "unknown");
+                scoreMapNow[pid] = s.score?.goals ?? null;
+              }
+              const currentPeriodNow = Array.isArray(activity?.periods) && activity.periods.length > 0 ? activity.periods[0] : null;
+              const minuteNow = currentPeriodNow?.minutes ?? activity?.minute ?? activity?.elapsed ?? null;
+              const secondsNow = currentPeriodNow?.seconds ?? null;
+              const tickingNow = currentPeriodNow?.ticking === true;
+              const leagueNow = activity?.league
+                ? {
+                    id: activity.league.id ?? null,
+                    name: activity.league.name ?? null,
+                    image_path: activity.league.image_path ?? null,
+                    country: activity.league.country
+                      ? {
+                          name: activity.league.country.name ?? null,
+                          image_path: activity.league.country.image_path ?? null,
+                        }
+                      : null,
+                  }
+                : activity?.competition
+                ? {
+                    id: activity.competition.id ?? null,
+                    name: activity.competition.name ?? null,
+                    image_path: activity.competition.logo ?? null,
+                    country: null,
+                  }
+                : null;
+
+              const props = {
+                home: { name: home.name || null, shortName: home.shortName || home.abbr || null, score: (scoreMapNow[String(home.id)] ?? scoreMapNow[String(home.id_text)] ?? home.score ?? 0), logo: home.logo || null },
+                away: { name: away.name || null, shortName: away.shortName || away.abbr || null, score: (scoreMapNow[String(away.id)] ?? scoreMapNow[String(away.id_text)] ?? away.score ?? 0), logo: away.logo || null },
+                league: leagueNow,
+                status: { short_name: activity?.state || null, text: activity?.state_text || null, minute: minuteNow, seconds: secondsNow, ticking: tickingNow },
+                venue: { name: activity?.venue?.name || null },
+              };
+              try { await sendUpdateWithAlert(tokens, "FootballLiveActivity", props, "Live", "Now tracking"); } catch (e) {}
+            }
+          } catch (e) {}
+        })();
+        res.json({ ok: true });
+      })
+      .catch((e) => res.status(500).json({ error: e?.message || String(e) }));
+  } catch (e) {
+    res.status(500).json({ error: e?.message || String(e) });
+  }
+});
+
+// GET /live-activity/metrics — return simple push metrics
+app.get("/live-activity/metrics", (_req, res) => {
+  res.json({ pushMetrics });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

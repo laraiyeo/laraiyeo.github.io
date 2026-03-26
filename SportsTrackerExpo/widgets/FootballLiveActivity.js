@@ -6,6 +6,7 @@ import {
   ZStack,
   Rectangle,
   Circle,
+  Image,
 } from "@expo/ui/swift-ui";
 import {
   frame,
@@ -14,6 +15,8 @@ import {
   font,
   lineLimit,
   multilineTextAlignment,
+  widgetURL,
+  resizable,
 } from "@expo/ui/swift-ui/modifiers";
 import { createLiveActivity } from "expo-widgets";
 
@@ -53,8 +56,9 @@ const FootballLiveActivity = (props) => {
   const getStatusInfo = (statusProp, startingAtProp) => {
     const code = (statusProp?.short_name || "").toUpperCase();
     const long = statusProp?.text || "";
-    const minute =
-      statusProp?.minute || statusProp?.elapsed || statusProp?.m || null;
+    const minute = statusProp?.minute || statusProp?.elapsed || statusProp?.m || null;
+    const seconds = statusProp?.seconds ?? null;
+    const ticking = statusProp?.ticking === true;
 
     const isFinished = [
       "FT",
@@ -77,12 +81,14 @@ const FootballLiveActivity = (props) => {
 
     if (isLive) {
       if (minute != null && minute !== "") {
+        const secText = seconds != null ? `:${String(seconds).padStart(2, "0")}` : "";
         return {
-          line1: `${minute}'`,
+          line1: `${minute}${secText}`,
           line2: long || code || "LIVE",
           isLive: true,
           isFinished: false,
           isScheduled: false,
+          ticking,
         };
       }
       return {
@@ -91,6 +97,7 @@ const FootballLiveActivity = (props) => {
         isLive: true,
         isFinished: false,
         isScheduled: false,
+        ticking,
       };
     }
 
@@ -115,11 +122,18 @@ const FootballLiveActivity = (props) => {
     };
   };
 
+  const widgetLink =
+    (props && (props.url || props.widgetUrl || props.widgetURL)) ||
+    (props && (props.id || props.fixtureId)
+      ? `sportsheart://football/fixture/${props.id || props.fixtureId}`
+      : null);
+  const zModifiers = widgetLink ? [widgetURL(widgetLink)] : [];
+
   const statusInfo = getStatusInfo(status, props.startingAt);
 
   return {
     banner: (
-      <ZStack>
+      <ZStack modifiers={zModifiers}>
         <VStack>
           <Rectangle
             modifiers={[
@@ -140,33 +154,50 @@ const FootballLiveActivity = (props) => {
         ,
         <VStack spacing={5} modifiers={[padding({ top: 15 })]}>
           <VStack>
-            <Text
-              modifiers={[
-                font({ size: 12, weight: "light", family: "Helvetica" }),
-                frame({ alignment: "center" }),
-              ]}
-            >
-              {venue.name} · {league.name}
-            </Text>
+            <HStack alignment="center" spacing={6}>
+              {league.logo ? (
+                <Image
+                  uiImage={league.logo}
+                  modifiers={[resizable(), frame({ width: 14, height: 14 })]}
+                />
+              ) : null}
+              <Text
+                modifiers={[
+                  font({ size: 12, weight: "light", family: "Helvetica" }),
+                  frame({ alignment: "center" }),
+                ]}
+              >
+                {venue.name} · {league.name}
+              </Text>
+            </HStack>
           </VStack>
 
           <HStack alignment="center">
             <ZStack alignment="center">
+              {!home.logo ? (
               <Circle
                 modifiers={[
                   frame({ width: 45, height: 45 }),
                   foregroundStyle({ color: colors.home }),
                 ]}
               />
-              <Text
-                modifiers={[
-                  foregroundStyle(getTextOnColor(colors.home)),
-                  font({ weight: "bold", size: 15 }),
-                  frame({ alignment: "center" }),
-                ]}
-              >
-                {home.shortName}
-              </Text>
+              ) : null}
+              {home.logo ? (
+                <Image
+                  uiImage={home.logo}
+                  modifiers={[resizable(), frame({ width: 45, height: 45 })]}
+                />
+              ) : (
+                <Text
+                  modifiers={[
+                    foregroundStyle(getTextOnColor(colors.home)),
+                    font({ weight: "bold", size: 15 }),
+                    frame({ alignment: "center" }),
+                  ]}
+                >
+                  {home.shortName}
+                </Text>
+              )}
             </ZStack>
             {statusInfo.isScheduled ? (
               <HStack alignment="center" spacing={2.5}>
@@ -218,21 +249,30 @@ const FootballLiveActivity = (props) => {
               </HStack>
             )}
             <ZStack alignment="center">
+              {!away.logo ? (
               <Circle
                 modifiers={[
                   frame({ width: 45, height: 45 }),
                   foregroundStyle({ color: colors.away }),
                 ]}
               />
-              <Text
-                modifiers={[
-                  foregroundStyle(getTextOnColor(colors.away)),
-                  font({ weight: "bold", size: 15 }),
-                  frame({ alignment: "center" }),
-                ]}
-              >
-                {away.shortName}
-              </Text>
+              ) : null}
+              {away.logo ? (
+                <Image
+                  uiImage={away.logo}
+                  modifiers={[resizable(), frame({ width: 45, height: 45 })]}
+                />
+              ) : (
+                <Text
+                  modifiers={[
+                    foregroundStyle(getTextOnColor(colors.away)),
+                    font({ weight: "bold", size: 15 }),
+                    frame({ alignment: "center" }),
+                  ]}
+                >
+                  {away.shortName}
+                </Text>
+              )}
             </ZStack>
           </HStack>
 
@@ -245,48 +285,62 @@ const FootballLiveActivity = (props) => {
               modifiers={[
                 lineLimit(2),
                 multilineTextAlignment("center"),
-                font({ weight: home.winner ? "bold" : !statusInfo.isFinished ? "bold" : "light", size: 12 }),
+                font({
+                  weight: home.winner
+                    ? "bold"
+                    : !statusInfo.isFinished
+                      ? "bold"
+                      : "light",
+                  size: 12,
+                }),
                 frame({ maxWidth: 100, alignment: "center" }),
               ]}
             >
               {home.name}
             </Text>
             {statusInfo.isScheduled ? (
-            <VStack style={{ alignItems: "center" }}>
-              <Text
-                modifiers={[
-                  font({ weight: "bold" }),
-                  frame({ maxWidth: 100, alignment: "center" }),
-                ]}
-              >
-                UPCOMING
-              </Text>
-            </VStack>
+              <VStack style={{ alignItems: "center" }}>
+                <Text
+                  modifiers={[
+                    font({ weight: "bold" }),
+                    frame({ maxWidth: 100, alignment: "center" }),
+                  ]}
+                >
+                  UPCOMING
+                </Text>
+              </VStack>
             ) : (
-            <VStack style={{ alignItems: "center" }}>
-              <Text
-                modifiers={[
-                  font({ weight: "bold" }),
-                  frame({ maxWidth: 100, alignment: "center" }),
-                ]}
-              >
-                {statusInfo.line1}
-              </Text>
-              <Text
-                modifiers={[
-                  font({ size: 11, weight: "light" }),
-                  frame({ maxWidth: 100, alignment: "center" }),
-                ]}
-              >
-                {statusInfo.line2}
-              </Text>
-            </VStack>
+              <VStack style={{ alignItems: "center" }}>
+                <Text
+                  modifiers={[
+                    font({ weight: "bold" }),
+                    frame({ maxWidth: 100, alignment: "center" }),
+                  ]}
+                >
+                  {statusInfo.line1}
+                </Text>
+                <Text
+                  modifiers={[
+                    font({ size: 11, weight: "light" }),
+                    frame({ maxWidth: 100, alignment: "center" }),
+                  ]}
+                >
+                  {statusInfo.line2}
+                </Text>
+              </VStack>
             )}
             <Text
               modifiers={[
                 lineLimit(2),
                 multilineTextAlignment("center"),
-                font({ weight: away.winner ? "bold" : !statusInfo.isFinished ? "bold" : "light", size: 12 }),
+                font({
+                  weight: away.winner
+                    ? "bold"
+                    : !statusInfo.isFinished
+                      ? "bold"
+                      : "light",
+                  size: 12,
+                }),
                 frame({ maxWidth: 100, alignment: "center" }),
               ]}
             >
@@ -298,7 +352,7 @@ const FootballLiveActivity = (props) => {
     ),
 
     compactLeading: <Text>{home.name}</Text>,
-    compactTrailing: <Text>{home.name}</Text>,
+    compactTrailing: <Text>{away.name}</Text>,
     minimal: <Text>{home.name}</Text>,
   };
 };

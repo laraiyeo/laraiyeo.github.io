@@ -82,6 +82,7 @@ import {
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 import { Image } from "expo-image";
+import { File, Paths } from "expo-file-system";
 import { WebView } from "react-native-webview";
 import Svg, {
   Defs,
@@ -11494,35 +11495,89 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
 
   const toggleFavorite = async () => {
     try {
+      const APP_GROUP = "group.com.sportsheart.app";
+      const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+      const cleanupOldImages = async () => {
+        try {
+          const dir = Paths.appleSharedContainers[APP_GROUP];
+          const files = await File.listAsync(dir);
+
+          const now = Date.now();
+
+          await Promise.all(
+            files.map(async (fileName) => {
+              try {
+                const file = new File(dir, fileName);
+                const info = await file.infoAsync();
+
+                if (info.exists && info.modificationTime) {
+                  const age = now - info.modificationTime * 1000;
+
+                  if (age > TTL_MS) {
+                    await file.deleteAsync();
+                  }
+                }
+              } catch {}
+            }),
+          );
+        } catch (e) {
+          console.warn("cleanupOldImages failed", e);
+        }
+      };
+
+      const downloadImageToShared = async (url, filename) => {
+        if (!url) return null;
+
+        try {
+          const dir = Paths.appleSharedContainers[APP_GROUP];
+
+          const file = await File.downloadFileAsync(url, dir, {
+            idempotent: true,
+            filename,
+          });
+
+          return file.uri;
+        } catch (e) {
+          console.warn("Image download failed", e);
+          return null;
+        }
+      };
+
       const id = fixture?.id;
       if (!id) return;
+
       const key = `@fav_fixture:${id}`;
+
       if (isFavorited) {
         await AsyncStorage.removeItem(key);
         setIsFavorited(false);
         DeviceEventEmitter.emit("favoritesChanged", { id, fav: false });
-        try {
-          // signal LiveActivityController (if mounted) to toggle
-          navigation.setParams({
-            liveActivityToggleId: (route.params?.liveActivityToggleId ?? 0) + 1,
-            fixtureId: id,
-          });
-        } catch (e) {
-          // ignore
-        }
+
+        navigation.setParams({
+          liveActivityToggleId: (route.params?.liveActivityToggleId ?? 0) + 1,
+          fixtureId: id,
+        });
       } else {
         await AsyncStorage.setItem(key, JSON.stringify({ id, ts: Date.now() }));
+
         setIsFavorited(true);
         DeviceEventEmitter.emit("favoritesChanged", { id, fav: true });
+
         try {
-          // Start Live Activity immediately when newly favorited
           if (FootballLiveActivity) {
+            // 🧹 cleanup old images (TTL)
+            await cleanupOldImages();
+
+            // 🎨 blend colors
             const blendHexColors = (a, b) => {
               try {
                 if (!a || !b) return a || b || null;
+
                 const norm = (h) => h.replace(/^#/, "");
                 const pa = norm(String(a));
                 const pb = norm(String(b));
+
                 const parse = (p) => {
                   if (p.length === 3) {
                     return p.split("").map((c) => parseInt(c + c, 16));
@@ -11533,46 +11588,71 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                     parseInt(p.slice(4, 6), 16),
                   ];
                 };
+
                 const ra = parse(pa);
                 const rb = parse(pb);
+
                 const rc = [
                   Math.round((ra[0] + rb[0]) / 2),
                   Math.round((ra[1] + rb[1]) / 2),
                   Math.round((ra[2] + rb[2]) / 2),
                 ];
+
                 const toHex = (n) => n.toString(16).padStart(2, "0");
+
                 return `#${toHex(rc[0])}${toHex(rc[1])}${toHex(rc[2])}`;
-              } catch (e) {
+              } catch {
                 return a || b || null;
               }
             };
 
             const blendedColor = blendHexColors(homeColor, awayColor);
 
+            // 🖼 download images
+            const homeLogoUri = await downloadImageToShared(
+              home?.image_path,
+              `home_${id}.png`,
+            );
+
+            const awayLogoUri = await downloadImageToShared(
+              away?.image_path,
+              `away_${id}.png`,
+            );
+
+            // league logo (if present)
+            const leagueLogoUri = await downloadImageToShared(
+              fixture?.league?.image_path || fixture?.league?.logo || null,
+              `league_${id}.png`,
+            );
+
             const payload = {
               home: {
                 name: home?.name ?? "",
                 shortName:
                   home?.short_code ??
-                  home?.name.toUpperCase().slice(0, 3) ??
+                  home?.name?.toUpperCase().slice(0, 3) ??
                   "",
                 score: homeScore ?? 0,
-                winner: home.meta.winner,
+                winner: home?.meta?.winner,
+                logo: homeLogoUri,
               },
               away: {
                 name: away?.name ?? "",
                 shortName:
                   away?.short_code ??
-                  away?.name.toUpperCase().slice(0, 3) ??
+                  away?.name?.toUpperCase().slice(0, 3) ??
                   "",
                 score: awayScore ?? 0,
-                winner: away.meta.winner,
+                winner: away?.meta?.winner,
+                logo: awayLogoUri,
               },
               status: fixture?.state
                 ? { short_name: fixture.state.short_name }
                 : { short_name: "SCHEDULED" },
               startingAt: formatFixtureTime(fixture),
-              league: fixture?.league ?? null,
+              league: fixture?.league
+                ? { ...fixture.league, logo: leagueLogoUri }
+                : null,
               venue: fixture?.venue ?? null,
               colors: {
                 home: homeColor ?? null,
@@ -11580,35 +11660,65 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                 blended: blendedColor,
               },
             };
-            const url = `app://football/fixture/${id}`;
+
+            const url = `sportsheart://football/fixture/${id}`;
+
+            // Start locally but hidden so server can reveal/update later.
+            const instance = await FootballLiveActivity.start({
+              ...payload,
+              // force a scheduled appearance until server activates
+              status: { short_name: "SCHEDULED" },
+              url,
+              fixtureId: id,
+              id,
+              hidden: true,
+            });
+
+            setActivityInstance(instance);
+            setLiveActivityActive(true);
+
+            // Register the per-activity push token with backend so server can send updates/end
             try {
-              const instance = await FootballLiveActivity.start(payload, url);
-              setActivityInstance(instance);
-              setLiveActivityActive(true);
-            } catch (startErr) {
-              console.warn(
-                "[Top5GameDetails] LiveActivity.start failed",
-                startErr,
-              );
+              const pushToken = await instance.getPushToken();
+              if (pushToken) {
+                await fetch(`${API_URL}/live-activity/register-activity-token`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ fixtureId: id, token: pushToken }),
+                });
+              }
+              try {
+                const sub = instance.addPushTokenListener(async (ev) => {
+                  try {
+                    const newToken = ev?.pushToken;
+                    if (newToken) {
+                      await fetch(`${API_URL}/live-activity/register-activity-token`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ fixtureId: id, token: newToken }),
+                      });
+                    }
+                  } catch (e) {
+                    console.warn("Failed to re-register activity token", e?.message || e);
+                  }
+                });
+                instance._activityPushTokenSub = sub;
+              } catch (e) {}
+            } catch (e) {
+              console.warn("Live activity token registration failed", e?.message || e);
             }
           }
         } catch (e) {
-          console.warn(
-            "[Top5GameDetails] start live activity attempt failed",
-            e,
-          );
+          console.warn("Live activity start failed", e);
         }
-        try {
-          navigation.setParams({
-            liveActivityToggleId: (route.params?.liveActivityToggleId ?? 0) + 1,
-            fixtureId: id,
-          });
-        } catch (e) {
-          // ignore
-        }
+
+        navigation.setParams({
+          liveActivityToggleId: (route.params?.liveActivityToggleId ?? 0) + 1,
+          fixtureId: id,
+        });
       }
     } catch (e) {
-      console.warn("[Top5GameDetails] toggle favorite failed", e);
+      console.warn("toggle favorite failed", e);
     }
   };
 

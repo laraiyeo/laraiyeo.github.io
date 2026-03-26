@@ -31,10 +31,26 @@ export default function FootballLiveActivityController() {
 
       console.log("[Controller] Payload to start activity:", payload);
 
-      const url = `app://football/fixture/${fixtureId}`;
-      console.log("[Controller] Deep link URL:", url);
+      const url = `sportsheart://football/fixture/${fixtureId}`;
+      console.log("[Controller] Deep link URL (using app scheme):", url);
 
-      const instance = await FootballLiveActivity.start(payload, url);
+      // Also log the payload and intended deep link for debugging in the native widget
+      console.log(
+        "[Controller] Starting FootballLiveActivity with payload and url",
+        {
+          payload,
+          url,
+        },
+      );
+
+      // Start locally but hidden so server can reveal when appropriate
+      const instance = await FootballLiveActivity.start({
+        ...payload,
+        url,
+        fixtureId: fixtureId,
+        id: fixtureId,
+        hidden: true,
+      });
       console.log("[Controller] Live Activity started. Instance:", instance);
 
       // Optional: Immediately update to verify update path works
@@ -50,6 +66,43 @@ export default function FootballLiveActivityController() {
 
       setActivityInstance(instance);
       setLiveActivityActive(true);
+
+      // Register the per-activity push token with our backend so server can send updates/end
+      try {
+        const pushToken = await instance.getPushToken();
+        console.log("[Controller] activity push token:", pushToken);
+        if (pushToken) {
+          await fetch(`${API_URL}/live-activity/register-activity-token`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fixtureId: fixtureId, token: pushToken }),
+          });
+        }
+        // Subscribe to token updates for this instance and re-register if it changes
+        try {
+          const sub = instance.addPushTokenListener(async (ev) => {
+            try {
+              const newToken = ev?.pushToken;
+              if (newToken) {
+                console.log("[Controller] instance push token updated:", newToken);
+                await fetch(`${API_URL}/live-activity/register-activity-token`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ fixtureId: fixtureId, token: newToken }),
+                });
+              }
+            } catch (e) {
+              console.warn("Failed to re-register activity token", e?.message || e);
+            }
+          });
+          // store subscription to remove later with the instance
+          instance._activityPushTokenSub = sub;
+        } catch (e) {
+          // addPushTokenListener may not be available on all SDKs — ignore
+        }
+      } catch (e) {
+        console.warn("Failed to get/register activity push token:", e?.message || e);
+      }
 
       console.log("[Controller] Live activity state updated: active = true");
     } catch (err) {

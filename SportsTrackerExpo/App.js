@@ -9,6 +9,8 @@ import { createStackNavigator } from "@react-navigation/stack";
 import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import * as ExpoSplashScreen from "expo-splash-screen";
+import * as Linking from "expo-linking";
+import { navigationRef } from "./src/navigationRef";
 
 // Import SplashScreen component
 import SplashScreen from "./src/components/SplashScreen";
@@ -26,6 +28,10 @@ import {
 } from "./src/context/AppSettingsContext";
 import { BetDataProvider } from "./src/context/BetDataContext";
 import { OddsDisplayProvider } from "./src/context/OddsDisplayContext";
+
+import * as Notifications from "expo-notifications";
+import { addPushToStartTokenListener } from "expo-widgets";
+import { API_URL } from "./src/services/notificationService";
 
 // Import Analytics Service
 import analyticsService from "./src/services/AnalyticsService";
@@ -448,19 +454,19 @@ const HomeTabNavigator = () => {
         }}
       />
       {showTab && (
-      <Tab.Screen
-        name="Picks"
-        component={BetLoginScreen}
-        options={{
-          title: "Picks",
-          headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.primary,
-          },
-          headerTintColor: "#fff",
-          headerTitle: (props) => <HeaderTitle {...props} />,
-        }}
-      />
+        <Tab.Screen
+          name="Picks"
+          component={BetLoginScreen}
+          options={{
+            title: "Picks",
+            headerShown: true,
+            headerStyle: {
+              backgroundColor: colors.primary,
+            },
+            headerTintColor: "#fff",
+            headerTitle: (props) => <HeaderTitle {...props} />,
+          }}
+        />
       )}
       <Tab.Screen
         name="Settings"
@@ -1048,7 +1054,21 @@ const MainStackNavigator = () => {
         headerBackTitle: "Back", // Always show "Back" instead of previous screen name
         headerLeft: (props) => (
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              try {
+                if (
+                  navigation &&
+                  typeof navigation.canGoBack === "function" &&
+                  navigation.canGoBack()
+                ) {
+                  navigation.goBack();
+                } else {
+                  navigation.navigate("Home");
+                }
+              } catch (e) {
+                navigation.navigate("Home");
+              }
+            }}
             onLongPress={() => navigation.navigate("Home")}
             delayLongPress={500}
             hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}
@@ -1121,9 +1141,9 @@ const MainStackNavigator = () => {
             sport?.toLowerCase() === "dota2" ||
             sport?.toLowerCase() === "lol"
               ? "ESPORTS"
-            : sport?.toLowerCase() === "soccer"
-              ? "FOOTBALL"
-              : sport.toUpperCase();
+              : sport?.toLowerCase() === "soccer"
+                ? "FOOTBALL"
+                : sport.toUpperCase();
           return {
             headerShown: true, // Always show header for sports
             title: title,
@@ -2238,6 +2258,34 @@ const AppContent = () => {
       require("react-native").InteractionManager.runAfterInteractions(() => {
         // Start all background initialization tasks
         initializeBackgroundServices();
+
+        // Register a listener for push-to-start tokens (expo-widgets)
+        // When received, POST to our server to register the app-wide push-to-start token
+        let pushToStartSub = null;
+        try {
+          pushToStartSub = addPushToStartTokenListener(async (event) => {
+            try {
+              const token = event?.activityPushToStartToken;
+              if (!token) return;
+              console.log("Received push-to-start token:", token);
+              await fetch(`${API_URL}/live-activity/register-push-to-start`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ bundleId: "com.sportsheart.app", token }),
+              });
+            } catch (e) {
+              console.warn("Failed to register push-to-start token", e?.message || e);
+            }
+          });
+        } catch (e) {
+          console.warn("addPushToStartTokenListener not available", e?.message || e);
+        }
+
+        return () => {
+          try {
+            if (pushToStartSub && typeof pushToStartSub.remove === "function") pushToStartSub.remove();
+          } catch (e) {}
+        };
       });
 
     return () => handle.cancel();
@@ -2378,13 +2426,115 @@ const AppContent = () => {
 
     hideSplash();
   }, []);
+  // Minimal deep linking config so incoming URLs like
+  // `sportsheart://football/fixture/<id>` navigate to the Top5 game detail screen.
+  const linking = {
+    prefixes: ["sportsheart://"],
+    config: {
+      screens: {
+        Top5GameDetail: "football/fixture/:fixtureId",
+      },
+    },
+  };
+
+  // Ensure any initial URL used to launch the app is handled even on cold start.
+  useEffect(() => {
+    let mounted = true;
+
+    const handleInitialUrl = async () => {
+      console.log("[DeepLink] handleInitialUrl start");
+      try {
+        const url = await Linking.getInitialURL();
+        console.log("[DeepLink] initial url:", url);
+        if (!url) return;
+
+        const { path } = Linking.parse(url);
+        console.log("[DeepLink] parsed path:", path);
+        if (!path) return;
+
+        const navigateToFixture = (p) => {
+          if (p.startsWith("football/fixture/")) {
+            const fixtureId = p.split("/").pop();
+            if (fixtureId) {
+              console.log("[DeepLink] will navigate to fixtureId:", fixtureId);
+              navigationRef.navigate("Top5GameDetail", { fixtureId });
+            }
+          }
+        };
+
+        console.log(
+          "[DeepLink] navigationRef.isReady?",
+          navigationRef.isReady && navigationRef.isReady(),
+        );
+
+        if (navigationRef.isReady && navigationRef.isReady()) {
+          navigateToFixture(path);
+          return;
+        }
+
+        // If navigation not ready yet, wait until ready then navigate
+        await new Promise((resolve) => {
+          const check = () => {
+            if (navigationRef.isReady && navigationRef.isReady())
+              return resolve();
+            setTimeout(check, 50);
+          };
+          check();
+        });
+
+        if (mounted) navigateToFixture(path);
+      } catch (e) {
+        if (__DEV__) console.warn("Initial URL handling failed:", e);
+      }
+    };
+
+    handleInitialUrl();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Listen for incoming deep links while the app is running (resume / background)
+  useEffect(() => {
+    const handler = ({ url }) => {
+      try {
+        console.log("[DeepLink] Linking event url received:", url);
+        const { path } = Linking.parse(url || "");
+        if (path && path.startsWith("football/fixture/")) {
+          const fixtureId = path.split("/").pop();
+          console.log("[DeepLink] event navigating to fixtureId:", fixtureId);
+          if (navigationRef.isReady && navigationRef.isReady()) {
+            navigationRef.navigate("Top5GameDetail", { fixtureId });
+          }
+        }
+      } catch (e) {
+        if (__DEV__) console.warn("Deep link event handling failed:", e);
+      }
+    };
+
+    // Backwards-compatible attach
+    let subscription = null;
+    if (Linking.addEventListener) {
+      subscription = Linking.addEventListener("url", handler);
+    } else if (Linking.addListener) {
+      subscription = Linking.addListener("url", handler);
+    }
+
+    return () => {
+      try {
+        if (subscription && subscription.remove) subscription.remove();
+        else if (Linking.removeEventListener)
+          Linking.removeEventListener("url", handler);
+      } catch (e) {}
+    };
+  }, []);
 
   if (showSplash) {
     return <SplashScreen onFinish={handleSplashFinish} />;
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking} ref={navigationRef}>
       <MainStackNavigator />
     </NavigationContainer>
   );

@@ -433,10 +433,11 @@ const BoxScorePanel = ({
   const benchOthers = rawBenchIds.filter(
     (id) => !benchHasBat(id) && !benchHasPit(id),
   );
-  // Finished: hide no-stats players. Live/pre-game: show all (no-stats at bottom).
-  const benchIds = isFinished
-    ? [...benchBatters, ...benchPitchers]
-    : [...benchBatters, ...benchPitchers, ...benchOthers];
+  // When the game is live or finished, hide players without stats. Otherwise (pre-game) show all.
+  const benchIds =
+    isFinished || !isScheduled
+      ? [...benchBatters, ...benchPitchers]
+      : [...benchBatters, ...benchPitchers, ...benchOthers];
 
   // Resolve which IDs to show for the active section.
   let ids;
@@ -1033,11 +1034,26 @@ const PlayerDetailModal = ({
 
   const [pdActiveTab, setPdActiveTab] = useState("Stats");
   const [playerShareVisible, setPlayerShareVisible] = useState(false);
+  const [sharePreferredMode, setSharePreferredMode] = useState(null);
   const navigation = useNavigation();
   useEffect(() => {
     setPdActiveTab("Stats");
     setPlayerShareVisible(false);
+    setSharePreferredMode(null);
   }, [playerId]);
+
+  // initialize preferred mode based on available stats (must run before early return)
+  useEffect(() => {
+    const batting = bsPlayer?.stats?.batting ?? {};
+    const pitching = bsPlayer?.stats?.pitching ?? {};
+    const hasBatStats = Object.keys(batting).length > 0;
+    const hasPitStats = Object.keys(pitching).length > 0;
+    if (sharePreferredMode == null) {
+      if (hasBatStats && !hasPitStats) setSharePreferredMode("batting");
+      else if (!hasBatStats && hasPitStats) setSharePreferredMode("pitching");
+      else if (hasBatStats) setSharePreferredMode("batting");
+    }
+  }, [bsPlayer]);
 
   if (!playerId) return null;
 
@@ -1163,13 +1179,89 @@ const PlayerDetailModal = ({
         >
           {/* Handle + close/share buttons row */}
           <View style={pdStyles.handleRow}>
-            <View style={{ width: 28 + 8 + 28 }} />
+            {/* Bat/Pitch slider */}
+            <View style={{ marginRight: 8 }}>
+              <View
+                style={{
+                  width: 120,
+                  height: 36,
+                  borderRadius: 20,
+                  backgroundColor: theme.surfaceSecondary,
+                  padding: 4,
+                  flexDirection: "row",
+                  alignItems: "center",
+                }}
+              >
+                <Animated.View
+                  style={{
+                    position: "absolute",
+                    left: sharePreferredMode === "pitching" ? 120 / 2 : 4,
+                    top: 4,
+                    width: 120 / 2 - 6,
+                    height: 28,
+                    borderRadius: 16,
+                    backgroundColor: teamColor,
+                  }}
+                />
+                <TouchableOpacity
+                  onPress={() => setSharePreferredMode("batting")}
+                  style={{
+                    flex: 1,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 2,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontWeight:
+                        sharePreferredMode === "batting" ? "800" : "600",
+                      color:
+                        sharePreferredMode === "batting" ? "#fff" : theme.text,
+                    }}
+                  >
+                    Bat
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setSharePreferredMode("pitching")}
+                  style={{
+                    flex: 1,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 2,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontWeight:
+                        sharePreferredMode === "pitching" ? "800" : "600",
+                      color:
+                        sharePreferredMode === "pitching" ? "#fff" : theme.text,
+                    }}
+                  >
+                    Pitch
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
             <View
               style={[pdStyles.handle, { backgroundColor: theme.surface }]}
             />
             <View style={{ flexDirection: "row", gap: 8 }}>
               <TouchableOpacity
-                onPress={() => setPlayerShareVisible(true)}
+                onPress={() => {
+                  // Use currently selected preferred mode if set, otherwise pick available
+                  const mode =
+                    sharePreferredMode ||
+                    (hasBatStats
+                      ? "batting"
+                      : hasPitStats
+                        ? "pitching"
+                        : "batting");
+                  setSharePreferredMode(mode);
+                  setPlayerShareVisible(true);
+                }}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 style={[
                   pdStyles.iconBtn,
@@ -1430,6 +1522,7 @@ const PlayerDetailModal = ({
         gameDate={gameDate}
         theme={theme}
         colors={colors}
+        preferredMode={sharePreferredMode}
       />
     </Modal>
   );
@@ -1790,6 +1883,7 @@ const PlayerShareCardModal = ({
   gameDate,
   theme,
   colors,
+  preferredMode = null,
 }) => {
   const cardRef = useRef(null);
   const [sharing, setSharing] = useState(false);
@@ -1799,8 +1893,14 @@ const PlayerShareCardModal = ({
 
   const batting = bsPlayer?.stats?.batting ?? {};
   const pitching = bsPlayer?.stats?.pitching ?? {};
-  const isPitcher =
+  const detectedPitcher =
     Object.keys(pitching).filter((k) => k !== "summary").length > 0;
+  const isPitcher =
+    preferredMode === "pitching"
+      ? true
+      : preferredMode === "batting"
+        ? false
+        : detectedPitcher;
   const statsObj = isPitcher ? pitching : batting;
   const statSummary = isPitcher ? pitching.summary : batting.summary;
   const statDefs = isPitcher ? PLAYER_CARD_PIT_STATS : PLAYER_CARD_BAT_STATS;
@@ -6970,7 +7070,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
               />
 
               {/* Live Stream Button — sits below the status badge in the centre column */}
-              {isScheduled && !isGameFinished && (
+              {!isScheduled && !isGameFinished && isStreamingUnlocked && (
                 <TouchableOpacity
                   style={[styles.streamBtn, { borderColor: colors.primary }]}
                   onPress={openStreamModal}
@@ -7744,7 +7844,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   gameTimeLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "700",
     textAlign: "center",
     marginBottom: 4,

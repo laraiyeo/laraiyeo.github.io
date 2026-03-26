@@ -1772,7 +1772,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   statusContainer: {
-    width: 46,
+    width: 55,
     marginRight: 14,
     alignItems: "center",
   },
