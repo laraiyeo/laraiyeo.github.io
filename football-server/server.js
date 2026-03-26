@@ -159,9 +159,14 @@ async function addActivityToken(fixtureId, token) {
         { onConflict: ["type", "fixture_id", "token"] },
       );
       if (resp?.error) {
-        console.warn("[live-activity] supabase upsert activity token error:", resp.error?.message || resp.error);
+        console.warn(
+          "[live-activity] supabase upsert activity token error:",
+          resp.error?.message || resp.error,
+        );
       } else {
-        console.log("[live-activity] supabase upsert activity token ok", { fixtureId: String(fixtureId) });
+        console.log("[live-activity] supabase upsert activity token ok", {
+          fixtureId: String(fixtureId),
+        });
       }
       return true;
     } catch (e) {
@@ -189,10 +194,16 @@ async function getActivityTokensForFixture(fixtureId) {
         .eq("fixture_id", String(fixtureId))
         .eq("type", "activity");
       if (error) {
-        console.warn("[live-activity] supabase select activity tokens error:", error?.message || error);
+        console.warn(
+          "[live-activity] supabase select activity tokens error:",
+          error?.message || error,
+        );
         throw error;
       }
-      console.log("[live-activity] supabase selected activity tokens", { fixtureId: String(fixtureId), count: (data || []).length });
+      console.log("[live-activity] supabase selected activity tokens", {
+        fixtureId: String(fixtureId),
+        count: (data || []).length,
+      });
       return (data || []).map((r) => r.token).filter(Boolean);
     } catch (e) {
       console.warn("supabase select activity tokens failed", e?.message || e);
@@ -241,9 +252,14 @@ async function addPushToStartToken(bundleId, token) {
           { onConflict: ["type", "bundle_id", "token"] },
         );
       if (resp?.error) {
-        console.warn("[live-activity] supabase upsert bundle token error:", resp.error?.message || resp.error);
+        console.warn(
+          "[live-activity] supabase upsert bundle token error:",
+          resp.error?.message || resp.error,
+        );
       } else {
-        console.log("[live-activity] supabase upsert bundle token ok", { bundleId });
+        console.log("[live-activity] supabase upsert bundle token ok", {
+          bundleId,
+        });
       }
       return true;
     } catch (e) {
