@@ -854,7 +854,7 @@ const VALEventScreen = ({ navigation, route }) => {
             <Image
               source={{ uri: event.imageUrl || event.logoUrl }}
               style={styles.heroImage}
-              resizeMode="cover"
+              resizeMode="contain"
             />
           ) : (
             <View
@@ -5468,14 +5468,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   heroImage: {
-    width: 120,
-    height: 120,
+    width: 250,
+    height: 125,
     borderRadius: 12,
     marginBottom: 16,
   },
   heroImagePlaceholder: {
-    width: 120,
-    height: 120,
+    width: 250,
+    height: 125,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",

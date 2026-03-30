@@ -9,7 +9,31 @@ import { createStackNavigator } from "@react-navigation/stack";
 import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import * as ExpoSplashScreen from "expo-splash-screen";
-import * as Linking from "expo-linking";
+import { Platform } from "react-native";
+import Constants from "expo-constants";
+
+// Conditionally require `expo-linking` where available; fall back to React
+// Native `Linking` with a minimal `parse()` helper on platforms where
+// `expo-linking` is not present (avoids Android bundler/runtime crashes).
+let Linking;
+try {
+  Linking = require("expo-linking");
+} catch (e) {
+  Linking = require("react-native").Linking;
+  if (!Linking.parse) {
+    Linking.parse = (url = "") => {
+      try {
+        const withoutScheme = String(url).includes("://")
+          ? String(url).split("://")[1]
+          : String(url);
+        const [path] = withoutScheme.split("?");
+        return { path: path || null };
+      } catch (err) {
+        return { path: null };
+      }
+    };
+  }
+}
 import { navigationRef } from "./src/navigationRef";
 
 // Import SplashScreen component
@@ -30,7 +54,20 @@ import { BetDataProvider } from "./src/context/BetDataContext";
 import { OddsDisplayProvider } from "./src/context/OddsDisplayContext";
 
 import * as Notifications from "expo-notifications";
-import { addPushToStartTokenListener } from "expo-widgets";
+
+// `expo-widgets` is iOS-only; require it dynamically and only on iOS so
+// Android builds don't attempt to bundle or execute it.
+let addPushToStartTokenListener = null;
+if (Platform.OS === "ios") {
+  try {
+    // eslint-disable-next-line global-require
+    const widgets = require("expo-widgets");
+    addPushToStartTokenListener = widgets.addPushToStartTokenListener;
+  } catch (e) {
+    addPushToStartTokenListener = null;
+    console.warn("expo-widgets not available:", e?.message || e);
+  }
+}
 
 // Import Analytics Service
 import analyticsService from "./src/services/AnalyticsService";
@@ -389,7 +426,7 @@ const HomeTabNavigator = () => {
   const { isUnlocked, checkStatus } = useStreamingAccess();
   const { isPro } = useBetSlip();
 
-  const showTab = false; //Show Tab for Picks
+  const showTab = true; //Show Tab for Picks
 
   // Refresh streaming status when this navigator comes into focus
   useFocusEffect(
@@ -2204,7 +2241,7 @@ ExpoSplashScreen.preventAutoHideAsync();
 const AppContent = () => {
   const { setIsPro, isPro } = useBetSlip();
   const { currentColorPalette, changeColorPalette, isDarkMode } = useTheme();
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(Platform.OS === "ios");
 
   const proInitRef = useRef(false);
 
@@ -2316,10 +2353,31 @@ const AppContent = () => {
   }, []);
 
   const initializeBackgroundServices = async () => {
-    // Run analytics init (non-blocking)
-    analyticsService.initialize().catch((err) => {
-      if (__DEV__) console.warn("Analytics init failed:", err.message);
-    });
+    // Run analytics init (non-blocking) with extra diagnostics
+    try {
+      console.log("App.js: starting analytics initialization", {
+        platform: Platform.OS,
+        executionEnvironment: Constants.executionEnvironment,
+        appOwnership: Constants.appOwnership,
+        isDev: __DEV__,
+      });
+    } catch (e) {
+      console.log("App.js: starting analytics initialization");
+    }
+
+    analyticsService
+      .initialize()
+      .then(async () => {
+        try {
+          const diag = await analyticsService.getDiagnosticInfo();
+          console.log("App.js: analytics diagnostic:", diag);
+        } catch (e) {
+          if (__DEV__) console.warn("Failed to fetch analytics diagnostic:", e?.message || e);
+        }
+      })
+      .catch((err) => {
+        if (__DEV__) console.warn("Analytics init failed:", err?.message || err);
+      });
 
     // Preload emotes in background
     EmoteService.getAllEmotes().catch((err) => {
@@ -2429,9 +2487,15 @@ const AppContent = () => {
   }, [showSplash]);
 
   const handleSplashFinish = async () => {
+    console.log('[App] handleSplashFinish invoked');
     setShowSplash(false);
     // Hide the native splash screen after our custom splash finishes
-    await ExpoSplashScreen.hideAsync();
+    try {
+      await ExpoSplashScreen.hideAsync();
+      console.log('[App] ExpoSplashScreen.hideAsync succeeded');
+    } catch (e) {
+      console.warn('[App] ExpoSplashScreen.hideAsync failed', e?.message || e);
+    }
   };
 
   // Hide the native splash screen as soon as our app is ready to show custom splash

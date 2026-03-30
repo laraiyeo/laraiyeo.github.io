@@ -479,6 +479,7 @@ const StatsScreen = ({ route }) => {
             renderItem={renderModalItem}
             keyExtractor={(item, index) => selectedType === 'ATHLETES' ? item.athlete?.$ref || index.toString() : item.team?.id?.toString() || index.toString()}
             style={styles.modalList}
+            contentContainerStyle={{ paddingBottom: 40 }}
           />
         </View>
       </Modal>

@@ -20,6 +20,12 @@ import { useTheme } from "../../context/ThemeContext";
 import { MLBService } from "../../services/MLBService";
 
 const { width } = Dimensions.get("window");
+// Roster stat chip sizing (account for margins/padding of bubble + dropdown)
+const STAT_CHIP_COLS = 3;
+const STAT_CHIP_GAP = 8;
+const STAT_CHIP_W =
+  (width - 2 * 12 - 2 * 14 - STAT_CHIP_GAP * (STAT_CHIP_COLS - 1)) /
+  STAT_CHIP_COLS;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -61,38 +67,32 @@ const formatTime = (dateStr) => {
   }
 };
 
-// Get today's date string (YYYY-MM-DD) in EST, adjusted so before-2am counts as previous day
+// Get today's date string (YYYY-MM-DD) in the device's local timezone.
+// If the local time is before 2am, treat it as the previous day's schedule.
 const getTodayDateStr = () => {
   try {
     const now = new Date();
-    // en-CA locale produces YYYY-MM-DD directly
-    const estToday = now.toLocaleDateString("en-CA", {
-      timeZone: "America/New_York",
-    });
-    // If before 2am EST, treat it as still the previous day's schedule
-    const estHourStr = now.toLocaleTimeString("en-US", {
-      timeZone: "America/New_York",
-      hour: "2-digit",
-      hour12: false,
-    });
-    const estHour = parseInt(estHourStr, 10);
-    if (estHour < 2) {
+    // en-CA locale produces YYYY-MM-DD directly and uses device timezone by default
+    const localToday = now.toLocaleDateString("en-CA");
+    // If before 2am local time, treat it as still the previous day's schedule
+    const localHour = now.getHours();
+    if (localHour < 2) {
       const prev = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      return prev.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+      return prev.toLocaleDateString("en-CA");
     }
-    return estToday;
+    return localToday;
   } catch {
     return new Date().toISOString().slice(0, 10);
   }
 };
 
-// Convert a UTC game timestamp (e.g. "2026-04-05T18:10:00Z") to its EST date string (YYYY-MM-DD)
+// Convert a UTC game timestamp (e.g. "2026-04-05T18:10:00Z") to its local date string (YYYY-MM-DD)
 const gameToEstDateStr = (gameDate) => {
   if (!gameDate) return "";
   try {
-    return new Date(gameDate).toLocaleDateString("en-CA", {
-      timeZone: "America/New_York",
-    });
+    // new Date(...) creates a Date in the correct instant; toLocaleDateString without
+    // a timeZone option will render it using the device's timezone
+    return new Date(gameDate).toLocaleDateString("en-CA");
   } catch {
     return (gameDate ?? "").slice(0, 10);
   }
@@ -427,13 +427,14 @@ const rStyles = StyleSheet.create({
     paddingTop: 6,
   },
   statChip: {
-    width: (width - 24 - 12 * 2 - 8 * 2) / 3,
+    width: STAT_CHIP_W,
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 8,
     alignItems: "center",
     position: "relative",
     overflow: "visible",
+    marginBottom: 8,
   },
   rankBadge: {
     position: "absolute",

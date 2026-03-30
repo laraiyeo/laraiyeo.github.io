@@ -321,11 +321,10 @@ const getDatesForFilter = (filter) => {
   return { startDate: formatDate(start), endDate: formatDate(end) };
 };
 
-const formatTimeEST = (dateString) => {
+const formatLocalTime = (dateString) => {
   try {
     const date = new Date(dateString);
     const fmt = new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/New_York",
       hour: "numeric",
       minute: "2-digit",
       hour12: true,
@@ -576,13 +575,16 @@ const MLBGridCard = ({
     (home.displayName || "HME").slice(0, 3)
   ).toUpperCase();
 
-  const { time, ampm } = formatTimeEST(game.date);
+  const { time, ampm } = formatLocalTime(game.date);
   const isLive = game.isLive || game.statusType === "I";
   const isFinished =
     !isLive &&
     (game.isCompleted ||
       ["F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(game.statusType));
   const isScheduled = !isLive && !isFinished;
+
+  const inning = game.inning;
+  const show = isFinished && inning != 9;
 
   const awayScore = away.score;
   const homeScore = home.score;
@@ -638,7 +640,7 @@ const MLBGridCard = ({
             style={[mlbGridStyles.statusText, { color: theme.textSecondary }]}
             numberOfLines={1}
           >
-            {(game.status || "Final").slice(0, 9)}
+            {(game.status || "Final").slice(0, 9)}{show ? `/${inning}` : ""}
           </Text>
         ) : (
           <Text
@@ -942,14 +944,14 @@ const ScoreboardSection = ({
     {groups.map((group, gIdx) => (
       <View
         key={group.dateKey}
-        style={[
-          styles.eventContainer,
-          { backgroundColor: theme.background },
-        ]}
+        style={[styles.eventContainer, { backgroundColor: theme.background }]}
       >
         {/* Date header (tappable to collapse/expand when upcoming) */}
         <TouchableOpacity
-          style={[styles.eventHeaderContainer, { backgroundColor: theme.surfaceSecondary }]}
+          style={[
+            styles.eventHeaderContainer,
+            { backgroundColor: theme.surfaceSecondary },
+          ]}
           activeOpacity={0.8}
           onPress={() =>
             activeFilter === "upcoming" && toggleCollapse(group.dateKey)
@@ -1035,11 +1037,11 @@ const ScoreboardSection = ({
               let statusLine1 = "";
               let statusLine2 = "";
               if (isFinished) {
-                const { time, ampm } = formatTimeEST(game.date);
+                const { time, ampm } = formatLocalTime(game.date);
                 statusLine1 = show ? `Final/${inning}` : "Final";
                 statusLine2 = `${time} ${ampm}`;
               } else if (!isLive) {
-                const { time, ampm } = formatTimeEST(game.date);
+                const { time, ampm } = formatLocalTime(game.date);
                 statusLine1 = time;
                 statusLine2 = ampm;
               }
@@ -1057,7 +1059,10 @@ const ScoreboardSection = ({
               return (
                 <TouchableOpacity
                   key={game.id || idx}
-                  style={[styles.gameRow, { backgroundColor: theme.surfaceSecondary }]}
+                  style={[
+                    styles.gameRow,
+                    { backgroundColor: theme.surfaceSecondary },
+                  ]}
                   onPress={() =>
                     navigation.navigate("GameDetails", {
                       gamePk: game.id,
@@ -1467,8 +1472,13 @@ const MLBScoreboardScreen = ({ navigation }) => {
       // Don't schedule if screen is not focused
       if (!isFocusedRef.current) return;
 
-      // Only auto-poll for "today"
-      if (filter !== "today") {
+      // Only auto-poll for "today". Accept either the literal "today"
+      // or a YYYYMMDD date string that matches today's date.
+      const isTodayFilter =
+        filter === "today" ||
+        (/^\d{8}$/.test(String(filter)) &&
+          String(filter) === getTodayDateStr());
+      if (!isTodayFilter) {
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
@@ -1725,7 +1735,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     marginBottom: 5,
-    borderRadius: 12
+    borderRadius: 12,
   },
   eventLogoContainer: {
     marginRight: 12,
@@ -1759,7 +1769,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     textTransform: "uppercase",
   },
-  matchesList: {gap: 5},
+  matchesList: { gap: 5 },
   gameRow: {
     position: "relative",
     overflow: "hidden",

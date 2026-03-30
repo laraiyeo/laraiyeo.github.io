@@ -417,7 +417,7 @@ export const formatPrizePool = (amount, currency = "USD") => {
     TRY: "₺",
   };
 
-  const currencySymbol = currencySymbols[currency] || currency;
+  const currencySymbol = currencySymbols[currency.toUpperCase()] || currency.toUpperCase() + " ";
 
   if (amount >= 1000000) {
     const millions = (amount / 1000000).toFixed(2).replace(/\.?0+$/, "");

@@ -11613,19 +11613,16 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               home?.image_path,
               `home_${id}.png`,
             );
-            console.log("[LiveActivity][Client] homeLogoUri:", homeLogoUri);
 
             const awayLogoUri = await downloadImageToShared(
               away?.image_path,
               `away_${id}.png`,
             );
-            console.log("[LiveActivity][Client] awayLogoUri:", awayLogoUri);
 
             const leagueLogoUri = await downloadImageToShared(
               fixture?.league?.image_path || fixture?.league?.logo || null,
               `league_${id}.png`,
             );
-            console.log("[LiveActivity][Client] leagueLogoUri:", leagueLogoUri);
 
             const payload = {
               home: {
@@ -11671,13 +11668,15 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
               },
             };
 
+            console.log(payload);
+
             const url = `sportsheart://football/fixture/${id}`;
 
             // Start locally but hidden so server can reveal/update later.
             const instance = await FootballLiveActivity.start({
               ...payload,
               // force a scheduled appearance until server activates
-              status: { short_name: "SCHEDULED" },
+              status: { short_name: "" },
               url,
               fixtureId: id,
               id,
@@ -12226,6 +12225,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
     home?.short_code || home?.name?.slice(0, 3)?.toUpperCase() || "";
   const awayAbbr =
     away?.short_code || away?.name?.slice(0, 3)?.toUpperCase() || "";
+  const showFav = false;
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.background }]}>
@@ -12270,6 +12270,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                   flexDirection: "row",
                   justifyContent: "center",
                   gap: 8,
+                  paddingHorizontal: 40,
                 }}
               >
                 {fixture.league?.image_path ? (
@@ -12297,14 +12298,14 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                     .join(" · ")}
                 </Text>
               </View>
-
-              {/* Star on the right */}
+            
+            {showFav && (
               <TouchableOpacity
                 onPress={toggleFavorite}
                 activeOpacity={0.85}
                 style={{
                   position: "absolute",
-                  right: 0,
+                  right: -5,
                   top: -10,
                   bottom: 0,
                   width: 24,
@@ -12323,6 +12324,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                   color={colors.primary}
                 />
               </TouchableOpacity>
+            )}
             </View>
           )}
 

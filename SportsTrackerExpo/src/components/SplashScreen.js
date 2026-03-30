@@ -94,6 +94,7 @@ const SplashScreen = ({ onFinish }) => {
   // player. This avoids instantiating expo-video or similar players.
   useEffect(() => {
     let timer;
+    console.log("[SplashScreen] mounted");
 
     // Fade in quickly
     Animated.timing(fadeAnim, {
@@ -104,13 +105,29 @@ const SplashScreen = ({ onFinish }) => {
 
     // Short splash delay before finishing
     timer = setTimeout(() => {
-      if (!isFinished) {
-        setIsFinished(true);
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 250,
-          useNativeDriver: true,
-        }).start(() => onFinish());
+      try {
+        console.log("[SplashScreen] fade out starting");
+        if (!isFinished) {
+          setIsFinished(true);
+          Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 250,
+            useNativeDriver: true,
+          }).start(() => {
+            try {
+              console.log("[SplashScreen] calling onFinish");
+              onFinish && onFinish();
+            } catch (err) {
+              console.error("[SplashScreen] onFinish threw", err);
+            }
+          });
+        }
+      } catch (err) {
+        console.error("[SplashScreen] error during finish flow", err);
+        // Ensure we don't block the app if animation fails
+        try {
+          onFinish && onFinish();
+        } catch (e) {}
       }
     }, 800);
 

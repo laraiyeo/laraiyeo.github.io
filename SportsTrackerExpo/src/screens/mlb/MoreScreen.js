@@ -125,7 +125,7 @@ const MoreScreen = ({ navigation, route }) => {
         hideSelector={true}
       />
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.secondary }]}
+        style={[styles.fab, { backgroundColor: colors.secondary, bottom: isPro ? 18 : 88 }]}
         onPress={() => setSelected("menu")}
         activeOpacity={0.8}
       >
@@ -142,7 +142,7 @@ const MoreScreen = ({ navigation, route }) => {
         hideHeader={true}
       />
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.secondary }]}
+        style={[styles.fab, { backgroundColor: colors.secondary, bottom: isPro ? 18 : 88 }]}
         onPress={() => setSelected("menu")}
         activeOpacity={0.8}
       >
@@ -155,7 +155,7 @@ const MoreScreen = ({ navigation, route }) => {
     <View style={{ flex: 1, marginTop: 0 }}>
       <TransactionsScreen />
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.secondary }]}
+        style={[styles.fab, { backgroundColor: colors.secondary, bottom: isPro ? 18 : 88 }]}
         onPress={() => setSelected("menu")}
         activeOpacity={0.8}
       >
@@ -168,7 +168,7 @@ const MoreScreen = ({ navigation, route }) => {
     <View style={{ flex: 1, marginTop: 0 }}>
       <DraftScreen />
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.secondary }]}
+        style={[styles.fab, { backgroundColor: colors.secondary, bottom: isPro ? 18 : 88 }]}
         onPress={() => setSelected("menu")}
         activeOpacity={0.8}
       >

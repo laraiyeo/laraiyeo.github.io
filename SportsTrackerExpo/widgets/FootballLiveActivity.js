@@ -18,7 +18,21 @@ import {
   widgetURL,
   resizable,
 } from "@expo/ui/swift-ui/modifiers";
-import { createLiveActivity } from "expo-widgets";
+import { Paths, File } from "expo-file-system";
+import { Platform } from "react-native";
+
+// Only require expo-widgets on iOS. On Android the native module isn't
+// available and attempting to statically import it crashes the app.
+let createLiveActivity = null;
+if (Platform.OS === "ios") {
+  try {
+    // eslint-disable-next-line global-require
+    createLiveActivity = require("expo-widgets").createLiveActivity;
+  } catch (e) {
+    createLiveActivity = null;
+    console.warn("expo-widgets not available in FootballLiveActivity:", e?.message || e);
+  }
+}
 
 const FootballLiveActivity = (props) => {
   "widget";
@@ -35,7 +49,6 @@ const FootballLiveActivity = (props) => {
       props?.home?.abbr ||
       "",
     logo: props?.home?.logo ?? null,
-    logoName: props?.home?.logoName ?? null,
     winner: props?.home?.winner ?? null,
     score: props?.homeScore ?? props?.home?.score ?? 0,
   };
@@ -48,7 +61,6 @@ const FootballLiveActivity = (props) => {
       props?.away?.abbr ||
       "",
     logo: props?.away?.logo ?? null,
-    logoName: props?.away?.logoName ?? null,
     winner: props?.away?.winner ?? null,
     score: props?.awayScore ?? props?.away?.score ?? 0,
   };
@@ -56,51 +68,7 @@ const FootballLiveActivity = (props) => {
   const league = {
     name: safe(props?.league?.name, "League"),
     logo: props?.league?.logo ?? null,
-    logoName: props?.league?.logoName ?? null,
   };
-
-  // --- IMAGE HELPERS ---
-  const resolveImage = (explicit, logoName) => {
-    if (
-      explicit &&
-      typeof explicit === "string" &&
-      explicit.startsWith("file://")
-    ) {
-      return explicit;
-    }
-
-    const base =
-      props?.appGroupPath ||
-      (props?.appGroupId
-        ? `/var/mobile/Containers/Shared/AppGroup/${props.appGroupId}`
-        : null);
-
-    if (!base) {
-      console.log("❌ Missing app group base path");
-      return null;
-    }
-
-    if (!logoName) {
-      console.log("❌ Missing logoName");
-      return null;
-    }
-
-    const fullPath = `${base.replace(/\/$/, "")}/${logoName}`;
-    const finalPath = fullPath.startsWith("file://")
-      ? fullPath
-      : `file://${fullPath}`;
-
-    console.log("✅ Resolved image:", finalPath);
-
-    return finalPath;
-  };
-
-  const isValidImage = (val) =>
-    typeof val === "string" && val.startsWith("file://") && val.length > 10;
-
-  const homeLogo = resolveImage(home.logo, home.logoName);
-  const awayLogo = resolveImage(away.logo, away.logoName);
-  const leagueLogo = resolveImage(league.logo, league.logoName);
 
   const colors = props?.colors ?? {
     home: "#FF6B35",
@@ -116,7 +84,9 @@ const FootballLiveActivity = (props) => {
     ticking: props?.status?.ticking ?? false,
   };
 
-  const venue = { name: safe(props?.venue?.name, "Venue") };
+  const venue = {
+    name: safe(props?.venue?.name, "Venue"),
+  };
 
   const getTextOnColor = (hex) => {
     if (!hex) return "#FFFFFF";
@@ -171,6 +141,7 @@ const FootballLiveActivity = (props) => {
           ticking,
         };
       }
+
       return {
         line1: code || "LIVE",
         line2: long || "",
@@ -181,7 +152,7 @@ const FootballLiveActivity = (props) => {
       };
     }
 
-    if (isFinished)
+    if (isFinished) {
       return {
         line1: code || "FT",
         line2: null,
@@ -189,9 +160,11 @@ const FootballLiveActivity = (props) => {
         isFinished: true,
         isScheduled: false,
       };
+    }
 
     const time = startingAtProp?.time ?? "--:--";
     const ampm = startingAtProp?.ampm ?? "";
+
     return {
       line1: time,
       line2: ampm,
@@ -210,6 +183,7 @@ const FootballLiveActivity = (props) => {
       : null);
 
   const zModifiers = widgetLink ? [widgetURL(widgetLink)] : [];
+
   const statusInfo = getStatusInfo(status, props.startingAt);
 
   return {
@@ -236,9 +210,9 @@ const FootballLiveActivity = (props) => {
         <VStack spacing={5} modifiers={[padding({ top: 15 })]}>
           <VStack>
             <HStack alignment="center" spacing={6}>
-              {isValidImage(leagueLogo) ? (
+              {league.logo ? (
                 <Image
-                  uiImage={leagueLogo}
+                  uiImage={league.logo}
                   modifiers={[resizable(), frame({ width: 14, height: 14 })]}
                 />
               ) : null}
@@ -255,7 +229,7 @@ const FootballLiveActivity = (props) => {
 
           <HStack alignment="center">
             <ZStack alignment="center">
-              {!isValidImage(homeLogo) ? (
+              {!home.logo ? (
                 <Circle
                   modifiers={[
                     frame({ width: 45, height: 45 }),
@@ -263,9 +237,10 @@ const FootballLiveActivity = (props) => {
                   ]}
                 />
               ) : null}
-              {isValidImage(homeLogo) ? (
+
+              {home.logo ? (
                 <Image
-                  uiImage={homeLogo}
+                  uiImage={home.logo}
                   modifiers={[resizable(), frame({ width: 45, height: 45 })]}
                 />
               ) : (
@@ -307,8 +282,9 @@ const FootballLiveActivity = (props) => {
                 <Text
                   modifiers={[
                     font({
-                      weight:
-                        home.winner || !statusInfo.isFinished
+                      weight: home.winner
+                        ? "bold"
+                        : !statusInfo.isFinished
                           ? "bold"
                           : "light",
                       size: 30,
@@ -318,6 +294,7 @@ const FootballLiveActivity = (props) => {
                 >
                   {home.score}
                 </Text>
+
                 <Text
                   modifiers={[
                     font({ weight: "bold", size: 30 }),
@@ -326,11 +303,13 @@ const FootballLiveActivity = (props) => {
                 >
                   -
                 </Text>
+
                 <Text
                   modifiers={[
                     font({
-                      weight:
-                        away.winner || !statusInfo.isFinished
+                      weight: away.winner
+                        ? "bold"
+                        : !statusInfo.isFinished
                           ? "bold"
                           : "light",
                       size: 30,
@@ -344,7 +323,7 @@ const FootballLiveActivity = (props) => {
             )}
 
             <ZStack alignment="center">
-              {!isValidImage(awayLogo) ? (
+              {!away.logo ? (
                 <Circle
                   modifiers={[
                     frame({ width: 45, height: 45 }),
@@ -352,9 +331,10 @@ const FootballLiveActivity = (props) => {
                   ]}
                 />
               ) : null}
-              {isValidImage(awayLogo) ? (
+
+              {away.logo ? (
                 <Image
-                  uiImage={awayLogo}
+                  uiImage={away.logo}
                   modifiers={[resizable(), frame({ width: 45, height: 45 })]}
                 />
               ) : (
@@ -381,8 +361,11 @@ const FootballLiveActivity = (props) => {
                 lineLimit(2),
                 multilineTextAlignment("center"),
                 font({
-                  weight:
-                    home.winner || !statusInfo.isFinished ? "bold" : "light",
+                  weight: home.winner
+                    ? "bold"
+                    : !statusInfo.isFinished
+                      ? "bold"
+                      : "light",
                   size: 12,
                 }),
                 frame({ maxWidth: 100, alignment: "center" }),
@@ -428,8 +411,11 @@ const FootballLiveActivity = (props) => {
                 lineLimit(2),
                 multilineTextAlignment("center"),
                 font({
-                  weight:
-                    away.winner || !statusInfo.isFinished ? "bold" : "light",
+                  weight: away.winner
+                    ? "bold"
+                    : !statusInfo.isFinished
+                      ? "bold"
+                      : "light",
                   size: 12,
                 }),
                 frame({ maxWidth: 100, alignment: "center" }),
@@ -448,9 +434,9 @@ const FootballLiveActivity = (props) => {
   };
 };
 
-const factory = createLiveActivity(
-  "FootballLiveActivity",
-  FootballLiveActivity,
-);
+const factory =
+  typeof createLiveActivity === "function"
+    ? createLiveActivity("FootballLiveActivity", FootballLiveActivity)
+    : null;
 
 export default factory;

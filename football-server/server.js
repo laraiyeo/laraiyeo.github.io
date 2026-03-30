@@ -893,6 +893,55 @@ function ensureGamePolling(cacheKey, fixtureUrl, fixture) {
   }, initialTtl);
 }
 
+/**
+ * Lightweight polling variant for the light game endpoint — polls every 5s
+ * while the game is in a fast (live) window. Behavior mirrors ensureGamePolling
+ * but uses a fixed 5 second interval to provide higher-frequency updates.
+ */
+function ensureGamePollingLight(cacheKey, fixtureUrl, fixture) {
+  const info = gameTtlInfo(fixture);
+  if (!info.fast) return;
+  const initialTtl = info.ttl;
+
+  let act = gameActivity.get(cacheKey);
+  if (!act) {
+    act = { intervalId: null, lastRequest: Date.now() };
+    gameActivity.set(cacheKey, act);
+  }
+  act.lastRequest = Date.now();
+
+  if (act.intervalId != null) return;
+
+  act.intervalId = setInterval(async () => {
+    if (Date.now() - act.lastRequest > 60_000) {
+      clearInterval(act.intervalId);
+      act.intervalId = null;
+      return;
+    }
+
+    try {
+      const fixtureData = await fetchUrl(fixtureUrl);
+      cacheSet(cacheKey, fixtureData);
+
+      const { fast: stillFast, ttl: newTtl } = gameTtlInfo(fixtureData?.data);
+      if (!stillFast) {
+        clearInterval(act.intervalId);
+        act.intervalId = null;
+        return;
+      }
+
+      if (newTtl !== initialTtl) {
+        clearInterval(act.intervalId);
+        act.intervalId = null;
+        ensureGamePollingLight(cacheKey, fixtureUrl, fixtureData?.data);
+        return;
+      }
+    } catch (e) {
+      console.error(`[game-poll-light] ${cacheKey}:`, e.message);
+    }
+  }, 5000);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Routes
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3025,6 +3074,65 @@ app.get("/football/game/:fixtureId/:team1/:team2", async (req, res) => {
     res
       .status(502)
       .json({ error: "Failed to fetch game data", details: err.message });
+  }
+});
+
+// Lightweight game endpoint: reduced includes and 5s polling
+app.get("/football/game/light/:fixtureId", async (req, res) => {
+  const { fixtureId } = req.params;
+  const fixtureCacheKey = `game:light:${fixtureId}`;
+
+  const fixtureUrl =
+    `${SM_BASE}/fixtures/${fixtureId}?api_token=${SM_TOKEN}` +
+    `&include=state;aggregate;round;periods;participants;scores;events.participant&timezone=America/Toronto`;
+
+  // Update activity timestamp
+  const act = gameActivity.get(fixtureCacheKey);
+  if (act) act.lastRequest = Date.now();
+
+  // Resolve fixture data (dynamic TTL)
+  let fixtureData;
+  const fixtureEntry = cache.get(fixtureCacheKey);
+  if (fixtureEntry) {
+    const { ttl, fast } = gameTtlInfo(fixtureEntry.data?.data);
+    if (!fast && Date.now() - fixtureEntry.fetchedAt < ttl) {
+      fixtureData = fixtureEntry.data;
+    }
+  }
+
+  if (fixtureData) {
+    const { ttl } = gameTtlInfo(fixtureData?.data);
+    ensureGamePollingLight(fixtureCacheKey, fixtureUrl, fixtureData?.data);
+    setCacheControl(res, ttl);
+    return res.json({
+      source: "cache",
+      data: {
+        fixtureData: transformFixtureGameResponse(fixtureData),
+      },
+    });
+  }
+
+  try {
+    const freshFixture = await fetchUrl(fixtureUrl);
+
+    cacheSet(fixtureCacheKey, freshFixture);
+
+    const fixture = freshFixture?.data;
+    const { ttl } = gameTtlInfo(fixture);
+
+    ensureGamePollingLight(fixtureCacheKey, fixtureUrl, fixture);
+
+    setCacheControl(res, ttl);
+    res.json({
+      source: "origin",
+      data: {
+        fixtureData: transformFixtureGameResponse(freshFixture),
+      },
+    });
+  } catch (err) {
+    res
+      .status(502)
+      .json({ error: "Failed to fetch game data (light)", details: err.message });
   }
 });
 

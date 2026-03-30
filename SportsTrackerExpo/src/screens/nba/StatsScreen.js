@@ -632,6 +632,7 @@ const StatsScreen = ({ route }) => {
                 : item.team?.id?.toString() || index.toString()
             }
             style={styles.modalList}
+            contentContainerStyle={{ paddingBottom: 40 }}
           />
         </View>
       </Modal>

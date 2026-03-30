@@ -88,10 +88,14 @@ const TeamColumn = ({
   const isLive = !["S", "P", "D", "C", "O", "F", "Q", "R"].includes(
     status?.codedGameState,
   );
+  const isFinished =
+    !isLive &&
+    (status?.isCompleted ||
+      ["F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(status?.codedGameState));
 
   return (
     <View style={[styles.teamColumn, { alignItems: "center" }]}>
-      {score != null && (
+      {score != null && (isLive || isFinished) && (
         <Animated.Text
           style={[
             styles.teamScore,
@@ -188,6 +192,12 @@ const PlayerCard = ({
   bsPlayer,
   theme,
   teamColor,
+  isLive = false,
+  isFinished = false,
+  battingOrder = [],
+  battersArray = [],
+  playersMap = null,
+  currentPlayerId = null,
   onPress,
 }) => {
   const pos = bsPlayer?.position?.abbreviation ?? "";
@@ -205,6 +215,61 @@ const PlayerCard = ({
   const stats = statMode === "pitching" ? pitching : batting;
   const fullName = playerInfo?.fullName ?? `Player ${playerId}`;
   const number = bsPlayer?.jerseyNumber ? `#${bsPlayer.jerseyNumber}` : "";
+
+  // Compute OUT label for batters per battingOrder / battersArray rules
+  let outLabel = null;
+  try {
+    const batters = Array.isArray(battersArray) ? battersArray : [];
+    const order = Array.isArray(battingOrder) ? battingOrder : [];
+    if (batters.length > 0) {
+      // Only show OUT label for players marked as substitutes in the boxscore
+      if (!bsPlayer?.gameStatus?.isSubstitute) {
+        // not a substitute — no OUT label
+        outLabel = null;
+      } else {
+        const lastOrderId = order.length ? order[order.length - 1] : null;
+        let lastBoundIdx = batters.length - 1;
+        if (lastOrderId != null) {
+          const idx = batters.indexOf(lastOrderId);
+          if (idx !== -1) lastBoundIdx = idx;
+        }
+
+        const myIdx = batters.indexOf(playerId);
+        if (myIdx > 0 && myIdx <= lastBoundIdx) {
+          const prevId = batters[myIdx - 1];
+          if (prevId) {
+            const myOrderIdx = order.indexOf(playerId);
+            const expectedPrev = myOrderIdx > 0 ? order[myOrderIdx - 1] : null;
+            // Show OUT when player not in batting order OR previous in batters differs
+            if (myOrderIdx === -1 || expectedPrev !== prevId) {
+              // Try to get previous player's name from playersMap passed in
+              let prevName = null;
+              if (playersMap) {
+                const resolved = resolvePlayer(playersMap, prevId);
+                prevName = resolved?.fullName || null;
+              }
+              // format last name: first initial + ". " + rest of name
+              const rawName = prevName || "";
+              if (rawName) {
+                const parts = rawName.split(" ");
+                const first = parts.shift();
+                const rest = parts.join(" ");
+                outLabel = `${first ? first[0] + ". " : ""}${rest}`;
+              } else {
+                // if we don't have the previous player's full name, show numeric id
+                outLabel = String(prevId);
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    outLabel = null;
+  }
+
+  const isCurrent =
+    isLive && currentPlayerId != null && playerId === currentPlayerId;
 
   return (
     <TouchableOpacity
@@ -229,45 +294,84 @@ const PlayerCard = ({
 
         {/* Name / position */}
         <View style={pcStyles.nameBlock}>
-          <Text
-            style={[pcStyles.playerName, { color: theme.text }]}
-            numberOfLines={1}
-          >
-            {fullName}
-          </Text>
-          <Text style={[pcStyles.playerMeta, { color: theme.textSecondary }]}>
-            {[number, position].filter(Boolean).join(" • ")}
-          </Text>
-        </View>
+          <View style={pcStyles.nameTopRow}>
+            <Text
+              style={[pcStyles.playerName, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {fullName}
+            </Text>
 
-        {/* Toggle batting / pitching — only show if player has both */}
-        {hasBatting && hasPitching && (
-          <View style={pcStyles.toggleRow}>
-            {["batting", "pitching"].map((m) => (
-              <TouchableOpacity
-                key={m}
-                onPress={() => setStatMode(m)}
-                style={[
-                  pcStyles.toggleBtn,
-                  statMode === m && {
-                    backgroundColor: theme.primary ?? "#3B82F6",
-                  },
-                ]}
-              >
+            {/* When there are both batting and pitching stats show toggles inline with name */}
+            {hasBatting && hasPitching && (
+              <View style={pcStyles.toggleRowInline}>
+                {["batting", "pitching"].map((m) => (
+                  <TouchableOpacity
+                    key={m}
+                    onPress={() => setStatMode(m)}
+                    style={[
+                      pcStyles.toggleBtn,
+                      statMode === m && {
+                        backgroundColor: theme.primary ?? "#3B82F6",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        pcStyles.toggleLabel,
+                        {
+                          color: statMode === m ? "#fff" : theme.textSecondary,
+                        },
+                      ]}
+                    >
+                      {m === "batting" ? "Bat" : "Pit"}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            {/* When toggles are not present: show CURRENT (live) or OUT (live/finished) inline */}
+            {!hasBatting || !hasPitching ? (
+              isCurrent ? (
+                <Text
+                  style={[pcStyles.currentInline, { color: theme.success }]}
+                >
+                  CURRENT
+                </Text>
+              ) : outLabel && (isLive || isFinished) ? (
                 <Text
                   style={[
-                    pcStyles.toggleLabel,
-                    {
-                      color: statMode === m ? "#fff" : theme.textSecondary,
-                    },
+                    pcStyles.currentInline,
+                    { color: theme.textTertiary },
                   ]}
                 >
-                  {m === "batting" ? "Bat" : "Pit"}
+                  OUT {outLabel}
                 </Text>
-              </TouchableOpacity>
-            ))}
+              ) : null
+            ) : null}
           </View>
-        )}
+
+          <View style={pcStyles.nameMetaRow}>
+            <Text style={[pcStyles.playerMeta, { color: theme.textSecondary }]}>
+              {[number, position].filter(Boolean).join(" • ")}
+            </Text>
+
+            {/* When toggles are present, show CURRENT (live) or OUT (live/finished) on the right under the toggles */}
+            {hasBatting &&
+              hasPitching &&
+              (isCurrent ? (
+                <Text style={[pcStyles.currentBelow, { color: theme.success }]}>
+                  CURRENT
+                </Text>
+              ) : outLabel && (isLive || isFinished) ? (
+                <Text
+                  style={[pcStyles.currentBelow, { color: theme.textTertiary }]}
+                >
+                  OUT {outLabel}
+                </Text>
+              ) : null)}
+          </View>
+        </View>
       </View>
 
       {/* Stats row */}
@@ -317,6 +421,32 @@ const pcStyles = StyleSheet.create({
   playerMeta: {
     fontSize: 12,
     marginTop: 2,
+  },
+  nameTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  toggleRowInline: {
+    flexDirection: "row",
+    gap: 6,
+    marginLeft: 8,
+  },
+  nameMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 2,
+  },
+  currentInline: {
+    fontSize: 12,
+    fontWeight: "800",
+    marginLeft: 8,
+  },
+  currentBelow: {
+    fontSize: 11,
+    fontWeight: "800",
   },
   toggleRow: {
     flexDirection: "row",
@@ -400,12 +530,28 @@ const BoxScorePanel = ({
         );
 
   // Collect pitchers (players with pitching stats)
-  const pitcherIds = Object.keys(bsPlayers)
+  let pitcherIds = Object.keys(bsPlayers)
     .map((k) => Number(k.replace("ID", "")))
     .filter(
       (id) =>
         Object.keys(bsPlayers[`ID${id}`]?.stats?.pitching ?? {}).length > 0,
     );
+  // Prefer explicit pitcher ordering from bsTeamData.pitchers when present.
+  // Display with the first player shown last (reverse the source order).
+  try {
+    const teamPitchers = bsTeamData?.pitchers;
+    if (Array.isArray(teamPitchers) && teamPitchers.length > 0) {
+      const ordered = teamPitchers
+        .map((x) => Number(x))
+        .filter((id) => pitcherIds.includes(id));
+      if (ordered.length > 0) pitcherIds = ordered.reverse();
+      else pitcherIds = pitcherIds.reverse();
+    } else {
+      pitcherIds = pitcherIds.reverse();
+    }
+  } catch (e) {
+    pitcherIds = pitcherIds.reverse();
+  }
 
   // Bench: everyone not in the batting order and not a pitcher
   const activeSets = new Set([
@@ -434,10 +580,99 @@ const BoxScorePanel = ({
     (id) => !benchHasBat(id) && !benchHasPit(id),
   );
   // When the game is live or finished, hide players without stats. Otherwise (pre-game) show all.
-  const benchIds =
-    isFinished || !isScheduled
-      ? [...benchBatters, ...benchPitchers]
-      : [...benchBatters, ...benchPitchers, ...benchOthers];
+  // For finished games prefer showing players present in the server-provided `batters` array
+  // (but exclude pitcher ids which sometimes also appear in the batters array).
+  let benchIds = [];
+  try {
+    const teamBatters = Array.isArray(bsTeamData?.batters)
+      ? bsTeamData.batters.map((x) => Number(x))
+      : [];
+    const teamPitchers = Array.isArray(bsTeamData?.pitchers)
+      ? bsTeamData.pitchers.map((x) => Number(x))
+      : [];
+
+    // Limit team batters to only those up to the last batting-order id (if present),
+    // then filter to exclude pitchers and any already active players.
+    let teamBattersBounded = teamBatters;
+    const lastOrderId =
+      Array.isArray(battingOrder) && battingOrder.length
+        ? Number(battingOrder[battingOrder.length - 1])
+        : null;
+    if (lastOrderId != null) {
+      const boundIdx = teamBatters.indexOf(lastOrderId);
+      if (boundIdx !== -1)
+        teamBattersBounded = teamBatters.slice(0, boundIdx + 1);
+    }
+    const teamBattersOnly = teamBattersBounded.filter(
+      (id) => !teamPitchers.includes(id) && !activeSets.has(id),
+    );
+
+    if (isFinished) {
+      // When finished: show server batters up to the last battingOrder id first.
+      // Ensure any IDs that exist in the full `teamBatters` list (including those
+      // beyond the bound) are NOT pulled from the bench arrays — this prevents
+      // batters that appear after the last battingOrder id from showing in bench.
+      const fullTeamBattersSet = new Set(teamBatters);
+      const benchBattersFiltered = benchBatters.filter(
+        (id) => !fullTeamBattersSet.has(id),
+      );
+      const benchPitchersFiltered = benchPitchers.filter(
+        (id) => !fullTeamBattersSet.has(id),
+      );
+      const benchOthersFiltered = benchOthers.filter(
+        (id) => !fullTeamBattersSet.has(id),
+      );
+
+      // Only show the server-provided batters (bounded by last battingOrder id)
+      // as the finished-game bench. Do not pull unrelated bench players.
+      const seen = new Set();
+      benchIds = teamBattersOnly.filter((id) => {
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+
+      // Debug output: helpful when bench list isn't matching expectations
+      if (global && global.__DEV__) {
+        try {
+          console.log("[GameDetails] bench debug", {
+            isScheduled,
+            isFinished,
+            section,
+            battingOrder,
+            teamBatters,
+            teamPitchers,
+            lastOrderId,
+            teamBattersBounded,
+            teamBattersOnly,
+            benchBatters,
+            benchPitchers,
+            benchOthers,
+            merged,
+            benchIds,
+            rawBenchIds,
+            activeSets: Array.from(activeSets),
+          });
+        } catch (logErr) {
+          console.log("[GameDetails] bench debug error", logErr);
+        }
+      }
+    } else {
+      benchIds =
+        isFinished || !isScheduled
+          ? [...benchBatters, ...benchPitchers]
+          : [...benchBatters, ...benchPitchers, ...benchOthers];
+    }
+  } catch (e) {
+    console.error("[GameDetails] bench computation error", e);
+    benchIds =
+      isFinished || !isScheduled
+        ? [...benchBatters, ...benchPitchers]
+        : [...benchBatters, ...benchPitchers, ...benchOthers];
+    if (global && global.__DEV__) {
+      console.log("[GameDetails] bench fallback", { benchIds });
+    }
+  }
 
   // Resolve which IDs to show for the active section.
   let ids;
@@ -458,6 +693,10 @@ const BoxScorePanel = ({
           ? pitcherIds
           : benchIds;
   }
+
+  // Determine which player should show the `CURRENT` badge in the rendered list.
+  // Use the first element in `ids` for all sections (first = current).
+  const currentPlayerForDisplay = ids && ids.length ? ids[0] : null;
 
   return (
     <View style={{ paddingBottom: 24 }}>
@@ -492,6 +731,13 @@ const BoxScorePanel = ({
       )}
 
       {/* Player cards */}
+      {global && global.__DEV__ &&
+        console.log("[GameDetails] currentPlayer debug", {
+          section,
+          pitcherIds,
+          ids,
+          currentPlayerForDisplay,
+        })}
       {ids.map((id) => (
         <PlayerCard
           key={id}
@@ -500,6 +746,12 @@ const BoxScorePanel = ({
           bsPlayer={bsPlayers[`ID${id}`] ?? null}
           theme={theme}
           teamColor={teamColor}
+          isLive={!isScheduled && !isFinished}
+          isFinished={isFinished}
+          battingOrder={battingOrder}
+          battersArray={bsTeamData?.batters ?? []}
+          playersMap={playersMap}
+          currentPlayerId={section === "pitching" ? currentPlayerForDisplay : null}
           onPress={() =>
             setSelectedPlayer({
               playerId: id,
@@ -527,9 +779,11 @@ const BoxScorePanel = ({
         teamName={team?.name ?? ""}
         teamId={team?.id}
         allBsPlayers={allBsPlayers}
+        playersMap={playersMap}
         pitchesData={pitchesData}
         awayTeam={awayTeam}
         homeTeam={homeTeam}
+        boxscore={boxscore}
         awayScore={awayScore}
         homeScore={homeScore}
         gameDate={gameDateTime}
@@ -963,9 +1217,11 @@ const PlayerDetailModal = ({
   teamName,
   teamId,
   allBsPlayers,
+  playersMap,
   pitchesData,
   awayTeam,
   homeTeam,
+  boxscore,
   awayScore,
   homeScore,
   gameDate,
@@ -1035,7 +1291,23 @@ const PlayerDetailModal = ({
   const [pdActiveTab, setPdActiveTab] = useState("Stats");
   const [playerShareVisible, setPlayerShareVisible] = useState(false);
   const [sharePreferredMode, setSharePreferredMode] = useState(null);
+  const [compareActive, setCompareActive] = useState(false);
+  const [compareTargetId, setCompareTargetId] = useState(null);
+  const [compareChooserVisible, setCompareChooserVisible] = useState(false);
   const navigation = useNavigation();
+  const handleClose = () => {
+    setCompareActive(false);
+    setCompareChooserVisible(false);
+    setCompareTargetId(null);
+    if (typeof onClose === "function") onClose();
+  };
+  useEffect(() => {
+    if (!visible) {
+      setCompareActive(false);
+      setCompareChooserVisible(false);
+      setCompareTargetId(null);
+    }
+  }, [visible]);
   useEffect(() => {
     setPdActiveTab("Stats");
     setPlayerShareVisible(false);
@@ -1065,6 +1337,83 @@ const PlayerDetailModal = ({
     "—";
   const posName =
     bsPlayer?.position?.name ?? playerInfo?.primaryPosition?.name ?? "Position";
+
+  // compare target derived values (for header display)
+  // Use `playersMap` (game players) to resolve fullName/info — same logic as chooser
+  const compareResolved = compareTargetId
+    ? resolvePlayer(playersMap, compareTargetId) || {}
+    : null;
+  const compareBsPlayer = compareTargetId
+    ? allBsPlayers[`ID${compareTargetId}`] || allBsPlayers[String(compareTargetId)] || null
+    : null;
+  const compareFullName = compareResolved?.fullName || compareBsPlayer?.fullName || (compareTargetId ? `Player ${compareTargetId}` : "");
+  const compareJerseyNum = compareBsPlayer?.jerseyNumber
+    ? `#${compareBsPlayer.jerseyNumber}`
+    : compareResolved?.jerseyNumber
+    ? `#${compareResolved.jerseyNumber}`
+    : "";
+  const comparePosAbbr =
+    compareBsPlayer?.position?.abbreviation ??
+    compareResolved?.position?.abbreviation ??
+    compareResolved?.primaryPosition?.abbreviation ??
+    "";
+  let compareTeamName =
+    compareResolved?.currentTeam?.name || compareResolved?.team?.name || compareBsPlayer?.team?.name || null;
+
+  let compareSide = null;
+  if (compareTargetId) {
+    const ck = `ID${compareTargetId}`;
+    if (boxscore?.teams?.away?.players && boxscore.teams.away.players[ck]) compareSide = "away";
+    else if (boxscore?.teams?.home?.players && boxscore.teams.home.players[ck]) compareSide = "home";
+  }
+  const compareTeamId =
+    compareSide === "away"
+      ? awayTeam?.id
+      : compareSide === "home"
+      ? homeTeam?.id
+      : compareResolved?.currentTeam?.id || compareResolved?.team?.id || compareBsPlayer?.team?.id || null;
+  const compareTeamColor = compareTeamId ? WBCService.getTeamColor(compareTeamId) : theme.surfaceSecondary;
+  const effectiveStatMode = sharePreferredMode || (pdActiveTab === "Stats" ? "batting" : "pitching");
+
+  const renderPairBar = (leftVal, rightVal, isLower, leftColor, rightColor) => {
+    const leftNum = parseFloat(leftVal) || 0;
+    const rightNum = parseFloat(rightVal) || 0;
+    let l = 0;
+    let r = 0;
+    if (leftNum === 0 && rightNum === 0) {
+      l = 50; r = 50;
+    } else if (leftNum === 0) {
+      l = 0; r = 100;
+    } else if (rightNum === 0) {
+      l = 100; r = 0;
+    } else {
+      const sum = leftNum + rightNum;
+      if (!isLower) {
+        const leftFrac = leftNum / sum;
+        l = Math.round(leftFrac * 100);
+      } else {
+        const leftFrac = rightNum / sum;
+        l = Math.round(leftFrac * 100);
+      }
+      if (l < 0) l = 0;
+      if (l > 100) l = 100;
+      r = 100 - l;
+    }
+    try { console.log(`STAT BAR helper: leftNum=${leftNum} rightNum=${rightNum} isLower=${isLower} normalizedL=${l} normalizedR=${r}`); } catch (e) {}
+    return (
+      <View style={{ flexDirection: "row", width: "100%", height: '100%' }}>
+        <View style={{ flex: l, backgroundColor: leftColor, minWidth: 0 }} />
+        {l > 0 && r > 0 ? (
+          <View style={{ width: 3, backgroundColor: theme.border }} />
+        ) : null}
+        <View style={{ flex: r, backgroundColor: rightColor, minWidth: 0 }} />
+      </View>
+    );
+  };
+
+  // Prefer boxscore-side team name when available (matches chooser logic)
+  if (compareSide === "away") compareTeamName = awayTeam?.name || compareTeamName;
+  else if (compareSide === "home") compareTeamName = homeTeam?.name || compareTeamName;
 
   // Height: MLB API may return "6' 2\"" — strip any backslashes
   const rawHeight = playerInfo?.height ?? "";
@@ -1110,12 +1459,35 @@ const PlayerDetailModal = ({
     "blownSaves",
     "rbi",
     "stolenBases",
+    "balls"
   ]);
   const BATTING_LOWER_IS_BETTER = new Set([
     "strikeOuts",
     "groundIntoDoublePlay",
     "catchersInterference",
+    "leftOnBase",
   ]);
+
+  // A single lookup map for stat direction: true => lower is better
+  const STAT_LOWER_IS_BETTER = {
+    // pitching
+    runs: true,
+    hits: true,
+    homeRuns: true,
+    baseOnBalls: true,
+    earnedRuns: true,
+    wildPitches: true,
+    hitBatsmen: true,
+    blownSaves: true,
+    rbi: true,
+    stolenBases: true,
+    balls: true,
+    // batting
+    strikeOuts: true,
+    groundIntoDoublePlay: true,
+    catchersInterference: true,
+    leftOnBase: true,
+  };
 
   const formatStatName = (key) =>
     key
@@ -1131,7 +1503,14 @@ const PlayerDetailModal = ({
       .map(([key, rawVal]) => {
         const n = parseFloat(rawVal);
         const range = minMaxBucket[key];
-        const isLower = lowerSet.has(key);
+        // Determine whether lower is better: if a lowerSet is provided use it exclusively
+        // (it is bucket-specific), otherwise fall back to the global STAT_LOWER_IS_BETTER map
+        let isLower = false;
+        if (lowerSet && typeof lowerSet.has === "function") {
+          isLower = lowerSet.has(key);
+        } else {
+          isLower = !!STAT_LOWER_IS_BETTER[key];
+        }
         let pct = 0;
         if (range && !isNaN(n)) {
           if (range.max !== range.min) {
@@ -1140,6 +1519,11 @@ const PlayerDetailModal = ({
           } else {
             pct = isLower ? 0 : 1;
           }
+        }
+        try {
+          console.log(`buildStatRows: key=${key} rawVal=${rawVal} n=${n} range=${JSON.stringify(range)} isLower=${isLower} pct=${pct}`);
+        } catch (e) {
+          // ignore logging errors
         }
         return {
           key,
@@ -1155,10 +1539,10 @@ const PlayerDetailModal = ({
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
       statusBarTranslucent
     >
-      <TouchableWithoutFeedback onPress={onClose}>
+      <TouchableWithoutFeedback onPress={handleClose}>
         <View style={pdStyles.backdrop} />
       </TouchableWithoutFeedback>
 
@@ -1175,153 +1559,263 @@ const PlayerDetailModal = ({
         {/* Drag strip */}
         <View
           {...panResponder.panHandlers}
-          style={[pdStyles.dragStrip, { borderBottomColor: teamColor }]}
+          style={[pdStyles.dragStrip, { borderBottomColor: !compareActive ? teamColor : theme.border }]}
         >
           {/* Handle + close/share buttons row */}
           <View style={pdStyles.handleRow}>
             {/* Bat/Pitch slider */}
-            <View style={{ marginRight: 8 }}>
-              <View
-                style={{
-                  width: 120,
-                  height: 36,
-                  borderRadius: 20,
-                  backgroundColor: theme.surfaceSecondary,
-                  padding: 4,
-                  flexDirection: "row",
-                  alignItems: "center",
-                }}
-              >
-                <Animated.View
+            {hasBatStats && hasPitStats && !compareTargetId && (
+              <View style={{ marginRight: 8 }}>
+                <View
                   style={{
-                    position: "absolute",
-                    left: sharePreferredMode === "pitching" ? 120 / 2 : 4,
-                    top: 4,
-                    width: 120 / 2 - 6,
-                    height: 28,
-                    borderRadius: 16,
-                    backgroundColor: teamColor,
-                  }}
-                />
-                <TouchableOpacity
-                  onPress={() => setSharePreferredMode("batting")}
-                  style={{
-                    flex: 1,
+                    width: 120,
+                    height: 36,
+                    borderRadius: 20,
+                    backgroundColor: theme.surfaceSecondary,
+                    padding: 4,
+                    flexDirection: "row",
                     alignItems: "center",
-                    justifyContent: "center",
-                    zIndex: 2,
                   }}
                 >
-                  <Text
+                  <Animated.View
                     style={{
-                      fontWeight:
-                        sharePreferredMode === "batting" ? "800" : "600",
-                      color:
-                        sharePreferredMode === "batting" ? "#fff" : theme.text,
+                      position: "absolute",
+                      left: sharePreferredMode === "pitching" ? 120 / 2 : 4,
+                      top: 4,
+                      width: 120 / 2 - 6,
+                      height: 28,
+                      borderRadius: 16,
+                      backgroundColor: teamColor,
+                    }}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setSharePreferredMode("batting")}
+                    style={{
+                      flex: 1,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      zIndex: 2,
                     }}
                   >
-                    Bat
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setSharePreferredMode("pitching")}
-                  style={{
-                    flex: 1,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    zIndex: 2,
-                  }}
-                >
-                  <Text
+                    <Text
+                      style={{
+                        fontWeight:
+                          sharePreferredMode === "batting" ? "800" : "600",
+                        color:
+                          sharePreferredMode === "batting"
+                            ? "#fff"
+                            : theme.text,
+                      }}
+                    >
+                      Bat
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setSharePreferredMode("pitching")}
                     style={{
-                      fontWeight:
-                        sharePreferredMode === "pitching" ? "800" : "600",
-                      color:
-                        sharePreferredMode === "pitching" ? "#fff" : theme.text,
+                      flex: 1,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      zIndex: 2,
                     }}
                   >
-                    Pitch
-                  </Text>
-                </TouchableOpacity>
+                    <Text
+                      style={{
+                        fontWeight:
+                          sharePreferredMode === "pitching" ? "800" : "600",
+                        color:
+                          sharePreferredMode === "pitching"
+                            ? "#fff"
+                            : theme.text,
+                      }}
+                    >
+                      Pitch
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            )}
             <View
               style={[pdStyles.handle, { backgroundColor: theme.surface }]}
             />
             <View style={{ flexDirection: "row", gap: 8 }}>
               <TouchableOpacity
                 onPress={() => {
-                  // Use currently selected preferred mode if set, otherwise pick available
-                  const mode =
-                    sharePreferredMode ||
-                    (hasBatStats
-                      ? "batting"
-                      : hasPitStats
-                        ? "pitching"
-                        : "batting");
-                  setSharePreferredMode(mode);
-                  setPlayerShareVisible(true);
+                  setCompareActive((s) => {
+                    const next = !s;
+                    if (next) {
+                      setCompareChooserVisible(false);
+                      setCompareTargetId(null);
+                    }
+                    return next;
+                  });
                 }}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                style={[
-                  pdStyles.iconBtn,
-                  { backgroundColor: teamColor + "33" },
-                ]}
+                style={[pdStyles.iconBtn, { backgroundColor: theme.surfaceSecondary }]}
               >
-                <Ionicons name="share-outline" size={16} color={teamColor} />
+                <Ionicons name="people" size={16} color={theme.text} />
               </TouchableOpacity>
+              {!compareActive && (
+                <TouchableOpacity
+                  onPress={() => {
+                    // Use currently selected preferred mode if set, otherwise pick available
+                    const mode =
+                      sharePreferredMode ||
+                      (hasBatStats
+                        ? "batting"
+                        : hasPitStats
+                          ? "pitching"
+                          : "batting");
+                    setSharePreferredMode(mode);
+                    setPlayerShareVisible(true);
+                  }}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  style={[
+                    pdStyles.iconBtn,
+                    { backgroundColor: teamColor + "33" },
+                  ]}
+                >
+                  <Ionicons name="share-outline" size={16} color={teamColor} />
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
-                onPress={onClose}
+                onPress={handleClose}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 style={[pdStyles.iconBtn, { backgroundColor: theme.error }]}
               >
-                <Text style={[pdStyles.iconBtnText, { color: theme.text }]}>
-                  ✕
-                </Text>
+                <Text style={[pdStyles.iconBtnText, { color: theme.text }]}>✕</Text>
               </TouchableOpacity>
             </View>
           </View>
-
-          {/* Headshot centered — tap to open player page */}
-          <TouchableOpacity
-            activeOpacity={0.75}
-            onPress={() => {
-              onClose();
-              navigation.navigate("PlayerPage", {
-                playerId,
-                playerName: fullName,
-                teamId,
-                sport: SCREEN_SPORT,
-              });
-            }}
-            style={{ alignItems: "center" }}
-          >
-            <View style={pdStyles.headshotWrap}>
-              <Image
-                source={{ uri: playerHeadshotUrl(playerId) }}
-                style={[pdStyles.headshot, { borderColor: teamColor }]}
-                resizeMode="cover"
-              />
-            </View>
-
-            {/* Full name + jersey • team */}
-            <Text
-              style={[pdStyles.playerName, { color: theme.text }]}
-              numberOfLines={1}
-            >
-              {fullName}
-            </Text>
-            {(jerseyNum || teamName) && (
-              <Text
-                style={[pdStyles.jerseyNum, { color: theme.textSecondary }]}
+          {/* Header: either centered player or split compare view */}
+          {compareActive ? (
+            <View style={{ flexDirection: "row", width: "100%", gap: 12 }}>
+              {/* Left: current player */}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => {
+                  handleClose();
+                  navigation.navigate("PlayerPage", {
+                    playerId,
+                    playerName: fullName,
+                    teamId,
+                    sport: SCREEN_SPORT,
+                  });
+                }}
+                style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
               >
-                {[jerseyNum, teamName].filter(Boolean).join(" • ")}
-              </Text>
-            )}
-          </TouchableOpacity>
+                <View style={pdStyles.headshotWrap}>
+                  <View style={{ position: "relative" }}>
+                    <Image
+                      source={{ uri: playerHeadshotUrl(playerId) }}
+                      style={[pdStyles.headshot, { borderColor: teamColor }]}
+                      resizeMode="cover"
+                    />
+                    <View style={pdStyles.headshotBadge} pointerEvents="none">
+                      <Text style={pdStyles.headshotBadgeText}>{posAbbr}</Text>
+                    </View>
+                  </View>
+                </View>
+                <Text style={[pdStyles.playerName, { color: theme.text }]} numberOfLines={1}>
+                  {fullName}
+                </Text>
+                {(jerseyNum || teamName) && (
+                  <Text style={[pdStyles.jerseyNum, { color: theme.textSecondary, marginBottom: compareActive ? -8 : 16 }]}> 
+                    {[jerseyNum, teamName].filter(Boolean).join(" • ")} 
+                  </Text>
+                )}
+              </TouchableOpacity>
 
-          {/* 3-col stats: position | height | hand */}
-          <View style={pdStyles.triRow}>
+              {/* vertical divider (centered between headshots) */}
+              <View style={{ width: 1, height: 88, backgroundColor: theme.border, marginHorizontal: 8, alignSelf: 'center', borderRadius: 1 }} />
+
+              {/* Right: chooser trigger or chosen player (right half = flex:1) */}
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingLeft: 12 }}>
+                {compareTargetId ? (
+                  <View style={{ alignItems: "center" }}>
+                    <View style={{ position: "relative" }}>
+                      <Image
+                        source={{ uri: playerHeadshotUrl(compareTargetId) }}
+                        style={[pdStyles.headshot, { borderColor: compareTeamColor }]}
+                        resizeMode="cover"
+                      />
+                      <View style={pdStyles.headshotBadge} pointerEvents="none">
+                        <Text style={pdStyles.headshotBadgeText}>{comparePosAbbr}</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => setCompareTargetId(null)}
+                        style={[pdStyles.compareChosenClose, { backgroundColor: theme.error }]}
+                      >
+                        <Text style={{ color: theme.text, fontWeight: "800" }}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={[pdStyles.playerName, { color: theme.text, marginTop: 10 }]} numberOfLines={1}>
+                      {compareFullName || "—"}
+                    </Text>
+                    {(compareJerseyNum || compareTeamName) && (
+                      <Text style={[pdStyles.jerseyNum, { color: theme.textSecondary, marginBottom: compareActive ? -8 : 16 }]}>
+                        {[compareJerseyNum, compareTeamName].filter(Boolean).join(" • ")}
+                      </Text>
+                    )}
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => setCompareChooserVisible(true)}
+                    style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: theme.surfaceSecondary, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Text style={{ fontSize: 28, color: theme.text }}>+</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => {
+                handleClose();
+                navigation.navigate("PlayerPage", {
+                  playerId,
+                  playerName: fullName,
+                  teamId,
+                  sport: SCREEN_SPORT,
+                });
+              }}
+              style={{ alignItems: "center" }}
+            >
+              <View style={pdStyles.headshotWrap}>
+                <View style={{ position: "relative" }}>
+                  <Image
+                    source={{ uri: playerHeadshotUrl(playerId) }}
+                    style={[pdStyles.headshot, { borderColor: teamColor }]}
+                    resizeMode="cover"
+                  />
+                  <View style={pdStyles.headshotBadge} pointerEvents="none">
+                    <Text style={pdStyles.headshotBadgeText}>{posAbbr}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Full name + jersey • team */}
+              <Text
+                style={[pdStyles.playerName, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {fullName}
+              </Text>
+              {(jerseyNum || teamName) && (
+                <Text
+                  style={[pdStyles.jerseyNum, { color: theme.textSecondary, marginBottom: compareActive ? -8 : 16 }]}
+                >
+                  {[jerseyNum, teamName].filter(Boolean).join(" • ")}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+          )}
+
+          {/* 3-col stats: position | height | hand (hidden during compare) */}
+          {!compareActive && (
+            <View style={pdStyles.triRow}>
             <View style={pdStyles.triCell}>
               <Text style={[pdStyles.triValue, { color: theme.text }]}>
                 {posAbbr}
@@ -1352,11 +1846,12 @@ const PlayerDetailModal = ({
                 {handLabel}
               </Text>
             </View>
-          </View>
+          </View>)}
         </View>
+            
 
         {/* Stats / Pitches tab toggle */}
-        {hasPitchDisplay && (
+        {hasPitchDisplay && !compareActive && !compareTargetId && (
           <View style={pdStyles.pdTabBar}>
             {["Stats", "Pitches"].map((tab) => (
               <TouchableOpacity
@@ -1389,20 +1884,213 @@ const PlayerDetailModal = ({
           showsVerticalScrollIndicator={false}
           bounces={false}
           contentContainerStyle={{
-            paddingHorizontal: 20,
-            paddingTop: 16,
+            paddingHorizontal: compareChooserVisible ? 10 : 20,
+            paddingTop: compareChooserVisible ? 0 : 16,
             paddingBottom: 48,
           }}
         >
-          {hasPitchDisplay && pdActiveTab === "Pitches" && (
-            <BatterPitchMapView
-              playerPitchData={playerPitches}
-              teamColor={teamColor}
-              theme={theme}
-            />
-          )}
-          {(!hasPitchDisplay || pdActiveTab === "Stats") && hasBatStats && (
-            <>
+          {compareActive && !compareTargetId ? (
+            compareChooserVisible ? (
+              <ScrollView style={{ paddingVertical: 8 }} showsVerticalScrollIndicator={false}>
+                  {Object.values(allBsPlayers || {})
+                    .map((rawP) => {
+                        const pid = rawP?.id ?? rawP?.person?.id ?? null;
+                        let name = null;
+                        let pos = null;
+                        const resolved = playersMap ? resolvePlayer(playersMap, pid) || {} : {};
+                        if (playersMap) {
+                          name = resolved?.fullName || null;
+                          pos = resolved?.position?.abbreviation || null;
+                        }
+                        if (!name) name = rawP?.fullName ?? rawP?.person?.fullName ?? rawP?.displayName ?? `Player ${pid}`;
+                        if (!pos)
+                          pos = (rawP?.position && (rawP.position.abbreviation || rawP.position)) ?? rawP?.primaryPosition?.abbreviation ?? null;
+
+                        const hasIngameStats = (obj) => {
+                          if (!obj || typeof obj !== 'object') return false;
+                          return Object.keys(obj).some((k) => {
+                            if (!k) return false;
+                            if (k === 'season' || k === 'summary') return false;
+                            const v = obj[k];
+                            return v !== null && v !== undefined && v !== '';
+                          });
+                        };
+
+                        const hasBat = hasIngameStats(rawP?.stats?.batting);
+                        const hasPit = hasIngameStats(rawP?.stats?.pitching);
+
+                        // Prefer boxscore teams mapping (away/home) to determine which side the player is on
+                        let side = null;
+                        const lookupKey = `ID${pid}`;
+                        if (boxscore?.teams?.away?.players && boxscore.teams.away.players[lookupKey]) side = "away";
+                        else if (boxscore?.teams?.home?.players && boxscore.teams.home.players[lookupKey]) side = "home";
+
+                        const teamId =
+                          side === "away"
+                            ? awayTeam?.id
+                            : side === "home"
+                            ? homeTeam?.id
+                            : resolved?.currentTeam?.id || resolved?.team?.id || rawP?.team?.id || rawP?.teamId || null;
+
+                        const teamName =
+                          side === "away"
+                            ? awayTeam?.name
+                            : side === "home"
+                            ? homeTeam?.name
+                            : resolved?.currentTeam?.name || resolved?.team?.name || rawP?.team?.name || null;
+
+                        const number = rawP?.jerseyNumber ?? resolved?.jerseyNumber ?? null;
+
+                        return { pid, name, pos, hasBat, hasPit, teamId, teamName, number, resolvedTeamId: teamId, side };
+                      })
+                    .filter((x) => x.pid != null && x.pid != playerId)
+                    .filter((x) => {
+                      // If candidate has both stat types, respect the effective stat mode
+                      if (x.hasBat && x.hasPit) {
+                        return effectiveStatMode === "pitching" ? x.hasPit : x.hasBat;
+                      }
+
+                      // For single-role players, only include them if they have the in-game stats
+                      // for the currently effective mode (don't rely on position alone).
+                      if (effectiveStatMode === "pitching") return x.hasPit;
+                      return x.hasBat;
+                    })
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((p) => (
+                      <TouchableOpacity
+                        key={p.pid}
+                        onPress={() => {
+                          setCompareTargetId(p.pid);
+                          setCompareChooserVisible(false);
+                        }}
+                      >
+                        <View
+                          style={[
+                            pdStyles.compareBubble,
+                            (function () {
+                              const teamIdFinal =
+                                p.teamId ||
+                                p.resolvedTeamId ||
+                                (p.side === "away"
+                                  ? awayTeam?.id
+                                  : p.side === "home"
+                                  ? homeTeam?.id
+                                  : null);
+                              const teamColorFinal = teamIdFinal
+                                ? WBCService.getTeamColor(teamIdFinal)
+                                : theme.border;
+                              return {
+                                borderColor: teamColorFinal,
+                                backgroundColor: theme.surface,
+                                borderWidth: 1,
+                              };
+                            })(),
+                          ]}
+                        >
+                          <View style={pdStyles.compareRow}>
+                            <View
+                              style={[
+                                pdStyles.compareHeadshotWrap,
+                                {
+                                  overflow: "visible",
+                                  borderWidth: 1,
+                                  borderColor: (function () {
+                                    const teamIdForStyle =
+                                      p.teamId ||
+                                      p.resolvedTeamId ||
+                                      (p.side === "away"
+                                        ? awayTeam?.id
+                                        : p.side === "home"
+                                        ? homeTeam?.id
+                                        : null);
+                                    return teamIdForStyle
+                                      ? WBCService.getTeamColor(teamIdForStyle)
+                                      : theme.border;
+                                  })(),
+                                },
+                              ]}
+                            >
+                              <Image
+                                source={{ uri: playerHeadshotUrl(p.pid) }}
+                                style={[pdStyles.compareHeadshotImage, { borderColor: (function () {
+                                    const teamIdForStyle =
+                                      p.teamId ||
+                                      p.resolvedTeamId ||
+                                      (p.side === "away"
+                                        ? awayTeam?.id
+                                        : p.side === "home"
+                                        ? homeTeam?.id
+                                        : null);
+                                    return teamIdForStyle
+                                      ? WBCService.getTeamColor(teamIdForStyle)
+                                      : theme.border;
+                                  })() }]}
+                                resizeMode="cover"
+                              />
+                              {(function () {
+                                const teamIdFinal =
+                                  p.teamId ||
+                                  p.resolvedTeamId ||
+                                  (p.side === "away"
+                                    ? awayTeam?.id
+                                    : p.side === "home"
+                                    ? homeTeam?.id
+                                    : null);
+                                const teamColorForLogo = teamIdFinal
+                                  ? WBCService.getTeamColor(teamIdFinal)
+                                  : null;
+                                const logo = teamIdFinal
+                                  ? WBCService.getTeamLogo(teamIdFinal)
+                                  : null;
+                                if (!logo) return null;
+                                return (
+                                  <Image
+                                    source={{ uri: logo }}
+                                    style={[
+                                      pdStyles.compareTeamLogo,
+                                      {
+                                        borderColor: teamColorForLogo || theme.border,
+                                        backgroundColor:
+                                          (teamColorForLogo || theme.border) + "33",
+                                      },
+                                    ]}
+                                    resizeMode="contain"
+                                  />
+                                );
+                              })()}
+                            </View>
+
+                          <View style={pdStyles.compareInfo}>
+                            <Text style={[pdStyles.compareName, { color: theme.text }]} numberOfLines={1}>
+                              {p.name}
+                            </Text>
+                            <Text style={[pdStyles.compareSub, { color: theme.textSecondary }]} numberOfLines={1}>
+                              {(p.number ? `#${p.number}` : "") + (p.teamName ? ` • ${p.teamName}` : "")}
+                            </Text>
+                          </View>
+
+                          <Text style={[pdStyles.comparePos, { color: theme.textSecondary }]}>{p.pos || ""}</Text>
+                        </View>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            ) : (
+              <View style={{ alignItems: "center", marginBottom: 12 }}>
+                <Text style={{ color: theme.textSecondary, fontSize: 20 }}>Click + to select a player</Text>
+              </View>
+            )
+          ) : (
+            <React.Fragment>
+              {hasPitchDisplay && !compareActive && pdActiveTab === "Pitches" && (
+                <BatterPitchMapView
+                  playerPitchData={playerPitches}
+                  teamColor={teamColor}
+                  theme={theme}
+                />
+              )}
+              {(!hasPitchDisplay || pdActiveTab === "Stats") && effectiveStatMode === "batting" && hasBatStats && (
+            <React.Fragment>
               {hasPitStats && (
                 <Text style={[pdStyles.statSection, { color: teamColor }]}>
                   Batting
@@ -1412,46 +2100,85 @@ const PlayerDetailModal = ({
                 batting,
                 BATTING_LOWER_IS_BETTER,
                 statMinMax.batting,
-              ).map(({ key, label, value, pct }) => (
-                <View key={`bat-${key}`} style={pdStyles.statRow}>
-                  <Text
-                    style={[
-                      pdStyles.statRowLabel,
-                      { color: theme.textSecondary },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {label}
-                  </Text>
-                  <View style={pdStyles.statRowRight}>
-                    <Text
-                      style={[pdStyles.statRowValue, { color: theme.text }]}
-                    >
-                      {value}
-                    </Text>
-                    <View
-                      style={[
-                        pdStyles.statBarTrack,
-                        { backgroundColor: theme.border },
-                      ]}
-                    >
+              ).map((row, idx, arr) => {
+                const { key, label, value, pct, isLower } = row;
+                // compare row for this stat
+                let cmpRow = null;
+                if (compareTargetId) {
+                  const cmpBs =
+                    allBsPlayers[`ID${compareTargetId}`] ||
+                    allBsPlayers[String(compareTargetId)] ||
+                    null;
+                  const cmpStats = cmpBs?.stats?.batting ?? {};
+                  const cmpRows = buildStatRows(cmpStats, BATTING_LOWER_IS_BETTER, statMinMax.batting);
+                  cmpRow = cmpRows.find((r) => r.key === key) || null;
+                }
+
+                return (
+                  <React.Fragment key={`bat-${key}`}>
+                    <View style={pdStyles.statRow}>
+                      <Text
+                        style={[
+                          pdStyles.statRowValueLeft,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {value}
+                      </Text>
+                      <View style={pdStyles.statBarWrap}>
+                        <View
+                          style={[
+                            pdStyles.statBarTrack,
+                            { backgroundColor: theme.border, width: "100%" },
+                          ]}
+                        >
+                            {compareTargetId && cmpRow ? (
+                              renderPairBar(value, cmpRow.value, isLower, teamColor, compareTeamColor)
+                            ) : (
+                              <View
+                                style={[
+                                  pdStyles.statBarFill,
+                                  {
+                                    width: `${Math.round(pct * 100)}%`,
+                                    backgroundColor: teamColor,
+                                  },
+                                ]}
+                              />
+                            )}
+                        </View>
+                        <Text
+                          style={[
+                            pdStyles.statRowLabelBelow,
+                            { color: theme.textSecondary, alignSelf: compareTargetId ? "center" : "flex-end", textAlign: compareTargetId ? "center" : null },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {label}
+                        </Text>
+                      </View>
+                      {compareTargetId && cmpRow && (
+                        <View style={pdStyles.statRowRight}>
+                          <Text style={[pdStyles.statRowValueRight, { color: theme.textSecondary }]}>
+                            {cmpRow.value}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    {idx !== arr.length - 1 && (
                       <View
                         style={[
-                          pdStyles.statBarFill,
-                          {
-                            width: `${Math.round(pct * 100)}%`,
-                            backgroundColor: teamColor,
-                          },
+                          pdStyles.statDivider,
+                          { backgroundColor: theme.border },
                         ]}
                       />
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </>
-          )}
-          {(!hasPitchDisplay || pdActiveTab === "Stats") && hasPitStats && (
-            <>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+                  </React.Fragment>
+                )}
+          {(!hasPitchDisplay || pdActiveTab === "Stats") && effectiveStatMode === "pitching" && hasPitStats && (
+            <React.Fragment>
               {hasBatStats && (
                 <Text
                   style={[
@@ -1466,43 +2193,83 @@ const PlayerDetailModal = ({
                 pitching,
                 PITCHING_LOWER_IS_BETTER,
                 statMinMax.pitching,
-              ).map(({ key, label, value, pct }) => (
-                <View key={`pit-${key}`} style={pdStyles.statRow}>
-                  <Text
-                    style={[
-                      pdStyles.statRowLabel,
-                      { color: theme.textSecondary },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {label}
-                  </Text>
-                  <View style={pdStyles.statRowRight}>
-                    <Text
-                      style={[pdStyles.statRowValue, { color: theme.text }]}
-                    >
-                      {value}
-                    </Text>
-                    <View
-                      style={[
-                        pdStyles.statBarTrack,
-                        { backgroundColor: theme.border },
-                      ]}
-                    >
+              ).map((row, idx, arr) => {
+                const { key, label, value, pct, isLower } = row;
+                let cmpRow = null;
+                if (compareTargetId) {
+                  const cmpBs =
+                    allBsPlayers[`ID${compareTargetId}`] ||
+                    allBsPlayers[String(compareTargetId)] ||
+                    null;
+                  const cmpStats = cmpBs?.stats?.pitching ?? {};
+                  const cmpRows = buildStatRows(cmpStats, PITCHING_LOWER_IS_BETTER, statMinMax.pitching);
+                  cmpRow = cmpRows.find((r) => r.key === key) || null;
+                }
+
+                return (
+                  <React.Fragment key={`pit-${key}`}>
+                    <View style={pdStyles.statRow}>
+                      <Text
+                        style={[
+                          pdStyles.statRowValueLeft,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {value}
+                      </Text>
+                      <View style={pdStyles.statBarWrap}>
+                        <View
+                          style={[
+                            pdStyles.statBarTrack,
+                            { backgroundColor: theme.border, width: "100%" },
+                          ]}
+                        >
+                          {compareTargetId && cmpRow ? (
+                            renderPairBar(value, cmpRow.value, isLower, teamColor, compareTeamColor)
+                          ) : (
+                            <View
+                              style={[
+                                pdStyles.statBarFill,
+                                {
+                                  width: `${Math.round(pct * 100)}%`,
+                                  backgroundColor: teamColor,
+                                },
+                              ]}
+                            />
+                          )}
+                        </View>
+                        <Text
+                          style={[
+                            pdStyles.statRowLabelBelow,
+                            { color: theme.textSecondary, alignSelf: compareTargetId ? "center" : "flex-end", textAlign: compareTargetId ? "center" : null },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {label}
+                        </Text>
+                      </View>
+                      {compareTargetId && cmpRow && (
+                        <View style={pdStyles.statRowRight}>
+                          <Text style={[pdStyles.statRowValueRight, { color: theme.textSecondary }]}> 
+                            {cmpRow.value}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    {idx !== arr.length - 1 && (
                       <View
                         style={[
-                          pdStyles.statBarFill,
-                          {
-                            width: `${Math.round(pct * 100)}%`,
-                            backgroundColor: teamColor,
-                          },
+                          pdStyles.statDivider,
+                          { backgroundColor: theme.border },
                         ]}
                       />
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </React.Fragment>
+          )}
+            </React.Fragment>
           )}
         </ScrollView>
       </Animated.View>
@@ -1585,6 +2352,23 @@ const pdStyles = StyleSheet.create({
     borderWidth: 3,
     backgroundColor: "rgba(128,128,128,0.1)",
   },
+  headshotBadge: {
+    position: "absolute",
+    left: -6,
+    bottom: -6,
+    minWidth: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+  },
+  headshotBadgeText: {
+    color: "white",
+    fontSize: 11,
+    fontWeight: "800",
+  },
   playerName: {
     fontSize: 20,
     fontWeight: "800",
@@ -1634,8 +2418,37 @@ const pdStyles = StyleSheet.create({
   statRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     marginBottom: 10,
+  },
+  statRowValueLeft: {
+    width: 80,
+    fontSize: 20,
+    fontWeight: "800",
+    textAlign: "left",
+    paddingRight: 8,
+    alignSelf: "center",
+    marginTop: -6,
+  },
+  statRowValueRight: {
+    width: 80,
+    fontSize: 20,
+    fontWeight: "800",
+    textAlign: "right",
+    paddingLeft: 8,
+    alignSelf: "center",
+    marginTop: -6,
+  },
+  statBarWrap: {
+    flex: 1,
+    marginLeft: 6,
+    flexDirection: "column",
+    justifyContent: "center",
+  },
+  statRowLabelBelow: {
+    fontSize: 11,
+    fontWeight: "500",
+    marginTop: 6,
+    alignSelf: "flex-end",
   },
   statRowLabel: {
     flex: 1,
@@ -1648,20 +2461,100 @@ const pdStyles = StyleSheet.create({
     gap: 3,
   },
   statBarTrack: {
-    width: 64,
-    height: 4,
-    borderRadius: 2,
+    width: "100%",
+    height: 8,
+    borderRadius: 4,
     overflow: "hidden",
   },
   statBarFill: {
     height: "100%",
-    borderRadius: 2,
+    borderRadius: 4,
     minWidth: 2,
+  },
+  // compare chooser styles
+  compareChooserList: {
+    paddingVertical: 6,
+  },
+  compareRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  compareHeadshotWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: "hidden",
+    marginRight: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  compareHeadshotImage: {
+    width: 48,
+    height: 48,
+    borderWidth: 1,
+    borderRadius: 24,
+  },
+  compareTeamLogo: {
+    position: "absolute",
+    right: -6,
+    bottom: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "transparent",
+    backgroundColor: "transparent",
+    overflow: "hidden",
+  },
+  compareInfo: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  compareName: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  compareSub: {
+    fontSize: 12,
+    color: "rgba(0,0,0,0.6)",
+  },
+  comparePos: {
+    marginLeft: 8,
+    fontSize: 13,
+    fontWeight: "800",
+    textAlign: "right",
+  },
+  compareBubble: {
+    marginVertical: 8,
+    borderRadius: 12,
+    padding: 6,
+    borderWidth: 1,
+    backgroundColor: "transparent",
+    overflow: "hidden",
+  },
+  compareChosenClose: {
+    position: "absolute",
+    right: -6,
+    top: -6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.12)",
   },
   statRowValue: {
     fontSize: 12,
     fontWeight: "700",
     textAlign: "right",
+  },
+  statDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginTop: -4,
+    marginVertical: 8,
+    width: "100%",
   },
   pdTabBar: {
     flexDirection: "row",
@@ -2083,7 +2976,7 @@ const PlayerShareCardModal = ({
                     </View>
                     {!!gameDate &&
                       (() => {
-                        const _gd = new Date(gameDate);
+                        const _gd = new Date(normalizeUtcIso(gameDate));
                         const _monthDate = _gd.toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
@@ -2889,7 +3782,7 @@ const PlayDetailModal = ({
         if (gs.dy > 0) panY.setValue(gs.dy);
       },
       onPanResponderRelease: (_, gs) => {
-        if (gs.dy > 80) {
+        if (gs.dy > 60) {
           onClose();
           panY.setValue(0);
         } else {
@@ -3062,7 +3955,6 @@ const PlayDetailModal = ({
               </TouchableOpacity>
             </View>
           </View>
-
           {!!description && (
             <Text
               style={[modalStyles.sheetDesc, { color: theme.textSecondary }]}
@@ -4254,43 +5146,44 @@ const plStyles = StyleSheet.create({
   },
 });
 
-// Short game time: "Mar 3 · 8:08 PM"
+// Normalize ISO strings from server: ensure a date-only or timezone-less
+// timestamp is parsed as UTC by appending 'T00:00:00Z' or 'Z' when needed.
+const normalizeUtcIso = (s) => {
+  if (!s || typeof s !== "string") return s;
+  // Date-only like '2026-04-05'
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return `${s}T00:00:00Z`;
+  // Time present but no timezone offset (e.g. '2026-04-05T18:10:00')
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(s)) return `${s}Z`;
+  return s;
+};
+
+// Short game time: "Mar 3 · 8:08 PM" — rendered in device/local timezone
 const fmtGameTime = (isoString) => {
   if (!isoString) return null;
-  const d = new Date(isoString);
+  const _iso = normalizeUtcIso(isoString);
+  const d = new Date(_iso);
   if (isNaN(d.getTime())) return null;
-  const yr = d.getUTCFullYear();
-  const march1 = new Date(Date.UTC(yr, 2, 1));
-  const edtStart = new Date(
-    Date.UTC(yr, 2, 8 + ((7 - march1.getUTCDay()) % 7), 7),
-  );
-  const nov1 = new Date(Date.UTC(yr, 10, 1));
-  const edtEnd = new Date(
-    Date.UTC(yr, 10, 1 + ((7 - nov1.getUTCDay()) % 7), 6),
-  );
-  const offsetMs = d >= edtStart && d < edtEnd ? -4 * 3600000 : -5 * 3600000;
-  const local = new Date(d.getTime() + offsetMs);
-  const MONTHS = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  const month = MONTHS[local.getUTCMonth()];
-  const day = local.getUTCDate();
-  let hr = local.getUTCHours();
-  const min = local.getUTCMinutes().toString().padStart(2, "0");
-  const ampm = hr >= 12 ? "PM" : "AM";
-  hr = hr % 12 || 12;
-  return `${month} ${day} \u00b7 ${hr}:${min} ${ampm}`;
+  try {
+    const dateFmt = new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const timeFmt = new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    return `${dateFmt.format(d)} \u00b7 ${timeFmt.format(d)}`;
+  } catch {
+    const month = d.toLocaleString("en-US", { month: "short" });
+    const day = d.getDate();
+    const time = d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    return `${month} ${day} \u00b7 ${time}`;
+  }
 };
 
 // ─── Center status badge ──────────────────────────────────────────────────────
@@ -4310,8 +5203,7 @@ const StatusBadge = ({ status, linescore, gameDateTime, theme }) => {
     topLabel = state.startsWith("In Progress") ? "In Progress" : state;
     bottomLabel = "";
   } else if (state === "Final") {
-    topLabel = "Final";
-    if (inning && inning !== 9) bottomLabel = `F/${inning}`;
+    topLabel = `Final${inning !== 9 ? `/${inning}` : ""}`;
   }
 
   return (
@@ -4347,47 +5239,66 @@ const StatusBadge = ({ status, linescore, gameDateTime, theme }) => {
 };
 
 // ─── Game Info helpers ──────────────────────────────────────────────────────
+// Convert a UTC timestamp to a full local date/time string (e.g. "Apr 5, 2026 @ 2:10 PM EDT")
+// using the device's timezone. Includes the locale time zone short name when available.
 const utcToEastern = (isoString) => {
   if (!isoString) return null;
-  const d = new Date(isoString);
+  const _iso = normalizeUtcIso(isoString);
+  const d = new Date(_iso);
   if (isNaN(d.getTime())) return null;
-  // Determine US Eastern offset: EDT starts 2nd Sun of March, EST resumes 1st Sun of Nov.
-  const yr = d.getUTCFullYear();
-  // 2nd Sunday of March
-  const march1 = new Date(Date.UTC(yr, 2, 1));
-  const edtStart = new Date(
-    Date.UTC(yr, 2, 8 + ((7 - march1.getUTCDay()) % 7), 7),
-  ); // 2:00 AM EST → 7:00 UTC
-  // 1st Sunday of November
-  const nov1 = new Date(Date.UTC(yr, 10, 1));
-  const edtEnd = new Date(
-    Date.UTC(yr, 10, 1 + ((7 - nov1.getUTCDay()) % 7), 6),
-  ); // 2:00 AM EDT → 6:00 UTC
-  const offsetMs = d >= edtStart && d < edtEnd ? -4 * 3600000 : -5 * 3600000;
-  const suffix = d >= edtStart && d < edtEnd ? "EDT" : "EST";
-  const local = new Date(d.getTime() + offsetMs);
-  const MONTHS = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  const month = MONTHS[local.getUTCMonth()];
-  const day = local.getUTCDate();
-  const year = local.getUTCFullYear();
-  let hr = local.getUTCHours();
-  const min = local.getUTCMinutes().toString().padStart(2, "0");
-  const ampm = hr >= 12 ? "PM" : "AM";
-  hr = hr % 12 || 12;
-  return `${month} ${day}, ${year} @ ${hr}:${min} ${ampm} ${suffix}`;
+  // If the ISO string does not include a time portion, render only the date.
+  const timeMatch = isoString.match(/T(\d{2}):(\d{2})/);
+  const hasTime = !!(
+    timeMatch && !(timeMatch[1] === "00" && timeMatch[2] === "00")
+  );
+  try {
+    if (!hasTime) {
+      return d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+    const dateStr = d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    const timeStr = d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    // Try to extract short tz (e.g., 'EDT') from Intl if available
+    let tz = "";
+    try {
+      const full = new Intl.DateTimeFormat("en-US", {
+        timeZoneName: "short",
+      }).format(d);
+      const m = full.match(/\b([A-Z]{2,}|GMT[+-]?\d{1,2})\b/);
+      if (m) tz = m[1];
+    } catch {}
+    return `${dateStr} @ ${timeStr}${tz ? ` ${tz}` : ""}`;
+  } catch {
+    if (!hasTime) {
+      return d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+    const dateStr = d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    const timeStr = d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    return `${dateStr} @ ${timeStr}`;
+  }
 };
 
 const fmtDuration = (mins) => {
@@ -5307,7 +6218,8 @@ const TeamStatsBubble = ({
                   ? hNum / total // away lower → away gets hNum/(a+h) portion (bigger if away is smaller)
                   : aNum / total; // higher is better → straight proportion
 
-            awayFrac = Math.max(0.05, Math.min(0.95, awayFrac));
+            // Allow full 0/1 when one side has zero — don't force a minimum visual width
+            awayFrac = Math.max(0, Math.min(1, awayFrac));
 
             return (
               <View
@@ -5334,12 +6246,14 @@ const TeamStatsBubble = ({
                         { flex: awayFrac, backgroundColor: awayColor },
                       ]}
                     />
-                    <View
-                      style={[
-                        tsStyles.barDivider,
-                        { backgroundColor: theme.card },
-                      ]}
-                    />
+                    {awayFrac > 0 && awayFrac < 1 ? (
+                      <View
+                        style={[
+                          tsStyles.barDivider,
+                          { backgroundColor: theme.border },
+                        ]}
+                      />
+                    ) : null}
                     <View
                       style={[
                         tsStyles.barSegment,
@@ -5430,7 +6344,7 @@ const tsStyles = StyleSheet.create({
     height: 8,
   },
   barDivider: {
-    width: 2,
+    width: 3,
     height: 8,
   },
   barLabel: {
@@ -7195,10 +8109,9 @@ const GameDetailsScreen = ({ navigation, route }) => {
                 const label =
                   status?.codedGameState === "F" ||
                   status?.detailedState === "Final"
-                    ? "Final"
+                    ? `Final${inning !== 9 ? `/${inning}` : ""}`
                     : (status?.detailedState ?? "");
                 const miniTimeStr = fmtGameTime(gameDateTime);
-                const inningLabel = inning && inning > 9 ? `F/${inning}` : null;
                 return (
                   <>
                     <Text
@@ -7209,16 +8122,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
                     >
                       {label}
                     </Text>
-                    {inningLabel ? (
-                      <Text
-                        style={[
-                          styles.miniStatusSub,
-                          { color: theme.textTertiary },
-                        ]}
-                      >
-                        {inningLabel}
-                      </Text>
-                    ) : miniTimeStr ? (
+                    {miniTimeStr ? (
                       <Text
                         style={[
                           styles.miniStatusSub,
@@ -7766,9 +8670,11 @@ const GameDetailsScreen = ({ navigation, route }) => {
             ...(boxscore?.teams?.away?.players ?? {}),
             ...(boxscore?.teams?.home?.players ?? {}),
           }}
+          playersMap={playersMap}
           pitchesData={pitchesData}
           awayTeam={awayTeam}
           homeTeam={homeTeam}
+          boxscore={boxscore}
           awayScore={awayScore}
           homeScore={homeScore}
           gameDate={gameDateTime}

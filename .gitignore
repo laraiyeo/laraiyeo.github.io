@@ -12,3 +12,6 @@ livetracker-test.html
 2.txt
 3.txt
 code.txt
+ 
+# Ignore generated Android autolinking outputs (can contain host-specific absolute paths)
+SportsTrackerExpo/android/build/generated/

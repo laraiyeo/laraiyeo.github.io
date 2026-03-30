@@ -2,11 +2,11 @@
   "expo": {
     "name": "SportsHeart",
     "slug": "sportsheart",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "runtimeVersion": "1.3.0",
+    "runtimeVersion": "1.4.0",
     "scheme": "sportsheart",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -19,7 +19,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.sportsheart.app",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
@@ -32,7 +32,7 @@
         "backgroundColor": "#000000"
       },
       "package": "com.sportsheart.app",
-      "versionCode": 15,
+      "versionCode": 16,
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "INTERNET",
@@ -208,7 +208,7 @@
     },
     "updates": {
       "url": "https://u.expo.dev/fb066229-1442-4efb-b65c-4588b95b115c",
-      "fallbackToCacheTimeout": 30000,
+      "fallbackToCacheTimeout": 5000,
       "checkAutomatically": "ON_LOAD"
     },
     "owner": "laraiyeo"

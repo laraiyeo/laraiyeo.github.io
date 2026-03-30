@@ -8,11 +8,18 @@ class AnalyticsService {
     this.isDevelopment = __DEV__;
     // Detect Expo Go / managed client
     this.isExpoGo = Constants.appOwnership === "expo";
-    // Allow opting into analytics during development via config or env var
+    // Verbose logging opt-in (via app config or env var)
     const extra =
       (Constants.manifest && Constants.manifest.extra) ||
       (Constants.expoConfig && Constants.expoConfig.extra) ||
       {};
+    this.verboseLogging = !!(
+      extra.enableAnalyticsVerbose ||
+      (typeof process !== "undefined" &&
+        process.env &&
+        process.env.EXPO_ENABLE_ANALYTICS_VERBOSE === "1")
+    );
+    // Allow opting into analytics during development via config or env var
     this.allowAnalyticsInDev = !!(
       extra.enableAnalyticsInDev ||
       (typeof process !== "undefined" &&
@@ -21,6 +28,14 @@ class AnalyticsService {
     );
     this._analyticsModule = null; // will hold dynamic import of native analytics
     this._analytics = null; // will hold analytics instance and function refs
+    if (this.verboseLogging) {
+      console.log("AnalyticsService ctor:", {
+        platform: Platform.OS,
+        isDevelopment: this.isDevelopment,
+        isExpoGo: this.isExpoGo,
+        allowAnalyticsInDev: this.allowAnalyticsInDev,
+      });
+    }
   }
 
   async initialize() {
@@ -38,6 +53,15 @@ class AnalyticsService {
         console.log(
           "Firebase Analytics: Skipping native initialization (not standalone/bare or not enabled in dev)",
         );
+        if (this.verboseLogging)
+          console.log("Analytics init skipped details:", {
+            executionEnvironment: Constants.executionEnvironment,
+            appOwnership: Constants.appOwnership,
+            isNativeEnv,
+            shouldInitNative,
+            isDevelopment: this.isDevelopment,
+            allowAnalyticsInDev: this.allowAnalyticsInDev,
+          });
         return;
       }
 
@@ -52,9 +76,16 @@ class AnalyticsService {
       // Dynamically import the native analytics module to avoid errors in Expo Go
       try {
         // Dynamically import analytics and app modules
-        const analyticsModule =
-          await import("@react-native-firebase/analytics");
+        const analyticsModule = await import("@react-native-firebase/analytics");
         const appModule = await import("@react-native-firebase/app");
+
+        if (this.verboseLogging) {
+          console.log("Native analytics module loaded:", {
+            analyticsType: typeof analyticsModule,
+            appType: typeof appModule,
+            analyticsModuleKeys: Object.keys(analyticsModule || {}),
+          });
+        }
 
         // Resolve helpers for both modular (v22+) and namespaced APIs
         const getApp =
@@ -96,6 +127,7 @@ class AnalyticsService {
           }
         } catch (e) {
           console.warn("Failed to obtain analytics instance:", e.message || e);
+          if (this.verboseLogging) console.warn(e.stack || e);
         }
 
         const analyticsEnabled =
@@ -137,10 +169,8 @@ class AnalyticsService {
             );
           }
         } catch (e) {
-          console.warn(
-            "Failed to set analytics collection flag:",
-            e.message || e,
-          );
+          console.warn("Failed to set analytics collection flag:", e.message || e);
+          if (this.verboseLogging) console.warn(e.stack || e);
         }
 
         // Save resolved refs for later use
@@ -166,12 +196,33 @@ class AnalyticsService {
           platform: Platform.OS,
           development: this.isDevelopment,
         });
+        // Diagnostic: surface native analytics instance details and app instance id (if available)
+        try {
+          const { instance, fn } = this._analytics || {};
+          console.log("Firebase Analytics diagnostic: instancePresent=", !!instance, "fn.logEvent=", typeof (fn && fn.logEvent));
+          if (this.verboseLogging) {
+            console.log("Analytics diagnostic object:", {
+              instanceType: instance ? typeof instance : null,
+              hasGetAppInstanceId: !!(instance && typeof instance.getAppInstanceId === "function") || !!(fn && typeof fn.getAppInstanceId === "function"),
+              fnKeys: Object.keys(fn || {}),
+            });
+          }
+          let appInstanceId = null;
+          if (instance && typeof instance.getAppInstanceId === "function") {
+            appInstanceId = await instance.getAppInstanceId();
+          } else if (fn && typeof fn.getAppInstanceId === "function") {
+            // modular vs namespaced: try both calling conventions
+            if (fn.getAppInstanceId.length >= 1) appInstanceId = await fn.getAppInstanceId(instance);
+            else appInstanceId = await fn.getAppInstanceId();
+          }
+          console.log("Firebase Analytics appInstanceId:", appInstanceId);
+        } catch (e) {
+          console.warn("Failed to read analytics appInstanceId:", e?.message || e);
+        }
       } catch (err) {
         // If native module not available, skip gracefully
-        console.warn(
-          "Native Firebase Analytics not available:",
-          err.message || err,
-        );
+        console.warn("Native Firebase Analytics not available:", err.message || err);
+        if (this.verboseLogging) console.warn(err.stack || err);
         return;
       }
     } catch (error) {
@@ -182,11 +233,13 @@ class AnalyticsService {
   async logEvent(eventName, parameters = {}) {
     try {
       if (!this.initialized || this.isExpoGo || !this._analytics) {
-        console.log(
-          `Analytics Event (${this.isExpoGo ? "Expo Go" : "Not Initialized"}):`,
-          eventName,
-          parameters,
-        );
+        console.log(`Analytics Event (${this.isExpoGo ? "Expo Go" : "Not Initialized"}):`, eventName, parameters);
+        if (this.verboseLogging) console.log("logEvent skipped internal state:", {
+          initialized: this.initialized,
+          isExpoGo: this.isExpoGo,
+          analyticsObj: !!this._analytics,
+          stack: new Error().stack.split("\n").slice(1, 6).join(" | "),
+        });
         return;
       }
 
@@ -204,6 +257,16 @@ class AnalyticsService {
           }
         }
         console.log("Analytics Event Logged:", eventName, parameters);
+        if (this.verboseLogging) {
+          try {
+            const appInstanceId = this._analytics.instance && typeof this._analytics.instance.getAppInstanceId === "function"
+              ? await this._analytics.instance.getAppInstanceId()
+              : null;
+            console.log("Analytics post-log diagnostics:", { eventName, appInstanceId, timestamp: Date.now() });
+          } catch (e) {
+            console.warn("Failed to fetch appInstanceId after log:", e?.message || e);
+          }
+        }
         return;
       }
 
@@ -218,6 +281,31 @@ class AnalyticsService {
     } catch (error) {
       console.error("Failed to log analytics event:", error);
     }
+  }
+
+  // Diagnostic helper to surface current analytics state and appInstanceId
+  async getDiagnosticInfo() {
+    const info = {
+      initialized: this.initialized,
+      isExpoGo: this.isExpoGo,
+      isDevelopment: this.isDevelopment,
+      allowAnalyticsInDev: this.allowAnalyticsInDev,
+      verboseLogging: this.verboseLogging,
+      analyticsPresent: !!(this._analytics && (this._analytics.instance || this._analytics.fn)),
+      appInstanceId: null,
+    };
+    try {
+      const { instance, fn } = this._analytics || {};
+      if (instance && typeof instance.getAppInstanceId === "function") {
+        info.appInstanceId = await instance.getAppInstanceId();
+      } else if (fn && typeof fn.getAppInstanceId === "function") {
+        if (fn.getAppInstanceId.length >= 1) info.appInstanceId = await fn.getAppInstanceId(instance);
+        else info.appInstanceId = await fn.getAppInstanceId();
+      }
+    } catch (e) {
+      if (this.verboseLogging) console.warn("getDiagnosticInfo failed to read appInstanceId:", e?.message || e);
+    }
+    return info;
   }
 
   async setUserId(userId) {

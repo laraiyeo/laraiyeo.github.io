@@ -362,10 +362,7 @@ const StatsScreen = ({ route }) => {
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.scrollView,
-          { paddingBottom: isPro ? 16 : 16 + AD_SPACE },
-        ]}
+        contentContainerStyle={{ padding: 8, paddingBottom: isPro ? 16 : 16 + AD_SPACE }}
       >
         {/* Hitting Stats */}
         <Text
@@ -432,6 +429,7 @@ const StatsScreen = ({ route }) => {
             renderItem={renderModalItem}
             keyExtractor={(item) => item.person.id.toString()}
             style={styles.modalList}
+            contentContainerStyle={{ paddingBottom: 40 }}
           />
         </View>
       </Modal>
@@ -487,7 +485,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    padding: 16,
+    padding: 8,
   },
   sectionTitle: {
     fontSize: 22,
