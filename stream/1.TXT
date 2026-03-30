@@ -1,0 +1,639 @@
+{
+  "source": "cache",
+  "data": {
+    "fixtureData": {
+      "id": 19695572,
+      "league_id": 1082,
+      "starting_at": "2026-03-30 11:00:00",
+      "state": {
+        "state": "FT_PEN",
+        "name": "After Penalties",
+        "short_name": "FTP"
+      },
+      "aggregate": null,
+      "round": null,
+      "participants": [
+        {
+          "id": 18881,
+          "name": "Sierra Leone",
+          "short_code": "SLE",
+          "image_path": "https://cdn.sportmonks.com/images/soccer/teams/1/18881.png",
+          "colorPrimary": null,
+          "colorSecondary": null,
+          "meta": {
+            "location": "away",
+            "winner": false,
+            "position": 2
+          }
+        },
+        {
+          "id": 18623,
+          "name": "Azerbaijan",
+          "short_code": "AZE",
+          "image_path": "https://cdn.sportmonks.com/images/soccer/teams/31/18623.png",
+          "colorPrimary": null,
+          "colorSecondary": null,
+          "meta": {
+            "location": "home",
+            "winner": true,
+            "position": 1
+          }
+        }
+      ],
+      "periods": [
+        {
+          "id": 6880512,
+          "ended": 1774885709,
+          "ticking": false,
+          "description": "1st-half",
+          "time_added": 3,
+          "minutes": 48,
+          "seconds": 24
+        },
+        {
+          "id": 6880535,
+          "ended": 1774889635,
+          "ticking": false,
+          "description": "2nd-half",
+          "time_added": 5,
+          "minutes": 90,
+          "seconds": 0
+        },
+        {
+          "id": 6880543,
+          "ended": 1774886910,
+          "ticking": false,
+          "description": "penalties",
+          "time_added": null,
+          "minutes": null,
+          "seconds": 0
+        }
+      ],
+      "scores": [
+        {
+          "score": {
+            "goals": 1,
+            "participant": "home"
+          },
+          "description": "2ND_HALF"
+        },
+        {
+          "score": {
+            "goals": 1,
+            "participant": "away"
+          },
+          "description": "CURRENT"
+        },
+        {
+          "score": {
+            "goals": 1,
+            "participant": "home"
+          },
+          "description": "CURRENT"
+        },
+        {
+          "score": {
+            "goals": 1,
+            "participant": "away"
+          },
+          "description": "1ST_HALF"
+        },
+        {
+          "score": {
+            "goals": 0,
+            "participant": "home"
+          },
+          "description": "1ST_HALF"
+        },
+        {
+          "score": {
+            "goals": 1,
+            "participant": "away"
+          },
+          "description": "2ND_HALF"
+        },
+        {
+          "score": {
+            "goals": 1,
+            "participant": "home"
+          },
+          "description": "2ND_HALF_ONLY"
+        },
+        {
+          "score": {
+            "goals": 0,
+            "participant": "away"
+          },
+          "description": "2ND_HALF_ONLY"
+        },
+        {
+          "score": {
+            "goals": 8,
+            "participant": "away"
+          },
+          "description": "PENALTY_SHOOTOUT"
+        },
+        {
+          "score": {
+            "goals": 9,
+            "participant": "home"
+          },
+          "description": "PENALTY_SHOOTOUT"
+        }
+      ],
+      "league": null,
+      "comments": [],
+      "formations": [],
+      "venue": null,
+      "weatherreport": null,
+      "events": [
+        {
+          "period_id": 6880543,
+          "participant_id": 18881,
+          "player_id": null,
+          "related_player_id": null,
+          "player_name": "Samuel Gandi",
+          "related_player_name": null,
+          "result": "3-2",
+          "info": null,
+          "addition": "Scored",
+          "minute": 6,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18623,
+          "player_id": 37605192,
+          "related_player_id": null,
+          "player_name": "Khayal Aliyev",
+          "related_player_name": null,
+          "result": "2-0",
+          "info": null,
+          "addition": "Scored",
+          "minute": 3,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880512,
+          "participant_id": 18881,
+          "player_id": 37608909,
+          "related_player_id": null,
+          "player_name": "Daniel Kanu",
+          "related_player_name": null,
+          "result": "0-1",
+          "info": "Right foot shot",
+          "addition": "1st Goal",
+          "minute": 28,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880535,
+          "participant_id": 18623,
+          "player_id": 375490,
+          "related_player_id": 161162,
+          "player_name": "Rahim Sadikhov",
+          "related_player_name": "Emin Mahmudov",
+          "result": null,
+          "info": null,
+          "addition": "4th Substitution",
+          "minute": 46,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880535,
+          "participant_id": 18623,
+          "player_id": 37605192,
+          "related_player_id": 9939098,
+          "player_name": "Khayal Aliyev",
+          "related_player_name": "Musa Qurbanly",
+          "result": null,
+          "info": null,
+          "addition": "1st Substitution",
+          "minute": 46,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880535,
+          "participant_id": 18881,
+          "player_id": 37934974,
+          "related_player_id": 37608909,
+          "player_name": "S. Gandi",
+          "related_player_name": "Daniel Kanu",
+          "result": null,
+          "info": null,
+          "addition": "6th Substitution",
+          "minute": 71,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880535,
+          "participant_id": 18623,
+          "player_id": 25930168,
+          "related_player_id": 474554,
+          "player_name": "Toral Bayramov",
+          "related_player_name": "Renat Dadashov",
+          "result": null,
+          "info": null,
+          "addition": "5th Substitution",
+          "minute": 63,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880535,
+          "participant_id": 18623,
+          "player_id": 56419,
+          "related_player_id": 56344,
+          "player_name": "Vüsal Isgandarli",
+          "related_player_name": "Qismat Aliyev",
+          "result": null,
+          "info": null,
+          "addition": "2nd Substitution",
+          "minute": 46,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880535,
+          "participant_id": 18623,
+          "player_id": 56311,
+          "related_player_id": 56123,
+          "player_name": "Rahil Mammadov",
+          "related_player_name": "Elvin Badalov",
+          "result": null,
+          "info": null,
+          "addition": "3rd Substitution",
+          "minute": 46,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18881,
+          "player_id": 37570563,
+          "related_player_id": null,
+          "player_name": "Yayah Kallon",
+          "related_player_name": null,
+          "result": "6-6",
+          "info": null,
+          "addition": "Scored",
+          "minute": 14,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18623,
+          "player_id": 57178,
+          "related_player_id": null,
+          "player_name": "Anton Kryvotsiuk",
+          "related_player_name": null,
+          "result": "7-6",
+          "info": null,
+          "addition": "Scored",
+          "minute": 15,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880535,
+          "participant_id": 18623,
+          "player_id": 37531194,
+          "related_player_id": 37327912,
+          "player_name": "Abdulakh Khaybulayev",
+          "related_player_name": "Emil Safarov",
+          "result": null,
+          "info": null,
+          "addition": "9th Substitution",
+          "minute": 80,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880535,
+          "participant_id": 18623,
+          "player_id": 56311,
+          "related_player_id": null,
+          "player_name": "Rahil Mammadov",
+          "related_player_name": null,
+          "result": "1-1",
+          "info": "Right foot shot",
+          "addition": "2nd Goal",
+          "minute": 72,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880535,
+          "participant_id": 18881,
+          "player_id": 37661503,
+          "related_player_id": 17951,
+          "player_name": "N. Jalloh",
+          "related_player_name": "Idris Kanu",
+          "result": null,
+          "info": null,
+          "addition": "7th Substitution",
+          "minute": 71,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880535,
+          "participant_id": 18881,
+          "player_id": 14337101,
+          "related_player_id": 37391182,
+          "player_name": "Alhassan Koroma",
+          "related_player_name": "Kamil Conteh",
+          "result": null,
+          "info": null,
+          "addition": "8th Substitution",
+          "minute": 71,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18623,
+          "player_id": 33980275,
+          "related_player_id": null,
+          "player_name": "Aykhan Guseynov",
+          "related_player_name": null,
+          "result": "3-2",
+          "info": null,
+          "addition": "Azerbaijan - Miss 7th Penalty",
+          "minute": 7,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18623,
+          "player_id": 37531194,
+          "related_player_id": null,
+          "player_name": "Abdulakh Khaybulayev",
+          "related_player_name": null,
+          "result": "6-5",
+          "info": null,
+          "addition": "Scored",
+          "minute": 13,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880535,
+          "participant_id": 18881,
+          "player_id": 576297,
+          "related_player_id": 37770576,
+          "player_name": "Kwame Quee",
+          "related_player_name": "A. Kabia",
+          "result": null,
+          "info": null,
+          "addition": "10th Substitution",
+          "minute": 83,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18881,
+          "player_id": 14337101,
+          "related_player_id": null,
+          "player_name": "Alhassan Koroma",
+          "related_player_name": null,
+          "result": "1-0",
+          "info": null,
+          "addition": "Sierra Leone - Miss 2nd Penalty",
+          "minute": 2,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18623,
+          "player_id": null,
+          "related_player_id": null,
+          "player_name": "Ali Sadikhov",
+          "related_player_name": null,
+          "result": "4-3",
+          "info": null,
+          "addition": "Scored",
+          "minute": 9,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18881,
+          "player_id": 576297,
+          "related_player_id": null,
+          "player_name": "Kwame Quee",
+          "related_player_name": null,
+          "result": "4-4",
+          "info": null,
+          "addition": "Scored",
+          "minute": 10,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18623,
+          "player_id": 37456730,
+          "related_player_id": null,
+          "player_name": "Rustam Ahmadzada",
+          "related_player_name": null,
+          "result": "5-4",
+          "info": null,
+          "addition": "Scored",
+          "minute": 11,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18881,
+          "player_id": 4577,
+          "related_player_id": null,
+          "player_name": "Sullay Kaikai",
+          "related_player_name": null,
+          "result": "2-1",
+          "info": null,
+          "addition": "Scored",
+          "minute": 4,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18623,
+          "player_id": 56419,
+          "related_player_id": null,
+          "player_name": "Vüsal Isgandarli",
+          "related_player_name": null,
+          "result": "3-1",
+          "info": null,
+          "addition": "Scored",
+          "minute": 5,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18623,
+          "player_id": 56311,
+          "related_player_id": null,
+          "player_name": "Rahil Mammadov",
+          "related_player_name": null,
+          "result": "8-7",
+          "info": null,
+          "addition": "Scored",
+          "minute": 17,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880535,
+          "participant_id": 18881,
+          "player_id": 37569244,
+          "related_player_id": 8823,
+          "player_name": "Jay Tee Kamara",
+          "related_player_name": "Amadou Bakayoko",
+          "result": null,
+          "info": null,
+          "addition": "11th Substitution",
+          "minute": 86,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18623,
+          "player_id": 25930168,
+          "related_player_id": null,
+          "player_name": "Toral Bayramov",
+          "related_player_name": null,
+          "result": "1-0",
+          "info": null,
+          "addition": "Scored",
+          "minute": 1,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18881,
+          "player_id": null,
+          "related_player_id": null,
+          "player_name": null,
+          "related_player_name": null,
+          "result": "7-7",
+          "info": null,
+          "addition": "Scored",
+          "minute": 16,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18881,
+          "player_id": 37569244,
+          "related_player_id": null,
+          "player_name": "Jay Tee Kamara",
+          "related_player_name": null,
+          "result": "3-3",
+          "info": null,
+          "addition": "Scored",
+          "minute": 8,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18881,
+          "player_id": 37717875,
+          "related_player_id": null,
+          "player_name": "Juma Bah",
+          "related_player_name": null,
+          "result": "5-5",
+          "info": null,
+          "addition": "Scored",
+          "minute": 12,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18881,
+          "player_id": null,
+          "related_player_id": null,
+          "player_name": null,
+          "related_player_name": null,
+          "result": "8-8",
+          "info": null,
+          "addition": "Scored",
+          "minute": 18,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        },
+        {
+          "period_id": 6880543,
+          "participant_id": 18623,
+          "player_id": 56406,
+          "related_player_id": null,
+          "player_name": "Abbas Hüseynov",
+          "related_player_name": null,
+          "result": "9-8",
+          "info": null,
+          "addition": "Scored",
+          "minute": 19,
+          "extra_minute": null,
+          "injured": null,
+          "rescinded": null
+        }
+      ],
+      "statistics": [],
+      "sidelined": [],
+      "lineups": [],
+      "coaches": [],
+      "referees": [],
+      "ballcoordinates": []
+    }
+  }
+}

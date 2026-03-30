@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Fixture Picker</title>
+    <style>
+      :root {
+        --accent: #0b4aa6;
+      }
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          Helvetica,
+          Arial;
+        margin: 18px;
+        background: #f6f7f9;
+        color: #111;
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0 0 12px;
+      }
+      .controls {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 6px 20px rgba(12, 12, 12, 0.08);
+        table-layout: fixed;
+      }
+      th,
+      td {
+        padding: 10px 12px;
+        vertical-align: middle;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      /* draw a single uniform separator per row instead of per-cell borders */
+      tbody tr {
+        border-bottom: 1px solid #eee;
+      }
+      tbody tr:last-child {
+        border-bottom: 0;
+      }
+      th {
+        background: #fbfcfd;
+        font-weight: 700;
+        font-size: 13px;
+      }
+      td .teams {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .team {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 110px;
+      }
+      .team img {
+        width: 56px;
+        height: 38px;
+        object-fit: cover;
+        border-radius: 4px;
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        display: block;
+      }
+      .team .name {
+        font-size: 12px;
+        margin-top: 6px;
+        text-align: center;
+      }
+      .status .time {
+        font-weight: 700;
+      }
+      .status .state {
+        font-size: 12px;
+        color: #666;
+      }
+      .competition {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .competition img {
+        width: 36px;
+        height: 24px;
+        object-fit: contain;
+      }
+      .colorBox {
+        width: 42px;
+        height: 26px;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+        cursor: pointer;
+        display: inline-block;
+      }
+      .colorWrap {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .pickerPopup {
+        position: absolute;
+        background: white;
+        border: 1px solid #ddd;
+        padding: 8px;
+        border-radius: 6px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .copyBtn {
+        background: var(--accent);
+        color: white;
+        padding: 6px 10px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+      }
+      .openBtn {
+        background: #fff;
+        border: 1px solid #ddd;
+        padding: 6px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .muted {
+        color: #666;
+        font-size: 13px;
+      }
+      .small {
+        font-size: 12px;
+      }
+      .linkCell {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .streamLink {
+        font-size: 13px;
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .search {
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        width: 220px;
+      }
+    </style>
+    <script src="../assets/analytics.js"></script>
+    <link rel="icon" href="../assets/33115791.png" type="image/png" />
+  </head>
+  <body>
+    <h1>Fixture Picker</h1>
+    <div class="controls">
+      <input id="dateInput" class="search" type="date" />
+      <div class="muted small">Auto-refresh every 15s</div>
+      <div id="tzInfo" class="muted small" title="Detected timezone"></div>
+      <button id="refreshBtn" class="openBtn">Refresh</button>
+    </div>
+
+    <table id="fixturesTable">
+      <thead>
+        <tr>
+          <th style="width: 260px">Teams</th>
+          <th style="width: 170px">Status</th>
+          <th style="width: 260px">Competition</th>
+          <th style="width: 160px">Colors</th>
+          <th style="width: 150px">Link</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <script>
+      const API_BASE =
+        "https://laraiyeogithubio-production-08da.up.railway.app";
+      const POLL = 15_000;
+      const tableBody = document.querySelector("#fixturesTable tbody");
+      const dateInput = document.getElementById("dateInput");
+      const refreshBtn = document.getElementById("refreshBtn");
+
+      // Detect local timezone and log it (visible on the UI for debugging)
+      try {
+        const tz =
+          Intl.DateTimeFormat().resolvedOptions().timeZone || "(unknown)";
+        const offsetMin = new Date().getTimezoneOffset();
+        const sign = offsetMin <= 0 ? "+" : "-";
+        const absMin = Math.abs(offsetMin);
+        const offH = String(Math.floor(absMin / 60)).padStart(2, "0");
+        const offM = String(absMin % 60).padStart(2, "0");
+        const offsetStr = `${sign}${offH}:${offM}`;
+        const tzEl = document.getElementById("tzInfo");
+        if (tzEl) tzEl.textContent = `Local timezone: ${tz} (UTC${offsetStr})`;
+      } catch (e) {
+        console.debug("timezone detect error", e && e.message);
+      }
+
+      // helpers
+      function yyyyMMdd(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}${m}${day}`;
+      }
+
+      function parseAsUTC(s) {
+        if (!s) return null;
+        const iso = s.replace(" ", "T");
+        // If timezone already present, let Date parse it.
+        // If no timezone is present, treat the timestamp as local time (do NOT append Z).
+        // Server sometimes provides local-times (e.g., America/Toronto) without TZ suffix,
+        // appending Z incorrectly forces UTC interpretation and shifts the hour.
+        try {
+          if (/\+|Z|[A-Za-z]$/.test(s)) {
+            const parsed = new Date(iso);
+            return parsed;
+          }
+          // parse as local time
+          const parsedLocal = new Date(iso);
+          return parsedLocal;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function formatLocal(dt) {
+        if (!dt) return "";
+        return dt.toLocaleString(undefined, {
+          hour: "2-digit",
+          minute: "2-digit",
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        });
+      }
+
+      function rgbFromHex(h) {
+        const hex = (h || "#000000").replace("#", "");
+        const r = parseInt(hex.slice(0, 2), 16) || 0;
+        const g = parseInt(hex.slice(2, 4), 16) || 0;
+        const b = parseInt(hex.slice(4, 6), 16) || 0;
+        return [r, g, b];
+      }
+      function hexFromRgb([r, g, b]) {
+        return (
+          "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")
+        );
+      }
+
+      // midpoint between color and black -> half the components
+      function darkMid(hex) {
+        const [r, g, b] = rgbFromHex(hex);
+        const dr = Math.max(0, Math.round(r / 2));
+        const dg = Math.max(0, Math.round(g / 2));
+        const db = Math.max(0, Math.round(b / 2));
+        return hexFromRgb([dr, dg, db]);
+      }
+
+      // build stream link for a fixture and colors
+      function buildStreamLink(fixtureId, homeColor, awayColor) {
+        const params = new URLSearchParams();
+        params.set("id", String(fixtureId));
+        if (homeColor) params.set("homeColor", homeColor.replace("#", ""));
+        if (awayColor) params.set("awayColor", awayColor.replace("#", ""));
+        return `./stream.html?${params.toString()}`;
+      }
+
+      // create row for a match
+      function createRow(competition, match) {
+        const tr = document.createElement("tr");
+
+        // Teams
+        const teamsTd = document.createElement("td");
+        const teamsWrap = document.createElement("div");
+        teamsWrap.className = "teams";
+        const participants = match.participants || [];
+        function getByLoc(loc) {
+          return (
+            participants.find((p) => p.meta?.location === loc) || {
+              name: "",
+              image_path: "",
+            }
+          );
+        }
+        const home = getByLoc("home");
+        const away = getByLoc("away");
+
+        const left = document.createElement("div");
+        left.className = "team";
+        const imgL = document.createElement("img");
+        imgL.src = home.image_path || "";
+        const nameL = document.createElement("div");
+        nameL.className = "name";
+        nameL.textContent = home.name || "";
+        left.appendChild(imgL);
+        left.appendChild(nameL);
+
+        const right = document.createElement("div");
+        right.className = "team";
+        const imgR = document.createElement("img");
+        imgR.src = away.image_path || "";
+        const nameR = document.createElement("div");
+        nameR.className = "name";
+        nameR.textContent = away.name || "";
+        right.appendChild(imgR);
+        right.appendChild(nameR);
+
+        teamsWrap.appendChild(left);
+        teamsWrap.appendChild(right);
+        teamsTd.appendChild(teamsWrap);
+        tr.appendChild(teamsTd);
+
+        // Status
+        const statusTd = document.createElement("td");
+        statusTd.className = "status";
+        const start = parseAsUTC(match.starting_at);
+        const timeDiv = document.createElement("div");
+        timeDiv.className = "time";
+        timeDiv.textContent = start
+          ? formatLocal(start)
+          : match.starting_at || "";
+        const stateDiv = document.createElement("div");
+        stateDiv.className = "state";
+        stateDiv.textContent =
+          match.state?.name || match.state?.short_name || "";
+        statusTd.appendChild(timeDiv);
+        statusTd.appendChild(stateDiv);
+        tr.appendChild(statusTd);
+
+        // Competition
+        const compTd = document.createElement("td");
+        compTd.className = "competition";
+        const compImg = document.createElement("img");
+        compImg.src = competition.image_path || "";
+        const compName = document.createElement("div");
+        compName.textContent = competition.name || "";
+        if (competition.image_path) compTd.appendChild(compImg);
+        compTd.appendChild(compName);
+        tr.appendChild(compTd);
+
+        // Colors
+        const colorsTd = document.createElement("td");
+        const colorWrap = document.createElement("div");
+        colorWrap.className = "colorWrap";
+        // default colors: try participant colors or fallback
+        const defaultHome = (home.colors && home.colors.primary) || "#0b4aa6";
+        const defaultAway = (away.colors && away.colors.primary) || "#b91f1f";
+
+        function makeColorBox(initial, side) {
+          const box = document.createElement("div");
+          box.className = "colorBox";
+          box.style.background = initial;
+          box.dataset.hex = initial;
+          box.addEventListener("click", (ev) =>
+            openPicker(ev.currentTarget, side),
+          );
+          return box;
+        }
+
+        const homeBox = makeColorBox(defaultHome, "home");
+        const awayBox = makeColorBox(defaultAway, "away");
+        colorWrap.appendChild(homeBox);
+        colorWrap.appendChild(awayBox);
+        colorsTd.appendChild(colorWrap);
+        tr.appendChild(colorsTd);
+
+        // Link
+        const linkTd = document.createElement("td");
+        linkTd.className = "linkCell";
+        const copy = document.createElement("button");
+        copy.className = "copyBtn";
+        copy.textContent = "Copy Stream";
+        const open = document.createElement("button");
+        open.className = "openBtn";
+        open.textContent = "Open";
+
+        function currentHex(box) {
+          return (
+            box.dataset.hex || window.getComputedStyle(box).backgroundColor
+          );
+        }
+        function toHexIfRgb(val) {
+          if (!val) return "";
+          if (val.startsWith("#")) return val;
+          const m = val.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+          if (m)
+            return (
+              "#" +
+              [1, 2, 3]
+                .map((i) => parseInt(m[i]).toString(16).padStart(2, "0"))
+                .join("")
+            );
+          return val;
+        }
+
+        copy.addEventListener("click", async () => {
+          const h = toHexIfRgb(currentHex(homeBox));
+          const a = toHexIfRgb(currentHex(awayBox));
+          const url = buildStreamLink(match.id, h, a);
+          try {
+            await navigator.clipboard.writeText(url);
+            copy.textContent = "Copied";
+            setTimeout(() => (copy.textContent = "Copy Stream"), 1000);
+          } catch (e) {
+            alert(url);
+          }
+        });
+        open.addEventListener("click", () => {
+          const h = toHexIfRgb(currentHex(homeBox));
+          const a = toHexIfRgb(currentHex(awayBox));
+          const url = buildStreamLink(match.id, h, a);
+          window.open(url, "_blank");
+        });
+
+        linkTd.appendChild(copy);
+        linkTd.appendChild(open);
+        tr.appendChild(linkTd);
+
+        // store references for later picker updates
+        tr._refs = { homeBox, awayBox, match, competition };
+        return tr;
+      }
+
+      // Picker popup logic
+      let popup = null;
+      function openPicker(target, side) {
+        closePicker();
+        const rect = target.getBoundingClientRect();
+        popup = document.createElement("div");
+        popup.className = "pickerPopup";
+        const colorInput = document.createElement("input");
+        colorInput.type = "color";
+        colorInput.value = target.dataset.hex || "#000000";
+        const textInput = document.createElement("input");
+        textInput.type = "text";
+        textInput.value = colorInput.value;
+        textInput.style.width = "90px";
+        const save = document.createElement("button");
+        save.textContent = "OK";
+        save.className = "openBtn";
+        popup.appendChild(colorInput);
+        popup.appendChild(textInput);
+        popup.appendChild(save);
+        document.body.appendChild(popup);
+        popup.style.left = rect.left + window.scrollX + "px";
+        popup.style.top = rect.bottom + window.scrollY + 6 + "px";
+
+        colorInput.addEventListener("input", () => {
+          textInput.value = colorInput.value;
+          target.style.background = colorInput.value;
+          target.dataset.hex = colorInput.value;
+        });
+        textInput.addEventListener("input", () => {
+          const v = textInput.value.trim();
+          if (/^#?[0-9a-f]{6}$/i.test(v)) {
+            const h = v.startsWith("#") ? v : "#" + v;
+            colorInput.value = h;
+            target.style.background = h;
+            target.dataset.hex = h;
+          }
+        });
+        save.addEventListener("click", () => {
+          closePicker();
+        });
+      }
+      function closePicker() {
+        if (popup) {
+          popup.remove();
+          popup = null;
+        }
+      }
+      window.addEventListener("click", (e) => {
+        if (
+          popup &&
+          !popup.contains(e.target) &&
+          !e.target.classList.contains("colorBox")
+        )
+          closePicker();
+      });
+
+      // fetch and render
+      async function fetchFor(dateStr) {
+        const url = `${API_BASE}/football/fixture/${dateStr}`;
+        try {
+          const r = await fetch(url);
+          if (!r.ok) throw new Error("status " + r.status);
+          const json = await r.json();
+          renderJson(json);
+        } catch (e) {
+          console.error("fetch error", e);
+        }
+      }
+
+      // maintain row map to avoid recreating images on each poll
+      const rowsById = new Map();
+      function updateRow(tr, competition, match) {
+        try {
+          const refs = tr._refs || {};
+          // images
+          const homeBox = refs.homeBoxImg;
+          const awayBox = refs.awayBoxImg;
+          const home =
+            (match.participants || []).find(
+              (p) => p.meta?.location === "home",
+            ) || {};
+          const away =
+            (match.participants || []).find(
+              (p) => p.meta?.location === "away",
+            ) || {};
+          if (homeBox && home.image_path && homeBox.src !== home.image_path)
+            homeBox.src = home.image_path;
+          if (awayBox && away.image_path && awayBox.src !== away.image_path)
+            awayBox.src = away.image_path;
+
+          // names
+          if (refs.homeName) refs.homeName.textContent = home.name || "";
+          if (refs.awayName) refs.awayName.textContent = away.name || "";
+
+          // status
+          const start = parseAsUTC(match.starting_at);
+          if (refs.timeDiv)
+            refs.timeDiv.textContent = start
+              ? formatLocal(start)
+              : match.starting_at || "";
+          if (refs.stateDiv)
+            refs.stateDiv.textContent =
+              match.state?.name || match.state?.short_name || "";
+
+          // competition name (image unlikely changes but update)
+          if (
+            refs.compImg &&
+            competition.image_path &&
+            refs.compImg.src !== competition.image_path
+          )
+            refs.compImg.src = competition.image_path;
+          if (refs.compName) refs.compName.textContent = competition.name || "";
+
+          // scores or other dynamic fields can be updated here if added
+        } catch (e) {
+          console.error("updateRow", e);
+        }
+      }
+
+      function renderJson(json) {
+        // Build ordered list of matches across competitions
+        const data = json?.data || {};
+        const newOrder = [];
+        const rowsToKeep = new Map();
+
+        Object.values(data).forEach((league) => {
+          const competition = {
+            name: league.name,
+            image_path: league.image_path,
+          };
+          (league.matches || []).forEach((match) => {
+            newOrder.push({ competition, match });
+          });
+        });
+
+        // build or reuse rows in order
+        const fragment = document.createDocumentFragment();
+        newOrder.forEach(({ competition, match }) => {
+          const id = String(match.id);
+          let tr = rowsById.get(id);
+          if (tr) {
+            updateRow(tr, competition, match);
+          } else {
+            tr = createRow(competition, match);
+            // store DOM refs for efficient updates
+            const refs = {};
+            refs.homeBoxImg = tr.querySelector(".team img");
+            refs.homeName = tr.querySelector(".team .name");
+            // away selectors: second .team
+            const teams = tr.querySelectorAll(".team");
+            if (teams && teams.length > 1) {
+              refs.awayBoxImg = teams[1].querySelector("img");
+              refs.awayName = teams[1].querySelector(".name");
+            }
+            refs.timeDiv = tr.querySelector(".status .time");
+            refs.stateDiv = tr.querySelector(".status .state");
+            refs.compImg = tr.querySelector(".competition img");
+            refs.compName = tr.querySelector(".competition div");
+            tr._refs = refs;
+            rowsById.set(id, tr);
+          }
+          fragment.appendChild(tr);
+          rowsToKeep.set(id, true);
+        });
+
+        // remove rows not present
+        for (const key of Array.from(rowsById.keys())) {
+          if (!rowsToKeep.has(key)) {
+            const r = rowsById.get(key);
+            if (r && r.parentNode) r.parentNode.removeChild(r);
+            rowsById.delete(key);
+          }
+        }
+
+        // replace table body with fragment (reorders efficiently)
+        tableBody.innerHTML = "";
+        tableBody.appendChild(fragment);
+      }
+
+      // initial date = user's local today (avoid UTC iso which can shift date)
+      const today = new Date();
+      const _pad = (n) => String(n).padStart(2, "0");
+      dateInput.value = `${today.getFullYear()}-${_pad(today.getMonth() + 1)}-${_pad(today.getDate())}`;
+
+      async function refresh() {
+        // Use the raw date string from the input (YYYY-MM-DD) to avoid timezone parsing
+        const ds = dateInput.value
+          ? dateInput.value.replace(/-/g, "")
+          : yyyyMMdd(new Date());
+        await fetchFor(ds);
+      }
+
+      refreshBtn.addEventListener("click", refresh);
+      dateInput.addEventListener("change", refresh);
+
+      // start polling
+      refresh();
+      setInterval(refresh, POLL);
+    </script>
+  </body>
+</html>

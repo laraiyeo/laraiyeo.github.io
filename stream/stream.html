@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OBS Stream Widget - Blank Template</title>
+    <title>OBS Stream Widget</title>
     <link rel="stylesheet" href="style.css" />
     <style>
       html,
@@ -26,6 +26,10 @@
         transform: scale(2);
         transform-origin: top left;
       }
+      /* Hide until data is applied to avoid flicker */
+      #scaleWrapper.not-ready {
+        visibility: hidden;
+      }
 
       .stream-widget {
         width: 1250px;
@@ -44,6 +48,7 @@
         z-index: 6;
         pointer-events: none;
         border: 8px solid rgba(160, 160, 160);
+        overflow: hidden;
       }
       .bar.left {
         left: 0;
@@ -55,11 +60,9 @@
       }
       .bar img {
         position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-49.5%, -49.5%);
-        width: 159px;
-        height: 145px;
+        inset: -1px; /* respect the bar border */
+        width: 105%;
+        height: 105%;
         object-fit: cover;
         border-radius: 8px;
       }
@@ -174,6 +177,24 @@
         opacity: 0.98;
       }
 
+      /* Penalty score (shown instead of clock during penalties) */
+      .penalty-score {
+        position: absolute;
+        left: 50%;
+        top: calc(50% - 45px);
+        transform: translateX(-50%);
+        color: #fff;
+        font-weight: 800;
+        font-size: 22px;
+        z-index: 7;
+        pointer-events: none;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+        display: none;
+        white-space: nowrap;
+        font-family:
+          "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+      }
+
       /* Numbers inside black-pill (left/right of the center dash) */
       .black-pill .left-number,
       .black-pill .right-number {
@@ -242,6 +263,12 @@
         pointer-events: none;
         font-family:
           "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+        /* constrain width so JS autosizing can measure and shrink reliably */
+        box-sizing: border-box;
+        max-width: 72.5%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 0 8px;
       }
       .outer-left-text {
         left: 6%;
@@ -278,7 +305,7 @@
         transform: translate(-50%, 0%);
         color: #fff;
         font-weight: 700;
-        font-size: 30px;
+        font-size: 25px;
         z-index: 3;
         pointer-events: none;
         text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
@@ -287,6 +314,11 @@
         display: inline-block;
         transform-origin: center;
         white-space: nowrap;
+        /* constrain width so JS autosizing can measure and shrink reliably */
+        box-sizing: border-box;
+        max-width: 90%;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       /* Center red semicircle behind the center-pill */
@@ -335,9 +367,11 @@
         }
       }
     </style>
+    <link rel="icon" href="../assets/33115791.png" type="image/png" />
+    <script src="../assets/analytics.js"></script>
   </head>
   <body>
-    <div id="scaleWrapper">
+    <div id="scaleWrapper" class="not-ready">
       <div class="stream-widget" id="streamWidget">
         <div class="bar left" aria-hidden="true">
           <img
@@ -366,6 +400,7 @@
               <div class="outer-right-text">TÜRKIYE</div>
               <div class="black-pill">
                 <div class="center-dash"></div>
+                <div class="penalty-score" aria-hidden="true"></div>
                 <div class="left-number">2</div>
                 <div class="right-number">3</div>
                 <img src="../assets/33115791.png" class="center-icon" alt="" />
@@ -376,6 +411,7 @@
       </div>
     </div>
 
+    <script src="stream.js"></script>
     <script>
       // Attempt to reuse user customization from teams.js if available
       function hexToRgba(hex, opacity) {
