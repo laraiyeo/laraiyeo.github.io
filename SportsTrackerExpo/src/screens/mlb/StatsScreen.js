@@ -362,7 +362,10 @@ const StatsScreen = ({ route }) => {
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 8, paddingBottom: isPro ? 16 : 16 + AD_SPACE }}
+        contentContainerStyle={{
+          padding: 8,
+          paddingBottom: isPro ? 16 : 16 + AD_SPACE,
+        }}
       >
         {/* Hitting Stats */}
         <Text

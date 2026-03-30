@@ -30,7 +30,10 @@ if (Platform.OS === "ios") {
     createLiveActivity = require("expo-widgets").createLiveActivity;
   } catch (e) {
     createLiveActivity = null;
-    console.warn("expo-widgets not available in FootballLiveActivity:", e?.message || e);
+    console.warn(
+      "expo-widgets not available in FootballLiveActivity:",
+      e?.message || e,
+    );
   }
 }
 

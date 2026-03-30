@@ -12298,33 +12298,33 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
                     .join(" · ")}
                 </Text>
               </View>
-            
-            {showFav && (
-              <TouchableOpacity
-                onPress={toggleFavorite}
-                activeOpacity={0.85}
-                style={{
-                  position: "absolute",
-                  right: -5,
-                  top: -10,
-                  bottom: 0,
-                  width: 24,
-                  height: 24,
-                  borderRadius: 12,
-                  backgroundColor: colors.primary + "40",
-                  borderWidth: 0.5,
-                  borderColor: colors.primary,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Ionicons
-                  name={isFavorited ? "star" : "star-outline"}
-                  size={16}
-                  color={colors.primary}
-                />
-              </TouchableOpacity>
-            )}
+
+              {showFav && (
+                <TouchableOpacity
+                  onPress={toggleFavorite}
+                  activeOpacity={0.85}
+                  style={{
+                    position: "absolute",
+                    right: -5,
+                    top: -10,
+                    bottom: 0,
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    backgroundColor: colors.primary + "40",
+                    borderWidth: 0.5,
+                    borderColor: colors.primary,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons
+                    name={isFavorited ? "star" : "star-outline"}
+                    size={16}
+                    color={colors.primary}
+                  />
+                </TouchableOpacity>
+              )}
             </View>
           )}
 

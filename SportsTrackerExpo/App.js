@@ -2372,11 +2372,16 @@ const AppContent = () => {
           const diag = await analyticsService.getDiagnosticInfo();
           console.log("App.js: analytics diagnostic:", diag);
         } catch (e) {
-          if (__DEV__) console.warn("Failed to fetch analytics diagnostic:", e?.message || e);
+          if (__DEV__)
+            console.warn(
+              "Failed to fetch analytics diagnostic:",
+              e?.message || e,
+            );
         }
       })
       .catch((err) => {
-        if (__DEV__) console.warn("Analytics init failed:", err?.message || err);
+        if (__DEV__)
+          console.warn("Analytics init failed:", err?.message || err);
       });
 
     // Preload emotes in background
@@ -2487,14 +2492,14 @@ const AppContent = () => {
   }, [showSplash]);
 
   const handleSplashFinish = async () => {
-    console.log('[App] handleSplashFinish invoked');
+    console.log("[App] handleSplashFinish invoked");
     setShowSplash(false);
     // Hide the native splash screen after our custom splash finishes
     try {
       await ExpoSplashScreen.hideAsync();
-      console.log('[App] ExpoSplashScreen.hideAsync succeeded');
+      console.log("[App] ExpoSplashScreen.hideAsync succeeded");
     } catch (e) {
-      console.warn('[App] ExpoSplashScreen.hideAsync failed', e?.message || e);
+      console.warn("[App] ExpoSplashScreen.hideAsync failed", e?.message || e);
     }
   };
 

@@ -3132,7 +3132,10 @@ app.get("/football/game/light/:fixtureId", async (req, res) => {
   } catch (err) {
     res
       .status(502)
-      .json({ error: "Failed to fetch game data (light)", details: err.message });
+      .json({
+        error: "Failed to fetch game data (light)",
+        details: err.message,
+      });
   }
 });
 

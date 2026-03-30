@@ -91,7 +91,9 @@ const TeamColumn = ({
   const isFinished =
     !isLive &&
     (status?.isCompleted ||
-      ["F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(status?.codedGameState));
+      ["F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(
+        status?.codedGameState,
+      ));
 
   return (
     <View style={[styles.teamColumn, { alignItems: "center" }]}>
@@ -731,7 +733,8 @@ const BoxScorePanel = ({
       )}
 
       {/* Player cards */}
-      {global && global.__DEV__ &&
+      {global &&
+        global.__DEV__ &&
         console.log("[GameDetails] currentPlayer debug", {
           section,
           pitcherIds,
@@ -751,7 +754,9 @@ const BoxScorePanel = ({
           battingOrder={battingOrder}
           battersArray={bsTeamData?.batters ?? []}
           playersMap={playersMap}
-          currentPlayerId={section === "pitching" ? currentPlayerForDisplay : null}
+          currentPlayerId={
+            section === "pitching" ? currentPlayerForDisplay : null
+          }
           onPress={() =>
             setSelectedPlayer({
               playerId: id,
@@ -1344,36 +1349,52 @@ const PlayerDetailModal = ({
     ? resolvePlayer(playersMap, compareTargetId) || {}
     : null;
   const compareBsPlayer = compareTargetId
-    ? allBsPlayers[`ID${compareTargetId}`] || allBsPlayers[String(compareTargetId)] || null
+    ? allBsPlayers[`ID${compareTargetId}`] ||
+      allBsPlayers[String(compareTargetId)] ||
+      null
     : null;
-  const compareFullName = compareResolved?.fullName || compareBsPlayer?.fullName || (compareTargetId ? `Player ${compareTargetId}` : "");
+  const compareFullName =
+    compareResolved?.fullName ||
+    compareBsPlayer?.fullName ||
+    (compareTargetId ? `Player ${compareTargetId}` : "");
   const compareJerseyNum = compareBsPlayer?.jerseyNumber
     ? `#${compareBsPlayer.jerseyNumber}`
     : compareResolved?.jerseyNumber
-    ? `#${compareResolved.jerseyNumber}`
-    : "";
+      ? `#${compareResolved.jerseyNumber}`
+      : "";
   const comparePosAbbr =
     compareBsPlayer?.position?.abbreviation ??
     compareResolved?.position?.abbreviation ??
     compareResolved?.primaryPosition?.abbreviation ??
     "";
   let compareTeamName =
-    compareResolved?.currentTeam?.name || compareResolved?.team?.name || compareBsPlayer?.team?.name || null;
+    compareResolved?.currentTeam?.name ||
+    compareResolved?.team?.name ||
+    compareBsPlayer?.team?.name ||
+    null;
 
   let compareSide = null;
   if (compareTargetId) {
     const ck = `ID${compareTargetId}`;
-    if (boxscore?.teams?.away?.players && boxscore.teams.away.players[ck]) compareSide = "away";
-    else if (boxscore?.teams?.home?.players && boxscore.teams.home.players[ck]) compareSide = "home";
+    if (boxscore?.teams?.away?.players && boxscore.teams.away.players[ck])
+      compareSide = "away";
+    else if (boxscore?.teams?.home?.players && boxscore.teams.home.players[ck])
+      compareSide = "home";
   }
   const compareTeamId =
     compareSide === "away"
       ? awayTeam?.id
       : compareSide === "home"
-      ? homeTeam?.id
-      : compareResolved?.currentTeam?.id || compareResolved?.team?.id || compareBsPlayer?.team?.id || null;
-  const compareTeamColor = compareTeamId ? WBCService.getTeamColor(compareTeamId) : theme.surfaceSecondary;
-  const effectiveStatMode = sharePreferredMode || (pdActiveTab === "Stats" ? "batting" : "pitching");
+        ? homeTeam?.id
+        : compareResolved?.currentTeam?.id ||
+          compareResolved?.team?.id ||
+          compareBsPlayer?.team?.id ||
+          null;
+  const compareTeamColor = compareTeamId
+    ? WBCService.getTeamColor(compareTeamId)
+    : theme.surfaceSecondary;
+  const effectiveStatMode =
+    sharePreferredMode || (pdActiveTab === "Stats" ? "batting" : "pitching");
 
   const renderPairBar = (leftVal, rightVal, isLower, leftColor, rightColor) => {
     const leftNum = parseFloat(leftVal) || 0;
@@ -1381,11 +1402,14 @@ const PlayerDetailModal = ({
     let l = 0;
     let r = 0;
     if (leftNum === 0 && rightNum === 0) {
-      l = 50; r = 50;
+      l = 50;
+      r = 50;
     } else if (leftNum === 0) {
-      l = 0; r = 100;
+      l = 0;
+      r = 100;
     } else if (rightNum === 0) {
-      l = 100; r = 0;
+      l = 100;
+      r = 0;
     } else {
       const sum = leftNum + rightNum;
       if (!isLower) {
@@ -1399,9 +1423,13 @@ const PlayerDetailModal = ({
       if (l > 100) l = 100;
       r = 100 - l;
     }
-    try { console.log(`STAT BAR helper: leftNum=${leftNum} rightNum=${rightNum} isLower=${isLower} normalizedL=${l} normalizedR=${r}`); } catch (e) {}
+    try {
+      console.log(
+        `STAT BAR helper: leftNum=${leftNum} rightNum=${rightNum} isLower=${isLower} normalizedL=${l} normalizedR=${r}`,
+      );
+    } catch (e) {}
     return (
-      <View style={{ flexDirection: "row", width: "100%", height: '100%' }}>
+      <View style={{ flexDirection: "row", width: "100%", height: "100%" }}>
         <View style={{ flex: l, backgroundColor: leftColor, minWidth: 0 }} />
         {l > 0 && r > 0 ? (
           <View style={{ width: 3, backgroundColor: theme.border }} />
@@ -1412,8 +1440,10 @@ const PlayerDetailModal = ({
   };
 
   // Prefer boxscore-side team name when available (matches chooser logic)
-  if (compareSide === "away") compareTeamName = awayTeam?.name || compareTeamName;
-  else if (compareSide === "home") compareTeamName = homeTeam?.name || compareTeamName;
+  if (compareSide === "away")
+    compareTeamName = awayTeam?.name || compareTeamName;
+  else if (compareSide === "home")
+    compareTeamName = homeTeam?.name || compareTeamName;
 
   // Height: MLB API may return "6' 2\"" — strip any backslashes
   const rawHeight = playerInfo?.height ?? "";
@@ -1459,7 +1489,7 @@ const PlayerDetailModal = ({
     "blownSaves",
     "rbi",
     "stolenBases",
-    "balls"
+    "balls",
   ]);
   const BATTING_LOWER_IS_BETTER = new Set([
     "strikeOuts",
@@ -1521,7 +1551,9 @@ const PlayerDetailModal = ({
           }
         }
         try {
-          console.log(`buildStatRows: key=${key} rawVal=${rawVal} n=${n} range=${JSON.stringify(range)} isLower=${isLower} pct=${pct}`);
+          console.log(
+            `buildStatRows: key=${key} rawVal=${rawVal} n=${n} range=${JSON.stringify(range)} isLower=${isLower} pct=${pct}`,
+          );
         } catch (e) {
           // ignore logging errors
         }
@@ -1559,7 +1591,10 @@ const PlayerDetailModal = ({
         {/* Drag strip */}
         <View
           {...panResponder.panHandlers}
-          style={[pdStyles.dragStrip, { borderBottomColor: !compareActive ? teamColor : theme.border }]}
+          style={[
+            pdStyles.dragStrip,
+            { borderBottomColor: !compareActive ? teamColor : theme.border },
+          ]}
         >
           {/* Handle + close/share buttons row */}
           <View style={pdStyles.handleRow}>
@@ -1651,7 +1686,10 @@ const PlayerDetailModal = ({
                   });
                 }}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                style={[pdStyles.iconBtn, { backgroundColor: theme.surfaceSecondary }]}
+                style={[
+                  pdStyles.iconBtn,
+                  { backgroundColor: theme.surfaceSecondary },
+                ]}
               >
                 <Ionicons name="people" size={16} color={theme.text} />
               </TouchableOpacity>
@@ -1683,7 +1721,9 @@ const PlayerDetailModal = ({
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 style={[pdStyles.iconBtn, { backgroundColor: theme.error }]}
               >
-                <Text style={[pdStyles.iconBtnText, { color: theme.text }]}>✕</Text>
+                <Text style={[pdStyles.iconBtnText, { color: theme.text }]}>
+                  ✕
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1702,7 +1742,11 @@ const PlayerDetailModal = ({
                     sport: SCREEN_SPORT,
                   });
                 }}
-                style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+                style={{
+                  flex: 1,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
               >
                 <View style={pdStyles.headshotWrap}>
                   <View style={{ position: "relative" }}>
@@ -1716,52 +1760,112 @@ const PlayerDetailModal = ({
                     </View>
                   </View>
                 </View>
-                <Text style={[pdStyles.playerName, { color: theme.text }]} numberOfLines={1}>
+                <Text
+                  style={[pdStyles.playerName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
                   {fullName}
                 </Text>
                 {(jerseyNum || teamName) && (
-                  <Text style={[pdStyles.jerseyNum, { color: theme.textSecondary, marginBottom: compareActive ? -8 : 16 }]}> 
-                    {[jerseyNum, teamName].filter(Boolean).join(" • ")} 
+                  <Text
+                    style={[
+                      pdStyles.jerseyNum,
+                      {
+                        color: theme.textSecondary,
+                        marginBottom: compareActive ? -8 : 16,
+                      },
+                    ]}
+                  >
+                    {[jerseyNum, teamName].filter(Boolean).join(" • ")}
                   </Text>
                 )}
               </TouchableOpacity>
 
               {/* vertical divider (centered between headshots) */}
-              <View style={{ width: 1, height: 88, backgroundColor: theme.border, marginHorizontal: 8, alignSelf: 'center', borderRadius: 1 }} />
+              <View
+                style={{
+                  width: 1,
+                  height: 88,
+                  backgroundColor: theme.border,
+                  marginHorizontal: 8,
+                  alignSelf: "center",
+                  borderRadius: 1,
+                }}
+              />
 
               {/* Right: chooser trigger or chosen player (right half = flex:1) */}
-              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingLeft: 12 }}>
+              <View
+                style={{
+                  flex: 1,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingLeft: 12,
+                }}
+              >
                 {compareTargetId ? (
                   <View style={{ alignItems: "center" }}>
                     <View style={{ position: "relative" }}>
                       <Image
                         source={{ uri: playerHeadshotUrl(compareTargetId) }}
-                        style={[pdStyles.headshot, { borderColor: compareTeamColor }]}
+                        style={[
+                          pdStyles.headshot,
+                          { borderColor: compareTeamColor },
+                        ]}
                         resizeMode="cover"
                       />
                       <View style={pdStyles.headshotBadge} pointerEvents="none">
-                        <Text style={pdStyles.headshotBadgeText}>{comparePosAbbr}</Text>
+                        <Text style={pdStyles.headshotBadgeText}>
+                          {comparePosAbbr}
+                        </Text>
                       </View>
                       <TouchableOpacity
                         onPress={() => setCompareTargetId(null)}
-                        style={[pdStyles.compareChosenClose, { backgroundColor: theme.error }]}
+                        style={[
+                          pdStyles.compareChosenClose,
+                          { backgroundColor: theme.error },
+                        ]}
                       >
-                        <Text style={{ color: theme.text, fontWeight: "800" }}>✕</Text>
+                        <Text style={{ color: theme.text, fontWeight: "800" }}>
+                          ✕
+                        </Text>
                       </TouchableOpacity>
                     </View>
-                    <Text style={[pdStyles.playerName, { color: theme.text, marginTop: 10 }]} numberOfLines={1}>
+                    <Text
+                      style={[
+                        pdStyles.playerName,
+                        { color: theme.text, marginTop: 10 },
+                      ]}
+                      numberOfLines={1}
+                    >
                       {compareFullName || "—"}
                     </Text>
                     {(compareJerseyNum || compareTeamName) && (
-                      <Text style={[pdStyles.jerseyNum, { color: theme.textSecondary, marginBottom: compareActive ? -8 : 16 }]}>
-                        {[compareJerseyNum, compareTeamName].filter(Boolean).join(" • ")}
+                      <Text
+                        style={[
+                          pdStyles.jerseyNum,
+                          {
+                            color: theme.textSecondary,
+                            marginBottom: compareActive ? -8 : 16,
+                          },
+                        ]}
+                      >
+                        {[compareJerseyNum, compareTeamName]
+                          .filter(Boolean)
+                          .join(" • ")}
                       </Text>
                     )}
                   </View>
                 ) : (
                   <TouchableOpacity
                     onPress={() => setCompareChooserVisible(true)}
-                    style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: theme.surfaceSecondary, alignItems: 'center', justifyContent: 'center' }}
+                    style={{
+                      width: 88,
+                      height: 88,
+                      borderRadius: 44,
+                      backgroundColor: theme.surfaceSecondary,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
                   >
                     <Text style={{ fontSize: 28, color: theme.text }}>+</Text>
                   </TouchableOpacity>
@@ -1804,51 +1908,62 @@ const PlayerDetailModal = ({
               </Text>
               {(jerseyNum || teamName) && (
                 <Text
-                  style={[pdStyles.jerseyNum, { color: theme.textSecondary, marginBottom: compareActive ? -8 : 16 }]}
+                  style={[
+                    pdStyles.jerseyNum,
+                    {
+                      color: theme.textSecondary,
+                      marginBottom: compareActive ? -8 : 16,
+                    },
+                  ]}
                 >
                   {[jerseyNum, teamName].filter(Boolean).join(" • ")}
                 </Text>
               )}
             </TouchableOpacity>
-
           )}
 
           {/* 3-col stats: position | height | hand (hidden during compare) */}
           {!compareActive && (
             <View style={pdStyles.triRow}>
-            <View style={pdStyles.triCell}>
-              <Text style={[pdStyles.triValue, { color: theme.text }]}>
-                {posAbbr}
-              </Text>
-              <Text style={[pdStyles.triLabel, { color: theme.textSecondary }]}>
-                {posName}
-              </Text>
+              <View style={pdStyles.triCell}>
+                <Text style={[pdStyles.triValue, { color: theme.text }]}>
+                  {posAbbr}
+                </Text>
+                <Text
+                  style={[pdStyles.triLabel, { color: theme.textSecondary }]}
+                >
+                  {posName}
+                </Text>
+              </View>
+              <View
+                style={[
+                  pdStyles.triCell,
+                  pdStyles.triCellMid,
+                  { borderColor: theme.border },
+                ]}
+              >
+                <Text style={[pdStyles.triValue, { color: theme.text }]}>
+                  {height}
+                </Text>
+                <Text
+                  style={[pdStyles.triLabel, { color: theme.textSecondary }]}
+                >
+                  Height
+                </Text>
+              </View>
+              <View style={pdStyles.triCell}>
+                <Text style={[pdStyles.triValue, { color: theme.text }]}>
+                  {handValue}
+                </Text>
+                <Text
+                  style={[pdStyles.triLabel, { color: theme.textSecondary }]}
+                >
+                  {handLabel}
+                </Text>
+              </View>
             </View>
-            <View
-              style={[
-                pdStyles.triCell,
-                pdStyles.triCellMid,
-                { borderColor: theme.border },
-              ]}
-            >
-              <Text style={[pdStyles.triValue, { color: theme.text }]}>
-                {height}
-              </Text>
-              <Text style={[pdStyles.triLabel, { color: theme.textSecondary }]}>
-                Height
-              </Text>
-            </View>
-            <View style={pdStyles.triCell}>
-              <Text style={[pdStyles.triValue, { color: theme.text }]}>
-                {handValue}
-              </Text>
-              <Text style={[pdStyles.triLabel, { color: theme.textSecondary }]}>
-                {handLabel}
-              </Text>
-            </View>
-          </View>)}
+          )}
         </View>
-            
 
         {/* Stats / Pitches tab toggle */}
         {hasPitchDisplay && !compareActive && !compareTargetId && (
@@ -1891,109 +2006,173 @@ const PlayerDetailModal = ({
         >
           {compareActive && !compareTargetId ? (
             compareChooserVisible ? (
-              <ScrollView style={{ paddingVertical: 8 }} showsVerticalScrollIndicator={false}>
-                  {Object.values(allBsPlayers || {})
-                    .map((rawP) => {
-                        const pid = rawP?.id ?? rawP?.person?.id ?? null;
-                        let name = null;
-                        let pos = null;
-                        const resolved = playersMap ? resolvePlayer(playersMap, pid) || {} : {};
-                        if (playersMap) {
-                          name = resolved?.fullName || null;
-                          pos = resolved?.position?.abbreviation || null;
-                        }
-                        if (!name) name = rawP?.fullName ?? rawP?.person?.fullName ?? rawP?.displayName ?? `Player ${pid}`;
-                        if (!pos)
-                          pos = (rawP?.position && (rawP.position.abbreviation || rawP.position)) ?? rawP?.primaryPosition?.abbreviation ?? null;
+              <ScrollView
+                style={{ paddingVertical: 8 }}
+                showsVerticalScrollIndicator={false}
+              >
+                {Object.values(allBsPlayers || {})
+                  .map((rawP) => {
+                    const pid = rawP?.id ?? rawP?.person?.id ?? null;
+                    let name = null;
+                    let pos = null;
+                    const resolved = playersMap
+                      ? resolvePlayer(playersMap, pid) || {}
+                      : {};
+                    if (playersMap) {
+                      name = resolved?.fullName || null;
+                      pos = resolved?.position?.abbreviation || null;
+                    }
+                    if (!name)
+                      name =
+                        rawP?.fullName ??
+                        rawP?.person?.fullName ??
+                        rawP?.displayName ??
+                        `Player ${pid}`;
+                    if (!pos)
+                      pos =
+                        (rawP?.position &&
+                          (rawP.position.abbreviation || rawP.position)) ??
+                        rawP?.primaryPosition?.abbreviation ??
+                        null;
 
-                        const hasIngameStats = (obj) => {
-                          if (!obj || typeof obj !== 'object') return false;
-                          return Object.keys(obj).some((k) => {
-                            if (!k) return false;
-                            if (k === 'season' || k === 'summary') return false;
-                            const v = obj[k];
-                            return v !== null && v !== undefined && v !== '';
-                          });
-                        };
+                    const hasIngameStats = (obj) => {
+                      if (!obj || typeof obj !== "object") return false;
+                      return Object.keys(obj).some((k) => {
+                        if (!k) return false;
+                        if (k === "season" || k === "summary") return false;
+                        const v = obj[k];
+                        return v !== null && v !== undefined && v !== "";
+                      });
+                    };
 
-                        const hasBat = hasIngameStats(rawP?.stats?.batting);
-                        const hasPit = hasIngameStats(rawP?.stats?.pitching);
+                    const hasBat = hasIngameStats(rawP?.stats?.batting);
+                    const hasPit = hasIngameStats(rawP?.stats?.pitching);
 
-                        // Prefer boxscore teams mapping (away/home) to determine which side the player is on
-                        let side = null;
-                        const lookupKey = `ID${pid}`;
-                        if (boxscore?.teams?.away?.players && boxscore.teams.away.players[lookupKey]) side = "away";
-                        else if (boxscore?.teams?.home?.players && boxscore.teams.home.players[lookupKey]) side = "home";
+                    // Prefer boxscore teams mapping (away/home) to determine which side the player is on
+                    let side = null;
+                    const lookupKey = `ID${pid}`;
+                    if (
+                      boxscore?.teams?.away?.players &&
+                      boxscore.teams.away.players[lookupKey]
+                    )
+                      side = "away";
+                    else if (
+                      boxscore?.teams?.home?.players &&
+                      boxscore.teams.home.players[lookupKey]
+                    )
+                      side = "home";
 
-                        const teamId =
-                          side === "away"
-                            ? awayTeam?.id
-                            : side === "home"
-                            ? homeTeam?.id
-                            : resolved?.currentTeam?.id || resolved?.team?.id || rawP?.team?.id || rawP?.teamId || null;
+                    const teamId =
+                      side === "away"
+                        ? awayTeam?.id
+                        : side === "home"
+                          ? homeTeam?.id
+                          : resolved?.currentTeam?.id ||
+                            resolved?.team?.id ||
+                            rawP?.team?.id ||
+                            rawP?.teamId ||
+                            null;
 
-                        const teamName =
-                          side === "away"
-                            ? awayTeam?.name
-                            : side === "home"
-                            ? homeTeam?.name
-                            : resolved?.currentTeam?.name || resolved?.team?.name || rawP?.team?.name || null;
+                    const teamName =
+                      side === "away"
+                        ? awayTeam?.name
+                        : side === "home"
+                          ? homeTeam?.name
+                          : resolved?.currentTeam?.name ||
+                            resolved?.team?.name ||
+                            rawP?.team?.name ||
+                            null;
 
-                        const number = rawP?.jerseyNumber ?? resolved?.jerseyNumber ?? null;
+                    const number =
+                      rawP?.jerseyNumber ?? resolved?.jerseyNumber ?? null;
 
-                        return { pid, name, pos, hasBat, hasPit, teamId, teamName, number, resolvedTeamId: teamId, side };
-                      })
-                    .filter((x) => x.pid != null && x.pid != playerId)
-                    .filter((x) => {
-                      // If candidate has both stat types, respect the effective stat mode
-                      if (x.hasBat && x.hasPit) {
-                        return effectiveStatMode === "pitching" ? x.hasPit : x.hasBat;
-                      }
+                    return {
+                      pid,
+                      name,
+                      pos,
+                      hasBat,
+                      hasPit,
+                      teamId,
+                      teamName,
+                      number,
+                      resolvedTeamId: teamId,
+                      side,
+                    };
+                  })
+                  .filter((x) => x.pid != null && x.pid != playerId)
+                  .filter((x) => {
+                    // If candidate has both stat types, respect the effective stat mode
+                    if (x.hasBat && x.hasPit) {
+                      return effectiveStatMode === "pitching"
+                        ? x.hasPit
+                        : x.hasBat;
+                    }
 
-                      // For single-role players, only include them if they have the in-game stats
-                      // for the currently effective mode (don't rely on position alone).
-                      if (effectiveStatMode === "pitching") return x.hasPit;
-                      return x.hasBat;
-                    })
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((p) => (
-                      <TouchableOpacity
-                        key={p.pid}
-                        onPress={() => {
-                          setCompareTargetId(p.pid);
-                          setCompareChooserVisible(false);
-                        }}
-                      >
-                        <View
-                          style={[
-                            pdStyles.compareBubble,
-                            (function () {
-                              const teamIdFinal =
-                                p.teamId ||
-                                p.resolvedTeamId ||
-                                (p.side === "away"
-                                  ? awayTeam?.id
-                                  : p.side === "home"
+                    // For single-role players, only include them if they have the in-game stats
+                    // for the currently effective mode (don't rely on position alone).
+                    if (effectiveStatMode === "pitching") return x.hasPit;
+                    return x.hasBat;
+                  })
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((p) => (
+                    <TouchableOpacity
+                      key={p.pid}
+                      onPress={() => {
+                        setCompareTargetId(p.pid);
+                        setCompareChooserVisible(false);
+                      }}
+                    >
+                      <View
+                        style={[
+                          pdStyles.compareBubble,
+                          (function () {
+                            const teamIdFinal =
+                              p.teamId ||
+                              p.resolvedTeamId ||
+                              (p.side === "away"
+                                ? awayTeam?.id
+                                : p.side === "home"
                                   ? homeTeam?.id
                                   : null);
-                              const teamColorFinal = teamIdFinal
-                                ? WBCService.getTeamColor(teamIdFinal)
-                                : theme.border;
-                              return {
-                                borderColor: teamColorFinal,
-                                backgroundColor: theme.surface,
+                            const teamColorFinal = teamIdFinal
+                              ? WBCService.getTeamColor(teamIdFinal)
+                              : theme.border;
+                            return {
+                              borderColor: teamColorFinal,
+                              backgroundColor: theme.surface,
+                              borderWidth: 1,
+                            };
+                          })(),
+                        ]}
+                      >
+                        <View style={pdStyles.compareRow}>
+                          <View
+                            style={[
+                              pdStyles.compareHeadshotWrap,
+                              {
+                                overflow: "visible",
                                 borderWidth: 1,
-                              };
-                            })(),
-                          ]}
-                        >
-                          <View style={pdStyles.compareRow}>
-                            <View
+                                borderColor: (function () {
+                                  const teamIdForStyle =
+                                    p.teamId ||
+                                    p.resolvedTeamId ||
+                                    (p.side === "away"
+                                      ? awayTeam?.id
+                                      : p.side === "home"
+                                        ? homeTeam?.id
+                                        : null);
+                                  return teamIdForStyle
+                                    ? WBCService.getTeamColor(teamIdForStyle)
+                                    : theme.border;
+                                })(),
+                              },
+                            ]}
+                          >
+                            <Image
+                              source={{ uri: playerHeadshotUrl(p.pid) }}
                               style={[
-                                pdStyles.compareHeadshotWrap,
+                                pdStyles.compareHeadshotImage,
                                 {
-                                  overflow: "visible",
-                                  borderWidth: 1,
                                   borderColor: (function () {
                                     const teamIdForStyle =
                                       p.teamId ||
@@ -2001,274 +2180,342 @@ const PlayerDetailModal = ({
                                       (p.side === "away"
                                         ? awayTeam?.id
                                         : p.side === "home"
-                                        ? homeTeam?.id
-                                        : null);
+                                          ? homeTeam?.id
+                                          : null);
                                     return teamIdForStyle
                                       ? WBCService.getTeamColor(teamIdForStyle)
                                       : theme.border;
                                   })(),
                                 },
                               ]}
-                            >
-                              <Image
-                                source={{ uri: playerHeadshotUrl(p.pid) }}
-                                style={[pdStyles.compareHeadshotImage, { borderColor: (function () {
-                                    const teamIdForStyle =
-                                      p.teamId ||
-                                      p.resolvedTeamId ||
-                                      (p.side === "away"
-                                        ? awayTeam?.id
-                                        : p.side === "home"
-                                        ? homeTeam?.id
-                                        : null);
-                                    return teamIdForStyle
-                                      ? WBCService.getTeamColor(teamIdForStyle)
-                                      : theme.border;
-                                  })() }]}
-                                resizeMode="cover"
-                              />
-                              {(function () {
-                                const teamIdFinal =
-                                  p.teamId ||
-                                  p.resolvedTeamId ||
-                                  (p.side === "away"
-                                    ? awayTeam?.id
-                                    : p.side === "home"
+                              resizeMode="cover"
+                            />
+                            {(function () {
+                              const teamIdFinal =
+                                p.teamId ||
+                                p.resolvedTeamId ||
+                                (p.side === "away"
+                                  ? awayTeam?.id
+                                  : p.side === "home"
                                     ? homeTeam?.id
                                     : null);
-                                const teamColorForLogo = teamIdFinal
-                                  ? WBCService.getTeamColor(teamIdFinal)
-                                  : null;
-                                const logo = teamIdFinal
-                                  ? WBCService.getTeamLogo(teamIdFinal)
-                                  : null;
-                                if (!logo) return null;
-                                return (
-                                  <Image
-                                    source={{ uri: logo }}
-                                    style={[
-                                      pdStyles.compareTeamLogo,
-                                      {
-                                        borderColor: teamColorForLogo || theme.border,
-                                        backgroundColor:
-                                          (teamColorForLogo || theme.border) + "33",
-                                      },
-                                    ]}
-                                    resizeMode="contain"
-                                  />
-                                );
-                              })()}
-                            </View>
+                              const teamColorForLogo = teamIdFinal
+                                ? WBCService.getTeamColor(teamIdFinal)
+                                : null;
+                              const logo = teamIdFinal
+                                ? WBCService.getTeamLogo(teamIdFinal)
+                                : null;
+                              if (!logo) return null;
+                              return (
+                                <Image
+                                  source={{ uri: logo }}
+                                  style={[
+                                    pdStyles.compareTeamLogo,
+                                    {
+                                      borderColor:
+                                        teamColorForLogo || theme.border,
+                                      backgroundColor:
+                                        (teamColorForLogo || theme.border) +
+                                        "33",
+                                    },
+                                  ]}
+                                  resizeMode="contain"
+                                />
+                              );
+                            })()}
+                          </View>
 
                           <View style={pdStyles.compareInfo}>
-                            <Text style={[pdStyles.compareName, { color: theme.text }]} numberOfLines={1}>
+                            <Text
+                              style={[
+                                pdStyles.compareName,
+                                { color: theme.text },
+                              ]}
+                              numberOfLines={1}
+                            >
                               {p.name}
                             </Text>
-                            <Text style={[pdStyles.compareSub, { color: theme.textSecondary }]} numberOfLines={1}>
-                              {(p.number ? `#${p.number}` : "") + (p.teamName ? ` • ${p.teamName}` : "")}
+                            <Text
+                              style={[
+                                pdStyles.compareSub,
+                                { color: theme.textSecondary },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {(p.number ? `#${p.number}` : "") +
+                                (p.teamName ? ` • ${p.teamName}` : "")}
                             </Text>
                           </View>
 
-                          <Text style={[pdStyles.comparePos, { color: theme.textSecondary }]}>{p.pos || ""}</Text>
+                          <Text
+                            style={[
+                              pdStyles.comparePos,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {p.pos || ""}
+                          </Text>
                         </View>
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                </ScrollView>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+              </ScrollView>
             ) : (
               <View style={{ alignItems: "center", marginBottom: 12 }}>
-                <Text style={{ color: theme.textSecondary, fontSize: 20 }}>Click + to select a player</Text>
+                <Text style={{ color: theme.textSecondary, fontSize: 20 }}>
+                  Click + to select a player
+                </Text>
               </View>
             )
           ) : (
             <React.Fragment>
-              {hasPitchDisplay && !compareActive && pdActiveTab === "Pitches" && (
-                <BatterPitchMapView
-                  playerPitchData={playerPitches}
-                  teamColor={teamColor}
-                  theme={theme}
-                />
-              )}
-              {(!hasPitchDisplay || pdActiveTab === "Stats") && effectiveStatMode === "batting" && hasBatStats && (
-            <React.Fragment>
-              {hasPitStats && (
-                <Text style={[pdStyles.statSection, { color: teamColor }]}>
-                  Batting
-                </Text>
-              )}
-              {buildStatRows(
-                batting,
-                BATTING_LOWER_IS_BETTER,
-                statMinMax.batting,
-              ).map((row, idx, arr) => {
-                const { key, label, value, pct, isLower } = row;
-                // compare row for this stat
-                let cmpRow = null;
-                if (compareTargetId) {
-                  const cmpBs =
-                    allBsPlayers[`ID${compareTargetId}`] ||
-                    allBsPlayers[String(compareTargetId)] ||
-                    null;
-                  const cmpStats = cmpBs?.stats?.batting ?? {};
-                  const cmpRows = buildStatRows(cmpStats, BATTING_LOWER_IS_BETTER, statMinMax.batting);
-                  cmpRow = cmpRows.find((r) => r.key === key) || null;
-                }
-
-                return (
-                  <React.Fragment key={`bat-${key}`}>
-                    <View style={pdStyles.statRow}>
+              {hasPitchDisplay &&
+                !compareActive &&
+                pdActiveTab === "Pitches" && (
+                  <BatterPitchMapView
+                    playerPitchData={playerPitches}
+                    teamColor={teamColor}
+                    theme={theme}
+                  />
+                )}
+              {(!hasPitchDisplay || pdActiveTab === "Stats") &&
+                effectiveStatMode === "batting" &&
+                hasBatStats && (
+                  <React.Fragment>
+                    {hasPitStats && (
                       <Text
-                        style={[
-                          pdStyles.statRowValueLeft,
-                          { color: theme.text },
-                        ]}
+                        style={[pdStyles.statSection, { color: teamColor }]}
                       >
-                        {value}
+                        Batting
                       </Text>
-                      <View style={pdStyles.statBarWrap}>
-                        <View
-                          style={[
-                            pdStyles.statBarTrack,
-                            { backgroundColor: theme.border, width: "100%" },
-                          ]}
-                        >
-                            {compareTargetId && cmpRow ? (
-                              renderPairBar(value, cmpRow.value, isLower, teamColor, compareTeamColor)
-                            ) : (
+                    )}
+                    {buildStatRows(
+                      batting,
+                      BATTING_LOWER_IS_BETTER,
+                      statMinMax.batting,
+                    ).map((row, idx, arr) => {
+                      const { key, label, value, pct, isLower } = row;
+                      // compare row for this stat
+                      let cmpRow = null;
+                      if (compareTargetId) {
+                        const cmpBs =
+                          allBsPlayers[`ID${compareTargetId}`] ||
+                          allBsPlayers[String(compareTargetId)] ||
+                          null;
+                        const cmpStats = cmpBs?.stats?.batting ?? {};
+                        const cmpRows = buildStatRows(
+                          cmpStats,
+                          BATTING_LOWER_IS_BETTER,
+                          statMinMax.batting,
+                        );
+                        cmpRow = cmpRows.find((r) => r.key === key) || null;
+                      }
+
+                      return (
+                        <React.Fragment key={`bat-${key}`}>
+                          <View style={pdStyles.statRow}>
+                            <Text
+                              style={[
+                                pdStyles.statRowValueLeft,
+                                { color: theme.text },
+                              ]}
+                            >
+                              {value}
+                            </Text>
+                            <View style={pdStyles.statBarWrap}>
                               <View
                                 style={[
-                                  pdStyles.statBarFill,
+                                  pdStyles.statBarTrack,
                                   {
-                                    width: `${Math.round(pct * 100)}%`,
-                                    backgroundColor: teamColor,
+                                    backgroundColor: theme.border,
+                                    width: "100%",
                                   },
                                 ]}
-                              />
+                              >
+                                {compareTargetId && cmpRow ? (
+                                  renderPairBar(
+                                    value,
+                                    cmpRow.value,
+                                    isLower,
+                                    teamColor,
+                                    compareTeamColor,
+                                  )
+                                ) : (
+                                  <View
+                                    style={[
+                                      pdStyles.statBarFill,
+                                      {
+                                        width: `${Math.round(pct * 100)}%`,
+                                        backgroundColor: teamColor,
+                                      },
+                                    ]}
+                                  />
+                                )}
+                              </View>
+                              <Text
+                                style={[
+                                  pdStyles.statRowLabelBelow,
+                                  {
+                                    color: theme.textSecondary,
+                                    alignSelf: compareTargetId
+                                      ? "center"
+                                      : "flex-end",
+                                    textAlign: compareTargetId
+                                      ? "center"
+                                      : null,
+                                  },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {label}
+                              </Text>
+                            </View>
+                            {compareTargetId && cmpRow && (
+                              <View style={pdStyles.statRowRight}>
+                                <Text
+                                  style={[
+                                    pdStyles.statRowValueRight,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  {cmpRow.value}
+                                </Text>
+                              </View>
                             )}
-                        </View>
-                        <Text
-                          style={[
-                            pdStyles.statRowLabelBelow,
-                            { color: theme.textSecondary, alignSelf: compareTargetId ? "center" : "flex-end", textAlign: compareTargetId ? "center" : null },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {label}
-                        </Text>
-                      </View>
-                      {compareTargetId && cmpRow && (
-                        <View style={pdStyles.statRowRight}>
-                          <Text style={[pdStyles.statRowValueRight, { color: theme.textSecondary }]}>
-                            {cmpRow.value}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    {idx !== arr.length - 1 && (
-                      <View
-                        style={[
-                          pdStyles.statDivider,
-                          { backgroundColor: theme.border },
-                        ]}
-                      />
-                    )}
-                  </React.Fragment>
-                );
-              })}
-                  </React.Fragment>
-                )}
-          {(!hasPitchDisplay || pdActiveTab === "Stats") && effectiveStatMode === "pitching" && hasPitStats && (
-            <React.Fragment>
-              {hasBatStats && (
-                <Text
-                  style={[
-                    pdStyles.statSection,
-                    { color: teamColor, marginTop: 14 },
-                  ]}
-                >
-                  Pitching
-                </Text>
-              )}
-              {buildStatRows(
-                pitching,
-                PITCHING_LOWER_IS_BETTER,
-                statMinMax.pitching,
-              ).map((row, idx, arr) => {
-                const { key, label, value, pct, isLower } = row;
-                let cmpRow = null;
-                if (compareTargetId) {
-                  const cmpBs =
-                    allBsPlayers[`ID${compareTargetId}`] ||
-                    allBsPlayers[String(compareTargetId)] ||
-                    null;
-                  const cmpStats = cmpBs?.stats?.pitching ?? {};
-                  const cmpRows = buildStatRows(cmpStats, PITCHING_LOWER_IS_BETTER, statMinMax.pitching);
-                  cmpRow = cmpRows.find((r) => r.key === key) || null;
-                }
-
-                return (
-                  <React.Fragment key={`pit-${key}`}>
-                    <View style={pdStyles.statRow}>
-                      <Text
-                        style={[
-                          pdStyles.statRowValueLeft,
-                          { color: theme.text },
-                        ]}
-                      >
-                        {value}
-                      </Text>
-                      <View style={pdStyles.statBarWrap}>
-                        <View
-                          style={[
-                            pdStyles.statBarTrack,
-                            { backgroundColor: theme.border, width: "100%" },
-                          ]}
-                        >
-                          {compareTargetId && cmpRow ? (
-                            renderPairBar(value, cmpRow.value, isLower, teamColor, compareTeamColor)
-                          ) : (
+                          </View>
+                          {idx !== arr.length - 1 && (
                             <View
                               style={[
-                                pdStyles.statBarFill,
-                                {
-                                  width: `${Math.round(pct * 100)}%`,
-                                  backgroundColor: teamColor,
-                                },
+                                pdStyles.statDivider,
+                                { backgroundColor: theme.border },
                               ]}
                             />
                           )}
-                        </View>
-                        <Text
-                          style={[
-                            pdStyles.statRowLabelBelow,
-                            { color: theme.textSecondary, alignSelf: compareTargetId ? "center" : "flex-end", textAlign: compareTargetId ? "center" : null },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {label}
-                        </Text>
-                      </View>
-                      {compareTargetId && cmpRow && (
-                        <View style={pdStyles.statRowRight}>
-                          <Text style={[pdStyles.statRowValueRight, { color: theme.textSecondary }]}> 
-                            {cmpRow.value}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    {idx !== arr.length - 1 && (
-                      <View
-                        style={[
-                          pdStyles.statDivider,
-                          { backgroundColor: theme.border },
-                        ]}
-                      />
-                    )}
+                        </React.Fragment>
+                      );
+                    })}
                   </React.Fragment>
-                );
-              })}
-            </React.Fragment>
-          )}
+                )}
+              {(!hasPitchDisplay || pdActiveTab === "Stats") &&
+                effectiveStatMode === "pitching" &&
+                hasPitStats && (
+                  <React.Fragment>
+                    {hasBatStats && (
+                      <Text
+                        style={[
+                          pdStyles.statSection,
+                          { color: teamColor, marginTop: 14 },
+                        ]}
+                      >
+                        Pitching
+                      </Text>
+                    )}
+                    {buildStatRows(
+                      pitching,
+                      PITCHING_LOWER_IS_BETTER,
+                      statMinMax.pitching,
+                    ).map((row, idx, arr) => {
+                      const { key, label, value, pct, isLower } = row;
+                      let cmpRow = null;
+                      if (compareTargetId) {
+                        const cmpBs =
+                          allBsPlayers[`ID${compareTargetId}`] ||
+                          allBsPlayers[String(compareTargetId)] ||
+                          null;
+                        const cmpStats = cmpBs?.stats?.pitching ?? {};
+                        const cmpRows = buildStatRows(
+                          cmpStats,
+                          PITCHING_LOWER_IS_BETTER,
+                          statMinMax.pitching,
+                        );
+                        cmpRow = cmpRows.find((r) => r.key === key) || null;
+                      }
+
+                      return (
+                        <React.Fragment key={`pit-${key}`}>
+                          <View style={pdStyles.statRow}>
+                            <Text
+                              style={[
+                                pdStyles.statRowValueLeft,
+                                { color: theme.text },
+                              ]}
+                            >
+                              {value}
+                            </Text>
+                            <View style={pdStyles.statBarWrap}>
+                              <View
+                                style={[
+                                  pdStyles.statBarTrack,
+                                  {
+                                    backgroundColor: theme.border,
+                                    width: "100%",
+                                  },
+                                ]}
+                              >
+                                {compareTargetId && cmpRow ? (
+                                  renderPairBar(
+                                    value,
+                                    cmpRow.value,
+                                    isLower,
+                                    teamColor,
+                                    compareTeamColor,
+                                  )
+                                ) : (
+                                  <View
+                                    style={[
+                                      pdStyles.statBarFill,
+                                      {
+                                        width: `${Math.round(pct * 100)}%`,
+                                        backgroundColor: teamColor,
+                                      },
+                                    ]}
+                                  />
+                                )}
+                              </View>
+                              <Text
+                                style={[
+                                  pdStyles.statRowLabelBelow,
+                                  {
+                                    color: theme.textSecondary,
+                                    alignSelf: compareTargetId
+                                      ? "center"
+                                      : "flex-end",
+                                    textAlign: compareTargetId
+                                      ? "center"
+                                      : null,
+                                  },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {label}
+                              </Text>
+                            </View>
+                            {compareTargetId && cmpRow && (
+                              <View style={pdStyles.statRowRight}>
+                                <Text
+                                  style={[
+                                    pdStyles.statRowValueRight,
+                                    { color: theme.textSecondary },
+                                  ]}
+                                >
+                                  {cmpRow.value}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          {idx !== arr.length - 1 && (
+                            <View
+                              style={[
+                                pdStyles.statDivider,
+                                { backgroundColor: theme.border },
+                              ]}
+                            />
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </React.Fragment>
+                )}
             </React.Fragment>
           )}
         </ScrollView>
