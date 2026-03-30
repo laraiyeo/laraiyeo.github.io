@@ -359,9 +359,12 @@
       const remainder = minutes % 15;
       const minutesUntil = remainder === 0 ? 15 : 15 - remainder;
       const msUntilNext = minutesUntil * 60 * 1000 - seconds * 1000 - ms;
-      promoScheduleTimeoutId = setTimeout(() => {
-        triggerPromo();
-      }, Math.max(0, msUntilNext));
+      promoScheduleTimeoutId = setTimeout(
+        () => {
+          triggerPromo();
+        },
+        Math.max(0, msUntilNext),
+      );
     } catch (e) {
       console.error("schedulePromo error", e);
     }
@@ -630,8 +633,17 @@
         // 3) infer from final scores
         let winner = null;
         const parts = match.participants || [];
-        winner = parts.find((p) =>
-          p && (p.winner === true || p.winner === "true" || p.is_winner === true || p.is_winner === "true" || (p.meta && (p.meta.winner === true || p.meta.winner === "true" || p.meta.is_winner === true)))
+        winner = parts.find(
+          (p) =>
+            p &&
+            (p.winner === true ||
+              p.winner === "true" ||
+              p.is_winner === true ||
+              p.is_winner === "true" ||
+              (p.meta &&
+                (p.meta.winner === true ||
+                  p.meta.winner === "true" ||
+                  p.meta.is_winner === true))),
         );
         if (!winner && typeof match.winner_id !== "undefined") {
           winner = parts.find((p) => p && p.id === match.winner_id) || null;
@@ -659,7 +671,11 @@
           topText = `${winner.name} Wins The Match!`;
           topEvent = { participant_id: winner.id };
           try {
-            console.debug("stream overlay: winner detected", winner.name, winner.id);
+            console.debug(
+              "stream overlay: winner detected",
+              winner.name,
+              winner.id,
+            );
           } catch (e) {}
         }
       }
