@@ -2324,13 +2324,17 @@ const PlayerDetailModal = ({
                                 pdStyles.statRowValueLeft,
                                 {
                                   color: (function () {
-                                    if (!compareTargetId || !cmpRow) return theme.text;
+                                    if (!compareTargetId || !cmpRow)
+                                      return theme.text;
                                     const leftNum = parseFloat(value) || 0;
-                                    const rightNum = parseFloat(cmpRow.value) || 0;
+                                    const rightNum =
+                                      parseFloat(cmpRow.value) || 0;
                                     const leftBetter = isLower
                                       ? leftNum < rightNum
                                       : leftNum > rightNum;
-                                    return leftBetter ? theme.text : theme.textSecondary;
+                                    return leftBetter
+                                      ? theme.text
+                                      : theme.textSecondary;
                                   })(),
                                 },
                               ]}
@@ -2393,11 +2397,14 @@ const PlayerDetailModal = ({
                                     {
                                       color: (function () {
                                         const leftNum = parseFloat(value) || 0;
-                                        const rightNum = parseFloat(cmpRow.value) || 0;
+                                        const rightNum =
+                                          parseFloat(cmpRow.value) || 0;
                                         const leftBetter = isLower
                                           ? leftNum < rightNum
                                           : leftNum > rightNum;
-                                        return leftBetter ? theme.textSecondary : theme.text;
+                                        return leftBetter
+                                          ? theme.textSecondary
+                                          : theme.text;
                                       })(),
                                     },
                                   ]}
@@ -2463,13 +2470,17 @@ const PlayerDetailModal = ({
                                 pdStyles.statRowValueLeft,
                                 {
                                   color: (function () {
-                                    if (!compareTargetId || !cmpRow) return theme.text;
+                                    if (!compareTargetId || !cmpRow)
+                                      return theme.text;
                                     const leftNum = parseFloat(value) || 0;
-                                    const rightNum = parseFloat(cmpRow.value) || 0;
+                                    const rightNum =
+                                      parseFloat(cmpRow.value) || 0;
                                     const leftBetter = isLower
                                       ? leftNum < rightNum
                                       : leftNum > rightNum;
-                                    return leftBetter ? theme.text : theme.textSecondary;
+                                    return leftBetter
+                                      ? theme.text
+                                      : theme.textSecondary;
                                   })(),
                                 },
                               ]}
@@ -2532,11 +2543,14 @@ const PlayerDetailModal = ({
                                     {
                                       color: (function () {
                                         const leftNum = parseFloat(value) || 0;
-                                        const rightNum = parseFloat(cmpRow.value) || 0;
+                                        const rightNum =
+                                          parseFloat(cmpRow.value) || 0;
                                         const leftBetter = isLower
                                           ? leftNum < rightNum
                                           : leftNum > rightNum;
-                                        return leftBetter ? theme.textSecondary : theme.text;
+                                        return leftBetter
+                                          ? theme.textSecondary
+                                          : theme.text;
                                       })(),
                                     },
                                   ]}

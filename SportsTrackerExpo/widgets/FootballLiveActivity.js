@@ -5,13 +5,7 @@ import { Platform } from "react-native";
 // Dynamically require Expo UI only on iOS. Static `import` of `@expo/ui`
 // triggers native module resolution and crashes in Expo Go (no native
 // ExpoUI present). Use guarded `require()` to avoid that.
-let HStack,
-  Text,
-  VStack,
-  ZStack,
-  Rectangle,
-  Circle,
-  Image;
+let HStack, Text, VStack, ZStack, Rectangle, Circle, Image;
 let frame,
   padding,
   foregroundStyle,
