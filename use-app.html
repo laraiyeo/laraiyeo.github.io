@@ -71,6 +71,41 @@
         font-size: 1.05rem;
         margin-top: 1.25rem;
       }
+      .obs-section {
+        margin-top: 1rem;
+        border-top: 1px dashed #e6e6e6;
+        padding-top: 0.75rem;
+      }
+      .obs-buttons {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.5rem;
+        width: 100%;
+        margin-top: 0.5rem;
+      }
+      .obs-btn {
+        padding: 0.45rem 0.6rem;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+        background: #111;
+        color: #fff;
+        border-radius: 6px;
+        text-decoration: none;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .obs-btn img {
+        height: 18px;
+        width: auto;
+      }
+      @media (max-width: 480px) {
+        .obs-buttons {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
     </style>
   </head>
   <body>
@@ -139,6 +174,44 @@
         performance and user experience. So please use the app for now. Thank
         you for your patience.
       </p>
+      <div class="obs-section" aria-label="For OBS Users">
+        <h2 class="small">For OBS Users</h2>
+        <p class="muted">Quick access to compact team pages for OBS overlays.</p>
+        <div class="obs-buttons">
+          <a class="obs-btn" href="/mlb/teams.html" aria-label="MLB Teams">
+            <img src="/assets/mlb.png" alt="MLB" />
+            <span>MLB Teams</span>
+          </a>
+          <a class="obs-btn" href="/nba/teams.html" aria-label="NBA Teams">
+            <img src="/assets/nba.png" alt="NBA" />
+            <span>NBA Teams</span>
+          </a>
+          <a class="obs-btn" href="/nfl/teams.html" aria-label="NFL Teams">
+            <img src="/assets/nfl.png" alt="NFL" />
+            <span>NFL Teams</span>
+          </a>
+          <a class="obs-btn" href="/nhl/teams.html" aria-label="NHL Teams">
+            <img src="/assets/nhl.png" alt="NHL" />
+            <span>NHL Teams</span>
+          </a>
+          <a class="obs-btn" href="/soccer/teams.html" aria-label="Soccer Teams">
+            <img src="/assets/soccer.png" alt="Soccer" />
+            <span>Soccer Teams</span>
+          </a>
+          <a class="obs-btn" href="/wnba/teams.html" aria-label="WNBA Teams">
+            <img src="/assets/wnba.png" alt="WNBA" />
+            <span>WNBA Teams</span>
+          </a>
+          <a class="obs-btn" href="/f1/teams.html" aria-label="F1 Teams">
+            <img src="/assets/f1.png" alt="F1" />
+            <span>F1 Teams</span>
+          </a>
+          <a class="obs-btn" href="/ncaa/ncaaf/teams.html" aria-label="NCAA Teams">
+            <img src="/assets/ncaa.png" alt="NCAA" />
+            <span>NCAA Teams</span>
+          </a>
+        </div>
+      </div>
     </main>
 
     <script src="/assets/analytics.js"></script>

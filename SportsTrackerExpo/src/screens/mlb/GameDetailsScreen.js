@@ -91,7 +91,7 @@ const TeamColumn = ({
   const isFinished =
     !isLive &&
     (status?.isCompleted ||
-      ["F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(
+      ["F", "O", "FT", "D", "C", "Q", "R", "FM", "DI"].includes(
         status?.codedGameState,
       ));
 
@@ -1678,7 +1678,12 @@ const PlayerDetailModal = ({
                 onPress={() => {
                   setCompareActive((s) => {
                     const next = !s;
-                    if (next) {
+                    // Clear compare chooser/target when exiting compare mode
+                    if (!next) {
+                      setCompareChooserVisible(false);
+                      setCompareTargetId(null);
+                    } else {
+                      // entering compare: start fresh
                       setCompareChooserVisible(false);
                       setCompareTargetId(null);
                     }
@@ -2317,7 +2322,17 @@ const PlayerDetailModal = ({
                             <Text
                               style={[
                                 pdStyles.statRowValueLeft,
-                                { color: theme.text },
+                                {
+                                  color: (function () {
+                                    if (!compareTargetId || !cmpRow) return theme.text;
+                                    const leftNum = parseFloat(value) || 0;
+                                    const rightNum = parseFloat(cmpRow.value) || 0;
+                                    const leftBetter = isLower
+                                      ? leftNum < rightNum
+                                      : leftNum > rightNum;
+                                    return leftBetter ? theme.text : theme.textSecondary;
+                                  })(),
+                                },
                               ]}
                             >
                               {value}
@@ -2375,7 +2390,16 @@ const PlayerDetailModal = ({
                                 <Text
                                   style={[
                                     pdStyles.statRowValueRight,
-                                    { color: theme.textSecondary },
+                                    {
+                                      color: (function () {
+                                        const leftNum = parseFloat(value) || 0;
+                                        const rightNum = parseFloat(cmpRow.value) || 0;
+                                        const leftBetter = isLower
+                                          ? leftNum < rightNum
+                                          : leftNum > rightNum;
+                                        return leftBetter ? theme.textSecondary : theme.text;
+                                      })(),
+                                    },
                                   ]}
                                 >
                                   {cmpRow.value}
@@ -2437,7 +2461,17 @@ const PlayerDetailModal = ({
                             <Text
                               style={[
                                 pdStyles.statRowValueLeft,
-                                { color: theme.text },
+                                {
+                                  color: (function () {
+                                    if (!compareTargetId || !cmpRow) return theme.text;
+                                    const leftNum = parseFloat(value) || 0;
+                                    const rightNum = parseFloat(cmpRow.value) || 0;
+                                    const leftBetter = isLower
+                                      ? leftNum < rightNum
+                                      : leftNum > rightNum;
+                                    return leftBetter ? theme.text : theme.textSecondary;
+                                  })(),
+                                },
                               ]}
                             >
                               {value}
@@ -2495,7 +2529,16 @@ const PlayerDetailModal = ({
                                 <Text
                                   style={[
                                     pdStyles.statRowValueRight,
-                                    { color: theme.textSecondary },
+                                    {
+                                      color: (function () {
+                                        const leftNum = parseFloat(value) || 0;
+                                        const rightNum = parseFloat(cmpRow.value) || 0;
+                                        const leftBetter = isLower
+                                          ? leftNum < rightNum
+                                          : leftNum > rightNum;
+                                        return leftBetter ? theme.textSecondary : theme.text;
+                                      })(),
+                                    },
                                   ]}
                                 >
                                   {cmpRow.value}

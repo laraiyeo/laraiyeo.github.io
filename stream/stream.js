@@ -443,10 +443,11 @@
     const addition = String(additionRaw).toLowerCase();
     const result = ev.result || "";
     const minute = ev.minute != null ? ev.minute : "";
+    const extra = ev.extra_minute != null ? ` +${ev.extra_minute}` : "";
 
     // Goal detection
     if ((result && /\d-\d/.test(String(result))) || addition.includes("goal")) {
-      return `${teamName} GOAL ! ⚽ ${safeText(ev.player_name)} (${safeText(result)})${minute ? ` - ${minute}'` : ""}`;
+      return `${teamName} GOAL ! ⚽ ${safeText(ev.player_name)} (${safeText(result)})${minute ? ` - ${minute}'${extra}` : ""}`;
     }
 
     // Substitution
@@ -454,21 +455,22 @@
       const rel =
         abbreviateFirst(ev.related_player_name) ||
         safeText(ev.related_player_name);
-      return `${teamName} SUB: 🟢 ${safeText(ev.player_name)} - 🔴 ${rel}${minute ? ` - ${minute}'` : ""}`;
+      return `${teamName} SUB: 🟢 ${safeText(ev.player_name)} - 🔴 ${rel}${minute ? ` - ${minute}'${extra}` : ""}`;
     }
 
     // Cards
     const info = (ev.info || "").toLowerCase();
     if (addition.includes("yellow") || info.includes("yellow")) {
-      return `${teamName} Yellow Card 🟨 ${safeText(ev.player_name)}${minute ? ` - ${minute}'` : ""}`;
+      return `${teamName} Yellow Card 🟨 ${safeText(ev.player_name)}${minute ? ` - ${minute}'${extra}` : ""}`;
     }
     if (addition.includes("red") || info.includes("red")) {
-      return `${teamName} Red Card 🟥 ${safeText(ev.player_name)}${minute ? ` - ${minute}'` : ""}`;
+      return `${teamName} Red Card 🟥 ${safeText(ev.player_name)}${minute ? ` - ${minute}'${extra}` : ""}`;
     }
 
     // Generic fallback: team + addition + player
     const additionText = safeText(additionRaw).trim();
     const playerText = safeText(ev.player_name || "").trim();
+    const minuteText = minute ? ` - ${minute}'${extra}` : "";
     let prefix = teamName ? teamName : "";
     if (
       additionText &&
@@ -480,6 +482,7 @@
     if (prefix) parts.push(prefix);
     if (additionText) parts.push(additionText);
     if (playerText) parts.push(`- ${playerText}`);
+    if (minuteText) parts.push(minuteText);
     const out = parts.join(" ").trim();
     if (out) return out;
     if (teamName) return teamName;

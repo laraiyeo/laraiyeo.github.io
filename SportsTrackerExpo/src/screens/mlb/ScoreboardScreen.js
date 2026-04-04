@@ -580,11 +580,11 @@ const MLBGridCard = ({
   const isFinished =
     !isLive &&
     (game.isCompleted ||
-      ["F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(game.statusType));
+      ["F", "O", "FT", "D", "C", "Q", "R", "FM", "DI"].includes(game.statusType));
   const isScheduled = !isLive && !isFinished;
 
   const inning = game.inning;
-  const show = isFinished && inning != 9;
+  const show = isFinished && game.statusType !== "DI" && inning != 9;
 
   const awayScore = away.score;
   const homeScore = home.score;
@@ -1013,12 +1013,12 @@ const ScoreboardSection = ({
               const isLive = game.isLive || game.statusType === "I";
               const isFinished =
                 game.isCompleted ||
-                ["F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(
+                ["F", "O", "FT", "D", "C", "Q", "R", "FM", "DI"].includes(
                   game.statusType,
                 );
 
               const inning = game.inning || 0;
-              const show = inning !== 9;
+              const show = isFinished && game.statusType !== "DI" && inning != 9;
 
               const awayScore = game.awayTeam?.score;
               const homeScore = game.homeTeam?.score;
@@ -1402,7 +1402,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
             if (game.isLive || game.statusType === "I") return 1;
             if (
               game.isCompleted ||
-              ["F", "O", "FT", "D", "C", "Q", "R", "FM"].includes(
+              ["F", "O", "FT", "D", "C", "Q", "R", "FM", "DI"].includes(
                 game.statusType,
               )
             )

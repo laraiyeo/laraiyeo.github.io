@@ -1,25 +1,53 @@
 // widgets/FootballLiveActivity.js
-import {
-  HStack,
+import { Paths, File } from "expo-file-system";
+import { Platform } from "react-native";
+
+// Dynamically require Expo UI only on iOS. Static `import` of `@expo/ui`
+// triggers native module resolution and crashes in Expo Go (no native
+// ExpoUI present). Use guarded `require()` to avoid that.
+let HStack,
   Text,
   VStack,
   ZStack,
   Rectangle,
   Circle,
-  Image,
-} from "@expo/ui/swift-ui";
-import {
-  frame,
+  Image;
+let frame,
   padding,
   foregroundStyle,
   font,
   lineLimit,
   multilineTextAlignment,
   widgetURL,
-  resizable,
-} from "@expo/ui/swift-ui/modifiers";
-import { Paths, File } from "expo-file-system";
-import { Platform } from "react-native";
+  resizable;
+
+if (Platform.OS === "ios") {
+  try {
+    // eslint-disable-next-line global-require
+    const swiftUI = require("@expo/ui/swift-ui");
+    // eslint-disable-next-line global-require
+    const modifiers = require("@expo/ui/swift-ui/modifiers");
+
+    HStack = swiftUI.HStack;
+    Text = swiftUI.Text;
+    VStack = swiftUI.VStack;
+    ZStack = swiftUI.ZStack;
+    Rectangle = swiftUI.Rectangle;
+    Circle = swiftUI.Circle;
+    Image = swiftUI.Image;
+
+    frame = modifiers.frame;
+    padding = modifiers.padding;
+    foregroundStyle = modifiers.foregroundStyle;
+    font = modifiers.font;
+    lineLimit = modifiers.lineLimit;
+    multilineTextAlignment = modifiers.multilineTextAlignment;
+    widgetURL = modifiers.widgetURL;
+    resizable = modifiers.resizable;
+  } catch (e) {
+    console.warn("Expo UI modules not available:", e?.message || e);
+  }
+}
 
 // Only require expo-widgets on iOS. On Android the native module isn't
 // available and attempting to statically import it crashes the app.

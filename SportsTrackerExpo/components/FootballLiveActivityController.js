@@ -1,9 +1,25 @@
 // components/FootballLiveActivityController.js
 import React, { useState, useEffect, useRef } from "react";
-import { View, Button, Alert, Text } from "react-native";
+import { View, Button, Alert, Text, Platform } from "react-native";
 import { useRoute } from "@react-navigation/native";
-import FootballLiveActivity from "../widgets/FootballLiveActivity"; // direct import
 import { API_URL } from "../src/services/notificationService";
+
+// Lazily require the widget implementation only when available.
+// This avoids requiring native modules (ExpoUI) on Expo Go or Android
+// where the native module isn't present.
+let FootballLiveActivity = null;
+if (Platform.OS === "ios") {
+  try {
+    // eslint-disable-next-line global-require
+    FootballLiveActivity = require("../widgets/FootballLiveActivity");
+  } catch (e) {
+    FootballLiveActivity = null;
+    console.warn(
+      "FootballLiveActivity widget not available (native modules missing):",
+      e?.message || e,
+    );
+  }
+}
 
 console.log(
   "[FootballLiveActivityController] Controller imported, FootballLiveActivity:",
