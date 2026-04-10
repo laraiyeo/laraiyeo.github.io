@@ -412,7 +412,8 @@ const isMlbGameScheduled = (game) =>
 const groupHasScheduledGames = (group) =>
   !!group?.games?.some((game) => isMlbGameScheduled(game));
 
-const getPitcherSummary = (pitcher) => pitcher?.stats?.[3]?.stats?.summary || "";
+const getPitcherSummary = (pitcher) =>
+  pitcher?.stats?.[3]?.stats?.summary || "";
 
 const getShortPitcherName = (fullName, fallback = "Pitcher") => {
   if (!fullName || typeof fullName !== "string") return fallback;
@@ -426,36 +427,36 @@ const GridPitcherBlock = ({ pitcher, teamColor, theme }) => {
   const summary = getPitcherSummary(pitcher);
   const displayName = getShortPitcherName(pitcher.fullName, "Pitcher");
   const headshotUrl = MLBService.getHeadshotUrl(pitcher.id);
-    return (
-      <View style={{ width: "100%", alignItems: "center" }}>
-        <View
-          style={[
-            mlbGridStyles.pitcherDivider,
-            { backgroundColor: theme.border },
-          ]}
-        />
-        <View style={mlbGridStyles.pitcherWrap}>
-          {!!summary && (
-            <Text
-              style={[mlbGridStyles.pitcherSummary, { color: theme.text }]}
-              numberOfLines={1}
-            >
-              {summary}
-            </Text>
-          )}
-          <Image
-            source={{ uri: headshotUrl }}
-            style={[mlbGridStyles.pitcherHeadshot, { borderColor: teamColor }]}
-          />
+  return (
+    <View style={{ width: "100%", alignItems: "center" }}>
+      <View
+        style={[
+          mlbGridStyles.pitcherDivider,
+          { backgroundColor: theme.border },
+        ]}
+      />
+      <View style={mlbGridStyles.pitcherWrap}>
+        {!!summary && (
           <Text
-            style={[mlbGridStyles.pitcherName, { color: theme.textSecondary }]}
+            style={[mlbGridStyles.pitcherSummary, { color: theme.text }]}
             numberOfLines={1}
           >
-            {displayName}
+            {summary}
           </Text>
-        </View>
+        )}
+        <Image
+          source={{ uri: headshotUrl }}
+          style={[mlbGridStyles.pitcherHeadshot, { borderColor: teamColor }]}
+        />
+        <Text
+          style={[mlbGridStyles.pitcherName, { color: theme.textSecondary }]}
+          numberOfLines={1}
+        >
+          {displayName}
+        </Text>
       </View>
-    );
+    </View>
+  );
 };
 
 const getGroupPitcherDebugSummary = (group) => {
@@ -711,7 +712,9 @@ const MLBGridCard = ({
   const isFinished =
     !isLive &&
     (game.isCompleted ||
-      ["F", "O", "FT", "D", "C", "Q", "R", "FM", "DI", "FR"].includes(game.statusType));
+      ["F", "O", "FT", "D", "C", "Q", "R", "FM", "DI", "FR"].includes(
+        game.statusType,
+      ));
   const isScheduled = !isLive && !isFinished;
 
   const inning = game.inning;
@@ -778,7 +781,8 @@ const MLBGridCard = ({
             style={[mlbGridStyles.statusText, { color: theme.textSecondary }]}
             numberOfLines={1}
           >
-            {(game.status || "Final").slice(0, 9)}{show ? `/${inning}` : ""}
+            {(game.status || "Final").slice(0, 9)}
+            {show ? `/${inning}` : ""}
           </Text>
         ) : (
           <Text
@@ -1012,110 +1016,112 @@ const MLBGridSection = ({
     {groups.map((group) => {
       const showPitchersToggle = groupHasScheduledGames(group);
       return (
-      <View key={group.dateKey} style={mlbGridStyles.groupWrapper}>
-        <View style={mlbGridStyles.groupHeaderRow}>
-          {/* Floating bubble group label */}
-          <TouchableOpacity
-            style={[
-              mlbGridStyles.groupBubble,
-              { backgroundColor: theme.surfaceSecondary },
-            ]}
-            activeOpacity={activeFilter === "upcoming" ? 0.7 : 1}
-            onPress={() =>
-              activeFilter === "upcoming" && toggleCollapse(group.dateKey)
-            }
-          >
-            <Image
-              source={require("../../../assets/mlb.png")}
-              style={mlbGridStyles.groupBubbleLogo}
-              resizeMode="contain"
-            />
-            <Text
-              style={[mlbGridStyles.groupBubbleName, { color: theme.text }]}
-              numberOfLines={1}
-            >
-              {group.label}
-            </Text>
-            <Text
-              style={[
-                mlbGridStyles.groupBubbleCount,
-                { color: theme.textTertiary },
-              ]}
-            >
-              {" "}
-              {group.games.length}
-            </Text>
-            {activeFilter === "upcoming" && (
-              <Text
-                style={[
-                  { color: theme.textTertiary, marginLeft: 4, fontSize: 12 },
-                ]}
-              >
-                {collapsedGroups[group.dateKey] ? "▶" : "▼"}
-              </Text>
-            )}
-          </TouchableOpacity>
-          {showPitchersToggle && (
+        <View key={group.dateKey} style={mlbGridStyles.groupWrapper}>
+          <View style={mlbGridStyles.groupHeaderRow}>
+            {/* Floating bubble group label */}
             <TouchableOpacity
               style={[
-                mlbGridStyles.pitchersBtn,
-                {
-                  borderColor: showPitchersEnabled
-                    ? colors.primary
-                    : theme.border,
-                  backgroundColor: showPitchersEnabled
-                    ? theme.surface
-                    : "transparent",
-                },
+                mlbGridStyles.groupBubble,
+                { backgroundColor: theme.surfaceSecondary },
               ]}
-              onPress={() => togglePitchersGroup(group.dateKey)}
-              activeOpacity={0.8}
+              activeOpacity={activeFilter === "upcoming" ? 0.7 : 1}
+              onPress={() =>
+                activeFilter === "upcoming" && toggleCollapse(group.dateKey)
+              }
             >
-              <Ionicons
-                name="person-outline"
-                size={14}
-                color={showPitchersEnabled ? colors.primary : theme.textSecondary}
+              <Image
+                source={require("../../../assets/mlb.png")}
+                style={mlbGridStyles.groupBubbleLogo}
+                resizeMode="contain"
               />
               <Text
+                style={[mlbGridStyles.groupBubbleName, { color: theme.text }]}
+                numberOfLines={1}
+              >
+                {group.label}
+              </Text>
+              <Text
                 style={[
-                  mlbGridStyles.pitchersBtnText,
-                  {
-                    color: showPitchersEnabled
-                      ? colors.primary
-                      : theme.textSecondary,
-                  },
+                  mlbGridStyles.groupBubbleCount,
+                  { color: theme.textTertiary },
                 ]}
               >
-                Pitchers
+                {" "}
+                {group.games.length}
               </Text>
+              {activeFilter === "upcoming" && (
+                <Text
+                  style={[
+                    { color: theme.textTertiary, marginLeft: 4, fontSize: 12 },
+                  ]}
+                >
+                  {collapsedGroups[group.dateKey] ? "▶" : "▼"}
+                </Text>
+              )}
             </TouchableOpacity>
-          )}
-        </View>
-        {/* 2-column card grid */}
-        {(() => {
-          const isCollapsed =
-            activeFilter === "upcoming" && !!collapsedGroups[group.dateKey];
-          const displayedGames = isCollapsed
-            ? group.games.slice(0, 2)
-            : group.games;
-          return (
-            <View style={mlbGridStyles.cardsRow}>
-              {displayedGames.map((game) => (
-                <MLBGridCard
-                  key={game.id}
-                  game={game}
-                  navigation={navigation}
-                  theme={theme}
-                  colors={colors}
-                  isDarkMode={isDarkMode}
-                  isFavorite={isFavorite}
-                  showPitchers={showPitchersEnabled}
+            {showPitchersToggle && (
+              <TouchableOpacity
+                style={[
+                  mlbGridStyles.pitchersBtn,
+                  {
+                    borderColor: showPitchersEnabled
+                      ? colors.primary
+                      : theme.border,
+                    backgroundColor: showPitchersEnabled
+                      ? theme.surface
+                      : "transparent",
+                  },
+                ]}
+                onPress={() => togglePitchersGroup(group.dateKey)}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="person-outline"
+                  size={14}
+                  color={
+                    showPitchersEnabled ? colors.primary : theme.textSecondary
+                  }
                 />
-              ))}
-            </View>
-          );
-        })()}
-      </View>
+                <Text
+                  style={[
+                    mlbGridStyles.pitchersBtnText,
+                    {
+                      color: showPitchersEnabled
+                        ? colors.primary
+                        : theme.textSecondary,
+                    },
+                  ]}
+                >
+                  Pitchers
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {/* 2-column card grid */}
+          {(() => {
+            const isCollapsed =
+              activeFilter === "upcoming" && !!collapsedGroups[group.dateKey];
+            const displayedGames = isCollapsed
+              ? group.games.slice(0, 2)
+              : group.games;
+            return (
+              <View style={mlbGridStyles.cardsRow}>
+                {displayedGames.map((game) => (
+                  <MLBGridCard
+                    key={game.id}
+                    game={game}
+                    navigation={navigation}
+                    theme={theme}
+                    colors={colors}
+                    isDarkMode={isDarkMode}
+                    isFavorite={isFavorite}
+                    showPitchers={showPitchersEnabled}
+                  />
+                ))}
+              </View>
+            );
+          })()}
+        </View>
       );
     })}
   </View>
@@ -1141,494 +1147,531 @@ const ScoreboardSection = ({
     {groups.map((group, gIdx) => {
       const showPitchersToggle = groupHasScheduledGames(group);
       return (
-      <View
-        key={group.dateKey}
-        style={[styles.eventContainer, { backgroundColor: theme.background }]}
-      >
-        {/* Date header (tappable to collapse/expand when upcoming) */}
         <View
-          style={[
-            styles.eventHeaderContainer,
-            { backgroundColor: theme.surfaceSecondary },
-          ]}
+          key={group.dateKey}
+          style={[styles.eventContainer, { backgroundColor: theme.background }]}
         >
-          <TouchableOpacity
-            style={styles.eventHeaderMainTap}
-            activeOpacity={0.8}
-            onPress={() =>
-              activeFilter === "upcoming" && toggleCollapse(group.dateKey)
-            }
+          {/* Date header (tappable to collapse/expand when upcoming) */}
+          <View
+            style={[
+              styles.eventHeaderContainer,
+              { backgroundColor: theme.surfaceSecondary },
+            ]}
           >
-            <View style={styles.eventLogoContainer}>
-              <Image
-                source={require("../../../assets/mlb.png")}
-                style={styles.eventLogoImage}
-                resizeMode="contain"
-              />
-            </View>
-            <View style={styles.eventInfo}>
-              <Text
-                style={[styles.eventName, { color: theme.text }]}
-                numberOfLines={1}
-              >
-                {group.label}
-              </Text>
-              <Text style={[styles.eventSubLabel, { color: theme.textTertiary }]}>
-                MLB
-              </Text>
-            </View>
-          </TouchableOpacity>
-          <View style={styles.eventHeaderRight}>
-            <Text style={[styles.eventCount, { color: theme.textTertiary }]}>
-              {" "}
-              {group.games.length}{" "}
-            </Text>
-            {showPitchersToggle && (
-              <TouchableOpacity
-                onPress={() => togglePitchersGroup(group.dateKey)}
-                style={[
-                  styles.listPitcherToggleBtn,
-                  {
-                    borderColor: showPitchersEnabled
-                      ? colors.primary
-                      : theme.border,
-                    backgroundColor: showPitchersEnabled
-                      ? theme.surface
-                      : "transparent",
-                  },
-                ]}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name="person-outline"
-                  size={16}
-                  color={showPitchersEnabled ? colors.primary : theme.textTertiary}
-                />
-              </TouchableOpacity>
-            )}
-            {activeFilter === "upcoming" && (
-              <Text style={[styles.eventArrow, { color: theme.textTertiary }]}>
-                {" "}
-                {collapsedGroups[group.dateKey] ? "▶" : "▼"}{" "}
-              </Text>
-            )}
-          </View>
-        </View>
-
-        {/* Match rows */}
-        <View style={styles.matchesList}>
-          {(() => {
-            const isCollapsed =
-              activeFilter === "upcoming" && !!collapsedGroups[group.dateKey];
-            const displayedGames = isCollapsed
-              ? group.games.slice(0, 1)
-              : group.games;
-            return displayedGames.map((game, idx) => {
-              const away = game.awayTeam || {};
-              const home = game.homeTeam || {};
-              const awayAbbr = getTeamAbbr(away);
-              const homeAbbr = getTeamAbbr(home);
-              const awayColor =
-                away.color || MLBService.getTeamColor(away.displayName || "");
-              const homeColor =
-                home.color || MLBService.getTeamColor(home.displayName || "");
-              // prefer the pre-computed logo from MLBService (built from full team name map)
-              const awayLogo = WBCService.getTeamLogo(away?.id, isDarkMode);
-              const homeLogo = WBCService.getTeamLogo(home?.id, isDarkMode);
-
-              const isLive = game.isLive || game.statusType === "I";
-              const isFinished =
-                game.isCompleted ||
-                ["F", "O", "FT", "D", "C", "Q", "R", "FM", "DI", "FR"].includes(
-                  game.statusType,
-                );
-              const isScheduled = !isLive && !isFinished;
-              const awayProbable = getTeamProbablePitcher(game, "away");
-              const homeProbable = getTeamProbablePitcher(game, "home");
-              const awaySummary = getPitcherSummary(awayProbable);
-              const homeSummary = getPitcherSummary(homeProbable);
-              const awayHeadshot = MLBService.getHeadshotUrl(awayProbable?.id);
-              const homeHeadshot = MLBService.getHeadshotUrl(homeProbable?.id);
-
-              const inning = game.inning || 0;
-              const show = isFinished && game.statusType !== "DI" && inning != 9;
-
-              const awayScore = game.awayTeam?.score;
-              const homeScore = game.homeTeam?.score;
-              const awayWins =
-                isFinished &&
-                awayScore != null &&
-                homeScore != null &&
-                parseInt(awayScore) > parseInt(homeScore);
-              const homeWins =
-                isFinished &&
-                awayScore != null &&
-                homeScore != null &&
-                parseInt(homeScore) > parseInt(awayScore);
-
-              // Status column text (non-live only; live shows LiveLinescoreStatus)
-              let statusLine1 = "";
-              let statusLine2 = "";
-              if (isFinished) {
-                const { time, ampm } = formatLocalTime(game.date);
-                statusLine1 = show ? `Final/${inning}` : "Final";
-                statusLine2 = `${time} ${ampm}`;
-              } else if (!isLive) {
-                const { time, ampm } = formatLocalTime(game.date);
-                statusLine1 = time;
-                statusLine2 = ampm;
+            <TouchableOpacity
+              style={styles.eventHeaderMainTap}
+              activeOpacity={0.8}
+              onPress={() =>
+                activeFilter === "upcoming" && toggleCollapse(group.dateKey)
               }
-
-              // Favorites
-              const awayEspnId =
-                convertMLBIdToESPNId(away.id?.toString()) ||
-                away.id?.toString();
-              const homeEspnId =
-                convertMLBIdToESPNId(home.id?.toString()) ||
-                home.id?.toString();
-              const awayFav = isFavorite(awayEspnId, "mlb");
-              const homeFav = isFavorite(homeEspnId, "mlb");
-
-              return (
-                <TouchableOpacity
-                  key={game.id || idx}
-                  style={[
-                    styles.gameRow,
-                    { backgroundColor: theme.surfaceSecondary },
-                  ]}
-                  onPress={() =>
-                    navigation.navigate("GameDetails", {
-                      gamePk: game.id,
-                      sport: "mlb",
-                    })
-                  }
+            >
+              <View style={styles.eventLogoContainer}>
+                <Image
+                  source={require("../../../assets/mlb.png")}
+                  style={styles.eventLogoImage}
+                  resizeMode="contain"
+                />
+              </View>
+              <View style={styles.eventInfo}>
+                <Text
+                  style={[styles.eventName, { color: theme.text }]}
+                  numberOfLines={1}
                 >
-                  <CardGradient
-                    gradId={`${gIdx}_${idx}`}
-                    awayColor={awayColor}
-                    homeColor={homeColor}
-                    fallbackColor={colors.primary}
-                    theme={theme}
+                  {group.label}
+                </Text>
+                <Text
+                  style={[styles.eventSubLabel, { color: theme.textTertiary }]}
+                >
+                  MLB
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <View style={styles.eventHeaderRight}>
+              <Text style={[styles.eventCount, { color: theme.textTertiary }]}>
+                {" "}
+                {group.games.length}{" "}
+              </Text>
+              {showPitchersToggle && (
+                <TouchableOpacity
+                  onPress={() => togglePitchersGroup(group.dateKey)}
+                  style={[
+                    styles.listPitcherToggleBtn,
+                    {
+                      borderColor: showPitchersEnabled
+                        ? colors.primary
+                        : theme.border,
+                      backgroundColor: showPitchersEnabled
+                        ? theme.surface
+                        : "transparent",
+                    },
+                  ]}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="person-outline"
+                    size={16}
+                    color={
+                      showPitchersEnabled ? colors.primary : theme.textTertiary
+                    }
                   />
+                </TouchableOpacity>
+              )}
+              {activeFilter === "upcoming" && (
+                <Text
+                  style={[styles.eventArrow, { color: theme.textTertiary }]}
+                >
+                  {" "}
+                  {collapsedGroups[group.dateKey] ? "▶" : "▼"}{" "}
+                </Text>
+              )}
+            </View>
+          </View>
 
-                  <View style={styles.matchRow}>
-                    {/* Status column */}
-                    <View style={styles.statusContainer}>
-                      {isLive ? (
-                        <LiveLinescoreStatus
-                          inning={game.inning}
-                          isTopInning={game.inningState === "Top"}
-                          balls={game.balls}
-                          strikes={game.strikes}
-                          outs={game.outs}
-                          theme={theme}
-                          colors={colors}
-                        />
-                      ) : (
-                        <>
-                          <Text
-                            style={[
-                              styles.statusLine1,
-                              {
-                                color: isFinished
-                                  ? theme.textSecondary
-                                  : theme.text,
-                                fontWeight: "500",
-                              },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {statusLine1}
-                          </Text>
-                          {!!statusLine2 && (
-                            <Text
-                              style={[
-                                styles.statusLine2,
-                                { color: theme.textTertiary },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {statusLine2}
-                            </Text>
-                          )}
-                        </>
-                      )}
-                    </View>
+          {/* Match rows */}
+          <View style={styles.matchesList}>
+            {(() => {
+              const isCollapsed =
+                activeFilter === "upcoming" && !!collapsedGroups[group.dateKey];
+              const displayedGames = isCollapsed
+                ? group.games.slice(0, 1)
+                : group.games;
+              return displayedGames.map((game, idx) => {
+                const away = game.awayTeam || {};
+                const home = game.homeTeam || {};
+                const awayAbbr = getTeamAbbr(away);
+                const homeAbbr = getTeamAbbr(home);
+                const awayColor =
+                  away.color || MLBService.getTeamColor(away.displayName || "");
+                const homeColor =
+                  home.color || MLBService.getTeamColor(home.displayName || "");
+                // prefer the pre-computed logo from MLBService (built from full team name map)
+                const awayLogo = WBCService.getTeamLogo(away?.id, isDarkMode);
+                const homeLogo = WBCService.getTeamLogo(home?.id, isDarkMode);
 
-                    {/* Stacked teams */}
-                    <View style={styles.stackedTeams}>
-                      {/* Away */}
-                      <View style={styles.teamWithLogo}>
-                        <View style={styles.teamLogoSmall}>
-                          {awayLogo ? (
-                            <Image
-                              source={{ uri: awayLogo }}
-                              style={styles.teamLogoSmallImg}
-                              resizeMode="contain"
-                            />
-                          ) : (
-                            <View
-                              style={[
-                                styles.teamLogoSmallImg,
-                                {
-                                  backgroundColor: awayColor || colors.primary,
-                                  justifyContent: "center",
-                                  alignItems: "center",
-                                },
-                              ]}
-                            >
-                              <Text style={styles.teamLogoFallback}>
-                                {awayAbbr.substring(0, 1)}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={[
-                              styles.teamName,
-                              {
-                                color: awayFav ? colors.primary : theme.text,
-                                fontWeight: awayWins ? "700" : "400",
-                              },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {awayFav ? "★ " : ""}
-                            {away.displayName || "Away"}
-                          </Text>
-                          {away.record ? (
-                            <Text
-                              style={[
-                                styles.teamRecord,
-                                { color: theme.textSecondary },
-                              ]}
-                            >
-                              {away.record}
-                            </Text>
-                          ) : null}
-                        </View>
-                        {(isLive || isFinished) && awayScore != null && (
-                          <Text
-                            style={[
-                              styles.scoreText,
-                              {
-                                color: awayWins ? colors.primary : theme.text,
-                                fontWeight: awayWins ? "700" : "400",
-                                opacity: !awayWins && isFinished ? 0.55 : 1,
-                              },
-                            ]}
-                          >
-                            {awayScore}
-                          </Text>
-                        )}
-                      </View>
+                const isLive = game.isLive || game.statusType === "I";
+                const isFinished =
+                  game.isCompleted ||
+                  [
+                    "F",
+                    "O",
+                    "FT",
+                    "D",
+                    "C",
+                    "Q",
+                    "R",
+                    "FM",
+                    "DI",
+                    "FR",
+                  ].includes(game.statusType);
+                const isScheduled = !isLive && !isFinished;
+                const awayProbable = getTeamProbablePitcher(game, "away");
+                const homeProbable = getTeamProbablePitcher(game, "home");
+                const awaySummary = getPitcherSummary(awayProbable);
+                const homeSummary = getPitcherSummary(homeProbable);
+                const awayHeadshot = MLBService.getHeadshotUrl(
+                  awayProbable?.id,
+                );
+                const homeHeadshot = MLBService.getHeadshotUrl(
+                  homeProbable?.id,
+                );
 
-                      {/* Home */}
-                      <View style={styles.teamWithLogo}>
-                        <View style={styles.teamLogoSmall}>
-                          {homeLogo ? (
-                            <Image
-                              source={{ uri: homeLogo }}
-                              style={styles.teamLogoSmallImg}
-                              resizeMode="contain"
-                            />
-                          ) : (
-                            <View
-                              style={[
-                                styles.teamLogoSmallImg,
-                                {
-                                  backgroundColor: homeColor || colors.primary,
-                                  justifyContent: "center",
-                                  alignItems: "center",
-                                },
-                              ]}
-                            >
-                              <Text style={styles.teamLogoFallback}>
-                                {homeAbbr.substring(0, 1)}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={[
-                              styles.teamName,
-                              {
-                                color: homeFav ? colors.primary : theme.text,
-                                fontWeight: homeWins ? "700" : "400",
-                              },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {homeFav ? "★ " : ""}
-                            {home.displayName || "Home"}
-                          </Text>
-                          {home.record ? (
-                            <Text
-                              style={[
-                                styles.teamRecord,
-                                { color: theme.textSecondary },
-                              ]}
-                            >
-                              {home.record}
-                            </Text>
-                          ) : null}
-                        </View>
-                        {(isLive || isFinished) && homeScore != null && (
-                          <Text
-                            style={[
-                              styles.scoreText,
-                              {
-                                color: homeWins ? colors.primary : theme.text,
-                                fontWeight: homeWins ? "700" : "400",
-                                opacity: !homeWins && isFinished ? 0.55 : 1,
-                              },
-                            ]}
-                          >
-                            {homeScore}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                  </View>
+                const inning = game.inning || 0;
+                const show =
+                  isFinished && game.statusType !== "DI" && inning != 9;
 
-                  {showPitchersEnabled && isScheduled && (
-                    <View
-                      style={[
-                        styles.pitchersRow,
-                        { borderTopColor: theme.border },
-                      ]}
-                    >
-                      <View style={styles.pitcherSideCell}>
-                        <View style={styles.pitcherInfoRowAway}>
-                          {!!awayProbable?.id && (
-                            <Image
-                              source={{ uri: awayHeadshot }}
-                              style={[
-                                styles.listPitcherHeadshot,
-                                { borderColor: awayColor || colors.primary },
-                              ]}
-                            />
-                          )}
-                          <View style={styles.pitcherTextStackAway}>
-                            {!!awaySummary && (
-                              <Text
-                                style={[
-                                  styles.pitcherSummaryText,
-                                  { color: theme.text },
-                                ]}
-                                numberOfLines={1}
-                              >
-                                {awaySummary}
-                              </Text>
-                            )}
-                            <Text
-                              style={[
-                                styles.pitcherNameText,
-                                { color: theme.textSecondary },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {getShortPitcherName(awayProbable?.fullName, "TBD")}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
+                const awayScore = game.awayTeam?.score;
+                const homeScore = game.homeTeam?.score;
+                const awayWins =
+                  isFinished &&
+                  awayScore != null &&
+                  homeScore != null &&
+                  parseInt(awayScore) > parseInt(homeScore);
+                const homeWins =
+                  isFinished &&
+                  awayScore != null &&
+                  homeScore != null &&
+                  parseInt(homeScore) > parseInt(awayScore);
 
-                      <Text style={[styles.pitchersVsText, { color: theme.textTertiary }]}>
-                        vs
-                      </Text>
+                // Status column text (non-live only; live shows LiveLinescoreStatus)
+                let statusLine1 = "";
+                let statusLine2 = "";
+                if (isFinished) {
+                  const { time, ampm } = formatLocalTime(game.date);
+                  statusLine1 = show ? `Final/${inning}` : "Final";
+                  statusLine2 = `${time} ${ampm}`;
+                } else if (!isLive) {
+                  const { time, ampm } = formatLocalTime(game.date);
+                  statusLine1 = time;
+                  statusLine2 = ampm;
+                }
 
-                      <View style={styles.pitcherSideCell}>
-                        <View style={styles.pitcherInfoRowHome}>
-                          <View style={styles.pitcherTextStackHome}>
-                            {!!homeSummary && (
-                              <Text
-                                style={[
-                                  styles.pitcherSummaryText,
-                                  { color: theme.text },
-                                ]}
-                                numberOfLines={1}
-                              >
-                                {homeSummary}
-                              </Text>
-                            )}
-                            <Text
-                              style={[
-                                styles.pitcherNameText,
-                                { color: theme.textSecondary },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {getShortPitcherName(homeProbable?.fullName, "TBD")}
-                            </Text>
-                          </View>
-                          {!!homeProbable?.id && (
-                            <Image
-                              source={{ uri: homeHeadshot }}
-                              style={[
-                                styles.listPitcherHeadshot,
-                                { borderColor: homeColor || colors.primary },
-                              ]}
-                            />
-                          )}
-                        </View>
-                      </View>
-                    </View>
-                  )}
+                // Favorites
+                const awayEspnId =
+                  convertMLBIdToESPNId(away.id?.toString()) ||
+                  away.id?.toString();
+                const homeEspnId =
+                  convertMLBIdToESPNId(home.id?.toString()) ||
+                  home.id?.toString();
+                const awayFav = isFavorite(awayEspnId, "mlb");
+                const homeFav = isFavorite(homeEspnId, "mlb");
 
-                  {/* Footer: venue + live viewer badge */}
-                  <View
+                return (
+                  <TouchableOpacity
+                    key={game.id || idx}
                     style={[
-                      styles.gameFooter,
-                      { borderTopColor: theme.border },
+                      styles.gameRow,
+                      { backgroundColor: theme.surfaceSecondary },
                     ]}
+                    onPress={() =>
+                      navigation.navigate("GameDetails", {
+                        gamePk: game.id,
+                        sport: "mlb",
+                      })
+                    }
                   >
-                    <View style={styles.gameFooterLeft}>
-                      {game.venue ? (
-                        <Text
-                          style={[styles.venue, { color: theme.textSecondary }]}
-                        >
-                          {game.venue}
-                        </Text>
-                      ) : null}
-                      {game.notes1 || (game.notes && game.gameType !== "R") ? (
+                    <CardGradient
+                      gradId={`${gIdx}_${idx}`}
+                      awayColor={awayColor}
+                      homeColor={homeColor}
+                      fallbackColor={colors.primary}
+                      theme={theme}
+                    />
+
+                    <View style={styles.matchRow}>
+                      {/* Status column */}
+                      <View style={styles.statusContainer}>
+                        {isLive ? (
+                          <LiveLinescoreStatus
+                            inning={game.inning}
+                            isTopInning={game.inningState === "Top"}
+                            balls={game.balls}
+                            strikes={game.strikes}
+                            outs={game.outs}
+                            theme={theme}
+                            colors={colors}
+                          />
+                        ) : (
+                          <>
+                            <Text
+                              style={[
+                                styles.statusLine1,
+                                {
+                                  color: isFinished
+                                    ? theme.textSecondary
+                                    : theme.text,
+                                  fontWeight: "500",
+                                },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {statusLine1}
+                            </Text>
+                            {!!statusLine2 && (
+                              <Text
+                                style={[
+                                  styles.statusLine2,
+                                  { color: theme.textTertiary },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {statusLine2}
+                              </Text>
+                            )}
+                          </>
+                        )}
+                      </View>
+
+                      {/* Stacked teams */}
+                      <View style={styles.stackedTeams}>
+                        {/* Away */}
+                        <View style={styles.teamWithLogo}>
+                          <View style={styles.teamLogoSmall}>
+                            {awayLogo ? (
+                              <Image
+                                source={{ uri: awayLogo }}
+                                style={styles.teamLogoSmallImg}
+                                resizeMode="contain"
+                              />
+                            ) : (
+                              <View
+                                style={[
+                                  styles.teamLogoSmallImg,
+                                  {
+                                    backgroundColor:
+                                      awayColor || colors.primary,
+                                    justifyContent: "center",
+                                    alignItems: "center",
+                                  },
+                                ]}
+                              >
+                                <Text style={styles.teamLogoFallback}>
+                                  {awayAbbr.substring(0, 1)}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text
+                              style={[
+                                styles.teamName,
+                                {
+                                  color: awayFav ? colors.primary : theme.text,
+                                  fontWeight: awayWins ? "700" : "400",
+                                },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {awayFav ? "★ " : ""}
+                              {away.displayName || "Away"}
+                            </Text>
+                            {away.record ? (
+                              <Text
+                                style={[
+                                  styles.teamRecord,
+                                  { color: theme.textSecondary },
+                                ]}
+                              >
+                                {away.record}
+                              </Text>
+                            ) : null}
+                          </View>
+                          {(isLive || isFinished) && awayScore != null && (
+                            <Text
+                              style={[
+                                styles.scoreText,
+                                {
+                                  color: awayWins ? colors.primary : theme.text,
+                                  fontWeight: awayWins ? "700" : "400",
+                                  opacity: !awayWins && isFinished ? 0.55 : 1,
+                                },
+                              ]}
+                            >
+                              {awayScore}
+                            </Text>
+                          )}
+                        </View>
+
+                        {/* Home */}
+                        <View style={styles.teamWithLogo}>
+                          <View style={styles.teamLogoSmall}>
+                            {homeLogo ? (
+                              <Image
+                                source={{ uri: homeLogo }}
+                                style={styles.teamLogoSmallImg}
+                                resizeMode="contain"
+                              />
+                            ) : (
+                              <View
+                                style={[
+                                  styles.teamLogoSmallImg,
+                                  {
+                                    backgroundColor:
+                                      homeColor || colors.primary,
+                                    justifyContent: "center",
+                                    alignItems: "center",
+                                  },
+                                ]}
+                              >
+                                <Text style={styles.teamLogoFallback}>
+                                  {homeAbbr.substring(0, 1)}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text
+                              style={[
+                                styles.teamName,
+                                {
+                                  color: homeFav ? colors.primary : theme.text,
+                                  fontWeight: homeWins ? "700" : "400",
+                                },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {homeFav ? "★ " : ""}
+                              {home.displayName || "Home"}
+                            </Text>
+                            {home.record ? (
+                              <Text
+                                style={[
+                                  styles.teamRecord,
+                                  { color: theme.textSecondary },
+                                ]}
+                              >
+                                {home.record}
+                              </Text>
+                            ) : null}
+                          </View>
+                          {(isLive || isFinished) && homeScore != null && (
+                            <Text
+                              style={[
+                                styles.scoreText,
+                                {
+                                  color: homeWins ? colors.primary : theme.text,
+                                  fontWeight: homeWins ? "700" : "400",
+                                  opacity: !homeWins && isFinished ? 0.55 : 1,
+                                },
+                              ]}
+                            >
+                              {homeScore}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    </View>
+
+                    {showPitchersEnabled && isScheduled && (
+                      <View
+                        style={[
+                          styles.pitchersRow,
+                          { borderTopColor: theme.border },
+                        ]}
+                      >
+                        <View style={styles.pitcherSideCell}>
+                          <View style={styles.pitcherInfoRowAway}>
+                            {!!awayProbable?.id && (
+                              <Image
+                                source={{ uri: awayHeadshot }}
+                                style={[
+                                  styles.listPitcherHeadshot,
+                                  { borderColor: awayColor || colors.primary },
+                                ]}
+                              />
+                            )}
+                            <View style={styles.pitcherTextStackAway}>
+                              {!!awaySummary && (
+                                <Text
+                                  style={[
+                                    styles.pitcherSummaryText,
+                                    { color: theme.text },
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {awaySummary}
+                                </Text>
+                              )}
+                              <Text
+                                style={[
+                                  styles.pitcherNameText,
+                                  { color: theme.textSecondary },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {getShortPitcherName(
+                                  awayProbable?.fullName,
+                                  "TBD",
+                                )}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+
                         <Text
                           style={[
-                            styles.broadcast,
+                            styles.pitchersVsText,
                             { color: theme.textTertiary },
                           ]}
                         >
-                          {game.notes && game.notes1
-                            ? `${game.notes} · ${game.notes1}`
-                            : game.notes1 || game.notes}
+                          vs
                         </Text>
-                      ) : null}
-                    </View>
-                    <View style={styles.gameFooterRight}>
-                      <LiveViewerBadge
-                        gameId={game.id}
-                        status={game.status}
-                        style={styles.viewerBadge}
-                      />
-                    </View>
-                  </View>
 
-                  {idx < group.games.length - 1 && (
+                        <View style={styles.pitcherSideCell}>
+                          <View style={styles.pitcherInfoRowHome}>
+                            <View style={styles.pitcherTextStackHome}>
+                              {!!homeSummary && (
+                                <Text
+                                  style={[
+                                    styles.pitcherSummaryText,
+                                    { color: theme.text },
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {homeSummary}
+                                </Text>
+                              )}
+                              <Text
+                                style={[
+                                  styles.pitcherNameText,
+                                  { color: theme.textSecondary },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {getShortPitcherName(
+                                  homeProbable?.fullName,
+                                  "TBD",
+                                )}
+                              </Text>
+                            </View>
+                            {!!homeProbable?.id && (
+                              <Image
+                                source={{ uri: homeHeadshot }}
+                                style={[
+                                  styles.listPitcherHeadshot,
+                                  { borderColor: homeColor || colors.primary },
+                                ]}
+                              />
+                            )}
+                          </View>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Footer: venue + live viewer badge */}
                     <View
                       style={[
-                        styles.matchSeparator,
-                        { backgroundColor: theme.border },
+                        styles.gameFooter,
+                        { borderTopColor: theme.border },
                       ]}
-                    />
-                  )}
-                </TouchableOpacity>
-              );
-            });
-          })()}
+                    >
+                      <View style={styles.gameFooterLeft}>
+                        {game.venue ? (
+                          <Text
+                            style={[
+                              styles.venue,
+                              { color: theme.textSecondary },
+                            ]}
+                          >
+                            {game.venue}
+                          </Text>
+                        ) : null}
+                        {game.notes1 ||
+                        (game.notes && game.gameType !== "R") ? (
+                          <Text
+                            style={[
+                              styles.broadcast,
+                              { color: theme.textTertiary },
+                            ]}
+                          >
+                            {game.notes && game.notes1
+                              ? `${game.notes} · ${game.notes1}`
+                              : game.notes1 || game.notes}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <View style={styles.gameFooterRight}>
+                        <LiveViewerBadge
+                          gameId={game.id}
+                          status={game.status}
+                          style={styles.viewerBadge}
+                        />
+                      </View>
+                    </View>
+
+                    {idx < group.games.length - 1 && (
+                      <View
+                        style={[
+                          styles.matchSeparator,
+                          { backgroundColor: theme.border },
+                        ]}
+                      />
+                    )}
+                  </TouchableOpacity>
+                );
+              });
+            })()}
+          </View>
         </View>
-      </View>
       );
     })}
   </View>
@@ -1680,7 +1723,10 @@ const MLBScoreboardScreen = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
-    AsyncStorage.setItem("showPitchersEnabled_mlb", String(showPitchersEnabled));
+    AsyncStorage.setItem(
+      "showPitchersEnabled_mlb",
+      String(showPitchersEnabled),
+    );
   }, [showPitchersEnabled]);
 
   const toggleViewMode = () => {
@@ -1837,12 +1883,12 @@ const MLBScoreboardScreen = ({ navigation }) => {
     const details = groups
       .filter((group) => groupHasScheduledGames(group))
       .map((group) => {
-      return {
-        dateKey: group.dateKey,
-        label: group?.label || "Unknown",
-        ...getGroupPitcherDebugSummary(group),
-      };
-    });
+        return {
+          dateKey: group.dateKey,
+          label: group?.label || "Unknown",
+          ...getGroupPitcherDebugSummary(group),
+        };
+      });
 
     console.log("[MLB Pitchers Visible Groups]", details);
   }, [showPitchersEnabled, groups]);
