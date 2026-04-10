@@ -23,9 +23,9 @@ function ensureAdsModule() {
 
   const nativePresent = Boolean(
     NativeModules &&
-      (NativeModules.RNGoogleMobileAdsModule ||
-        NativeModules.GoogleMobileAdsModule ||
-        NativeModules.RNGoogleMobileAds)
+    (NativeModules.RNGoogleMobileAdsModule ||
+      NativeModules.GoogleMobileAdsModule ||
+      NativeModules.RNGoogleMobileAds),
   );
 
   if (!nativePresent) {
@@ -75,7 +75,7 @@ export async function initAds() {
   const mod = ensureAdsModule();
   if (!mod) {
     console.warn(
-      "Ads not available in this runtime (web/Expo Go). Skipping init."
+      "Ads not available in this runtime (web/Expo Go). Skipping init.",
     );
     return false;
   }
@@ -154,7 +154,7 @@ export function createInterstitial(unitId) {
   if (!InterstitialAd) {
     // no-op fallback so callers don't crash in Expo Go / web
     console.warn(
-      "createInterstitial: InterstitialAd not available in this runtime"
+      "createInterstitial: InterstitialAd not available in this runtime",
     );
     return {
       load: () => Promise.resolve(false),

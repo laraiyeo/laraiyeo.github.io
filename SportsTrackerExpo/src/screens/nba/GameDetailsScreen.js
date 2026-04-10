@@ -6289,79 +6289,82 @@ const NBAGameDetailsScreen = ({ route }) => {
       {isLoggedIn && (
         <>
           {/* Floating Chat Button */}
-      <TouchableOpacity
-        style={[
-          styles.floatingChatButton,
-          { backgroundColor: colors.secondary },
-        ]}
-        onPress={() => setChatModalVisible(true)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="chatbubble-ellipses-outline" size={24} color="#fff" />
-      </TouchableOpacity>
-
-      {/* Chat Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={chatModalVisible}
-        onRequestClose={() => setChatModalVisible(false)}
-        presentationStyle="pageSheet"
-      >
-        <View style={styles.chatModalOverlay}>
-          <View
+          <TouchableOpacity
             style={[
-              styles.chatModalContent,
-              { backgroundColor: theme.surface, paddingBottom: 20 },
+              styles.floatingChatButton,
+              { backgroundColor: colors.secondary },
             ]}
+            onPress={() => setChatModalVisible(true)}
+            activeOpacity={0.8}
           >
-            {/* Chat Modal Header */}
-            <View
-              style={[
-                styles.chatModalHeader,
-                { borderBottomColor: theme.border },
-              ]}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[styles.chatModalTitle, { color: theme.text }]}
-              >
-                {details
-                  ? `${
-                      details.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "away",
-                      )?.team.name || "Away"
-                    } vs ${
-                      details.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "home",
-                      )?.team.name || "Home"
-                    }`
-                  : "Chat"}
-              </Text>
-              <TouchableOpacity
-                style={styles.chatModalCloseButton}
-                onPress={() => setChatModalVisible(false)}
-              >
-                <Ionicons name="close" size={24} color={theme.text} />
-              </TouchableOpacity>
-            </View>
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={24}
+              color="#fff"
+            />
+          </TouchableOpacity>
 
-            {/* Chat Content */}
-            <View style={styles.chatModalBody}>
-              {details && (
-                <ChatComponent
-                  gameId={gameId}
-                  gameData={details}
-                  hideHeader={true}
-                />
-              )}
+          {/* Chat Modal */}
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={chatModalVisible}
+            onRequestClose={() => setChatModalVisible(false)}
+            presentationStyle="pageSheet"
+          >
+            <View style={styles.chatModalOverlay}>
+              <View
+                style={[
+                  styles.chatModalContent,
+                  { backgroundColor: theme.surface, paddingBottom: 20 },
+                ]}
+              >
+                {/* Chat Modal Header */}
+                <View
+                  style={[
+                    styles.chatModalHeader,
+                    { borderBottomColor: theme.border },
+                  ]}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.chatModalTitle, { color: theme.text }]}
+                  >
+                    {details
+                      ? `${
+                          details.header.competitions[0].competitors.find(
+                            (c) => c.homeAway === "away",
+                          )?.team.name || "Away"
+                        } vs ${
+                          details.header.competitions[0].competitors.find(
+                            (c) => c.homeAway === "home",
+                          )?.team.name || "Home"
+                        }`
+                      : "Chat"}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.chatModalCloseButton}
+                    onPress={() => setChatModalVisible(false)}
+                  >
+                    <Ionicons name="close" size={24} color={theme.text} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Chat Content */}
+                <View style={styles.chatModalBody}>
+                  {details && (
+                    <ChatComponent
+                      gameId={gameId}
+                      gameData={details}
+                      hideHeader={true}
+                    />
+                  )}
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
-      </Modal>
+          </Modal>
         </>
       )}
-
     </View>
   );
 };
@@ -8576,5 +8579,3 @@ const styles = StyleSheet.create({
 });
 
 export default NBAGameDetailsScreen;
-
-

@@ -2777,7 +2777,12 @@ const AppContent = () => {
     return () => {
       mounted = false;
     };
-  }, [isOnboardingComplete, loginDontShow, loginDismissedThisSession, hasSession]);
+  }, [
+    isOnboardingComplete,
+    loginDontShow,
+    loginDismissedThisSession,
+    hasSession,
+  ]);
 
   const inMainStack = isOnboardingComplete && !showLoginGate;
   const mainInitialRoute = pendingProSplash ? "ProSplash" : "Home";

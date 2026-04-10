@@ -7999,7 +7999,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
         runItBackSelectedPlayerIds.has(batterId) ||
         runItBackSelectedPlayerIds.has(pitcherId);
 
-      if (!runItBackAllTeams && !runItBackAllPlayers) return teamMatch || playerMatch;
+      if (!runItBackAllTeams && !runItBackAllPlayers)
+        return teamMatch || playerMatch;
       if (!runItBackAllTeams) return teamMatch;
       if (!runItBackAllPlayers) return playerMatch;
       return true;
@@ -8016,10 +8017,14 @@ const GameDetailsScreen = ({ navigation, route }) => {
 
   const runItBackAvailableInnings = useMemo(
     () =>
-      [...new Set((allPlays ?? [])
-        .filter(runItBackPlayMatchesEntityFilters)
-        .map((p) => p?.about?.inning)
-        .filter(Boolean))]
+      [
+        ...new Set(
+          (allPlays ?? [])
+            .filter(runItBackPlayMatchesEntityFilters)
+            .map((p) => p?.about?.inning)
+            .filter(Boolean),
+        ),
+      ]
         .map(Number)
         .sort((a, b) => a - b),
     [allPlays, runItBackPlayMatchesEntityFilters],
@@ -8136,7 +8141,10 @@ const GameDetailsScreen = ({ navigation, route }) => {
       0,
       runItBackCurrentFrame.playIndex,
     );
-    return [...prevPlays, ...(runItBackCurrentPlay ? [runItBackCurrentPlay] : [])];
+    return [
+      ...prevPlays,
+      ...(runItBackCurrentPlay ? [runItBackCurrentPlay] : []),
+    ];
   }, [
     allPlays,
     runItBackActive,
@@ -8182,7 +8190,10 @@ const GameDetailsScreen = ({ navigation, route }) => {
     if (!runItBackActive || runItBackPaused) return;
     if (runItBackFrames.length <= 1) return;
 
-    const stepMs = Math.max(350, RUN_IT_BACK_BASE_STEP_MS / Math.abs(runItBackSpeed));
+    const stepMs = Math.max(
+      350,
+      RUN_IT_BACK_BASE_STEP_MS / Math.abs(runItBackSpeed),
+    );
     const direction = runItBackSpeed < 0 ? -1 : 1;
     const id = setInterval(() => {
       setRunItBackCursor((prev) => {
@@ -8207,19 +8218,25 @@ const GameDetailsScreen = ({ navigation, route }) => {
     runItBackSpeed,
   ]);
 
-  const closeRunItBackPopups = useCallback((allowResume = true) => {
-    setRunItBackSpeedPopupVisible(false);
-    setRunItBackInningPopupVisible(false);
-    setRunItBackEntityPopupVisible(false);
-    if (allowResume && runItBackActive && runItBackResumeOnPopupClose) {
-      setRunItBackPaused(false);
-    }
-    setRunItBackResumeOnPopupClose(false);
-  }, [runItBackActive, runItBackResumeOnPopupClose]);
+  const closeRunItBackPopups = useCallback(
+    (allowResume = true) => {
+      setRunItBackSpeedPopupVisible(false);
+      setRunItBackInningPopupVisible(false);
+      setRunItBackEntityPopupVisible(false);
+      if (allowResume && runItBackActive && runItBackResumeOnPopupClose) {
+        setRunItBackPaused(false);
+      }
+      setRunItBackResumeOnPopupClose(false);
+    },
+    [runItBackActive, runItBackResumeOnPopupClose],
+  );
 
   const startRunItBack = useCallback(() => {
     if (!allPlays?.length) {
-      Alert.alert("No Plays Yet", "Run It Back is available once plays are recorded.");
+      Alert.alert(
+        "No Plays Yet",
+        "Run It Back is available once plays are recorded.",
+      );
       return;
     }
     setRunItBackActive(true);
@@ -8346,7 +8363,12 @@ const GameDetailsScreen = ({ navigation, route }) => {
       gameDate: feed?.gameDate ?? fallbackDate,
       date: feed?.date ?? fallbackDate,
     };
-  }, [feed, gameData?.datetime?.dateTime, gameData?.datetime?.officialDate, gameData?.datetime?.originalDate]);
+  }, [
+    feed,
+    gameData?.datetime?.dateTime,
+    gameData?.datetime?.officialDate,
+    gameData?.datetime?.originalDate,
+  ]);
 
   // ── Streaming helpers ──────────────────────────────────────────────────────
   const STREAM_API_BASE = "https://streamed.pk/api";
@@ -8815,14 +8837,14 @@ const GameDetailsScreen = ({ navigation, route }) => {
                 style={[
                   styles.miniScore,
                   {
-                    color:
-                      (runItBackActive ? displayedAwayWinner : awayWinner)
-                        ? theme.text
-                        : theme.textSecondary,
-                    fontWeight:
-                      (runItBackActive ? displayedAwayWinner : awayWinner)
-                        ? "800"
-                        : "500",
+                    color: (runItBackActive ? displayedAwayWinner : awayWinner)
+                      ? theme.text
+                      : theme.textSecondary,
+                    fontWeight: (
+                      runItBackActive ? displayedAwayWinner : awayWinner
+                    )
+                      ? "800"
+                      : "500",
                   },
                 ]}
               >
@@ -8906,14 +8928,14 @@ const GameDetailsScreen = ({ navigation, route }) => {
                 style={[
                   styles.miniScore,
                   {
-                    color:
-                      (runItBackActive ? displayedHomeWinner : homeWinner)
-                        ? theme.text
-                        : theme.textSecondary,
-                    fontWeight:
-                      (runItBackActive ? displayedHomeWinner : homeWinner)
-                        ? "800"
-                        : "500",
+                    color: (runItBackActive ? displayedHomeWinner : homeWinner)
+                      ? theme.text
+                      : theme.textSecondary,
+                    fontWeight: (
+                      runItBackActive ? displayedHomeWinner : homeWinner
+                    )
+                      ? "800"
+                      : "500",
                   },
                 ]}
               >
@@ -9186,78 +9208,78 @@ const GameDetailsScreen = ({ navigation, route }) => {
           onLongPress={() => handleRunItBackPress(true)}
           delayLongPress={280}
         >
-          <Ionicons
-            name="camera-reverse-outline"
-            size={32}
-            color={"#fff"}
-          />
+          <Ionicons name="camera-reverse-outline" size={32} color={"#fff"} />
         </TouchableOpacity>
       )}
 
       {isLoggedIn && (
         <>
           {/* Floating Chat Button */}
-      <TouchableOpacity
-        style={[
-          styles.floatingChatButton,
-          { backgroundColor: colors.primary },
-        ]}
-        onPress={() => setChatModalVisible(true)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="chatbubble-ellipses-outline" size={30} color="#fff" />
-      </TouchableOpacity>
-
-      {/* Chat Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={chatModalVisible}
-        onRequestClose={() => setChatModalVisible(false)}
-        presentationStyle="pageSheet"
-      >
-        <View style={styles.chatModalOverlay}>
-          <View
+          <TouchableOpacity
             style={[
-              styles.chatModalContent,
-              { backgroundColor: theme.surface, paddingBottom: 20 },
+              styles.floatingChatButton,
+              { backgroundColor: colors.primary },
             ]}
+            onPress={() => setChatModalVisible(true)}
+            activeOpacity={0.8}
           >
-            <View
-              style={[
-                styles.chatModalHeader,
-                { borderBottomColor: theme.border },
-              ]}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[styles.chatModalTitle, { color: theme.text }]}
-              >
-                ⚾ {awayTeam?.abbreviation ?? "Away"} vs {homeTeam?.abbreviation ?? "Home"}
-              </Text>
-              <TouchableOpacity
-                style={styles.chatModalCloseButton}
-                onPress={() => setChatModalVisible(false)}
-              >
-                <Ionicons name="close" size={24} color={theme.text} />
-              </TouchableOpacity>
-            </View>
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={30}
+              color="#fff"
+            />
+          </TouchableOpacity>
 
-            <View style={styles.chatModalBody}>
-              {!!feed && (
-                <ChatComponent
-                  gameId={gamePk}
-                  gameData={chatGameData}
-                  hideHeader={true}
-                />
-              )}
+          {/* Chat Modal */}
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={chatModalVisible}
+            onRequestClose={() => setChatModalVisible(false)}
+            presentationStyle="pageSheet"
+          >
+            <View style={styles.chatModalOverlay}>
+              <View
+                style={[
+                  styles.chatModalContent,
+                  { backgroundColor: theme.surface, paddingBottom: 20 },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.chatModalHeader,
+                    { borderBottomColor: theme.border },
+                  ]}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.chatModalTitle, { color: theme.text }]}
+                  >
+                    ⚾ {awayTeam?.abbreviation ?? "Away"} vs{" "}
+                    {homeTeam?.abbreviation ?? "Home"}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.chatModalCloseButton}
+                    onPress={() => setChatModalVisible(false)}
+                  >
+                    <Ionicons name="close" size={24} color={theme.text} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.chatModalBody}>
+                  {!!feed && (
+                    <ChatComponent
+                      gameId={gamePk}
+                      gameData={chatGameData}
+                      hideHeader={true}
+                    />
+                  )}
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
-      </Modal>
+          </Modal>
         </>
       )}
-
 
       {/* Intro popup */}
       <Modal
@@ -9266,7 +9288,9 @@ const GameDetailsScreen = ({ navigation, route }) => {
         visible={runItBackIntroVisible}
         onRequestClose={() => setRunItBackIntroVisible(false)}
       >
-        <TouchableWithoutFeedback onPress={() => setRunItBackIntroVisible(false)}>
+        <TouchableWithoutFeedback
+          onPress={() => setRunItBackIntroVisible(false)}
+        >
           <View style={styles.runItBackIntroBackdrop}>
             <TouchableWithoutFeedback>
               <View
@@ -9307,7 +9331,9 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   </Text>
                 </TouchableOpacity>
 
-                <Text style={[styles.runItBackIntroTitle, { color: theme.text }]}>
+                <Text
+                  style={[styles.runItBackIntroTitle, { color: theme.text }]}
+                >
                   Run It Back clicked
                 </Text>
                 <Text
@@ -9344,7 +9370,9 @@ const GameDetailsScreen = ({ navigation, route }) => {
                     ]}
                     onPress={handleRunItBackContinue}
                   >
-                    <Text style={[styles.runItBackIntroBtnText, { color: "#fff" }]}>
+                    <Text
+                      style={[styles.runItBackIntroBtnText, { color: "#fff" }]}
+                    >
                       Continue
                     </Text>
                   </TouchableOpacity>
@@ -9361,7 +9389,9 @@ const GameDetailsScreen = ({ navigation, route }) => {
           {(runItBackSpeedPopupVisible ||
             runItBackInningPopupVisible ||
             runItBackEntityPopupVisible) && (
-            <TouchableWithoutFeedback onPress={() => closeRunItBackPopups(true)}>
+            <TouchableWithoutFeedback
+              onPress={() => closeRunItBackPopups(true)}
+            >
               <View style={styles.runItBackPopupScrim} />
             </TouchableWithoutFeedback>
           )}
@@ -9389,7 +9419,10 @@ const GameDetailsScreen = ({ navigation, route }) => {
                     <TouchableOpacity
                       style={[
                         styles.runItBackPopupRow,
-                        { borderColor: theme.border, backgroundColor: "transparent" },
+                        {
+                          borderColor: theme.border,
+                          backgroundColor: "transparent",
+                        },
                       ]}
                       onPress={() => {
                         setRunItBackPaused((v) => !v);
@@ -9397,12 +9430,17 @@ const GameDetailsScreen = ({ navigation, route }) => {
                       }}
                     >
                       <Ionicons
-                        name={runItBackPaused ? "play-outline" : "pause-outline"}
+                        name={
+                          runItBackPaused ? "play-outline" : "pause-outline"
+                        }
                         size={16}
                         color={theme.text}
                       />
                       <Text
-                        style={[styles.runItBackPopupRowLabel, { color: theme.text }]}
+                        style={[
+                          styles.runItBackPopupRowLabel,
+                          { color: theme.text },
+                        ]}
                       >
                         {runItBackPaused ? "Resume replay" : "Pause replay"}
                       </Text>
@@ -9410,7 +9448,10 @@ const GameDetailsScreen = ({ navigation, route }) => {
                     <TouchableOpacity
                       style={[
                         styles.runItBackPopupRow,
-                        { borderColor: theme.border, backgroundColor: "transparent" },
+                        {
+                          borderColor: theme.border,
+                          backgroundColor: "transparent",
+                        },
                       ]}
                       onPress={() => {
                         setRunItBackSelectedInnings(new Set());
@@ -9419,9 +9460,16 @@ const GameDetailsScreen = ({ navigation, route }) => {
                         closeRunItBackPopups(true);
                       }}
                     >
-                      <Ionicons name="refresh-outline" size={16} color={theme.text} />
+                      <Ionicons
+                        name="refresh-outline"
+                        size={16}
+                        color={theme.text}
+                      />
                       <Text
-                        style={[styles.runItBackPopupRowLabel, { color: theme.text }]}
+                        style={[
+                          styles.runItBackPopupRowLabel,
+                          { color: theme.text },
+                        ]}
                       >
                         Restart from 1st Inning
                       </Text>
@@ -9457,7 +9505,9 @@ const GameDetailsScreen = ({ navigation, route }) => {
                                   : "play-skip-forward-outline"
                               }
                               size={16}
-                              color={active ? colors.primary : theme.textSecondary}
+                              color={
+                                active ? colors.primary : theme.textSecondary
+                              }
                             />
                             <Text
                               style={[
@@ -9615,7 +9665,9 @@ const GameDetailsScreen = ({ navigation, route }) => {
                                 styles.runItBackTeamCard,
                                 {
                                   borderColor: color,
-                                  backgroundColor: active ? color + "1A" : "transparent",
+                                  backgroundColor: active
+                                    ? color + "1A"
+                                    : "transparent",
                                 },
                               ]}
                               onPress={() => toggleRunItBackTeam(tId)}
@@ -9623,7 +9675,10 @@ const GameDetailsScreen = ({ navigation, route }) => {
                               {WBCService.getTeamLogo(tId, isDarkMode) ? (
                                 <Image
                                   source={{
-                                    uri: WBCService.getTeamLogo(tId, isDarkMode),
+                                    uri: WBCService.getTeamLogo(
+                                      tId,
+                                      isDarkMode,
+                                    ),
                                   }}
                                   style={styles.runItBackTeamLogo}
                                   resizeMode="contain"
@@ -9707,7 +9762,10 @@ const GameDetailsScreen = ({ navigation, route }) => {
                             />
                             <View style={{ flex: 1 }}>
                               <Text
-                                style={[styles.runItBackPlayerName, { color: theme.text }]}
+                                style={[
+                                  styles.runItBackPlayerName,
+                                  { color: theme.text },
+                                ]}
                                 numberOfLines={1}
                               >
                                 {p.fullName}
@@ -9725,7 +9783,11 @@ const GameDetailsScreen = ({ navigation, route }) => {
                             <Text
                               style={[
                                 styles.runItBackPlayerNumber,
-                                { color: active ? teamTone : theme.textSecondary },
+                                {
+                                  color: active
+                                    ? teamTone
+                                    : theme.textSecondary,
+                                },
                               ]}
                             >
                               {p.jerseyNumber ? `#${p.jerseyNumber}` : "#"}
@@ -9769,7 +9831,9 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   { backgroundColor: colors.primary },
                 ]}
               >
-                <Text style={styles.runItBackSpeedBadgeText}>{runItBackSpeedBadge}</Text>
+                <Text style={styles.runItBackSpeedBadgeText}>
+                  {runItBackSpeedBadge}
+                </Text>
               </View>
             </TouchableOpacity>
 
@@ -9798,7 +9862,10 @@ const GameDetailsScreen = ({ navigation, route }) => {
             <TouchableOpacity
               style={[
                 styles.runItBackDockBtn,
-                { backgroundColor: colors.primary, borderColor: colors.primary },
+                {
+                  backgroundColor: colors.primary,
+                  borderColor: colors.primary,
+                },
               ]}
               onPress={stopRunItBack}
               activeOpacity={0.85}
@@ -10729,5 +10796,3 @@ const styles = StyleSheet.create({
 });
 
 export default GameDetailsScreen;
-
-

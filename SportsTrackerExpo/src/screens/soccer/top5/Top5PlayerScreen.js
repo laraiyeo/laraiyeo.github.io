@@ -1713,7 +1713,10 @@ function PlayerSeasonsBubble({ statistics, teams, isGK, theme, accentColor }) {
                   seStyles.row,
                   { borderBottomColor: isLast ? "transparent" : theme.border },
                   g.team?.colorPrimary
-                    ? { borderLeftWidth: 3, borderLeftColor: g.team.colorPrimary }
+                    ? {
+                        borderLeftWidth: 3,
+                        borderLeftColor: g.team.colorPrimary,
+                      }
                     : null,
                 ]}
               >
@@ -1774,11 +1777,7 @@ function PlayerSeasonsBubble({ statistics, teams, isGK, theme, accentColor }) {
                         : g.goals
                           ? String(g.goals)
                           : "—";
-                    const col1 = isGK
-                      ? g.gc
-                        ? String(g.gc)
-                        : "—"
-                      : glsStr;
+                    const col1 = isGK ? (g.gc ? String(g.gc) : "—") : glsStr;
                     const col2 = isGK
                       ? g.cs
                         ? String(g.cs)
@@ -1919,7 +1918,11 @@ function MatchCard({
   );
   const hintNames = new Set(
     (playerTeamHints ?? [])
-      .map((h) => String(h?.name ?? "").trim().toLowerCase())
+      .map((h) =>
+        String(h?.name ?? "")
+          .trim()
+          .toLowerCase(),
+      )
       .filter(Boolean),
   );
 
@@ -1932,7 +1935,11 @@ function MatchCard({
     participants.find(
       (p) =>
         (p.id != null && hintIds.has(p.id)) ||
-        hintNames.has(String(p.name ?? "").trim().toLowerCase()),
+        hintNames.has(
+          String(p.name ?? "")
+            .trim()
+            .toLowerCase(),
+        ),
     ) ??
     participants[0] ??
     {};
@@ -2857,8 +2864,15 @@ export default function Top5PlayerScreen({ route, navigation }) {
     const deduped = [];
     for (const t of ordered) {
       const id = t?.id;
-      const normalizedName = String(t?.name ?? "").trim().toLowerCase();
-      const key = id != null ? `id:${id}` : normalizedName ? `name:${normalizedName}` : null;
+      const normalizedName = String(t?.name ?? "")
+        .trim()
+        .toLowerCase();
+      const key =
+        id != null
+          ? `id:${id}`
+          : normalizedName
+            ? `name:${normalizedName}`
+            : null;
       if (!key || seen.has(key)) continue;
       seen.add(key);
       deduped.push({ id: id ?? null, name: t?.name ?? null });

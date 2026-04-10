@@ -151,7 +151,9 @@ const SettingsScreen = ({ navigation }) => {
   const [redeemLoading, setRedeemLoading] = useState(false);
   const [redeemMessage, setRedeemMessage] = useState(null);
   const [promoModalVisible, setPromoModalVisible] = useState(false);
-  const [freePromoLabel, setFreePromoLabel] = useState("Loading free promo codes...");
+  const [freePromoLabel, setFreePromoLabel] = useState(
+    "Loading free promo codes...",
+  );
 
   // Account settings modal state
   const [accountModalVisible, setAccountModalVisible] = useState(false);
@@ -317,7 +319,7 @@ const SettingsScreen = ({ navigation }) => {
     try {
       const { data, error } = await supabase
         .from("promo_codes")
-        .select("code, uses, max_uses, \"Availability\"")
+        .select('code, uses, max_uses, "Availability"')
         .limit(50);
       if (error) throw error;
       const rows = Array.isArray(data) ? data : [];
@@ -570,7 +572,7 @@ const SettingsScreen = ({ navigation }) => {
         return;
       }
       setSupabaseProfile((prev) =>
-        prev ? { ...prev, username: newUsername } : prev
+        prev ? { ...prev, username: newUsername } : prev,
       );
       showBannerMessage("Username updated", "success");
       setChangeUsernameVisible(false);
@@ -607,7 +609,7 @@ const SettingsScreen = ({ navigation }) => {
       if (authError) {
         showBannerMessage(
           authError.message || "Failed to update auth password",
-          "error"
+          "error",
         );
         return;
       }
@@ -761,7 +763,7 @@ const SettingsScreen = ({ navigation }) => {
       const now = new Date();
       const daysAgo = Math.max(
         0,
-        Math.floor((now.getTime() - created.getTime()) / 86400000)
+        Math.floor((now.getTime() - created.getTime()) / 86400000),
       );
       const dateLabel = created.toLocaleDateString("en-US", {
         month: "long",
@@ -894,7 +896,12 @@ const SettingsScreen = ({ navigation }) => {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <View style={[styles.sectionHeader, { borderBottomColor: theme.border }]}>
+            <View
+              style={[
+                styles.sectionHeader,
+                { borderBottomColor: theme.border },
+              ]}
+            >
               <Text
                 allowFontScaling={false}
                 style={[styles.sectionTitle, { color: theme.text }]}
@@ -940,7 +947,8 @@ const SettingsScreen = ({ navigation }) => {
                     backgroundColor: supabaseUser
                       ? colors.primary
                       : theme.border,
-                    borderWidth: supabaseUser ? 0 : 1, borderColor: supabaseUser ? null : colors.primary
+                    borderWidth: supabaseUser ? 0 : 1,
+                    borderColor: supabaseUser ? null : colors.primary,
                   },
                 ]}
               >
@@ -950,154 +958,165 @@ const SettingsScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           </View>
-        {supabaseUser ? (
-          <View
-            style={[
-              styles.section,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
-          >
-            <View style={[styles.sectionHeader, { borderBottomColor: theme.border }]}>
-              <Text
-                allowFontScaling={false}
-                style={[styles.sectionTitle, { color: theme.text }]}
-              >
-                SportsHeart Pro
-              </Text>
-              <Text
-                allowFontScaling={false}
-                style={[styles.sectionSubtitle, { color: theme.textSecondary }]}
-              >
-                Premium features and extras
-              </Text>
-            </View>
-
-            {proActive ? (
+          {supabaseUser ? (
+            <View
+              style={[
+                styles.section,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
               <View
                 style={[
-                  styles.proStatusContainer,
-                  { borderTopColor: theme.border },
+                  styles.sectionHeader,
+                  { borderBottomColor: theme.border },
                 ]}
               >
                 <Text
                   allowFontScaling={false}
-                  style={[styles.settingLabel, { color: theme.text }]}
+                  style={[styles.sectionTitle, { color: theme.text }]}
                 >
-                  {proProductName}
+                  SportsHeart Pro
                 </Text>
-                {proExpiresLabel ? (
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.settingDescription,
-                      { color: theme.textSecondary, marginTop: 6 },
-                    ]}
-                  >
-                    {proExpiresLabel}
-                  </Text>
-                ) : null}
                 <Text
                   allowFontScaling={false}
                   style={[
-                    styles.settingDescription,
-                    { color: theme.textSecondary, marginTop: 10 },
+                    styles.sectionSubtitle,
+                    { color: theme.textSecondary },
                   ]}
                 >
-                  Thank you for supporting SportsHeart ❤
+                  Premium features and extras
                 </Text>
               </View>
-            ) : (
-              <>
-                <View style={styles.settingRow}>
-                  <View style={styles.settingInfo}>
-                    <Text
-                      allowFontScaling={false}
-                      style={[styles.settingLabel, { color: theme.text }]}
-                    >
-                      SportsHeart Pro
-                    </Text>
+
+              {proActive ? (
+                <View
+                  style={[
+                    styles.proStatusContainer,
+                    { borderTopColor: theme.border },
+                  ]}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.settingLabel, { color: theme.text }]}
+                  >
+                    {proProductName}
+                  </Text>
+                  {proExpiresLabel ? (
                     <Text
                       allowFontScaling={false}
                       style={[
                         styles.settingDescription,
-                        { color: theme.textSecondary },
+                        { color: theme.textSecondary, marginTop: 6 },
                       ]}
                     >
-                      Unlock premium features: no ads, advanced analytics, and
-                      more.
+                      {proExpiresLabel}
                     </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate("ProSplash")}
+                  ) : null}
+                  <Text
+                    allowFontScaling={false}
                     style={[
-                      styles.openSettingsButton,
-                      { backgroundColor: colors.primary, minWidth: 100 },
+                      styles.settingDescription,
+                      { color: theme.textSecondary, marginTop: 10 },
                     ]}
                   >
-                    <Text
-                      allowFontScaling={false}
-                      style={styles.openSettingsButtonText}
-                    >
-                      Get Pro
-                    </Text>
-                  </TouchableOpacity>
+                    Thank you for supporting SportsHeart ❤
+                  </Text>
                 </View>
-
-                <View
-                  style={[styles.proPromoRow, { borderTopColor: theme.border }]}
-                >
-                  <View style={[styles.settingRow, { padding: 2 }]}>
+              ) : (
+                <>
+                  <View style={styles.settingRow}>
                     <View style={styles.settingInfo}>
                       <Text
                         allowFontScaling={false}
                         style={[styles.settingLabel, { color: theme.text }]}
                       >
-                        Have a promo code?
+                        SportsHeart Pro
                       </Text>
                       <Text
                         allowFontScaling={false}
                         style={[
                           styles.settingDescription,
-                          { color: theme.textSecondary, marginTop: 4 },
+                          { color: theme.textSecondary },
                         ]}
                       >
-                        {freePromoLabel}
+                        Unlock premium features: no ads, advanced analytics, and
+                        more.
                       </Text>
-                      {redeemMessage ? (
-                        <Text
-                          allowFontScaling={false}
-                          style={[
-                            styles.settingDescription,
-                            { color: theme.textSecondary, marginTop: 6 },
-                          ]}
-                        >
-                          {redeemMessage}
-                        </Text>
-                      ) : null}
                     </View>
                     <TouchableOpacity
-                      onPress={() => {
-                        setRedeemMessage(null);
-                        setPromoModalVisible(true);
-                      }}
+                      onPress={() => navigation.navigate("ProSplash")}
                       style={[
                         styles.openSettingsButton,
-                        { backgroundColor: colors.primary, minWidth: 120 },
+                        { backgroundColor: colors.primary, minWidth: 100 },
                       ]}
                     >
                       <Text
                         allowFontScaling={false}
                         style={styles.openSettingsButtonText}
                       >
-                        Enter Code
+                        Get Pro
                       </Text>
                     </TouchableOpacity>
                   </View>
-                </View>
-              </>
-            )}
-          </View>
-        ) : null}
+
+                  <View
+                    style={[
+                      styles.proPromoRow,
+                      { borderTopColor: theme.border },
+                    ]}
+                  >
+                    <View style={[styles.settingRow, { padding: 2 }]}>
+                      <View style={styles.settingInfo}>
+                        <Text
+                          allowFontScaling={false}
+                          style={[styles.settingLabel, { color: theme.text }]}
+                        >
+                          Have a promo code?
+                        </Text>
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            styles.settingDescription,
+                            { color: theme.textSecondary, marginTop: 4 },
+                          ]}
+                        >
+                          {freePromoLabel}
+                        </Text>
+                        {redeemMessage ? (
+                          <Text
+                            allowFontScaling={false}
+                            style={[
+                              styles.settingDescription,
+                              { color: theme.textSecondary, marginTop: 6 },
+                            ]}
+                          >
+                            {redeemMessage}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setRedeemMessage(null);
+                          setPromoModalVisible(true);
+                        }}
+                        style={[
+                          styles.openSettingsButton,
+                          { backgroundColor: colors.primary, minWidth: 120 },
+                        ]}
+                      >
+                        <Text
+                          allowFontScaling={false}
+                          style={styles.openSettingsButtonText}
+                        >
+                          Enter Code
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </>
+              )}
+            </View>
+          ) : null}
 
           {/* Theme Toggle Section */}
           <View
@@ -1106,7 +1125,12 @@ const SettingsScreen = ({ navigation }) => {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <View style={[styles.sectionHeader, { borderBottomColor: theme.border }]}>
+            <View
+              style={[
+                styles.sectionHeader,
+                { borderBottomColor: theme.border },
+              ]}
+            >
               <Text
                 allowFontScaling={false}
                 style={[styles.sectionTitle, { color: theme.text }]}
@@ -1533,7 +1557,12 @@ const SettingsScreen = ({ navigation }) => {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <View style={[styles.sectionHeader, { borderBottomColor: theme.surface }]}>
+            <View
+              style={[
+                styles.sectionHeader,
+                { borderBottomColor: theme.surface },
+              ]}
+            >
               <Text
                 allowFontScaling={false}
                 style={[styles.sectionTitle, { color: theme.text }]}
@@ -2009,53 +2038,61 @@ const SettingsScreen = ({ navigation }) => {
             </View>
           </View>
 
-        {show ? (
-          <View
-            style={[
-              styles.section,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
-          >
-            <View style={[styles.sectionHeader, { borderBottomColor: theme.border }]}>
-              <Text
-                allowFontScaling={false}
-                style={[styles.sectionTitle, { color: theme.text }]}
-              >
-                Onboarding
-              </Text>
-            </View>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.settingLabel, { color: theme.text }]}
-                >
-                  View onboarding
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.settingDescription,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  Reopen the intro screens
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={handleViewOnboarding}
+          {show ? (
+            <View
+              style={[
+                styles.section,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <View
                 style={[
-                  styles.profileButton,
-                  { backgroundColor: colors.primary },
+                  styles.sectionHeader,
+                  { borderBottomColor: theme.border },
                 ]}
               >
-                <Text allowFontScaling={false} style={styles.profileButtonText}>
-                  Open
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.sectionTitle, { color: theme.text }]}
+                >
+                  Onboarding
                 </Text>
-              </TouchableOpacity>
+              </View>
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.settingLabel, { color: theme.text }]}
+                  >
+                    View onboarding
+                  </Text>
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.settingDescription,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    Reopen the intro screens
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={handleViewOnboarding}
+                  style={[
+                    styles.profileButton,
+                    { backgroundColor: colors.primary },
+                  ]}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={styles.profileButtonText}
+                  >
+                    Open
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        ) : null}
+          ) : null}
         </View>
       </ScrollView>
 
@@ -2252,7 +2289,10 @@ const SettingsScreen = ({ navigation }) => {
                 setAccountModalVisible(false);
                 handleAppLogout();
               }}
-              style={[styles.openSettingsButton, { backgroundColor: "#b91c1c" }]}
+              style={[
+                styles.openSettingsButton,
+                { backgroundColor: "#b91c1c" },
+              ]}
             >
               <Text
                 allowFontScaling={false}
@@ -2315,7 +2355,11 @@ const SettingsScreen = ({ navigation }) => {
               secureTextEntry
               style={[
                 styles.promoInput,
-                { borderColor: theme.border, color: theme.text, marginBottom: 10 },
+                {
+                  borderColor: theme.border,
+                  color: theme.text,
+                  marginBottom: 10,
+                },
               ]}
             />
             <TextInput
@@ -2325,7 +2369,11 @@ const SettingsScreen = ({ navigation }) => {
               placeholderTextColor={theme.textSecondary}
               style={[
                 styles.promoInput,
-                { borderColor: theme.border, color: theme.text, marginBottom: 10 },
+                {
+                  borderColor: theme.border,
+                  color: theme.text,
+                  marginBottom: 10,
+                },
               ]}
               autoCapitalize="none"
             />
@@ -2439,7 +2487,11 @@ const SettingsScreen = ({ navigation }) => {
               secureTextEntry
               style={[
                 styles.promoInput,
-                { borderColor: theme.border, color: theme.text, marginBottom: 10 },
+                {
+                  borderColor: theme.border,
+                  color: theme.text,
+                  marginBottom: 10,
+                },
               ]}
             />
             <TextInput
@@ -2450,7 +2502,11 @@ const SettingsScreen = ({ navigation }) => {
               secureTextEntry
               style={[
                 styles.promoInput,
-                { borderColor: theme.border, color: theme.text, marginBottom: 10 },
+                {
+                  borderColor: theme.border,
+                  color: theme.text,
+                  marginBottom: 10,
+                },
               ]}
             />
             <TextInput
