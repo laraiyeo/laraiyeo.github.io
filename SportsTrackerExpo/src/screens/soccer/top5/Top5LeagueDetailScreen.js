@@ -603,13 +603,17 @@ function StandingsTab({ stages, theme, colors, navigation }) {
 
             const grouped = new Map();
             for (const entry of entriesSorted) {
-              const groupName = String(entry.group ?? "Ungrouped").trim() || "Ungrouped";
+              const groupName =
+                String(entry.group ?? "Ungrouped").trim() || "Ungrouped";
               if (!grouped.has(groupName)) grouped.set(groupName, []);
               grouped.get(groupName).push(entry);
             }
 
             const orderedGroups = [...grouped.keys()].sort((a, b) =>
-              a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }),
+              a.localeCompare(b, undefined, {
+                numeric: true,
+                sensitivity: "base",
+              }),
             );
 
             return orderedGroups.map((groupName) => {
@@ -619,10 +623,15 @@ function StandingsTab({ stages, theme, colors, navigation }) {
                   <View
                     style={[
                       stStyles.groupHeader,
-                      { backgroundColor: colors.primary + "10", borderColor: colors.primary },
+                      {
+                        backgroundColor: colors.primary + "10",
+                        borderColor: colors.primary,
+                      },
                     ]}
                   >
-                    <Text style={[stStyles.groupName, { color: colors.primary }]}>
+                    <Text
+                      style={[stStyles.groupName, { color: colors.primary }]}
+                    >
                       {groupName}
                     </Text>
                   </View>
