@@ -3,6 +3,7 @@ import {
   NavigationContainer,
   getFocusedRouteNameFromRoute,
   useFocusEffect,
+  StackActions,
 } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
@@ -52,6 +53,10 @@ import {
 } from "./src/context/AppSettingsContext";
 import { BetDataProvider } from "./src/context/BetDataContext";
 import { OddsDisplayProvider } from "./src/context/OddsDisplayContext";
+import {
+  OnboardingProvider,
+  useOnboarding,
+} from "./src/context/OnboardingContext";
 
 import * as Notifications from "expo-notifications";
 
@@ -247,12 +252,15 @@ import LOLTournamentScreen from "./src/screens/esports/lol/LOLTournamentScreen";
 // Betting screens
 import BetTabNavigator from "./src/screens/bet/BetTabNavigator";
 import BetLoginScreen from "./src/screens/bet/BetLoginScreen";
+import BetEntryScreen from "./src/screens/bet/BetEntryScreen";
+import ProSplashScreen from "./src/screens/bet/ProSplashScreen";
 import BetGameDetailScreen from "./src/screens/bet/BetGameDetailScreen";
 import BetGameStatsScreen from "./src/screens/bet/BetGameStatsScreen";
 import BetQuickHitsScreen from "./src/screens/bet/BetQuickHitsScreen";
 import BetPlayerPropsScreen from "./src/screens/bet/BetPlayerPropsScreen";
 import BetGameLinesScreen from "./src/screens/bet/BetGameLinesScreen";
 import BetAthleteScreen from "./src/screens/bet/BetAthleteScreen";
+import OnboardingScreen from "./src/screens/onboarding/OnboardingScreen";
 
 // Italy enhanced screens
 import ItalyScoreboardScreen from "./src/screens/soccer/italy/ItalyScoreboardScreen";
@@ -364,6 +372,8 @@ import FIFAWorldGameDetailsScreen from "./src/screens/soccer/fifa.world/FIFAWorl
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+const GateStack = createStackNavigator();
+const RootStack = createStackNavigator();
 
 // Top 5 Leagues Tab Navigator
 const Top5TabNavigator = () => {
@@ -489,10 +499,10 @@ const HomeTabNavigator = () => {
           headerTitle: (props) => <HeaderTitle {...props} />,
         }}
       />
-      {showTab && (
+      {isPro && showTab && (
         <Tab.Screen
           name="Picks"
-          component={BetLoginScreen}
+          component={BetEntryScreen}
           options={{
             title: "Picks",
             headerShown: true,
@@ -1081,11 +1091,12 @@ const SoccerTabNavigator = ({ route }) => {
 };
 
 // Main Stack Navigator
-const MainStackNavigator = () => {
+const MainStackNavigator = ({ initialRouteName }) => {
   const { colors } = useTheme();
 
   return (
     <Stack.Navigator
+      initialRouteName={initialRouteName || "Home"}
       screenOptions={({ navigation }) => ({
         headerBackTitle: "Back", // Always show "Back" instead of previous screen name
         headerLeft: (props) => (
@@ -2179,6 +2190,14 @@ const MainStackNavigator = () => {
         }}
       />
       <Stack.Screen
+        name="ProSplash"
+        component={ProSplashScreen}
+        options={{
+          headerShown: false,
+          animationEnabled: false,
+        }}
+      />
+      <Stack.Screen
         name="BetGameDetail"
         component={BetGameDetailScreen}
         options={{
@@ -2235,13 +2254,64 @@ const MainStackNavigator = () => {
   );
 };
 
+const GateStackNavigator = ({ initialRouteName }) => (
+  <GateStack.Navigator
+    initialRouteName={initialRouteName || "Onboarding"}
+    screenOptions={{ headerShown: false, animationEnabled: false }}
+  >
+    <GateStack.Screen name="Onboarding" component={OnboardingScreen} />
+    <GateStack.Screen
+      name="OnboardingLogin"
+      component={BetLoginScreen}
+      initialParams={{ onboarding: true }}
+    />
+  </GateStack.Navigator>
+);
+
+const RootStackNavigator = ({
+  initialRouteName,
+  mainInitialRouteName,
+  gateInitialRoute,
+}) => (
+  <RootStack.Navigator
+    initialRouteName={initialRouteName}
+    screenOptions={{
+      headerShown: false,
+      animationEnabled: true,
+      animationTypeForReplace: "push",
+    }}
+  >
+    <RootStack.Screen name="GateRoot">
+      {() => <GateStackNavigator initialRouteName={gateInitialRoute} />}
+    </RootStack.Screen>
+    <RootStack.Screen name="MainRoot">
+      {() => (
+        <MainStackNavigator
+          key={`main-${mainInitialRouteName}`}
+          initialRouteName={mainInitialRouteName}
+        />
+      )}
+    </RootStack.Screen>
+  </RootStack.Navigator>
+);
+
 // Keep the native splash screen visible until we're ready
 ExpoSplashScreen.preventAutoHideAsync();
 
 const AppContent = () => {
   const { setIsPro, isPro } = useBetSlip();
-  const { currentColorPalette, changeColorPalette, isDarkMode } = useTheme();
+  const { currentColorPalette, changeColorPalette, isDarkMode, theme } =
+    useTheme();
   const [showSplash, setShowSplash] = useState(Platform.OS === "ios");
+  const {
+    isReady: onboardingReady,
+    isOnboardingComplete,
+    loginDontShow,
+    loginDismissedThisSession,
+  } = useOnboarding();
+  const [authChecked, setAuthChecked] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
+  const [pendingProSplash, setPendingProSplash] = useState(null);
 
   const proInitRef = useRef(false);
 
@@ -2352,6 +2422,24 @@ const AppContent = () => {
     return () => handle.cancel();
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const session = data?.session || null;
+        if (mounted) setHasSession(!!session?.user);
+      } catch (e) {
+        if (mounted) setHasSession(false);
+      } finally {
+        if (mounted) setAuthChecked(true);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const initializeBackgroundServices = async () => {
     // Run analytics init (non-blocking) with extra diagnostics
     try {
@@ -2427,6 +2515,15 @@ const AppContent = () => {
 
   const initializeRevenueCat = async (isProFromProfile = false) => {
     try {
+      const isExpoGo =
+        Constants.appOwnership === "expo" ||
+        Constants.executionEnvironment === "storeClient";
+      if (isExpoGo) {
+        console.log(
+          "initializeRevenueCat: skipping in Expo Go (native store unavailable)",
+        );
+        return;
+      }
       // If profile already indicates Pro access (from provider or fetched), skip RevenueCat init.
       if (isPro || isProFromProfile) {
         console.log(
@@ -2455,7 +2552,10 @@ const AppContent = () => {
 
       // Process entitlements if available
       if (customerInfo.status === "fulfilled") {
-        const entitled = isEntitled(customerInfo.value, "SportsHeart Pro");
+        const entitled = isEntitled(customerInfo.value, [
+          "tester",
+          "SportsHeart Pro",
+        ]);
         try {
           if (entitled) {
             await AsyncStorage.setItem("@is_pro", "1");
@@ -2622,13 +2722,100 @@ const AppContent = () => {
     };
   }, []);
 
-  if (showSplash) {
-    return <SplashScreen onFinish={handleSplashFinish} />;
-  }
+  const showLoginGate =
+    isOnboardingComplete &&
+    !loginDontShow &&
+    !loginDismissedThisSession &&
+    !hasSession;
+
+  // If onboarding login requested ProSplash, set initial route before MainStack mounts.
+  useEffect(() => {
+    let mounted = true;
+    const inMainStack = isOnboardingComplete && !showLoginGate;
+    if (!inMainStack) {
+      if (mounted) setPendingProSplash(null);
+      if (__DEV__)
+        console.log("ProSplash gate: not in MainStack", {
+          isOnboardingComplete,
+          loginDontShow,
+          loginDismissedThisSession,
+        });
+      return () => {
+        mounted = false;
+      };
+    }
+
+    const run = async () => {
+      try {
+        if (mounted) setPendingProSplash(null);
+        const flag = await AsyncStorage.getItem("@show_pro_splash_next");
+        if (__DEV__)
+          console.log("ProSplash gate: flag read", {
+            flag,
+            isOnboardingComplete,
+            loginDontShow,
+            loginDismissedThisSession,
+          });
+        if (!mounted) return;
+
+        if (!flag) {
+          setPendingProSplash(false);
+          return;
+        }
+
+        await AsyncStorage.removeItem("@show_pro_splash_next");
+        if (__DEV__)
+          console.log("ProSplash gate: flag removed, setting pending");
+        if (!mounted) return;
+        setPendingProSplash(true);
+        return;
+      } catch (e) {}
+      if (mounted) setPendingProSplash(false);
+    };
+
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [isOnboardingComplete, loginDontShow, loginDismissedThisSession, hasSession]);
+
+  const inMainStack = isOnboardingComplete && !showLoginGate;
+  const mainInitialRoute = pendingProSplash ? "ProSplash" : "Home";
+  if (__DEV__)
+    console.log("MainStack initialRoute", {
+      pendingProSplash,
+      mainInitialRoute,
+    });
+
+  const rootTarget =
+    inMainStack && pendingProSplash !== null ? "MainRoot" : "GateRoot";
+
+  useEffect(() => {
+    if (!onboardingReady) return;
+    if (!navigationRef.isReady || !navigationRef.isReady()) return;
+    const state = navigationRef.getRootState?.();
+    const currentRoot = state?.routes?.[state?.index || 0]?.name || null;
+    if (currentRoot === rootTarget) return;
+    navigationRef.dispatch(StackActions.replace(rootTarget));
+  }, [rootTarget, onboardingReady]);
+
+  const rootInitialRoute =
+    inMainStack && pendingProSplash !== null ? "MainRoot" : "GateRoot";
+
+  const gateInitialRoute = isOnboardingComplete
+    ? "OnboardingLogin"
+    : "Onboarding";
+
+  if (showSplash) return <SplashScreen onFinish={handleSplashFinish} />;
+  if (!onboardingReady || (isOnboardingComplete && !authChecked)) return null;
 
   return (
     <NavigationContainer linking={linking} ref={navigationRef}>
-      <MainStackNavigator />
+      <RootStackNavigator
+        initialRouteName={rootInitialRoute}
+        mainInitialRouteName={mainInitialRoute}
+        gateInitialRoute={gateInitialRoute}
+      />
     </NavigationContainer>
   );
 };
@@ -2644,7 +2831,9 @@ export default function App() {
                 <AppSettingsProvider>
                   <OddsDisplayProvider>
                     <BetDataProvider>
-                      <AppContent />
+                      <OnboardingProvider>
+                        <AppContent />
+                      </OnboardingProvider>
                     </BetDataProvider>
                   </OddsDisplayProvider>
                 </AppSettingsProvider>
@@ -2657,14 +2846,4 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
-  placeholderContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  placeholderText: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-});
+const styles = StyleSheet.create({});

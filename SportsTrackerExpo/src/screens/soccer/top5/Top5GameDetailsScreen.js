@@ -963,7 +963,7 @@ const TeamSide = ({
       style={[styles.teamLogoPlaceholder, { backgroundColor: color + "30" }]}
     >
       <Text style={[styles.teamLogoInitial, { color }]}>
-        {(team?.name || "?")[0].toUpperCase()}
+        {(team?.name || "Team")[0].toUpperCase()}
       </Text>
     </View>
   );
@@ -1275,7 +1275,7 @@ const ManOfTheMatch = ({
     [player?.firstname?.[0], player?.lastname?.[0]]
       .filter(Boolean)
       .join("")
-      .toUpperCase() || "?";
+      .toUpperCase() || "P";
 
   const teamLogoUri =
     team?.image_path && !team.image_path.includes("placeholder")
@@ -1427,7 +1427,7 @@ const ManOfTheMatch = ({
             ]}
           >
             <Text style={{ color: teamColor, fontSize: 9, fontWeight: "800" }}>
-              {(team?.name || "?")[0].toUpperCase()}
+              {(team?.name || "Team")[0].toUpperCase()}
             </Text>
           </View>
         )}
@@ -1463,14 +1463,14 @@ const PerformerItem = ({ entry, side, theme, teamColor, onPress }) => {
       .filter(Boolean)
       .join("")
       .toUpperCase() ||
-    (player?.name ?? "?")
+    (player?.name ?? "P")
       .split(" ")
       .filter(Boolean)
       .slice(0, 2)
       .map((part) => part[0])
       .join("")
       .toUpperCase() ||
-    "?";
+    "P";
 
   const content = (
     <>
@@ -1980,7 +1980,7 @@ const EventsSection = ({
           .map((part) => part[0])
           .join("")
           .toUpperCase() ||
-        "?";
+        "P";
 
       const scoreAfter = parseEventScore(event?.result) || {
         home: null,
@@ -2113,14 +2113,14 @@ const EventsSection = ({
         .filter(Boolean)
         .join("")
         .toUpperCase() ||
-      String(meta?.fallbackName || "?")
+      String(meta?.fallbackName || "P")
         .split(" ")
         .filter(Boolean)
         .slice(0, 2)
         .map((part) => part[0])
         .join("")
         .toUpperCase() ||
-      "?";
+      "P";
 
     return (
       <View
@@ -2211,7 +2211,7 @@ const EventsSection = ({
                   { color: teamColor },
                 ]}
               >
-                {(effectiveTeam?.name || "?")[0]?.toUpperCase?.() || "?"}
+                {(effectiveTeam?.name || "T")[0]?.toUpperCase?.() || "T"}
               </Text>
             </View>
           )}
@@ -2843,7 +2843,7 @@ const EventsSection = ({
                   const evOrder = (block.events || [])
                     .map(
                       (e, i) =>
-                        `${i}:${e.minute || "?"}${e.extra_minute != null ? `+${e.extra_minute}` : ""}`,
+                        `${i}:${e.minute || ""}${e.extra_minute != null ? `+${e.extra_minute}` : ""}`,
                     )
                     .join(", ");
                 }
@@ -3877,7 +3877,7 @@ const CommentarySection = ({
           .map((part) => part[0])
           .join("")
           .toUpperCase() ||
-        "?";
+        "P";
 
       const commentText = String(entry?.item?.comment || "");
       const isOwnGoal = isOwnGoalEvent(goalEvent, commentText);
@@ -3994,7 +3994,7 @@ const CommentarySection = ({
         .map((part) => part[0])
         .join("")
         .toUpperCase() ||
-      "?";
+      "P";
 
     return (
       <View
@@ -4092,7 +4092,7 @@ const CommentarySection = ({
                   { color: teamColor },
                 ]}
               >
-                {(effectiveTeam?.name || "?")[0]?.toUpperCase?.() || "?"}
+                {(effectiveTeam?.name || "T")[0]?.toUpperCase?.() || "T"}
               </Text>
             </View>
           )}
@@ -4221,7 +4221,7 @@ const CommentarySection = ({
             !goalPlayer.image_path.includes("placeholder")
               ? goalPlayer.image_path
               : null;
-          const goalInitial = (goalPlayerName || "?")[0].toUpperCase();
+          const goalInitial = (goalPlayerName || "P")[0].toUpperCase();
           const goalRating = entry?.lineup
             ? getLineupRating(entry.lineup)
             : null;
@@ -5062,7 +5062,7 @@ const GoalShareCardModal = ({ visible, onClose, payload, theme, colors }) => {
       .map((part) => part[0])
       .join("")
       .toUpperCase() ||
-    "?";
+    "P";
   const isOwnGoal = !!payload?.isOwnGoal;
   const goalType = isOwnGoal
     ? "Own Goal"
@@ -7027,7 +7027,7 @@ const H2HSummarySection = ({
                   { color: theme.textSecondary },
                 ]}
               >
-                {(home?.name || "?")[0].toUpperCase()}
+                {(home?.name || "H")[0].toUpperCase()}
               </Text>
             </View>
           )}
@@ -7061,7 +7061,7 @@ const H2HSummarySection = ({
               <Text
                 style={[h2hStyles.logoInitial, { color: theme.textSecondary }]}
               >
-                {(home?.name || "?")[0].toUpperCase()}
+                {(home?.name || "H")[0].toUpperCase()}
               </Text>
             </View>
           )}
@@ -7100,7 +7100,7 @@ const H2HSummarySection = ({
               <Text
                 style={[h2hStyles.logoInitial, { color: theme.textSecondary }]}
               >
-                {(away?.name || "?")[0].toUpperCase()}
+                {(away?.name || "A")[0].toUpperCase()}
               </Text>
             </View>
           )}
@@ -7309,7 +7309,7 @@ const H2HMatchCard = ({ match, theme, navigation }) => {
                 <Text
                   style={[h2hStyles.logoFallbackText, { color: theme.text }]}
                 >
-                  {(homeTeam?.name || "?")[0]}
+                  {(homeTeam?.name || "H")[0]}
                 </Text>
               </View>
             )}
@@ -7426,7 +7426,7 @@ const H2HMatchCard = ({ match, theme, navigation }) => {
                 <Text
                   style={[h2hStyles.logoFallbackText, { color: theme.text }]}
                 >
-                  {(awayTeam?.name || "?")[0]}
+                  {(awayTeam?.name || "A")[0]}
                 </Text>
               </View>
             )}
@@ -7499,7 +7499,7 @@ const HomeTeamOverviewSection = ({
             <Text
               style={[styles.homeTabTeamLogoFallbackText, { color: teamColor }]}
             >
-              {(team?.name || "?")[0].toUpperCase()}
+              {(team?.name || "H")[0].toUpperCase()}
             </Text>
           </View>
         )}
@@ -7558,7 +7558,7 @@ const HomeManagerSection = ({ manager, teamColor, theme, navigation }) => {
     coach?.image_path && !coach.image_path.includes("placeholder")
       ? coach.image_path
       : null;
-  const initial = (lastName || "?")[0]?.toUpperCase?.() || "?";
+  const initial = (lastName || "M")[0]?.toUpperCase?.() || "M";
 
   return (
     <TouchableOpacity
@@ -7808,14 +7808,14 @@ const HomeTeamPitchSection = ({
       player?.imagePath && !player.imagePath.includes("placeholder")
         ? player.imagePath
         : null;
-    const initial = (player?.lastname || "?")[0]?.toUpperCase?.() || "?";
+    const initial = (player?.lastname || "P")[0]?.toUpperCase?.() || "P";
     const subInLeft = player?.subOutEvent ? -3 : -3;
 
     const playerName = player?.display_name
       ? player.display_name.includes(" ")
         ? player.display_name.split(" ").pop()
         : player.display_name
-      : player?.lastname || "?";
+      : player?.lastname || "Player";
 
     return (
       <TouchableOpacity
@@ -8278,8 +8278,8 @@ const HomeSidelinedSection = ({
         ? imagePath
         : null;
     const lastName =
-      p?.lastname || p?.name?.split(" ").slice(-1).join(" ") || "Player";
-    const initial = (lastName || "?")[0]?.toUpperCase?.() || "?";
+      p?.display_name ? p.display_name.includes(" ") ? p.display_name.split(" ").pop() : p.display_name : p?.lastname || "Player";
+    const initial = (lastName || "P")[0]?.toUpperCase?.() || "P";
     const statusLabel = entry?.type?.name || "Unavailable";
     const typeLow = String(entry?.type?.name || "").toLowerCase();
     const sidelineEndDate = formatSidelineEndDate(entry?.sideline?.end_date);
@@ -8624,7 +8624,7 @@ const SoccerPlayerDetailModal = ({
       .map((part) => part[0])
       .join("")
       .toUpperCase() ||
-    "?";
+    "P";
   const { homeColor: resolvedHomeColor, awayColor: resolvedAwayColor } =
     useMemo(
       () =>
@@ -9985,13 +9985,13 @@ const FactsSection = ({
         ? away.image_path
         : null;
     let teamLogoUri = null;
-    let teamInitial = "?";
+    let teamInitial = "T";
     if (teamKey === "home") {
       teamLogoUri = homeLogoUri;
-      teamInitial = (home.name ?? "?")[0];
+      teamInitial = (home.name ?? "H")[0];
     } else if (teamKey === "away") {
       teamLogoUri = awayLogoUri;
-      teamInitial = (away.name ?? "?")[0];
+      teamInitial = (away.name ?? "A")[0];
     }
     // Colors
     const teamKey = normalizeFactTeam(fact?.team);
@@ -11929,13 +11929,13 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
         const key = e.player_id ?? `name_${e.player_name}`;
         if (!map.has(key)) {
           const player = e.player_id ? playerMap.get(e.player_id) : null;
-          const displayNameRaw = player?.display_name || "?";
+          const displayNameRaw = player?.display_name || "Player";
           const displayName = displayNameRaw.includes(" ")
             ? displayNameRaw.split(" ").pop()
             : displayNameRaw;
           const lastName =
             player?.lastname ||
-            (e.player_name ? e.player_name.split(" ").pop() : "?");
+            (e.player_name ? e.player_name.split(" ").pop() : "Player");
           map.set(key, { lastName, displayName, goals: [] });
         }
         map.get(key).goals.push(e);
@@ -14666,7 +14666,7 @@ const refStyles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    paddingHorizontal: 14,
+    paddingHorizontal: 18,
     paddingVertical: 12,
   },
   refItem: {

@@ -412,7 +412,11 @@ const HomeScreen = () => {
               <View style={styles.sportContent}>
                 <View style={styles.iconWrapper}>
                   {sport.icon ? (
-                    <Image source={sport.icon} style={styles.sportIconImage} />
+                    <Image
+                      source={sport.icon}
+                      style={styles.sportIconImage}
+                      fadeDuration={0}
+                    />
                   ) : (
                     <FontAwesome6
                       name={sport.iconName}

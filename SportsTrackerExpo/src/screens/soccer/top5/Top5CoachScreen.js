@@ -361,8 +361,7 @@ function TeamRow({ entry, last, theme, isDarkMode, navigation }) {
           style={[cStyles.teamTenure, { color: theme.textSecondary }]}
           numberOfLines={1}
         >
-          {startText ?? "—"}
-          {" → "}
+          {startText ? `${startText}  →  ` : ""}
           {isCurrent ? (
             <Text style={{ color: "#22c55e", fontWeight: "700" }}>Present</Text>
           ) : (

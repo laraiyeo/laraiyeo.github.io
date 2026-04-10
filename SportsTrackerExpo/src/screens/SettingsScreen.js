@@ -10,6 +10,7 @@ import {
   Image,
   Animated,
   Alert,
+  ActivityIndicator,
   Linking,
   Platform,
 } from "react-native";
@@ -20,6 +21,8 @@ import { useTheme } from "../context/ThemeContext";
 import { useChat } from "../context/ChatContext";
 import UpdateService from "../services/UpdateService";
 import ImageCache from "../services/ImageCache";
+import { supabase } from "../config/supabase";
+import { useOnboarding } from "../context/OnboardingContext";
 
 // Attempt to load optional color wheel/picker libraries if installed.
 let OptionalColorWheel = null;
@@ -74,12 +77,19 @@ const SettingsScreen = ({ navigation }) => {
     updateCustomPalette,
     getCurrentAppIcon,
   } = useTheme();
-  const { isPro } = useBetSlip();
+  const { isPro, setIsPro } = useBetSlip();
   const { showBetTab, setShowBetTab } = useAppSettings();
+  const { resetOnboarding } = useOnboarding();
   const { favorites, removeFavorite, getFavoriteTeams, clearAllFavorites } =
     useFavorites();
-  const { userName, userColor, updateUserName, updateUserColor, nameColors } =
-    useChat();
+  const {
+    userName,
+    userColor,
+    updateUserName,
+    updateUserColor,
+    nameColors,
+    resetChatProfile,
+  } = useChat();
 
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [tempUsername, setTempUsername] = useState(userName);
@@ -136,6 +146,29 @@ const SettingsScreen = ({ navigation }) => {
   const [cacheStats, setCacheStats] = useState(null);
   const [isClearingCache, setIsClearingCache] = useState(false);
 
+  // Pro / promo state
+  const [promoCodeInput, setPromoCodeInput] = useState("");
+  const [redeemLoading, setRedeemLoading] = useState(false);
+  const [redeemMessage, setRedeemMessage] = useState(null);
+  const [promoModalVisible, setPromoModalVisible] = useState(false);
+  const [freePromoLabel, setFreePromoLabel] = useState("Loading free promo codes...");
+
+  // Account settings modal state
+  const [accountModalVisible, setAccountModalVisible] = useState(false);
+  const [changeUsernameVisible, setChangeUsernameVisible] = useState(false);
+  const [changePasswordVisible, setChangePasswordVisible] = useState(false);
+  const [accountCurrentPassword, setAccountCurrentPassword] = useState("");
+  const [newUsername, setNewUsername] = useState("");
+  const [confirmUsername, setConfirmUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [accountActionLoading, setAccountActionLoading] = useState(false);
+
+  // Supabase profile state
+  const [supabaseProfile, setSupabaseProfile] = useState(null);
+  const [supabaseUser, setSupabaseUser] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+
   // Manual update check function
   const handleCheckForUpdates = async () => {
     setIsCheckingForUpdates(true);
@@ -168,7 +201,7 @@ const SettingsScreen = ({ navigation }) => {
           debugData.callbackTriggered = `onError: ${error}`;
           showBannerMessage("Failed to check for updates", "error");
         },
-        true // Enable auto-restart
+        true, // Enable auto-restart
       );
 
       debugData.updateCheckResult = result;
@@ -221,7 +254,7 @@ const SettingsScreen = ({ navigation }) => {
     if (cacheStats?.platform === "web") {
       showBannerMessage(
         "Cache clearing not available on web platform",
-        "error"
+        "error",
       );
       return;
     }
@@ -250,9 +283,74 @@ const SettingsScreen = ({ navigation }) => {
             }
           },
         },
-      ]
+      ],
     );
   };
+
+  const loadSupabaseProfile = async () => {
+    setProfileLoading(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setSupabaseUser(user || null);
+      if (!user?.id) {
+        setSupabaseProfile(null);
+        return;
+      }
+
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("id,username,is_pro,pro_product_id,pro_expires_at,credits")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      setSupabaseProfile(profileRow || null);
+    } catch (e) {
+      console.warn("Settings: failed to load profile", e?.message || e);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const loadFreePromoCode = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("promo_codes")
+        .select("code, uses, max_uses, \"Availability\"")
+        .limit(50);
+      if (error) throw error;
+      const rows = Array.isArray(data) ? data : [];
+      const free = rows.filter((row) => {
+        const availability = String(row?.Availability || "").toLowerCase();
+        const uses = Number(row?.uses || 0);
+        return availability.includes("free") && uses > 1;
+      });
+      if (free.length === 0) {
+        setFreePromoLabel("No free promo codes");
+        return;
+      }
+      free.sort((a, b) => Number(b?.uses || 0) - Number(a?.uses || 0));
+      const best = free[0];
+      const uses = Number(best?.uses || 0);
+      const code = best?.code || "Promo";
+      setFreePromoLabel(`${code} (${uses})`);
+    } catch (e) {
+      setFreePromoLabel("No free promo codes");
+    }
+  };
+
+  useEffect(() => {
+    loadSupabaseProfile();
+    loadFreePromoCode();
+    const { data } = supabase.auth.onAuthStateChange(() => {
+      loadSupabaseProfile();
+      loadFreePromoCode();
+    });
+    return () => {
+      if (data && data.subscription) data.subscription.unsubscribe();
+    };
+  }, []);
 
   // Check streaming unlock status on component mount
   useEffect(() => {
@@ -277,7 +375,7 @@ const SettingsScreen = ({ navigation }) => {
         const lastChangeDate = new Date(lastChange);
         const currentDate = new Date();
         const daysDifference = Math.floor(
-          (currentDate - lastChangeDate) / (1000 * 60 * 60 * 24)
+          (currentDate - lastChangeDate) / (1000 * 60 * 60 * 24),
         );
         const daysRemaining = 30 - daysDifference;
 
@@ -302,7 +400,7 @@ const SettingsScreen = ({ navigation }) => {
     if (!canChangeUsername) {
       showBannerMessage(
         `You can change your username in ${daysUntilNextChange} days`,
-        "error"
+        "error",
       );
       return;
     }
@@ -395,8 +493,285 @@ const SettingsScreen = ({ navigation }) => {
             }
           },
         },
-      ]
+      ],
     );
+  };
+
+  const handleAppLogout = async () => {
+    setProfileLoading(true);
+    try {
+      await supabase.auth.signOut();
+      try {
+        await AsyncStorage.removeItem("bet_credentials_v1");
+        await AsyncStorage.removeItem("@bet_token");
+      } catch (e) {}
+      await resetChatProfile();
+      setSupabaseProfile(null);
+      setSupabaseUser(null);
+      showBannerMessage("Logged out", "success");
+    } catch (e) {
+      console.error("Logout failed", e);
+      showBannerMessage("Logout failed", "error");
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const verifyCurrentPassword = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData?.user?.id || null;
+      if (!userId) return { ok: false, message: "Not signed in" };
+      const { data: profileRow, error } = await supabase
+        .from("profiles")
+        .select("id, password, username")
+        .eq("id", userId)
+        .maybeSingle();
+      if (error) return { ok: false, message: "Profile fetch failed" };
+      if (!profileRow) return { ok: false, message: "Profile not found" };
+      if (profileRow.password !== accountCurrentPassword) {
+        return { ok: false, message: "Current password is incorrect" };
+      }
+      return { ok: true, profileRow };
+    } catch (e) {
+      return { ok: false, message: "Unable to verify password" };
+    }
+  };
+
+  const handleChangeUsernameSubmit = async () => {
+    if (!newUsername || !confirmUsername) {
+      showBannerMessage("Enter and confirm your new username", "error");
+      return;
+    }
+    if (newUsername !== confirmUsername) {
+      showBannerMessage("Usernames do not match", "error");
+      return;
+    }
+    setAccountActionLoading(true);
+    try {
+      const verify = await verifyCurrentPassword();
+      if (!verify.ok) {
+        showBannerMessage(verify.message, "error");
+        return;
+      }
+
+      const userId = verify.profileRow.id;
+      const { error } = await supabase
+        .from("profiles")
+        .update({ username: newUsername })
+        .eq("id", userId);
+      if (error) {
+        const msg = String(error.message || "Update failed");
+        if (msg.toLowerCase().includes("duplicate")) {
+          showBannerMessage("Username is already taken", "error");
+        } else {
+          showBannerMessage(msg, "error");
+        }
+        return;
+      }
+      setSupabaseProfile((prev) =>
+        prev ? { ...prev, username: newUsername } : prev
+      );
+      showBannerMessage("Username updated", "success");
+      setChangeUsernameVisible(false);
+      setAccountCurrentPassword("");
+      setNewUsername("");
+      setConfirmUsername("");
+    } catch (e) {
+      showBannerMessage("Failed to update username", "error");
+    } finally {
+      setAccountActionLoading(false);
+    }
+  };
+
+  const handleChangePasswordSubmit = async () => {
+    if (!newPassword || !confirmPassword) {
+      showBannerMessage("Enter and confirm your new password", "error");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      showBannerMessage("Passwords do not match", "error");
+      return;
+    }
+    setAccountActionLoading(true);
+    try {
+      const verify = await verifyCurrentPassword();
+      if (!verify.ok) {
+        showBannerMessage(verify.message, "error");
+        return;
+      }
+
+      const { error: authError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (authError) {
+        showBannerMessage(
+          authError.message || "Failed to update auth password",
+          "error"
+        );
+        return;
+      }
+
+      const userId = verify.profileRow.id;
+      const { error } = await supabase
+        .from("profiles")
+        .update({ password: newPassword })
+        .eq("id", userId);
+      if (error) {
+        showBannerMessage("Failed to update password", "error");
+        return;
+      }
+      showBannerMessage("Password updated", "success");
+      setChangePasswordVisible(false);
+      setAccountCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (e) {
+      showBannerMessage("Failed to update password", "error");
+    } finally {
+      setAccountActionLoading(false);
+    }
+  };
+
+  const handleRedeemPromo = async () => {
+    if (supabaseProfile && supabaseProfile.is_pro) {
+      setRedeemMessage("You already have Pro");
+      return;
+    }
+    try {
+      setRedeemMessage(null);
+      const code = (promoCodeInput || "").trim();
+      if (!code) return setRedeemMessage("Enter a promo code");
+      setRedeemLoading(true);
+      let token = await AsyncStorage.getItem("@bet_token");
+      if (!token) {
+        try {
+          const { data } = await supabase.auth.getSession();
+          token = data?.session?.access_token || null;
+        } catch (e) {}
+      }
+
+      const base =
+        process.env.PUBLIC_API_URL ||
+        "https://laraiyeogithubio-production-f5af.up.railway.app";
+      if (!base) {
+        setRedeemMessage("Server not configured");
+        setRedeemLoading(false);
+        return;
+      }
+      const url = base.replace(/\/$/, "") + "/api/promo/redeem";
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const resp = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ code }),
+      });
+      const json = await resp.json();
+      if (!resp.ok) {
+        setRedeemMessage(json?.message || "Redeem failed");
+      } else if (json?.message === "already_pro") {
+        setRedeemMessage("You already have Pro");
+        try {
+          setPromoModalVisible(false);
+        } catch (e) {}
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          const userId = userData?.user?.id || null;
+          if (userId) {
+            const { data: profileRow } = await supabase
+              .from("profiles")
+              .select("id, username, is_pro, pro_product_id, pro_expires_at")
+              .eq("id", userId)
+              .maybeSingle();
+            if (profileRow) setSupabaseProfile(profileRow);
+          }
+        } catch (e) {}
+        try {
+          await AsyncStorage.setItem("@is_pro", "1");
+          if (setIsPro) setIsPro(true);
+        } catch (e) {}
+      } else {
+        setRedeemMessage("Promo applied — enjoy Pro!");
+        try {
+          setPromoModalVisible(false);
+        } catch (e) {}
+        setPromoCodeInput("");
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          const userId = userData?.user?.id || null;
+          if (userId) {
+            const { data: profileRow } = await supabase
+              .from("profiles")
+              .select("id, username, is_pro, pro_product_id, pro_expires_at")
+              .eq("id", userId)
+              .maybeSingle();
+            if (profileRow) {
+              setSupabaseProfile(profileRow);
+              try {
+                await AsyncStorage.setItem(
+                  "@is_pro",
+                  profileRow.is_pro ? "1" : "0",
+                );
+                if (setIsPro) setIsPro(!!profileRow.is_pro);
+              } catch (e) {}
+            }
+          }
+        } catch (e) {
+          console.warn("promo refresh profile error", e?.message || e);
+        }
+      }
+    } catch (e) {
+      console.warn("promo redeem error", e?.message || e);
+      setRedeemMessage("Redeem failed");
+    } finally {
+      setRedeemLoading(false);
+    }
+  };
+
+  const handleViewOnboarding = async () => {
+    await resetOnboarding();
+    try {
+      await AsyncStorage.removeItem("@pro_splash_seen");
+    } catch (e) {}
+    showBannerMessage("Opening onboarding...", "success");
+  };
+
+  const formatProExpiry = (expiresAt) => {
+    if (!expiresAt) return null;
+    try {
+      const exp = new Date(expiresAt);
+      const now = new Date();
+      if (isNaN(exp.getTime())) return null;
+      const diffMs = exp.getTime() - now.getTime();
+      if (diffMs <= 0) return "Expired";
+      const totalDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
+      return `${totalDays} day${totalDays === 1 ? "" : "s"} remaining`;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const formatCreatedAt = (createdAt) => {
+    if (!createdAt) return null;
+    try {
+      const created = new Date(createdAt);
+      if (isNaN(created.getTime())) return null;
+      const now = new Date();
+      const daysAgo = Math.max(
+        0,
+        Math.floor((now.getTime() - created.getTime()) / 86400000)
+      );
+      const dateLabel = created.toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+      return `${dateLabel} (${daysAgo}d)`;
+    } catch (e) {
+      return null;
+    }
   };
 
   const renderColorOption = (paletteKey, palette) => {
@@ -454,6 +829,24 @@ const SettingsScreen = ({ navigation }) => {
     );
   };
 
+  const profileName = profileLoading
+    ? "Loading..."
+    : supabaseProfile?.username ||
+      supabaseUser?.email ||
+      supabaseUser?.phone ||
+      "Not signed in";
+  const createdAtLabel = profileLoading
+    ? null
+    : formatCreatedAt(supabaseUser?.created_at);
+  const proActive = !!(supabaseProfile?.is_pro || isPro);
+  const proExpiresLabel = formatProExpiry(supabaseProfile?.pro_expires_at);
+  const proProductName = supabaseProfile?.pro_product_id
+    ? String(supabaseProfile.pro_product_id).charAt(0).toUpperCase() +
+      String(supabaseProfile.pro_product_id).slice(1)
+    : "SportsHeart Pro";
+
+  const show = true; // Set to true to enable debug info section
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Success/Error Banner */}
@@ -495,6 +888,217 @@ const SettingsScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.content}>
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View style={[styles.sectionHeader, { borderBottomColor: theme.border }]}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.sectionTitle, { color: theme.text }]}
+              >
+                Profile
+              </Text>
+            </View>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.settingLabel, { color: theme.text }]}
+                >
+                  {profileName}
+                </Text>
+                {createdAtLabel ? (
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.settingDescription,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {createdAtLabel}
+                  </Text>
+                ) : null}
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  if (profileLoading) return;
+                  if (!supabaseUser) {
+                    navigation.navigate("BetLogin", {
+                      returnTo: "Home",
+                    });
+                    return;
+                  }
+                  setAccountModalVisible(true);
+                }}
+                disabled={profileLoading}
+                style={[
+                  styles.profileButton,
+                  {
+                    backgroundColor: supabaseUser
+                      ? colors.primary
+                      : theme.border,
+                    borderWidth: supabaseUser ? 0 : 1, borderColor: supabaseUser ? null : colors.primary
+                  },
+                ]}
+              >
+                <Text allowFontScaling={false} style={styles.profileButtonText}>
+                  {supabaseUser ? "Settings" : "Login/Create Account"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        {supabaseUser ? (
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View style={[styles.sectionHeader, { borderBottomColor: theme.border }]}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.sectionTitle, { color: theme.text }]}
+              >
+                SportsHeart Pro
+              </Text>
+              <Text
+                allowFontScaling={false}
+                style={[styles.sectionSubtitle, { color: theme.textSecondary }]}
+              >
+                Premium features and extras
+              </Text>
+            </View>
+
+            {proActive ? (
+              <View
+                style={[
+                  styles.proStatusContainer,
+                  { borderTopColor: theme.border },
+                ]}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.settingLabel, { color: theme.text }]}
+                >
+                  {proProductName}
+                </Text>
+                {proExpiresLabel ? (
+                  <Text
+                    allowFontScaling={false}
+                    style={[
+                      styles.settingDescription,
+                      { color: theme.textSecondary, marginTop: 6 },
+                    ]}
+                  >
+                    {proExpiresLabel}
+                  </Text>
+                ) : null}
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.settingDescription,
+                    { color: theme.textSecondary, marginTop: 10 },
+                  ]}
+                >
+                  Thank you for supporting SportsHeart ❤
+                </Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.settingRow}>
+                  <View style={styles.settingInfo}>
+                    <Text
+                      allowFontScaling={false}
+                      style={[styles.settingLabel, { color: theme.text }]}
+                    >
+                      SportsHeart Pro
+                    </Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        styles.settingDescription,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      Unlock premium features: no ads, advanced analytics, and
+                      more.
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate("ProSplash")}
+                    style={[
+                      styles.openSettingsButton,
+                      { backgroundColor: colors.primary, minWidth: 100 },
+                    ]}
+                  >
+                    <Text
+                      allowFontScaling={false}
+                      style={styles.openSettingsButtonText}
+                    >
+                      Get Pro
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View
+                  style={[styles.proPromoRow, { borderTopColor: theme.border }]}
+                >
+                  <View style={[styles.settingRow, { padding: 2 }]}>
+                    <View style={styles.settingInfo}>
+                      <Text
+                        allowFontScaling={false}
+                        style={[styles.settingLabel, { color: theme.text }]}
+                      >
+                        Have a promo code?
+                      </Text>
+                      <Text
+                        allowFontScaling={false}
+                        style={[
+                          styles.settingDescription,
+                          { color: theme.textSecondary, marginTop: 4 },
+                        ]}
+                      >
+                        {freePromoLabel}
+                      </Text>
+                      {redeemMessage ? (
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            styles.settingDescription,
+                            { color: theme.textSecondary, marginTop: 6 },
+                          ]}
+                        >
+                          {redeemMessage}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setRedeemMessage(null);
+                        setPromoModalVisible(true);
+                      }}
+                      style={[
+                        styles.openSettingsButton,
+                        { backgroundColor: colors.primary, minWidth: 120 },
+                      ]}
+                    >
+                      <Text
+                        allowFontScaling={false}
+                        style={styles.openSettingsButtonText}
+                      >
+                        Enter Code
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </>
+            )}
+          </View>
+        ) : null}
+
           {/* Theme Toggle Section */}
           <View
             style={[
@@ -502,7 +1106,7 @@ const SettingsScreen = ({ navigation }) => {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <View style={styles.sectionHeader}>
+            <View style={[styles.sectionHeader, { borderBottomColor: theme.border }]}>
               <Text
                 allowFontScaling={false}
                 style={[styles.sectionTitle, { color: theme.text }]}
@@ -618,7 +1222,7 @@ const SettingsScreen = ({ navigation }) => {
 
             <View style={styles.colorGrid1}>
               {Object.entries(colorPalettes).map(([key, palette]) =>
-                renderColorOption(key, palette)
+                renderColorOption(key, palette),
               )}
             </View>
 
@@ -904,7 +1508,7 @@ const SettingsScreen = ({ navigation }) => {
                           showBannerMessage &&
                             showBannerMessage(
                               "Custom palette saved",
-                              "success"
+                              "success",
                             );
                         } catch (e) {
                           console.error(e);
@@ -922,83 +1526,6 @@ const SettingsScreen = ({ navigation }) => {
             </Modal>
           </View>
 
-          {/* Preview Section */}
-          <View
-            style={[
-              styles.section,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
-          >
-            <View
-              style={[
-                styles.sectionHeader,
-                { borderBottomColor: theme.surface },
-              ]}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[styles.sectionTitle, { color: theme.text }]}
-              >
-                Preview
-              </Text>
-              <Text
-                allowFontScaling={false}
-                style={[styles.sectionSubtitle, { color: theme.textSecondary }]}
-              >
-                See how your theme looks
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.previewCard,
-                {
-                  backgroundColor: theme.surfaceSecondary,
-                  borderColor: theme.border,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.previewHeader,
-                  { backgroundColor: colors.primary },
-                ]}
-              >
-                <Text allowFontScaling={false} style={styles.previewHeaderText}>
-                  Sample Header
-                </Text>
-              </View>
-              <View style={styles.previewContent}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.previewTitle, { color: theme.text }]}
-                >
-                  Sample Title
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.previewText, { color: theme.textSecondary }]}
-                >
-                  This is how text will appear in your chosen theme.
-                </Text>
-                <TouchableOpacity
-                  style={[
-                    styles.previewButton,
-                    { backgroundColor: colors.secondary },
-                  ]}
-                >
-                  <Text
-                    allowFontScaling={false}
-                    style={styles.previewButtonText}
-                  >
-                    Sample Button
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-          {/* Bet Tab section hidden until app approval. */}
-
           {/* Streaming Code Section */}
           <View
             style={[
@@ -1006,7 +1533,7 @@ const SettingsScreen = ({ navigation }) => {
               { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <View style={styles.sectionHeader}>
+            <View style={[styles.sectionHeader, { borderBottomColor: theme.surface }]}>
               <Text
                 allowFontScaling={false}
                 style={[styles.sectionTitle, { color: theme.text }]}
@@ -1185,75 +1712,6 @@ const SettingsScreen = ({ navigation }) => {
               >
                 Customize your chat appearance
               </Text>
-            </View>
-
-            {/* Username Setting */}
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text
-                  allowFontScaling={false}
-                  style={[styles.settingLabel, { color: theme.text }]}
-                >
-                  Username
-                </Text>
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.settingDescription,
-                    { color: theme.textSecondary },
-                  ]}
-                >
-                  Your display name in chat: {userName}
-                </Text>
-                {!canChangeUsername && (
-                  <Text
-                    allowFontScaling={false}
-                    style={[
-                      styles.restrictionMessage,
-                      { color: theme.textTertiary },
-                    ]}
-                  >
-                    You will be able to change your name in{" "}
-                    {daysUntilNextChange} day
-                    {daysUntilNextChange !== 1 ? "s" : ""}
-                  </Text>
-                )}
-              </View>
-              <TouchableOpacity
-                style={[
-                  styles.openSettingsButton,
-                  {
-                    backgroundColor: canChangeUsername
-                      ? colors.secondary
-                      : theme.surfaceSecondary,
-                    opacity: canChangeUsername ? 1 : 0.6,
-                  },
-                ]}
-                onPress={() => {
-                  if (canChangeUsername) {
-                    setTempUsername(userName);
-                    setIsEditingUsername(true);
-                  } else {
-                    showBannerMessage(
-                      `You can change your username in ${daysUntilNextChange} days`,
-                      "error"
-                    );
-                  }
-                }}
-                activeOpacity={0.7}
-              >
-                <Text
-                  allowFontScaling={false}
-                  style={[
-                    styles.openSettingsButtonText,
-                    {
-                      color: canChangeUsername ? "#fff" : theme.text,
-                    },
-                  ]}
-                >
-                  Edit
-                </Text>
-              </TouchableOpacity>
             </View>
 
             {/* Name Color Setting */}
@@ -1550,8 +2008,510 @@ const SettingsScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           </View>
+
+        {show ? (
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
+          >
+            <View style={[styles.sectionHeader, { borderBottomColor: theme.border }]}>
+              <Text
+                allowFontScaling={false}
+                style={[styles.sectionTitle, { color: theme.text }]}
+              >
+                Onboarding
+              </Text>
+            </View>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.settingLabel, { color: theme.text }]}
+                >
+                  View onboarding
+                </Text>
+                <Text
+                  allowFontScaling={false}
+                  style={[
+                    styles.settingDescription,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  Reopen the intro screens
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={handleViewOnboarding}
+                style={[
+                  styles.profileButton,
+                  { backgroundColor: colors.primary },
+                ]}
+              >
+                <Text allowFontScaling={false} style={styles.profileButtonText}>
+                  Open
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={promoModalVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setPromoModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              {
+                padding: 18,
+                maxWidth: 420,
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <Text
+                allowFontScaling={false}
+                style={{ color: theme.text, fontWeight: "700" }}
+              >
+                Enter Promo Code
+              </Text>
+              <TouchableOpacity onPress={() => setPromoModalVisible(false)}>
+                <Text
+                  allowFontScaling={false}
+                  style={{ color: colors.primary, fontWeight: "700" }}
+                >
+                  Close
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              value={promoCodeInput}
+              onChangeText={setPromoCodeInput}
+              placeholder="Enter promo code"
+              placeholderTextColor={theme.textSecondary}
+              style={[
+                styles.promoInput,
+                { borderColor: theme.border, color: theme.text },
+              ]}
+              autoCapitalize="none"
+            />
+
+            {redeemMessage ? (
+              <Text
+                allowFontScaling={false}
+                style={{ color: theme.textSecondary, marginTop: 8 }}
+              >
+                {redeemMessage}
+              </Text>
+            ) : null}
+
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "flex-end",
+                marginTop: 12,
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => setPromoModalVisible(false)}
+                style={[styles.modalButton, { backgroundColor: theme.border }]}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.modalButtonText, { color: theme.text }]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleRedeemPromo}
+                disabled={redeemLoading}
+                style={[
+                  styles.modalButton,
+                  {
+                    backgroundColor: colors.primary,
+                    marginLeft: 10,
+                    opacity: redeemLoading ? 0.7 : 1,
+                  },
+                ]}
+              >
+                {redeemLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.modalButtonText, { color: "#fff" }]}
+                  >
+                    Redeem
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={accountModalVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setAccountModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              {
+                padding: 18,
+                maxWidth: 420,
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <Text
+                allowFontScaling={false}
+                style={{ color: theme.text, fontWeight: "700" }}
+              >
+                Account Settings
+              </Text>
+              <TouchableOpacity onPress={() => setAccountModalVisible(false)}>
+                <Text
+                  allowFontScaling={false}
+                  style={{ color: colors.primary, fontWeight: "700" }}
+                >
+                  Close
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => {
+                setAccountModalVisible(false);
+                setChangeUsernameVisible(true);
+              }}
+              style={[
+                styles.openSettingsButton,
+                { backgroundColor: colors.primary, marginBottom: 10 },
+              ]}
+            >
+              <Text
+                allowFontScaling={false}
+                style={styles.openSettingsButtonText}
+              >
+                Change Username
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setAccountModalVisible(false);
+                setChangePasswordVisible(true);
+              }}
+              style={[
+                styles.openSettingsButton,
+                { backgroundColor: colors.primary, marginBottom: 10 },
+              ]}
+            >
+              <Text
+                allowFontScaling={false}
+                style={styles.openSettingsButtonText}
+              >
+                Change Password
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setAccountModalVisible(false);
+                handleAppLogout();
+              }}
+              style={[styles.openSettingsButton, { backgroundColor: "#b91c1c" }]}
+            >
+              <Text
+                allowFontScaling={false}
+                style={styles.openSettingsButtonText}
+              >
+                Logout
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={changeUsernameVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setChangeUsernameVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              {
+                padding: 18,
+                maxWidth: 420,
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <Text
+                allowFontScaling={false}
+                style={{ color: theme.text, fontWeight: "700" }}
+              >
+                Change Username
+              </Text>
+              <TouchableOpacity onPress={() => setChangeUsernameVisible(false)}>
+                <Text
+                  allowFontScaling={false}
+                  style={{ color: colors.primary, fontWeight: "700" }}
+                >
+                  Close
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              value={accountCurrentPassword}
+              onChangeText={setAccountCurrentPassword}
+              placeholder="Current password"
+              placeholderTextColor={theme.textSecondary}
+              secureTextEntry
+              style={[
+                styles.promoInput,
+                { borderColor: theme.border, color: theme.text, marginBottom: 10 },
+              ]}
+            />
+            <TextInput
+              value={newUsername}
+              onChangeText={setNewUsername}
+              placeholder="New username"
+              placeholderTextColor={theme.textSecondary}
+              style={[
+                styles.promoInput,
+                { borderColor: theme.border, color: theme.text, marginBottom: 10 },
+              ]}
+              autoCapitalize="none"
+            />
+            <TextInput
+              value={confirmUsername}
+              onChangeText={setConfirmUsername}
+              placeholder="Confirm new username"
+              placeholderTextColor={theme.textSecondary}
+              style={[
+                styles.promoInput,
+                { borderColor: theme.border, color: theme.text },
+              ]}
+              autoCapitalize="none"
+            />
+
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "flex-end",
+                marginTop: 12,
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => setChangeUsernameVisible(false)}
+                style={[styles.modalButton, { backgroundColor: theme.border }]}
+                disabled={accountActionLoading}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.modalButtonText, { color: theme.text }]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleChangeUsernameSubmit}
+                disabled={accountActionLoading}
+                style={[
+                  styles.modalButton,
+                  {
+                    backgroundColor: colors.primary,
+                    marginLeft: 10,
+                    opacity: accountActionLoading ? 0.7 : 1,
+                  },
+                ]}
+              >
+                {accountActionLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.modalButtonText, { color: "#fff" }]}
+                  >
+                    Update
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={changePasswordVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setChangePasswordVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              {
+                padding: 18,
+                maxWidth: 420,
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <Text
+                allowFontScaling={false}
+                style={{ color: theme.text, fontWeight: "700" }}
+              >
+                Change Password
+              </Text>
+              <TouchableOpacity onPress={() => setChangePasswordVisible(false)}>
+                <Text
+                  allowFontScaling={false}
+                  style={{ color: colors.primary, fontWeight: "700" }}
+                >
+                  Close
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              value={accountCurrentPassword}
+              onChangeText={setAccountCurrentPassword}
+              placeholder="Current password"
+              placeholderTextColor={theme.textSecondary}
+              secureTextEntry
+              style={[
+                styles.promoInput,
+                { borderColor: theme.border, color: theme.text, marginBottom: 10 },
+              ]}
+            />
+            <TextInput
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder="New password"
+              placeholderTextColor={theme.textSecondary}
+              secureTextEntry
+              style={[
+                styles.promoInput,
+                { borderColor: theme.border, color: theme.text, marginBottom: 10 },
+              ]}
+            />
+            <TextInput
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="Confirm new password"
+              placeholderTextColor={theme.textSecondary}
+              secureTextEntry
+              style={[
+                styles.promoInput,
+                { borderColor: theme.border, color: theme.text },
+              ]}
+            />
+
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "flex-end",
+                marginTop: 12,
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => setChangePasswordVisible(false)}
+                style={[styles.modalButton, { backgroundColor: theme.border }]}
+                disabled={accountActionLoading}
+              >
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.modalButtonText, { color: theme.text }]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleChangePasswordSubmit}
+                disabled={accountActionLoading}
+                style={[
+                  styles.modalButton,
+                  {
+                    backgroundColor: colors.primary,
+                    marginLeft: 10,
+                    opacity: accountActionLoading ? 0.7 : 1,
+                  },
+                ]}
+              >
+                {accountActionLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.modalButtonText, { color: "#fff" }]}
+                  >
+                    Update
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Username Edit Modal */}
       <Modal
@@ -1750,6 +2710,25 @@ const styles = StyleSheet.create({
   settingDescription: {
     fontSize: 14,
   },
+  proStatusContainer: {
+    padding: 12,
+    borderTopWidth: 1,
+  },
+  proPromoRow: {
+    padding: 12,
+    borderTopWidth: 1,
+  },
+  proPromoActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  promoInput: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
   restrictionMessage: {
     fontSize: 12,
     marginTop: 4,
@@ -1853,6 +2832,19 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 14,
     fontWeight: "600",
+  },
+  profileButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 90,
+  },
+  profileButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
   },
   colorPreviewButton: {
     width: 44,

@@ -547,6 +547,18 @@ BEGIN
       WITH CHECK (auth.uid() = id);
     $sql$;
   END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname = 'Users can update own profile' AND tablename = 'profiles'
+  ) THEN
+    EXECUTE $sql$
+      CREATE POLICY "Users can update own profile"
+      ON public.profiles
+      FOR UPDATE
+      USING (auth.uid() = id)
+      WITH CHECK (auth.uid() = id);
+    $sql$;
+  END IF;
 END$$;
 
 -- No public update policy for profiles to protect credits

@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Platform, NativeModules } from "react-native";
+import { useTheme } from "../context/ThemeContext";
 import Constants from "expo-constants";
 
 // Do not import `react-native-google-mobile-ads` at the top-level because
@@ -17,6 +18,8 @@ function ensureAdsModule() {
     _adsModule = null;
     return null;
   }
+
+  const { theme } = useTheme();
 
   const nativePresent = Boolean(
     NativeModules &&
@@ -97,11 +100,16 @@ export function BannerAdWrapper({
   unitId = PROD_BANNER_ID,
   size = "ANCHORED_ADAPTIVE_BANNER",
   requestOptions = { requestNonPersonalizedAdsOnly: true },
+  theme,
 }) {
   // Do not attempt to render native ads on web or when module is unavailable
   if (Platform.OS === "web") return null;
   const mod = ensureAdsModule();
   if (!mod) return null;
+
+  // Prefer an explicit `theme` prop; otherwise read from ThemeContext hook.
+  const themeContext = useTheme();
+  const resolvedTheme = theme || (themeContext && themeContext.theme) || {};
 
   const named = mod.named || {};
   const BannerAd = named.BannerAd;
@@ -124,6 +132,7 @@ export function BannerAdWrapper({
         unitId={adUnitId}
         size={resolvedSize}
         requestOptions={requestOptions}
+        style={{ backgroundColor: resolvedTheme.surface || "#000" }}
       />
     </View>
   );

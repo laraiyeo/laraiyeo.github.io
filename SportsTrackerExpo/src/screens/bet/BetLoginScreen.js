@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import {
+  SafeAreaView,
   View,
   Text,
   StyleSheet,
@@ -31,13 +32,15 @@ import {
 } from "../../services/notificationService";
 // daily reward handled in BetHomeScreen
 import { useFocusEffect } from "@react-navigation/native";
+import { useOnboarding } from "../../context/OnboardingContext";
+import { navigationRef } from "../../navigationRef";
 
 // Helper to add client-side timeouts to promises (prevents 30-60s TCP hangs)
 const withTimeout = (promise, ms = 8000) =>
   Promise.race([
     promise,
     new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Timeout")), ms)
+      setTimeout(() => reject(new Error("Timeout")), ms),
     ),
   ]);
 // Helper to batch AsyncStorage writes (reduces native IO roundtrips)
@@ -59,10 +62,13 @@ const batchSet = async (pairs = []) => {
 // In-memory cache to avoid AsyncStorage round-trips on subsequent logins
 // Keep this at module scope so it survives component re-mounts.
 const PHONE_CACHE_MAP = {};
-const BetLoginScreen = ({ navigation }) => {
+const BetLoginScreen = ({ navigation, route }) => {
   const { colors, theme } = useTheme();
   const { fetchScoreboard, fetchRosters, isLoading } = useBetData();
   const { setIsPro } = useBetSlip();
+  const { dismissLoginForSession, disableLogin } = useOnboarding();
+  const onboardingMode = !!route?.params?.onboarding;
+  const returnTo = route?.params?.returnTo || "BetMain";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -162,8 +168,56 @@ const BetLoginScreen = ({ navigation }) => {
       console.log("BetLogin: focused, loading saved credentials");
       loadSavedCredentials();
       setLoading(false);
-    }, [])
+    }, []),
   );
+
+  const handlePostLogin = async () => {
+    let seen = null;
+    try {
+      seen = await AsyncStorage.getItem("@pro_splash_seen");
+    } catch (e) {}
+
+    const showProSplash = () => {
+      try {
+        navigation.replace("ProSplash");
+        return true;
+      } catch (e) {}
+      try {
+        if (navigationRef.isReady && navigationRef.isReady()) {
+          navigationRef.navigate("ProSplash");
+          return true;
+        }
+      } catch (e) {}
+      return false;
+    };
+
+    if (onboardingMode) {
+      if (!seen) {
+        try {
+          console.log("BetLogin: setting @show_pro_splash_next flag");
+          await AsyncStorage.setItem("@show_pro_splash_next", "1");
+          const verifyFlag = await AsyncStorage.getItem(
+            "@show_pro_splash_next",
+          );
+          console.log(
+            "BetLogin: @show_pro_splash_next after set =",
+            verifyFlag,
+          );
+        } catch (e) {}
+      } else {
+        console.log("BetLogin: pro splash already seen, skipping flag");
+      }
+      console.log("BetLogin: dismissLoginForSession (onboarding)");
+      dismissLoginForSession();
+      return;
+    }
+
+    if (!seen) {
+      showProSplash();
+      return;
+    }
+    navigation.navigate(returnTo);
+  };
 
   const checkSession = async () => {
     try {
@@ -177,7 +231,7 @@ const BetLoginScreen = ({ navigation }) => {
       if (session) {
         // User is already logged in, navigate to BetMain
         await fetchInitialData();
-        navigation.navigate("BetMain");
+        handlePostLogin();
       }
     } catch (error) {
       console.error("Session check error:", error);
@@ -199,7 +253,7 @@ const BetLoginScreen = ({ navigation }) => {
       if (!signupPhone) {
         Alert.alert(
           "Signup Failed",
-          "Please enter a phone number before creating an account."
+          "Please enter a phone number before creating an account.",
         );
         return;
       }
@@ -232,7 +286,7 @@ const BetLoginScreen = ({ navigation }) => {
                 phone: signupPhone,
                 password: signupPassword,
               }),
-              8000
+              8000,
             );
             if (!authError && authData) {
               // Treat as successful login: persist credentials and navigate
@@ -240,15 +294,15 @@ const BetLoginScreen = ({ navigation }) => {
                 await saveCredentials(
                   signupUsername,
                   signupPassword,
-                  signupPhone
+                  signupPhone,
                 );
               } catch (e) {}
               try {
                 registerForPushNotifications().catch((e) =>
                   console.warn(
                     "registerForPushNotifications (post-signin) failed",
-                    e
-                  )
+                    e,
+                  ),
                 );
               } catch (e) {}
               try {
@@ -258,7 +312,7 @@ const BetLoginScreen = ({ navigation }) => {
                 fetchRosters().catch(() => {});
               }
               InteractionManager.runAfterInteractions(() => {
-                navigation.navigate("BetMain");
+                handlePostLogin();
               });
               return;
             } else {
@@ -266,18 +320,18 @@ const BetLoginScreen = ({ navigation }) => {
               const msg = authError?.message || "Invalid password";
               Alert.alert(
                 "Signup Failed",
-                `Username already exists. ${msg}. Try signing in instead.`
+                `Username already exists. ${msg}. Try signing in instead.`,
               );
               return;
             }
           } catch (e) {
             console.warn(
               "Signup: attempted sign-in after existing username check failed",
-              e
+              e,
             );
             Alert.alert(
               "Signup Failed",
-              "Username already exists. Please use Login to sign in."
+              "Username already exists. Please use Login to sign in.",
             );
             return;
           }
@@ -285,7 +339,7 @@ const BetLoginScreen = ({ navigation }) => {
 
         Alert.alert(
           "Signup Failed",
-          "Username is already taken. Please use Login to sign in."
+          "Username is already taken. Please use Login to sign in.",
         );
         return;
       }
@@ -352,15 +406,15 @@ const BetLoginScreen = ({ navigation }) => {
                 registerForPushNotifications().catch((e) =>
                   console.warn(
                     "registerForPushNotifications (signup) failed",
-                    e
-                  )
+                    e,
+                  ),
                 );
               } catch (e) {
                 console.warn("registerForPushNotifications (signup) error", e);
               }
               try {
                 console.log(
-                  "BetLogin: signup success - fetching scoreboard now"
+                  "BetLogin: signup success - fetching scoreboard now",
                 );
                 await fetchScoreboard();
                 console.log("BetLogin: signup - scoreboard fetch complete");
@@ -372,19 +426,19 @@ const BetLoginScreen = ({ navigation }) => {
                 fetchRosters()
                   .then(() =>
                     console.log(
-                      "BetLogin: signup - rosters fetch started/completed"
-                    )
+                      "BetLogin: signup - rosters fetch started/completed",
+                    ),
                   )
                   .catch((e) =>
-                    console.error("BetLogin: signup - fetchRosters error", e)
+                    console.error("BetLogin: signup - fetchRosters error", e),
                   );
               }
               InteractionManager.runAfterInteractions(() => {
-                navigation.navigate("BetMain");
+                handlePostLogin();
               });
             },
           },
-        ]
+        ],
       );
     } catch (error) {
       console.error("Signup error:", error);
@@ -428,24 +482,24 @@ const BetLoginScreen = ({ navigation }) => {
 
           if (savedMatch) {
             console.log(
-              "BetLogin: credentials match saved - skipping auth, navigating to BetMain"
+              "BetLogin: credentials match saved - skipping auth, navigating to BetMain",
             );
             // Navigate immediately
             InteractionManager.runAfterInteractions(() => {
-              navigation.navigate("BetMain");
+              handlePostLogin();
             });
 
             // Start background data fetches
             setTimeout(() => {
               fetchScoreboard().catch((e) =>
-                console.error("BetLogin: background fetchScoreboard error", e)
+                console.error("BetLogin: background fetchScoreboard error", e),
               );
             }, 0);
 
             if (fetchRosters) {
               setTimeout(() => {
                 fetchRosters().catch((e) =>
-                  console.error("BetLogin: background fetchRosters error", e)
+                  console.error("BetLogin: background fetchRosters error", e),
                 );
               }, 0);
             }
@@ -464,17 +518,18 @@ const BetLoginScreen = ({ navigation }) => {
       let authData = null;
       let authError = null;
       let navigated = false;
+      let profileValidated = false;
       try {
         const cached = PHONE_CACHE_MAP[username] || null;
         if (cached) {
           console.log(
             "BetLogin: found cached phone for user, attempting fast sign-in",
-            cached
+            cached,
           );
           try {
             ({ data: authData, error: authError } = await withTimeout(
               supabase.auth.signInWithPassword({ phone: cached, password }),
-              8000
+              8000,
             ));
           } catch (e) {
             console.warn("BetLogin: fast sign-in timed out or failed", e);
@@ -489,7 +544,7 @@ const BetLoginScreen = ({ navigation }) => {
             userPhone = cached;
             try {
               InteractionManager.runAfterInteractions(() => {
-                navigation.navigate("BetMain");
+                handlePostLogin();
               });
               navigated = true;
             } catch (e) {
@@ -517,7 +572,7 @@ const BetLoginScreen = ({ navigation }) => {
           ) {
             console.warn(
               "BetLogin: fast sign-in invalid credentials",
-              authError
+              authError,
             );
             Alert.alert("Login Failed", "Invalid password. Please try again.");
             setLoading(false);
@@ -526,11 +581,11 @@ const BetLoginScreen = ({ navigation }) => {
             // If cache exists but fast sign-in fails for another reason, abort without calling RPC
             console.log(
               "BetLogin: fast sign-in failed and cache exists — aborting without RPC",
-              authError
+              authError,
             );
             Alert.alert(
               "Login Failed",
-              authError?.message || "Failed to login"
+              authError?.message || "Failed to login",
             );
             setLoading(false);
             return;
@@ -550,14 +605,14 @@ const BetLoginScreen = ({ navigation }) => {
                 uname: username,
                 pass: password,
               }),
-              8000
+              8000,
             );
 
           if (authErr) {
             console.warn("BetLogin: authenticate_user RPC error", authErr);
             Alert.alert(
               "Account Lookup Failed",
-              "Unable to verify username. Please create an account or enter your phone to continue."
+              "Unable to verify username. Please create an account or enter your phone to continue.",
             );
             setShowPhoneForm(true);
             setLoading(false);
@@ -568,7 +623,7 @@ const BetLoginScreen = ({ navigation }) => {
           if (!authenticatedPhone) {
             Alert.alert(
               "Login Failed",
-              "Invalid username or password. Please try again."
+              "Invalid username or password. Please try again.",
             );
             setLoading(false);
             return;
@@ -576,6 +631,7 @@ const BetLoginScreen = ({ navigation }) => {
 
           // Credentials valid - use returned phone
           userPhone = authenticatedPhone;
+          profileValidated = true;
 
           // store fresh phone in in-memory cache immediately (best-effort)
           try {
@@ -602,7 +658,7 @@ const BetLoginScreen = ({ navigation }) => {
           try {
             ({ data: authData, error: authError } = await withTimeout(
               supabase.auth.signInWithPassword({ phone: userPhone, password }),
-              8000
+              8000,
             ));
           } catch (e) {
             console.warn("BetLogin: signInWithPassword timed out or failed", e);
@@ -621,12 +677,14 @@ const BetLoginScreen = ({ navigation }) => {
             ) {
               Alert.alert(
                 "Login Failed",
-                "Invalid password. Please try again."
+                profileValidated
+                  ? "Your profile password is out of sync with auth. Please reset your password."
+                  : "Invalid password. Please try again.",
               );
             } else {
               Alert.alert(
                 "Login Failed",
-                authError.message || "Failed to login"
+                authError.message || "Failed to login",
               );
             }
             setLoading(false);
@@ -635,11 +693,11 @@ const BetLoginScreen = ({ navigation }) => {
         } catch (rpcError) {
           console.warn(
             "BetLogin: profile lookup failed or timed out",
-            rpcError?.message || rpcError
+            rpcError?.message || rpcError,
           );
           Alert.alert(
             "Account Lookup Failed",
-            "Unable to verify username. Please create an account or enter your phone to continue."
+            "Unable to verify username. Please create an account or enter your phone to continue.",
           );
           setShowPhoneForm(true);
           setLoading(false);
@@ -656,7 +714,7 @@ const BetLoginScreen = ({ navigation }) => {
       // Prompt for push notifications immediately (best-effort).
       try {
         registerForPushNotifications().catch((e) =>
-          console.warn("registerForPushNotifications (login) failed", e)
+          console.warn("registerForPushNotifications (login) failed", e),
         );
       } catch (e) {
         console.warn("registerForPushNotifications (login) error", e);
@@ -664,7 +722,7 @@ const BetLoginScreen = ({ navigation }) => {
 
       // Navigate immediately for faster perceived login (do this before any slow background work)
       try {
-        if (!navigated) navigation.navigate("BetMain");
+        if (!navigated) handlePostLogin();
       } catch (e) {
         console.warn("BetLogin: navigate error", e);
       }
@@ -683,7 +741,7 @@ const BetLoginScreen = ({ navigation }) => {
               // Don't await this on the main path; wrap in timeout so it can't stall forever
               await withTimeout(
                 initPurchases("appl_mdoICWLxVPeKJjUzLbFUKhMrXAT", userId),
-                10000
+                10000,
               );
               console.log("BetLogin: RevenueCat identify called", userId);
               try {
@@ -707,7 +765,7 @@ const BetLoginScreen = ({ navigation }) => {
                   try {
                     const refreshed = await withTimeout(
                       supabase.auth.getUser(),
-                      8000
+                      8000,
                     );
                     // attempt to refresh profile from server
                     try {
@@ -721,7 +779,7 @@ const BetLoginScreen = ({ navigation }) => {
                     } catch (e) {
                       console.warn(
                         "BetLogin: failed to refresh profile after RevenueCat not-entitled",
-                        e?.message || e
+                        e?.message || e,
                       );
                     }
                   } catch (e) {
@@ -731,19 +789,19 @@ const BetLoginScreen = ({ navigation }) => {
               } catch (e) {
                 console.warn(
                   "BetLogin: getCustomerInfo failed",
-                  e?.message || e
+                  e?.message || e,
                 );
               }
             } catch (e) {
               console.warn(
                 "BetLogin: RevenueCat identify failed",
-                e?.message || e
+                e?.message || e,
               );
             }
           } catch (e) {
             console.warn(
               "BetLogin: initPurchases identify error",
-              e?.message || e
+              e?.message || e,
             );
           }
         })();
@@ -780,7 +838,7 @@ const BetLoginScreen = ({ navigation }) => {
             ]);
             console.log(
               "BetLogin: stored server auth token",
-              (body.token || "").length
+              (body.token || "").length,
             );
             try {
               await registerForPushNotifications(body.token);
@@ -816,10 +874,10 @@ const BetLoginScreen = ({ navigation }) => {
         setTimeout(() => {
           fetchRosters()
             .then(() =>
-              console.log("BetLogin: background fetchRosters completed")
+              console.log("BetLogin: background fetchRosters completed"),
             )
             .catch((e) =>
-              console.error("BetLogin: background fetchRosters error", e)
+              console.error("BetLogin: background fetchRosters error", e),
             );
         }, 0);
       }
@@ -833,7 +891,7 @@ const BetLoginScreen = ({ navigation }) => {
               oddsContext.setOddsDisplay(stored);
               console.log(
                 "BetLogin: initialized OddsDisplayContext to",
-                stored
+                stored,
               );
             }
           }
@@ -872,169 +930,212 @@ const BetLoginScreen = ({ navigation }) => {
       console.error("Login error (catch):", error);
       Alert.alert(
         "Login Failed",
-        error.message || "An unexpected error occurred"
+        error.message || "An unexpected error occurred",
       );
     }
   };
 
+  const titleText = onboardingMode
+    ? "Sign in to SportsHeart"
+    : "Welcome to SportsHeart Picks";
+  const subtitleText = onboardingMode
+    ? "Log in to sync your profile"
+    : "Login or create a new account";
+
   return (
-    <View
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    <SafeAreaView
       style={[styles.container, { backgroundColor: theme.background }]}
     >
-      <View style={styles.content}>
-        {/* Logo/Icon */}
-        <View
-          style={[styles.logoContainer, { backgroundColor: colors.primary }]}
-        >
-          <Ionicons name="cash" size={48} color="white" />
-        </View>
-
-        <Text style={[styles.title, { color: theme.text }]}>
-          Welcome to SportsHeart Picks
-        </Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Login or create a new account
-        </Text>
-
-        {/* Form */}
-        <View style={styles.form}>
-          {showPhoneForm && (
-            <View style={{ marginBottom: 12 }}>
-              <Text style={{ color: theme.text, marginBottom: 8 }}>Phone</Text>
-              <View
+      <View
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.content}
+      >
+        {onboardingMode && (
+          <View style={styles.onboardingActions}>
+            <TouchableOpacity
+              onPress={dismissLoginForSession}
+              style={styles.onboardingActionButton}
+            >
+              <Text
+                allowFontScaling={false}
+                style={[styles.onboardingActionText, { color: theme.text }]}
+              >
+                Dismiss
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={disableLogin}
+              style={styles.onboardingActionButton}
+            >
+              <Text
+                allowFontScaling={false}
                 style={[
-                  styles.inputContainer,
-                  { backgroundColor: theme.surface, borderColor: theme.border },
+                  styles.onboardingActionText,
+                  { color: theme.textSecondary },
                 ]}
               >
-                <Ionicons
-                  name="call-outline"
-                  size={20}
-                  color={theme.textSecondary}
-                />
-                <TextInput
-                  style={[styles.input, { color: theme.text }]}
-                  placeholder="+12345678910"
-                  placeholderTextColor={theme.textSecondary}
-                  value={phone}
-                  onChangeText={setPhone}
-                  autoCapitalize="none"
-                  editable={!loading}
-                />
-              </View>
-            </View>
-          )}
-          <View
-            style={[
-              styles.inputContainer,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
-          >
-            <Ionicons
-              name="person-outline"
-              size={20}
-              color={theme.textSecondary}
-            />
-            <TextInput
-              style={[styles.input, { color: theme.text }]}
-              placeholder="Username"
-              placeholderTextColor={theme.textSecondary}
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-              editable={!loading}
-            />
-          </View>
-
-          <View
-            style={[
-              styles.inputContainer,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
-          >
-            <Ionicons
-              name="lock-closed-outline"
-              size={20}
-              color={theme.textSecondary}
-            />
-            <TextInput
-              style={[styles.input, { color: theme.text }]}
-              placeholder="Password"
-              placeholderTextColor={theme.textSecondary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              editable={!loading}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              <Ionicons
-                name={showPassword ? "eye-outline" : "eye-off-outline"}
-                size={20}
-                color={colors.primary}
-              />
+                Don't show again
+              </Text>
             </TouchableOpacity>
           </View>
+        )}
+        <View style={styles.bodyContent}>
+          {/* Logo/Icon */}
+          <View
+            style={[styles.logoContainer, { backgroundColor: colors.primary }]}
+          >
+            <Ionicons name="cash" size={48} color="white" />
+          </View>
 
-          {showPhoneForm ? (
-            <>
+          <Text style={[styles.title, { color: theme.text }]}>{titleText}</Text>
+          <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+            {subtitleText}
+          </Text>
+
+          {/* Form */}
+          <View style={styles.form}>
+            {showPhoneForm && (
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ color: theme.text, marginBottom: 8 }}>
+                  Phone
+                </Text>
+                <View
+                  style={[
+                    styles.inputContainer,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="call-outline"
+                    size={20}
+                    color={theme.textSecondary}
+                  />
+                  <TextInput
+                    style={[styles.input, { color: theme.text }]}
+                    placeholder="+12345678910"
+                    placeholderTextColor={theme.textSecondary}
+                    value={phone}
+                    onChangeText={setPhone}
+                    autoCapitalize="none"
+                    editable={!loading}
+                  />
+                </View>
+              </View>
+            )}
+            <View
+              style={[
+                styles.inputContainer,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <Ionicons
+                name="person-outline"
+                size={20}
+                color={theme.textSecondary}
+              />
+              <TextInput
+                style={[styles.input, { color: theme.text }]}
+                placeholder="Username"
+                placeholderTextColor={theme.textSecondary}
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+                editable={!loading}
+              />
+            </View>
+
+            <View
+              style={[
+                styles.inputContainer,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color={theme.textSecondary}
+              />
+              <TextInput
+                style={[styles.input, { color: theme.text }]}
+                placeholder="Password"
+                placeholderTextColor={theme.textSecondary}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                editable={!loading}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                <Ionicons
+                  name={showPassword ? "eye-outline" : "eye-off-outline"}
+                  size={20}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {showPhoneForm ? (
+              <>
+                <TouchableOpacity
+                  style={[
+                    styles.loginButton,
+                    { backgroundColor: colors.primary },
+                    loading && styles.loginButtonDisabled,
+                  ]}
+                  onPress={() => handleSignup(username, password)}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={styles.loginButtonText}>Create account</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.loginButton,
+                    { backgroundColor: theme.surface, marginTop: 8 },
+                  ]}
+                  onPress={() => setShowPhoneForm(false)}
+                  disabled={loading}
+                >
+                  <Text
+                    style={[styles.loginButtonText, { color: colors.primary }]}
+                  >
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
               <TouchableOpacity
                 style={[
                   styles.loginButton,
                   { backgroundColor: colors.primary },
                   loading && styles.loginButtonDisabled,
                 ]}
-                onPress={() => handleSignup(username, password)}
+                onPress={handleLogin}
                 disabled={loading}
               >
                 {loading ? (
                   <ActivityIndicator color="white" />
                 ) : (
-                  <Text style={styles.loginButtonText}>Create account</Text>
+                  <Text style={styles.loginButtonText}>Login</Text>
                 )}
               </TouchableOpacity>
+            )}
 
-              <TouchableOpacity
-                style={[
-                  styles.loginButton,
-                  { backgroundColor: theme.surface, marginTop: 8 },
-                ]}
-                onPress={() => setShowPhoneForm(false)}
-                disabled={loading}
-              >
-                <Text
-                  style={[styles.loginButtonText, { color: colors.primary }]}
-                >
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <TouchableOpacity
-              style={[
-                styles.loginButton,
-                { backgroundColor: colors.primary },
-                loading && styles.loginButtonDisabled,
-              ]}
-              onPress={handleLogin}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.loginButtonText}>Login</Text>
-              )}
-            </TouchableOpacity>
-          )}
-
-          <Text style={[styles.demoNote, { color: theme.textTertiary }]}>
-            New users will be prompted to create an account
-          </Text>
+            <Text style={[styles.demoNote, { color: theme.textTertiary }]}>
+              New users will be prompted to create an account
+            </Text>
+          </View>
         </View>
       </View>
       {/* daily reward modal moved to BetHomeScreen */}
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -1044,8 +1145,31 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  onboardingActions: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingTop: 8,
+    paddingHorizontal: 20,
+  },
+  bodyContent: {
+    flex: 1,
     justifyContent: "center",
+    alignItems: "center",
+  },
+  onboardingActionButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  onboardingActionText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
   logoContainer: {
     width: 96,
@@ -1068,7 +1192,8 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   form: {
-    flex: 1,
+    width: "100%",
+    maxWidth: 420,
   },
   inputContainer: {
     flexDirection: "row",

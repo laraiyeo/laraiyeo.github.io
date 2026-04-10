@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   useEffect,
   useState,
   useRef,
@@ -32,6 +32,7 @@ import { useFavorites } from "../../context/FavoritesContext";
 import { useNavigation } from "@react-navigation/native";
 import { WNBAService } from "../../services/WNBAService";
 import ChatComponent from "../../components/ChatComponent";
+import useIsLoggedIn from "../../hooks/useIsLoggedIn";
 import { useStreamingAccess } from "../../utils/streamingUtils";
 import { useGamePresence } from "../../hooks/useGamePresence";
 
@@ -61,7 +62,7 @@ const calculateColorSimilarity = (color1, color2) => {
       Math.pow(rgb1.b - rgb2.b, 2),
   );
 
-  // Normalize distance (max distance is sqrt(3 * 255^2) ≈ 441)
+  // Normalize distance (max distance is sqrt(3 * 255^2) â‰ˆ 441)
   const normalizedDistance = distance / 441;
 
   // Consider colors similar if distance is less than 0.3 (30% of max distance)
@@ -323,6 +324,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
   const [streamUrl, setStreamUrl] = useState("");
   const [isStreamLoading, setIsStreamLoading] = useState(true);
   const [chatModalVisible, setChatModalVisible] = useState(false);
+  const isLoggedIn = useIsLoggedIn();
 
   // Streaming access check
   const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
@@ -481,21 +483,21 @@ const WNBAGameDetailsScreen = ({ route }) => {
 
     return teamName
       .toLowerCase()
-      .replace(/á/g, "a")
-      .replace(/é/g, "e")
-      .replace(/í/g, "i")
-      .replace(/ó/g, "o")
-      .replace(/ú/g, "u")
-      .replace(/ü/g, "u")
-      .replace(/ñ/g, "n")
-      .replace(/ç/g, "c")
-      .replace(/ß/g, "ss")
-      .replace(/ë/g, "e")
-      .replace(/ï/g, "i")
-      .replace(/ö/g, "o")
-      .replace(/ä/g, "a")
-      .replace(/å/g, "a")
-      .replace(/ø/g, "o")
+      .replace(/Ã¡/g, "a")
+      .replace(/Ã©/g, "e")
+      .replace(/Ã­/g, "i")
+      .replace(/Ã³/g, "o")
+      .replace(/Ãº/g, "u")
+      .replace(/Ã¼/g, "u")
+      .replace(/Ã±/g, "n")
+      .replace(/Ã§/g, "c")
+      .replace(/ÃŸ/g, "ss")
+      .replace(/Ã«/g, "e")
+      .replace(/Ã¯/g, "i")
+      .replace(/Ã¶/g, "o")
+      .replace(/Ã¤/g, "a")
+      .replace(/Ã¥/g, "a")
+      .replace(/Ã¸/g, "o")
       .replace(/\s+/g, "-")
       .replace(/[^a-z0-9\-]/g, "")
       .replace(/-+/g, "-")
@@ -1937,15 +1939,15 @@ const WNBAGameDetailsScreen = ({ route }) => {
                     return (
                       <G key={index}>
                         {awayY1 < homeY1 ? (
-                          // AWAY team is winning → away line is ABOVE home line
+                          // AWAY team is winning â†’ away line is ABOVE home line
                           <>
-                            {/* Home fill (bottom → home line) */}
+                            {/* Home fill (bottom â†’ home line) */}
                             <Path
                               d={`M${x1},100 L${x1},${homeY1} L${x2},${homeY2} L${x2},100 Z`}
                               fill={homeColor}
                               fillOpacity="0.3"
                             />
-                            {/* Away fill (home line → away line) */}
+                            {/* Away fill (home line â†’ away line) */}
                             <Path
                               d={`M${x1},${homeY1} L${x1},${awayY1} L${x2},${awayY2} L${x2},${homeY2} Z`}
                               fill={awayColor}
@@ -1953,15 +1955,15 @@ const WNBAGameDetailsScreen = ({ route }) => {
                             />
                           </>
                         ) : (
-                          // HOME team is winning → home line is ABOVE away line
+                          // HOME team is winning â†’ home line is ABOVE away line
                           <>
-                            {/* Away fill (bottom → away line) */}
+                            {/* Away fill (bottom â†’ away line) */}
                             <Path
                               d={`M${x1},100 L${x1},${awayY1} L${x2},${awayY2} L${x2},100 Z`}
                               fill={awayColor}
                               fillOpacity="0.3"
                             />
-                            {/* Home fill (away line → home line) */}
+                            {/* Home fill (away line â†’ home line) */}
                             <Path
                               d={`M${x1},${awayY1} L${x1},${homeY1} L${x2},${homeY2} L${x2},${awayY2} Z`}
                               fill={homeColor}
@@ -2493,7 +2495,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                           numberOfLines={1}
                         >
                           {jerseyNumber && position
-                            ? `#${jerseyNumber} • ${position}`
+                            ? `#${jerseyNumber} â€¢ ${position}`
                             : jerseyNumber
                               ? `#${jerseyNumber}`
                               : position
@@ -2707,7 +2709,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                       >
                         {inj?.athlete?.jersey &&
                         inj?.athlete?.position?.abbreviation
-                          ? `• #${inj.athlete.jersey} • ${inj.athlete.position.abbreviation}`
+                          ? `â€¢ #${inj.athlete.jersey} â€¢ ${inj.athlete.position.abbreviation}`
                           : inj?.athlete?.jersey
                             ? `#${inj.athlete.jersey}`
                             : inj?.athlete?.position?.abbreviation
@@ -3260,7 +3262,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                   numberOfLines={1}
                 >
                   {jerseyNum && position
-                    ? `#${jerseyNum} • ${position}`
+                    ? `#${jerseyNum} â€¢ ${position}`
                     : jerseyNum
                       ? `#${jerseyNum}`
                       : position
@@ -3513,7 +3515,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                   onPress={() => togglePlay(playKey)}
                 >
                   <Text style={[styles.toggleIcon, { color: theme.text }]}>
-                    {isOpen ? "▲" : "▼"}
+                    {isOpen ? "â–²" : "â–¼"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -3618,7 +3620,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
       return [...renderedPlays, ...loadMoreButton];
     }
 
-    // fallback (previous inline computation) — keep for safety but should rarely run now
+    // fallback (previous inline computation) â€” keep for safety but should rarely run now
     return (
       <View style={styles.noPlaysContainer}>
         <Text style={[styles.noPlaysText, { color: theme.textSecondary }]}>
@@ -3675,7 +3677,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
           ) : null}
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             {isFavorite(awayTeamId, "wnba") && (
-              <Text style={{ color: colors.primary, marginLeft: 4 }}>★</Text>
+              <Text style={{ color: colors.primary, marginLeft: 4 }}>â˜…</Text>
             )}
             <Text
               style={[
@@ -3722,7 +3724,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
               {home?.team?.abbreviation || "HOME"}
             </Text>
             {isFavorite(homeTeamId, "wnba") && (
-              <Text style={{ color: colors.primary, marginRight: 4 }}>★</Text>
+              <Text style={{ color: colors.primary, marginRight: 4 }}>â˜…</Text>
             )}
           </View>
           {statusDesc !== "Scheduled" ? (
@@ -4407,7 +4409,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                                 numberOfLines={1}
                               >
                                 {jersey && position
-                                  ? `#${jersey} • ${position}`
+                                  ? `#${jersey} â€¢ ${position}`
                                   : jersey
                                     ? `#${jersey}`
                                     : position
@@ -4441,7 +4443,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                           style={styles.modalClose}
                         >
                           <Text style={{ fontSize: 18, color: theme.text }}>
-                            ✕
+                            âœ•
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -4571,7 +4573,7 @@ const WNBAGameDetailsScreen = ({ route }) => {
                         { color: colors.primary },
                       ]}
                     >
-                      ×
+                      Ã—
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -4794,7 +4796,10 @@ const WNBAGameDetailsScreen = ({ route }) => {
         )}
       </ScrollView>
 
-      {/* Floating Chat Button */}
+      
+      {isLoggedIn && (
+        <>
+          {/* Floating Chat Button */}
       <TouchableOpacity
         style={[styles.floatingChatButton, { backgroundColor: colors.primary }]}
         onPress={() => setChatModalVisible(true)}
@@ -4862,6 +4867,9 @@ const WNBAGameDetailsScreen = ({ route }) => {
           </View>
         </View>
       </Modal>
+        </>
+      )}
+
     </View>
   );
 };
@@ -6778,3 +6786,5 @@ const styles = StyleSheet.create({
 });
 
 export default WNBAGameDetailsScreen;
+
+

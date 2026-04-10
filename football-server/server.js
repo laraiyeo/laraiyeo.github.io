@@ -22,6 +22,7 @@ app.use(express.json());
 const pushToStartTokens = new Map();
 // Optional persisted mapping files (for simple persistence; replace with Redis/DB in production)
 const path = require("path");
+const { group } = require("console");
 const PUSH_TOKENS_FILE = path.join(__dirname, "push_to_start_tokens.json");
 const FIXTURE_TOKENS_FILE = path.join(__dirname, "fixture_push_tokens.json");
 const ACTIVITY_TOKENS_FILE = path.join(__dirname, "activity_push_tokens.json");
@@ -1014,6 +1015,7 @@ function transformLeagueResponse(combined) {
             form: f.form ?? null,
           }))
         : [],
+      group: entry.group.name ?? null,
     });
   }
   const standings = Array.from(stageMap.values());

@@ -53,7 +53,7 @@ const BetSettingsScreen = ({ navigation }) => {
         value,
         "(context:",
         !!oddsContext,
-        ")"
+        ")",
       );
       if (oddsContext && oddsContext.setOddsDisplay) {
         oddsContext.setOddsDisplay(value);
@@ -154,7 +154,7 @@ const BetSettingsScreen = ({ navigation }) => {
         // silent fail
         console.warn(
           "BetSettings: silent profile refresh failed",
-          e?.message || e
+          e?.message || e,
         );
       }
     });
@@ -280,7 +280,7 @@ const BetSettingsScreen = ({ navigation }) => {
             "claimedArr=",
             claimedArr,
             "availableDay=",
-            avail
+            avail,
           );
         }
         setDailyState({ ...(state || {}), canClaim });
@@ -292,7 +292,7 @@ const BetSettingsScreen = ({ navigation }) => {
       } else {
         console.warn(
           "handleClaimDaily: claim did not succeed, keeping modal open",
-          claimRes && claimRes.error
+          claimRes && claimRes.error,
         );
       }
     } catch (e) {
@@ -331,7 +331,7 @@ const BetSettingsScreen = ({ navigation }) => {
             const nextDate = new Date(state.nextAvailableAt);
             nextDiff = Math.max(
               0,
-              Math.round((nextDate.getTime() - Date.now()) / 1000)
+              Math.round((nextDate.getTime() - Date.now()) / 1000),
             );
           } catch (e) {
             nextDiff = null;
@@ -347,7 +347,7 @@ const BetSettingsScreen = ({ navigation }) => {
           "availableDay=",
           avail,
           "nextAvailableInSec=",
-          nextDiff
+          nextDiff,
         );
         // Prefer server `canClaim` but allow computed availability to override an inconsistent false
         const canClaim =
@@ -381,7 +381,7 @@ const BetSettingsScreen = ({ navigation }) => {
           if (diff <= 0) return "Available";
           const days = Math.floor(diff / (24 * 60 * 60 * 1000));
           const hours = Math.floor(
-            (diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000)
+            (diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000),
           );
           const mins = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
           const secs = Math.floor((diff % (60 * 1000)) / 1000);
@@ -437,7 +437,7 @@ const BetSettingsScreen = ({ navigation }) => {
         // If profile already grants Pro, skip RevenueCat initialization
         if (isPro) {
           console.log(
-            "BetSettings: skipping RevenueCat init because user is Pro from profile"
+            "BetSettings: skipping RevenueCat init because user is Pro from profile",
           );
           if (mounted) setPurchasesAvailable(false);
           return;
@@ -446,12 +446,12 @@ const BetSettingsScreen = ({ navigation }) => {
         // Use our helper with the iOS SDK key (test key for debugging)
         const initRes = await initPurchases(
           "appl_mdoICWLxVPeKJjUzLbFUKhMrXAT",
-          supabaseUserId
+          supabaseUserId,
         );
         if (!initRes || !initRes.ok) {
           console.warn(
             "RevenueCat init failed or skipped",
-            initRes && initRes.error
+            initRes && initRes.error,
           );
           if (mounted) setPurchasesAvailable(false);
           // capture debug info
@@ -469,7 +469,7 @@ const BetSettingsScreen = ({ navigation }) => {
         // Retry once if first fetch returns null (SDK still syncing)
         if (!offerings) {
           console.log(
-            "RevenueCat: first fetch returned null, retrying after delay..."
+            "RevenueCat: first fetch returned null, retrying after delay...",
           );
           await new Promise((resolve) => setTimeout(resolve, 1500));
           offerings = await getOfferings();
@@ -515,7 +515,7 @@ const BetSettingsScreen = ({ navigation }) => {
             null;
           const lifetime =
             pkgs.find((p) =>
-              /life|lifetime|forever|permanent/i.test(p.product.identifier)
+              /life|lifetime|forever|permanent/i.test(p.product.identifier),
             ) ||
             pkgs.find((p) => /non.?renew/i.test(p.product.identifier)) ||
             pkgs.find((p) => p.packageType === "LIFETIME") ||
@@ -553,7 +553,7 @@ const BetSettingsScreen = ({ navigation }) => {
       try {
         const initRes = await initPurchases(
           "appl_mdoICWLxVPeKJjUzLbFUKhMrXAT",
-          supabaseUserId
+          supabaseUserId,
         );
         out.initRes = initRes;
         // Small delay to allow SDK to sync
@@ -592,10 +592,10 @@ const BetSettingsScreen = ({ navigation }) => {
         const pid = profileMeta?.id || supabaseUserId || null;
         if (pid) {
           const respRaw = await AsyncStorage.getItem(
-            `@daily_claim_last_response_${pid}`
+            `@daily_claim_last_response_${pid}`,
           );
           const supRaw = await AsyncStorage.getItem(
-            `@daily_claim_last_supabase_${pid}`
+            `@daily_claim_last_supabase_${pid}`,
           );
           out.dailyClaimDiagnostics = {
             serverResponse: respRaw ? JSON.parse(respRaw) : null,
@@ -631,7 +631,7 @@ const BetSettingsScreen = ({ navigation }) => {
       } catch (e) {
         Alert.alert(
           "Purchases not available",
-          "Native Purchases SDK is not installed. See setup instructions."
+          "Native Purchases SDK is not installed. See setup instructions.",
         );
         return;
       }
@@ -649,7 +649,7 @@ const BetSettingsScreen = ({ navigation }) => {
       console.log("Purchase result", purchaseResult);
       Alert.alert(
         "Purchase successful",
-        "Thank you — your subscription is now active."
+        "Thank you — your subscription is now active.",
       );
       // Refresh profile from server to pick up pro status
       try {
@@ -660,7 +660,7 @@ const BetSettingsScreen = ({ navigation }) => {
           try {
             await AsyncStorage.setItem(
               "@is_pro",
-              refreshed.profile.is_pro ? "1" : "0"
+              refreshed.profile.is_pro ? "1" : "0",
             );
             // update context quickly so UI updates immediately
             try {
@@ -693,7 +693,7 @@ const BetSettingsScreen = ({ navigation }) => {
           try {
             await AsyncStorage.setItem(
               "@is_pro",
-              refreshed.profile.is_pro ? "1" : "0"
+              refreshed.profile.is_pro ? "1" : "0",
             );
             // update context quickly so UI updates immediately
             try {
@@ -800,7 +800,7 @@ const BetSettingsScreen = ({ navigation }) => {
                 try {
                   await AsyncStorage.setItem(
                     "@is_pro",
-                    profileRow.is_pro ? "1" : "0"
+                    profileRow.is_pro ? "1" : "0",
                   );
                   if (setIsPro) setIsPro(!!profileRow.is_pro);
                 } catch (e) {}
@@ -821,7 +821,7 @@ const BetSettingsScreen = ({ navigation }) => {
                 } catch (e) {}
               } else {
                 console.warn(
-                  "promo redeem: could not refresh profile (no user id and no server profile)"
+                  "promo redeem: could not refresh profile (no user id and no server profile)",
                 );
               }
             } else if (json && json.profile) {
@@ -835,7 +835,7 @@ const BetSettingsScreen = ({ navigation }) => {
               }));
             } else {
               console.warn(
-                "promo redeem: could not determine current user id to refresh profile"
+                "promo redeem: could not determine current user id to refresh profile",
               );
             }
           } catch (e) {
@@ -947,7 +947,7 @@ const BetSettingsScreen = ({ navigation }) => {
                             day: "numeric",
                             year: "numeric",
                             timeZone: "America/New_York",
-                          }
+                          },
                         )
                       : ""}
                   </Text>
@@ -960,7 +960,7 @@ const BetSettingsScreen = ({ navigation }) => {
                             minute: "2-digit",
                             hour12: true,
                             timeZone: "America/New_York",
-                          }
+                          },
                         ) + " EST"
                       : ""}
                   </Text>
@@ -1162,232 +1162,6 @@ const BetSettingsScreen = ({ navigation }) => {
               <Text style={styles.openSettingsButtonText}>Info</Text>
             </TouchableOpacity>
           </View>
-        </View>
-
-        <View
-          style={[
-            styles.section,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          <View
-            style={[styles.sectionHeader, { borderBottomColor: theme.border }]}
-          >
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>
-              Get Pro
-            </Text>
-          </View>
-          {profile && profile.is_pro ? (
-            <View
-              style={{
-                padding: 12,
-                borderTopWidth: 1,
-                borderTopColor: theme.border,
-              }}
-            >
-              {/* Show Pro product id (capitalized) and expiry if available */}
-              {(() => {
-                const prodRaw =
-                  (profileMeta && profileMeta.pro_product_id) ||
-                  (profile && profile.pro_product_id) ||
-                  null;
-                const prodName = prodRaw
-                  ? String(prodRaw).charAt(0).toUpperCase() +
-                    String(prodRaw).slice(1)
-                  : "SportsHeart Pro";
-                const expiresRaw =
-                  (profileMeta && profileMeta.pro_expires_at) ||
-                  (profile && profile.pro_expires_at) ||
-                  null;
-                const expiresLabel = formatProExpiry(expiresRaw);
-                return (
-                  <>
-                    <Text style={[styles.settingLabel, { color: theme.text }]}>
-                      {prodName} - SportsHeart Pro
-                    </Text>
-                    {prodName ? (
-                      <Text
-                        style={{ color: theme.textSecondary, marginTop: 8 }}
-                      >
-                        {expiresLabel}
-                      </Text>
-                    ) : null}
-                    <Text style={{ color: theme.textSecondary, marginTop: 10 }}>
-                      Thank you for supporting SportsHeart ❤
-                    </Text>
-                  </>
-                );
-              })()}
-            </View>
-          ) : (
-            <>
-              <View style={styles.settingRow}>
-                <View style={styles.settingInfo}>
-                  <Text style={[styles.settingLabel, { color: theme.text }]}>
-                    SportsHeart Pro
-                  </Text>
-                  <Text
-                    style={[
-                      styles.settingDescription,
-                      { color: theme.textSecondary },
-                    ]}
-                  >
-                    Unlock premium features: no ads, advanced analytics, and
-                    more.
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => setProModalVisible(true)}
-                  style={[
-                    styles.openSettingsButton,
-                    { backgroundColor: colors.primary, minWidth: 100 },
-                  ]}
-                >
-                  <Text style={styles.openSettingsButtonText}>Get Pro</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View
-                style={{
-                  padding: 12,
-                  borderTopWidth: 1,
-                  borderTopColor: theme.border,
-                }}
-              >
-                <Text
-                  style={[
-                    styles.settingLabel,
-                    { color: theme.text, marginBottom: 8 },
-                  ]}
-                >
-                  Have a promo code?
-                </Text>
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <TouchableOpacity
-                    onPress={() => setPromoModalVisible(true)}
-                    style={[
-                      styles.openSettingsButton,
-                      { backgroundColor: colors.primary, paddingVertical: 10 },
-                    ]}
-                  >
-                    <Text style={styles.openSettingsButtonText}>
-                      Enter Promo Code
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Promo modal (floating) */}
-                <Modal
-                  visible={promoModalVisible}
-                  animationType="fade"
-                  transparent
-                  onRequestClose={() => setPromoModalVisible(false)}
-                >
-                  <View style={styles.modalOverlay}>
-                    <View
-                      style={[
-                        styles.modalContent,
-                        {
-                          padding: 18,
-                          maxWidth: 420,
-                          backgroundColor: theme.surface,
-                          borderColor: theme.border,
-                        },
-                      ]}
-                    >
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginBottom: 12,
-                        }}
-                      >
-                        <Text style={{ color: theme.text, fontWeight: "700" }}>
-                          Enter Promo Code
-                        </Text>
-                        <TouchableOpacity
-                          onPress={() => setPromoModalVisible(false)}
-                        >
-                          <Text
-                            style={{ color: colors.primary, fontWeight: "700" }}
-                          >
-                            Close
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-
-                      <TextInput
-                        value={promoCodeInput}
-                        onChangeText={setPromoCodeInput}
-                        placeholder="Enter promo code"
-                        placeholderTextColor={theme.textSecondary}
-                        style={{
-                          paddingVertical: 12,
-                          paddingHorizontal: 12,
-                          borderRadius: 8,
-                          borderWidth: 1,
-                          borderColor: theme.border,
-                          color: theme.text,
-                        }}
-                      />
-
-                      {redeemMessage ? (
-                        <Text
-                          style={{ color: theme.textSecondary, marginTop: 8 }}
-                        >
-                          {redeemMessage}
-                        </Text>
-                      ) : null}
-
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          justifyContent: "flex-end",
-                          marginTop: 12,
-                        }}
-                      >
-                        <TouchableOpacity
-                          onPress={() => setPromoModalVisible(false)}
-                          style={[
-                            styles.dailySecondaryButton,
-                            { marginRight: 8 },
-                          ]}
-                        >
-                          <Text style={styles.dailySecondaryText}>Cancel</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          onPress={handleRedeemPromo}
-                          disabled={redeemLoading}
-                          style={[
-                            styles.openSettingsButton,
-                            {
-                              backgroundColor: colors.primary,
-                              paddingVertical: 10,
-                            },
-                          ]}
-                        >
-                          {redeemLoading ? (
-                            <ActivityIndicator color="#fff" />
-                          ) : (
-                            <Text style={styles.openSettingsButtonText}>
-                              Redeem
-                            </Text>
-                          )}
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </View>
-                </Modal>
-                {redeemMessage ? (
-                  <Text style={{ color: theme.textSecondary, marginTop: 8 }}>
-                    {redeemMessage}
-                  </Text>
-                ) : null}
-              </View>
-            </>
-          )}
         </View>
       </View>
 
@@ -1615,7 +1389,7 @@ const BetSettingsScreen = ({ navigation }) => {
                       width: 50,
                       height: 50,
                       resizeMode: "contain",
-                      shadowColor: "#000",
+                      shadowColor: "#000000",
                       shadowOpacity: 1,
                       shadowRadius: 5,
                       shadowOffset: { width: 0, height: 2 },
@@ -1864,8 +1638,8 @@ const BetSettingsScreen = ({ navigation }) => {
                           ? "750.00 C"
                           : "250.00 C"
                         : isPro
-                        ? "1,500.00 C"
-                        : "1,000.00 C"}
+                          ? "1,500.00 C"
+                          : "1,000.00 C"}
                     </Text>
                     {claimed ? (
                       <View

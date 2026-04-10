@@ -33,15 +33,30 @@ import Svg, {
 import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 import WBCService from "../../services/WBCService";
 import { useGamePresence } from "../../hooks/useGamePresence";
 import { useStreamingAccess } from "../../utils/streamingUtils";
+import ChatComponent from "../../components/ChatComponent";
+import useIsLoggedIn from "../../hooks/useIsLoggedIn";
 import { WebView } from "react-native-webview";
 import { useNavigation } from "@react-navigation/native";
 
 const { width } = Dimensions.get("window");
 const SCREEN_SPORT = "mlb";
+const RUN_IT_BACK_INTRO_KEY = "mlb_run_it_back_intro_skip_v1";
+const RUN_IT_BACK_BASE_STEP_MS = 3000;
+const RUN_IT_BACK_SPEED_OPTIONS = [
+  { label: "0.5x", value: 0.5 },
+  { label: "1x", value: 1 },
+  { label: "1.5x", value: 1.5 },
+  { label: "2x", value: 2 },
+  { label: "Reverse 0.5x", value: -0.5 },
+  { label: "Reverse 1x", value: -1 },
+  { label: "Reverse 1.5x", value: -1.5 },
+  { label: "Reverse 2x", value: -2 },
+];
 
 // ─── Ordinal helper ───────────────────────────────────────────────────────────
 const toOrdinal = (n) => {
@@ -5491,21 +5506,39 @@ const fmtGameTime = (isoString) => {
 };
 
 // ─── Center status badge ──────────────────────────────────────────────────────
-const StatusBadge = ({ status, linescore, gameDateTime, theme }) => {
+const StatusBadge = ({
+  status,
+  linescore,
+  gameDateTime,
+  theme,
+  replayActive = false,
+  replayPlay = null,
+}) => {
   const state = status?.detailedState || "";
-  const isLive = !["S", "P", "D", "C", "O", "F", "Q", "R"].includes(
+  const isLiveBase = !["S", "P", "D", "C", "O", "F", "Q", "R"].includes(
     status?.codedGameState,
   );
-  const inning = linescore?.currentInning;
+  const isLive = replayActive || isLiveBase;
+  const inning = replayActive
+    ? replayPlay?.about?.inning
+    : linescore?.currentInning;
   const inningState = linescore?.inningState;
   const gameTimeStr = fmtGameTime(gameDateTime);
+  const replayOuts = replayPlay?.count?.outs ?? null;
+  const replayIsTop = replayPlay?.about?.isTopInning !== false;
 
   let topLabel = state;
   let bottomLabel = "";
 
   if (isLive && inning) {
-    topLabel = state.startsWith("In Progress") ? "In Progress" : state;
-    bottomLabel = "";
+    topLabel = replayActive
+      ? "Replay"
+      : state.startsWith("In Progress")
+        ? "In Progress"
+        : state;
+    bottomLabel = replayActive
+      ? `${replayOuts ?? 0} out${(replayOuts ?? 0) === 1 ? "" : "s"}`
+      : "";
   } else if (state === "Final") {
     topLabel = `Final${inning !== 9 ? `/${inning}` : ""}`;
   }
@@ -5514,10 +5547,17 @@ const StatusBadge = ({ status, linescore, gameDateTime, theme }) => {
     <View style={styles.statusBadge}>
       {isLive && inning != null && (
         <Text style={[styles.inningLabel, { color: theme.text }]}>
-          {linescore?.isTopInning === false ? "Bot" : "Top"} {toOrdinal(inning)}
+          {replayActive
+            ? replayIsTop
+              ? "Top"
+              : "Bot"
+            : linescore?.isTopInning === false
+              ? "Bot"
+              : "Top"}{" "}
+          {toOrdinal(inning)}
         </Text>
       )}
-      {!isLive && !!gameTimeStr && (
+      {!isLive && !!gameTimeStr && !replayActive && (
         <Text
           style={[styles.gameTimeLabel, { color: theme.text }]}
           numberOfLines={1}
@@ -6924,6 +6964,7 @@ const CurrentAtBatBubble = ({
   homeColor,
   animTrigger,
   onPlayerPress,
+  hideNextHitters = false,
   theme,
 }) => {
   if (!currentPlay) return null;
@@ -7260,7 +7301,7 @@ const CurrentAtBatBubble = ({
       )}
 
       {/* ── On Deck / In Hole ── */}
-      {(!!onDeckId || !!inHoleId) && (
+      {!hideNextHitters && (!!onDeckId || !!inHoleId) && (
         <View style={[cabStyles.nextRow, { borderTopColor: theme.border }]}>
           {[
             { id: onDeckId, info: onDeckInfo, label: "On Deck" },
@@ -7737,6 +7778,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [chatModalVisible, setChatModalVisible] = useState(false);
+  const isLoggedIn = useIsLoggedIn();
   const { viewerData, isJoined } = useGamePresence(gamePk);
 
   // Streaming state
@@ -7746,6 +7789,31 @@ const GameDetailsScreen = ({ navigation, route }) => {
   const [streamUrl, setStreamUrl] = useState("");
   const [isStreamLoading, setIsStreamLoading] = useState(true);
   const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
+
+  const [runItBackActive, setRunItBackActive] = useState(false);
+  const [runItBackPaused, setRunItBackPaused] = useState(false);
+  const [runItBackSpeed, setRunItBackSpeed] = useState(1);
+  const [runItBackCursor, setRunItBackCursor] = useState(0);
+  const [runItBackIntroVisible, setRunItBackIntroVisible] = useState(false);
+  const [runItBackSkipIntro, setRunItBackSkipIntro] = useState(false);
+  const [runItBackDontShowAgain, setRunItBackDontShowAgain] = useState(false);
+  const [runItBackSpeedPopupVisible, setRunItBackSpeedPopupVisible] =
+    useState(false);
+  const [runItBackInningPopupVisible, setRunItBackInningPopupVisible] =
+    useState(false);
+  const [runItBackEntityPopupVisible, setRunItBackEntityPopupVisible] =
+    useState(false);
+  const [runItBackResumeOnPopupClose, setRunItBackResumeOnPopupClose] =
+    useState(false);
+  const [runItBackSelectedInnings, setRunItBackSelectedInnings] = useState(
+    new Set(),
+  );
+  const [runItBackSelectedTeamIds, setRunItBackSelectedTeamIds] = useState(
+    new Set(),
+  );
+  const [runItBackSelectedPlayerIds, setRunItBackSelectedPlayerIds] = useState(
+    new Set(),
+  );
 
   // Mirror streamModalVisible into a ref so the polling interval can check it
   // without a stale closure (same pattern as feedRef below).
@@ -7761,6 +7829,23 @@ const GameDetailsScreen = ({ navigation, route }) => {
   useEffect(() => {
     feedRef.current = feed;
   }, [feed]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(RUN_IT_BACK_INTRO_KEY);
+        if (mounted) setRunItBackSkipIntro(raw === "1");
+      } catch (e) {
+        if (global?.__DEV__) {
+          console.log("[GameDetails] run-it-back intro pref read failed", e);
+        }
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const loadFeed = useCallback(
     async (silent = false) => {
@@ -7799,11 +7884,12 @@ const GameDetailsScreen = ({ navigation, route }) => {
         return;
       }
       if (streamModalVisibleRef.current) return;
+      if (runItBackActive) return;
       loadFeed(true);
     }, 5000);
 
     return () => clearInterval(intervalId);
-  }, [gamePk, loadFeed]);
+  }, [gamePk, loadFeed, runItBackActive]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -7894,9 +7980,373 @@ const GameDetailsScreen = ({ navigation, route }) => {
   const bsHomeTeam = boxscore?.teams?.home ?? null;
   const allPlays = feed?.liveData?.plays?.allPlays ?? [];
 
+  const runItBackAllInnings = runItBackSelectedInnings.size === 0;
+  const runItBackAllTeams = runItBackSelectedTeamIds.size === 0;
+  const runItBackAllPlayers = runItBackSelectedPlayerIds.size === 0;
+
+  const runItBackPlayMatchesEntityFilters = useCallback(
+    (play) => {
+      if (!play) return false;
+      const isTop = play?.about?.isTopInning !== false;
+      const battingTeamId = Number(isTop ? awayTeam?.id : homeTeam?.id);
+      const batterId = Number(play?.matchup?.batter?.id);
+      const pitcherId = Number(play?.matchup?.pitcher?.id);
+
+      const teamMatch =
+        runItBackAllTeams || runItBackSelectedTeamIds.has(battingTeamId);
+      const playerMatch =
+        runItBackAllPlayers ||
+        runItBackSelectedPlayerIds.has(batterId) ||
+        runItBackSelectedPlayerIds.has(pitcherId);
+
+      if (!runItBackAllTeams && !runItBackAllPlayers) return teamMatch || playerMatch;
+      if (!runItBackAllTeams) return teamMatch;
+      if (!runItBackAllPlayers) return playerMatch;
+      return true;
+    },
+    [
+      awayTeam?.id,
+      homeTeam?.id,
+      runItBackAllPlayers,
+      runItBackAllTeams,
+      runItBackSelectedPlayerIds,
+      runItBackSelectedTeamIds,
+    ],
+  );
+
+  const runItBackAvailableInnings = useMemo(
+    () =>
+      [...new Set((allPlays ?? [])
+        .filter(runItBackPlayMatchesEntityFilters)
+        .map((p) => p?.about?.inning)
+        .filter(Boolean))]
+        .map(Number)
+        .sort((a, b) => a - b),
+    [allPlays, runItBackPlayMatchesEntityFilters],
+  );
+
+  const runItBackSelectablePlayers = useMemo(() => {
+    const out = [];
+    const seen = new Set();
+    const pushTeamPlayers = (teamKey, teamObj) => {
+      const teamPlayers = boxscore?.teams?.[teamKey]?.players ?? {};
+      Object.entries(teamPlayers).forEach(([k, bsPlayer]) => {
+        const id = Number(String(k).replace("ID", ""));
+        if (!id || seen.has(id)) return;
+        seen.add(id);
+        const pInfo = resolvePlayer(playersMap, id);
+        out.push({
+          id,
+          fullName: pInfo?.fullName ?? `Player ${id}`,
+          teamId: teamObj?.id,
+          teamName: teamObj?.name ?? teamKey,
+          jerseyNumber: bsPlayer?.jerseyNumber ?? "",
+        });
+      });
+    };
+    pushTeamPlayers("away", awayTeam);
+    pushTeamPlayers("home", homeTeam);
+    return out.sort((a, b) => a.fullName.localeCompare(b.fullName));
+  }, [boxscore, playersMap, awayTeam, homeTeam]);
+
+  const runItBackPlayMatchesFilters = useCallback(
+    (play) => {
+      if (!play) return false;
+      const inning = Number(play?.about?.inning);
+      const isTop = play?.about?.isTopInning !== false;
+      const battingTeamId = Number(isTop ? awayTeam?.id : homeTeam?.id);
+      const batterId = Number(play?.matchup?.batter?.id);
+      const pitcherId = Number(play?.matchup?.pitcher?.id);
+
+      const inningMatch =
+        runItBackAllInnings || runItBackSelectedInnings.has(inning);
+      if (!inningMatch) return false;
+      return runItBackPlayMatchesEntityFilters(play);
+    },
+    [
+      runItBackAllInnings,
+      runItBackPlayMatchesEntityFilters,
+      runItBackSelectedInnings,
+    ],
+  );
+
+  const runItBackFilteredPlays = useMemo(
+    () => (allPlays ?? []).filter(runItBackPlayMatchesFilters),
+    [allPlays, runItBackPlayMatchesFilters],
+  );
+
+  // Build replay frames at pitch granularity so playback advances inside at-bats.
+  const runItBackFrames = useMemo(() => {
+    const frames = [];
+    runItBackFilteredPlays.forEach((play, playIndex) => {
+      const events = play?.playEvents ?? [];
+      const pitchEventIndexes = events
+        .map((e, i) =>
+          e?.pitchData?.coordinates?.pX != null ||
+          e?.pitchData?.coordinates?.pY != null
+            ? i
+            : -1,
+        )
+        .filter((i) => i >= 0);
+
+      if (pitchEventIndexes.length === 0) {
+        frames.push({
+          playIndex,
+          eventIndex: events.length > 0 ? events.length - 1 : -1,
+        });
+        return;
+      }
+
+      pitchEventIndexes.forEach((eventIndex) => {
+        frames.push({ playIndex, eventIndex });
+      });
+    });
+    return frames;
+  }, [runItBackFilteredPlays]);
+
+  const runItBackMaxCursor = Math.max(0, runItBackFrames.length - 1);
+  const replayCursor = Math.min(runItBackCursor, runItBackMaxCursor);
+  const runItBackCurrentFrame = runItBackFrames[replayCursor] ?? null;
+
+  const runItBackCurrentPlay = useMemo(() => {
+    if (!runItBackCurrentFrame) return null;
+    const basePlay = runItBackFilteredPlays[runItBackCurrentFrame.playIndex];
+    if (!basePlay) return null;
+    if (runItBackCurrentFrame.eventIndex < 0) return basePlay;
+
+    const playEvents = (basePlay.playEvents ?? []).slice(
+      0,
+      runItBackCurrentFrame.eventIndex + 1,
+    );
+    const lastPitch = [...playEvents]
+      .reverse()
+      .find((e) => e?.pitchData?.coordinates?.pX != null);
+
+    return {
+      ...basePlay,
+      playEvents,
+      count: lastPitch?.count ?? basePlay?.count,
+    };
+  }, [runItBackCurrentFrame, runItBackFilteredPlays]);
+
+  const displayedPlays = useMemo(() => {
+    if (!runItBackActive) return allPlays;
+    if (!runItBackCurrentFrame) return [];
+    const prevPlays = runItBackFilteredPlays.slice(
+      0,
+      runItBackCurrentFrame.playIndex,
+    );
+    return [...prevPlays, ...(runItBackCurrentPlay ? [runItBackCurrentPlay] : [])];
+  }, [
+    allPlays,
+    runItBackActive,
+    runItBackCurrentFrame,
+    runItBackCurrentPlay,
+    runItBackFilteredPlays,
+  ]);
+
+  const displayedCurrentPlay = runItBackActive
+    ? runItBackCurrentPlay
+    : currentPlay;
+
+  const displayedAwayScore =
+    runItBackActive && displayedCurrentPlay?.result?.awayScore != null
+      ? displayedCurrentPlay.result.awayScore
+      : awayScore;
+  const displayedHomeScore =
+    runItBackActive && displayedCurrentPlay?.result?.homeScore != null
+      ? displayedCurrentPlay.result.homeScore
+      : homeScore;
+
+  const displayedHomeWinner =
+    displayedHomeScore != null &&
+    displayedAwayScore != null &&
+    displayedHomeScore > displayedAwayScore;
+  const displayedAwayWinner =
+    displayedHomeScore != null &&
+    displayedAwayScore != null &&
+    displayedAwayScore > displayedHomeScore;
+
+  useEffect(() => {
+    if (!runItBackActive) return;
+    if (runItBackFrames.length === 0) {
+      setRunItBackCursor(0);
+      setRunItBackPaused(true);
+      return;
+    }
+    // Any filter/data timeline change should restart at the first frame.
+    setRunItBackCursor(0);
+  }, [runItBackActive, runItBackFrames]);
+
+  useEffect(() => {
+    if (!runItBackActive || runItBackPaused) return;
+    if (runItBackFrames.length <= 1) return;
+
+    const stepMs = Math.max(350, RUN_IT_BACK_BASE_STEP_MS / Math.abs(runItBackSpeed));
+    const direction = runItBackSpeed < 0 ? -1 : 1;
+    const id = setInterval(() => {
+      setRunItBackCursor((prev) => {
+        const next = prev + direction;
+        if (next < 0) {
+          setRunItBackPaused(true);
+          return 0;
+        }
+        if (next > runItBackFrames.length - 1) {
+          setRunItBackPaused(true);
+          return runItBackFrames.length - 1;
+        }
+        return next;
+      });
+    }, stepMs);
+
+    return () => clearInterval(id);
+  }, [
+    runItBackActive,
+    runItBackFrames.length,
+    runItBackPaused,
+    runItBackSpeed,
+  ]);
+
+  const closeRunItBackPopups = useCallback((allowResume = true) => {
+    setRunItBackSpeedPopupVisible(false);
+    setRunItBackInningPopupVisible(false);
+    setRunItBackEntityPopupVisible(false);
+    if (allowResume && runItBackActive && runItBackResumeOnPopupClose) {
+      setRunItBackPaused(false);
+    }
+    setRunItBackResumeOnPopupClose(false);
+  }, [runItBackActive, runItBackResumeOnPopupClose]);
+
+  const startRunItBack = useCallback(() => {
+    if (!allPlays?.length) {
+      Alert.alert("No Plays Yet", "Run It Back is available once plays are recorded.");
+      return;
+    }
+    setRunItBackActive(true);
+    setRunItBackPaused(false);
+    setRunItBackSpeed(1);
+    setRunItBackCursor(0);
+    closeRunItBackPopups();
+    setRunItBackIntroVisible(false);
+  }, [allPlays, closeRunItBackPopups]);
+
+  const stopRunItBack = useCallback(() => {
+    setRunItBackActive(false);
+    setRunItBackPaused(false);
+    setRunItBackCursor(0);
+    setRunItBackResumeOnPopupClose(false);
+    closeRunItBackPopups();
+  }, [closeRunItBackPopups]);
+
+  const handleRunItBackPress = useCallback(
+    (forceIntro = false) => {
+      setRunItBackPaused(true);
+      if (!forceIntro && runItBackSkipIntro) {
+        startRunItBack();
+        return;
+      }
+      setRunItBackDontShowAgain(runItBackSkipIntro);
+      closeRunItBackPopups();
+      setRunItBackIntroVisible(true);
+    },
+    [closeRunItBackPopups, runItBackSkipIntro, startRunItBack],
+  );
+
+  const handleRunItBackContinue = useCallback(async () => {
+    try {
+      await AsyncStorage.setItem(
+        RUN_IT_BACK_INTRO_KEY,
+        runItBackDontShowAgain ? "1" : "0",
+      );
+      setRunItBackSkipIntro(runItBackDontShowAgain);
+    } catch (e) {
+      if (global?.__DEV__) {
+        console.log("[GameDetails] run-it-back intro pref save failed", e);
+      }
+    }
+    startRunItBack();
+  }, [runItBackDontShowAgain, startRunItBack]);
+
+  const openRunItBackSpeed = useCallback(() => {
+    setRunItBackResumeOnPopupClose(!runItBackPaused);
+    setRunItBackPaused(true);
+    setRunItBackSpeedPopupVisible(true);
+    setRunItBackInningPopupVisible(false);
+    setRunItBackEntityPopupVisible(false);
+  }, [runItBackPaused]);
+
+  const openRunItBackInnings = useCallback(() => {
+    setRunItBackResumeOnPopupClose(!runItBackPaused);
+    setRunItBackPaused(true);
+    setRunItBackInningPopupVisible(true);
+    setRunItBackSpeedPopupVisible(false);
+    setRunItBackEntityPopupVisible(false);
+  }, [runItBackPaused]);
+
+  const openRunItBackEntities = useCallback(() => {
+    setRunItBackResumeOnPopupClose(!runItBackPaused);
+    setRunItBackPaused(true);
+    setRunItBackEntityPopupVisible(true);
+    setRunItBackSpeedPopupVisible(false);
+    setRunItBackInningPopupVisible(false);
+  }, [runItBackPaused]);
+
+  const toggleRunItBackInning = useCallback((inning) => {
+    setRunItBackSelectedInnings((prev) => {
+      const next = new Set(prev);
+      if (next.has(inning)) next.delete(inning);
+      else next.add(inning);
+      return next;
+    });
+  }, []);
+
+  const toggleRunItBackTeam = useCallback((teamId) => {
+    setRunItBackSelectedTeamIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(teamId)) next.delete(teamId);
+      else next.add(teamId);
+      if (next.size >= 2) return new Set();
+      return next;
+    });
+  }, []);
+
+  const toggleRunItBackPlayer = useCallback(
+    (playerId) => {
+      setRunItBackSelectedPlayerIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(playerId)) next.delete(playerId);
+        else next.add(playerId);
+        if (runItBackSelectablePlayers.length > 0) {
+          const allIds = new Set(runItBackSelectablePlayers.map((p) => p.id));
+          const allSelected =
+            next.size > 0 &&
+            next.size === allIds.size &&
+            [...allIds].every((id) => next.has(id));
+          if (allSelected) return new Set();
+        }
+        return next;
+      });
+    },
+    [runItBackSelectablePlayers],
+  );
+
+  const runItBackSpeedBadge = `${runItBackSpeed < 0 ? "R" : ""}${Math.abs(runItBackSpeed)}x`;
+
   const venueRaw = gameData?.venue ?? null;
   const venue =
     typeof venueRaw === "string" ? venueRaw : (venueRaw?.name ?? null);
+  const chatGameData = useMemo(() => {
+    const fallbackDate =
+      gameData?.datetime?.dateTime ??
+      gameData?.datetime?.originalDate ??
+      gameData?.datetime?.officialDate ??
+      null;
+    return {
+      ...(feed ?? {}),
+      gameDate: feed?.gameDate ?? fallbackDate,
+      date: feed?.date ?? fallbackDate,
+    };
+  }, [feed, gameData?.datetime?.dateTime, gameData?.datetime?.officialDate, gameData?.datetime?.originalDate]);
 
   // ── Streaming helpers ──────────────────────────────────────────────────────
   const STREAM_API_BASE = "https://streamed.pk/api";
@@ -8264,8 +8714,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
             <TeamColumn
               status={status}
               team={awayTeam}
-              score={awayScore}
-              isWinner={awayWinner}
+              score={displayedAwayScore}
+              isWinner={runItBackActive ? displayedAwayWinner : awayWinner}
               side="away"
               isDarkMode={isDarkMode}
               theme={theme}
@@ -8285,6 +8735,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
                 linescore={linescore}
                 gameDateTime={gameDateTime}
                 theme={theme}
+                replayActive={runItBackActive}
+                replayPlay={displayedCurrentPlay}
               />
 
               {/* Live Stream Button — sits below the status badge in the centre column */}
@@ -8314,8 +8766,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
             <TeamColumn
               status={status}
               team={homeTeam}
-              score={homeScore}
-              isWinner={homeWinner}
+              score={displayedHomeScore}
+              isWinner={runItBackActive ? displayedHomeWinner : homeWinner}
               side="home"
               isDarkMode={isDarkMode}
               theme={theme}
@@ -8363,31 +8815,37 @@ const GameDetailsScreen = ({ navigation, route }) => {
                 style={[
                   styles.miniScore,
                   {
-                    color: awayWinner ? theme.text : theme.textSecondary,
-                    fontWeight: awayWinner ? "800" : "500",
+                    color:
+                      (runItBackActive ? displayedAwayWinner : awayWinner)
+                        ? theme.text
+                        : theme.textSecondary,
+                    fontWeight:
+                      (runItBackActive ? displayedAwayWinner : awayWinner)
+                        ? "800"
+                        : "500",
                   },
                 ]}
               >
-                {awayScore ?? ""}
+                {displayedAwayScore ?? ""}
               </Text>
             </View>
             {/* Status */}
             <View style={styles.miniStatusBlock}>
               {(() => {
-                const isLive = ![
-                  "S",
-                  "P",
-                  "D",
-                  "C",
-                  "O",
-                  "F",
-                  "Q",
-                  "R",
-                ].includes(status?.codedGameState);
-                const inning = linescore?.currentInning;
-                const isTop = linescore?.isTopInning !== false;
+                const isLive =
+                  runItBackActive ||
+                  !["S", "P", "D", "C", "O", "F", "Q", "R"].includes(
+                    status?.codedGameState,
+                  );
+                const inning = runItBackActive
+                  ? displayedCurrentPlay?.about?.inning
+                  : linescore?.currentInning;
+                const isTop = runItBackActive
+                  ? displayedCurrentPlay?.about?.isTopInning !== false
+                  : linescore?.isTopInning !== false;
                 const currentOuts =
-                  currentPlay?.count?.outs ?? linescore?.outs ?? 0;
+                  displayedCurrentPlay?.count?.outs ?? linescore?.outs ?? 0;
+
                 if (isLive && inning) {
                   return (
                     <>
@@ -8410,6 +8868,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
                     </>
                   );
                 }
+
                 const label =
                   status?.codedGameState === "F" ||
                   status?.detailedState === "Final"
@@ -8447,12 +8906,18 @@ const GameDetailsScreen = ({ navigation, route }) => {
                 style={[
                   styles.miniScore,
                   {
-                    color: homeWinner ? theme.text : theme.textSecondary,
-                    fontWeight: homeWinner ? "800" : "500",
+                    color:
+                      (runItBackActive ? displayedHomeWinner : homeWinner)
+                        ? theme.text
+                        : theme.textSecondary,
+                    fontWeight:
+                      (runItBackActive ? displayedHomeWinner : homeWinner)
+                        ? "800"
+                        : "500",
                   },
                 ]}
               >
-                {homeScore ?? ""}
+                {displayedHomeScore ?? ""}
               </Text>
               <Text style={[styles.miniAbbr, { color: homeColor }]}>
                 {homeTeam?.abbreviation ?? ""}
@@ -8551,7 +9016,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
             )}
 
             {/* Finished: linescore + team stats + win probability + game info */}
-            {isGameFinished && (
+            {isGameFinished && !runItBackActive && (
               <>
                 <LinescoreBubble
                   linescore={linescore}
@@ -8588,7 +9053,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
             )}
 
             {/* Live / in-progress: all bubbles */}
-            {!isScheduled && !isGameFinished && (
+            {!isScheduled && (!isGameFinished || runItBackActive) && (
               <>
                 <LinescoreBubble
                   linescore={linescore}
@@ -8599,7 +9064,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   theme={theme}
                 />
                 <CurrentAtBatBubble
-                  currentPlay={currentPlay}
+                  currentPlay={displayedCurrentPlay}
                   linescore={linescore}
                   playersMap={playersMap}
                   boxscore={boxscore}
@@ -8608,11 +9073,12 @@ const GameDetailsScreen = ({ navigation, route }) => {
                   awayColor={awayColor}
                   homeColor={homeColor}
                   animTrigger={mainTabKey}
+                  hideNextHitters={runItBackActive}
                   onPlayerPress={(info) => setCabSelectedPlayer(info)}
                   theme={theme}
                 />
                 <LastPlayBubble
-                  allPlays={allPlays}
+                  allPlays={displayedPlays}
                   playersMap={playersMap}
                   awayTeam={awayTeam}
                   homeTeam={homeTeam}
@@ -8660,8 +9126,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
             pitchesData={pitchesData}
             awayTeam={awayTeam}
             homeTeam={homeTeam}
-            awayScore={awayScore}
-            homeScore={homeScore}
+            awayScore={displayedAwayScore}
+            homeScore={displayedHomeScore}
             isScheduled={isScheduled}
             isFinished={isFinished}
             gameDateTime={gameDateTime}
@@ -8680,8 +9146,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
             pitchesData={pitchesData}
             awayTeam={awayTeam}
             homeTeam={homeTeam}
-            awayScore={awayScore}
-            homeScore={homeScore}
+            awayScore={displayedAwayScore}
+            homeScore={displayedHomeScore}
             isScheduled={isScheduled}
             isFinished={isFinished}
             gameDateTime={gameDateTime}
@@ -8690,7 +9156,7 @@ const GameDetailsScreen = ({ navigation, route }) => {
 
         {activeTab === "Plays" && (
           <PlaysPanel
-            allPlays={allPlays}
+            allPlays={runItBackActive ? displayedPlays : allPlays}
             awayTeam={awayTeam}
             homeTeam={homeTeam}
             awayColor={awayColor}
@@ -8704,6 +9170,644 @@ const GameDetailsScreen = ({ navigation, route }) => {
 
         <View style={styles.bottomPadding} />
       </Animated.ScrollView>
+
+      {/* Run It Back trigger */}
+      {!isScheduled && !runItBackActive && (
+        <TouchableOpacity
+          style={[
+            styles.runItBackAnchorBtn,
+            {
+              backgroundColor: colors.primary,
+              borderColor: colors.primary,
+            },
+          ]}
+          activeOpacity={0.85}
+          onPress={() => handleRunItBackPress(false)}
+          onLongPress={() => handleRunItBackPress(true)}
+          delayLongPress={280}
+        >
+          <Ionicons
+            name="camera-reverse-outline"
+            size={32}
+            color={"#fff"}
+          />
+        </TouchableOpacity>
+      )}
+
+      {isLoggedIn && (
+        <>
+          {/* Floating Chat Button */}
+      <TouchableOpacity
+        style={[
+          styles.floatingChatButton,
+          { backgroundColor: colors.primary },
+        ]}
+        onPress={() => setChatModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="chatbubble-ellipses-outline" size={30} color="#fff" />
+      </TouchableOpacity>
+
+      {/* Chat Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={chatModalVisible}
+        onRequestClose={() => setChatModalVisible(false)}
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.chatModalOverlay}>
+          <View
+            style={[
+              styles.chatModalContent,
+              { backgroundColor: theme.surface, paddingBottom: 20 },
+            ]}
+          >
+            <View
+              style={[
+                styles.chatModalHeader,
+                { borderBottomColor: theme.border },
+              ]}
+            >
+              <Text
+                allowFontScaling={false}
+                style={[styles.chatModalTitle, { color: theme.text }]}
+              >
+                ⚾ {awayTeam?.abbreviation ?? "Away"} vs {homeTeam?.abbreviation ?? "Home"}
+              </Text>
+              <TouchableOpacity
+                style={styles.chatModalCloseButton}
+                onPress={() => setChatModalVisible(false)}
+              >
+                <Ionicons name="close" size={24} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.chatModalBody}>
+              {!!feed && (
+                <ChatComponent
+                  gameId={gamePk}
+                  gameData={chatGameData}
+                  hideHeader={true}
+                />
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+        </>
+      )}
+
+
+      {/* Intro popup */}
+      <Modal
+        animationType="fade"
+        transparent
+        visible={runItBackIntroVisible}
+        onRequestClose={() => setRunItBackIntroVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setRunItBackIntroVisible(false)}>
+          <View style={styles.runItBackIntroBackdrop}>
+            <TouchableWithoutFeedback>
+              <View
+                style={[
+                  styles.runItBackIntroCard,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={styles.runItBackCheckRow}
+                  onPress={() => setRunItBackDontShowAgain((v) => !v)}
+                >
+                  <View
+                    style={[
+                      styles.runItBackCheckbox,
+                      {
+                        borderColor: runItBackDontShowAgain
+                          ? colors.primary
+                          : theme.textSecondary,
+                        backgroundColor: runItBackDontShowAgain
+                          ? colors.primary
+                          : "transparent",
+                      },
+                    ]}
+                  >
+                    {runItBackDontShowAgain && (
+                      <Ionicons name="checkmark" size={12} color="#fff" />
+                    )}
+                  </View>
+                  <Text
+                    style={[
+                      styles.runItBackCheckLabel,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    Don’t show again
+                  </Text>
+                </TouchableOpacity>
+
+                <Text style={[styles.runItBackIntroTitle, { color: theme.text }]}>
+                  Run It Back clicked
+                </Text>
+                <Text
+                  style={[
+                    styles.runItBackIntroDesc,
+                    { color: theme.textSecondary },
+                  ]}
+                >
+                  Replay this game play-by-play with speed controls, reverse,
+                  inning/team/player filters, and quick restart.
+                </Text>
+
+                <View style={styles.runItBackIntroActions}>
+                  <TouchableOpacity
+                    style={[
+                      styles.runItBackIntroBtn,
+                      { backgroundColor: theme.surfaceSecondary },
+                    ]}
+                    onPress={() => setRunItBackIntroVisible(false)}
+                  >
+                    <Text
+                      style={[
+                        styles.runItBackIntroBtnText,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.runItBackIntroBtn,
+                      { backgroundColor: colors.primary },
+                    ]}
+                    onPress={handleRunItBackContinue}
+                  >
+                    <Text style={[styles.runItBackIntroBtnText, { color: "#fff" }]}>
+                      Continue
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Active controls + popups */}
+      {runItBackActive && (
+        <>
+          {(runItBackSpeedPopupVisible ||
+            runItBackInningPopupVisible ||
+            runItBackEntityPopupVisible) && (
+            <TouchableWithoutFeedback onPress={() => closeRunItBackPopups(true)}>
+              <View style={styles.runItBackPopupScrim} />
+            </TouchableWithoutFeedback>
+          )}
+
+          {(runItBackSpeedPopupVisible ||
+            runItBackInningPopupVisible ||
+            runItBackEntityPopupVisible) && (
+            <View
+              style={[
+                styles.runItBackPopupCard,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              {runItBackSpeedPopupVisible && (
+                <>
+                  <Text
+                    style={[
+                      styles.runItBackPopupTitle,
+                      { color: theme.text, borderBottomColor: theme.border },
+                    ]}
+                  >
+                    Speed / Direction
+                  </Text>
+                  <View style={styles.runItBackPopupList}>
+                    <TouchableOpacity
+                      style={[
+                        styles.runItBackPopupRow,
+                        { borderColor: theme.border, backgroundColor: "transparent" },
+                      ]}
+                      onPress={() => {
+                        setRunItBackPaused((v) => !v);
+                        closeRunItBackPopups(false);
+                      }}
+                    >
+                      <Ionicons
+                        name={runItBackPaused ? "play-outline" : "pause-outline"}
+                        size={16}
+                        color={theme.text}
+                      />
+                      <Text
+                        style={[styles.runItBackPopupRowLabel, { color: theme.text }]}
+                      >
+                        {runItBackPaused ? "Resume replay" : "Pause replay"}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.runItBackPopupRow,
+                        { borderColor: theme.border, backgroundColor: "transparent" },
+                      ]}
+                      onPress={() => {
+                        setRunItBackSelectedInnings(new Set());
+                        setRunItBackCursor(0);
+                        setRunItBackPaused(false);
+                        closeRunItBackPopups(true);
+                      }}
+                    >
+                      <Ionicons name="refresh-outline" size={16} color={theme.text} />
+                      <Text
+                        style={[styles.runItBackPopupRowLabel, { color: theme.text }]}
+                      >
+                        Restart from 1st Inning
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <ScrollView style={{ maxHeight: 230 }}>
+                    <View style={styles.runItBackPopupList}>
+                      {RUN_IT_BACK_SPEED_OPTIONS.map((opt) => {
+                        const active = runItBackSpeed === opt.value;
+                        return (
+                          <TouchableOpacity
+                            key={String(opt.value)}
+                            style={[
+                              styles.runItBackPopupRow,
+                              {
+                                borderColor: active
+                                  ? colors.primary
+                                  : theme.border,
+                                backgroundColor: active
+                                  ? colors.primary + "1A"
+                                  : "transparent",
+                              },
+                            ]}
+                            onPress={() => {
+                              setRunItBackSpeed(opt.value);
+                              closeRunItBackPopups(true);
+                            }}
+                          >
+                            <Ionicons
+                              name={
+                                opt.value < 0
+                                  ? "play-skip-back-outline"
+                                  : "play-skip-forward-outline"
+                              }
+                              size={16}
+                              color={active ? colors.primary : theme.textSecondary}
+                            />
+                            <Text
+                              style={[
+                                styles.runItBackPopupRowLabel,
+                                {
+                                  color: active ? colors.primary : theme.text,
+                                },
+                              ]}
+                            >
+                              {opt.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                </>
+              )}
+
+              {runItBackInningPopupVisible && (
+                <>
+                  <Text
+                    style={[
+                      styles.runItBackPopupTitle,
+                      { color: theme.text, borderBottomColor: theme.border },
+                    ]}
+                  >
+                    Innings
+                  </Text>
+                  <View style={styles.runItBackPopupList}>
+                    <TouchableOpacity
+                      style={[
+                        styles.runItBackPopupRow,
+                        styles.runItBackInningRow,
+                        {
+                          borderColor: runItBackAllInnings
+                            ? colors.primary
+                            : theme.border,
+                          backgroundColor: runItBackAllInnings
+                            ? colors.primary + "1A"
+                            : "transparent",
+                        },
+                      ]}
+                      onPress={() => setRunItBackSelectedInnings(new Set())}
+                    >
+                      <Text
+                        style={[
+                          styles.runItBackPopupRowLabel,
+                          {
+                            color: runItBackAllInnings
+                              ? colors.primary
+                              : theme.text,
+                          },
+                        ]}
+                      >
+                        All innings
+                      </Text>
+                    </TouchableOpacity>
+                    <ScrollView style={{ maxHeight: 220 }}>
+                      {runItBackAvailableInnings.map((inning) => {
+                        const active = runItBackSelectedInnings.has(inning);
+                        return (
+                          <TouchableOpacity
+                            key={String(inning)}
+                            style={[
+                              styles.runItBackPopupRow,
+                              styles.runItBackInningRow,
+                              {
+                                borderColor: active
+                                  ? colors.primary
+                                  : theme.border,
+                                backgroundColor: active
+                                  ? colors.primary + "1A"
+                                  : "transparent",
+                              },
+                            ]}
+                            onPress={() => toggleRunItBackInning(inning)}
+                          >
+                            <Text
+                              style={[
+                                styles.runItBackPopupRowLabel,
+                                {
+                                  color: active ? colors.primary : theme.text,
+                                },
+                              ]}
+                            >
+                              {toOrdinal(inning)} Inning
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                </>
+              )}
+
+              {runItBackEntityPopupVisible && (
+                <>
+                  <Text
+                    style={[
+                      styles.runItBackPopupTitle,
+                      { color: theme.text, borderBottomColor: theme.border },
+                    ]}
+                  >
+                    Team / Player
+                  </Text>
+                  <ScrollView style={{ maxHeight: 300 }}>
+                    <View style={styles.runItBackPopupList}>
+                      <Text
+                        style={[
+                          styles.runItBackPopupSection,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        Teams
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.runItBackPopupRow,
+                          {
+                            borderColor: runItBackAllTeams
+                              ? colors.primary
+                              : theme.border,
+                            backgroundColor: runItBackAllTeams
+                              ? colors.primary + "1A"
+                              : "transparent",
+                          },
+                        ]}
+                        onPress={() => setRunItBackSelectedTeamIds(new Set())}
+                      >
+                        <Text
+                          style={[
+                            styles.runItBackPopupRowLabel,
+                            {
+                              color: runItBackAllTeams
+                                ? colors.primary
+                                : theme.text,
+                            },
+                          ]}
+                        >
+                          All teams
+                        </Text>
+                      </TouchableOpacity>
+                      <View style={styles.runItBackTeamGrid}>
+                        {[
+                          { team: awayTeam, color: awayColor },
+                          { team: homeTeam, color: homeColor },
+                        ].map(({ team, color }) => {
+                          const tId = Number(team?.id);
+                          const active = runItBackSelectedTeamIds.has(tId);
+                          return (
+                            <TouchableOpacity
+                              key={String(tId)}
+                              style={[
+                                styles.runItBackTeamCard,
+                                {
+                                  borderColor: color,
+                                  backgroundColor: active ? color + "1A" : "transparent",
+                                },
+                              ]}
+                              onPress={() => toggleRunItBackTeam(tId)}
+                            >
+                              {WBCService.getTeamLogo(tId, isDarkMode) ? (
+                                <Image
+                                  source={{
+                                    uri: WBCService.getTeamLogo(tId, isDarkMode),
+                                  }}
+                                  style={styles.runItBackTeamLogo}
+                                  resizeMode="contain"
+                                />
+                              ) : null}
+                              <Text
+                                style={[
+                                  styles.runItBackTeamLabel,
+                                  {
+                                    color: active ? color : theme.text,
+                                  },
+                                ]}
+                                numberOfLines={2}
+                              >
+                                {team?.abbreviation ?? "TEAM"}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+
+                      <Text
+                        style={[
+                          styles.runItBackPopupSection,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
+                        Players
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.runItBackPopupRow,
+                          {
+                            borderColor: runItBackAllPlayers
+                              ? colors.primary
+                              : theme.border,
+                            backgroundColor: runItBackAllPlayers
+                              ? colors.primary + "1A"
+                              : "transparent",
+                          },
+                        ]}
+                        onPress={() => setRunItBackSelectedPlayerIds(new Set())}
+                      >
+                        <Text
+                          style={[
+                            styles.runItBackPopupRowLabel,
+                            {
+                              color: runItBackAllPlayers
+                                ? colors.primary
+                                : theme.text,
+                            },
+                          ]}
+                        >
+                          All players
+                        </Text>
+                      </TouchableOpacity>
+
+                      {runItBackSelectablePlayers.map((p) => {
+                        const active = runItBackSelectedPlayerIds.has(p.id);
+                        const teamTone =
+                          Number(p.teamId) === Number(awayTeam?.id)
+                            ? awayColor
+                            : homeColor;
+                        return (
+                          <TouchableOpacity
+                            key={String(p.id)}
+                            style={[
+                              styles.runItBackPlayerRow,
+                              {
+                                borderColor: teamTone,
+                                backgroundColor: active
+                                  ? teamTone + "1A"
+                                  : "transparent",
+                              },
+                            ]}
+                            onPress={() => toggleRunItBackPlayer(p.id)}
+                          >
+                            <Image
+                              source={{ uri: playerHeadshotUrl(p.id) }}
+                              style={styles.runItBackPlayerHeadshot}
+                            />
+                            <View style={{ flex: 1 }}>
+                              <Text
+                                style={[styles.runItBackPlayerName, { color: theme.text }]}
+                                numberOfLines={1}
+                              >
+                                {p.fullName}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.runItBackPlayerTeam,
+                                  { color: theme.textSecondary },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {p.teamName}
+                              </Text>
+                            </View>
+                            <Text
+                              style={[
+                                styles.runItBackPlayerNumber,
+                                { color: active ? teamTone : theme.textSecondary },
+                              ]}
+                            >
+                              {p.jerseyNumber ? `#${p.jerseyNumber}` : "#"}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                </>
+              )}
+            </View>
+          )}
+
+          <View style={styles.runItBackDock}>
+            <TouchableOpacity
+              style={[
+                styles.runItBackDockBtn,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: colors.primary,
+                },
+              ]}
+              onPress={openRunItBackSpeed}
+              activeOpacity={0.85}
+            >
+              <Ionicons
+                name={
+                  runItBackPaused
+                    ? "pause-outline"
+                    : runItBackSpeed < 0
+                      ? "play-skip-back-outline"
+                      : "play-skip-forward-outline"
+                }
+                size={20}
+                color={theme.text}
+              />
+              <View
+                style={[
+                  styles.runItBackSpeedBadge,
+                  { backgroundColor: colors.primary },
+                ]}
+              >
+                <Text style={styles.runItBackSpeedBadgeText}>{runItBackSpeedBadge}</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.runItBackDockBtn,
+                { backgroundColor: theme.surface, borderColor: colors.primary },
+              ]}
+              onPress={openRunItBackInnings}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="baseball-outline" size={20} color={theme.text} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.runItBackDockBtn,
+                { backgroundColor: theme.surface, borderColor: colors.primary },
+              ]}
+              onPress={openRunItBackEntities}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="people-outline" size={20} color={theme.text} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.runItBackDockBtn,
+                { backgroundColor: colors.primary, borderColor: colors.primary },
+              ]}
+              onPress={stopRunItBack}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="checkmark-outline" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
 
       {/* ── Stream Modal ───────────────────────────────────────────────── */}
       {(isStreamingUnlocked || gameData?.game?.type !== "R") && (
@@ -8979,8 +10083,8 @@ const GameDetailsScreen = ({ navigation, route }) => {
           awayTeam={awayTeam}
           homeTeam={homeTeam}
           boxscore={boxscore}
-          awayScore={awayScore}
-          homeScore={homeScore}
+          awayScore={displayedAwayScore}
+          homeScore={displayedHomeScore}
           gameDate={gameDateTime}
           theme={theme}
           colors={colors}
@@ -9351,6 +10455,279 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     textAlign: "center",
   },
+  runItBackAnchorBtn: {
+    position: "absolute",
+    right: 20,
+    bottom: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 90,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+  },
+  floatingChatButton: {
+    position: "absolute",
+    bottom: 30,
+    left: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+  },
+  chatModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0)",
+    justifyContent: "flex-end",
+  },
+  chatModalContent: {
+    height: "85%",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: "hidden",
+  },
+  chatModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  chatModalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    flex: 1,
+    textAlign: "center",
+    marginRight: -20,
+  },
+  chatModalCloseButton: {
+    padding: 4,
+  },
+  chatModalBody: {
+    flex: 1,
+  },
+  runItBackIntroBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 22,
+  },
+  runItBackIntroCard: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+  },
+  runItBackCheckRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+    alignSelf: "flex-start",
+  },
+  runItBackCheckbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  runItBackCheckLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  runItBackIntroTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+  runItBackIntroDesc: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  runItBackIntroActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+  },
+  runItBackIntroBtn: {
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    minWidth: 94,
+    alignItems: "center",
+  },
+  runItBackIntroBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  runItBackPopupScrim: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.28)",
+    zIndex: 95,
+  },
+  runItBackPopupCard: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    bottom: 106,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingBottom: 10,
+    zIndex: 100,
+    maxHeight: "58%",
+  },
+  runItBackPopupTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  runItBackPopupList: {
+    padding: 10,
+    gap: 8,
+  },
+  runItBackPopupRow: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  runItBackInningRow: {
+    marginBottom: 10,
+  },
+  runItBackPopupRowLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  runItBackPopupSection: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginTop: 2,
+  },
+  runItBackTeamGrid: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  runItBackTeamCard: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    minHeight: 86,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+  },
+  runItBackTeamLogo: {
+    width: 46,
+    height: 38,
+  },
+  runItBackTeamLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  runItBackPlayerRow: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+  },
+  runItBackPlayerHeadshot: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(128,128,128,0.12)",
+  },
+  runItBackPlayerName: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  runItBackPlayerTeam: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  runItBackPlayerNumber: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  runItBackDock: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    bottom: 26,
+    paddingBottom: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+    zIndex: 110,
+  },
+  runItBackDockBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  runItBackSpeedBadge: {
+    position: "absolute",
+    top: -5,
+    right: -6,
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    minWidth: 28,
+    alignItems: "center",
+    zIndex: 2,
+  },
+  runItBackSpeedBadgeText: {
+    color: "#fff",
+    fontSize: 9,
+    fontWeight: "800",
+  },
 });
 
 export default GameDetailsScreen;
+
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
@@ -22,6 +22,7 @@ import { NFLService } from "../../services/NFLService";
 import { useTheme } from "../../context/ThemeContext";
 import { useFavorites } from "../../context/FavoritesContext";
 import ChatComponent from "../../components/ChatComponent";
+import useIsLoggedIn from "../../hooks/useIsLoggedIn";
 import { useStreamingAccess } from "../../utils/streamingUtils";
 import { useGamePresence } from "../../hooks/useGamePresence";
 
@@ -51,7 +52,7 @@ const calculateColorSimilarity = (color1, color2) => {
       Math.pow(rgb1.b - rgb2.b, 2),
   );
 
-  // Normalize distance (max distance is sqrt(3 * 255^2) ≈ 441)
+  // Normalize distance (max distance is sqrt(3 * 255^2) â‰ˆ 441)
   const normalizedDistance = distance / 441;
 
   // Consider colors similar if distance is less than 0.3 (30% of max distance)
@@ -165,6 +166,7 @@ const GameDetailsScreen = ({ route }) => {
   const [streamUrl, setStreamUrl] = useState("");
   const [isStreamLoading, setIsStreamLoading] = useState(true);
   const [chatModalVisible, setChatModalVisible] = useState(false);
+  const isLoggedIn = useIsLoggedIn();
 
   // Share card state
   const [shareCardPlay, setShareCardPlay] = useState(null);
@@ -265,21 +267,21 @@ const GameDetailsScreen = ({ route }) => {
 
     return teamName
       .toLowerCase()
-      .replace(/á/g, "a")
-      .replace(/é/g, "e")
-      .replace(/í/g, "i")
-      .replace(/ó/g, "o")
-      .replace(/ú/g, "u")
-      .replace(/ü/g, "u")
-      .replace(/ñ/g, "n")
-      .replace(/ç/g, "c")
-      .replace(/ß/g, "ss")
-      .replace(/ë/g, "e")
-      .replace(/ï/g, "i")
-      .replace(/ö/g, "o")
-      .replace(/ä/g, "a")
-      .replace(/å/g, "a")
-      .replace(/ø/g, "o")
+      .replace(/Ã¡/g, "a")
+      .replace(/Ã©/g, "e")
+      .replace(/Ã­/g, "i")
+      .replace(/Ã³/g, "o")
+      .replace(/Ãº/g, "u")
+      .replace(/Ã¼/g, "u")
+      .replace(/Ã±/g, "n")
+      .replace(/Ã§/g, "c")
+      .replace(/ÃŸ/g, "ss")
+      .replace(/Ã«/g, "e")
+      .replace(/Ã¯/g, "i")
+      .replace(/Ã¶/g, "o")
+      .replace(/Ã¤/g, "a")
+      .replace(/Ã¥/g, "a")
+      .replace(/Ã¸/g, "o")
       .replace(/\s+/g, "-")
       .replace(/[^a-z0-9\-]/g, "")
       .replace(/-+/g, "-")
@@ -1887,7 +1889,7 @@ const GameDetailsScreen = ({ route }) => {
             >
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  🏈
+                  ðŸˆ
                 </Text>
                 <Text
                   allowFontScaling={false}
@@ -1911,7 +1913,7 @@ const GameDetailsScreen = ({ route }) => {
             >
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  🏈
+                  ðŸˆ
                 </Text>
                 <Text
                   allowFontScaling={false}
@@ -1946,7 +1948,7 @@ const GameDetailsScreen = ({ route }) => {
             >
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  🏈
+                  ðŸˆ
                 </Text>
                 <Text
                   allowFontScaling={false}
@@ -1976,7 +1978,7 @@ const GameDetailsScreen = ({ route }) => {
             >
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  🏈
+                  ðŸˆ
                 </Text>
                 <Text
                   allowFontScaling={false}
@@ -2012,7 +2014,7 @@ const GameDetailsScreen = ({ route }) => {
             >
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  🏈
+                  ðŸˆ
                 </Text>
                 <Text
                   allowFontScaling={false}
@@ -2043,7 +2045,7 @@ const GameDetailsScreen = ({ route }) => {
             >
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  🏈
+                  ðŸˆ
                 </Text>
                 <Text
                   allowFontScaling={false}
@@ -2078,7 +2080,7 @@ const GameDetailsScreen = ({ route }) => {
             >
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  🏈
+                  ðŸˆ
                 </Text>
                 <Text
                   allowFontScaling={false}
@@ -2106,7 +2108,7 @@ const GameDetailsScreen = ({ route }) => {
             <View style={styles.statCategory}>
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  🏈
+                  ðŸˆ
                 </Text>
                 <Text allowFontScaling={false} style={styles.statCategoryTitle}>
                   Defensive
@@ -2124,7 +2126,7 @@ const GameDetailsScreen = ({ route }) => {
             <View style={styles.statCategory}>
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  🏈
+                  ðŸˆ
                 </Text>
                 <Text allowFontScaling={false} style={styles.statCategoryTitle}>
                   Interceptions
@@ -2147,7 +2149,7 @@ const GameDetailsScreen = ({ route }) => {
             <View style={styles.statCategory}>
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  🏈
+                  ðŸˆ
                 </Text>
                 <Text allowFontScaling={false} style={styles.statCategoryTitle}>
                   Kicking
@@ -2166,7 +2168,7 @@ const GameDetailsScreen = ({ route }) => {
             <View style={styles.statCategory}>
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  🏈
+                  ðŸˆ
                 </Text>
                 <Text allowFontScaling={false} style={styles.statCategoryTitle}>
                   Punting
@@ -2287,7 +2289,7 @@ const GameDetailsScreen = ({ route }) => {
               <View key={categoryIndex} style={styles.statCategory}>
                 <View style={styles.statSubcategoryHeader}>
                   <Text allowFontScaling={false} style={styles.footballEmoji}>
-                    🏈
+                    ðŸˆ
                   </Text>
                   <Text
                     allowFontScaling={false}
@@ -2386,7 +2388,7 @@ const GameDetailsScreen = ({ route }) => {
           for (const p of prefixes) {
             if (p && titleText.startsWith(p)) {
               titleText = titleText.slice(p.length).trim();
-              titleText = titleText.replace(/^[-–:\s]+/, "");
+              titleText = titleText.replace(/^[-â€“:\s]+/, "");
               break;
             }
           }
@@ -3491,7 +3493,7 @@ const GameDetailsScreen = ({ route }) => {
                             >
                               #{player.jersey || "N/A"}
                             </Text>{" "}
-                            •{" "}
+                            â€¢{" "}
                             {player.position?.abbreviation ||
                               positionGroup.position ||
                               "N/A"}
@@ -4242,7 +4244,7 @@ const GameDetailsScreen = ({ route }) => {
                       play.scoringPlay && "SCORING PLAY",
                     ]
                       .filter(Boolean)
-                      .join(" • ")}
+                      .join(" â€¢ ")}
                   </Text>
                 </View>
               )}
@@ -4254,7 +4256,7 @@ const GameDetailsScreen = ({ route }) => {
                   <Text allowFontScaling={false} style={styles.playFieldText}>
                     {play.start?.text &&
                       play.end?.text &&
-                      `${play.start.text} → ${play.end.text}`}
+                      `${play.start.text} â†’ ${play.end.text}`}
                   </Text>
                 </View>
               )}
@@ -4335,7 +4337,7 @@ const GameDetailsScreen = ({ route }) => {
               },
             ]}
           >
-            {isFavorite(getNFLTeamId(awayTeam?.team), "nfl") && "★ "}
+            {isFavorite(getNFLTeamId(awayTeam?.team), "nfl") && "â˜… "}
             {getNFLTeamAbbreviation(awayTeam?.team) || "AWAY"}
           </Text>
           {/* Possession indicator for away team */}
@@ -4356,7 +4358,7 @@ const GameDetailsScreen = ({ route }) => {
                 allowFontScaling={false}
                 style={styles.stickyPossessionIndicator}
               >
-                🏈
+                ðŸˆ
               </Text>
             ) : null;
           })()}
@@ -4426,7 +4428,7 @@ const GameDetailsScreen = ({ route }) => {
                 allowFontScaling={false}
                 style={styles.stickyPossessionIndicator}
               >
-                🏈
+                ðŸˆ
               </Text>
             ) : null;
           })()}
@@ -4443,7 +4445,7 @@ const GameDetailsScreen = ({ route }) => {
               },
             ]}
           >
-            {isFavorite(getNFLTeamId(homeTeam?.team), "nfl") && "★ "}
+            {isFavorite(getNFLTeamId(homeTeam?.team), "nfl") && "â˜… "}
             {getNFLTeamAbbreviation(homeTeam?.team) || "HOME"}
           </Text>
           {status?.type?.description !== "Scheduled" ? (
@@ -4585,7 +4587,7 @@ const GameDetailsScreen = ({ route }) => {
                         styles.awayPossession,
                       ]}
                     >
-                      🏈
+                      ðŸˆ
                     </Text>
                   ) : null;
                 })()}
@@ -4609,7 +4611,7 @@ const GameDetailsScreen = ({ route }) => {
                     },
                   ]}
                 >
-                  {isFavorite(getNFLTeamId(awayTeam?.team), "nfl") && "★ "}
+                  {isFavorite(getNFLTeamId(awayTeam?.team), "nfl") && "â˜… "}
                   {awayTeam?.team?.abbreviation ||
                     awayTeam?.team?.shortDisplayName ||
                     awayTeam?.team?.name}
@@ -4710,7 +4712,7 @@ const GameDetailsScreen = ({ route }) => {
                         styles.homePossession,
                       ]}
                     >
-                      🏈
+                      ðŸˆ
                     </Text>
                   ) : null;
                 })()}
@@ -4729,7 +4731,7 @@ const GameDetailsScreen = ({ route }) => {
                     },
                   ]}
                 >
-                  {isFavorite(getNFLTeamId(homeTeam?.team), "nfl") && "★ "}
+                  {isFavorite(getNFLTeamId(homeTeam?.team), "nfl") && "â˜… "}
                   {homeTeam?.team?.abbreviation ||
                     homeTeam?.team?.shortDisplayName ||
                     homeTeam?.team?.name}
@@ -4868,7 +4870,7 @@ const GameDetailsScreen = ({ route }) => {
                         ]}
                       >
                         <Text allowFontScaling={false} style={styles.ballIcon}>
-                          🏈
+                          ðŸˆ
                         </Text>
                       </View>
                     );
@@ -4983,7 +4985,7 @@ const GameDetailsScreen = ({ route }) => {
                 allowFontScaling={false}
                 style={[styles.streamButtonText, { color: "#fff" }]}
               >
-                📺 Watch Live Stream
+                ðŸ“º Watch Live Stream
               </Text>
             </TouchableOpacity>
           );
@@ -5115,7 +5117,7 @@ const GameDetailsScreen = ({ route }) => {
                   allowFontScaling={false}
                   style={[styles.modalCloseText, { color: "#fff" }]}
                 >
-                  ×
+                  Ã—
                 </Text>
               </TouchableOpacity>
 
@@ -5519,7 +5521,7 @@ const GameDetailsScreen = ({ route }) => {
                   allowFontScaling={false}
                   style={[styles.modalCloseText, { color: "#fff" }]}
                 >
-                  ×
+                  Ã—
                 </Text>
               </TouchableOpacity>
 
@@ -5860,7 +5862,7 @@ const GameDetailsScreen = ({ route }) => {
                                     >
                                       {[downDistanceText, play.type?.text]
                                         .filter(Boolean)
-                                        .join(" • ")}
+                                        .join(" â€¢ ")}
                                     </Text>
                                   )
                                 );
@@ -6060,7 +6062,7 @@ const GameDetailsScreen = ({ route }) => {
                               ]}
                             >
                               {period > 4 ? `OT${period - 4}` : `Q${period}`}{" "}
-                              {clock} • {downDistanceText || possession}
+                              {clock} â€¢ {downDistanceText || possession}
                             </Text>
                           </View>
 
@@ -6737,7 +6739,7 @@ const GameDetailsScreen = ({ route }) => {
                                 );
 
                                 if (stats.length > 0) {
-                                  return `${formattedName} • ${stats.join(
+                                  return `${formattedName} â€¢ ${stats.join(
                                     ", ",
                                   )}`;
                                 }
@@ -6953,7 +6955,7 @@ const GameDetailsScreen = ({ route }) => {
                         },
                       ]}
                     >
-                      ×
+                      Ã—
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -7182,7 +7184,10 @@ const GameDetailsScreen = ({ route }) => {
         )}
       </ScrollView>
 
-      {/* Floating Chat Button */}
+      
+      {isLoggedIn && (
+        <>
+          {/* Floating Chat Button */}
       <TouchableOpacity
         style={[styles.floatingChatButton, { backgroundColor: colors.primary }]}
         onPress={() => setChatModalVisible(true)}
@@ -7250,6 +7255,9 @@ const GameDetailsScreen = ({ route }) => {
           </View>
         </View>
       </Modal>
+        </>
+      )}
+
     </View>
   );
 };
@@ -9315,3 +9323,5 @@ const styles = StyleSheet.create({
 });
 
 export default GameDetailsScreen;
+
+

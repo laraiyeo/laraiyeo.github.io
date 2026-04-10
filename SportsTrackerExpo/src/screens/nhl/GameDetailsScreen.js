@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+﻿import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import { useFavorites } from "../../context/FavoritesContext";
 import { useNavigation } from "@react-navigation/native";
 import { NHLService } from "../../services/NHLService";
 import ChatComponent from "../../components/ChatComponent";
+import useIsLoggedIn from "../../hooks/useIsLoggedIn";
 import { useGamePresence } from "../../hooks/useGamePresence";
 import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
@@ -159,7 +160,7 @@ const NHLGameDetailsScreen = ({ route }) => {
   useEffect(() => {
     if (gameId) {
       console.log(
-        "🎮 NHL GameDetailsScreen - Tracking presence for gameId:",
+        "ðŸŽ® NHL GameDetailsScreen - Tracking presence for gameId:",
         gameId,
       );
     }
@@ -168,7 +169,7 @@ const NHLGameDetailsScreen = ({ route }) => {
     return () => {
       if (gameId) {
         console.log(
-          "🎮 NHL GameDetailsScreen - Cleaning up presence for gameId:",
+          "ðŸŽ® NHL GameDetailsScreen - Cleaning up presence for gameId:",
           gameId,
         );
       }
@@ -176,12 +177,12 @@ const NHLGameDetailsScreen = ({ route }) => {
   }, [gameId]);
 
   useEffect(() => {
-    console.log("🎮 NHL GameDetailsScreen - Presence state changed:", {
+    console.log("ðŸŽ® NHL GameDetailsScreen - Presence state changed:", {
       gameId,
       isJoined,
       viewerCount,
     });
-    console.log("🎮 NHL GameDetailsScreen - isJoined specifically:", isJoined);
+    console.log("ðŸŽ® NHL GameDetailsScreen - isJoined specifically:", isJoined);
   }, [isJoined, viewerCount, gameId]);
 
   const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
@@ -312,6 +313,7 @@ const NHLGameDetailsScreen = ({ route }) => {
   const [streamUrl, setStreamUrl] = useState("");
   const [isStreamLoading, setIsStreamLoading] = useState(true);
   const [chatModalVisible, setChatModalVisible] = useState(false);
+  const isLoggedIn = useIsLoggedIn();
 
   // Streaming access check
   const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
@@ -396,21 +398,21 @@ const NHLGameDetailsScreen = ({ route }) => {
 
     return teamName
       .toLowerCase()
-      .replace(/á/g, "a")
-      .replace(/é/g, "e")
-      .replace(/í/g, "i")
-      .replace(/ó/g, "o")
-      .replace(/ú/g, "u")
-      .replace(/ü/g, "u")
-      .replace(/ñ/g, "n")
-      .replace(/ç/g, "c")
-      .replace(/ß/g, "ss")
-      .replace(/ë/g, "e")
-      .replace(/ï/g, "i")
-      .replace(/ö/g, "o")
-      .replace(/ä/g, "a")
-      .replace(/å/g, "a")
-      .replace(/ø/g, "o")
+      .replace(/Ã¡/g, "a")
+      .replace(/Ã©/g, "e")
+      .replace(/Ã­/g, "i")
+      .replace(/Ã³/g, "o")
+      .replace(/Ãº/g, "u")
+      .replace(/Ã¼/g, "u")
+      .replace(/Ã±/g, "n")
+      .replace(/Ã§/g, "c")
+      .replace(/ÃŸ/g, "ss")
+      .replace(/Ã«/g, "e")
+      .replace(/Ã¯/g, "i")
+      .replace(/Ã¶/g, "o")
+      .replace(/Ã¤/g, "a")
+      .replace(/Ã¥/g, "a")
+      .replace(/Ã¸/g, "o")
       .replace(/\s+/g, "-")
       .replace(/[^a-z0-9\-]/g, "")
       .replace(/-+/g, "-")
@@ -2071,7 +2073,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                           numberOfLines={1}
                         >
                           {jerseyNumber && position
-                            ? `#${jerseyNumber} • ${position}`
+                            ? `#${jerseyNumber} â€¢ ${position}`
                             : jerseyNumber
                               ? `#${jerseyNumber}`
                               : position
@@ -2390,7 +2392,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                       >
                         {inj?.athlete?.jersey &&
                         inj?.athlete?.position?.abbreviation
-                          ? `• #${inj.athlete.jersey} • ${inj.athlete.position.abbreviation}`
+                          ? `â€¢ #${inj.athlete.jersey} â€¢ ${inj.athlete.position.abbreviation}`
                           : inj?.athlete?.jersey
                             ? `#${inj.athlete.jersey}`
                             : inj?.athlete?.position?.abbreviation
@@ -2770,7 +2772,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                   numberOfLines={1}
                 >
                   {jerseyNum && position
-                    ? `#${jerseyNum} • ${position}`
+                    ? `#${jerseyNum} â€¢ ${position}`
                     : jerseyNum
                       ? `#${jerseyNum}`
                       : position
@@ -3015,7 +3017,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                   onPress={() => togglePlay(playKey)}
                 >
                   <Text style={[styles.toggleIcon, { color: theme.text }]}>
-                    {isOpen ? "▲" : "▼"}
+                    {isOpen ? "â–²" : "â–¼"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -3101,7 +3103,7 @@ const NHLGameDetailsScreen = ({ route }) => {
       return [...renderedPlays, ...loadMoreButton];
     }
 
-    // fallback (previous inline computation) — keep for safety but should rarely run now
+    // fallback (previous inline computation) â€” keep for safety but should rarely run now
     return (
       <View style={styles.noPlaysContainer}>
         <Text style={[styles.noPlaysText, { color: theme.textSecondary }]}>
@@ -3158,7 +3160,7 @@ const NHLGameDetailsScreen = ({ route }) => {
           ) : null}
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             {isFavorite(getNHLTeamId(away), "nhl") && (
-              <Text style={{ color: colors.primary, marginRight: 4 }}>★</Text>
+              <Text style={{ color: colors.primary, marginRight: 4 }}>â˜…</Text>
             )}
             <Text
               style={[
@@ -3205,7 +3207,7 @@ const NHLGameDetailsScreen = ({ route }) => {
               {home?.team?.abbreviation || "HOME"}
             </Text>
             {isFavorite(getNHLTeamId(home), "nhl") && (
-              <Text style={{ color: colors.primary, marginLeft: 4 }}>★</Text>
+              <Text style={{ color: colors.primary, marginLeft: 4 }}>â˜…</Text>
             )}
           </View>
           {statusDesc !== "Scheduled" ? (
@@ -3979,7 +3981,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                                 numberOfLines={1}
                               >
                                 {jersey && (isProjectedGoalie || position)
-                                  ? `#${jersey} • ${
+                                  ? `#${jersey} â€¢ ${
                                       isProjectedGoalie ? "G" : position
                                     }`
                                   : jersey
@@ -4015,7 +4017,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                           style={styles.modalClose}
                         >
                           <Text style={{ fontSize: 18, color: theme.text }}>
-                            ✕
+                            âœ•
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -4815,7 +4817,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                                 numberOfLines={1}
                               >
                                 {jersey && position
-                                  ? `#${jersey} • ${position}`
+                                  ? `#${jersey} â€¢ ${position}`
                                   : jersey
                                     ? `#${jersey}`
                                     : position
@@ -5091,7 +5093,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                         { color: colors.primary },
                       ]}
                     >
-                      ×
+                      Ã—
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -5317,7 +5319,10 @@ const NHLGameDetailsScreen = ({ route }) => {
         )}
       </ScrollView>
 
-      {/* Floating Chat Button */}
+      
+      {isLoggedIn && (
+        <>
+          {/* Floating Chat Button */}
       <TouchableOpacity
         style={[
           styles.floatingChatButton,
@@ -5388,6 +5393,9 @@ const NHLGameDetailsScreen = ({ route }) => {
           </View>
         </View>
       </Modal>
+        </>
+      )}
+
     </View>
   );
 };
@@ -7215,3 +7223,5 @@ const styles = StyleSheet.create({
 });
 
 export default NHLGameDetailsScreen;
+
+

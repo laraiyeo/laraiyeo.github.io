@@ -10,6 +10,7 @@ import {
   limit,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { supabase } from "../config/supabase";
 import ChatUtils from "../utils/ChatUtils";
 
 const ChatContext = createContext();
@@ -40,10 +41,44 @@ export const ChatProvider = ({ children }) => {
 
     // Initialize automatic chat cleanup (runs every 24 hours, cleans messages older than 2 days)
     ChatUtils.scheduleCleanup(24, 2);
+
+    const { data } = supabase.auth.onAuthStateChange(() => {
+      loadUserPreferences();
+    });
+
+    return () => {
+      if (data && data.subscription) data.subscription.unsubscribe();
+    };
   }, []);
 
   const loadUserPreferences = async () => {
     try {
+      let supaUser = null;
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        supaUser = user || null;
+      } catch (e) {
+        supaUser = null;
+      }
+
+      if (supaUser && supaUser.id) {
+        try {
+          const { data: profileRow } = await supabase
+            .from("profiles")
+            .select("username")
+            .eq("id", supaUser.id)
+            .maybeSingle();
+          if (profileRow && profileRow.username) {
+            setUserName(profileRow.username);
+            await AsyncStorage.setItem("chatUserName", profileRow.username);
+          }
+        } catch (e) {
+          // ignore profile fetch errors
+        }
+      }
+
       const savedUserName = await AsyncStorage.getItem("chatUserName");
       const savedUserColor = await AsyncStorage.getItem("chatUserColor");
 
@@ -87,6 +122,22 @@ export const ChatProvider = ({ children }) => {
       await AsyncStorage.setItem("chatUserColor", newColor);
     } catch (error) {
       console.error("Error saving user color:", error);
+    }
+  };
+
+  const resetChatProfile = async () => {
+    try {
+      const randomName = `User${Math.floor(Math.random() * 10000)}`;
+      const randomColor =
+        DEFAULT_NAME_COLORS[
+          Math.floor(Math.random() * DEFAULT_NAME_COLORS.length)
+        ];
+      setUserName(randomName);
+      setUserColor(randomColor);
+      await AsyncStorage.setItem("chatUserName", randomName);
+      await AsyncStorage.setItem("chatUserColor", randomColor);
+    } catch (error) {
+      console.error("Error resetting chat profile:", error);
     }
   };
 
@@ -201,6 +252,7 @@ export const ChatProvider = ({ children }) => {
     userColor,
     updateUserName,
     updateUserColor,
+    resetChatProfile,
     sendMessage,
     subscribeToChatMessages,
     unsubscribeFromChatMessages,

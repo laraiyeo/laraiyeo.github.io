@@ -383,8 +383,7 @@ function PlayerTeamRow({ stint, last, theme, navigation }) {
           style={[iStyles.pTeamTenure, { color: theme.textSecondary }]}
           numberOfLines={1}
         >
-          {startText ?? "—"}
-          {" → "}
+          {startText ? `${startText}  →  ` : ""}
           {isCurrent ? (
             <Text style={{ color: "#22c55e", fontWeight: "700" }}>Present</Text>
           ) : (
@@ -1575,18 +1574,28 @@ function SeasonStatRow({ stat, isGK, last, theme, overrideBorderColor }) {
   );
 }
 
-function PlayerSeasonsBubble({ statistics, isGK, theme, accentColor }) {
+function PlayerSeasonsBubble({ statistics, teams, isGK, theme, accentColor }) {
   if (!statistics?.length) return null;
 
-  // Group stats by team.id + season.name
   const grouped = useMemo(() => {
+    const teamTypeById = new Map();
+    for (const stint of teams ?? []) {
+      const teamId = stint?.team?.id;
+      if (teamId == null) continue;
+      teamTypeById.set(teamId, stint.team?.type ?? null);
+    }
+
+    const resolveGroupType = (teamId) =>
+      teamTypeById.get(teamId) === "national" ? "country" : "club";
+
     const map = {};
     for (const s of statistics) {
       // skip seasons with no meaningful stat details
       if (!hasMeaningfulDetails(s.details ?? [])) continue;
       const team = s.team ?? {};
       const seasonName = s.season?.name ?? "";
-      const key = `${team.id ?? "-"}::${seasonName}`;
+      const groupType = resolveGroupType(team.id);
+      const key = `${groupType}::${team.id ?? "-"}::${seasonName}`;
 
       // helpers to pull numeric stats
       const goals = getSeasonStat(s.details ?? [], "Goals", "goals");
@@ -1614,6 +1623,7 @@ function PlayerSeasonsBubble({ statistics, isGK, theme, accentColor }) {
       if (!map[key]) {
         map[key] = {
           key,
+          groupType,
           team: team,
           seasonName,
           goals: 0,
@@ -1645,15 +1655,18 @@ function PlayerSeasonsBubble({ statistics, isGK, theme, accentColor }) {
       }
       g.entries.push(s);
     }
-    // convert to array and sort by season desc then team name
+
     const arr = Object.values(map).sort((a, b) => {
       const sn = (b.seasonName ?? "").localeCompare(a.seasonName ?? "");
       if (sn !== 0) return sn;
       const ta = (a.team?.name ?? "").localeCompare(b.team?.name ?? "");
       return ta;
     });
-    return arr;
-  }, [statistics]);
+    return {
+      club: arr.filter((g) => g.groupType === "club"),
+      country: arr.filter((g) => g.groupType === "country"),
+    };
+  }, [statistics, teams]);
 
   const [expanded, setExpanded] = useState({});
   const toggle = (k) => setExpanded((prev) => ({ ...prev, [k]: !prev[k] }));
@@ -1662,186 +1675,212 @@ function PlayerSeasonsBubble({ statistics, isGK, theme, accentColor }) {
     ? ["RTG", "GC", "CS", "APP"]
     : ["RTG", "GLS", "AST", "APP"];
 
-  return (
-    <PlayerSectionBubble
-      title="Season Stats"
-      theme={theme}
-      accentColor={accentColor}
-    >
-      <View style={[seStyles.headerRow, { borderBottomColor: theme.border }]}>
-        <Text style={[seStyles.headerLeft, { color: theme.textSecondary }]}>
-          Season
-        </Text>
-        {headers.map((h) => (
-          <Text
-            key={h}
-            allowFontScaling={false}
-            style={[
-              seStyles.headerStat,
-              { color: theme.textSecondary, width: SE_COL_W },
-            ]}
-          >
-            {h}
+  const renderGroup = (title, list) => {
+    if (!list.length) return null;
+    return (
+      <PlayerSectionBubble
+        title={title}
+        theme={theme}
+        accentColor={accentColor}
+      >
+        <View style={[seStyles.headerRow, { borderBottomColor: theme.border }]}>
+          <Text style={[seStyles.headerLeft, { color: theme.textSecondary }]}>
+            Season
           </Text>
-        ))}
-      </View>
-
-      {grouped.map((g, gi) => {
-        const avgRating = g.ratingCount ? g.ratingSum / g.ratingCount : null;
-        const isLast = gi === grouped.length - 1;
-        return (
-          <View key={g.key}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => toggle(g.key)}
+          {headers.map((h) => (
+            <Text
+              key={h}
+              allowFontScaling={false}
               style={[
-                seStyles.row,
-                { borderBottomColor: isLast ? "transparent" : theme.border },
-                g.team?.colorPrimary
-                  ? { borderLeftWidth: 3, borderLeftColor: g.team.colorPrimary }
-                  : null,
+                seStyles.headerStat,
+                { color: theme.textSecondary, width: SE_COL_W },
               ]}
             >
-              <View style={seStyles.rowLeft}>
-                <View
-                  style={[
-                    seStyles.rowLogo,
-                    {
-                      backgroundColor: (g.team?.colorPrimary ?? "#888") + "22",
-                    },
-                  ]}
-                >
-                  {g.team?.image_path && !isPlaceholder(g.team.image_path) ? (
-                    <Image
-                      source={{ uri: g.team.image_path }}
-                      style={seStyles.rowLogoImg}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    <Text
-                      style={[
-                        seStyles.rowLogoInitial,
-                        { color: g.team?.colorPrimary ?? "#888" },
-                      ]}
-                    >
-                      {(g.team?.name ?? "?")[0]}
-                    </Text>
-                  )}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text
-                    allowFontScaling={false}
-                    style={[seStyles.rowSeasonName, { color: theme.text }]}
-                    numberOfLines={1}
-                  >
-                    {g.seasonName}
-                  </Text>
-                  <Text
-                    allowFontScaling={false}
+              {h}
+            </Text>
+          ))}
+        </View>
+
+        {list.map((g, gi) => {
+          const avgRating = g.ratingCount ? g.ratingSum / g.ratingCount : null;
+          const isLast = gi === list.length - 1;
+          return (
+            <View key={g.key}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => toggle(g.key)}
+                style={[
+                  seStyles.row,
+                  { borderBottomColor: isLast ? "transparent" : theme.border },
+                  g.team?.colorPrimary
+                    ? { borderLeftWidth: 3, borderLeftColor: g.team.colorPrimary }
+                    : null,
+                ]}
+              >
+                <View style={seStyles.rowLeft}>
+                  <View
                     style={[
-                      seStyles.rowTeamName,
-                      { color: theme.textSecondary },
+                      seStyles.rowLogo,
+                      {
+                        backgroundColor:
+                          (g.team?.colorPrimary ?? "#888") + "22",
+                        borderRadius: g.groupType === "country" ? 0 : 16,
+                      },
                     ]}
-                    numberOfLines={1}
                   >
-                    {g.team?.name ?? ""}
-                  </Text>
+                    {g.team?.image_path && !isPlaceholder(g.team.image_path) ? (
+                      <Image
+                        source={{ uri: g.team.image_path }}
+                        style={seStyles.rowLogoImg}
+                        resizeMode="contain"
+                      />
+                    ) : (
+                      <Text
+                        style={[
+                          seStyles.rowLogoInitial,
+                          { color: g.team?.colorPrimary ?? "#888" },
+                        ]}
+                      >
+                        {(g.team?.name ?? "?")[0]}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      allowFontScaling={false}
+                      style={[seStyles.rowSeasonName, { color: theme.text }]}
+                      numberOfLines={1}
+                    >
+                      {g.seasonName}
+                    </Text>
+                    <Text
+                      allowFontScaling={false}
+                      style={[
+                        seStyles.rowTeamName,
+                        { color: theme.textSecondary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {g.team?.name ?? ""}
+                    </Text>
+                  </View>
                 </View>
-              </View>
 
-              <View style={seStyles.rowStats}>
-                {(() => {
-                  const glsStr =
-                    g.penGoals > 0
-                      ? `${g.goals} (${g.penGoals})`
-                      : g.goals
-                        ? String(g.goals)
+                <View style={seStyles.rowStats}>
+                  {(() => {
+                    const glsStr =
+                      g.penGoals > 0
+                        ? `${g.goals} (${g.penGoals})`
+                        : g.goals
+                          ? String(g.goals)
+                          : "—";
+                    const col1 = isGK
+                      ? g.gc
+                        ? String(g.gc)
+                        : "—"
+                      : glsStr;
+                    const col2 = isGK
+                      ? g.cs
+                        ? String(g.cs)
+                        : "—"
+                      : g.assists
+                        ? String(g.assists)
                         : "—";
-                  return (
-                    <>
-                      <Text
-                        allowFontScaling={false}
-                        style={[
-                          seStyles.rowStat,
-                          {
-                            color:
-                              avgRating != null
-                                ? getRatingColor(avgRating)
-                                : theme.text,
-                            width: SE_COL_W,
-                          },
-                        ]}
-                      >
-                        {avgRating != null ? Number(avgRating).toFixed(1) : "—"}
-                      </Text>
-                      <Text
-                        allowFontScaling={false}
-                        style={[
-                          seStyles.rowStat,
-                          { color: theme.text, width: SE_COL_W },
-                        ]}
-                      >
-                        {glsStr}
-                      </Text>
-                      <Text
-                        allowFontScaling={false}
-                        style={[
-                          seStyles.rowStat,
-                          { color: theme.text, width: SE_COL_W },
-                        ]}
-                      >
-                        {g.assists ? String(g.assists) : "—"}
-                      </Text>
-                      <Text
-                        allowFontScaling={false}
-                        style={[
-                          seStyles.rowStat,
-                          { color: theme.text, width: SE_COL_W },
-                        ]}
-                      >
-                        {g.apps ? String(g.apps) : "—"}
-                      </Text>
-                    </>
-                  );
-                })()}
-              </View>
-            </TouchableOpacity>
+                    return (
+                      <>
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            seStyles.rowStat,
+                            {
+                              color:
+                                avgRating != null
+                                  ? getRatingColor(avgRating)
+                                  : theme.text,
+                              width: SE_COL_W,
+                            },
+                          ]}
+                        >
+                          {avgRating != null
+                            ? Number(avgRating).toFixed(1)
+                            : "—"}
+                        </Text>
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            seStyles.rowStat,
+                            { color: theme.text, width: SE_COL_W },
+                          ]}
+                        >
+                          {col1}
+                        </Text>
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            seStyles.rowStat,
+                            { color: theme.text, width: SE_COL_W },
+                          ]}
+                        >
+                          {col2}
+                        </Text>
+                        <Text
+                          allowFontScaling={false}
+                          style={[
+                            seStyles.rowStat,
+                            { color: theme.text, width: SE_COL_W },
+                          ]}
+                        >
+                          {g.apps ? String(g.apps) : "—"}
+                        </Text>
+                      </>
+                    );
+                  })()}
+                </View>
+              </TouchableOpacity>
 
-            {expanded[g.key]
-              ? (() => {
-                  const entriesSorted = [...g.entries].sort((a, b) => {
-                    const aApps =
-                      getSeasonStat(
-                        a.details ?? [],
-                        "Appearances",
-                        "appearances",
-                        "Season Appearances",
-                      ) || 0;
-                    const bApps =
-                      getSeasonStat(
-                        b.details ?? [],
-                        "Appearances",
-                        "appearances",
-                        "Season Appearances",
-                      ) || 0;
-                    return bApps - aApps; // descending by APP
-                  });
-                  return entriesSorted.map((entry, ei) => (
-                    <SeasonStatRow
-                      key={entry.season_id ?? ei}
-                      stat={entry}
-                      isGK={isGK}
-                      last={ei === entriesSorted.length - 1}
-                      theme={theme}
-                      overrideBorderColor={theme.surface}
-                    />
-                  ));
-                })()
-              : null}
-          </View>
-        );
-      })}
-    </PlayerSectionBubble>
+              {expanded[g.key]
+                ? (() => {
+                    const entriesSorted = [...g.entries].sort((a, b) => {
+                      const aApps =
+                        getSeasonStat(
+                          a.details ?? [],
+                          "Appearances",
+                          "appearances",
+                          "Season Appearances",
+                        ) || 0;
+                      const bApps =
+                        getSeasonStat(
+                          b.details ?? [],
+                          "Appearances",
+                          "appearances",
+                          "Season Appearances",
+                        ) || 0;
+                      return bApps - aApps; // descending by APP
+                    });
+                    return entriesSorted.map((entry, ei) => (
+                      <SeasonStatRow
+                        key={entry.season_id ?? ei}
+                        stat={entry}
+                        isGK={isGK}
+                        last={ei === entriesSorted.length - 1}
+                        theme={theme}
+                        overrideBorderColor={theme.surface}
+                      />
+                    ));
+                  })()
+                : null}
+            </View>
+          );
+        })}
+      </PlayerSectionBubble>
+    );
+  };
+
+  return (
+    <>
+      {renderGroup("Club Season Stats", grouped.club)}
+      {renderGroup("Country Season Stats", grouped.country)}
+    </>
   );
 }
 
@@ -1851,6 +1890,7 @@ function MatchCard({
   fixture,
   playerTeamId,
   playerTeamName,
+  playerTeamHints,
   isGK,
   theme,
   accentColor,
@@ -1874,11 +1914,25 @@ function MatchCard({
     return null;
   };
 
+  const hintIds = new Set(
+    (playerTeamHints ?? []).map((h) => h?.id).filter((id) => id != null),
+  );
+  const hintNames = new Set(
+    (playerTeamHints ?? [])
+      .map((h) => String(h?.name ?? "").trim().toLowerCase())
+      .filter(Boolean),
+  );
+
   const playerP =
     participants.find(
       (p) =>
         (playerTeamId != null && p.id === playerTeamId) ||
         (playerTeamName && p.name === playerTeamName),
+    ) ??
+    participants.find(
+      (p) =>
+        (p.id != null && hintIds.has(p.id)) ||
+        hintNames.has(String(p.name ?? "").trim().toLowerCase()),
     ) ??
     participants[0] ??
     {};
@@ -2210,6 +2264,7 @@ function StatBubble({
   accentColor,
   playerTeamId,
   playerTeamName,
+  playerTeamHints,
   isGK,
 }) {
   const { name, total, perGame, mostInGame, bestFixture } = stat;
@@ -2276,6 +2331,7 @@ function StatBubble({
             fixture={bestFixture}
             playerTeamId={playerTeamId}
             playerTeamName={playerTeamName}
+            playerTeamHints={playerTeamHints}
             isGK={isGK}
             theme={theme}
             accentColor={accentColor}
@@ -2293,6 +2349,7 @@ function RatingsTracker({
   accentColor,
   playerTeamId,
   playerTeamName,
+  playerTeamHints,
   isGK,
 }) {
   const n = ratingPoints.length;
@@ -2658,6 +2715,7 @@ function RatingsTracker({
           fixture={selected.fixture}
           playerTeamId={playerTeamId}
           playerTeamName={playerTeamName}
+          playerTeamHints={playerTeamHints}
           isGK={isGK}
           theme={theme}
           accentColor={accentColor}
@@ -2786,6 +2844,28 @@ export default function Top5PlayerScreen({ route, navigation }) {
     activeAny ??
     pickMostRecent(teams) ??
     null;
+
+  const playerTeamHints = useMemo(() => {
+    const ordered = [];
+    if (currentTeam?.team) ordered.push(currentTeam.team);
+    if (activeAny?.team) ordered.push(activeAny.team);
+    for (const stint of teams ?? []) {
+      if (stint?.team) ordered.push(stint.team);
+    }
+
+    const seen = new Set();
+    const deduped = [];
+    for (const t of ordered) {
+      const id = t?.id;
+      const normalizedName = String(t?.name ?? "").trim().toLowerCase();
+      const key = id != null ? `id:${id}` : normalizedName ? `name:${normalizedName}` : null;
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      deduped.push({ id: id ?? null, name: t?.name ?? null });
+    }
+
+    return deduped;
+  }, [currentTeam, activeAny, teams]);
 
   const accentColor = currentTeam?.team?.colorPrimary || colors.primary;
 
@@ -2962,6 +3042,7 @@ export default function Top5PlayerScreen({ route, navigation }) {
         {statistics.length ? (
           <PlayerSeasonsBubble
             statistics={statistics}
+            teams={teams}
             isGK={isGK}
             theme={theme}
             accentColor={accentColor}
@@ -3017,6 +3098,7 @@ export default function Top5PlayerScreen({ route, navigation }) {
             fixture={entry.fixture ?? {}}
             playerTeamId={ptId}
             playerTeamName={ptName}
+            playerTeamHints={playerTeamHints}
             isGK={isGK}
             theme={theme}
             accentColor={accentColor}
@@ -3096,6 +3178,7 @@ export default function Top5PlayerScreen({ route, navigation }) {
             accentColor={accentColor}
             playerTeamId={ptId}
             playerTeamName={ptName}
+            playerTeamHints={playerTeamHints}
             isGK={isGK}
           />
         ))}
@@ -3197,6 +3280,7 @@ export default function Top5PlayerScreen({ route, navigation }) {
                 fixture={bestRatedPt.fixture}
                 playerTeamId={ptId}
                 playerTeamName={ptName}
+                playerTeamHints={playerTeamHints}
                 isGK={isGK}
                 theme={theme}
                 accentColor={accentColor}
@@ -3213,6 +3297,7 @@ export default function Top5PlayerScreen({ route, navigation }) {
           accentColor={accentColor}
           playerTeamId={ptId}
           playerTeamName={ptName}
+          playerTeamHints={playerTeamHints}
           isGK={isGK}
         />
 

@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   useState,
   useEffect,
   useRef,
@@ -35,6 +35,7 @@ import { Ionicons } from "@expo/vector-icons";
 import ViewShot, { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import ChatComponent from "../../../components/ChatComponent";
+import useIsLoggedIn from "../../../hooks/useIsLoggedIn";
 import { FIFAWorldServiceEnhanced } from "../../../services/soccer/FIFAWorldServiceEnhanced";
 import { useTheme } from "../../../context/ThemeContext";
 import { useFavorites } from "../../../context/FavoritesContext";
@@ -209,6 +210,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
   const [streamError, setStreamError] = useState(false);
   const [showStreamModal, setShowStreamModal] = useState(false);
   const [chatModalVisible, setChatModalVisible] = useState(false);
+  const isLoggedIn = useIsLoggedIn();
 
   // Streaming access check
   const { isUnlocked: isStreamingUnlocked } = useStreamingAccess();
@@ -1315,22 +1317,22 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
       teamName
         .toLowerCase()
         // First, convert special characters to ASCII equivalents (matching API format)
-        .replace(/á/g, "a")
-        .replace(/é/g, "e")
-        .replace(/í/g, "i")
-        .replace(/ó/g, "o")
-        .replace(/ú/g, "u")
-        .replace(/ü/g, "u")
-        .replace(/ñ/g, "n")
-        .replace(/ç/g, "c")
-        .replace(/ß/g, "ss")
+        .replace(/Ã¡/g, "a")
+        .replace(/Ã©/g, "e")
+        .replace(/Ã­/g, "i")
+        .replace(/Ã³/g, "o")
+        .replace(/Ãº/g, "u")
+        .replace(/Ã¼/g, "u")
+        .replace(/Ã±/g, "n")
+        .replace(/Ã§/g, "c")
+        .replace(/ÃŸ/g, "ss")
         // Handle accented characters that become multiple characters
-        .replace(/ë/g, "e")
-        .replace(/ï/g, "i")
-        .replace(/ö/g, "o")
-        .replace(/ä/g, "a")
-        .replace(/å/g, "a")
-        .replace(/ø/g, "o")
+        .replace(/Ã«/g, "e")
+        .replace(/Ã¯/g, "i")
+        .replace(/Ã¶/g, "o")
+        .replace(/Ã¤/g, "a")
+        .replace(/Ã¥/g, "a")
+        .replace(/Ã¸/g, "o")
         // Convert spaces to hyphens
         .replace(/\s+/g, "-")
         // Remove any remaining non-alphanumeric characters except hyphens
@@ -2013,7 +2015,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
         return {};
       } else {
         console.log(
-          `✓ Validation passed: Matched game contains both teams and is relevant`,
+          `âœ“ Validation passed: Matched game contains both teams and is relevant`,
         );
         console.log(
           `Relevance scores: Home=${homeRelevanceRatio.toFixed(
@@ -2170,7 +2172,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                   },
                 ]}
               >
-                {isFavorite(homeTeam?.team?.id, "fifa world") && "★ "}
+                {isFavorite(homeTeam?.team?.id, "fifa world") && "â˜… "}
                 {homeTeam?.team?.abbreviation ||
                   homeTeam?.team?.displayName?.substring(0, 3) ||
                   "TBD"}
@@ -2294,7 +2296,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                   },
                 ]}
               >
-                {isFavorite(awayTeam?.team?.id, "fifa world") && "★ "}
+                {isFavorite(awayTeam?.team?.id, "fifa world") && "â˜… "}
                 {awayTeam?.team?.abbreviation ||
                   awayTeam?.team?.displayName?.substring(0, 3) ||
                   "TBD"}
@@ -2352,7 +2354,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
         {/* Soccer Ball Separator */}
         <View style={styles.headerSoccerBallContainer}>
           <Text allowFontScaling={false} style={styles.headerSoccerBallEmoji}>
-            ⚽
+            âš½
           </Text>
         </View>
 
@@ -2508,7 +2510,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
             .replace(/\s*(Penalty|Goal)\s*/gi, "")
             .trim();
         }
-        // For own goals, shortText might be "Álex Berenguer Own Goal"
+        // For own goals, shortText might be "Ãlex Berenguer Own Goal"
         else if (isOwnGoal) {
           playerName = play.shortText.replace(/\s*(Own|Goal)\s*/gi, "").trim();
         } else if (isFreeKick) {
@@ -2680,7 +2682,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
 
           <View style={styles.soccerBallContainer}>
             <Text allowFontScaling={false} style={styles.soccerBallEmoji}>
-              ⚽
+              âš½
             </Text>
           </View>
 
@@ -2829,7 +2831,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
               ]}
               numberOfLines={2}
             >
-              {isFavorite(homeTeam?.team?.id, "fifa world") ? "★ " : ""}
+              {isFavorite(homeTeam?.team?.id, "fifa world") ? "â˜… " : ""}
               {homeTeam?.team?.displayName}
             </Text>
           </View>
@@ -2965,7 +2967,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
               ]}
               numberOfLines={2}
             >
-              {isFavorite(awayTeam?.team?.id, "fifa world") ? "★ " : ""}
+              {isFavorite(awayTeam?.team?.id, "fifa world") ? "â˜… " : ""}
               {awayTeam?.team?.displayName}
             </Text>
           </View>
@@ -3000,7 +3002,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
               allowFontScaling={false}
               style={[styles.venueText, { color: theme.textSecondary }]}
             >
-              📍 {competition.venue.fullName}
+              ðŸ“ {competition.venue.fullName}
             </Text>
           </View>
         )}
@@ -3895,7 +3897,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                 { color: theme.textSecondary },
               ]}
             >
-              {homeTeam?.team?.location || ""} • Home
+              {homeTeam?.team?.location || ""} â€¢ Home
             </Text>
           </View>
         </View>
@@ -4015,7 +4017,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                 { color: theme.textSecondary },
               ]}
             >
-              {awayTeam?.team?.location || ""} • Away
+              {awayTeam?.team?.location || ""} â€¢ Away
             </Text>
           </View>
         </View>
@@ -4299,7 +4301,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
         >
           {wasSubbedOut && (
             <Text allowFontScaling={false} style={styles.subArrow}>
-              ←{" "}
+              â†{" "}
             </Text>
           )}
           {name}
@@ -4442,7 +4444,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                   {subbedInFor && (
                     <Text allowFontScaling={false} style={styles.subArrowIn}>
                       {" "}
-                      →
+                      â†’
                     </Text>
                   )}
                 </Text>
@@ -5594,7 +5596,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                   { color: isScoring ? scoringTextColor : theme.text },
                 ]}
               >
-                {isOpen ? "▲" : "▼"}
+                {isOpen ? "â–²" : "â–¼"}
               </Text>
             </View>
           </TouchableOpacity>
@@ -5728,16 +5730,16 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
 
     if (teamSide === "home") {
       // Home team on right half of field
-      // X=0 (far right) → 96% left position (near right goal)
-      // X=1 (center line) → 50% left position
-      leftPercent = 50 + (1 - espnX) * 46; // X=0→96%, X=1→50%
-      topPercent = 4 + espnY * 92; // Y=0→4%, Y=1→96% (within field outline)
+      // X=0 (far right) â†’ 96% left position (near right goal)
+      // X=1 (center line) â†’ 50% left position
+      leftPercent = 50 + (1 - espnX) * 46; // X=0â†’96%, X=1â†’50%
+      topPercent = 4 + espnY * 92; // Y=0â†’4%, Y=1â†’96% (within field outline)
     } else {
       // Away team on left half of field
-      // X=0 (far left) → 4% left position (near left goal)
-      // X=1 (center line) → 50% left position
-      leftPercent = 4 + espnX * 46; // X=0→4%, X=1→50%
-      topPercent = 4 + (1 - espnY) * 92; // Y=0→96%, Y=1→4% (inverted, within field outline)
+      // X=0 (far left) â†’ 4% left position (near left goal)
+      // X=1 (center line) â†’ 50% left position
+      leftPercent = 4 + espnX * 46; // X=0â†’4%, X=1â†’50%
+      topPercent = 4 + (1 - espnY) * 92; // Y=0â†’96%, Y=1â†’4% (inverted, within field outline)
     }
 
     // Constrain to field outline bounds (white lines area)
@@ -5763,12 +5765,12 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
 
       if (teamSide === "home") {
         // Home team on right half
-        leftPercent2 = 50 + (1 - espnX2) * 46; // X=0→96%, X=1→50%
-        topPercent2 = 4 + espnY2 * 92; // Y=0→4%, Y=1→96%
+        leftPercent2 = 50 + (1 - espnX2) * 46; // X=0â†’96%, X=1â†’50%
+        topPercent2 = 4 + espnY2 * 92; // Y=0â†’4%, Y=1â†’96%
       } else {
         // Away team on left half
-        leftPercent2 = 4 + espnX2 * 46; // X=0→4%, X=1→50%
-        topPercent2 = 4 + (1 - espnY2) * 92; // Y=0→96%, Y=1→4% (inverted)
+        leftPercent2 = 4 + espnX2 * 46; // X=0â†’4%, X=1â†’50%
+        topPercent2 = 4 + (1 - espnY2) * 92; // Y=0â†’96%, Y=1â†’4% (inverted)
       }
 
       secondLeftPercent = Math.max(4, Math.min(96, leftPercent2));
@@ -6030,7 +6032,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
       const topPercent = espnX * 100; // 0% to 100% vertically
 
       console.log(
-        `Shot coordinates: ESPN(${espnX}, ${espnY}) → Screen(${leftPercent}%, ${topPercent}%)`,
+        `Shot coordinates: ESPN(${espnX}, ${espnY}) â†’ Screen(${leftPercent}%, ${topPercent}%)`,
       );
 
       return {
@@ -6055,7 +6057,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
       const topPercent2 = espnX2 * 100; // 0% to 100% vertically
 
       console.log(
-        `Shot end coordinates: ESPN(${espnX2}, ${espnY2}) → Screen(${leftPercent2}%, ${topPercent2}%)`,
+        `Shot end coordinates: ESPN(${espnX2}, ${espnY2}) â†’ Screen(${leftPercent2}%, ${topPercent2}%)`,
       );
 
       return {
@@ -6316,7 +6318,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                         { color: theme.textSecondary },
                       ]}
                     >
-                      • {selectedPlayer.position?.abbreviation || "N/A"}
+                      â€¢ {selectedPlayer.position?.abbreviation || "N/A"}
                     </Text>
                   </View>
                 </View>
@@ -6331,7 +6333,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                   }}
                 >
                   <Text allowFontScaling={false} style={styles.playerCloseText}>
-                    ×
+                    Ã—
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -6937,7 +6939,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                     allowFontScaling={false}
                     style={[styles.streamCloseText, { color: colors.primary }]}
                   >
-                    ×
+                    Ã—
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -7140,7 +7142,10 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
         </Modal>
       )}
 
-      {/* Floating Chat Button */}
+      
+      {isLoggedIn && (
+        <>
+          {/* Floating Chat Button */}
       <TouchableOpacity
         style={[styles.floatingChatButton, { backgroundColor: colors.primary }]}
         onPress={() => setChatModalVisible(true)}
@@ -7208,6 +7213,9 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
           </View>
         </View>
       </Modal>
+        </>
+      )}
+
 
       {/* Goal Share Card Modal */}
       {shareCardPlay && (
@@ -7619,7 +7627,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
 
                       const CARD_SIZE = Math.min(width - 48, 540);
 
-                      // ── Field scaling ───────────────────────────────────────
+                      // â”€â”€ Field scaling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                       // 0.41 matches the old hardcoded 130/320 = 40.6% ratio.
                       // -12 leaves ~6px padding each side of the portrait field.
                       const FIELD_LEFT_PANEL_W = Math.round(CARD_SIZE * 0.41);
@@ -7652,7 +7660,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                             },
                           ]}
                         >
-                          {/* ── Header: time + score + goal event + description ── */}
+                          {/* â”€â”€ Header: time + score + goal event + description â”€â”€ */}
                           <View
                             style={{
                               backgroundColor: finalTeamColor + "33",
@@ -7681,7 +7689,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                                   color: theme.text,
                                 }}
                               >
-                                {clock ? `${clock} • ` : ""}
+                                {clock ? `${clock} â€¢ ` : ""}
                                 {periodText}
                               </Text>
                               {/* Score with team logos */}
@@ -7742,8 +7750,8 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                                 marginBottom: 3,
                               }}
                             >
-                              ⚽ {goalType}
-                              {goalSituation ? ` • ${goalSituation}` : ""}
+                              âš½ {goalType}
+                              {goalSituation ? ` â€¢ ${goalSituation}` : ""}
                             </Text>
                             {/* Description */}
                             {!!playText && (
@@ -7760,9 +7768,9 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                             )}
                           </View>
 
-                          {/* ── Body: left = vertical field, right = player info ── */}
+                          {/* â”€â”€ Body: left = vertical field, right = player info â”€â”€ */}
                           <View style={{ flexDirection: "row" }}>
-                            {/* Left – vertical soccer field (width scales with card) */}
+                            {/* Left â€“ vertical soccer field (width scales with card) */}
                             <View
                               style={{
                                 width: 150 * FIELD_SCALE,
@@ -7783,7 +7791,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                               }
                             >
                               {/*
-                                The field (180×120 landscape) is rotated 90° + scaled.
+                                The field (180Ã—120 landscape) is rotated 90Â° + scaled.
                                 Margins are computed from the scaled visual size so
                                 the layout box matches the visual portrait dimensions.
                               */}
@@ -7827,7 +7835,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                               </View>
                             </View>
 
-                            {/* Right – player avatar + info + stats */}
+                            {/* Right â€“ player avatar + info + stats */}
                             <View
                               style={{
                                 flex: 1,
@@ -7837,7 +7845,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                                 alignItems: "center",
                               }}
                             >
-                              {/* Initial circle — for own goals uses the OWN GOALER's team color */}
+                              {/* Initial circle â€” for own goals uses the OWN GOALER's team color */}
                               <View
                                 style={{
                                   width: 54,
@@ -7876,7 +7884,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                                 {scorerName}
                               </Text>
 
-                              {/* Team name with logo — for own goals shows the OWN GOALER's team */}
+                              {/* Team name with logo â€” for own goals shows the OWN GOALER's team */}
                               <View
                                 style={{
                                   flexDirection: "row",
@@ -7941,7 +7949,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                                 </View>
                               )}
 
-                              {/* 6-stat grid (3 columns × 2 rows) */}
+                              {/* 6-stat grid (3 columns Ã— 2 rows) */}
                               <View
                                 style={{
                                   flexDirection: "row",
@@ -7967,7 +7975,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                                         color: theme.text,
                                       }}
                                     >
-                                      {value ?? "—"}
+                                      {value ?? "â€”"}
                                     </Text>
                                     <Text
                                       style={{
@@ -7987,7 +7995,7 @@ const FIFAGameDetailsScreen = ({ route, navigation }) => {
                             </View>
                           </View>
 
-                          {/* ── Branding footer ── */}
+                          {/* â”€â”€ Branding footer â”€â”€ */}
                           <View
                             style={{
                               borderTopWidth: StyleSheet.hairlineWidth,
@@ -9897,3 +9905,5 @@ const styles = StyleSheet.create({
 });
 
 export default FIFAGameDetailsScreen;
+
+
