@@ -241,20 +241,20 @@ export class MLBService {
         if (startDate) {
           if (endDate && endDate !== startDate) {
             // Date range format
-            url += `&startDate=${startDate}&endDate=${endDate}&hydrate=linescore&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
+            url += `&startDate=${startDate}&endDate=${endDate}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
             console.log(
               "MLBService: Using date range format:",
               `${startDate} to ${endDate}`,
             );
           } else {
             // Single date format
-            url += `&startDate=${startDate}&endDate=${startDate}&hydrate=linescore&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
+            url += `&startDate=${startDate}&endDate=${startDate}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
             console.log("MLBService: Using single date format:", startDate);
           }
         } else {
           // Use adjusted date for "today"
           const today = this.getAdjustedDateForMLB();
-          url += `&startDate=${today}&endDate=${today}&hydrate=linescore&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
+          url += `&startDate=${today}&endDate=${today}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
           console.log("MLBService: Using adjusted today date:", today);
         }
 
@@ -330,6 +330,15 @@ export class MLBService {
           awayTeam?.team?.abbreviation,
         ),
         color: this.teamColors[awayTeam?.team?.name] || "#333333",
+        probablePitcher: awayTeam?.probablePitcher
+          ? {
+              id: awayTeam.probablePitcher.id,
+              fullName: awayTeam.probablePitcher.fullName || "",
+              stats: Array.isArray(awayTeam.probablePitcher.stats)
+                ? awayTeam.probablePitcher.stats
+                : [],
+            }
+          : null,
       },
       homeTeam: {
         id: homeTeam?.team?.id?.toString(),
@@ -342,6 +351,35 @@ export class MLBService {
           homeTeam?.team?.abbreviation,
         ),
         color: this.teamColors[homeTeam?.team?.name] || "#333333",
+        probablePitcher: homeTeam?.probablePitcher
+          ? {
+              id: homeTeam.probablePitcher.id,
+              fullName: homeTeam.probablePitcher.fullName || "",
+              stats: Array.isArray(homeTeam.probablePitcher.stats)
+                ? homeTeam.probablePitcher.stats
+                : [],
+            }
+          : null,
+      },
+      probablePitchers: {
+        away: awayTeam?.probablePitcher
+          ? {
+              id: awayTeam.probablePitcher.id,
+              fullName: awayTeam.probablePitcher.fullName || "",
+              stats: Array.isArray(awayTeam.probablePitcher.stats)
+                ? awayTeam.probablePitcher.stats
+                : [],
+            }
+          : null,
+        home: homeTeam?.probablePitcher
+          ? {
+              id: homeTeam.probablePitcher.id,
+              fullName: homeTeam.probablePitcher.fullName || "",
+              stats: Array.isArray(homeTeam.probablePitcher.stats)
+                ? homeTeam.probablePitcher.stats
+                : [],
+            }
+          : null,
       },
       // MLB-specific data
       inning: game.linescore?.currentInning || 0,

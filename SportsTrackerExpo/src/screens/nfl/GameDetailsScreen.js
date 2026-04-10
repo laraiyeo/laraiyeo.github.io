@@ -52,7 +52,7 @@ const calculateColorSimilarity = (color1, color2) => {
       Math.pow(rgb1.b - rgb2.b, 2),
   );
 
-  // Normalize distance (max distance is sqrt(3 * 255^2) â‰ˆ 441)
+  // Normalize distance (max distance is sqrt(3 * 255^2) ≈ 441)
   const normalizedDistance = distance / 441;
 
   // Consider colors similar if distance is less than 0.3 (30% of max distance)
@@ -267,21 +267,21 @@ const GameDetailsScreen = ({ route }) => {
 
     return teamName
       .toLowerCase()
-      .replace(/Ã¡/g, "a")
-      .replace(/Ã©/g, "e")
-      .replace(/Ã­/g, "i")
-      .replace(/Ã³/g, "o")
-      .replace(/Ãº/g, "u")
-      .replace(/Ã¼/g, "u")
-      .replace(/Ã±/g, "n")
-      .replace(/Ã§/g, "c")
-      .replace(/ÃŸ/g, "ss")
-      .replace(/Ã«/g, "e")
-      .replace(/Ã¯/g, "i")
-      .replace(/Ã¶/g, "o")
-      .replace(/Ã¤/g, "a")
-      .replace(/Ã¥/g, "a")
-      .replace(/Ã¸/g, "o")
+      .replace(/á/g, "a")
+      .replace(/é/g, "e")
+      .replace(/í/g, "i")
+      .replace(/ó/g, "o")
+      .replace(/ú/g, "u")
+      .replace(/ü/g, "u")
+      .replace(/ñ/g, "n")
+      .replace(/ç/g, "c")
+      .replace(/ß/g, "ss")
+      .replace(/ë/g, "e")
+      .replace(/ï/g, "i")
+      .replace(/ö/g, "o")
+      .replace(/ä/g, "a")
+      .replace(/å/g, "a")
+      .replace(/ø/g, "o")
       .replace(/\s+/g, "-")
       .replace(/[^a-z0-9\-]/g, "")
       .replace(/-+/g, "-")
@@ -1889,7 +1889,7 @@ const GameDetailsScreen = ({ route }) => {
             >
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  ðŸˆ
+                  🏈
                 </Text>
                 <Text
                   allowFontScaling={false}
@@ -1913,7 +1913,7 @@ const GameDetailsScreen = ({ route }) => {
             >
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  ðŸˆ
+                  🏈
                 </Text>
                 <Text
                   allowFontScaling={false}
@@ -1948,7 +1948,7 @@ const GameDetailsScreen = ({ route }) => {
             >
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  ðŸˆ
+                  🏈
                 </Text>
                 <Text
                   allowFontScaling={false}
@@ -1978,7 +1978,7 @@ const GameDetailsScreen = ({ route }) => {
             >
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  ðŸˆ
+                  🏈
                 </Text>
                 <Text
                   allowFontScaling={false}
@@ -2014,7 +2014,7 @@ const GameDetailsScreen = ({ route }) => {
             >
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  ðŸˆ
+                  🏈
                 </Text>
                 <Text
                   allowFontScaling={false}
@@ -2045,7 +2045,7 @@ const GameDetailsScreen = ({ route }) => {
             >
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  ðŸˆ
+                  🏈
                 </Text>
                 <Text
                   allowFontScaling={false}
@@ -2080,7 +2080,7 @@ const GameDetailsScreen = ({ route }) => {
             >
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  ðŸˆ
+                  🏈
                 </Text>
                 <Text
                   allowFontScaling={false}
@@ -2108,7 +2108,7 @@ const GameDetailsScreen = ({ route }) => {
             <View style={styles.statCategory}>
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  ðŸˆ
+                  🏈
                 </Text>
                 <Text allowFontScaling={false} style={styles.statCategoryTitle}>
                   Defensive
@@ -2126,7 +2126,7 @@ const GameDetailsScreen = ({ route }) => {
             <View style={styles.statCategory}>
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  ðŸˆ
+                  🏈
                 </Text>
                 <Text allowFontScaling={false} style={styles.statCategoryTitle}>
                   Interceptions
@@ -2149,7 +2149,7 @@ const GameDetailsScreen = ({ route }) => {
             <View style={styles.statCategory}>
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  ðŸˆ
+                  🏈
                 </Text>
                 <Text allowFontScaling={false} style={styles.statCategoryTitle}>
                   Kicking
@@ -2168,7 +2168,7 @@ const GameDetailsScreen = ({ route }) => {
             <View style={styles.statCategory}>
               <View style={styles.statSubcategoryHeader}>
                 <Text allowFontScaling={false} style={styles.footballEmoji}>
-                  ðŸˆ
+                  🏈
                 </Text>
                 <Text allowFontScaling={false} style={styles.statCategoryTitle}>
                   Punting
@@ -2289,7 +2289,7 @@ const GameDetailsScreen = ({ route }) => {
               <View key={categoryIndex} style={styles.statCategory}>
                 <View style={styles.statSubcategoryHeader}>
                   <Text allowFontScaling={false} style={styles.footballEmoji}>
-                    ðŸˆ
+                    🏈
                   </Text>
                   <Text
                     allowFontScaling={false}
@@ -2388,7 +2388,7 @@ const GameDetailsScreen = ({ route }) => {
           for (const p of prefixes) {
             if (p && titleText.startsWith(p)) {
               titleText = titleText.slice(p.length).trim();
-              titleText = titleText.replace(/^[-â€“:\s]+/, "");
+              titleText = titleText.replace(/^[-–:\s]+/, "");
               break;
             }
           }
@@ -3493,7 +3493,7 @@ const GameDetailsScreen = ({ route }) => {
                             >
                               #{player.jersey || "N/A"}
                             </Text>{" "}
-                            â€¢{" "}
+                            •{" "}
                             {player.position?.abbreviation ||
                               positionGroup.position ||
                               "N/A"}
@@ -4244,7 +4244,7 @@ const GameDetailsScreen = ({ route }) => {
                       play.scoringPlay && "SCORING PLAY",
                     ]
                       .filter(Boolean)
-                      .join(" â€¢ ")}
+                      .join(" • ")}
                   </Text>
                 </View>
               )}
@@ -4256,7 +4256,7 @@ const GameDetailsScreen = ({ route }) => {
                   <Text allowFontScaling={false} style={styles.playFieldText}>
                     {play.start?.text &&
                       play.end?.text &&
-                      `${play.start.text} â†’ ${play.end.text}`}
+                      `${play.start.text} → ${play.end.text}`}
                   </Text>
                 </View>
               )}
@@ -4337,7 +4337,7 @@ const GameDetailsScreen = ({ route }) => {
               },
             ]}
           >
-            {isFavorite(getNFLTeamId(awayTeam?.team), "nfl") && "â˜… "}
+            {isFavorite(getNFLTeamId(awayTeam?.team), "nfl") && "★ "}
             {getNFLTeamAbbreviation(awayTeam?.team) || "AWAY"}
           </Text>
           {/* Possession indicator for away team */}
@@ -4358,7 +4358,7 @@ const GameDetailsScreen = ({ route }) => {
                 allowFontScaling={false}
                 style={styles.stickyPossessionIndicator}
               >
-                ðŸˆ
+                🏈
               </Text>
             ) : null;
           })()}
@@ -4428,7 +4428,7 @@ const GameDetailsScreen = ({ route }) => {
                 allowFontScaling={false}
                 style={styles.stickyPossessionIndicator}
               >
-                ðŸˆ
+                🏈
               </Text>
             ) : null;
           })()}
@@ -4445,7 +4445,7 @@ const GameDetailsScreen = ({ route }) => {
               },
             ]}
           >
-            {isFavorite(getNFLTeamId(homeTeam?.team), "nfl") && "â˜… "}
+            {isFavorite(getNFLTeamId(homeTeam?.team), "nfl") && "★ "}
             {getNFLTeamAbbreviation(homeTeam?.team) || "HOME"}
           </Text>
           {status?.type?.description !== "Scheduled" ? (
@@ -4587,7 +4587,7 @@ const GameDetailsScreen = ({ route }) => {
                         styles.awayPossession,
                       ]}
                     >
-                      ðŸˆ
+                      🏈
                     </Text>
                   ) : null;
                 })()}
@@ -4611,7 +4611,7 @@ const GameDetailsScreen = ({ route }) => {
                     },
                   ]}
                 >
-                  {isFavorite(getNFLTeamId(awayTeam?.team), "nfl") && "â˜… "}
+                  {isFavorite(getNFLTeamId(awayTeam?.team), "nfl") && "★ "}
                   {awayTeam?.team?.abbreviation ||
                     awayTeam?.team?.shortDisplayName ||
                     awayTeam?.team?.name}
@@ -4712,7 +4712,7 @@ const GameDetailsScreen = ({ route }) => {
                         styles.homePossession,
                       ]}
                     >
-                      ðŸˆ
+                      🏈
                     </Text>
                   ) : null;
                 })()}
@@ -4731,7 +4731,7 @@ const GameDetailsScreen = ({ route }) => {
                     },
                   ]}
                 >
-                  {isFavorite(getNFLTeamId(homeTeam?.team), "nfl") && "â˜… "}
+                  {isFavorite(getNFLTeamId(homeTeam?.team), "nfl") && "★ "}
                   {homeTeam?.team?.abbreviation ||
                     homeTeam?.team?.shortDisplayName ||
                     homeTeam?.team?.name}
@@ -4870,7 +4870,7 @@ const GameDetailsScreen = ({ route }) => {
                         ]}
                       >
                         <Text allowFontScaling={false} style={styles.ballIcon}>
-                          ðŸˆ
+                          🏈
                         </Text>
                       </View>
                     );
@@ -4985,7 +4985,7 @@ const GameDetailsScreen = ({ route }) => {
                 allowFontScaling={false}
                 style={[styles.streamButtonText, { color: "#fff" }]}
               >
-                ðŸ“º Watch Live Stream
+                📺 Watch Live Stream
               </Text>
             </TouchableOpacity>
           );
@@ -5117,7 +5117,7 @@ const GameDetailsScreen = ({ route }) => {
                   allowFontScaling={false}
                   style={[styles.modalCloseText, { color: "#fff" }]}
                 >
-                  Ã—
+                  ×
                 </Text>
               </TouchableOpacity>
 
@@ -5521,7 +5521,7 @@ const GameDetailsScreen = ({ route }) => {
                   allowFontScaling={false}
                   style={[styles.modalCloseText, { color: "#fff" }]}
                 >
-                  Ã—
+                  ×
                 </Text>
               </TouchableOpacity>
 
@@ -5862,7 +5862,7 @@ const GameDetailsScreen = ({ route }) => {
                                     >
                                       {[downDistanceText, play.type?.text]
                                         .filter(Boolean)
-                                        .join(" â€¢ ")}
+                                        .join(" • ")}
                                     </Text>
                                   )
                                 );
@@ -6062,7 +6062,7 @@ const GameDetailsScreen = ({ route }) => {
                               ]}
                             >
                               {period > 4 ? `OT${period - 4}` : `Q${period}`}{" "}
-                              {clock} â€¢ {downDistanceText || possession}
+                              {clock} • {downDistanceText || possession}
                             </Text>
                           </View>
 
@@ -6739,7 +6739,7 @@ const GameDetailsScreen = ({ route }) => {
                                 );
 
                                 if (stats.length > 0) {
-                                  return `${formattedName} â€¢ ${stats.join(
+                                  return `${formattedName} • ${stats.join(
                                     ", ",
                                   )}`;
                                 }
@@ -6955,7 +6955,7 @@ const GameDetailsScreen = ({ route }) => {
                         },
                       ]}
                     >
-                      Ã—
+                      ×
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -7184,80 +7184,85 @@ const GameDetailsScreen = ({ route }) => {
         )}
       </ScrollView>
 
-      
       {isLoggedIn && (
         <>
           {/* Floating Chat Button */}
-      <TouchableOpacity
-        style={[styles.floatingChatButton, { backgroundColor: colors.primary }]}
-        onPress={() => setChatModalVisible(true)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="chatbubble-ellipses-outline" size={24} color="#fff" />
-      </TouchableOpacity>
-
-      {/* Chat Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={chatModalVisible}
-        onRequestClose={() => setChatModalVisible(false)}
-        presentationStyle="pageSheet"
-      >
-        <View style={styles.chatModalOverlay}>
-          <View
+          <TouchableOpacity
             style={[
-              styles.chatModalContent,
-              { backgroundColor: theme.surface, paddingBottom: 20 },
+              styles.floatingChatButton,
+              { backgroundColor: colors.primary },
             ]}
+            onPress={() => setChatModalVisible(true)}
+            activeOpacity={0.8}
           >
-            {/* Chat Modal Header */}
-            <View
-              style={[
-                styles.chatModalHeader,
-                { borderBottomColor: theme.border },
-              ]}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[styles.chatModalTitle, { color: theme.text }]}
-              >
-                {gameDetails
-                  ? `${
-                      gameDetails.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "away",
-                      )?.team.name || "Away"
-                    } vs ${
-                      gameDetails.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "home",
-                      )?.team.name || "Home"
-                    }`
-                  : "Chat"}
-              </Text>
-              <TouchableOpacity
-                style={styles.chatModalCloseButton}
-                onPress={() => setChatModalVisible(false)}
-              >
-                <Ionicons name="close" size={24} color={theme.text} />
-              </TouchableOpacity>
-            </View>
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={24}
+              color="#fff"
+            />
+          </TouchableOpacity>
 
-            {/* Chat Content */}
-            <View style={styles.chatModalBody}>
-              {gameDetails && (
-                <ChatComponent
-                  gameId={gameId}
-                  gameData={gameDetails}
-                  hideHeader={true}
-                />
-              )}
+          {/* Chat Modal */}
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={chatModalVisible}
+            onRequestClose={() => setChatModalVisible(false)}
+            presentationStyle="pageSheet"
+          >
+            <View style={styles.chatModalOverlay}>
+              <View
+                style={[
+                  styles.chatModalContent,
+                  { backgroundColor: theme.surface, paddingBottom: 20 },
+                ]}
+              >
+                {/* Chat Modal Header */}
+                <View
+                  style={[
+                    styles.chatModalHeader,
+                    { borderBottomColor: theme.border },
+                  ]}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.chatModalTitle, { color: theme.text }]}
+                  >
+                    {gameDetails
+                      ? `${
+                          gameDetails.header.competitions[0].competitors.find(
+                            (c) => c.homeAway === "away",
+                          )?.team.name || "Away"
+                        } vs ${
+                          gameDetails.header.competitions[0].competitors.find(
+                            (c) => c.homeAway === "home",
+                          )?.team.name || "Home"
+                        }`
+                      : "Chat"}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.chatModalCloseButton}
+                    onPress={() => setChatModalVisible(false)}
+                  >
+                    <Ionicons name="close" size={24} color={theme.text} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Chat Content */}
+                <View style={styles.chatModalBody}>
+                  {gameDetails && (
+                    <ChatComponent
+                      gameId={gameId}
+                      gameData={gameDetails}
+                      hideHeader={true}
+                    />
+                  )}
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
-      </Modal>
+          </Modal>
         </>
       )}
-
     </View>
   );
 };
@@ -9323,5 +9328,3 @@ const styles = StyleSheet.create({
 });
 
 export default GameDetailsScreen;
-
-

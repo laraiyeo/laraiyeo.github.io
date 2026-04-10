@@ -69,7 +69,7 @@ const calculateColorSimilarity = (color1, color2) => {
       Math.pow(rgb1.b - rgb2.b, 2),
   );
 
-  // Normalize distance (max distance is sqrt(3 * 255^2) â‰ˆ 441)
+  // Normalize distance (max distance is sqrt(3 * 255^2) ≈ 441)
   const normalizedDistance = distance / 441;
 
   // Consider colors similar if distance is less than 0.3 (30% of max distance)
@@ -582,21 +582,21 @@ const NBAGameDetailsScreen = ({ route }) => {
 
     return teamName
       .toLowerCase()
-      .replace(/Ã¡/g, "a")
-      .replace(/Ã©/g, "e")
-      .replace(/Ã­/g, "i")
-      .replace(/Ã³/g, "o")
-      .replace(/Ãº/g, "u")
-      .replace(/Ã¼/g, "u")
-      .replace(/Ã±/g, "n")
-      .replace(/Ã§/g, "c")
-      .replace(/ÃŸ/g, "ss")
-      .replace(/Ã«/g, "e")
-      .replace(/Ã¯/g, "i")
-      .replace(/Ã¶/g, "o")
-      .replace(/Ã¤/g, "a")
-      .replace(/Ã¥/g, "a")
-      .replace(/Ã¸/g, "o")
+      .replace(/á/g, "a")
+      .replace(/é/g, "e")
+      .replace(/í/g, "i")
+      .replace(/ó/g, "o")
+      .replace(/ú/g, "u")
+      .replace(/ü/g, "u")
+      .replace(/ñ/g, "n")
+      .replace(/ç/g, "c")
+      .replace(/ß/g, "ss")
+      .replace(/ë/g, "e")
+      .replace(/ï/g, "i")
+      .replace(/ö/g, "o")
+      .replace(/ä/g, "a")
+      .replace(/å/g, "a")
+      .replace(/ø/g, "o")
       .replace(/\s+/g, "-")
       .replace(/[^a-z0-9\-]/g, "")
       .replace(/-+/g, "-")
@@ -2045,15 +2045,15 @@ const NBAGameDetailsScreen = ({ route }) => {
                     return (
                       <G key={index}>
                         {awayY1 < homeY1 ? (
-                          // AWAY team is winning â†’ away line is ABOVE home line
+                          // AWAY team is winning → away line is ABOVE home line
                           <>
-                            {/* Home fill (bottom â†’ home line) */}
+                            {/* Home fill (bottom → home line) */}
                             <Path
                               d={`M${x1},100 L${x1},${homeY1} L${x2},${homeY2} L${x2},100 Z`}
                               fill={homeColor}
                               fillOpacity="0.3"
                             />
-                            {/* Away fill (home line â†’ away line) */}
+                            {/* Away fill (home line → away line) */}
                             <Path
                               d={`M${x1},${homeY1} L${x1},${awayY1} L${x2},${awayY2} L${x2},${homeY2} Z`}
                               fill={awayColor}
@@ -2061,15 +2061,15 @@ const NBAGameDetailsScreen = ({ route }) => {
                             />
                           </>
                         ) : (
-                          // HOME team is winning â†’ home line is ABOVE away line
+                          // HOME team is winning → home line is ABOVE away line
                           <>
-                            {/* Away fill (bottom â†’ away line) */}
+                            {/* Away fill (bottom → away line) */}
                             <Path
                               d={`M${x1},100 L${x1},${awayY1} L${x2},${awayY2} L${x2},100 Z`}
                               fill={awayColor}
                               fillOpacity="0.3"
                             />
-                            {/* Home fill (away line â†’ home line) */}
+                            {/* Home fill (away line → home line) */}
                             <Path
                               d={`M${x1},${awayY1} L${x1},${homeY1} L${x2},${homeY2} L${x2},${awayY2} Z`}
                               fill={homeColor}
@@ -2560,7 +2560,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                           numberOfLines={1}
                         >
                           {jerseyNumber && position
-                            ? `#${jerseyNumber} â€¢ ${position}`
+                            ? `#${jerseyNumber} • ${position}`
                             : jerseyNumber
                               ? `#${jerseyNumber}`
                               : position
@@ -2774,7 +2774,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                       >
                         {inj?.athlete?.jersey &&
                         inj?.athlete?.position?.abbreviation
-                          ? `â€¢ #${inj.athlete.jersey} â€¢ ${inj.athlete.position.abbreviation}`
+                          ? `• #${inj.athlete.jersey} • ${inj.athlete.position.abbreviation}`
                           : inj?.athlete?.jersey
                             ? `#${inj.athlete.jersey}`
                             : inj?.athlete?.position?.abbreviation
@@ -3367,7 +3367,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                   numberOfLines={1}
                 >
                   {jerseyNum && position
-                    ? `#${jerseyNum} â€¢ ${position}`
+                    ? `#${jerseyNum} • ${position}`
                     : jerseyNum
                       ? `#${jerseyNum}`
                       : position
@@ -3612,7 +3612,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                   onPress={() => togglePlay(playKey)}
                 >
                   <Text style={[styles.toggleIcon, { color: theme.text }]}>
-                    {isOpen ? "â–²" : "â–¼"}
+                    {isOpen ? "▲" : "▼"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -3715,7 +3715,7 @@ const NBAGameDetailsScreen = ({ route }) => {
       return [...renderedPlays, ...loadMoreButton];
     }
 
-    // fallback (previous inline computation) â€” keep for safety but should rarely run now
+    // fallback (previous inline computation) — keep for safety but should rarely run now
     return (
       <View style={styles.noPlaysContainer}>
         <Text style={[styles.noPlaysText, { color: theme.textSecondary }]}>
@@ -3772,7 +3772,7 @@ const NBAGameDetailsScreen = ({ route }) => {
           ) : null}
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             {isFavorite(awayTeamId, "nba") && (
-              <Text style={{ color: colors.primary, marginLeft: 4 }}>â˜…</Text>
+              <Text style={{ color: colors.primary, marginLeft: 4 }}>★</Text>
             )}
             <Text
               style={[
@@ -3819,7 +3819,7 @@ const NBAGameDetailsScreen = ({ route }) => {
               {home?.team?.abbreviation || "HOME"}
             </Text>
             {isFavorite(homeTeamId, "nba") && (
-              <Text style={{ color: colors.primary, marginRight: 4 }}>â˜…</Text>
+              <Text style={{ color: colors.primary, marginRight: 4 }}>★</Text>
             )}
           </View>
           {statusDesc !== "Scheduled" ? (
@@ -4754,7 +4754,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                                 numberOfLines={1}
                               >
                                 {jersey && position
-                                  ? `#${jersey} â€¢ ${position}`
+                                  ? `#${jersey} • ${position}`
                                   : jersey
                                     ? `#${jersey}`
                                     : position
@@ -4788,7 +4788,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                           style={styles.modalClose}
                         >
                           <Text style={{ fontSize: 18, color: theme.text }}>
-                            âœ•
+                            ✕
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -5534,7 +5534,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                     const textOnTeam =
                       hexToLum(teamColor) > 0.4 ? "#000" : "#fff";
 
-                    // Helper: parse "M-A" â†’ percentage string or null
+                    // Helper: parse "M-A" → percentage string or null
                     const slashPct = (val) => {
                       const m = String(val || "").match(/^(\d+)-(\d+)$/);
                       if (!m) return null;
@@ -5644,7 +5644,7 @@ const NBAGameDetailsScreen = ({ route }) => {
 
                     return (
                       <>
-                        {/* â”€â”€ Header â”€â”€ */}
+                        {/* ── Header ── */}
                         <View
                           style={[
                             styles.nbaCardHeader,
@@ -5872,7 +5872,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                           </View>
                         </View>
 
-                        {/* â”€â”€ 4Ã—3 Stat Grid â”€â”€ */}
+                        {/* ── 4×3 Stat Grid ── */}
                         <View style={styles.nbaStatGrid}>
                           {twelveStats.map(
                             ({ label, val, pct, isPlusMinus }, i) => {
@@ -5939,7 +5939,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                       </>
                     );
                   })()}
-                {/* â”€â”€ Footer â”€â”€ */}
+                {/* ── Footer ── */}
                 <View
                   style={[
                     styles.nbaCardFooter,
@@ -6058,7 +6058,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                         { color: colors.primary },
                       ]}
                     >
-                      Ã—
+                      ×
                     </Text>
                   </TouchableOpacity>
                 </View>

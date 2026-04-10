@@ -2466,7 +2466,7 @@ const ESPN_PATHS = {
 // SportGameOdds API configuration
 const SPORTSGAMEODDS_API_BASE = "https://api.sportsgameodds.com/v2/events";
 const SPORTSGAMEODDS_API_KEY =
-  process.env.SPORTSGAMEODDS_API_KEY || "fb5cd7db7f9e18a03caa04b10b505a41";
+  process.env.SPORTSGAMEODDS_API_KEY || "09a4de43e78a93453e9143b1d4e501f0";
 
 // Mapping sport slug -> leagueID for SportGameOdds
 const SGO_LEAGUE_IDS = {

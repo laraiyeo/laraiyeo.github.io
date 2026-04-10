@@ -1,19 +1,29 @@
-﻿<!DOCTYPE html>
+﻿<!doctype html>
 <html lang="en">
   <head>
-<!-- BEGIN AUTO REDIRECT TO /use-app.html -->
-<meta http-equiv="refresh" content="0;url=/use-app.html">
-<script>if(location.pathname !== '/use-app.html'){location.replace('/use-app.html')}</script>
-<!-- END AUTO REDIRECT -->
+    <!-- BEGIN AUTO REDIRECT TO /use-app.html -->
+    <meta http-equiv="refresh" content="0;url=/use-app.html" />
+    <script>
+      if (location.pathname !== "/use-app.html") {
+        location.replace("/use-app.html");
+      }
+    </script>
+    <!-- END AUTO REDIRECT -->
     <meta charset="UTF-8" />
-    <meta name="apple-itunes-app" content="app-id=6754208862, app-argument=https://sportsheart.ca/" />
-    <meta name="viewport" content="width=device-wi      .team-name-ticker {
+    <meta
+      name="apple-itunes-app"
+      content="app-id=6754208862, app-argument=https://sportsheart.ca/"
+    />
+    <meta
+      name="viewport"
+      content="width=device-wi      .team-name-ticker {
         font-size: 14px;
         font-weight: bold;
         color: #fff;
         text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
         text-transform: uppercase;
-      }nitial-scale=1.0" />
+      }nitial-scale=1.0"
+    />
     <title>MLB Ticker - Live Tracker</title>
     <link rel="icon" href="icon.png" type="image/png" />
     <style>
@@ -23,7 +33,7 @@
         box-sizing: border-box;
       }
       body {
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
         background: transparent;
         color: #fff;
         overflow: hidden;
@@ -75,7 +85,9 @@
         justify-content: center;
         opacity: 1;
         transform: translateX(0);
-        transition: transform 0.6s ease-in-out, opacity 0.6s ease-in-out;
+        transition:
+          transform 0.6s ease-in-out,
+          opacity 0.6s ease-in-out;
       }
 
       .game-slide.entering {
@@ -447,7 +459,9 @@
         transform: rotate(45deg);
         opacity: 0.8;
         border: 1px solid #797979;
-        transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        transition:
+          background-color 0.3s ease,
+          box-shadow 0.3s ease;
       }
 
       .small-base-second {
@@ -478,7 +492,12 @@
   <body>
     <!-- Fixed Branding Column -->
     <div class="fixed-branding">
-      <img src="../assets/33115791.png" alt="SPORTSHEART" class="brand-logo" onerror="this.style.display='none'">
+      <img
+        src="../assets/33115791.png"
+        alt="SPORTSHEART"
+        class="brand-logo"
+        onerror="this.style.display = 'none'"
+      />
       <div class="brand-text">SPORTSHEART</div>
     </div>
 
@@ -491,25 +510,69 @@
 
     <script>
       const teamAbbrMap = {
-        "Arizona Diamondbacks": "ari_d", "Atlanta Braves": "atl_l", "Baltimore Orioles": "bal_l", "Boston Red Sox": "bos_d",
-        "Chicago White Sox": "cws_d", "Chicago Cubs": "chc_d", "Cincinnati Reds": "cin_d", "Cleveland Guardians": "cle_l",
-        "Colorado Rockies": "col_d", "Detroit Tigers": "det_d", "Houston Astros": "hou_d", "Kansas City Royals": "kc_d",
-        "Los Angeles Angels": "laa_d", "Los Angeles Dodgers": "lad_l", "Miami Marlins": "mia_d", "Milwaukee Brewers": "mil_d",
-        "Minnesota Twins": "min_d", "New York Yankees": "nyy_d", "New York Mets": "nym_d", "Athletics": "oak_l",
-        "Philadelphia Phillies": "phi_l", "Pittsburgh Pirates": "pit_d", "San Diego Padres": "sd_d", "San Francisco Giants": "sf_d",
-        "Seattle Mariners": "sea_d", "St. Louis Cardinals": "stl_d", "Tampa Bay Rays": "tb_d", "Texas Rangers": "tex_d",
-        "Toronto Blue Jays": "tor_l", "Washington Nationals": "wsh_d"
+        "Arizona Diamondbacks": "ari_d",
+        "Atlanta Braves": "atl_l",
+        "Baltimore Orioles": "bal_l",
+        "Boston Red Sox": "bos_d",
+        "Chicago White Sox": "cws_d",
+        "Chicago Cubs": "chc_d",
+        "Cincinnati Reds": "cin_d",
+        "Cleveland Guardians": "cle_l",
+        "Colorado Rockies": "col_d",
+        "Detroit Tigers": "det_d",
+        "Houston Astros": "hou_d",
+        "Kansas City Royals": "kc_d",
+        "Los Angeles Angels": "laa_d",
+        "Los Angeles Dodgers": "lad_l",
+        "Miami Marlins": "mia_d",
+        "Milwaukee Brewers": "mil_d",
+        "Minnesota Twins": "min_d",
+        "New York Yankees": "nyy_d",
+        "New York Mets": "nym_d",
+        Athletics: "oak_l",
+        "Philadelphia Phillies": "phi_l",
+        "Pittsburgh Pirates": "pit_d",
+        "San Diego Padres": "sd_d",
+        "San Francisco Giants": "sf_d",
+        "Seattle Mariners": "sea_d",
+        "St. Louis Cardinals": "stl_d",
+        "Tampa Bay Rays": "tb_d",
+        "Texas Rangers": "tex_d",
+        "Toronto Blue Jays": "tor_l",
+        "Washington Nationals": "wsh_d",
       };
 
       const teamColors = {
-        "Arizona Diamondbacks": "#A71930", "Atlanta Braves": "#13274F", "Baltimore Orioles": "#000000", "Boston Red Sox": "#0C2340",
-        "Chicago White Sox": "#000000", "Chicago Cubs": "#0E3386", "Cincinnati Reds": "#C6011F", "Cleveland Guardians": "#0F223E",
-        "Colorado Rockies": "#333366", "Detroit Tigers": "#0C2340", "Houston Astros": "#002D62", "Kansas City Royals": "#004687",
-        "Los Angeles Angels": "#BA0021", "Los Angeles Dodgers": "#A5ACAF", "Miami Marlins": "#00A3E0", "Milwaukee Brewers": "#FFC52F",
-        "Minnesota Twins": "#002B5C", "New York Yankees": "#003087", "New York Mets": "#002D72", "Athletics": "#EFB21E",
-        "Philadelphia Phillies": "#E81828", "Pittsburgh Pirates": "#27251F", "San Diego Padres": "#2F241D", "San Francisco Giants": "#000000",
-        "Seattle Mariners": "#005C5C", "St. Louis Cardinals": "#C41E3A", "Tampa Bay Rays": "#092C5C", "Texas Rangers": "#003278",
-        "Toronto Blue Jays": "#1D2D5C", "Washington Nationals": "#AB0003"
+        "Arizona Diamondbacks": "#A71930",
+        "Atlanta Braves": "#13274F",
+        "Baltimore Orioles": "#000000",
+        "Boston Red Sox": "#0C2340",
+        "Chicago White Sox": "#000000",
+        "Chicago Cubs": "#0E3386",
+        "Cincinnati Reds": "#C6011F",
+        "Cleveland Guardians": "#0F223E",
+        "Colorado Rockies": "#333366",
+        "Detroit Tigers": "#0C2340",
+        "Houston Astros": "#002D62",
+        "Kansas City Royals": "#004687",
+        "Los Angeles Angels": "#BA0021",
+        "Los Angeles Dodgers": "#A5ACAF",
+        "Miami Marlins": "#00A3E0",
+        "Milwaukee Brewers": "#FFC52F",
+        "Minnesota Twins": "#002B5C",
+        "New York Yankees": "#003087",
+        "New York Mets": "#002D72",
+        Athletics: "#EFB21E",
+        "Philadelphia Phillies": "#E81828",
+        "Pittsburgh Pirates": "#27251F",
+        "San Diego Padres": "#2F241D",
+        "San Francisco Giants": "#000000",
+        "Seattle Mariners": "#005C5C",
+        "St. Louis Cardinals": "#C41E3A",
+        "Tampa Bay Rays": "#092C5C",
+        "Texas Rangers": "#003278",
+        "Toronto Blue Jays": "#1D2D5C",
+        "Washington Nationals": "#AB0003",
       };
 
       let currentGameIndex = 0;
@@ -521,15 +584,15 @@
       function getTickerSpeed() {
         // Check URL parameters first (for OBS usage)
         const urlParams = new URLSearchParams(window.location.search);
-        const urlSpeed = urlParams.get('speed');
-        
+        const urlSpeed = urlParams.get("speed");
+
         if (urlSpeed && !isNaN(urlSpeed)) {
           const speed = Math.max(1, Math.min(30, parseInt(urlSpeed)));
           return speed * 1000; // Convert to milliseconds
         }
-        
+
         // Fall back to localStorage
-        const savedSpeed = localStorage.getItem('mlb-ticker-speed');
+        const savedSpeed = localStorage.getItem("mlb-ticker-speed");
         const speed = savedSpeed ? parseInt(savedSpeed) : 5; // Default to 5 seconds
         return Math.max(1, Math.min(30, speed)) * 1000; // Convert to milliseconds
       }
@@ -544,8 +607,8 @@
       }
 
       // Listen for storage changes to update speed in real-time
-      window.addEventListener('storage', function(e) {
-        if (e.key === 'mlb-ticker-speed') {
+      window.addEventListener("storage", function (e) {
+        if (e.key === "mlb-ticker-speed") {
           updateTickerSpeed();
         }
       });
@@ -565,7 +628,9 @@
 
       async function getTeamNameById(id) {
         try {
-          const res = await fetch(`https://statsapi.mlb.com/api/v1/teams/${id}`);
+          const res = await fetch(
+            `https://statsapi.mlb.com/api/v1/teams/${id}`,
+          );
           const data = await res.json();
           return data.teams[0].teamName;
         } catch (err) {
@@ -576,28 +641,37 @@
 
       function getAdjustedDateForMLB() {
         const now = new Date();
-        const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+        const estNow = new Date(
+          now.toLocaleString("en-US", { timeZone: "America/New_York" }),
+        );
 
         if (estNow.getHours() < 2) {
           estNow.setDate(estNow.getDate() - 1);
         }
 
-        const adjustedDate = estNow.getFullYear() + "-" +
-                             String(estNow.getMonth() + 1).padStart(2, "0") + "-" +
-                             String(estNow.getDate()).padStart(2, "0");
+        const adjustedDate =
+          estNow.getFullYear() +
+          "-" +
+          String(estNow.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(estNow.getDate()).padStart(2, "0");
 
         return adjustedDate;
       }
 
       function getInningLabel(inningHalf) {
-        return inningHalf === "Bottom" ? "Bot" : inningHalf === "Top" ? "Top" : inningHalf;
+        return inningHalf === "Bottom"
+          ? "Bot"
+          : inningHalf === "Top"
+            ? "Top"
+            : inningHalf;
       }
 
       function getInningSuffix(inning) {
-        if (inning === 1 || inning === 21 || inning === 31) return 'st';
-        if (inning === 2 || inning === 22 || inning === 32) return 'nd';
-        if (inning === 3 || inning === 23 || inning === 33) return 'rd';
-        return 'th';
+        if (inning === 1 || inning === 21 || inning === 31) return "st";
+        if (inning === 2 || inning === 22 || inning === 32) return "nd";
+        if (inning === 3 || inning === 23 || inning === 33) return "rd";
+        return "th";
       }
 
       function getBaseHtml(matchup) {
@@ -632,20 +706,27 @@
         const homeColor = teamColors[homeFull] || "#333";
 
         // Get team records
-        const awayRecord = teams.away.leagueRecord ? `${teams.away.leagueRecord.wins}-${teams.away.leagueRecord.losses}` : '';
-        const homeRecord = teams.home.leagueRecord ? `${teams.home.leagueRecord.wins}-${teams.home.leagueRecord.losses}` : '';
+        const awayRecord = teams.away.leagueRecord
+          ? `${teams.away.leagueRecord.wins}-${teams.away.leagueRecord.losses}`
+          : "";
+        const homeRecord = teams.home.leagueRecord
+          ? `${teams.home.leagueRecord.wins}-${teams.home.leagueRecord.losses}`
+          : "";
 
-        let statusContent = '';
-        let gameClass = '';
+        let statusContent = "";
+        let gameClass = "";
         let isScheduled = false;
         let isFinished = false;
 
         // Determine game state
-        if (["In Progress", "Manager challenge"].includes(statusText) || status.codedGameState === "M") {
+        if (
+          ["In Progress", "Manager challenge"].includes(statusText) ||
+          status.codedGameState === "M"
+        ) {
           // Live game
           const inningHalf = game.linescore?.inningHalf || "Top";
           const inningNum = game.linescore?.currentInning || 1;
-          const inningArrow = inningHalf === "Top" ? "â–²" : "â–¼";
+          const inningArrow = inningHalf === "Top" ? "▲" : "▼";
           const inningSuffix = getInningSuffix(inningNum);
           const outs = game.linescore?.outs || 0;
 
@@ -657,16 +738,21 @@
           let batter = "";
 
           try {
-            const res = await fetch(`https://statsapi.mlb.com/api/v1.1/game/${game.gamePk}/feed/live`);
+            const res = await fetch(
+              `https://statsapi.mlb.com/api/v1.1/game/${game.gamePk}/feed/live`,
+            );
             const data = await res.json();
             matchup = data?.liveData?.plays?.currentPlay?.matchup || {};
             const currentPlay = data?.liveData?.plays?.currentPlay;
             balls = currentPlay?.count?.balls || 0;
             strikes = currentPlay?.count?.strikes || 0;
-            pitcher = matchup?.pitcher?.fullName?.split(' ').pop() || "";
-            batter = matchup?.batter?.fullName?.split(' ').pop() || "";
+            pitcher = matchup?.pitcher?.fullName?.split(" ").pop() || "";
+            batter = matchup?.batter?.fullName?.split(" ").pop() || "";
           } catch (err) {
-            console.error(`Error fetching live feed for game ${game.gamePk}`, err);
+            console.error(
+              `Error fetching live feed for game ${game.gamePk}`,
+              err,
+            );
           }
 
           const baseHtml = getBaseHtml(matchup);
@@ -691,36 +777,34 @@
               </div>
             </div>
           `;
-          gameClass = 'live-game';
-
+          gameClass = "live-game";
         } else if (["Scheduled", "Pre-Game", "Warmup"].includes(statusText)) {
           // Scheduled game
           const startTime = formatTickerTime(gameDate);
           statusContent = `<div class="scheduled-time">${startTime} EST</div>`;
-          gameClass = 'scheduled-game';
+          gameClass = "scheduled-game";
           isScheduled = true;
-
         } else if (["Final", "Game Over"].includes(statusText)) {
           // Finished game
           statusContent = `<div class="final-indicator">FINAL</div>`;
-          gameClass = 'finished-game';
+          gameClass = "finished-game";
           isFinished = true;
         }
 
         // Determine score colors based on winner/loser
-        let awayScoreClass = '';
-        let homeScoreClass = '';
-        
-        if (isFinished || gameClass === 'live-game') {
+        let awayScoreClass = "";
+        let homeScoreClass = "";
+
+        if (isFinished || gameClass === "live-game") {
           const awayScore = teams.away.score || 0;
           const homeScore = teams.home.score || 0;
-          
+
           if (awayScore > homeScore) {
-            awayScoreClass = 'winner';
-            homeScoreClass = 'loser';
+            awayScoreClass = "winner";
+            homeScoreClass = "loser";
           } else if (homeScore > awayScore) {
-            homeScoreClass = 'winner';
-            awayScoreClass = 'loser';
+            homeScoreClass = "winner";
+            awayScoreClass = "loser";
           }
         }
 
@@ -740,9 +824,10 @@
                       <span class="team-name-ticker">${awayShort}</span>
                     </div>
                     <div class="team-right">
-                      ${isScheduled ? 
-                        `<span class="team-record">${awayRecord}</span>` : 
-                        `<span class="team-score-ticker ${awayScoreClass}">${teams.away.score || 0}</span>`
+                      ${
+                        isScheduled
+                          ? `<span class="team-record">${awayRecord}</span>`
+                          : `<span class="team-score-ticker ${awayScoreClass}">${teams.away.score || 0}</span>`
                       }
                     </div>
                   </div>
@@ -756,9 +841,10 @@
                       <span class="team-name-ticker">${homeShort}</span>
                     </div>
                     <div class="team-right">
-                      ${isScheduled ? 
-                        `<span class="team-record">${homeRecord}</span>` : 
-                        `<span class="team-score-ticker ${homeScoreClass}">${teams.home.score || 0}</span>`
+                      ${
+                        isScheduled
+                          ? `<span class="team-record">${homeRecord}</span>`
+                          : `<span class="team-score-ticker ${homeScoreClass}">${teams.home.score || 0}</span>`
                       }
                     </div>
                   </div>
@@ -790,30 +876,42 @@
           const allGames = data.dates[0]?.games || [];
 
           // Separate games by status and sort by time
-          const liveGames = allGames.filter(game =>
-            ["In Progress", "Manager challenge"].includes(game.status.detailedState) || game.status.codedGameState === "M"
-          ).sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
+          const liveGames = allGames
+            .filter(
+              (game) =>
+                ["In Progress", "Manager challenge"].includes(
+                  game.status.detailedState,
+                ) || game.status.codedGameState === "M",
+            )
+            .sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
 
-          const scheduledGames = allGames.filter(game =>
-            ["Scheduled", "Pre-Game", "Warmup"].includes(game.status.detailedState)
-          ).sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
+          const scheduledGames = allGames
+            .filter((game) =>
+              ["Scheduled", "Pre-Game", "Warmup"].includes(
+                game.status.detailedState,
+              ),
+            )
+            .sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
 
-          const finishedGames = allGames.filter(game =>
-            ["Final", "Game Over"].includes(game.status.detailedState)
-          ).sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
+          const finishedGames = allGames
+            .filter((game) =>
+              ["Final", "Game Over"].includes(game.status.detailedState),
+            )
+            .sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate));
 
           // Combine in priority order: Live, Scheduled, Finished
           games = [...liveGames, ...scheduledGames, ...finishedGames];
 
           if (games.length === 0) {
-            document.querySelector('.sliding-content').innerHTML = '<div class="loading">No games scheduled for today</div>';
+            document.querySelector(".sliding-content").innerHTML =
+              '<div class="loading">No games scheduled for today</div>';
             return;
           }
 
           console.log(`Loaded ${games.length} games for ticker`);
         } catch (error) {
           console.error("Error fetching games:", error);
-          handleTickerError(error, 'fetchGames');
+          handleTickerError(error, "fetchGames");
         }
       }
 
@@ -827,9 +925,9 @@
         if (!currentSlide) {
           const game = games[currentGameIndex];
           const slideHtml = await createGameSlide(game);
-          document.querySelector('.sliding-content').innerHTML = slideHtml;
-          currentSlide = document.querySelector('.sliding-content .game-slide');
-          currentSlide.classList.add('active');
+          document.querySelector(".sliding-content").innerHTML = slideHtml;
+          currentSlide = document.querySelector(".sliding-content .game-slide");
+          currentSlide.classList.add("active");
           currentGameIndex = (currentGameIndex + 1) % games.length;
           return;
         }
@@ -837,22 +935,26 @@
         // Create the new slide off-screen to the right
         const game = games[currentGameIndex];
         const slideHtml = await createGameSlide(game);
-        document.querySelector('.sliding-content').insertAdjacentHTML('beforeend', slideHtml);
+        document
+          .querySelector(".sliding-content")
+          .insertAdjacentHTML("beforeend", slideHtml);
 
-        const newSlide = document.querySelector('.sliding-content .game-slide:last-child');
-        newSlide.classList.add('entering');
+        const newSlide = document.querySelector(
+          ".sliding-content .game-slide:last-child",
+        );
+        newSlide.classList.add("entering");
 
         // Force a reflow to ensure the entering class is applied
         newSlide.offsetHeight;
 
         // Start the slide animation
         requestAnimationFrame(() => {
-          newSlide.classList.remove('entering');
-          newSlide.classList.add('active');
+          newSlide.classList.remove("entering");
+          newSlide.classList.add("active");
 
           // Start exiting the current slide
-          currentSlide.classList.remove('active');
-          currentSlide.classList.add('exiting');
+          currentSlide.classList.remove("active");
+          currentSlide.classList.add("exiting");
 
           // Clean up after animation completes
           setTimeout(() => {
@@ -888,10 +990,10 @@
       }
 
       // Start the ticker when page loads
-      document.addEventListener('DOMContentLoaded', startTicker);
+      document.addEventListener("DOMContentLoaded", startTicker);
 
       // Handle window resize to maintain aspect ratio
-      window.addEventListener('resize', () => {
+      window.addEventListener("resize", () => {
         // Force 1920x200 aspect ratio
         if (window.innerWidth !== 1920 || window.innerHeight !== 200) {
           window.resizeTo(1920, 200);
@@ -900,5 +1002,3 @@
     </script>
   </body>
 </html>
-
-

@@ -1325,22 +1325,22 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
       teamName
         .toLowerCase()
         // First, convert special characters to ASCII equivalents (matching API format)
-        .replace(/Ã¡/g, "a")
-        .replace(/Ã©/g, "e")
-        .replace(/Ã­/g, "i")
-        .replace(/Ã³/g, "o")
-        .replace(/Ãº/g, "u")
-        .replace(/Ã¼/g, "u")
-        .replace(/Ã±/g, "n")
-        .replace(/Ã§/g, "c")
-        .replace(/ÃŸ/g, "ss")
+        .replace(/á/g, "a")
+        .replace(/é/g, "e")
+        .replace(/í/g, "i")
+        .replace(/ó/g, "o")
+        .replace(/ú/g, "u")
+        .replace(/ü/g, "u")
+        .replace(/ñ/g, "n")
+        .replace(/ç/g, "c")
+        .replace(/ß/g, "ss")
         // Handle accented characters that become multiple characters
-        .replace(/Ã«/g, "e")
-        .replace(/Ã¯/g, "i")
-        .replace(/Ã¶/g, "o")
-        .replace(/Ã¤/g, "a")
-        .replace(/Ã¥/g, "a")
-        .replace(/Ã¸/g, "o")
+        .replace(/ë/g, "e")
+        .replace(/ï/g, "i")
+        .replace(/ö/g, "o")
+        .replace(/ä/g, "a")
+        .replace(/å/g, "a")
+        .replace(/ø/g, "o")
         // Convert spaces to hyphens
         .replace(/\s+/g, "-")
         // Remove any remaining non-alphanumeric characters except hyphens
@@ -2023,7 +2023,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
         return {};
       } else {
         console.log(
-          `âœ“ Validation passed: Matched game contains both teams and is relevant`,
+          `✓ Validation passed: Matched game contains both teams and is relevant`,
         );
         console.log(
           `Relevance scores: Home=${homeRelevanceRatio.toFixed(
@@ -2179,7 +2179,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                   },
                 ]}
               >
-                {isFavorite(homeTeam?.team?.id, "la liga") && "â˜… "}
+                {isFavorite(homeTeam?.team?.id, "la liga") && "★ "}
                 {homeTeam?.team?.abbreviation ||
                   homeTeam?.team?.displayName?.substring(0, 3) ||
                   "TBD"}
@@ -2303,7 +2303,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                   },
                 ]}
               >
-                {isFavorite(awayTeam?.team?.id, "la liga") && "â˜… "}
+                {isFavorite(awayTeam?.team?.id, "la liga") && "★ "}
                 {awayTeam?.team?.abbreviation ||
                   awayTeam?.team?.displayName?.substring(0, 3) ||
                   "TBD"}
@@ -2360,7 +2360,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
         {/* Soccer Ball Separator */}
         <View style={styles.headerSoccerBallContainer}>
           <Text allowFontScaling={false} style={styles.headerSoccerBallEmoji}>
-            âš½
+            ⚽
           </Text>
         </View>
 
@@ -2516,7 +2516,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
             .replace(/\s*(Penalty|Goal)\s*/gi, "")
             .trim();
         }
-        // For own goals, shortText might be "Ãlex Berenguer Own Goal"
+        // For own goals, shortText might be "Álex Berenguer Own Goal"
         else if (isOwnGoal) {
           playerName = play.shortText.replace(/\s*(Own|Goal)\s*/gi, "").trim();
         } else if (isFreeKick) {
@@ -2688,7 +2688,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
 
           <View style={styles.soccerBallContainer}>
             <Text allowFontScaling={false} style={styles.soccerBallEmoji}>
-              âš½
+              ⚽
             </Text>
           </View>
 
@@ -2915,7 +2915,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
               ]}
               numberOfLines={2}
             >
-              {isFavorite(homeTeam?.team?.id, "la liga") ? "â˜… " : ""}
+              {isFavorite(homeTeam?.team?.id, "la liga") ? "★ " : ""}
               {homeTeam?.team?.displayName}
             </Text>
           </View>
@@ -3065,7 +3065,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
               ]}
               numberOfLines={2}
             >
-              {isFavorite(awayTeam?.team?.id, "la liga") ? "â˜… " : ""}
+              {isFavorite(awayTeam?.team?.id, "la liga") ? "★ " : ""}
               {awayTeam?.team?.displayName}
             </Text>
           </View>
@@ -3100,7 +3100,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
               allowFontScaling={false}
               style={[styles.venueText, { color: theme.textSecondary }]}
             >
-              ðŸ“ {competition.venue.fullName}
+              📍 {competition.venue.fullName}
             </Text>
           </View>
         )}
@@ -3995,7 +3995,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                 { color: theme.textSecondary },
               ]}
             >
-              {homeTeam?.team?.location || ""} â€¢ Home
+              {homeTeam?.team?.location || ""} • Home
             </Text>
           </View>
         </View>
@@ -4115,7 +4115,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                 { color: theme.textSecondary },
               ]}
             >
-              {awayTeam?.team?.location || ""} â€¢ Away
+              {awayTeam?.team?.location || ""} • Away
             </Text>
           </View>
         </View>
@@ -4415,7 +4415,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
         >
           {wasSubbedOut && (
             <Text allowFontScaling={false} style={styles.subArrow}>
-              â†{" "}
+              ←{" "}
             </Text>
           )}
           {name}
@@ -4450,8 +4450,8 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
       console.log("Position style for", positionAbbr, ":", style);
       const positionStyle = {
         position: "absolute",
-        top: `${100 - (style.bottom || 50) - 6.25}%`, // Shift up by 6.25% for better positioning
-        left: `${style.left || 50}%`,
+        top: `${100 - (style.bottom || 50) - 7.25}%`, // Shift up by 7.25% for better positioning
+        left: `${style.left - 3.5 || 50}%`,
         transform: [{ translateX: "-50%" }, { translateY: "-50%" }], // Center both X and Y like CSS
         alignItems: "center",
       };
@@ -4578,7 +4578,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                   {subbedInFor && (
                     <Text allowFontScaling={false} style={styles.subArrowIn}>
                       {" "}
-                      â†’
+                      →
                     </Text>
                   )}
                 </Text>
@@ -5732,7 +5732,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                   { color: isScoring ? scoringTextColor : theme.text },
                 ]}
               >
-                {isOpen ? "â–²" : "â–¼"}
+                {isOpen ? "▲" : "▼"}
               </Text>
             </View>
           </TouchableOpacity>
@@ -5866,16 +5866,16 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
 
     if (teamSide === "home") {
       // Home team on right half of field
-      // X=0 (far right) â†’ 96% left position (near right goal)
-      // X=1 (center line) â†’ 50% left position
-      leftPercent = 50 + (1 - espnX) * 46; // X=0â†’96%, X=1â†’50%
-      topPercent = 4 + espnY * 92; // Y=0â†’4%, Y=1â†’96% (within field outline)
+      // X=0 (far right) → 96% left position (near right goal)
+      // X=1 (center line) → 50% left position
+      leftPercent = 50 + (1 - espnX) * 46; // X=0→96%, X=1→50%
+      topPercent = 4 + espnY * 92; // Y=0→4%, Y=1→96% (within field outline)
     } else {
       // Away team on left half of field
-      // X=0 (far left) â†’ 4% left position (near left goal)
-      // X=1 (center line) â†’ 50% left position
-      leftPercent = 4 + espnX * 46; // X=0â†’4%, X=1â†’50%
-      topPercent = 4 + (1 - espnY) * 92; // Y=0â†’96%, Y=1â†’4% (inverted, within field outline)
+      // X=0 (far left) → 4% left position (near left goal)
+      // X=1 (center line) → 50% left position
+      leftPercent = 4 + espnX * 46; // X=0→4%, X=1→50%
+      topPercent = 4 + (1 - espnY) * 92; // Y=0→96%, Y=1→4% (inverted, within field outline)
     }
 
     // Constrain to field outline bounds (white lines area)
@@ -5901,12 +5901,12 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
 
       if (teamSide === "home") {
         // Home team on right half
-        leftPercent2 = 50 + (1 - espnX2) * 46; // X=0â†’96%, X=1â†’50%
-        topPercent2 = 4 + espnY2 * 92; // Y=0â†’4%, Y=1â†’96%
+        leftPercent2 = 50 + (1 - espnX2) * 46; // X=0→96%, X=1→50%
+        topPercent2 = 4 + espnY2 * 92; // Y=0→4%, Y=1→96%
       } else {
         // Away team on left half
-        leftPercent2 = 4 + espnX2 * 46; // X=0â†’4%, X=1â†’50%
-        topPercent2 = 4 + (1 - espnY2) * 92; // Y=0â†’96%, Y=1â†’4% (inverted)
+        leftPercent2 = 4 + espnX2 * 46; // X=0→4%, X=1→50%
+        topPercent2 = 4 + (1 - espnY2) * 92; // Y=0→96%, Y=1→4% (inverted)
       }
 
       secondLeftPercent = Math.max(4, Math.min(96, leftPercent2));
@@ -6168,7 +6168,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
       const topPercent = espnX * 100; // 0% to 100% vertically
 
       console.log(
-        `Shot coordinates: ESPN(${espnX}, ${espnY}) â†’ Screen(${leftPercent}%, ${topPercent}%)`,
+        `Shot coordinates: ESPN(${espnX}, ${espnY}) → Screen(${leftPercent}%, ${topPercent}%)`,
       );
 
       return {
@@ -6193,7 +6193,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
       const topPercent2 = espnX2 * 100; // 0% to 100% vertically
 
       console.log(
-        `Shot end coordinates: ESPN(${espnX2}, ${espnY2}) â†’ Screen(${leftPercent2}%, ${topPercent2}%)`,
+        `Shot end coordinates: ESPN(${espnX2}, ${espnY2}) → Screen(${leftPercent2}%, ${topPercent2}%)`,
       );
 
       return {
@@ -6437,7 +6437,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                         { color: theme.textSecondary },
                       ]}
                     >
-                      â€¢ {selectedPlayer.position?.abbreviation || "N/A"}
+                      • {selectedPlayer.position?.abbreviation || "N/A"}
                     </Text>
                   </View>
                 </View>
@@ -6452,7 +6452,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                   }}
                 >
                   <Text allowFontScaling={false} style={styles.playerCloseText}>
-                    Ã—
+                    ×
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -7058,7 +7058,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                     allowFontScaling={false}
                     style={[styles.streamCloseText, { color: colors.primary }]}
                   >
-                    Ã—
+                    ×
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -7261,80 +7261,85 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
         </Modal>
       )}
 
-      
       {isLoggedIn && (
         <>
           {/* Floating Chat Button */}
-      <TouchableOpacity
-        style={[styles.floatingChatButton, { backgroundColor: colors.primary }]}
-        onPress={() => setChatModalVisible(true)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="chatbubble-ellipses-outline" size={24} color="#fff" />
-      </TouchableOpacity>
-
-      {/* Chat Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={chatModalVisible}
-        onRequestClose={() => setChatModalVisible(false)}
-        presentationStyle="pageSheet"
-      >
-        <View style={styles.chatModalOverlay}>
-          <View
+          <TouchableOpacity
             style={[
-              styles.chatModalContent,
-              { backgroundColor: theme.surface, paddingBottom: 20 },
+              styles.floatingChatButton,
+              { backgroundColor: colors.primary },
             ]}
+            onPress={() => setChatModalVisible(true)}
+            activeOpacity={0.8}
           >
-            {/* Chat Modal Header */}
-            <View
-              style={[
-                styles.chatModalHeader,
-                { borderBottomColor: theme.border },
-              ]}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[styles.chatModalTitle, { color: theme.text }]}
-              >
-                {gameData
-                  ? `${
-                      gameData.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "home",
-                      )?.team.name || "Home"
-                    } vs ${
-                      gameData.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "away",
-                      )?.team.name || "Away"
-                    }`
-                  : "Chat"}
-              </Text>
-              <TouchableOpacity
-                style={styles.chatModalCloseButton}
-                onPress={() => setChatModalVisible(false)}
-              >
-                <Ionicons name="close" size={24} color={theme.text} />
-              </TouchableOpacity>
-            </View>
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={24}
+              color="#fff"
+            />
+          </TouchableOpacity>
 
-            {/* Chat Content */}
-            <View style={styles.chatModalBody}>
-              {gameData && (
-                <ChatComponent
-                  gameId={gameId}
-                  gameData={gameData}
-                  hideHeader={true}
-                />
-              )}
+          {/* Chat Modal */}
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={chatModalVisible}
+            onRequestClose={() => setChatModalVisible(false)}
+            presentationStyle="pageSheet"
+          >
+            <View style={styles.chatModalOverlay}>
+              <View
+                style={[
+                  styles.chatModalContent,
+                  { backgroundColor: theme.surface, paddingBottom: 20 },
+                ]}
+              >
+                {/* Chat Modal Header */}
+                <View
+                  style={[
+                    styles.chatModalHeader,
+                    { borderBottomColor: theme.border },
+                  ]}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.chatModalTitle, { color: theme.text }]}
+                  >
+                    {gameData
+                      ? `${
+                          gameData.header.competitions[0].competitors.find(
+                            (c) => c.homeAway === "home",
+                          )?.team.name || "Home"
+                        } vs ${
+                          gameData.header.competitions[0].competitors.find(
+                            (c) => c.homeAway === "away",
+                          )?.team.name || "Away"
+                        }`
+                      : "Chat"}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.chatModalCloseButton}
+                    onPress={() => setChatModalVisible(false)}
+                  >
+                    <Ionicons name="close" size={24} color={theme.text} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Chat Content */}
+                <View style={styles.chatModalBody}>
+                  {gameData && (
+                    <ChatComponent
+                      gameId={gameId}
+                      gameData={gameData}
+                      hideHeader={true}
+                    />
+                  )}
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
-      </Modal>
+          </Modal>
         </>
       )}
-
 
       {/* Goal Share Card Modal */}
       {shareCardPlay && (
@@ -7746,7 +7751,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
 
                       const CARD_SIZE = Math.min(width - 48, 540);
 
-                      // â”€â”€ Field scaling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                      // ── Field scaling ───────────────────────────────────────
                       // 0.41 matches the old hardcoded 130/320 = 40.6% ratio.
                       // -12 leaves ~6px padding each side of the portrait field.
                       const FIELD_LEFT_PANEL_W = Math.round(CARD_SIZE * 0.41);
@@ -7779,7 +7784,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                             },
                           ]}
                         >
-                          {/* â”€â”€ Header: time + score + goal event + description â”€â”€ */}
+                          {/* ── Header: time + score + goal event + description ── */}
                           <View
                             style={{
                               backgroundColor: finalTeamColor + "33",
@@ -7808,7 +7813,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                                   color: theme.text,
                                 }}
                               >
-                                {clock ? `${clock} â€¢ ` : ""}
+                                {clock ? `${clock} • ` : ""}
                                 {periodText}
                               </Text>
                               {/* Score with team logos */}
@@ -7869,8 +7874,8 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                                 marginBottom: 3,
                               }}
                             >
-                              âš½ {goalType}
-                              {goalSituation ? ` â€¢ ${goalSituation}` : ""}
+                              ⚽ {goalType}
+                              {goalSituation ? ` • ${goalSituation}` : ""}
                             </Text>
                             {/* Description */}
                             {!!playText && (
@@ -7887,9 +7892,9 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                             )}
                           </View>
 
-                          {/* â”€â”€ Body: left = vertical field, right = player info â”€â”€ */}
+                          {/* ── Body: left = vertical field, right = player info ── */}
                           <View style={{ flexDirection: "row" }}>
-                            {/* Left â€“ vertical soccer field (width scales with card) */}
+                            {/* Left – vertical soccer field (width scales with card) */}
                             <View
                               style={{
                                 width: 150 * FIELD_SCALE,
@@ -7910,7 +7915,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                               }
                             >
                               {/*
-                                The field (180Ã—120 landscape) is rotated 90Â° + scaled.
+                                The field (180×120 landscape) is rotated 90 ° + scaled.
                                 Margins are computed from the scaled visual size so
                                 the layout box matches the visual portrait dimensions.
                               */}
@@ -7954,7 +7959,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                               </View>
                             </View>
 
-                            {/* Right â€“ player avatar + info + stats */}
+                            {/* Right – player avatar + info + stats */}
                             <View
                               style={{
                                 flex: 1,
@@ -7964,7 +7969,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                                 alignItems: "center",
                               }}
                             >
-                              {/* Initial circle â€” for own goals uses the OWN GOALER's team color */}
+                              {/* Initial circle — for own goals uses the OWN GOALER's team color */}
                               <View
                                 style={{
                                   width: 54,
@@ -8003,7 +8008,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                                 {scorerName}
                               </Text>
 
-                              {/* Team name with logo â€” for own goals shows the OWN GOALER's team */}
+                              {/* Team name with logo — for own goals shows the OWN GOALER's team */}
                               <View
                                 style={{
                                   flexDirection: "row",
@@ -8068,7 +8073,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                                 </View>
                               )}
 
-                              {/* 6-stat grid (3 columns Ã— 2 rows) */}
+                              {/* 6-stat grid (3 columns × 2 rows) */}
                               <View
                                 style={{
                                   flexDirection: "row",
@@ -8094,7 +8099,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                                         color: theme.text,
                                       }}
                                     >
-                                      {value ?? "â€”"}
+                                      {value ?? "—"}
                                     </Text>
                                     <Text
                                       style={{
@@ -8114,7 +8119,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                             </View>
                           </View>
 
-                          {/* â”€â”€ Branding footer â”€â”€ */}
+                          {/* ── Branding footer ── */}
                           <View
                             style={{
                               borderTopWidth: StyleSheet.hairlineWidth,
@@ -8195,7 +8200,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
         </Modal>
       )}
 
-      {/* â”€â”€ Pitch Player Copy Card Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Pitch Player Copy Card Modal ─────────────────────────────── */}
       {!!pitchPlayerShareCard &&
         (() => {
           const {
@@ -8227,8 +8232,8 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
             return 0.2126 * r + 0.7152 * g + 0.0722 * b;
           };
           const textOnTeam = hexToLum(teamColor) > 0.4 ? "#000" : "#fff";
-          const homeScore = gameData?.homeCompetitor?.score ?? "â€”";
-          const awayScore = gameData?.awayCompetitor?.score ?? "â€”";
+          const homeScore = gameData?.homeCompetitor?.score ?? "—";
+          const awayScore = gameData?.awayCompetitor?.score ?? "—";
           const homeTeamId = gameData?.homeCompetitor?.team?.id;
           const awayTeamId = gameData?.awayCompetitor?.team?.id;
           const initials = name
@@ -8243,7 +8248,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
               ? `${Math.round((s.accuratePasses / s.totalPasses) * 100)}%`
               : null;
           const passDisplay =
-            s.totalPasses > 0 ? `${s.accuratePasses}-${s.totalPasses}` : "â€”";
+            s.totalPasses > 0 ? `${s.accuratePasses}-${s.totalPasses}` : "—";
           const posUpper = pos.toUpperCase().split("-")[0];
           const isGK = posUpper === "GK" || posUpper === "G";
           const isDEF = [
@@ -8357,7 +8362,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                           ]}
                         >
                           {`#${jersey}`}
-                          {pos ? ` â€¢ ${pos}` : ""}
+                          {pos ? ` • ${pos}` : ""}
                         </Text>
                       </View>
                       <View
@@ -8467,7 +8472,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                                       { color: theme.text },
                                     ]}
                                   >
-                                    {value != null ? String(value) : "â€”"}
+                                    {value != null ? String(value) : "—"}
                                   </Text>
                                   <Text
                                     style={[
@@ -8575,7 +8580,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                           { color: theme.textSecondary },
                         ]}
                       >
-                        Loading statsâ€¦
+                        Loading stats…
                       </Text>
                     </View>
                   ) : (
@@ -8614,7 +8619,7 @@ const SpainGameDetailsScreen = ({ route, navigation }) => {
                               ? String(value)
                               : value === 0
                                 ? "0"
-                                : "â€”"}
+                                : "—"}
                           </Text>
                           <Text
                             style={[
@@ -9341,7 +9346,7 @@ const styles = StyleSheet.create({
   centerCircle: {
     position: "absolute",
     top: "-0.5%", // Matches CSS positioning
-    left: "42.5%",
+    left: "50%",
     width: "40.98%", // 250px of 610px from CSS
     height: "20%", // Reduced height for half circle effect
     borderWidth: 2,
@@ -10539,7 +10544,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800",
   },
-  // â”€â”€ Pitch player copy-card modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Pitch player copy-card modal ──────────────────────────────────────────
   pitchShareCardOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.85)",
@@ -10653,5 +10658,3 @@ const styles = StyleSheet.create({
 });
 
 export default SpainGameDetailsScreen;
-
-

@@ -182,7 +182,10 @@ const NHLGameDetailsScreen = ({ route }) => {
       isJoined,
       viewerCount,
     });
-    console.log("ðŸŽ® NHL GameDetailsScreen - isJoined specifically:", isJoined);
+    console.log(
+      "ðŸŽ® NHL GameDetailsScreen - isJoined specifically:",
+      isJoined,
+    );
   }, [isJoined, viewerCount, gameId]);
 
   const stickyHeaderOpacity = useRef(new Animated.Value(0)).current;
@@ -398,21 +401,21 @@ const NHLGameDetailsScreen = ({ route }) => {
 
     return teamName
       .toLowerCase()
-      .replace(/Ã¡/g, "a")
-      .replace(/Ã©/g, "e")
-      .replace(/Ã­/g, "i")
-      .replace(/Ã³/g, "o")
-      .replace(/Ãº/g, "u")
-      .replace(/Ã¼/g, "u")
-      .replace(/Ã±/g, "n")
-      .replace(/Ã§/g, "c")
-      .replace(/ÃŸ/g, "ss")
-      .replace(/Ã«/g, "e")
-      .replace(/Ã¯/g, "i")
-      .replace(/Ã¶/g, "o")
-      .replace(/Ã¤/g, "a")
-      .replace(/Ã¥/g, "a")
-      .replace(/Ã¸/g, "o")
+      .replace(/á/g, "a")
+      .replace(/é/g, "e")
+      .replace(/í/g, "i")
+      .replace(/ó/g, "o")
+      .replace(/ú/g, "u")
+      .replace(/ü/g, "u")
+      .replace(/ñ/g, "n")
+      .replace(/ç/g, "c")
+      .replace(/ß/g, "ss")
+      .replace(/ë/g, "e")
+      .replace(/ï/g, "i")
+      .replace(/ö/g, "o")
+      .replace(/ä/g, "a")
+      .replace(/å/g, "a")
+      .replace(/ø/g, "o")
       .replace(/\s+/g, "-")
       .replace(/[^a-z0-9\-]/g, "")
       .replace(/-+/g, "-")
@@ -2073,7 +2076,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                           numberOfLines={1}
                         >
                           {jerseyNumber && position
-                            ? `#${jerseyNumber} â€¢ ${position}`
+                            ? `#${jerseyNumber} • ${position}`
                             : jerseyNumber
                               ? `#${jerseyNumber}`
                               : position
@@ -2392,7 +2395,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                       >
                         {inj?.athlete?.jersey &&
                         inj?.athlete?.position?.abbreviation
-                          ? `â€¢ #${inj.athlete.jersey} â€¢ ${inj.athlete.position.abbreviation}`
+                          ? `• #${inj.athlete.jersey} • ${inj.athlete.position.abbreviation}`
                           : inj?.athlete?.jersey
                             ? `#${inj.athlete.jersey}`
                             : inj?.athlete?.position?.abbreviation
@@ -2772,7 +2775,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                   numberOfLines={1}
                 >
                   {jerseyNum && position
-                    ? `#${jerseyNum} â€¢ ${position}`
+                    ? `#${jerseyNum} • ${position}`
                     : jerseyNum
                       ? `#${jerseyNum}`
                       : position
@@ -3017,7 +3020,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                   onPress={() => togglePlay(playKey)}
                 >
                   <Text style={[styles.toggleIcon, { color: theme.text }]}>
-                    {isOpen ? "â–²" : "â–¼"}
+                    {isOpen ? "▲" : "▼"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -3103,7 +3106,7 @@ const NHLGameDetailsScreen = ({ route }) => {
       return [...renderedPlays, ...loadMoreButton];
     }
 
-    // fallback (previous inline computation) â€” keep for safety but should rarely run now
+    // fallback (previous inline computation) — keep for safety but should rarely run now
     return (
       <View style={styles.noPlaysContainer}>
         <Text style={[styles.noPlaysText, { color: theme.textSecondary }]}>
@@ -3160,7 +3163,7 @@ const NHLGameDetailsScreen = ({ route }) => {
           ) : null}
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             {isFavorite(getNHLTeamId(away), "nhl") && (
-              <Text style={{ color: colors.primary, marginRight: 4 }}>â˜…</Text>
+              <Text style={{ color: colors.primary, marginRight: 4 }}>★</Text>
             )}
             <Text
               style={[
@@ -3207,7 +3210,7 @@ const NHLGameDetailsScreen = ({ route }) => {
               {home?.team?.abbreviation || "HOME"}
             </Text>
             {isFavorite(getNHLTeamId(home), "nhl") && (
-              <Text style={{ color: colors.primary, marginLeft: 4 }}>â˜…</Text>
+              <Text style={{ color: colors.primary, marginLeft: 4 }}>★</Text>
             )}
           </View>
           {statusDesc !== "Scheduled" ? (
@@ -3981,7 +3984,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                                 numberOfLines={1}
                               >
                                 {jersey && (isProjectedGoalie || position)
-                                  ? `#${jersey} â€¢ ${
+                                  ? `#${jersey} • ${
                                       isProjectedGoalie ? "G" : position
                                     }`
                                   : jersey
@@ -4017,7 +4020,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                           style={styles.modalClose}
                         >
                           <Text style={{ fontSize: 18, color: theme.text }}>
-                            âœ•
+                            ✕
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -4817,7 +4820,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                                 numberOfLines={1}
                               >
                                 {jersey && position
-                                  ? `#${jersey} â€¢ ${position}`
+                                  ? `#${jersey} • ${position}`
                                   : jersey
                                     ? `#${jersey}`
                                     : position
@@ -5093,7 +5096,7 @@ const NHLGameDetailsScreen = ({ route }) => {
                         { color: colors.primary },
                       ]}
                     >
-                      Ã—
+                      ×
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -5319,83 +5322,85 @@ const NHLGameDetailsScreen = ({ route }) => {
         )}
       </ScrollView>
 
-      
       {isLoggedIn && (
         <>
           {/* Floating Chat Button */}
-      <TouchableOpacity
-        style={[
-          styles.floatingChatButton,
-          { backgroundColor: colors.secondary },
-        ]}
-        onPress={() => setChatModalVisible(true)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="chatbubble-ellipses-outline" size={24} color="#fff" />
-      </TouchableOpacity>
-
-      {/* Chat Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={chatModalVisible}
-        onRequestClose={() => setChatModalVisible(false)}
-        presentationStyle="pageSheet"
-      >
-        <View style={styles.chatModalOverlay}>
-          <View
+          <TouchableOpacity
             style={[
-              styles.chatModalContent,
-              { backgroundColor: theme.surface, paddingBottom: 20 },
+              styles.floatingChatButton,
+              { backgroundColor: colors.secondary },
             ]}
+            onPress={() => setChatModalVisible(true)}
+            activeOpacity={0.8}
           >
-            {/* Chat Modal Header */}
-            <View
-              style={[
-                styles.chatModalHeader,
-                { borderBottomColor: theme.border },
-              ]}
-            >
-              <Text
-                allowFontScaling={false}
-                style={[styles.chatModalTitle, { color: theme.text }]}
-              >
-                {details
-                  ? `${
-                      details.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "away",
-                      )?.team.name || "Away"
-                    } vs ${
-                      details.header.competitions[0].competitors.find(
-                        (c) => c.homeAway === "home",
-                      )?.team.name || "Home"
-                    }`
-                  : "Chat"}
-              </Text>
-              <TouchableOpacity
-                style={styles.chatModalCloseButton}
-                onPress={() => setChatModalVisible(false)}
-              >
-                <Ionicons name="close" size={24} color={theme.text} />
-              </TouchableOpacity>
-            </View>
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={24}
+              color="#fff"
+            />
+          </TouchableOpacity>
 
-            {/* Chat Content */}
-            <View style={styles.chatModalBody}>
-              {details && (
-                <ChatComponent
-                  gameId={gameId}
-                  gameData={details}
-                  hideHeader={true}
-                />
-              )}
+          {/* Chat Modal */}
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={chatModalVisible}
+            onRequestClose={() => setChatModalVisible(false)}
+            presentationStyle="pageSheet"
+          >
+            <View style={styles.chatModalOverlay}>
+              <View
+                style={[
+                  styles.chatModalContent,
+                  { backgroundColor: theme.surface, paddingBottom: 20 },
+                ]}
+              >
+                {/* Chat Modal Header */}
+                <View
+                  style={[
+                    styles.chatModalHeader,
+                    { borderBottomColor: theme.border },
+                  ]}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={[styles.chatModalTitle, { color: theme.text }]}
+                  >
+                    {details
+                      ? `${
+                          details.header.competitions[0].competitors.find(
+                            (c) => c.homeAway === "away",
+                          )?.team.name || "Away"
+                        } vs ${
+                          details.header.competitions[0].competitors.find(
+                            (c) => c.homeAway === "home",
+                          )?.team.name || "Home"
+                        }`
+                      : "Chat"}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.chatModalCloseButton}
+                    onPress={() => setChatModalVisible(false)}
+                  >
+                    <Ionicons name="close" size={24} color={theme.text} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Chat Content */}
+                <View style={styles.chatModalBody}>
+                  {details && (
+                    <ChatComponent
+                      gameId={gameId}
+                      gameData={details}
+                      hideHeader={true}
+                    />
+                  )}
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
-      </Modal>
+          </Modal>
         </>
       )}
-
     </View>
   );
 };
@@ -7223,5 +7228,3 @@ const styles = StyleSheet.create({
 });
 
 export default NHLGameDetailsScreen;
-
-

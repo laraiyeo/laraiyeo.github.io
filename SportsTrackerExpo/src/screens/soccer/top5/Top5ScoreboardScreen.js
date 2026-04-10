@@ -733,11 +733,20 @@ const SoccerGridCardGradient = ({
   awayColor,
   homeColor,
   fallbackColor,
+  cardHeight,
 }) => {
   const right = awayColor || fallbackColor;
   const left = homeColor || fallbackColor;
+  const safeHeight = Math.max(cardHeight || 1, 1);
   return (
-    <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+    <Svg
+      style={StyleSheet.absoluteFill}
+      width={SOCCER_CARD_WIDTH}
+      height={safeHeight}
+      viewBox={`0 0 ${SOCCER_CARD_WIDTH} ${safeHeight}`}
+      preserveAspectRatio="none"
+      pointerEvents="none"
+    >
       <Defs>
         <LinearGradient id={`sgL_${gradId}`} x1="0%" y1="0%" x2="100%" y2="0%">
           <Stop offset="0%" stopColor={left} stopOpacity="0.35" />
@@ -746,7 +755,13 @@ const SoccerGridCardGradient = ({
           <Stop offset="100%" stopColor={right} stopOpacity="0.35" />
         </LinearGradient>
       </Defs>
-      <Rect width="100%" height="100%" fill={`url(#sgL_${gradId})`} />
+      <Rect
+        x={0}
+        y={0}
+        width={SOCCER_CARD_WIDTH}
+        height={safeHeight}
+        fill={`url(#sgL_${gradId})`}
+      />
     </Svg>
   );
 };
@@ -754,6 +769,7 @@ const SoccerGridCardGradient = ({
 // ─── Individual soccer grid card ──────────────────────────────────────────────
 const Top5GridCard = React.memo(
   ({ match, theme, colors, gIdx, mIdx, navigation, nowMs, snapshotTsMs }) => {
+    const [cardHeight, setCardHeight] = useState(0);
     const home = match.participants?.find((p) => p.meta?.location === "home");
     const away = match.participants?.find((p) => p.meta?.location === "away");
     const homeScore =
@@ -824,6 +840,10 @@ const Top5GridCard = React.memo(
             borderWidth: isFav ? 1 : StyleSheet.hairlineWidth,
           },
         ]}
+        onLayout={(e) => {
+          const nextHeight = Math.round(e.nativeEvent.layout.height || 0);
+          setCardHeight((prev) => (prev !== nextHeight ? nextHeight : prev));
+        }}
         activeOpacity={0.8}
         onPress={() => {
           if (!home || !away) return;
@@ -840,6 +860,7 @@ const Top5GridCard = React.memo(
           awayColor={awayColor}
           homeColor={homeColor}
           fallbackColor={colors.primary}
+          cardHeight={cardHeight}
         />
 
         {isFav ? (
