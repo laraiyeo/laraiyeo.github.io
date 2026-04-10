@@ -1015,7 +1015,7 @@ function transformLeagueResponse(combined) {
             form: f.form ?? null,
           }))
         : [],
-      group: entry.group.name ?? null,
+      group: entry?.group?.name ?? null,
     });
   }
   const standings = Array.from(stageMap.values());

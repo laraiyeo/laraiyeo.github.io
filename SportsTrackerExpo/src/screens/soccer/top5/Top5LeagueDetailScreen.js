@@ -172,6 +172,9 @@ const RULE_COLORS_MAP = {
   "uefa champions league qualifiers": "#81D6AC",
   "champions league qualifiers play_off": "#81D6AC",
   "champions league qualifiers play-off": "#81D6AC",
+  "16th finals": "#81D6AC",
+  "final tournament": "#81D6AC",
+  "semi-finals": "#81D6AC",
   "uefa europa league": "#469dfa",
   "play-off": "#469dfa",
   "uefa europa league play-off": "#469dfa",
@@ -200,6 +203,7 @@ const RULE_COLORS_MAP = {
   "lower table round": "#fb923c",
   "middle play_off": "#fb923c",
   "middle play-off": "#fb923c",
+  "ranking of third-placed teams": "#fb923c",
   // Relegation – severe
   relegation: "#FF7F84",
   "possible relegation": "#FF7F84",
@@ -314,17 +318,19 @@ function StandingsTab({ stages, theme, colors, navigation }) {
           </View>
 
           {/* Entry rows */}
-          {[...section.entries]
-            .sort((a, b) => {
-              const gp = (e) =>
-                filter === "ovr"
-                  ? (e.points ?? 0)
-                  : filter === "home"
-                    ? (getDetailVal(e.details, "Home Points") ?? 0)
-                    : (getDetailVal(e.details, "Away Points") ?? 0);
-              return gp(b) - gp(a);
-            })
-            .map((entry, idx) => {
+          {(() => {
+            const pointsFor = (e) =>
+              filter === "ovr"
+                ? (e.points ?? 0)
+                : filter === "home"
+                  ? (getDetailVal(e.details, "Home Points") ?? 0)
+                  : (getDetailVal(e.details, "Away Points") ?? 0);
+
+            const entriesSorted = [...section.entries].sort(
+              (a, b) => pointsFor(b) - pointsFor(a),
+            );
+
+            const renderEntryRow = (entry, idx, keyPrefix = "all") => {
               const p = entry.participant;
               const ruleColor = getRuleColor(entry.rule?.type);
               const borderColor = ruleColor ?? theme.surface;
@@ -371,7 +377,7 @@ function StandingsTab({ stages, theme, colors, navigation }) {
 
               return (
                 <TouchableOpacity
-                  key={entry.id ?? idx}
+                  key={`${keyPrefix}_${entry.id ?? idx}`}
                   activeOpacity={p?.id != null && navigation ? 0.7 : 1}
                   onPress={
                     p?.id != null && navigation
@@ -390,7 +396,6 @@ function StandingsTab({ stages, theme, colors, navigation }) {
                     },
                   ]}
                 >
-                  {/* Rank with optional movement arrow */}
                   <View style={stStyles.rankCell}>
                     {result === "up" ? (
                       <Ionicons name="caret-up" size={9} color="#22c55e" />
@@ -409,7 +414,6 @@ function StandingsTab({ stages, theme, colors, navigation }) {
                     )}
                   </View>
 
-                  {/* Logo + name */}
                   <View style={stStyles.teamCell}>
                     {p?.image_path ? (
                       <Image
@@ -456,7 +460,6 @@ function StandingsTab({ stages, theme, colors, navigation }) {
                     </View>
                   </View>
 
-                  {/* Stats — value on top, label below */}
                   {mode === "full" ? (
                     <>
                       <View style={stStyles.statCell}>
@@ -586,7 +589,50 @@ function StandingsTab({ stages, theme, colors, navigation }) {
                   )}
                 </TouchableOpacity>
               );
-            })}
+            };
+
+            const isGroupStage = String(section.stage?.name ?? "")
+              .toLowerCase()
+              .includes("group stage");
+
+            if (!isGroupStage) {
+              return entriesSorted.map((entry, idx) =>
+                renderEntryRow(entry, idx, `all_${si}`),
+              );
+            }
+
+            const grouped = new Map();
+            for (const entry of entriesSorted) {
+              const groupName = String(entry.group ?? "Ungrouped").trim() || "Ungrouped";
+              if (!grouped.has(groupName)) grouped.set(groupName, []);
+              grouped.get(groupName).push(entry);
+            }
+
+            const orderedGroups = [...grouped.keys()].sort((a, b) =>
+              a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }),
+            );
+
+            return orderedGroups.map((groupName) => {
+              const groupEntries = grouped.get(groupName) ?? [];
+              return (
+                <View key={`${si}_${groupName}`}>
+                  <View
+                    style={[
+                      stStyles.groupHeader,
+                      { backgroundColor: colors.primary + "10", borderColor: colors.primary },
+                    ]}
+                  >
+                    <Text style={[stStyles.groupName, { color: colors.primary }]}>
+                      {groupName}
+                    </Text>
+                  </View>
+                  {groupEntries.map((entry, idx) =>
+                    renderEntryRow(entry, idx, `${si}_${groupName}`),
+                  )}
+                </View>
+              );
+            });
+          })()}
         </View>
       ))}
       {legendEntries.length > 0 && (
@@ -626,6 +672,19 @@ const stStyles = StyleSheet.create({
     borderRadius: 10,
   },
   stageName: { fontSize: 13, fontWeight: "700" },
+  groupHeader: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  groupName: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -4256,7 +4315,7 @@ export default function Top5LeagueDetailScreen({ route, navigation }) {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("standings");
 
-  const cacheKey = `top5:league:${leagueId}`;
+  const cacheKey = `top5:league:${leagueId}:v1`;
 
   const load = useCallback(
     async (force = false) => {
