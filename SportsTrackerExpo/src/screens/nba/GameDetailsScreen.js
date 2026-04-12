@@ -377,9 +377,15 @@ const NBAGameDetailsScreen = ({ route }) => {
 
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [shareCardPlayer, setShareCardPlayer] = useState(null);
+  const [shareCardHeadshotError, setShareCardHeadshotError] = useState(false);
   const shareCardRef = useRef(null);
   const [sharePlayCard, setSharePlayCard] = useState(null);
   const sharePlayCardRef = useRef(null);
+
+  useEffect(() => {
+    // Reset fallback state whenever a different player card is opened.
+    setShareCardHeadshotError(false);
+  }, [shareCardPlayer?.player?.athlete?.id]);
 
   // Lightweight plays state (kept to avoid runtime errors from residual UI references)
   const [playsData, setPlaysData] = useState(null);
@@ -5467,6 +5473,7 @@ const NBAGameDetailsScreen = ({ route }) => {
 
                     // Player info
                     const headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${athlete?.id}.png&w=300`;
+                    const hasValidHeadshot = !!athlete?.id && !shareCardHeadshotError;
                     const fullName =
                       athlete?.displayName || athlete?.fullName || "";
                     const jersey = athlete?.jersey;
@@ -5727,13 +5734,14 @@ const NBAGameDetailsScreen = ({ route }) => {
 
                           {/* Headshot + name/summary row */}
                           <View style={styles.nbaHeadshotRow}>
-                            {headshot ? (
+                            {hasValidHeadshot ? (
                               <Image
                                 source={{ uri: headshot }}
                                 style={[
                                   styles.nbaCardHeadshot,
                                   { borderColor: teamColor },
                                 ]}
+                                onError={() => setShareCardHeadshotError(true)}
                                 resizeMode="cover"
                               />
                             ) : (
@@ -5752,7 +5760,7 @@ const NBAGameDetailsScreen = ({ route }) => {
                                   style={{
                                     fontSize: 20,
                                     fontWeight: "800",
-                                    color: teamColor,
+                                    color: "#fff",
                                   }}
                                 >
                                   {fullName

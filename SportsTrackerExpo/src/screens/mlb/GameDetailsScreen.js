@@ -4974,6 +4974,12 @@ const CountIndicator = ({ balls, strikes, theme, onColor }) => {
               {
                 backgroundColor: i < balls ? ballColor : "transparent",
                 borderColor: ballColor,
+                shadowColor: i < balls ? ballColor : "transparent",
+                shadowOpacity: 0.7,
+                shadowRadius: 4,
+                shadowOffset: { width: 0, height: 0 },
+                elevation: 4,
+
               },
             ]}
           />
@@ -4990,6 +4996,11 @@ const CountIndicator = ({ balls, strikes, theme, onColor }) => {
               {
                 backgroundColor: i < strikes ? strikeColor : "transparent",
                 borderColor: strikeColor,
+                shadowColor: i < strikes ? strikeColor : "transparent",
+                shadowOpacity: 0.7,
+                shadowRadius: 4,
+                shadowOffset: { width: 0, height: 0 },
+                elevation: 4,
               },
             ]}
           />
@@ -5234,6 +5245,11 @@ const PlaysPanel = ({
                                 backgroundColor: isScoringPlay
                                   ? primaryText
                                   : teamColor,
+                                shadowColor: isScoringPlay ? primaryText : teamColor,
+                                shadowOpacity: 0.7,
+                                shadowRadius: 4,
+                                shadowOffset: { width: 0, height: 0 },
+                                elevation: 4,
                               },
                             ]
                           : [plStyles.baseEmpty, { borderColor: tertiaryText }],
@@ -5250,6 +5266,11 @@ const PlaysPanel = ({
                                   backgroundColor: isScoringPlay
                                     ? primaryText
                                     : teamColor,
+                                  shadowColor: isScoringPlay ? primaryText : teamColor,
+                                  shadowOpacity: 0.7,
+                                  shadowRadius: 4,
+                                  shadowOffset: { width: 0, height: 0 },
+                                  elevation: 4,
                                 },
                               ]
                             : [
@@ -5268,6 +5289,11 @@ const PlaysPanel = ({
                                   backgroundColor: isScoringPlay
                                     ? primaryText
                                     : teamColor,
+                                  shadowColor: isScoringPlay ? primaryText : teamColor,
+                                  shadowOpacity: 0.7,
+                                  shadowRadius: 4,
+                                  shadowOffset: { width: 0, height: 0 },
+                                  elevation: 4,
                                 },
                               ]
                             : [
@@ -5448,11 +5474,11 @@ const plStyles = StyleSheet.create({
   },
   basesSmallRow: {
     flexDirection: "row",
-    gap: 15,
+    gap: 17.5,
   },
   baseDiamondSmall: {
-    width: 10,
-    height: 10,
+    width: 12,
+    height: 12,
     borderRadius: 0.5,
     transform: [{ rotate: "45deg" }],
   },
@@ -10395,14 +10421,14 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 6,
     borderWidth: 1.5,
-    borderRadius: 20,
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
   streamBtnInner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 7,
+    gap: 8,
   },
   streamBtnDot: {
     width: 8,
@@ -10410,9 +10436,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   streamBtnText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: "700",
-    letterSpacing: 0.3,
   },
   // ── Stream Modal ──
   streamModalOverlay: {

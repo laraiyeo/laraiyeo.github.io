@@ -241,20 +241,20 @@ export class MLBService {
         if (startDate) {
           if (endDate && endDate !== startDate) {
             // Date range format
-            url += `&startDate=${startDate}&endDate=${endDate}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
+            url += `&startDate=${startDate}&endDate=${endDate}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,offense,first,second,third,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
             console.log(
               "MLBService: Using date range format:",
               `${startDate} to ${endDate}`,
             );
           } else {
             // Single date format
-            url += `&startDate=${startDate}&endDate=${startDate}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
+            url += `&startDate=${startDate}&endDate=${startDate}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,offense,first,second,third,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
             console.log("MLBService: Using single date format:", startDate);
           }
         } else {
           // Use adjusted date for "today"
           const today = this.getAdjustedDateForMLB();
-          url += `&startDate=${today}&endDate=${today}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
+          url += `&startDate=${today}&endDate=${today}&hydrate=linescore,probablePitcher,stats&fields=dates,games,linescore,currentInning,isTopInning,offense,first,second,third,balls,strikes,outs,gamePk,gameType,gameDate,status,statusCode,codedGameState,detailedState,teams,away,team,id,name,leagueRecord,wins,losses,probablePitcher,id,fullName,stats,stats,summary,score,home,team,id,name,leagueRecord,wins,losses,score,venue,name,seriesDescription,description`;
           console.log("MLBService: Using adjusted today date:", today);
         }
 
@@ -297,6 +297,28 @@ export class MLBService {
   static processGameData(game) {
     const awayTeam = game.teams?.away;
     const homeTeam = game.teams?.home;
+    const situation = this.getGameSituation(game);
+    const bases = situation?.bases || {
+      first: false,
+      second: false,
+      third: false,
+    };
+
+    // Debug: confirm base occupancy survives processing into scoreboard payload.
+    try {
+      console.log("[MLBService Bases Processed]", {
+        gamePk: game?.gamePk,
+        statusCode: game?.status?.statusCode,
+        codedGameState: game?.status?.codedGameState,
+        offenseKeys: Object.keys(game?.linescore?.offense || {}),
+        firstRaw: game?.linescore?.offense?.first || null,
+        secondRaw: game?.linescore?.offense?.second || null,
+        thirdRaw: game?.linescore?.offense?.third || null,
+        bases,
+      });
+    } catch (e) {
+      // no-op: debug logging should never break processing
+    }
 
     return {
       id: game.gamePk?.toString(),
@@ -392,7 +414,12 @@ export class MLBService {
       balls: game.linescore?.balls ?? 0,
       strikes: game.linescore?.strikes ?? 0,
       outs: game.linescore?.outs ?? 0,
-      situation: this.getGameSituation(game),
+      // Keep bases available both under `situation` and top-level for UI usage.
+      bases,
+      first: !!bases.first,
+      second: !!bases.second,
+      third: !!bases.third,
+      situation,
     };
   }
 
@@ -457,6 +484,30 @@ export class MLBService {
       .filter((name) => name);
   }
 
+  static getBaseOccupancy(linescore) {
+    const offense = linescore?.offense || {};
+    const occupancy = {
+      first: !!offense.first,
+      second: !!offense.second,
+      third: !!offense.third,
+    };
+
+    // Debug: verify what came from linescore.offense and resulting booleans.
+    try {
+      console.log("[MLBService Base Occupancy Parse]", {
+        offenseKeys: Object.keys(offense),
+        firstRaw: offense.first || null,
+        secondRaw: offense.second || null,
+        thirdRaw: offense.third || null,
+        occupancy,
+      });
+    } catch (e) {
+      // no-op: debug logging should never break parsing
+    }
+
+    return occupancy;
+  }
+
   // Get game situation (bases, count, etc.)
   static getGameSituation(game) {
     if (!game.linescore) return {};
@@ -465,11 +516,7 @@ export class MLBService {
       balls: game.linescore.balls || 0,
       strikes: game.linescore.strikes || 0,
       outs: game.linescore.outs || 0,
-      bases: {
-        first: !!game.linescore.offense?.first,
-        second: !!game.linescore.offense?.second,
-        third: !!game.linescore.offense?.third,
-      },
+      bases: this.getBaseOccupancy(game.linescore),
     };
   }
 

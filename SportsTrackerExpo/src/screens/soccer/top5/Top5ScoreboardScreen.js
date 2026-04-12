@@ -128,10 +128,20 @@ const FORCE_LEAGUE_ORDER = ["8", "564", "82", "384", "301"];
 const shortNameOf = (match) =>
   String(match?.state?.short_name || "").toUpperCase();
 
+const parseUtcDateTime = (dateStr) => {
+  const raw = String(dateStr || "").trim();
+  if (!raw) return null;
+  const iso = raw.includes("T") ? raw : raw.replace(" ", "T");
+  const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso);
+  const parsed = new Date(hasZone ? iso : `${iso}Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Date(parsed.getTime() + 4 * 60 * 60 * 1000);
+};
+
 const startMsOf = (match) => {
   try {
-    // Do not force-append Z; preserve the fetched timestamp semantics
-    return new Date(match.starting_at.replace(" ", "T")).getTime();
+    const parsed = parseUtcDateTime(match?.starting_at);
+    return parsed ? parsed.getTime() : null;
   } catch (_) {
     return null;
   }
@@ -214,8 +224,8 @@ const getPollingInterval = (groups) => {
 
 const formatMatchTime = (match) => {
   try {
-    // Parse using the raw fetched timestamp (no forced UTC marker)
-    const date = new Date(match.starting_at.replace(" ", "T"));
+    const date = parseUtcDateTime(match?.starting_at);
+    if (!date) return { time: "--:--", ampm: "" };
     const hours = date.getHours();
     const minutes = String(date.getMinutes()).padStart(2, "0");
     const ampm = hours >= 12 ? "PM" : "AM";
@@ -1709,10 +1719,10 @@ const Top5ScoreboardScreen = ({ navigation }) => {
   }, []);
 
   const loadData = useCallback(
-    async (filter, silent = false, background = false) => {
+    async (filter, silent = false, background = false, force = false) => {
       const now = Date.now();
       const cached = fetchCacheRef.current[filter];
-      if (cached) {
+      if (!force && cached) {
         const policy = getScoreboardPolicy(cached.groups ?? []);
         const cacheMs = policy.cacheMs ?? 0;
         const canUseCache =
@@ -1884,16 +1894,11 @@ const Top5ScoreboardScreen = ({ navigation }) => {
   useFocusEffect(
     useCallback(() => {
       isFocusedRef.current = true;
-      // Only auto-load when we have no data AND the last-loaded filter differs
-      // from the active filter. This avoids double-fetch when the user manually
-      // selects a date which also updates `activeFilter`.
-      if (groups.length === 0 && lastLoadedFilterRef.current !== activeFilter) {
-        loadData(activeFilter, false).then((fresh) =>
-          schedulePolling(activeFilter, fresh),
-        );
-      } else {
-        schedulePolling(activeFilter, groups);
-      }
+      // Always refresh when this screen regains focus so game detail -> back
+      // reflects current scores without manual pull-to-refresh.
+      loadData(activeFilter, true, true, true).then((fresh) =>
+        schedulePolling(activeFilter, fresh),
+      );
       return () => {
         isFocusedRef.current = false;
         if (intervalRef.current) {
@@ -1902,7 +1907,7 @@ const Top5ScoreboardScreen = ({ navigation }) => {
           currentIntervalMs.current = null;
         }
       };
-    }, [activeFilter, loadData, schedulePolling, groups]),
+    }, [activeFilter, loadData, schedulePolling]),
   );
 
   const lastSeenDayRef = useRef(getTodayDateStr());

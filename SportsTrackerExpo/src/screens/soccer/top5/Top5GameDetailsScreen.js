@@ -371,6 +371,16 @@ const LIVE_SHORT_NAMES = new Set([
 
 const TIME_BUCKETS = ["0-15", "15-30", "30-45", "45-60", "60-75", "75-90"];
 
+const parseUtcDateTime = (dateStr) => {
+  const raw = String(dateStr || "").trim();
+  if (!raw) return null;
+  const iso = raw.includes("T") ? raw : raw.replace(" ", "T");
+  const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso);
+  const parsed = new Date(hasZone ? iso : `${iso}Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Date(parsed.getTime() + 4 * 60 * 60 * 1000);
+};
+
 const isLiveState = (stateCode) => {
   const code = (stateCode || "").toUpperCase();
   const finished = [
@@ -416,7 +426,8 @@ const shortNameOf = (fixture) =>
 
 const startMsOf = (fixture) => {
   try {
-    return new Date(fixture.starting_at.replace(" ", "T")).getTime();
+    const parsed = parseUtcDateTime(fixture?.starting_at);
+    return parsed ? parsed.getTime() : null;
   } catch (_) {
     return null;
   }
@@ -472,7 +483,8 @@ const getFixturePolicy = (fixture) => {
 
 const formatFixtureTime = (fixture) => {
   try {
-    const date = new Date(fixture.starting_at.replace(" ", "T"));
+    const date = parseUtcDateTime(fixture?.starting_at);
+    if (!date) return { time: "--:--", ampm: "" };
     const hours = date.getHours();
     const minutes = String(date.getMinutes()).padStart(2, "0");
     const ampm = hours >= 12 ? "PM" : "AM";
@@ -6631,8 +6643,8 @@ const GameInfoSection = ({
   let dateBottom = null;
   try {
     if (startingAt) {
-      const d = new Date(startingAt.replace(" ", "T"));
-      if (!Number.isNaN(d.getTime())) {
+      const d = parseUtcDateTime(startingAt);
+      if (d && !Number.isNaN(d.getTime())) {
         const days = [
           "Sunday",
           "Monday",
@@ -7197,7 +7209,8 @@ const H2HMatchCard = ({ match, theme, navigation }) => {
 
   let topDate = "";
   try {
-    const d = new Date((match?.starting_at || "").replace(" ", "T"));
+    const d = parseUtcDateTime(match?.starting_at);
+    if (!d) throw new Error("Invalid match start date");
     const months = [
       "Jan",
       "Feb",
@@ -8277,8 +8290,11 @@ const HomeSidelinedSection = ({
       imagePath && !String(imagePath).includes("placeholder")
         ? imagePath
         : null;
-    const lastName =
-      p?.display_name ? p.display_name.includes(" ") ? p.display_name.split(" ").pop() : p.display_name : p?.lastname || "Player";
+    const lastName = p?.display_name
+      ? p.display_name.includes(" ")
+        ? p.display_name.split(" ").pop()
+        : p.display_name
+      : p?.lastname || "Player";
     const initial = (lastName || "P")[0]?.toUpperCase?.() || "P";
     const statusLabel = entry?.type?.name || "Unavailable";
     const typeLow = String(entry?.type?.name || "").toLowerCase();
@@ -8889,7 +8905,8 @@ const SoccerPlayerDetailModal = ({
   const gameDateParts = (() => {
     if (!startingAt) return null;
     try {
-      const d = new Date(startingAt.replace(" ", "T"));
+      const d = parseUtcDateTime(startingAt);
+      if (!d) return null;
       const monthDate = d.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
@@ -11335,9 +11352,7 @@ const Top5GameDetailsScreen = ({ navigation, route }) => {
           const fx = responseData?.fixtureData;
           if (fx) {
             const code = fx.state?.state || "";
-            const startMs = fx.starting_at
-              ? new Date(fx.starting_at.replace(" ", "T")).getTime()
-              : null;
+            const startMs = parseUtcDateTime(fx.starting_at)?.getTime() ?? null;
             const isOld =
               startMs != null && Date.now() - startMs > 24 * 60 * 60 * 1000;
             if (isFinishedState(code) || isOld) {

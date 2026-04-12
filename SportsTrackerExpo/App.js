@@ -1117,7 +1117,7 @@ const MainStackNavigator = ({ initialRouteName }) => {
               }
             }}
             onLongPress={() => navigation.navigate("Home")}
-            delayLongPress={500}
+            delayLongPress={250}
             hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}
             style={{
               paddingHorizontal: 12,

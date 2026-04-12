@@ -514,11 +514,45 @@ const BSODots = ({ filled, total, filledColor, theme }) => (
           backgroundColor: i < filled ? filledColor : "transparent",
           borderWidth: 1,
           borderColor: i < filled ? filledColor : theme.border,
+          shadowColor: i < filled ? filledColor : "transparent",
+          elevation: 2,
+          shadowOpacity: 0.6,
+          shadowRadius: 3,
+          shadowOffset: { width: 0, height: 0 },
         }}
       />
     ))}
   </View>
 );
+
+const MiniBasesDiamond = ({ bases = {}, theme, occupiedColor, style }) => {
+  const first = !!bases?.first;
+  const second = !!bases?.second;
+  const third = !!bases?.third;
+
+  const baseStyle = (occupied) => [
+    miniBaseStyles.baseDiamond,
+    occupied
+      ? { backgroundColor: occupiedColor, shadowColor: occupiedColor, elevation: 2, shadowOpacity: 0.6, shadowRadius: 3, shadowOffset: { width: 0, height: 0 } }
+      : {
+          backgroundColor: "transparent",
+          borderWidth: 1,
+          borderColor: theme.border,
+        },
+  ];
+
+  return (
+    <View style={[miniBaseStyles.basesSmall, style]}>
+      <View style={miniBaseStyles.basesSmallRow}>
+        <View style={baseStyle(second)} />
+      </View>
+      <View style={miniBaseStyles.basesSmallRow}>
+        <View style={baseStyle(third)} />
+        <View style={baseStyle(first)} />
+      </View>
+    </View>
+  );
+};
 
 const LiveLinescoreStatus = ({
   inning,
@@ -526,15 +560,21 @@ const LiveLinescoreStatus = ({
   balls,
   strikes,
   outs,
+  bases,
   theme,
   colors,
 }) => {
   const ordinal = MLBService.getOrdinalSuffix(inning || 0);
   return (
-    <View style={{ alignItems: "center", gap: 2 }}>
+    <View style={{ alignItems: "center", gap: 6 }}>
+      <MiniBasesDiamond
+        bases={bases}
+        theme={theme}
+        occupiedColor={colors.primary}
+      />
       <Text
         style={{
-          fontSize: 11,
+          fontSize: 13,
           fontWeight: "700",
           color: colors.primary,
           textAlign: "center",
@@ -542,6 +582,7 @@ const LiveLinescoreStatus = ({
       >
         {isTopInning ? "▲" : "▼"} {ordinal}
       </Text>
+      <View style={{ gap: 3}}>
       <BSODots
         filled={balls ?? 0}
         total={4}
@@ -560,6 +601,7 @@ const LiveLinescoreStatus = ({
         filledColor={theme.error}
         theme={theme}
       />
+      </View>
     </View>
   );
 };
@@ -745,6 +787,7 @@ const MLBGridCard = ({
   const gradId = `mg_${game.id}`;
   const awayProbable = getTeamProbablePitcher(game, "away");
   const homeProbable = getTeamProbablePitcher(game, "home");
+  const liveBases = game?.bases || game?.situation?.bases || {};
 
   return (
     <TouchableOpacity
@@ -958,9 +1001,20 @@ const MLBGridCard = ({
         style={[mlbGridStyles.cardFooter, { borderTopColor: theme.border }]}
       >
         {isLive ? (
-          <View style={mlbGridStyles.bsoContainer}>
-            {/* Top line: outs centered */}
-            <View style={mlbGridStyles.bsoRow}>
+          <View style={[mlbGridStyles.liveFooterContent, { gap: 50 }]}>
+            <View style={mlbGridStyles.liveCountStack}>
+              <BSODots
+                filled={game.balls ?? 0}
+                total={4}
+                filledColor={theme.success}
+                theme={theme}
+              />
+              <BSODots
+                filled={game.strikes ?? 0}
+                total={3}
+                filledColor={theme.warning}
+                theme={theme}
+              />
               <BSODots
                 filled={game.outs ?? 0}
                 total={3}
@@ -968,22 +1022,12 @@ const MLBGridCard = ({
                 theme={theme}
               />
             </View>
-            {/* Bottom line: balls + strikes */}
-            <View style={mlbGridStyles.bsoRow}>
-              <BSODots
-                filled={game.balls ?? 0}
-                total={4}
-                filledColor={theme.success}
-                theme={theme}
-              />
-              <View style={{ width: 15 }} />
-              <BSODots
-                filled={game.strikes ?? 0}
-                total={3}
-                filledColor={theme.warning}
-                theme={theme}
-              />
-            </View>
+            <MiniBasesDiamond
+              bases={liveBases}
+              theme={theme}
+              occupiedColor={colors.primary}
+              style={mlbGridStyles.liveDiamondWrap}
+            />
           </View>
         ) : (
           <Text
@@ -1274,6 +1318,7 @@ const ScoreboardSection = ({
                 const homeHeadshot = MLBService.getHeadshotUrl(
                   homeProbable?.id,
                 );
+                const liveBases = game?.bases || game?.situation?.bases || {};
 
                 const inning = game.inning || 0;
                 const show =
@@ -1347,6 +1392,7 @@ const ScoreboardSection = ({
                             balls={game.balls}
                             strikes={game.strikes}
                             outs={game.outs}
+                            bases={liveBases}
                             theme={theme}
                             colors={colors}
                           />
@@ -1752,11 +1798,11 @@ const MLBScoreboardScreen = ({ navigation }) => {
   const IN_MEMORY_CACHE_MS = 10 * 1000; // 10s UI-level cache to avoid rapid refetches
 
   const loadData = useCallback(
-    async (filter, silent = false, background = false) => {
+    async (filter, silent = false, background = false, force = false) => {
       // UI-level dedupe: return cached groups if very recently loaded
       const now = Date.now();
       const cacheEntry = fetchCacheRef.current[filter];
-      if (cacheEntry && now - cacheEntry.ts < IN_MEMORY_CACHE_MS) {
+      if (!force && cacheEntry && now - cacheEntry.ts < IN_MEMORY_CACHE_MS) {
         // Use cached data, don't refetch
         setGroups(cacheEntry.groups);
         lastLoadedFilterRef.current = filter;
@@ -1941,15 +1987,11 @@ const MLBScoreboardScreen = ({ navigation }) => {
   useFocusEffect(
     useCallback(() => {
       isFocusedRef.current = true;
-      // Only reload on focus when we don't have data or the filter changed.
-      if (groups.length === 0 || lastLoadedFilterRef.current !== activeFilter) {
-        loadData(activeFilter, false).then((fresh) =>
-          schedulePolling(activeFilter, fresh),
-        );
-      } else {
-        // We already have data for this filter — reattach polling without refetch.
-        schedulePolling(activeFilter, groups);
-      }
+      // Always refresh when returning to this screen so game detail -> back
+      // immediately reflects latest scores.
+      loadData(activeFilter, true, true, true).then((fresh) =>
+        schedulePolling(activeFilter, fresh),
+      );
 
       return () => {
         // Stop polling immediately when screen loses focus
@@ -1960,7 +2002,7 @@ const MLBScoreboardScreen = ({ navigation }) => {
           currentIntervalMs.current = null;
         }
       };
-    }, [activeFilter, loadData, schedulePolling, groups]),
+    }, [activeFilter, loadData, schedulePolling]),
   );
 
   const onRefresh = async () => {
@@ -2403,6 +2445,24 @@ const dateBarStyles = StyleSheet.create({
   },
 });
 
+const miniBaseStyles = StyleSheet.create({
+  basesSmall: {
+    alignItems: "center",
+    gap: 2,
+    marginBottom: 2,
+  },
+  basesSmallRow: {
+    flexDirection: "row",
+    gap: 15,
+  },
+  baseDiamond: {
+    width: 12,
+    height: 12,
+    borderRadius: 0.5,
+    transform: [{ rotate: "45deg" }],
+  },
+});
+
 // ─── MLB Grid-view styles ──────────────────────────────────────────────────────
 const mlbGridStyles = StyleSheet.create({
   container: {
@@ -2588,6 +2648,20 @@ const mlbGridStyles = StyleSheet.create({
     alignItems: "center",
     minHeight: 30,
     justifyContent: "center",
+  },
+  liveFooterContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  liveCountStack: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+  },
+  liveDiamondWrap: {
+    marginBottom: 0,
   },
   venueText: {
     fontSize: 9,

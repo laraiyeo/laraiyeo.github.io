@@ -120,18 +120,30 @@ function resolveMatchColors({
 
 function parseUtcDate(dateStr) {
   if (!dateStr) return null;
-  // "2025-10-19 11:00:00" → treat as UTC
-  return new Date(dateStr.replace(" ", "T"));
+  const iso = String(dateStr).includes("T")
+    ? String(dateStr)
+    : String(dateStr).replace(" ", "T");
+  const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso);
+  const d = new Date(hasZone ? iso : `${iso}Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Date(d.getTime() + 4 * 60 * 60 * 1000);
 }
 
 function getTodayStr() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function getMatchDateStr(startingAt) {
   const d = parseUtcDate(startingAt);
   if (!d || isNaN(d)) return null;
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function formatMatchDate(startingAt) {

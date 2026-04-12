@@ -462,7 +462,7 @@ const BetLoginScreen = ({ navigation, route }) => {
       setLoading(true);
       console.log("BetLogin: attempting login for username:", username);
 
-      // Check if current credentials match saved credentials - if so, skip auth and navigate
+      // Check saved credentials only to seed cache; never skip real auth.
       try {
         const savedJson = await AsyncStorage.getItem(CRED_KEY);
         if (savedJson) {
@@ -480,32 +480,13 @@ const BetLoginScreen = ({ navigation, route }) => {
             overallMatch: savedMatch,
           });
 
-          if (savedMatch) {
+          if (savedMatch && savedCreds.phone) {
+            // Prime in-memory phone cache so fast sign-in can still happen,
+            // but keep going through auth to ensure a valid server session.
+            PHONE_CACHE_MAP[username] = savedCreds.phone;
             console.log(
-              "BetLogin: credentials match saved - skipping auth, navigating to BetMain",
+              "BetLogin: credentials match saved - primed cache, continuing auth",
             );
-            // Navigate immediately
-            InteractionManager.runAfterInteractions(() => {
-              handlePostLogin();
-            });
-
-            // Start background data fetches
-            setTimeout(() => {
-              fetchScoreboard().catch((e) =>
-                console.error("BetLogin: background fetchScoreboard error", e),
-              );
-            }, 0);
-
-            if (fetchRosters) {
-              setTimeout(() => {
-                fetchRosters().catch((e) =>
-                  console.error("BetLogin: background fetchRosters error", e),
-                );
-              }, 0);
-            }
-
-            setLoading(false);
-            return;
           }
         }
       } catch (e) {

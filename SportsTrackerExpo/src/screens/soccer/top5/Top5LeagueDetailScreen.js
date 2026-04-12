@@ -809,6 +809,21 @@ const tomorrowStr = dateKeyFromDate(
   new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() + 1),
 );
 
+function parseUtcDateTime(dateStr) {
+  const raw = String(dateStr || "").trim();
+  if (!raw) return null;
+  const iso = raw.includes("T") ? raw : raw.replace(" ", "T");
+  const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso);
+  const parsed = new Date(hasZone ? iso : `${iso}Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Date(parsed.getTime() + 4 * 60 * 60 * 1000);
+}
+
+function localDateKeyFromUtcString(dateStr) {
+  const d = parseUtcDateTime(dateStr);
+  return d ? dateKeyFromDate(d) : null;
+}
+
 function formatDateLabel(dateKey) {
   if (dateKey === todayStr) return "Today";
   if (dateKey === yesterdayStr) return "Yesterday";
@@ -826,7 +841,8 @@ function formatDateLabel(dateKey) {
 // Format UTC timestamp using the device locale without forcing a timezone
 // override so we respect the fetched JSON time semantics.
 function formatTimeFromUtc(utcStr) {
-  const d = new Date(String(utcStr).replace(" ", "T"));
+  const d = parseUtcDateTime(utcStr);
+  if (!d) return "--:--";
   return d.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
@@ -1087,7 +1103,8 @@ function MatchesTab({ leagueInfo, teamsInSeason, theme, colors, navigation }) {
   const groups = useMemo(() => {
     const map = new Map();
     for (const m of allMatches) {
-      const dateKey = m.starting_at.slice(0, 10);
+      const dateKey = localDateKeyFromUtcString(m.starting_at);
+      if (!dateKey) continue;
       if (!map.has(dateKey)) map.set(dateKey, []);
       map.get(dateKey).push(m);
     }
