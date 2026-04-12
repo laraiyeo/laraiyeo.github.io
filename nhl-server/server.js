@@ -337,19 +337,19 @@ function transformBasicPlayerStatsRow(row) {
     player: {
       id: row?.player?.id ?? row?.playerId ?? null,
       fullName:
-        row?.player?.fullName ??
-        row?.playerName ??
-        (fullNameFromParts || null),
+        row?.player?.fullName ?? row?.playerName ?? (fullNameFromParts || null),
       positionCode:
         row?.player?.positionCode ?? row?.positionCode ?? row?.position ?? null,
       sweaterNumber: row?.player?.sweaterNumber ?? row?.sweaterNumber ?? null,
     },
     team: {
       id: row?.team?.id ?? row?.teamId ?? null,
-      fullName: row?.team?.fullName ?? row?.teamName ?? row?.teamFullName ?? null,
+      fullName:
+        row?.team?.fullName ?? row?.teamName ?? row?.teamFullName ?? null,
       rawTricode:
         row?.team?.rawTricode ?? row?.rawTricode ?? row?.teamAbbrev ?? null,
-      triCode: row?.team?.triCode ?? row?.teamTriCode ?? row?.teamAbbrev ?? null,
+      triCode:
+        row?.team?.triCode ?? row?.teamTriCode ?? row?.teamAbbrev ?? null,
     },
   };
 }
@@ -387,14 +387,14 @@ function transformEdgePlayerStatsRow(row) {
       firstName: pickDefaultName(playerSrc?.firstName ?? row?.firstName),
       lastName: pickDefaultName(playerSrc?.lastName ?? row?.lastName),
       headshot: playerSrc?.headshot ?? row?.headshot ?? null,
-      position: playerSrc?.position ?? row?.position ?? row?.positionCode ?? null,
+      position:
+        playerSrc?.position ?? row?.position ?? row?.positionCode ?? null,
       sweaterNumber: playerSrc?.sweaterNumber ?? row?.sweaterNumber ?? null,
       team: {
-        commonName: pickDefaultName(
-          teamSrc?.commonName ?? row?.teamCommonName,
-        ),
+        commonName: pickDefaultName(teamSrc?.commonName ?? row?.teamCommonName),
         placeNameWithPreposition: pickDefaultName(
-          teamSrc?.placeNameWithPreposition ?? row?.teamPlaceNameWithPreposition,
+          teamSrc?.placeNameWithPreposition ??
+            row?.teamPlaceNameWithPreposition,
         ),
         abbreviation:
           teamSrc?.abbreviation ?? teamSrc?.abbrev ?? row?.teamAbbrev ?? null,
@@ -456,11 +456,16 @@ function toTransformedTeamStatsEntry(entry) {
       abbrev: sourceTeam?.abbrev ?? null,
       teamLogo: {
         light:
-          sourceTeam?.teamLogo?.light ?? sourceTeam?.logo ?? sourceTeam?.teamLogo ?? "",
+          sourceTeam?.teamLogo?.light ??
+          sourceTeam?.logo ??
+          sourceTeam?.teamLogo ??
+          "",
         dark:
           sourceTeam?.teamLogo?.dark ??
           getDarkLogoFromLight(
-            sourceTeam?.teamLogo?.light ?? sourceTeam?.logo ?? sourceTeam?.teamLogo,
+            sourceTeam?.teamLogo?.light ??
+              sourceTeam?.logo ??
+              sourceTeam?.teamLogo,
           ),
       },
     },
@@ -1222,8 +1227,16 @@ app.get("/nhl/search", async (req, res) => {
 
   try {
     const [playersResult, standingsResult] = await Promise.all([
-      getCachedJsonWithTtl(`search:players:${q || "*"}`, playersUrl, SEARCH_TTL_MS),
-      getCachedJsonWithTtl("search:teams:standings", URLS.standings, SEARCH_TTL_MS),
+      getCachedJsonWithTtl(
+        `search:players:${q || "*"}`,
+        playersUrl,
+        SEARCH_TTL_MS,
+      ),
+      getCachedJsonWithTtl(
+        "search:teams:standings",
+        URLS.standings,
+        SEARCH_TTL_MS,
+      ),
     ]);
 
     const players = transformSearchPlayersPayload(playersResult.data);
@@ -1232,7 +1245,9 @@ app.get("/nhl/search", async (req, res) => {
     setCachingHeaders(res, SEARCH_TTL_MS);
     res.json({
       source:
-        playersResult.fromCache && standingsResult.fromCache ? "cache" : "origin",
+        playersResult.fromCache && standingsResult.fromCache
+          ? "cache"
+          : "origin",
       teams,
       players,
     });
@@ -1298,7 +1313,11 @@ app.get("/nhl/player-stats/:id", async (req, res) => {
     );
     const transformed = transformPlayerStatsPayloadById(id, data);
     setCachingHeaders(res, TTL_MS);
-    res.json({ source: fromCache ? "cache" : "origin", url, data: transformed });
+    res.json({
+      source: fromCache ? "cache" : "origin",
+      url,
+      data: transformed,
+    });
   } catch (err) {
     res.status(502).json({
       error: "Failed to fetch player stats",
@@ -1359,7 +1378,11 @@ app.get("/nhl/team-stats/:id", async (req, res) => {
     );
     const transformed = transformTeamStatsPayloadById(data);
     setCachingHeaders(res, TTL_MS);
-    res.json({ source: fromCache ? "cache" : "origin", url, data: transformed });
+    res.json({
+      source: fromCache ? "cache" : "origin",
+      url,
+      data: transformed,
+    });
   } catch (err) {
     res.status(502).json({
       error: "Failed to fetch team stats",

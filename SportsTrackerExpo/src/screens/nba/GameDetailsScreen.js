@@ -5473,7 +5473,8 @@ const NBAGameDetailsScreen = ({ route }) => {
 
                     // Player info
                     const headshot = `https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/${athlete?.id}.png&w=300`;
-                    const hasValidHeadshot = !!athlete?.id && !shareCardHeadshotError;
+                    const hasValidHeadshot =
+                      !!athlete?.id && !shareCardHeadshotError;
                     const fullName =
                       athlete?.displayName || athlete?.fullName || "";
                     const jersey = athlete?.jersey;

@@ -533,7 +533,14 @@ const MiniBasesDiamond = ({ bases = {}, theme, occupiedColor, style }) => {
   const baseStyle = (occupied) => [
     miniBaseStyles.baseDiamond,
     occupied
-      ? { backgroundColor: occupiedColor, shadowColor: occupiedColor, elevation: 2, shadowOpacity: 0.6, shadowRadius: 3, shadowOffset: { width: 0, height: 0 } }
+      ? {
+          backgroundColor: occupiedColor,
+          shadowColor: occupiedColor,
+          elevation: 2,
+          shadowOpacity: 0.6,
+          shadowRadius: 3,
+          shadowOffset: { width: 0, height: 0 },
+        }
       : {
           backgroundColor: "transparent",
           borderWidth: 1,
@@ -582,25 +589,25 @@ const LiveLinescoreStatus = ({
       >
         {isTopInning ? "▲" : "▼"} {ordinal}
       </Text>
-      <View style={{ gap: 3}}>
-      <BSODots
-        filled={balls ?? 0}
-        total={4}
-        filledColor={theme.success}
-        theme={theme}
-      />
-      <BSODots
-        filled={strikes ?? 0}
-        total={3}
-        filledColor={theme.warning}
-        theme={theme}
-      />
-      <BSODots
-        filled={outs ?? 0}
-        total={3}
-        filledColor={theme.error}
-        theme={theme}
-      />
+      <View style={{ gap: 3 }}>
+        <BSODots
+          filled={balls ?? 0}
+          total={4}
+          filledColor={theme.success}
+          theme={theme}
+        />
+        <BSODots
+          filled={strikes ?? 0}
+          total={3}
+          filledColor={theme.warning}
+          theme={theme}
+        />
+        <BSODots
+          filled={outs ?? 0}
+          total={3}
+          filledColor={theme.error}
+          theme={theme}
+        />
       </View>
     </View>
   );
